@@ -5,6 +5,7 @@ create table public.profiles (
   sex text check (sex in ('female', 'male', 'other')),
   height_cm numeric check (height_cm between 120 and 230),
   weight_kg numeric check (weight_kg between 30 and 300),
+  weight_unit text not null default 'kg' check (weight_unit in ('kg', 'lb')),
   activity text check (activity in ('low', 'moderate', 'high')),
   goal text check (goal in ('lose', 'maintain', 'gain')),
   created_at timestamptz not null default now()

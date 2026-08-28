@@ -3,6 +3,7 @@ export interface BodyProfile {
   sex: 'female' | 'male' | 'other';
   heightCm: number;
   weightKg: number;
+  weightUnit: 'kg' | 'lb';
   activity: 'low' | 'moderate' | 'high';
   goal: 'lose' | 'maintain' | 'gain';
 }
@@ -13,6 +14,8 @@ export interface MacroTargets {
   carbsGrams: number;
   fatGrams: number;
 }
+
+export const parseNumberInput = (value: string) => Number(value.replace(/^0+(?=\d)/, '')) || 0;
 
 const finite = (value: number, fallback: number) => Number.isFinite(value) ? value : fallback;
 
