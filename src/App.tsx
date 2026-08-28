@@ -24,6 +24,7 @@ import {
 import { isSupabaseConfigured } from "./services/supabaseClient";
 import { SupabaseRepository } from "./services/supabaseRepository";
 import { ProfilePage } from "./components/ProfilePage";
+import { WorkoutFlow } from "./components/WorkoutFlow";
 import { playCelebrationSound, playMealSound, playMunchSound } from "./services/mealFeedback";
 
 const repository = new LocalRepository();
@@ -73,6 +74,8 @@ function App() {
   });
   const [showMealCapture, setShowMealCapture] = useState(false);
   const [view, setView] = useState<"pet" | "profile">("pet");
+  const [showWorkout, setShowWorkout] = useState(false);
+  const [stepGoal, setStepGoal] = useState(10000);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [accountDataReady, setAccountDataReady] =
     useState(!isSupabaseConfigured);
@@ -197,13 +200,10 @@ function App() {
   };
 
   const logWorkout = () =>
-    recordEvent(
-      makeEvent<WorkoutMetadata>(userId, "WORKOUT", {
-        workoutType: "strength",
-        durationMinutes: 30,
-        intensity: "moderate",
-      }),
-    );
+    setShowWorkout(true);
+  const completeWorkout = async (metadata: WorkoutMetadata) => {
+    await recordEvent(makeEvent<WorkoutMetadata>(userId, "WORKOUT", metadata));
+  };
   const logMeal = () => setShowMealCapture(true);
   const completeMeal = async (metadata: MealMetadata) => {
     playMealSound();
@@ -227,8 +227,12 @@ function App() {
       }, 1900);
     }, 1050);
   };
-  const logSteps = async () =>
-    recordEvent(await stepsProvider.getTodaySteps(userId));
+  const logSteps = async () => {
+    const alreadySynced = events.some((event) => event.type === "STEP_ACTIVITY" && new Date(event.occurredAt).toDateString() === new Date().toDateString());
+    if (!alreadySynced) await recordEvent(await stepsProvider.getTodaySteps(userId));
+  };
+  const todaySteps = events.find((event) => event.type === "STEP_ACTIVITY" && new Date(event.occurredAt).toDateString() === new Date().toDateString());
+  const steps = todaySteps ? (todaySteps.metadata as { steps: number }).steps : 0;
   const targets = calculateMacroTargets(profile);
   const displayedWeight = profile.weightUnit === "lb" ? Math.round(profile.weightKg * 2.20462 * 10) / 10 : profile.weightKg;
   const updateWeight = (value: string) => setProfile({ ...profile, weightKg: profile.weightUnit === "lb" ? parseNumberInput(value) / 2.20462 : parseNumberInput(value) });
@@ -589,6 +593,7 @@ function App() {
               </span>
             </div>
           </div>
+          <div className="steps-panel"><div><p className="kicker">TODAY'S EXPLORING</p><h3>{steps.toLocaleString()} <small>/ {stepGoal.toLocaleString()} steps</small></h3><p>{pet.name} {steps ? "explored with you today." : "is waiting for today's adventure."}</p></div><label>Daily goal<input type="number" min="1000" max="100000" value={stepGoal} onChange={(event) => setStepGoal(Number(event.target.value) || 1000)} /></label></div>
           <div className="actions">
             <button onClick={logWorkout}>
               <span className="action-icon coral">↗</span>
@@ -663,6 +668,7 @@ function App() {
           onClose={() => setShowMealCapture(false)}
         />
       )}
+      {showWorkout && <WorkoutFlow onFinish={completeWorkout} onClose={() => setShowWorkout(false)} />}
     </>
   );
 }

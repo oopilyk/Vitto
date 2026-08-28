@@ -35,7 +35,13 @@ export class PetHealthEngine {
       case 'WORKOUT': {
         const metadata = event.metadata as unknown as WorkoutMetadata;
         const hardBonus = metadata.intensity === 'hard' ? 2 : 0;
-        delta = { energy: 6, happiness: 5, strength: metadata.workoutType === 'strength' ? 4 : 1, endurance: 2, xp: 18 + hardBonus };
+        const hasWorkoutStats = Boolean(metadata.stats);
+        const sets = Math.min(30, metadata.stats?.completedSets ?? 0);
+        const durationBonus = Math.min(8, Math.floor(Math.min(120, metadata.durationMinutes) / 30));
+        const cardio = metadata.workoutType === 'cardio';
+        delta = hasWorkoutStats
+          ? { health: 2, energy: 6, happiness: 5, strength: cardio ? 1 : Math.min(5, 2 + Math.floor(sets / 8)), endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : 2, recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0, xp: Math.min(40, 10 + Math.min(15, sets) + durationBonus + hardBonus) }
+          : { energy: 6, happiness: 5, strength: metadata.workoutType === 'strength' ? 4 : 1, endurance: 2, xp: 18 + hardBonus };
         message = `${pet.name} trained for ${metadata.durationMinutes} minutes and feels stronger.`;
         eventLabel = `Trained ${metadata.workoutType}`;
         break;

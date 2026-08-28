@@ -22,10 +22,20 @@ export interface WorkoutMetadata {
   workoutType: string;
   durationMinutes: number;
   intensity?: 'easy' | 'moderate' | 'hard';
+  workoutId?: string;
+  name?: string;
+  exercises?: WorkoutExercise[];
+  notes?: string;
+  stats?: WorkoutStats;
 }
+
+export interface WorkoutSet { id: string; reps: number; weight?: number; unit?: 'kg' | 'lb'; rpe?: number; completed: boolean; previous?: { reps: number; weight?: number; unit?: 'kg' | 'lb' }; }
+export interface WorkoutExercise { id: string; name: string; muscleGroup: string; bodyweight?: boolean; sets: WorkoutSet[]; }
+export interface WorkoutStats { durationMinutes: number; exerciseCount: number; completedSets: number; totalReps: number; totalVolume: number; muscleGroups: string[]; }
 
 export interface StepMetadata {
   steps: number;
+  date?: string;
 }
 
 export interface MealMetadata {
