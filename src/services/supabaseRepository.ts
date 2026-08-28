@@ -1,5 +1,6 @@
 import type { HealthEvent } from '../domain/health';
 import type { PetState } from '../domain/pet';
+import type { BodyProfile } from '../domain/macroTargets';
 import { supabase } from './supabaseClient';
 
 type PetRow = Omit<PetState, 'lastEventAt'> & { last_event_at: string | null };
@@ -11,6 +12,23 @@ const requireClient = () => {
 };
 
 export class SupabaseRepository {
+  async loadProfile(): Promise<BodyProfile | null> {
+    const client = requireClient();
+    const { data, error } = await client.from('profiles').select('age, sex, height_cm, weight_kg, activity, goal').single();
+    if (error?.code === 'PGRST116') return null;
+    if (error) throw error;
+    if (!data.age || !data.sex || !data.height_cm || !data.weight_kg || !data.activity || !data.goal) return null;
+    return { age: data.age, sex: data.sex, heightCm: data.height_cm, weightKg: data.weight_kg, activity: data.activity, goal: data.goal } as BodyProfile;
+  }
+
+  async saveProfile(profile: BodyProfile): Promise<void> {
+    const client = requireClient();
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) throw new Error('Sign in before saving your profile.');
+    const { error } = await client.from('profiles').update({ age: profile.age, sex: profile.sex, height_cm: profile.heightCm, weight_kg: profile.weightKg, activity: profile.activity, goal: profile.goal }).eq('id', user.id);
+    if (error) throw error;
+  }
+
   async loadPet(): Promise<PetState | null> {
     const client = requireClient();
     const { data, error } = await client.from('pets').select('*').single();

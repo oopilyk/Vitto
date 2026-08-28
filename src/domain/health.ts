@@ -44,6 +44,7 @@ export interface MealAnalysis {
   summary: string;
   confidence: number;
   detectedFoods: string[];
+  macros: MacroNutrients;
   nutrients: {
     protein: boolean;
     vegetables: boolean;
@@ -52,4 +53,11 @@ export interface MealAnalysis {
     fiber: boolean;
     treats: boolean;
   };
+}
+
+export interface MacroNutrients {
+  calories: number;
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
 }

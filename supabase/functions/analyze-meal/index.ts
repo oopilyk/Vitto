@@ -25,7 +25,7 @@ Deno.serve(async (request) => {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         generationConfig: { responseMimeType: 'application/json' },
-        systemInstruction: { parts: [{ text: 'Analyze meal photos for broad nutrition signals only. Never claim medical certainty. Return JSON with grade (A-D), summary, confidence (0-1), detectedFoods (string[]), and nutrients booleans: protein, vegetables, fruit, wholeGrains, fiber, treats.' }] },
+        systemInstruction: { parts: [{ text: 'Analyze meal photos for broad nutrition signals only. Never claim medical certainty. Return JSON with grade (A-D), summary, confidence (0-1), detectedFoods (string[]), macros with estimated calories, proteinGrams, carbsGrams, fatGrams as non-negative numbers, and nutrients booleans: protein, vegetables, fruit, wholeGrains, fiber, treats.' }] },
         contents: [{ parts: [{ text: 'Grade this meal for general balanced nutrition.' }, { inlineData: { mimeType: image.type || 'image/jpeg', data: encodedImage } }] }],
       }),
     });

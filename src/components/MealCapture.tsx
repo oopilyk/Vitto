@@ -47,7 +47,7 @@ export function MealCapture({ onComplete, onClose }: MealCaptureProps) {
         <input type="file" accept="image/*" onChange={(event) => chooseFile(event.target.files?.[0])} />
       </label>
       {error && <p className="form-error">{error}</p>}
-      {analysis && <div className="analysis-result"><div className="grade">{analysis.grade}<small>plate grade</small></div><div><h3>{analysis.summary}</h3><p>{analysis.detectedFoods.join(' · ') || 'Meal details detected'}</p></div></div>}
+      {analysis && <div className="analysis-result"><div className="grade">{analysis.grade}<small>plate grade</small></div><div><h3>{analysis.summary}</h3><p>{analysis.detectedFoods.join(' · ') || 'Meal details detected'}</p><div className="macro-line"><b>{analysis.macros.proteinGrams}g</b> protein <b>{analysis.macros.carbsGrams}g</b> carbs <b>{analysis.macros.fatGrams}g</b> fat <b>{analysis.macros.calories}</b> kcal</div></div></div>}
       <div className="meal-actions">{!analysis ? <button className="primary" disabled={!file || isAnalyzing} onClick={analyze}>{isAnalyzing ? 'Reading your plate...' : 'Analyze meal'} <span>→</span></button> : <button className="primary" onClick={() => onComplete({ ...analysis.nutrients, analysis })}>Add to care log <span>→</span></button>}<button className="text-button" onClick={onClose}>Cancel</button></div>
     </div>
   </div>;
