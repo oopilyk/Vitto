@@ -1,0 +1,3 @@
+alter table public.pets add column if not exists pushing_strength integer not null default 0 check (pushing_strength between 0 and 100);
+alter table public.pets add column if not exists pulling_strength integer not null default 0 check (pulling_strength between 0 and 100);
+alter table public.pets add column if not exists leg_strength integer not null default 0 check (leg_strength between 0 and 100);

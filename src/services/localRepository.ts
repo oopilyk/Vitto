@@ -9,7 +9,9 @@ const legacyEventKey = 'nuri.events';
 export class LocalRepository {
   loadPet(): PetState | null {
     const value = localStorage.getItem(petKey) ?? localStorage.getItem(legacyPetKey);
-    return value ? JSON.parse(value) as PetState : null;
+    if (!value) return null;
+    const pet = JSON.parse(value) as PetState;
+    return { ...pet, pushingStrength: pet.pushingStrength ?? 10, pullingStrength: pet.pullingStrength ?? 10, legStrength: pet.legStrength ?? 10 };
   }
 
   savePet(pet: PetState) {

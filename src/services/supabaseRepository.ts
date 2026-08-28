@@ -3,7 +3,7 @@ import type { PetState } from '../domain/pet';
 import type { BodyProfile } from '../domain/macroTargets';
 import { supabase } from './supabaseClient';
 
-type PetRow = Omit<PetState, 'userId' | 'lastEventAt'> & { user_id: string; last_event_at: string | null };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 
 const requireClient = () => {
@@ -35,7 +35,7 @@ export class SupabaseRepository {
     if (error?.code === 'PGRST116') return null;
     if (error) throw error;
     const pet = data as PetRow;
-    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined };
+    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength };
   }
 
   async savePet(pet: PetState): Promise<void> {
@@ -52,6 +52,9 @@ export class SupabaseRepository {
       happiness: pet.happiness,
       nutrition: pet.nutrition,
       strength: pet.strength,
+      pushing_strength: pet.pushingStrength,
+      pulling_strength: pet.pullingStrength,
+      leg_strength: pet.legStrength,
       endurance: pet.endurance,
       recovery: pet.recovery,
       mood: pet.mood,

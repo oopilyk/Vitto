@@ -12,6 +12,9 @@ export interface PetState {
   happiness: number;
   nutrition: number;
   strength: number;
+  pushingStrength: number;
+  pullingStrength: number;
+  legStrength: number;
   endurance: number;
   recovery: number;
   mood: PetMood;
@@ -24,6 +27,9 @@ export interface PetDelta {
   happiness?: number;
   nutrition?: number;
   strength?: number;
+  pushingStrength?: number;
+  pullingStrength?: number;
+  legStrength?: number;
   endurance?: number;
   recovery?: number;
   xp?: number;
@@ -50,6 +56,9 @@ export const createPet = (userId: string, name: string, species: PetState['speci
   happiness: 82,
   nutrition: 68,
   strength: 14,
+  pushingStrength: 10,
+  pullingStrength: 10,
+  legStrength: 10,
   endurance: 16,
   recovery: 64,
   mood: 'content',

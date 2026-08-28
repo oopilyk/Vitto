@@ -547,6 +547,7 @@ function App() {
           </div>
         </section>
         <section className={`pet-stage${isEating ? " pet-eating" : ""}`}>
+          <div className="pet-stats-hud"><p className="kicker">VITALS</p>{[["Push", pet.pushingStrength], ["Pull", pet.pullingStrength], ["Legs", pet.legStrength], ["Endurance", pet.endurance], ["Health", pet.health]].map(([label, value]) => <div className="hud-stat" key={label as string}><span>{label as string}</span><i><em style={{ width: `${value as number}%` }} /></i></div>)}</div>
           <div className="pet-aura" />
           {feedingImage && <img className="feeding-food" src={feedingImage} alt="" />}
           <div className={`pet-face${feedingImage ? " pet-mouth-open" : ""}${showConfetti ? " pet-happy" : ""}`}><span className="pet-mouth">◡</span></div>

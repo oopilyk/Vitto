@@ -18,6 +18,9 @@ const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): PetStat
     happiness: clamp(pet.happiness + (delta.happiness ?? 0)),
     nutrition: clamp(pet.nutrition + (delta.nutrition ?? 0)),
     strength: clamp(pet.strength + (delta.strength ?? 0), 0, 100),
+    pushingStrength: clamp(pet.pushingStrength + (delta.pushingStrength ?? 0), 0, 100),
+    pullingStrength: clamp(pet.pullingStrength + (delta.pullingStrength ?? 0), 0, 100),
+    legStrength: clamp(pet.legStrength + (delta.legStrength ?? 0), 0, 100),
     endurance: clamp(pet.endurance + (delta.endurance ?? 0), 0, 100),
     recovery: clamp(pet.recovery + (delta.recovery ?? 0)),
     mood: pet.energy + (delta.energy ?? 0) >= 68 ? 'bright' : 'sleepy',
@@ -39,8 +42,12 @@ export class PetHealthEngine {
         const sets = Math.min(30, metadata.stats?.completedSets ?? 0);
         const durationBonus = Math.min(8, Math.floor(Math.min(120, metadata.durationMinutes) / 30));
         const cardio = metadata.workoutType === 'cardio';
+        const muscles = metadata.stats?.muscleGroups ?? [];
+        const pushBonus = muscles.some((group) => ['chest', 'shoulders', 'triceps'].includes(group)) ? 4 : 0;
+        const pullBonus = muscles.some((group) => ['back', 'biceps'].includes(group)) ? 4 : 0;
+        const legBonus = muscles.includes('legs') ? 4 : 0;
         delta = hasWorkoutStats
-          ? { health: 2, energy: 6, happiness: 5, strength: cardio ? 1 : Math.min(5, 2 + Math.floor(sets / 8)), endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : 2, recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0, xp: Math.min(40, 10 + Math.min(15, sets) + durationBonus + hardBonus) }
+          ? { health: 2, energy: 6, happiness: 5, strength: cardio ? 1 : Math.min(5, 2 + Math.floor(sets / 8)), pushingStrength: pushBonus, pullingStrength: pullBonus, legStrength: legBonus, endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : 2, recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0, xp: Math.min(40, 10 + Math.min(15, sets) + durationBonus + hardBonus) }
           : { energy: 6, happiness: 5, strength: metadata.workoutType === 'strength' ? 4 : 1, endurance: 2, xp: 18 + hardBonus };
         message = `${pet.name} trained for ${metadata.durationMinutes} minutes and feels stronger.`;
         eventLabel = `Trained ${metadata.workoutType}`;
