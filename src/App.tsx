@@ -6,7 +6,7 @@ import { createPet, type PetReaction, type PetState } from './domain/pet';
 import { MockHealthDataProvider } from './services/healthDataProvider';
 import { LocalRepository } from './services/localRepository';
 import { MealCapture } from './components/MealCapture';
-import { getSession, onAuthStateChange, signInWithEmail, signUpWithEmail } from './services/auth';
+import { getSession, onAuthStateChange, signInWithEmail, signUpWithEmail, signOut } from './services/auth';
 import { isSupabaseConfigured } from './services/supabaseClient';
 import { SupabaseRepository } from './services/supabaseRepository';
 import { ProfilePage } from './components/ProfilePage';
@@ -41,6 +41,7 @@ function App() {
   const [profile, setProfile] = useState<BodyProfile>({ age: 30, sex: 'other', heightCm: 170, weightKg: 70, activity: 'moderate', goal: 'maintain' });
   const [showMealCapture, setShowMealCapture] = useState(false);
   const [view, setView] = useState<'pet' | 'profile'>('pet');
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const userId = session?.user.id ?? 'demo-user';
 
   useEffect(() => {
@@ -116,7 +117,12 @@ function App() {
   const today = new Date().toDateString();
   const consumed = events.filter((event) => event.type === 'MEAL' && new Date(event.occurredAt).toDateString() === today).reduce((total, event) => {
     const macros = (event.metadata as MealMetadata).analysis?.macros;
-    return macros ? { calories: total.calories + macros.calories, proteinGrams: total.proteinGrams + macros.proteinGrams, carbsGrams: total.carbsGrams + macros.carbsGrams, fatGrams: total.fatGrams + macros.fatGrams } : total;
+    if (!macros) return total;
+    const proteinGrams = Number.isFinite(macros.proteinGrams) ? macros.proteinGrams : 0;
+    const carbsGrams = Number.isFinite(macros.carbsGrams) ? macros.carbsGrams : 0;
+    const fatGrams = Number.isFinite(macros.fatGrams) ? macros.fatGrams : 0;
+    const calories = Number.isFinite(macros.calories) ? macros.calories : proteinGrams * 4 + carbsGrams * 4 + fatGrams * 9;
+    return { calories: total.calories + calories, proteinGrams: total.proteinGrams + proteinGrams, carbsGrams: total.carbsGrams + carbsGrams, fatGrams: total.fatGrams + fatGrams };
   }, { calories: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 });
 
   if (!authReady) return <main className="auth-screen"><p className="kicker">VITTO / CONNECTING</p></main>;
@@ -130,7 +136,7 @@ function App() {
 
   const progress = pet.xp;
   return <><main className="shell">
-    <header className="topbar"><div className="brand"><span className="brand-mark">v</span><span>vitto</span></div><nav><button className="nav-active" onClick={() => setView('pet')}>My pet</button><button onClick={() => setView('profile')}>Profile</button><button>Challenges</button></nav><button className="avatar" onClick={() => setView('profile')}>K</button></header>
+    <header className="topbar"><div className="brand"><span className="brand-mark">v</span><span>vitto</span></div><nav><button className="nav-active" onClick={() => setView('pet')}>My pet</button><button onClick={() => setView('profile')}>Profile</button><button>Challenges</button></nav><div className="account-menu"><button className="avatar" onClick={() => setAccountMenuOpen((open) => !open)} aria-expanded={accountMenuOpen} aria-haspopup="menu">K</button>{accountMenuOpen && <div className="account-dropdown" role="menu"><button onClick={() => { setView('profile'); setAccountMenuOpen(false); }}>Profile</button><button onClick={() => { setView('profile'); setAccountMenuOpen(false); }}>Settings</button><button onClick={() => { signOut().catch(() => setAuthError('Could not sign out.')); setAccountMenuOpen(false); }}>Log out</button></div>}</div></header>
     <section className="hero"><div className="hero-heading"><p className="kicker">TUESDAY, AUGUST 28</p><h1>{pet.name}<span className="level">LVL {pet.level}</span></h1><p className="mood">{reaction?.message || `${pet.name} is feeling ready for the day.`}</p></div><div className="hero-meta"><span>Next level</span><strong>{progress}<i>/100 XP</i></strong><div className="progress"><div style={{ width: `${progress}%` }} /></div></div></section>
     <section className="pet-stage"><div className="pet-aura" /><div className="pet-face">◡</div><div className="pet-ear left" /><div className="pet-ear right" /><span className="pet-name">{pet.name} is here <b>♥</b></span></section>
     <section className="dashboard"><div className="section-title"><div><p className="kicker">CARE LOG</p><h2>Small moments,<br /><em>real change.</em></h2></div><span className="date-pill">Today <b>⌄</b></span></div><div className="macro-panel"><div><p className="kicker">TODAY'S FUEL</p><h3>{consumed.calories} <small>/ {targets.calories} kcal</small></h3></div><div className="macro-stats"><span><b>{consumed.proteinGrams}g</b><small>/ {targets.proteinGrams}g protein</small></span><span><b>{consumed.carbsGrams}g</b><small>/ {targets.carbsGrams}g carbs</small></span><span><b>{consumed.fatGrams}g</b><small>/ {targets.fatGrams}g fat</small></span></div></div><div className="actions"><button onClick={logWorkout}><span className="action-icon coral">↗</span><span><b>Log workout</b><small>Build strength</small></span><strong>+</strong></button><button onClick={logSteps}><span className="action-icon mint">⌁</span><span><b>Sync steps</b><small>Go exploring</small></span><strong>+</strong></button><button onClick={logMeal}><span className="action-icon yellow">✣</span><span><b>Add a meal</b><small>Fuel your pet</small></span><strong>+</strong></button></div><div className="recent"><div className="recent-heading"><h3>Recent care</h3><button>See all <span>→</span></button></div>{events.length === 0 ? <p className="empty">Your first healthy action will appear here.</p> : events.slice(0, 3).map((event) => <div className="event" key={event.id}><span className="event-dot" /><span><b>{event.type === 'WORKOUT' ? 'Trained together' : event.type === 'MEAL' ? 'Shared a meal' : 'Went exploring'}</b><small>{new Date(event.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span><span className="event-xp">+ XP</span></div>)}</div></section>
