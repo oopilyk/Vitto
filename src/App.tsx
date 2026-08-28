@@ -29,6 +29,10 @@ const repository = new LocalRepository();
 const engine = new PetHealthEngine();
 const stepsProvider = new MockHealthDataProvider();
 const remoteRepository = new SupabaseRepository();
+const withTimeout = <T,>(promise: Promise<T>, message: string) => Promise.race([
+  promise,
+  new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error(message)), 10000)),
+]);
 
 const makeEvent = <T,>(
   userId: string,
@@ -174,8 +178,8 @@ function App() {
     try {
       const result = engine.apply(pet, event);
       if (isSupabaseConfigured && session) {
-        await remoteRepository.savePet(result.pet);
-        await remoteRepository.saveEvent(event);
+        await withTimeout(remoteRepository.savePet(result.pet), "Saving timed out. Check your Supabase connection.");
+        await withTimeout(remoteRepository.saveEvent(event), "Saving timed out. Check your Supabase connection.");
       }
       repository.savePet(result.pet);
       repository.saveEvent(event);
@@ -184,6 +188,7 @@ function App() {
       setEvents(repository.loadEvents());
     } catch (cause) {
       setAuthError(cause instanceof Error ? cause.message : "Could not save this care moment.");
+      throw cause;
     }
   };
 
@@ -196,8 +201,8 @@ function App() {
       }),
     );
   const logMeal = () => setShowMealCapture(true);
-  const completeMeal = (metadata: MealMetadata) => {
-    recordEvent(makeEvent<MealMetadata>(userId, "MEAL", metadata));
+  const completeMeal = async (metadata: MealMetadata) => {
+    await recordEvent(makeEvent<MealMetadata>(userId, "MEAL", metadata));
     setShowMealCapture(false);
   };
   const logSteps = async () =>

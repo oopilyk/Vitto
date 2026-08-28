@@ -3,7 +3,7 @@ import type { MealAnalysis, MealMetadata } from '../domain/health';
 import { analyzeMealImage } from '../services/mealAnalysis';
 
 interface MealCaptureProps {
-  onComplete: (metadata: MealMetadata) => void;
+  onComplete: (metadata: MealMetadata) => Promise<void>;
   onClose: () => void;
 }
 
@@ -13,6 +13,8 @@ export function MealCapture({ onComplete, onClose }: MealCaptureProps) {
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const chooseFile = (nextFile: File | undefined) => {
     if (!nextFile) return;
@@ -39,6 +41,20 @@ export function MealCapture({ onComplete, onClose }: MealCaptureProps) {
     }
   };
 
+  const addToCareLog = async () => {
+    if (!analysis) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      await onComplete({ ...analysis.nutrients, analysis });
+      setSaved(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save this meal.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return <div className="meal-modal" role="dialog" aria-modal="true" aria-labelledby="meal-title">
     <div className="meal-card">
       <div className="meal-card-heading"><div><p className="kicker">NOURISHMENT CHECK</p><h2 id="meal-title">What’s on your plate?</h2></div><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div>
@@ -48,7 +64,7 @@ export function MealCapture({ onComplete, onClose }: MealCaptureProps) {
       </label>
       {error && <p className="form-error">{error}</p>}
       {analysis && <div className="analysis-result"><div className="grade">{analysis.grade}<small>plate grade</small></div><div><h3>{analysis.summary}</h3><p>{analysis.detectedFoods.join(' · ') || 'Meal details detected'}</p><div className="macro-line"><b>{analysis.macros.proteinGrams}g</b> protein <b>{analysis.macros.carbsGrams}g</b> carbs <b>{analysis.macros.fatGrams}g</b> fat <b>{analysis.macros.calories}</b> kcal</div></div></div>}
-      <div className="meal-actions">{!analysis ? <button className="primary" disabled={!file || isAnalyzing} onClick={analyze}>{isAnalyzing ? 'Reading your plate...' : 'Analyze meal'} <span>→</span></button> : <button className="primary" onClick={() => onComplete({ ...analysis.nutrients, analysis })}>Add to care log <span>→</span></button>}<button className="text-button" onClick={onClose}>Cancel</button></div>
+      {saved && <p className="auth-message">Meal added to your care log.</p>}<div className="meal-actions">{!analysis ? <button className="primary" disabled={!file || isAnalyzing} onClick={analyze}>{isAnalyzing ? 'Reading your plate...' : 'Analyze meal'} <span>→</span></button> : <button className="primary" disabled={isSaving} onClick={addToCareLog}>{isSaving ? 'Saving meal...' : 'Add to care log'} <span>→</span></button>}<button className="text-button" disabled={isSaving} onClick={onClose}>Cancel</button></div>
     </div>
   </div>;
 }

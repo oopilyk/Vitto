@@ -3,7 +3,7 @@ import type { PetState } from '../domain/pet';
 import type { BodyProfile } from '../domain/macroTargets';
 import { supabase } from './supabaseClient';
 
-type PetRow = Omit<PetState, 'lastEventAt'> & { last_event_at: string | null };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt'> & { user_id: string; last_event_at: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 
 const requireClient = () => {
@@ -35,7 +35,7 @@ export class SupabaseRepository {
     if (error?.code === 'PGRST116') return null;
     if (error) throw error;
     const pet = data as PetRow;
-    return { ...pet, lastEventAt: pet.last_event_at ?? undefined };
+    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined };
   }
 
   async savePet(pet: PetState): Promise<void> {
