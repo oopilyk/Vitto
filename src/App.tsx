@@ -24,6 +24,7 @@ import {
 import { isSupabaseConfigured } from "./services/supabaseClient";
 import { SupabaseRepository } from "./services/supabaseRepository";
 import { ProfilePage } from "./components/ProfilePage";
+import { playCelebrationSound, playMealSound, playMunchSound } from "./services/mealFeedback";
 
 const repository = new LocalRepository();
 const engine = new PetHealthEngine();
@@ -75,6 +76,9 @@ function App() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [accountDataReady, setAccountDataReady] =
     useState(!isSupabaseConfigured);
+  const [isEating, setIsEating] = useState(false);
+  const [feedingImage, setFeedingImage] = useState<string | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
   const userId = session?.user.id ?? "demo-user";
 
   useEffect(() => {
@@ -202,8 +206,26 @@ function App() {
     );
   const logMeal = () => setShowMealCapture(true);
   const completeMeal = async (metadata: MealMetadata) => {
+    playMealSound();
     await recordEvent(makeEvent<MealMetadata>(userId, "MEAL", metadata));
     setShowMealCapture(false);
+    setIsEating(true);
+    window.setTimeout(() => setIsEating(false), 1800);
+  };
+  const startFeeding = (imageUrl: string) => {
+    setFeedingImage(imageUrl);
+    setIsEating(true);
+    const munchTimer = window.setInterval(playMunchSound, 420);
+    window.setTimeout(() => {
+      setFeedingImage(null);
+      window.setTimeout(() => {
+        window.clearInterval(munchTimer);
+        setIsEating(false);
+        setShowConfetti(true);
+        playCelebrationSound();
+        window.setTimeout(() => setShowConfetti(false), 1500);
+      }, 1900);
+    }, 1050);
   };
   const logSteps = async () =>
     recordEvent(await stepsProvider.getTodaySteps(userId));
@@ -520,13 +542,15 @@ function App() {
             </div>
           </div>
         </section>
-        <section className="pet-stage">
+        <section className={`pet-stage${isEating ? " pet-eating" : ""}`}>
           <div className="pet-aura" />
-          <div className="pet-face">◡</div>
+          {feedingImage && <img className="feeding-food" src={feedingImage} alt="" />}
+          <div className={`pet-face${feedingImage ? " pet-mouth-open" : ""}${showConfetti ? " pet-happy" : ""}`}><span className="pet-mouth">◡</span></div>
+          {showConfetti && <div className="confetti" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ "--confetti-x": `${(index % 6 - 2.5) * 34}px`, "--confetti-y": `${-40 - (index % 4) * 24}px`, "--confetti-r": `${index * 37}deg` } as React.CSSProperties} />)}</div>}
           <div className="pet-ear left" />
           <div className="pet-ear right" />
           <span className="pet-name">
-            {pet.name} is here <b>♥</b>
+            {isEating ? `${pet.name} is enjoying dinner` : `${pet.name} is here`} <b>♥</b>
           </span>
         </section>
         <section className="dashboard">
@@ -635,6 +659,7 @@ function App() {
       {showMealCapture && (
         <MealCapture
           onComplete={completeMeal}
+          onFeedStart={startFeeding}
           onClose={() => setShowMealCapture(false)}
         />
       )}

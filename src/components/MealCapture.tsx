@@ -4,10 +4,11 @@ import { analyzeMealImage } from '../services/mealAnalysis';
 
 interface MealCaptureProps {
   onComplete: (metadata: MealMetadata) => Promise<void>;
+  onFeedStart: (imageUrl: string) => void;
   onClose: () => void;
 }
 
-export function MealCapture({ onComplete, onClose }: MealCaptureProps) {
+export function MealCapture({ onComplete, onFeedStart, onClose }: MealCaptureProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
@@ -47,6 +48,7 @@ export function MealCapture({ onComplete, onClose }: MealCaptureProps) {
     setError(null);
     try {
       await onComplete({ ...analysis.nutrients, analysis });
+      if (preview) onFeedStart(preview);
       setSaved(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save this meal.');
