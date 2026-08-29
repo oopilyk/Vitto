@@ -16,7 +16,9 @@ import {
   getMealsForDay,
   sumMealMacros,
 } from "./domain/nutritionSummary";
-import { PetHealthEngine } from "./domain/petHealthEngine";
+import { applyDelta, PetHealthEngine } from "./domain/petHealthEngine";
+import { applyTimeDecay } from "./domain/decay";
+import { calculateStreaks } from "./domain/streaks";
 import {
   createPet,
   EVOLUTION_STAGE_LABEL,
@@ -49,6 +51,8 @@ const stepsProvider = new MockHealthDataProvider();
 const remoteRepository = new SupabaseRepository();
 const WORKOUT_ANIMATION_MS = 1100;
 const EXPLORE_ANIMATION_MS = 1100;
+const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100, 200, 365];
+const STREAK_MILESTONE_BONUS_XP = 25;
 const withTimeout = <T,>(promise: Promise<T>, message: string) => Promise.race([
   promise,
   new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error(message)), 10000)),
@@ -77,7 +81,10 @@ function App() {
   const [authName, setAuthName] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
-  const [pet, setPet] = useState<PetState | null>(() => repository.loadPet());
+  const [pet, setPet] = useState<PetState | null>(() => {
+    const savedPet = repository.loadPet();
+    return savedPet ? applyTimeDecay(savedPet, new Date()) : null;
+  });
   const [events, setEvents] = useState(() => repository.loadEvents());
   const [reaction, setReaction] = useState<PetReaction | null>(null);
   const [name, setName] = useState("Miso");
@@ -143,7 +150,7 @@ function App() {
       setView("pet");
       Promise.all([remoteRepository.loadPet(), remoteRepository.loadEvents()])
         .then(([savedPet, savedEvents]) => {
-          setPet(savedPet);
+          setPet(savedPet ? applyTimeDecay(savedPet, new Date()) : null);
           setEvents(savedEvents);
         })
         .catch(() => {
@@ -205,15 +212,34 @@ function App() {
   const recordEvent = async (event: HealthEvent<unknown>) => {
     if (!pet) return;
     try {
-      const result = engine.apply(pet, event);
+      const eventDay = new Date(event.occurredAt);
+      const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
+      const decayedPet = applyTimeDecay(pet, eventDay);
+      const result = engine.apply(decayedPet, event);
+      let nextPet = result.pet;
+      let reaction = result.reaction;
+
+      if (!wasActiveToday) {
+        const projectedStreak = calculateStreaks([...events, event], eventDay).currentStreak;
+        if (STREAK_MILESTONES.includes(projectedStreak)) {
+          const bonusDelta = { xp: STREAK_MILESTONE_BONUS_XP, happiness: 10 };
+          nextPet = applyDelta(nextPet, bonusDelta, event.occurredAt);
+          reaction = {
+            message: `${pet.name} celebrates your ${projectedStreak}-day streak! +${STREAK_MILESTONE_BONUS_XP} bonus XP`,
+            eventLabel: "Streak milestone",
+            delta: bonusDelta,
+          };
+        }
+      }
+
       if (isSupabaseConfigured && session) {
-        await withTimeout(remoteRepository.savePet(result.pet), "Saving timed out. Check your Supabase connection.");
+        await withTimeout(remoteRepository.savePet(nextPet), "Saving timed out. Check your Supabase connection.");
         await withTimeout(remoteRepository.saveEvent(event), "Saving timed out. Check your Supabase connection.");
       }
-      repository.savePet(result.pet);
+      repository.savePet(nextPet);
       repository.saveEvent(event);
-      setPet(result.pet);
-      setReaction(result.reaction);
+      setPet(nextPet);
+      setReaction(reaction);
       setEvents(repository.loadEvents());
     } catch (cause) {
       setAuthError(cause instanceof Error ? cause.message : "Could not save this care moment.");
@@ -264,9 +290,11 @@ function App() {
   const today = new Date();
   const todaysEvents = getEventsForDay(events, today);
   const todaysMeals = getMealsForDay(events, today);
+  const todaysNonMealEvents = todaysEvents.filter((event) => event.type !== "MEAL");
   const consumed = sumMealMacros(todaysMeals);
   const burned = estimateCaloriesBurned(todaysEvents);
   const remaining = targets.calories - consumed.calories + burned;
+  const streaks = calculateStreaks(events, today);
 
   if (!authReady || !accountDataReady)
     return (
@@ -471,6 +499,8 @@ function App() {
     );
 
   const progress = pet.xp;
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const daysSinceAdoption = Math.max(1, Math.floor((today.getTime() - new Date(pet.adoptedAt).getTime()) / ONE_DAY_MS) + 1);
   return (
     <>
       <main className="shell">
@@ -527,7 +557,10 @@ function App() {
         </header>
         <section className="hero">
           <div className="hero-heading">
-            <p className="kicker">TUESDAY, AUGUST 28</p>
+            <p className="kicker">
+              {today.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }).toUpperCase()}
+              {" · DAY "}{daysSinceAdoption}{" WITH "}{pet.name.toUpperCase()}
+            </p>
             <h1>
               {pet.name}
               <span className="level">LVL {pet.level}</span>
@@ -538,6 +571,19 @@ function App() {
             <p className="mood">
               {reaction?.message || `${pet.name} is feeling ready for the day.`}
             </p>
+            {streaks.currentStreak > 0 && (
+              <p className="streak-badge">
+                🔥 {streaks.currentStreak}-day streak
+                {streaks.longestStreak > streaks.currentStreak && (
+                  <small> · best {streaks.longestStreak}</small>
+                )}
+              </p>
+            )}
+            {todaysEvents.length === 0 && streaks.currentStreak > 0 && (
+              <p className="streak-risk">
+                Log something today to keep your {streaks.currentStreak}-day streak alive.
+              </p>
+            )}
           </div>
           <div className="hero-meta">
             <span>Next level</span>
@@ -661,26 +707,24 @@ function App() {
           </div>
           <div className="recent">
             <div className="recent-heading">
-              <h3>Recent care</h3>
-              <button>
-                See all <span>→</span>
+              <h3>Today's care</h3>
+              <button onClick={() => setView("profile")}>
+                Full history <span>→</span>
               </button>
             </div>
-            {events.length === 0 ? (
+            {todaysNonMealEvents.length === 0 ? (
               <p className="empty">
-                Your first healthy action will appear here.
+                Log a workout or sync steps to see it here.
               </p>
             ) : (
-              events.slice(0, 3).map((event) => (
+              todaysNonMealEvents.map((event) => (
                 <div className="event" key={event.id}>
                   <span className="event-dot" />
                   <span>
                     <b>
                       {event.type === "WORKOUT"
                         ? "Trained together"
-                        : event.type === "MEAL"
-                          ? "Shared a meal"
-                          : "Went exploring"}
+                        : "Went exploring"}
                     </b>
                     <small>
                       {new Date(event.occurredAt).toLocaleTimeString([], {

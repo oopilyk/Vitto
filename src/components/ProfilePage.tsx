@@ -11,8 +11,10 @@ import {
   getMealsForDay,
   sumMealMacros,
 } from "../domain/nutritionSummary";
+import { calculateStreaks } from "../domain/streaks";
 import { NutrientRing } from "./NutrientRing";
 import { MealDiaryRow } from "./MealDiaryRow";
+import { ActivityCalendar } from "./ActivityCalendar";
 
 interface ProfilePageProps {
   profile: BodyProfile;
@@ -40,6 +42,9 @@ export function ProfilePage({
   const consumed = sumMealMacros(todaysMeals);
   const burned = estimateCaloriesBurned(todaysEvents);
   const remaining = targets.calories - consumed.calories + burned;
+  const streaks = calculateStreaks(events, today);
+  const HISTORY_PAGE_SIZE = 20;
+  const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE);
 
   const update = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) =>
     setProfile((current) => ({ ...current, [key]: value }));
@@ -221,37 +226,60 @@ export function ProfilePage({
           </div>
         </aside>
       </section>
+      <section className="streak-section">
+        <div className="streak-stats">
+          <div>
+            <p className="kicker">CURRENT STREAK</p>
+            <h2>🔥 {streaks.currentStreak} <small>{streaks.currentStreak === 1 ? "day" : "days"}</small></h2>
+          </div>
+          <div>
+            <p className="kicker">LONGEST STREAK</p>
+            <h2>{streaks.longestStreak} <small>{streaks.longestStreak === 1 ? "day" : "days"}</small></h2>
+          </div>
+        </div>
+        <ActivityCalendar activeDateKeys={streaks.activeDateKeys} />
+      </section>
       <section className="history">
         <p className="kicker">ACTIVITY HISTORY</p>
-        <h2>Recent care</h2>
+        <h2>Your full record</h2>
         {events.length === 0 ? (
           <p className="empty">Your care history will appear here.</p>
         ) : (
-          events.slice(0, 10).map((event) => {
-            if (event.type === "MEAL") {
-              return <MealDiaryRow event={event as HealthEvent<MealMetadata>} key={event.id} />;
-            }
-            return (
-              <div className="history-row" key={event.id}>
-                <span className="event-dot" />
-                <div>
-                  <b>
-                    {event.type === "WORKOUT"
-                      ? "Workout"
-                      : event.type === "STEP_ACTIVITY"
-                        ? "Steps"
-                        : "Healthy moment"}
-                  </b>
-                  <small>
-                    {new Date(event.occurredAt).toLocaleString([], {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </small>
+          <>
+            {events.slice(0, historyLimit).map((event) => {
+              if (event.type === "MEAL") {
+                return <MealDiaryRow event={event as HealthEvent<MealMetadata>} key={event.id} />;
+              }
+              return (
+                <div className="history-row" key={event.id}>
+                  <span className="event-dot" />
+                  <div>
+                    <b>
+                      {event.type === "WORKOUT"
+                        ? "Workout"
+                        : event.type === "STEP_ACTIVITY"
+                          ? "Steps"
+                          : "Healthy moment"}
+                    </b>
+                    <small>
+                      {new Date(event.occurredAt).toLocaleString([], {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </small>
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+            {events.length > historyLimit && (
+              <button
+                className="text-button"
+                onClick={() => setHistoryLimit((limit) => limit + HISTORY_PAGE_SIZE)}
+              >
+                Load more <span>→</span>
+              </button>
+            )}
+          </>
         )}
       </section>
     </main>

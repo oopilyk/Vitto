@@ -3,7 +3,7 @@ import type { PetState } from '../domain/pet';
 import type { BodyProfile } from '../domain/macroTargets';
 import { supabase } from './supabaseClient';
 
-type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; adopted_at: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 
 const requireClient = () => {
@@ -35,7 +35,7 @@ export class SupabaseRepository {
     if (error?.code === 'PGRST116') return null;
     if (error) throw error;
     const pet = data as PetRow;
-    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength };
+    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength, adoptedAt: pet.adopted_at ?? new Date().toISOString() };
   }
 
   async savePet(pet: PetState): Promise<void> {
@@ -58,6 +58,7 @@ export class SupabaseRepository {
       endurance: pet.endurance,
       recovery: pet.recovery,
       mood: pet.mood,
+      adopted_at: pet.adoptedAt,
       last_event_at: pet.lastEventAt ?? null,
     });
     if (error) throw error;
@@ -69,7 +70,7 @@ export class SupabaseRepository {
       .from('health_events')
       .select('*')
       .order('occurred_at', { ascending: false })
-      .limit(20);
+      .limit(2000);
     if (error) throw error;
     return (data as HealthEventRow[]).map(({ user_id: _userId, occurred_at: occurredAt, ...event }) => ({
       ...event,

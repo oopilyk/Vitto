@@ -1,29 +1,44 @@
 import type { HealthEvent, MealMetadata, StepMetadata, WorkoutMetadata } from './health';
-import { clamp, type PetDelta, type PetReaction, type PetState } from './pet';
+import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 
 export interface EngineResult {
   pet: PetState;
   reaction: PetReaction;
 }
 
-const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): PetState => {
+const HUNGRY_NUTRITION_THRESHOLD = 35;
+const SLEEPY_ENERGY_THRESHOLD = 40;
+const BRIGHT_ENERGY_THRESHOLD = 65;
+const BRIGHT_HAPPINESS_THRESHOLD = 65;
+
+export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
+  if (nutrition < HUNGRY_NUTRITION_THRESHOLD) return 'hungry';
+  if (energy < SLEEPY_ENERGY_THRESHOLD) return 'sleepy';
+  if (energy >= BRIGHT_ENERGY_THRESHOLD && happiness >= BRIGHT_HAPPINESS_THRESHOLD) return 'bright';
+  return 'content';
+};
+
+export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): PetState => {
   const nextXp = pet.xp + (delta.xp ?? 0);
   const nextLevel = pet.level + Math.floor(nextXp / 100);
+  const nextEnergy = clamp(pet.energy + (delta.energy ?? 0));
+  const nextNutrition = clamp(pet.nutrition + (delta.nutrition ?? 0));
+  const nextHappiness = clamp(pet.happiness + (delta.happiness ?? 0));
   return {
     ...pet,
     level: nextLevel,
     xp: nextXp % 100,
     health: clamp(pet.health + (delta.health ?? 0)),
-    energy: clamp(pet.energy + (delta.energy ?? 0)),
-    happiness: clamp(pet.happiness + (delta.happiness ?? 0)),
-    nutrition: clamp(pet.nutrition + (delta.nutrition ?? 0)),
+    energy: nextEnergy,
+    happiness: nextHappiness,
+    nutrition: nextNutrition,
     strength: clamp(pet.strength + (delta.strength ?? 0), 0, 100),
     pushingStrength: clamp(pet.pushingStrength + (delta.pushingStrength ?? 0), 0, 100),
     pullingStrength: clamp(pet.pullingStrength + (delta.pullingStrength ?? 0), 0, 100),
     legStrength: clamp(pet.legStrength + (delta.legStrength ?? 0), 0, 100),
     endurance: clamp(pet.endurance + (delta.endurance ?? 0), 0, 100),
     recovery: clamp(pet.recovery + (delta.recovery ?? 0)),
-    mood: pet.energy + (delta.energy ?? 0) >= 68 ? 'bright' : 'sleepy',
+    mood: determineMood(nextEnergy, nextNutrition, nextHappiness),
     lastEventAt: occurredAt,
   };
 };

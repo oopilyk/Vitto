@@ -18,6 +18,7 @@ export interface PetState {
   endurance: number;
   recovery: number;
   mood: PetMood;
+  adoptedAt: string;
   lastEventAt?: string;
 }
 
@@ -79,4 +80,5 @@ export const createPet = (userId: string, name: string, species: PetState['speci
   endurance: 16,
   recovery: 64,
   mood: 'content',
+  adoptedAt: new Date().toISOString(),
 });

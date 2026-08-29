@@ -11,7 +11,7 @@ export class LocalRepository {
     const value = localStorage.getItem(petKey) ?? localStorage.getItem(legacyPetKey);
     if (!value) return null;
     const pet = JSON.parse(value) as PetState;
-    return { ...pet, pushingStrength: pet.pushingStrength ?? 10, pullingStrength: pet.pullingStrength ?? 10, legStrength: pet.legStrength ?? 10 };
+    return { ...pet, pushingStrength: pet.pushingStrength ?? 10, pullingStrength: pet.pullingStrength ?? 10, legStrength: pet.legStrength ?? 10, adoptedAt: pet.adoptedAt ?? new Date().toISOString() };
   }
 
   savePet(pet: PetState) {
@@ -24,6 +24,7 @@ export class LocalRepository {
   }
 
   saveEvent(event: HealthEvent) {
-    localStorage.setItem(eventKey, JSON.stringify([event, ...this.loadEvents()].slice(0, 20)));
+    const MAX_STORED_EVENTS = 2000;
+    localStorage.setItem(eventKey, JSON.stringify([event, ...this.loadEvents()].slice(0, MAX_STORED_EVENTS)));
   }
 }
