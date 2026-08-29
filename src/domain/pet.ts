@@ -44,6 +44,23 @@ export interface PetReaction {
 export const clamp = (value: number, minimum = 0, maximum = 100) =>
   Math.min(maximum, Math.max(minimum, value));
 
+export type EvolutionStage = 'baby' | 'teen' | 'adult';
+
+const TEEN_LEVEL_THRESHOLD = 11;
+const ADULT_LEVEL_THRESHOLD = 31;
+
+export const getEvolutionStage = (level: number): EvolutionStage => {
+  if (level >= ADULT_LEVEL_THRESHOLD) return 'adult';
+  if (level >= TEEN_LEVEL_THRESHOLD) return 'teen';
+  return 'baby';
+};
+
+export const EVOLUTION_STAGE_LABEL: Record<EvolutionStage, string> = {
+  baby: 'Baby',
+  teen: 'Teen',
+  adult: 'Adult',
+};
+
 export const createPet = (userId: string, name: string, species: PetState['species'] = 'cat'): PetState => ({
   id: crypto.randomUUID(),
   userId,

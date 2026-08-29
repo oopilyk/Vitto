@@ -5,6 +5,14 @@ import {
   parseNumberInput,
   type BodyProfile,
 } from "../domain/macroTargets";
+import {
+  estimateCaloriesBurned,
+  getEventsForDay,
+  getMealsForDay,
+  sumMealMacros,
+} from "../domain/nutritionSummary";
+import { NutrientRing } from "./NutrientRing";
+import { MealDiaryRow } from "./MealDiaryRow";
 
 interface ProfilePageProps {
   profile: BodyProfile;
@@ -26,6 +34,12 @@ export function ProfilePage({
   const updateWeight = (value: string) => update("weightKg", profile.weightUnit === "lb" ? parseNumberInput(value) / 2.20462 : parseNumberInput(value));
   const meals = events.filter((event) => event.type === "MEAL").length;
   const workouts = events.filter((event) => event.type === "WORKOUT").length;
+  const today = new Date();
+  const todaysEvents = getEventsForDay(events, today);
+  const todaysMeals = getMealsForDay(events, today);
+  const consumed = sumMealMacros(todaysMeals);
+  const burned = estimateCaloriesBurned(todaysEvents);
+  const remaining = targets.calories - consumed.calories + burned;
 
   const update = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) =>
     setProfile((current) => ({ ...current, [key]: value }));
@@ -152,21 +166,44 @@ export function ProfilePage({
           </form>
         </div>
         <aside className="progress-card">
-          <p className="kicker">DAILY TARGETS</p>
-          <h2>
-            {targets.calories} <small>kcal</small>
-          </h2>
-          <div className="target-row">
-            <span>Protein</span>
-            <b>{targets.proteinGrams}g</b>
+          <p className="kicker">TODAY'S BALANCE</p>
+          <div className="ring-row ring-row-compact">
+            <NutrientRing
+              value={consumed.calories}
+              percent={(consumed.calories / targets.calories) * 100}
+              label="Consumed"
+              color="#d85d45"
+            />
+            <NutrientRing
+              value={burned}
+              percent={(burned / targets.calories) * 100}
+              label="Burned"
+              color="#78a598"
+            />
+            <NutrientRing
+              value={remaining}
+              percent={(Math.abs(remaining) / targets.calories) * 100}
+              label={remaining < 0 ? "Over" : "Remaining"}
+              color={remaining < 0 ? "#b34e3e" : "#9c8dba"}
+              emphasis={remaining < 0}
+            />
           </div>
-          <div className="target-row">
-            <span>Carbs</span>
-            <b>{targets.carbsGrams}g</b>
-          </div>
-          <div className="target-row">
-            <span>Fat</span>
-            <b>{targets.fatGrams}g</b>
+          <div className="macro-breakdown">
+            <div className="macro-breakdown-row">
+              <span>Protein</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.proteinGrams / targets.proteinGrams) * 100)}%` }} /></i>
+              <b>{consumed.proteinGrams}g <small>/ {targets.proteinGrams}g</small></b>
+            </div>
+            <div className="macro-breakdown-row">
+              <span>Carbs</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.carbsGrams / targets.carbsGrams) * 100)}%` }} /></i>
+              <b>{consumed.carbsGrams}g <small>/ {targets.carbsGrams}g</small></b>
+            </div>
+            <div className="macro-breakdown-row">
+              <span>Fat</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.fatGrams / targets.fatGrams) * 100)}%` }} /></i>
+              <b>{consumed.fatGrams}g <small>/ {targets.fatGrams}g</small></b>
+            </div>
           </div>
           <div className="profile-counts">
             <span>
@@ -190,28 +227,31 @@ export function ProfilePage({
         {events.length === 0 ? (
           <p className="empty">Your care history will appear here.</p>
         ) : (
-          events.slice(0, 10).map((event) => (
-            <div className="history-row" key={event.id}>
-              <span className="event-dot" />
-              <div>
-                <b>
-                  {event.type === "MEAL"
-                    ? `Meal${(event.metadata as MealMetadata).analysis?.grade ? ` · Grade ${(event.metadata as MealMetadata).analysis?.grade}` : ""}`
-                    : event.type === "WORKOUT"
+          events.slice(0, 10).map((event) => {
+            if (event.type === "MEAL") {
+              return <MealDiaryRow event={event as HealthEvent<MealMetadata>} key={event.id} />;
+            }
+            return (
+              <div className="history-row" key={event.id}>
+                <span className="event-dot" />
+                <div>
+                  <b>
+                    {event.type === "WORKOUT"
                       ? "Workout"
                       : event.type === "STEP_ACTIVITY"
                         ? "Steps"
                         : "Healthy moment"}
-                </b>
-                <small>
-                  {new Date(event.occurredAt).toLocaleString([], {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </small>
+                  </b>
+                  <small>
+                    {new Date(event.occurredAt).toLocaleString([], {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                  </small>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </section>
     </main>

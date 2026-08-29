@@ -24,9 +24,55 @@ Deno.serve(async (request) => {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        generationConfig: { responseMimeType: 'application/json' },
-        systemInstruction: { parts: [{ text: 'Analyze meal photos for broad nutrition signals only. Never claim medical certainty. Return JSON with grade (A-D), summary, confidence (0-1), detectedFoods (string[]), macros with estimated calories, proteinGrams, carbsGrams, fatGrams as non-negative numbers, and nutrients booleans: protein, vegetables, fruit, wholeGrains, fiber, treats.' }] },
-        contents: [{ parts: [{ text: 'Grade this meal for general balanced nutrition.' }, { inlineData: { mimeType: image.type || 'image/jpeg', data: encodedImage } }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              foodDescription: { type: 'STRING' },
+              grade: { type: 'STRING', enum: ['A', 'B', 'C', 'D'] },
+              summary: { type: 'STRING' },
+              confidence: { type: 'NUMBER' },
+              detectedFoods: { type: 'ARRAY', items: { type: 'STRING' } },
+              macros: {
+                type: 'OBJECT',
+                properties: {
+                  calories: { type: 'NUMBER' },
+                  proteinGrams: { type: 'NUMBER' },
+                  carbsGrams: { type: 'NUMBER' },
+                  fatGrams: { type: 'NUMBER' },
+                },
+                required: ['calories', 'proteinGrams', 'carbsGrams', 'fatGrams'],
+              },
+              nutrients: {
+                type: 'OBJECT',
+                properties: {
+                  protein: { type: 'BOOLEAN' },
+                  vegetables: { type: 'BOOLEAN' },
+                  fruit: { type: 'BOOLEAN' },
+                  wholeGrains: { type: 'BOOLEAN' },
+                  fiber: { type: 'BOOLEAN' },
+                  treats: { type: 'BOOLEAN' },
+                },
+                required: ['protein', 'vegetables', 'fruit', 'wholeGrains', 'fiber', 'treats'],
+              },
+            },
+            required: ['foodDescription', 'grade', 'summary', 'confidence', 'detectedFoods', 'macros', 'nutrients'],
+          },
+        },
+        systemInstruction: {
+          parts: [{
+            text: 'Analyze meal photos for broad nutrition signals only. Never claim medical certainty. ' +
+              'foodDescription must start immediately with a concise, quantified list of every food item you see and its estimated portion, ' +
+              'with no introductory words — for example "80g of mac and cheese, 1 chocolate chip cookie (~10g), 2 chicken tenders (~10g each)". ' +
+              'summary is a separate short paragraph judging the nutritional quality of the meal (what it is rich in or lacking). ' +
+              'macros.calories is required and must always be a realistic non-zero estimate for the portions described in foodDescription — ' +
+              'never omit it and never return 0 unless the plate is truly empty. ' +
+              'Also return proteinGrams, carbsGrams, fatGrams as non-negative numbers, detectedFoods (string[]), grade (A-D), confidence (0-1), ' +
+              'and nutrients booleans: protein, vegetables, fruit, wholeGrains, fiber, treats.',
+          }],
+        },
+        contents: [{ parts: [{ text: 'Identify and grade this meal for general balanced nutrition.' }, { inlineData: { mimeType: image.type || 'image/jpeg', data: encodedImage } }] }],
       }),
     });
     if (!response.ok) {

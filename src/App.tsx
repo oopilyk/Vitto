@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type {
   HealthEvent,
+  MealAnalysis,
   MealMetadata,
   WorkoutMetadata,
 } from "./domain/health";
@@ -9,11 +10,26 @@ import {
   parseNumberInput,
   type BodyProfile,
 } from "./domain/macroTargets";
+import {
+  estimateCaloriesBurned,
+  getEventsForDay,
+  getMealsForDay,
+  sumMealMacros,
+} from "./domain/nutritionSummary";
 import { PetHealthEngine } from "./domain/petHealthEngine";
-import { createPet, type PetReaction, type PetState } from "./domain/pet";
+import {
+  createPet,
+  EVOLUTION_STAGE_LABEL,
+  getEvolutionStage,
+  type PetReaction,
+  type PetState,
+} from "./domain/pet";
 import { MockHealthDataProvider } from "./services/healthDataProvider";
 import { LocalRepository } from "./services/localRepository";
 import { MealCapture } from "./components/MealCapture";
+import { PetAvatar } from "./components/PetAvatar";
+import { NutrientRing } from "./components/NutrientRing";
+import { MealDiaryRow } from "./components/MealDiaryRow";
 import {
   getSession,
   onAuthStateChange,
@@ -31,6 +47,8 @@ const repository = new LocalRepository();
 const engine = new PetHealthEngine();
 const stepsProvider = new MockHealthDataProvider();
 const remoteRepository = new SupabaseRepository();
+const WORKOUT_ANIMATION_MS = 1100;
+const EXPLORE_ANIMATION_MS = 1100;
 const withTimeout = <T,>(promise: Promise<T>, message: string) => Promise.race([
   promise,
   new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error(message)), 10000)),
@@ -81,7 +99,11 @@ function App() {
     useState(!isSupabaseConfigured);
   const [isEating, setIsEating] = useState(false);
   const [feedingImage, setFeedingImage] = useState<string | null>(null);
+  const [feedingGrade, setFeedingGrade] = useState<MealAnalysis["grade"] | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isAnalyzingMeal, setIsAnalyzingMeal] = useState(false);
+  const [isWorkingOut, setIsWorkingOut] = useState(false);
+  const [isExploring, setIsExploring] = useState(false);
   const userId = session?.user.id ?? "demo-user";
 
   useEffect(() => {
@@ -199,9 +221,10 @@ function App() {
     }
   };
 
-  const logWorkout = () =>
-    setShowWorkout(true);
+  const logWorkout = () => setShowWorkout(true);
   const completeWorkout = async (metadata: WorkoutMetadata) => {
+    setIsWorkingOut(true);
+    window.setTimeout(() => setIsWorkingOut(false), WORKOUT_ANIMATION_MS);
     await recordEvent(makeEvent<WorkoutMetadata>(userId, "WORKOUT", metadata));
   };
   const logMeal = () => setShowMealCapture(true);
@@ -209,11 +232,10 @@ function App() {
     playMealSound();
     await recordEvent(makeEvent<MealMetadata>(userId, "MEAL", metadata));
     setShowMealCapture(false);
-    setIsEating(true);
-    window.setTimeout(() => setIsEating(false), 1800);
   };
-  const startFeeding = (imageUrl: string) => {
+  const startFeeding = (imageUrl: string | null, grade: MealAnalysis["grade"]) => {
     setFeedingImage(imageUrl);
+    setFeedingGrade(grade);
     setIsEating(true);
     const munchTimer = window.setInterval(playMunchSound, 420);
     window.setTimeout(() => {
@@ -229,43 +251,22 @@ function App() {
   };
   const logSteps = async () => {
     const alreadySynced = events.some((event) => event.type === "STEP_ACTIVITY" && new Date(event.occurredAt).toDateString() === new Date().toDateString());
-    if (!alreadySynced) await recordEvent(await stepsProvider.getTodaySteps(userId));
+    if (alreadySynced) return;
+    setIsExploring(true);
+    window.setTimeout(() => setIsExploring(false), EXPLORE_ANIMATION_MS);
+    await recordEvent(await stepsProvider.getTodaySteps(userId));
   };
   const todaySteps = events.find((event) => event.type === "STEP_ACTIVITY" && new Date(event.occurredAt).toDateString() === new Date().toDateString());
   const steps = todaySteps ? (todaySteps.metadata as { steps: number }).steps : 0;
   const targets = calculateMacroTargets(profile);
   const displayedWeight = profile.weightUnit === "lb" ? Math.round(profile.weightKg * 2.20462 * 10) / 10 : profile.weightKg;
   const updateWeight = (value: string) => setProfile({ ...profile, weightKg: profile.weightUnit === "lb" ? parseNumberInput(value) / 2.20462 : parseNumberInput(value) });
-  const today = new Date().toDateString();
-  const consumed = events
-    .filter(
-      (event) =>
-        event.type === "MEAL" &&
-        new Date(event.occurredAt).toDateString() === today,
-    )
-    .reduce(
-      (total, event) => {
-        const macros = (event.metadata as MealMetadata).analysis?.macros;
-        if (!macros) return total;
-        const proteinGrams = Number.isFinite(macros.proteinGrams)
-          ? macros.proteinGrams
-          : 0;
-        const carbsGrams = Number.isFinite(macros.carbsGrams)
-          ? macros.carbsGrams
-          : 0;
-        const fatGrams = Number.isFinite(macros.fatGrams) ? macros.fatGrams : 0;
-        const calories = Number.isFinite(macros.calories)
-          ? macros.calories
-          : proteinGrams * 4 + carbsGrams * 4 + fatGrams * 9;
-        return {
-          calories: total.calories + calories,
-          proteinGrams: total.proteinGrams + proteinGrams,
-          carbsGrams: total.carbsGrams + carbsGrams,
-          fatGrams: total.fatGrams + fatGrams,
-        };
-      },
-      { calories: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 },
-    );
+  const today = new Date();
+  const todaysEvents = getEventsForDay(events, today);
+  const todaysMeals = getMealsForDay(events, today);
+  const consumed = sumMealMacros(todaysMeals);
+  const burned = estimateCaloriesBurned(todaysEvents);
+  const remaining = targets.calories - consumed.calories + burned;
 
   if (!authReady || !accountDataReady)
     return (
@@ -530,6 +531,9 @@ function App() {
             <h1>
               {pet.name}
               <span className="level">LVL {pet.level}</span>
+              <span className="stage-pill">
+                {EVOLUTION_STAGE_LABEL[getEvolutionStage(pet.level)]}
+              </span>
             </h1>
             <p className="mood">
               {reaction?.message || `${pet.name} is feeling ready for the day.`}
@@ -546,18 +550,26 @@ function App() {
             </div>
           </div>
         </section>
-        <section className={`pet-stage${isEating ? " pet-eating" : ""}`}>
-          <div className="pet-stats-hud"><p className="kicker">VITALS</p>{[["Push", pet.pushingStrength], ["Pull", pet.pullingStrength], ["Legs", pet.legStrength], ["Endurance", pet.endurance], ["Health", pet.health]].map(([label, value]) => <div className="hud-stat" key={label as string}><span>{label as string}</span><i><em style={{ width: `${value as number}%` }} /></i></div>)}</div>
-          <div className="pet-aura" />
-          {feedingImage && <img className="feeding-food" src={feedingImage} alt="" />}
-          <div className={`pet-face${feedingImage ? " pet-mouth-open" : ""}${showConfetti ? " pet-happy" : ""}`}><span className="pet-mouth">◡</span></div>
-          {showConfetti && <div className="confetti" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ "--confetti-x": `${(index % 6 - 2.5) * 34}px`, "--confetti-y": `${-40 - (index % 4) * 24}px`, "--confetti-r": `${index * 37}deg` } as React.CSSProperties} />)}</div>}
-          <div className="pet-ear left" />
-          <div className="pet-ear right" />
-          <span className="pet-name">
-            {isEating ? `${pet.name} is enjoying dinner` : `${pet.name} is here`} <b>♥</b>
-          </span>
-        </section>
+        <PetAvatar
+          pet={pet}
+          isAnalyzingMeal={isAnalyzingMeal}
+          isEating={isEating}
+          feedingImage={feedingImage}
+          feedingGrade={feedingGrade}
+          isCelebrating={showConfetti}
+          isWorkingOut={isWorkingOut}
+          isExploring={isExploring}
+        >
+          <div className="pet-stats-hud">
+            <p className="kicker">VITALS</p>
+            {[["Push", pet.pushingStrength], ["Pull", pet.pullingStrength], ["Legs", pet.legStrength], ["Endurance", pet.endurance], ["Health", pet.health]].map(([label, value]) => (
+              <div className="hud-stat" key={label as string}>
+                <span>{label as string}</span>
+                <i><em style={{ width: `${value as number}%` }} /></i>
+              </div>
+            ))}
+          </div>
+        </PetAvatar>
         <section className="dashboard">
           <div className="section-title">
             <div>
@@ -572,27 +584,53 @@ function App() {
               Today <b>⌄</b>
             </span>
           </div>
-          <div className="macro-panel">
-            <div>
-              <p className="kicker">TODAY'S FUEL</p>
-              <h3>
-                {consumed.calories} <small>/ {targets.calories} kcal</small>
-              </h3>
+          <div className="ring-row">
+            <NutrientRing
+              value={consumed.calories}
+              percent={(consumed.calories / targets.calories) * 100}
+              label="Consumed"
+              color="#d85d45"
+            />
+            <NutrientRing
+              value={burned}
+              percent={(burned / targets.calories) * 100}
+              label="Burned"
+              color="#78a598"
+            />
+            <NutrientRing
+              value={remaining}
+              percent={(Math.abs(remaining) / targets.calories) * 100}
+              label={remaining < 0 ? "Over" : "Remaining"}
+              color={remaining < 0 ? "#b34e3e" : "#9c8dba"}
+              emphasis={remaining < 0}
+            />
+          </div>
+          <div className="macro-breakdown">
+            <div className="macro-breakdown-row">
+              <span>Protein</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.proteinGrams / targets.proteinGrams) * 100)}%` }} /></i>
+              <b>{consumed.proteinGrams}g <small>/ {targets.proteinGrams}g</small></b>
             </div>
-            <div className="macro-stats">
-              <span>
-                <b>{consumed.proteinGrams}g</b>
-                <small>/ {targets.proteinGrams}g protein</small>
-              </span>
-              <span>
-                <b>{consumed.carbsGrams}g</b>
-                <small>/ {targets.carbsGrams}g carbs</small>
-              </span>
-              <span>
-                <b>{consumed.fatGrams}g</b>
-                <small>/ {targets.fatGrams}g fat</small>
-              </span>
+            <div className="macro-breakdown-row">
+              <span>Carbs</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.carbsGrams / targets.carbsGrams) * 100)}%` }} /></i>
+              <b>{consumed.carbsGrams}g <small>/ {targets.carbsGrams}g</small></b>
             </div>
+            <div className="macro-breakdown-row">
+              <span>Fat</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.fatGrams / targets.fatGrams) * 100)}%` }} /></i>
+              <b>{consumed.fatGrams}g <small>/ {targets.fatGrams}g</small></b>
+            </div>
+          </div>
+          <div className="diary-section">
+            <div className="recent-heading">
+              <h3>Today's diary</h3>
+            </div>
+            {todaysMeals.length === 0 ? (
+              <p className="empty">Nothing logged yet today — add a meal to get started.</p>
+            ) : (
+              todaysMeals.map((event) => <MealDiaryRow event={event} key={event.id} />)
+            )}
           </div>
           <div className="steps-panel"><div><p className="kicker">TODAY'S EXPLORING</p><h3>{steps.toLocaleString()} <small>/ {stepGoal.toLocaleString()} steps</small></h3><p>{pet.name} {steps ? "explored with you today." : "is waiting for today's adventure."}</p></div><label>Daily goal<input type="number" min="1000" max="100000" value={stepGoal} onChange={(event) => setStepGoal(Number(event.target.value) || 1000)} /></label></div>
           <div className="actions">
@@ -666,6 +704,7 @@ function App() {
         <MealCapture
           onComplete={completeMeal}
           onFeedStart={startFeeding}
+          onAnalyzingChange={setIsAnalyzingMeal}
           onClose={() => setShowMealCapture(false)}
         />
       )}

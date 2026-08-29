@@ -47,9 +47,11 @@ export interface MealMetadata {
   treats: boolean;
   imageUrl?: string;
   analysis?: MealAnalysis;
+  loggedVia?: 'ai' | 'barcode' | 'manual';
 }
 
 export interface MealAnalysis {
+  foodDescription?: string;
   grade: 'A' | 'B' | 'C' | 'D';
   summary: string;
   confidence: number;
