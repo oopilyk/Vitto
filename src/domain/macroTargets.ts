@@ -2,6 +2,7 @@ export interface BodyProfile {
   age: number;
   sex: 'female' | 'male' | 'other';
   heightCm: number;
+  heightUnit: 'cm' | 'ft';
   weightKg: number;
   weightUnit: 'kg' | 'lb';
   activity: 'low' | 'moderate' | 'high';
@@ -16,6 +17,29 @@ export interface MacroTargets {
 }
 
 export const parseNumberInput = (value: string) => Number(value.replace(/^0+(?=\d)/, '')) || 0;
+
+export const convertWeightValue = (
+  value: number,
+  from: BodyProfile['weightUnit'],
+  to: BodyProfile['weightUnit'],
+) => {
+  if (from === to) return value;
+  return from === 'kg' ? value * 2.20462 : value / 2.20462;
+};
+
+export const cmToFeetAndInches = (heightCm: number) => {
+  const totalInches = Math.round(heightCm / 2.54);
+  const feet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
+  return { feet, inches };
+};
+
+export const convertHeightToFeetAndInches = (heightCm: number) => cmToFeetAndInches(heightCm);
+
+export const feetAndInchesToCm = (feet: number, inches: number) => {
+  const totalInches = feet * 12 + inches;
+  return Math.round(totalInches * 2.54);
+};
 
 const finite = (value: number, fallback: number) => Number.isFinite(value) ? value : fallback;
 

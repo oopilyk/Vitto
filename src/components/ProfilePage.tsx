@@ -2,6 +2,10 @@ import { useState } from "react";
 import type { HealthEvent, MealMetadata } from "../domain/health";
 import {
   calculateMacroTargets,
+  cmToFeetAndInches,
+  convertHeightToFeetAndInches,
+  convertWeightValue,
+  feetAndInchesToCm,
   parseNumberInput,
   type BodyProfile,
 } from "../domain/macroTargets";
@@ -32,8 +36,16 @@ export function ProfilePage({
   const [profile, setProfile] = useState(initialProfile);
   const [saved, setSaved] = useState(false);
   const targets = calculateMacroTargets(profile);
-  const displayedWeight = profile.weightUnit === "lb" ? Math.round(profile.weightKg * 2.20462 * 10) / 10 : profile.weightKg;
+  const displayedWeight = profile.weightUnit === "lb"
+    ? Math.round(convertWeightValue(profile.weightKg, "kg", "lb") * 10) / 10
+    : profile.weightKg;
+  const displayedHeight = profile.heightUnit === "ft"
+    ? convertHeightToFeetAndInches(profile.heightCm)
+    : { feet: 0, inches: profile.heightCm };
   const updateWeight = (value: string) => update("weightKg", profile.weightUnit === "lb" ? parseNumberInput(value) / 2.20462 : parseNumberInput(value));
+  const updateHeightInFt = (feet: number, inches: number) => update("heightCm", feetAndInchesToCm(feet, inches));
+  const changeWeightUnit = (nextUnit: BodyProfile["weightUnit"]) => update("weightUnit", nextUnit);
+  const changeHeightUnit = (nextUnit: BodyProfile["heightUnit"]) => update("heightUnit", nextUnit);
   const meals = events.filter((event) => event.type === "MEAL").length;
   const workouts = events.filter((event) => event.type === "WORKOUT").length;
   const today = new Date();
@@ -88,7 +100,7 @@ export function ProfilePage({
                   max="100"
                   value={profile.age}
                   onChange={(event) =>
-                    update("age", Number(event.target.value))
+                    update("age", parseNumberInput(event.target.value))
                   }
                 />
               </label>
@@ -104,23 +116,57 @@ export function ProfilePage({
               </label>
               <label>
                 Unit
-                <select value={profile.weightUnit} onChange={(event) => update("weightUnit", event.target.value as BodyProfile["weightUnit"]) }>
+                <select value={profile.weightUnit} onChange={(event) => changeWeightUnit(event.target.value as BodyProfile["weightUnit"]) }>
                   <option value="kg">Kilograms (kg)</option>
                   <option value="lb">Pounds (lb)</option>
                 </select>
               </label>
               <label>
-                Height (cm)
-                <input
-                  type="number"
-                  min="120"
-                  max="230"
-                  value={profile.heightCm}
-                  onChange={(event) =>
-                    update("heightCm", Number(event.target.value))
-                  }
-                />
+                Height unit
+                <select value={profile.heightUnit} onChange={(event) => changeHeightUnit(event.target.value as BodyProfile["heightUnit"]) }>
+                  <option value="cm">Centimeters</option>
+                  <option value="ft">Feet & inches</option>
+                </select>
               </label>
+              {profile.heightUnit === "cm" ? (
+                <label>
+                  Height (cm)
+                  <input
+                    type="number"
+                    min="120"
+                    max="230"
+                    value={profile.heightCm}
+                    onChange={(event) => update("heightCm", parseNumberInput(event.target.value))}
+                  />
+                </label>
+              ) : (
+                <>
+                  <label>
+                    Height (ft)
+                    <input
+                      type="number"
+                      min="3"
+                      max="8"
+                      value={displayedHeight.feet}
+                      onChange={(event) =>
+                        updateHeightInFt(Number(event.target.value) || 0, displayedHeight.inches)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Height (in)
+                    <input
+                      type="number"
+                      min="0"
+                      max="11"
+                      value={displayedHeight.inches}
+                      onChange={(event) =>
+                        updateHeightInFt(displayedHeight.feet, Number(event.target.value) || 0)
+                      }
+                    />
+                  </label>
+                </>
+              )}
               <label>
                 Sex
                 <select

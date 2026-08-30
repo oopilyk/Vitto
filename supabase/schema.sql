@@ -4,6 +4,7 @@ create table public.profiles (
   age integer check (age between 13 and 100),
   sex text check (sex in ('female', 'male', 'other')),
   height_cm numeric check (height_cm between 120 and 230),
+  height_unit text not null default 'cm' check (height_unit in ('cm', 'ft')),
   weight_kg numeric check (weight_kg between 30 and 300),
   weight_unit text not null default 'kg' check (weight_unit in ('kg', 'lb')),
   activity text check (activity in ('low', 'moderate', 'high')),

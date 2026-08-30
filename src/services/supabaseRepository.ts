@@ -14,18 +14,67 @@ const requireClient = () => {
 export class SupabaseRepository {
   async loadProfile(): Promise<BodyProfile | null> {
     const client = requireClient();
-    const { data, error } = await client.from('profiles').select('age, sex, height_cm, weight_kg, weight_unit, activity, goal').single();
+    const primary = await client
+      .from('profiles')
+      .select('age, sex, height_cm, height_unit, weight_kg, weight_unit, activity, goal')
+      .maybeSingle();
+
+    const missingHeightUnit =
+      primary.error &&
+      (primary.error.code === '42703' ||
+        /height_unit/i.test(primary.error.message));
+
+    const { data, error } = missingHeightUnit
+      ? await client
+          .from('profiles')
+          .select('age, sex, height_cm, weight_kg, weight_unit, activity, goal')
+          .maybeSingle()
+      : primary;
+
     if (error?.code === 'PGRST116') return null;
     if (error) throw error;
-    if (!data.age || !data.sex || !data.height_cm || !data.weight_kg || !data.activity || !data.goal) return null;
-    return { age: data.age, sex: data.sex, heightCm: data.height_cm, weightKg: data.weight_kg, weightUnit: data.weight_unit === 'lb' ? 'lb' : 'kg', activity: data.activity, goal: data.goal } as BodyProfile;
+    if (!data?.age || !data.sex || !data.height_cm || !data.weight_kg || !data.activity || !data.goal) {
+      return null;
+    }
+
+    const heightUnit =
+      'height_unit' in data && data.height_unit === 'ft' ? 'ft' : 'cm';
+
+    return {
+      age: data.age,
+      sex: data.sex,
+      heightCm: data.height_cm,
+      heightUnit,
+      weightKg: data.weight_kg,
+      weightUnit: data.weight_unit === 'lb' ? 'lb' : 'kg',
+      activity: data.activity,
+      goal: data.goal,
+    } as BodyProfile;
   }
 
   async saveProfile(profile: BodyProfile): Promise<void> {
     const client = requireClient();
     const { data: { user } } = await client.auth.getUser();
     if (!user) throw new Error('Sign in before saving your profile.');
-    const { error } = await client.from('profiles').update({ age: profile.age, sex: profile.sex, height_cm: profile.heightCm, weight_kg: profile.weightKg, weight_unit: profile.weightUnit, activity: profile.activity, goal: profile.goal }).eq('id', user.id);
+
+    const payload = {
+      age: profile.age,
+      sex: profile.sex,
+      height_cm: profile.heightCm,
+      height_unit: profile.heightUnit,
+      weight_kg: profile.weightKg,
+      weight_unit: profile.weightUnit,
+      activity: profile.activity,
+      goal: profile.goal,
+    };
+
+    const { error } = await client.from('profiles').update(payload).eq('id', user.id);
+    if (error && (error.code === '42703' || /height_unit/i.test(error.message))) {
+      const { height_unit: _heightUnit, ...legacyPayload } = payload;
+      const retry = await client.from('profiles').update(legacyPayload).eq('id', user.id);
+      if (retry.error) throw retry.error;
+      return;
+    }
     if (error) throw error;
   }
 
@@ -40,7 +89,7 @@ export class SupabaseRepository {
 
   async savePet(pet: PetState): Promise<void> {
     const client = requireClient();
-    const { error } = await client.from('pets').upsert({
+    const payload = {
       id: pet.id,
       user_id: pet.userId,
       name: pet.name,
@@ -60,7 +109,15 @@ export class SupabaseRepository {
       mood: pet.mood,
       adopted_at: pet.adoptedAt,
       last_event_at: pet.lastEventAt ?? null,
-    });
+    };
+
+    const { error } = await client.from('pets').upsert(payload);
+    if (error && (error.code === '42703' || /adopted_at/i.test(error.message))) {
+      const { adopted_at: _adoptedAt, ...legacyPayload } = payload;
+      const retry = await client.from('pets').upsert(legacyPayload);
+      if (retry.error) throw retry.error;
+      return;
+    }
     if (error) throw error;
   }
 

@@ -7,6 +7,10 @@ import type {
 } from "./domain/health";
 import {
   calculateMacroTargets,
+  cmToFeetAndInches,
+  convertHeightToFeetAndInches,
+  convertWeightValue,
+  feetAndInchesToCm,
   parseNumberInput,
   type BodyProfile,
 } from "./domain/macroTargets";
@@ -92,6 +96,7 @@ function App() {
     age: 30,
     sex: "other",
     heightCm: 170,
+    heightUnit: "cm",
     weightKg: 70,
     weightUnit: "kg",
     activity: "moderate",
@@ -114,18 +119,6 @@ function App() {
   const userId = session?.user.id ?? "demo-user";
 
   useEffect(() => {
-    const normalizeNumberInput = (event: Event) => {
-      const input = event.target;
-      if (input instanceof HTMLInputElement && input.type === "number") {
-        input.value = input.value.replace(/^0+(?=\d)/, "");
-      }
-    };
-    document.addEventListener("input", normalizeNumberInput, true);
-    return () =>
-      document.removeEventListener("input", normalizeNumberInput, true);
-  }, []);
-
-  useEffect(() => {
     if (!isSupabaseConfigured) return;
     getSession()
       .then(({ data }) => {
@@ -143,31 +136,52 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     if (isSupabaseConfigured && session) {
       setAccountDataReady(false);
       setPet(null);
       setEvents([]);
       setView("pet");
-      Promise.all([remoteRepository.loadPet(), remoteRepository.loadEvents()])
-        .then(([savedPet, savedEvents]) => {
-          setPet(savedPet ? applyTimeDecay(savedPet, new Date()) : null);
-          setEvents(savedEvents);
-        })
-        .catch(() => {
-          setAuthError("Could not load your account data.");
-        })
-        .finally(() => setAccountDataReady(true));
-      remoteRepository
-        .loadProfile()
-        .then((savedProfile) => {
-          if (savedProfile) setProfile(savedProfile);
-        })
-        .catch(() => undefined);
-      return;
+      void (async () => {
+        const [petResult, eventsResult, profileResult] = await Promise.allSettled([
+          remoteRepository.loadPet(),
+          remoteRepository.loadEvents(),
+          remoteRepository.loadProfile(),
+        ]);
+        if (cancelled) return;
+
+        if (petResult.status === "fulfilled") {
+          setPet(petResult.value ? applyTimeDecay(petResult.value, new Date()) : null);
+        }
+        if (eventsResult.status === "fulfilled") {
+          setEvents(eventsResult.value);
+        }
+        if (profileResult.status === "fulfilled" && profileResult.value) {
+          setProfile(profileResult.value);
+        }
+
+        const firstFailure = [petResult, eventsResult, profileResult].find(
+          (result) => result.status === "rejected",
+        );
+        if (firstFailure && firstFailure.status === "rejected") {
+          const reason = firstFailure.reason;
+          setAuthError(
+            reason instanceof Error
+              ? reason.message
+              : "Could not load your account data.",
+          );
+        } else {
+          setAuthError(null);
+        }
+        setAccountDataReady(true);
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
     setAccountDataReady(true);
     const savedProfile = localStorage.getItem("vitto.profile");
-    if (savedProfile) setProfile({ weightUnit: "kg", ...(JSON.parse(savedProfile) as Partial<BodyProfile>) } as BodyProfile);
+    if (savedProfile) setProfile({ heightUnit: "cm", weightUnit: "kg", ...(JSON.parse(savedProfile) as Partial<BodyProfile>) } as BodyProfile);
   }, [session]);
 
   const submitAuth = async (event: React.FormEvent) => {
@@ -196,8 +210,30 @@ function App() {
     else localStorage.setItem("vitto.profile", JSON.stringify(nextProfile));
   };
 
+  const updateProfile = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => {
+    setProfile((current) => {
+      const nextProfile = { ...current, [key]: value };
+      if (isSupabaseConfigured && session) {
+        void remoteRepository.saveProfile(nextProfile).catch(() => undefined);
+        return nextProfile;
+      }
+      localStorage.setItem("vitto.profile", JSON.stringify(nextProfile));
+      return nextProfile;
+    });
+  };
+
   const adopt = async () => {
     try {
+      setAuthError(null);
+      if (profile.age < 13 || profile.age > 100) {
+        throw new Error("Age must be between 13 and 100.");
+      }
+      if (profile.heightCm < 120 || profile.heightCm > 230) {
+        throw new Error("Height must be between 120 and 230 cm.");
+      }
+      if (profile.weightKg < 30 || profile.weightKg > 300) {
+        throw new Error("Weight must be between 30 and 300 kg.");
+      }
       const nextPet = createPet(userId, name.trim() || "Miso");
       if (isSupabaseConfigured && session)
         await remoteRepository.savePet(nextPet);
@@ -205,7 +241,16 @@ function App() {
       repository.savePet(nextPet);
       setPet(nextPet);
     } catch (cause) {
-      setAuthError(cause instanceof Error ? cause.message : "Could not save your pet.");
+      const message =
+        cause instanceof Error
+          ? cause.message
+          : typeof cause === "object" &&
+              cause &&
+              "message" in cause &&
+              typeof (cause as { message: unknown }).message === "string"
+            ? (cause as { message: string }).message
+            : "Could not save your pet.";
+      setAuthError(message);
     }
   };
 
@@ -285,8 +330,26 @@ function App() {
   const todaySteps = events.find((event) => event.type === "STEP_ACTIVITY" && new Date(event.occurredAt).toDateString() === new Date().toDateString());
   const steps = todaySteps ? (todaySteps.metadata as { steps: number }).steps : 0;
   const targets = calculateMacroTargets(profile);
-  const displayedWeight = profile.weightUnit === "lb" ? Math.round(profile.weightKg * 2.20462 * 10) / 10 : profile.weightKg;
-  const updateWeight = (value: string) => setProfile({ ...profile, weightKg: profile.weightUnit === "lb" ? parseNumberInput(value) / 2.20462 : parseNumberInput(value) });
+  const displayedWeight = profile.weightUnit === "lb"
+    ? Math.round(convertWeightValue(profile.weightKg, "kg", "lb") * 10) / 10
+    : profile.weightKg;
+  const displayedHeight = profile.heightUnit === "ft"
+    ? convertHeightToFeetAndInches(profile.heightCm)
+    : { feet: 0, inches: profile.heightCm };
+  const updateWeight = (value: string) => {
+    const nextWeightKg = profile.weightUnit === "lb"
+      ? parseNumberInput(value) / 2.20462
+      : parseNumberInput(value);
+    updateProfile("weightKg", nextWeightKg);
+  };
+  const updateHeightInCm = (value: string) => updateProfile("heightCm", Number(value) || 0);
+  const updateHeightInFt = (feet: number, inches: number) => updateProfile("heightCm", feetAndInchesToCm(feet, inches));
+  const changeWeightUnit = (nextUnit: BodyProfile["weightUnit"]) => {
+    updateProfile("weightUnit", nextUnit);
+  };
+  const changeHeightUnit = (nextUnit: BodyProfile["heightUnit"]) => {
+    updateProfile("heightUnit", nextUnit);
+  };
   const today = new Date();
   const todaysEvents = getEventsForDay(events, today);
   const todaysMeals = getMealsForDay(events, today);
@@ -363,7 +426,26 @@ function App() {
     return (
       <main className="welcome">
         <div className="welcome-copy">
-          <p className="kicker">VITTO / YOUR LIFE, THEIR STORY</p>
+          <div className="welcome-top">
+            <p className="kicker">VITTO / YOUR LIFE, THEIR STORY</p>
+            {isSupabaseConfigured && session && (
+              <button
+                className="text-button"
+                type="button"
+                onClick={() => {
+                  signOut()
+                    .then(() => {
+                      setSession(null);
+                      setPet(null);
+                      setEvents([]);
+                    })
+                    .catch(() => setAuthError("Could not sign out."));
+                }}
+              >
+                Log out
+              </button>
+            )}
+          </div>
           <h1>
             Raise a pet
             <br />
@@ -389,9 +471,7 @@ function App() {
                 min="13"
                 max="100"
                 value={profile.age}
-                onChange={(event) =>
-                  setProfile({ ...profile, age: Number(event.target.value) })
-                }
+                onChange={(event) => updateProfile("age", parseNumberInput(event.target.value))}
               />
             </label>
             <label>
@@ -406,35 +486,73 @@ function App() {
             </label>
             <label>
               Unit
-              <select value={profile.weightUnit} onChange={(event) => setProfile({ ...profile, weightUnit: event.target.value as BodyProfile["weightUnit"] })}>
+              <select
+                value={profile.weightUnit}
+                onChange={(event) =>
+                  changeWeightUnit(event.target.value as BodyProfile["weightUnit"])
+                }
+              >
                 <option value="kg">Kilograms (kg)</option>
                 <option value="lb">Pounds (lb)</option>
               </select>
             </label>
             <label>
-              Height (cm)
-              <input
-                type="number"
-                min="120"
-                max="230"
-                value={profile.heightCm}
+              Height unit
+              <select
+                value={profile.heightUnit}
                 onChange={(event) =>
-                  setProfile({
-                    ...profile,
-                    heightCm: Number(event.target.value),
-                  })
+                  changeHeightUnit(event.target.value as BodyProfile["heightUnit"])
                 }
-              />
+              >
+                <option value="cm">Centimeters</option>
+                <option value="ft">Feet & inches</option>
+              </select>
             </label>
+            {profile.heightUnit === "cm" ? (
+              <label>
+                Height (cm)
+                <input
+                  type="number"
+                  min="120"
+                  max="230"
+                  value={profile.heightCm}
+                  onChange={(event) => updateHeightInCm(event.target.value)}
+                />
+              </label>
+            ) : (
+              <>
+                <label>
+                  Height (ft)
+                  <input
+                    type="number"
+                    min="3"
+                    max="8"
+                    value={displayedHeight.feet}
+                    onChange={(event) =>
+                      updateHeightInFt(Number(event.target.value) || 0, displayedHeight.inches)
+                    }
+                  />
+                </label>
+                <label>
+                  Height (in)
+                  <input
+                    type="number"
+                    min="0"
+                    max="11"
+                    value={displayedHeight.inches}
+                    onChange={(event) =>
+                      updateHeightInFt(displayedHeight.feet, Number(event.target.value) || 0)
+                    }
+                  />
+                </label>
+              </>
+            )}
             <label>
               Sex
               <select
                 value={profile.sex}
                 onChange={(event) =>
-                  setProfile({
-                    ...profile,
-                    sex: event.target.value as BodyProfile["sex"],
-                  })
+                  updateProfile("sex", event.target.value as BodyProfile["sex"])
                 }
               >
                 <option value="other">Prefer not to say</option>
@@ -447,10 +565,10 @@ function App() {
               <select
                 value={profile.activity}
                 onChange={(event) =>
-                  setProfile({
-                    ...profile,
-                    activity: event.target.value as BodyProfile["activity"],
-                  })
+                  updateProfile(
+                    "activity",
+                    event.target.value as BodyProfile["activity"],
+                  )
                 }
               >
                 <option value="low">Light</option>
@@ -463,10 +581,7 @@ function App() {
               <select
                 value={profile.goal}
                 onChange={(event) =>
-                  setProfile({
-                    ...profile,
-                    goal: event.target.value as BodyProfile["goal"],
-                  })
+                  updateProfile("goal", event.target.value as BodyProfile["goal"])
                 }
               >
                 <option value="lose">Lose fat</option>
@@ -478,6 +593,7 @@ function App() {
           <button className="primary" onClick={adopt}>
             Adopt {name || "your pet"} <span>→</span>
           </button>
+          {authError && <p className="form-error">{authError}</p>}
         </div>
         <div className="welcome-pet" aria-label="A sleepy orange pet">
           <div className="pet-face large">◡</div>
