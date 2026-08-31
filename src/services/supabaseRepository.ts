@@ -1,6 +1,6 @@
 import type { HealthEvent } from '../domain/health';
 import type { PetState } from '../domain/pet';
-import type { BodyProfile } from '../domain/macroTargets';
+import { withSurveyDefaults, type BodyProfile } from '../domain/macroTargets';
 import { supabase } from './supabaseClient';
 
 type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null };
@@ -26,6 +26,27 @@ const missingColumn = (error: { code?: string; message?: string } | null): strin
   return quoted?.[1] ?? named?.[1] ?? null;
 };
 
+type WriteResult = { error: { code?: string; message?: string } | null };
+
+/**
+ * Writes a row, dropping any column the database does not have yet and retrying,
+ * so a pending migration degrades to a partial save instead of losing the write.
+ */
+const saveDroppingMissingColumns = async (
+  payload: Record<string, unknown>,
+  write: (row: Record<string, unknown>) => PromiseLike<WriteResult>,
+): Promise<void> => {
+  let row = payload;
+  for (let attempt = 0; attempt <= Object.keys(payload).length; attempt += 1) {
+    const { error } = await write(row);
+    if (!error) return;
+    const column = missingColumn(error);
+    if (!column || !(column in row)) throw error;
+    const { [column]: _absent, ...remaining } = row;
+    row = remaining;
+  }
+};
+
 const requireClient = () => {
   if (!supabase) throw new Error('Supabase is not configured. Add the VITE_SUPABASE_* variables.');
   return supabase;
@@ -34,42 +55,28 @@ const requireClient = () => {
 export class SupabaseRepository {
   async loadProfile(): Promise<BodyProfile | null> {
     const client = requireClient();
-    const primary = await client
-      .from('profiles')
-      .select('age, sex, height_cm, height_unit, weight_kg, weight_unit, activity, goal')
-      .maybeSingle();
-
-    const missingHeightUnit =
-      primary.error &&
-      (primary.error.code === '42703' ||
-        /height_unit/i.test(primary.error.message));
-
-    const { data, error } = missingHeightUnit
-      ? await client
-          .from('profiles')
-          .select('age, sex, height_cm, weight_kg, weight_unit, activity, goal')
-          .maybeSingle()
-      : primary;
-
+    const { data, error } = await client.from('profiles').select('*').maybeSingle();
     if (error?.code === 'PGRST116') return null;
     if (error) throw error;
     if (!data?.age || !data.sex || !data.height_cm || !data.weight_kg || !data.activity || !data.goal) {
       return null;
     }
 
-    const heightUnit =
-      'height_unit' in data && data.height_unit === 'ft' ? 'ft' : 'cm';
-
-    return {
+    return withSurveyDefaults({
       age: data.age,
       sex: data.sex,
       heightCm: data.height_cm,
-      heightUnit,
+      heightUnit: data.height_unit === 'ft' ? 'ft' : 'cm',
       weightKg: data.weight_kg,
       weightUnit: data.weight_unit === 'lb' ? 'lb' : 'kg',
       activity: data.activity,
       goal: data.goal,
-    } as BodyProfile;
+      targetWeightKg: data.target_weight_kg ?? undefined,
+      goalPace: data.goal_pace ?? undefined,
+      trainingDaysPerWeek: data.training_days_per_week ?? undefined,
+      trainingStyle: data.training_style ?? undefined,
+      focusAreas: Array.isArray(data.focus_areas) ? data.focus_areas : undefined,
+    });
   }
 
   async saveProfile(profile: BodyProfile): Promise<void> {
@@ -86,16 +93,16 @@ export class SupabaseRepository {
       weight_unit: profile.weightUnit,
       activity: profile.activity,
       goal: profile.goal,
+      target_weight_kg: profile.targetWeightKg ?? null,
+      goal_pace: profile.goalPace,
+      training_days_per_week: profile.trainingDaysPerWeek,
+      training_style: profile.trainingStyle,
+      focus_areas: profile.focusAreas,
     };
 
-    const { error } = await client.from('profiles').update(payload).eq('id', user.id);
-    if (missingColumn(error) === 'height_unit') {
-      const { height_unit: _heightUnit, ...legacyPayload } = payload;
-      const retry = await client.from('profiles').update(legacyPayload).eq('id', user.id);
-      if (retry.error) throw retry.error;
-      return;
-    }
-    if (error) throw error;
+    await saveDroppingMissingColumns(payload, (row) =>
+      client.from('profiles').update(row).eq('id', user.id),
+    );
   }
 
   async loadPet(): Promise<PetState | null> {
@@ -132,15 +139,7 @@ export class SupabaseRepository {
       last_event_at: pet.lastEventAt ?? null,
     });
 
-    let row: Record<string, unknown> = payload;
-    for (let attempt = 0; attempt <= Object.keys(payload).length; attempt += 1) {
-      const { error } = await client.from('pets').upsert(row);
-      if (!error) return;
-      const column = missingColumn(error);
-      if (!column || !(column in row)) throw error;
-      const { [column]: _absent, ...remaining } = row;
-      row = remaining;
-    }
+    await saveDroppingMissingColumns(payload, (row) => client.from('pets').upsert(row));
   }
 
   async loadEvents(): Promise<HealthEvent[]> {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata } from "../domain/health";
 import {
+  FOCUS_AREAS,
   calculateMacroTargets,
   cmToFeetAndInches,
   convertHeightToFeetAndInches,
@@ -8,6 +9,7 @@ import {
   feetAndInchesToCm,
   parseNumberInput,
   type BodyProfile,
+  type FocusArea,
 } from "../domain/macroTargets";
 import {
   estimateCaloriesBurned,
@@ -42,6 +44,11 @@ export function ProfilePage({
   const displayedHeight = profile.heightUnit === "ft"
     ? convertHeightToFeetAndInches(profile.heightCm)
     : { feet: 0, inches: profile.heightCm };
+  const displayedTarget = profile.targetWeightKg
+    ? profile.weightUnit === "lb"
+      ? Math.round(convertWeightValue(profile.targetWeightKg, "kg", "lb") * 10) / 10
+      : Math.round(profile.targetWeightKg * 10) / 10
+    : "";
   const updateWeight = (value: string) => update("weightKg", profile.weightUnit === "lb" ? parseNumberInput(value) / 2.20462 : parseNumberInput(value));
   const updateHeightInFt = (feet: number, inches: number) => update("heightCm", feetAndInchesToCm(feet, inches));
   const changeWeightUnit = (nextUnit: BodyProfile["weightUnit"]) => update("weightUnit", nextUnit);
@@ -65,6 +72,13 @@ export function ProfilePage({
     return `${game} · ${session.score} mind score`;
   }
   return "Healthy moment";
+};
+
+const FOCUS_LABEL: Record<FocusArea, string> = {
+  nutrition: "Eat better",
+  training: "Get stronger",
+  movement: "Move more",
+  mind: "Sharpen my mind",
 };
 
 const HISTORY_PAGE_SIZE = 20;
@@ -221,7 +235,88 @@ const HISTORY_PAGE_SIZE = 20;
                   <option value="gain">Build muscle</option>
                 </select>
               </label>
+              <label>
+                Pace
+                <select
+                  value={profile.goalPace}
+                  onChange={(event) =>
+                    update("goalPace", event.target.value as BodyProfile["goalPace"])
+                  }
+                >
+                  <option value="gentle">Gentle</option>
+                  <option value="steady">Steady</option>
+                  <option value="focused">Focused</option>
+                </select>
+              </label>
+              <label>
+                Target weight ({profile.weightUnit})
+                <input
+                  type="number"
+                  min={profile.weightUnit === "lb" ? 66 : 30}
+                  max={profile.weightUnit === "lb" ? 661 : 300}
+                  placeholder="Optional"
+                  value={displayedTarget}
+                  onChange={(event) =>
+                    update(
+                      "targetWeightKg",
+                      event.target.value
+                        ? profile.weightUnit === "lb"
+                          ? parseNumberInput(event.target.value) / 2.20462
+                          : parseNumberInput(event.target.value)
+                        : undefined,
+                    )
+                  }
+                />
+              </label>
+              <label>
+                Training days / week
+                <input
+                  type="number"
+                  min="0"
+                  max="7"
+                  value={profile.trainingDaysPerWeek}
+                  onChange={(event) =>
+                    update(
+                      "trainingDaysPerWeek",
+                      Math.max(0, Math.min(7, parseNumberInput(event.target.value))),
+                    )
+                  }
+                />
+              </label>
+              <label>
+                Training style
+                <select
+                  value={profile.trainingStyle}
+                  onChange={(event) =>
+                    update("trainingStyle", event.target.value as BodyProfile["trainingStyle"])
+                  }
+                >
+                  <option value="strength">Strength</option>
+                  <option value="cardio">Cardio</option>
+                  <option value="mixed">A bit of both</option>
+                </select>
+              </label>
             </div>
+            <fieldset className="focus-picker">
+              <legend>What you want from Vitto</legend>
+              {FOCUS_AREAS.map((area) => (
+                <label key={area} className={profile.focusAreas.includes(area) ? "focus-chosen" : ""}>
+                  <input
+                    type="checkbox"
+                    checked={profile.focusAreas.includes(area)}
+                    onChange={() =>
+                      update(
+                        "focusAreas",
+                        profile.focusAreas.includes(area)
+                          ? profile.focusAreas.filter((item) => item !== area)
+                          : [...profile.focusAreas, area],
+                      )
+                    }
+                  />
+                  {FOCUS_LABEL[area]}
+                </label>
+              ))}
+            </fieldset>
             <button className="primary" type="submit">
               Save profile <span>→</span>
             </button>

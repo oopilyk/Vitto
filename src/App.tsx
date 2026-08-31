@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import type {
   BrainTrainingMetadata,
   HealthEvent,
@@ -7,13 +7,12 @@ import type {
   WorkoutMetadata,
 } from "./domain/health";
 import {
+  FOCUS_AREAS,
+  PROFILE_SURVEY_DEFAULTS,
   calculateMacroTargets,
-  cmToFeetAndInches,
-  convertHeightToFeetAndInches,
-  convertWeightValue,
-  feetAndInchesToCm,
-  parseNumberInput,
+  withSurveyDefaults,
   type BodyProfile,
+  type FocusArea,
 } from "./domain/macroTargets";
 import {
   estimateCaloriesBurned,
@@ -48,6 +47,7 @@ import { isSupabaseConfigured } from "./services/supabaseClient";
 import { SupabaseRepository } from "./services/supabaseRepository";
 import { ProfilePage } from "./components/ProfilePage";
 import { WorkoutFlow } from "./components/WorkoutFlow";
+import { Onboarding } from "./components/Onboarding";
 import { MindGym } from "./components/MindGym";
 import { mindScoreLabel } from "./domain/brainGames";
 import { playCelebrationSound, playMealSound, playMunchSound } from "./services/mealFeedback";
@@ -110,6 +110,7 @@ function App() {
     weightUnit: "kg",
     activity: "moderate",
     goal: "maintain",
+    ...PROFILE_SURVEY_DEFAULTS,
   });
   const [showMealCapture, setShowMealCapture] = useState(false);
   const [view, setView] = useState<"pet" | "profile">("pet");
@@ -191,7 +192,14 @@ function App() {
     }
     setAccountDataReady(true);
     const savedProfile = localStorage.getItem("vitto.profile");
-    if (savedProfile) setProfile({ heightUnit: "cm", weightUnit: "kg", ...(JSON.parse(savedProfile) as Partial<BodyProfile>) } as BodyProfile);
+    if (savedProfile)
+      setProfile(
+        withSurveyDefaults({
+          heightUnit: "cm",
+          weightUnit: "kg",
+          ...(JSON.parse(savedProfile) as Partial<BodyProfile>),
+        }),
+      );
   }, [session]);
 
   const submitAuth = async (event: React.FormEvent) => {
@@ -345,26 +353,6 @@ function App() {
   const todaySteps = events.find((event) => event.type === "STEP_ACTIVITY" && new Date(event.occurredAt).toDateString() === new Date().toDateString());
   const steps = todaySteps ? (todaySteps.metadata as { steps: number }).steps : 0;
   const targets = calculateMacroTargets(profile);
-  const displayedWeight = profile.weightUnit === "lb"
-    ? Math.round(convertWeightValue(profile.weightKg, "kg", "lb") * 10) / 10
-    : profile.weightKg;
-  const displayedHeight = profile.heightUnit === "ft"
-    ? convertHeightToFeetAndInches(profile.heightCm)
-    : { feet: 0, inches: profile.heightCm };
-  const updateWeight = (value: string) => {
-    const nextWeightKg = profile.weightUnit === "lb"
-      ? parseNumberInput(value) / 2.20462
-      : parseNumberInput(value);
-    updateProfile("weightKg", nextWeightKg);
-  };
-  const updateHeightInCm = (value: string) => updateProfile("heightCm", Number(value) || 0);
-  const updateHeightInFt = (feet: number, inches: number) => updateProfile("heightCm", feetAndInchesToCm(feet, inches));
-  const changeWeightUnit = (nextUnit: BodyProfile["weightUnit"]) => {
-    updateProfile("weightUnit", nextUnit);
-  };
-  const changeHeightUnit = (nextUnit: BodyProfile["heightUnit"]) => {
-    updateProfile("heightUnit", nextUnit);
-  };
   const today = new Date();
   const todaysEvents = getEventsForDay(events, today);
   const todaysMeals = getMealsForDay(events, today);
@@ -446,183 +434,27 @@ function App() {
 
   if (!pet) {
     return (
-      <main className="welcome">
-        <div className="welcome-copy">
-          <div className="welcome-top">
-            <p className="kicker">VITTO / YOUR LIFE, THEIR STORY</p>
-            {isSupabaseConfigured && session && (
-              <button
-                className="text-button"
-                type="button"
-                onClick={() => {
-                  signOut()
-                    .then(() => {
-                      setSession(null);
-                      setPet(null);
-                      setEvents([]);
-                    })
-                    .catch(() => setAuthError("Could not sign out."));
-                }}
-              >
-                Log out
-              </button>
-            )}
-          </div>
-          <h1>
-            Raise a pet
-            <br />
-            <em>by living well.</em>
-          </h1>
-          <p className="intro">
-            Set a few basics so your companion can learn what fuel supports your
-            goals.
-          </p>
-          <label>
-            What will you call them?
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              maxLength={18}
-            />
-          </label>
-          <div className="profile-grid">
-            <label>
-              Age
-              <input
-                type="number"
-                min="13"
-                max="100"
-                value={profile.age}
-                onChange={(event) => updateProfile("age", parseNumberInput(event.target.value))}
-              />
-            </label>
-            <label>
-              Weight ({profile.weightUnit})
-              <input
-                type="number"
-                min={profile.weightUnit === "lb" ? 66 : 30}
-                max={profile.weightUnit === "lb" ? 661 : 300}
-                value={displayedWeight}
-                onChange={(event) => updateWeight(event.target.value)}
-              />
-            </label>
-            <label>
-              Unit
-              <select
-                value={profile.weightUnit}
-                onChange={(event) =>
-                  changeWeightUnit(event.target.value as BodyProfile["weightUnit"])
-                }
-              >
-                <option value="kg">Kilograms (kg)</option>
-                <option value="lb">Pounds (lb)</option>
-              </select>
-            </label>
-            <label>
-              Height unit
-              <select
-                value={profile.heightUnit}
-                onChange={(event) =>
-                  changeHeightUnit(event.target.value as BodyProfile["heightUnit"])
-                }
-              >
-                <option value="cm">Centimeters</option>
-                <option value="ft">Feet & inches</option>
-              </select>
-            </label>
-            {profile.heightUnit === "cm" ? (
-              <label>
-                Height (cm)
-                <input
-                  type="number"
-                  min="120"
-                  max="230"
-                  value={profile.heightCm}
-                  onChange={(event) => updateHeightInCm(event.target.value)}
-                />
-              </label>
-            ) : (
-              <>
-                <label>
-                  Height (ft)
-                  <input
-                    type="number"
-                    min="3"
-                    max="8"
-                    value={displayedHeight.feet}
-                    onChange={(event) =>
-                      updateHeightInFt(Number(event.target.value) || 0, displayedHeight.inches)
-                    }
-                  />
-                </label>
-                <label>
-                  Height (in)
-                  <input
-                    type="number"
-                    min="0"
-                    max="11"
-                    value={displayedHeight.inches}
-                    onChange={(event) =>
-                      updateHeightInFt(displayedHeight.feet, Number(event.target.value) || 0)
-                    }
-                  />
-                </label>
-              </>
-            )}
-            <label>
-              Sex
-              <select
-                value={profile.sex}
-                onChange={(event) =>
-                  updateProfile("sex", event.target.value as BodyProfile["sex"])
-                }
-              >
-                <option value="other">Prefer not to say</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
-              </select>
-            </label>
-            <label>
-              Activity
-              <select
-                value={profile.activity}
-                onChange={(event) =>
-                  updateProfile(
-                    "activity",
-                    event.target.value as BodyProfile["activity"],
-                  )
-                }
-              >
-                <option value="low">Light</option>
-                <option value="moderate">Moderate</option>
-                <option value="high">High</option>
-              </select>
-            </label>
-            <label>
-              Goal
-              <select
-                value={profile.goal}
-                onChange={(event) =>
-                  updateProfile("goal", event.target.value as BodyProfile["goal"])
-                }
-              >
-                <option value="lose">Lose fat</option>
-                <option value="maintain">Maintain</option>
-                <option value="gain">Build muscle</option>
-              </select>
-            </label>
-          </div>
-          <button className="primary" onClick={adopt}>
-            Adopt {name || "your pet"} <span>→</span>
-          </button>
-          {authError && <p className="form-error">{authError}</p>}
-        </div>
-        <div className="welcome-pet" aria-label="A sleepy orange pet">
-          <div className="pet-face large">◡</div>
-          <div className="spark spark-one">✦</div>
-          <div className="spark spark-two">✧</div>
-        </div>
-      </main>
+      <Onboarding
+        name={name}
+        onNameChange={setName}
+        profile={profile}
+        onUpdate={updateProfile}
+        onAdopt={adopt}
+        error={authError}
+        onSignOut={
+          isSupabaseConfigured && session
+            ? () => {
+                signOut()
+                  .then(() => {
+                    setSession(null);
+                    setPet(null);
+                    setEvents([]);
+                  })
+                  .catch(() => setAuthError("Could not sign out."));
+              }
+            : undefined
+        }
+      />
     );
   }
 
@@ -639,6 +471,133 @@ function App() {
   const progress = pet.xp;
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   const daysSinceAdoption = Math.max(1, Math.floor((today.getTime() - new Date(pet.adoptedAt).getTime()) / ONE_DAY_MS) + 1);
+  const focusSections: Record<FocusArea, ReactNode> = {
+    nutrition: (
+      <Fragment key="nutrition">
+          <div className="ring-row">
+            <NutrientRing
+              value={consumed.calories}
+              percent={(consumed.calories / targets.calories) * 100}
+              label="Consumed"
+              color="#d85d45"
+            />
+            <NutrientRing
+              value={burned}
+              percent={(burned / targets.calories) * 100}
+              label="Burned"
+              color="#78a598"
+            />
+            <NutrientRing
+              value={remaining}
+              percent={(Math.abs(remaining) / targets.calories) * 100}
+              label={remaining < 0 ? "Over" : "Remaining"}
+              color={remaining < 0 ? "#b34e3e" : "#9c8dba"}
+              emphasis={remaining < 0}
+            />
+          </div>
+          <div className="macro-breakdown">
+            <div className="macro-breakdown-row">
+              <span>Protein</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.proteinGrams / targets.proteinGrams) * 100)}%` }} /></i>
+              <b>{consumed.proteinGrams}g <small>/ {targets.proteinGrams}g</small></b>
+            </div>
+            <div className="macro-breakdown-row">
+              <span>Carbs</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.carbsGrams / targets.carbsGrams) * 100)}%` }} /></i>
+              <b>{consumed.carbsGrams}g <small>/ {targets.carbsGrams}g</small></b>
+            </div>
+            <div className="macro-breakdown-row">
+              <span>Fat</span>
+              <i><em style={{ width: `${Math.min(100, (consumed.fatGrams / targets.fatGrams) * 100)}%` }} /></i>
+              <b>{consumed.fatGrams}g <small>/ {targets.fatGrams}g</small></b>
+            </div>
+          </div>
+          <div className="diary-section">
+            <div className="recent-heading">
+              <h3>Today's diary</h3>
+            </div>
+            {todaysMeals.length === 0 ? (
+              <p className="empty">Nothing logged yet today — add a meal to get started.</p>
+            ) : (
+              todaysMeals.map((event) => <MealDiaryRow event={event} key={event.id} />)
+            )}
+          </div>
+      </Fragment>
+    ),
+    training: (
+      <Fragment key="training">
+          <div className="recent">
+            <div className="recent-heading">
+              <h3>Today's care</h3>
+              <button onClick={() => setView("profile")}>
+                Full history <span>→</span>
+              </button>
+            </div>
+            {todaysNonMealEvents.length === 0 ? (
+              <p className="empty">
+                Log a workout, sync steps, or train your mind to see it here.
+              </p>
+            ) : (
+              todaysNonMealEvents.map((event) => (
+                <div className="event" key={event.id}>
+                  <span className="event-dot" />
+                  <span>
+                    <b>{CARE_EVENT_LABEL[event.type] ?? "A healthy moment"}</b>
+                    <small>
+                      {new Date(event.occurredAt).toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </small>
+                  </span>
+                  <span className="event-xp">+ XP</span>
+                </div>
+              ))
+            )}
+          </div>
+      </Fragment>
+    ),
+    movement: (
+      <Fragment key="movement">
+          <div className="steps-panel"><div><p className="kicker">TODAY'S EXPLORING</p><h3>{steps.toLocaleString()} <small>/ {stepGoal.toLocaleString()} steps</small></h3><p>{pet.name} {steps ? "explored with you today." : "is waiting for today's adventure."}</p></div><label>Daily goal<input type="number" min="1000" max="100000" value={stepGoal} onChange={(event) => setStepGoal(Number(event.target.value) || 1000)} /></label></div>
+      </Fragment>
+    ),
+    mind: (
+      <Fragment key="mind">
+          <div className="steps-panel mind-panel">
+            <div>
+              <p className="kicker">TODAY'S THINKING</p>
+              <h3>
+                {bestMindScore || "—"}{" "}
+                <small>
+                  best mind score
+                  {todaysMindSessions.length
+                    ? ` · ${todaysMindSessions.length} session${todaysMindSessions.length > 1 ? "s" : ""}`
+                    : ""}
+                </small>
+              </h3>
+              <p>
+                {todaysMindSessions.length
+                  ? `${mindScoreLabel(bestMindScore)} — ${pet.name} felt you thinking.`
+                  : `${pet.name} is up for a puzzle whenever you are.`}
+              </p>
+              <p className="mind-stat-line">
+                Mind <i><em style={{ width: `${pet.mind}%` }} /></i> <b>{pet.mind}</b>/100
+              </p>
+            </div>
+            <button className="text-button mind-panel-start" onClick={trainMind}>
+              Train your mind <span>→</span>
+            </button>
+          </div>
+      </Fragment>
+    ),
+  };
+  // Whatever the survey put first leads the dashboard; the rest still follow.
+  const orderedFocus = [
+    ...profile.focusAreas,
+    ...FOCUS_AREAS.filter((area) => !profile.focusAreas.includes(area)),
+  ];
+
   return (
     <>
       <main className="shell">
@@ -768,80 +727,7 @@ function App() {
               Today <b>⌄</b>
             </span>
           </div>
-          <div className="ring-row">
-            <NutrientRing
-              value={consumed.calories}
-              percent={(consumed.calories / targets.calories) * 100}
-              label="Consumed"
-              color="#d85d45"
-            />
-            <NutrientRing
-              value={burned}
-              percent={(burned / targets.calories) * 100}
-              label="Burned"
-              color="#78a598"
-            />
-            <NutrientRing
-              value={remaining}
-              percent={(Math.abs(remaining) / targets.calories) * 100}
-              label={remaining < 0 ? "Over" : "Remaining"}
-              color={remaining < 0 ? "#b34e3e" : "#9c8dba"}
-              emphasis={remaining < 0}
-            />
-          </div>
-          <div className="macro-breakdown">
-            <div className="macro-breakdown-row">
-              <span>Protein</span>
-              <i><em style={{ width: `${Math.min(100, (consumed.proteinGrams / targets.proteinGrams) * 100)}%` }} /></i>
-              <b>{consumed.proteinGrams}g <small>/ {targets.proteinGrams}g</small></b>
-            </div>
-            <div className="macro-breakdown-row">
-              <span>Carbs</span>
-              <i><em style={{ width: `${Math.min(100, (consumed.carbsGrams / targets.carbsGrams) * 100)}%` }} /></i>
-              <b>{consumed.carbsGrams}g <small>/ {targets.carbsGrams}g</small></b>
-            </div>
-            <div className="macro-breakdown-row">
-              <span>Fat</span>
-              <i><em style={{ width: `${Math.min(100, (consumed.fatGrams / targets.fatGrams) * 100)}%` }} /></i>
-              <b>{consumed.fatGrams}g <small>/ {targets.fatGrams}g</small></b>
-            </div>
-          </div>
-          <div className="diary-section">
-            <div className="recent-heading">
-              <h3>Today's diary</h3>
-            </div>
-            {todaysMeals.length === 0 ? (
-              <p className="empty">Nothing logged yet today — add a meal to get started.</p>
-            ) : (
-              todaysMeals.map((event) => <MealDiaryRow event={event} key={event.id} />)
-            )}
-          </div>
-          <div className="steps-panel"><div><p className="kicker">TODAY'S EXPLORING</p><h3>{steps.toLocaleString()} <small>/ {stepGoal.toLocaleString()} steps</small></h3><p>{pet.name} {steps ? "explored with you today." : "is waiting for today's adventure."}</p></div><label>Daily goal<input type="number" min="1000" max="100000" value={stepGoal} onChange={(event) => setStepGoal(Number(event.target.value) || 1000)} /></label></div>
-          <div className="steps-panel mind-panel">
-            <div>
-              <p className="kicker">TODAY'S THINKING</p>
-              <h3>
-                {bestMindScore || "—"}{" "}
-                <small>
-                  best mind score
-                  {todaysMindSessions.length
-                    ? ` · ${todaysMindSessions.length} session${todaysMindSessions.length > 1 ? "s" : ""}`
-                    : ""}
-                </small>
-              </h3>
-              <p>
-                {todaysMindSessions.length
-                  ? `${mindScoreLabel(bestMindScore)} — ${pet.name} felt you thinking.`
-                  : `${pet.name} is up for a puzzle whenever you are.`}
-              </p>
-              <p className="mind-stat-line">
-                Mind <i><em style={{ width: `${pet.mind}%` }} /></i> <b>{pet.mind}</b>/100
-              </p>
-            </div>
-            <button className="text-button mind-panel-start" onClick={trainMind}>
-              Train your mind <span>→</span>
-            </button>
-          </div>
+          {orderedFocus.map((area) => focusSections[area])}
           <div className="steps-panel screen-panel">
             <div>
               <p className="kicker">TODAY'S SCREEN TIME</p>
@@ -891,35 +777,6 @@ function App() {
               </span>
               <strong>·</strong>
             </button>
-          </div>
-          <div className="recent">
-            <div className="recent-heading">
-              <h3>Today's care</h3>
-              <button onClick={() => setView("profile")}>
-                Full history <span>→</span>
-              </button>
-            </div>
-            {todaysNonMealEvents.length === 0 ? (
-              <p className="empty">
-                Log a workout, sync steps, or train your mind to see it here.
-              </p>
-            ) : (
-              todaysNonMealEvents.map((event) => (
-                <div className="event" key={event.id}>
-                  <span className="event-dot" />
-                  <span>
-                    <b>{CARE_EVENT_LABEL[event.type] ?? "A healthy moment"}</b>
-                    <small>
-                      {new Date(event.occurredAt).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </small>
-                  </span>
-                  <span className="event-xp">+ XP</span>
-                </div>
-              ))
-            )}
           </div>
         </section>
         <footer>
