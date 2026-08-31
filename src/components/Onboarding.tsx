@@ -6,6 +6,7 @@ import {
   convertWeightValue,
   feetAndInchesToCm,
   parseNumberInput,
+  planForGoal,
   weightGoalProgress,
   type BodyProfile,
   type FocusArea,
@@ -69,6 +70,8 @@ export function Onboarding({ name, onNameChange, profile, onUpdate, onAdopt, err
 
   const targets = calculateMacroTargets(profile);
   const goalProgress = weightGoalProgress(profile);
+  const plan = planForGoal(profile);
+  const timelinePresets = [8, 12, 16, 24];
 
   const validateStep = (): string | null => {
     if (step === 0) {
@@ -78,6 +81,9 @@ export function Onboarding({ name, onNameChange, profile, onUpdate, onAdopt, err
     }
     if (step === 1 && profile.targetWeightKg && (profile.targetWeightKg < 30 || profile.targetWeightKg > 300)) {
       return 'Target weight must be between 30 and 300 kg.';
+    }
+    if (step === 1 && profile.goalWeeks !== undefined && (profile.goalWeeks < 1 || profile.goalWeeks > 104)) {
+      return 'Pick a timeline between 1 and 104 weeks.';
     }
     if (step === 3 && profile.focusAreas.length === 0) {
       return 'Pick at least one thing you want from Vitto.';
@@ -262,20 +268,77 @@ export function Onboarding({ name, onNameChange, profile, onUpdate, onAdopt, err
                     does not match “{GOAL_LABEL[profile.goal]}”. You can keep both — just checking.
                   </p>
                 )}
-                <p className="wizard-label">How hard do you want to push?</p>
-                <div className="wizard-choices">
-                  {(Object.keys(PACE_COPY) as BodyProfile['goalPace'][]).map((pace) => (
-                    <button
-                      type="button"
-                      key={pace}
-                      className={profile.goalPace === pace ? 'wizard-choice wizard-chosen' : 'wizard-choice'}
-                      onClick={() => onUpdate('goalPace', pace)}
-                    >
-                      <b>{PACE_COPY[pace].label}</b>
-                      <small>{PACE_COPY[pace].detail}</small>
-                    </button>
-                  ))}
-                </div>
+                {profile.targetWeightKg ? (
+                  <>
+                    <p className="wizard-label">By when?</p>
+                    <div className="wizard-choices wizard-choices-tight">
+                      {timelinePresets.map((weeks) => (
+                        <button
+                          type="button"
+                          key={weeks}
+                          className={profile.goalWeeks === weeks ? 'wizard-choice wizard-chosen' : 'wizard-choice'}
+                          onClick={() => onUpdate('goalWeeks', weeks)}
+                        >
+                          <b>{weeks} weeks</b>
+                          <small>{Math.round(weeks / 4.345)} months</small>
+                        </button>
+                      ))}
+                    </div>
+                    <label className="wizard-field">
+                      Or set your own (weeks)
+                      <input
+                        type="number"
+                        min="1"
+                        max="104"
+                        value={profile.goalWeeks ?? ''}
+                        placeholder="e.g. 14"
+                        onChange={(event) =>
+                          onUpdate('goalWeeks', event.target.value ? parseNumberInput(event.target.value) : undefined)
+                        }
+                      />
+                    </label>
+                    {plan && (
+                      <div className="wizard-plan">
+                        <p>
+                          <b>{plan.kgPerWeek} kg</b> per week ·{' '}
+                          <b>{Math.abs(plan.dailyAdjustment)} kcal</b>{' '}
+                          {profile.goal === 'lose' ? 'below' : 'above'} maintenance, every day until{' '}
+                          {new Date(plan.targetDate).toLocaleDateString([], {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                          .
+                        </p>
+                        {plan.capped && (
+                          <small>
+                            That pace needs {plan.requestedDaily} kcal a day, which is more than is safe to hold.
+                            Capped at {Math.abs(plan.dailyAdjustment)} — about {plan.achievableWeeks} weeks at this
+                            rate.
+                          </small>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="wizard-label">How hard do you want to push?</p>
+                    <div className="wizard-choices">
+                      {(Object.keys(PACE_COPY) as BodyProfile['goalPace'][]).map((pace) => (
+                        <button
+                          type="button"
+                          key={pace}
+                          className={profile.goalPace === pace ? 'wizard-choice wizard-chosen' : 'wizard-choice'}
+                          onClick={() => onUpdate('goalPace', pace)}
+                        >
+                          <b>{PACE_COPY[pace].label}</b>
+                          <small>{PACE_COPY[pace].detail}</small>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="wizard-hint">Set a target weight above and you can pick a deadline instead.</p>
+                  </>
+                )}
               </>
             )}
           </>
@@ -353,8 +416,10 @@ export function Onboarding({ name, onNameChange, profile, onUpdate, onAdopt, err
               </p>
               {goalProgress && goalProgress.direction !== 'maintain' && (
                 <small>
-                  {goalProgress.remainingKg} kg to {goalProgress.direction === 'lose' ? 'lose' : 'gain'} · a{' '}
-                  {PACE_COPY[profile.goalPace].label.toLowerCase()} pace
+                  {goalProgress.remainingKg} kg to {goalProgress.direction === 'lose' ? 'lose' : 'gain'} ·{' '}
+                  {plan
+                    ? `${plan.kgPerWeek} kg per week over ${plan.achievableWeeks} weeks`
+                    : `a ${PACE_COPY[profile.goalPace].label.toLowerCase()} pace`}
                 </small>
               )}
             </div>

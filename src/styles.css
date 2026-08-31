@@ -131,3 +131,10 @@
 .focus-picker label{display:flex;align-items:center;gap:9px;padding:7px 0;font:13px 'DM Sans';color:#4e5b55;cursor:pointer}
 .focus-picker label.focus-chosen{color:#26312d}
 .focus-picker input{accent-color:#d85d45}
+.wizard-choices-tight{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.wizard-hint{max-width:460px;margin:12px 0 0;font:10px 'DM Mono';color:#b1b6b0;line-height:1.5}
+.wizard-plan{max-width:460px;margin:18px 0 0;padding:14px 16px;border:1px solid rgba(132,160,138,.35);border-radius:14px;background:#eef3ec}
+.wizard-plan p{margin:0;color:#4e5b55;font-size:13px;line-height:1.6}
+.wizard-plan b{font:600 15px 'DM Sans';color:#26312d}
+.wizard-plan small{display:block;margin-top:8px;color:#9a6b5c;font:11px 'DM Mono';line-height:1.5}
+.profile-plan{margin:18px 0 0;padding:12px 14px;border-left:2px solid #84a08a;background:#eef3ec;color:#4e5b55;font-size:12px;line-height:1.5}

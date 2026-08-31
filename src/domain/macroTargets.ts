@@ -14,6 +14,7 @@ export interface BodyProfile {
   activity: 'low' | 'moderate' | 'high';
   goal: 'lose' | 'maintain' | 'gain';
   targetWeightKg?: number;
+  goalWeeks?: number;
   goalPace: GoalPace;
   trainingDaysPerWeek: number;
   trainingStyle: TrainingStyle;
@@ -83,7 +84,63 @@ export const activityFactorFor = (profile: BodyProfile): number => {
   return BASE_ACTIVITY_FACTOR[profile.activity] + days * TRAINING_DAY_FACTOR;
 };
 
+/**
+ * A kilogram of body mass is worth roughly 7,700 kcal, so a kilo per week is about
+ * 1,100 kcal per day. The caps keep an ambitious deadline from turning into an
+ * unsafe deficit; a surplus is capped lower because excess turns to fat faster
+ * than a deficit turns to loss.
+ */
+export const DAILY_KCAL_PER_KG_PER_WEEK = 1100;
+export const MAX_DAILY_DEFICIT = 1000;
+export const MAX_DAILY_SURPLUS = 500;
+
+export interface GoalPlan {
+  weeks: number;
+  totalKg: number;
+  kgPerWeek: number;
+  dailyAdjustment: number;
+  requestedDaily: number;
+  capped: boolean;
+  achievableWeeks: number;
+  targetDate: string;
+}
+
+/**
+ * Turns "8 kg by 12 weeks" into a daily calorie figure. Returns null when the
+ * profile has not given both a target weight and a deadline — the pace presets
+ * cover that case instead.
+ */
+export const planForGoal = (profile: BodyProfile): GoalPlan | null => {
+  const weeks = finite(profile.goalWeeks ?? 0, 0);
+  const target = profile.targetWeightKg;
+  if (profile.goal === 'maintain' || !target || !Number.isFinite(target) || weeks <= 0) return null;
+
+  const totalKg = Math.abs(target - profile.weightKg);
+  const kgPerWeek = totalKg / weeks;
+  const requestedDaily = kgPerWeek * DAILY_KCAL_PER_KG_PER_WEEK;
+  const cap = profile.goal === 'lose' ? MAX_DAILY_DEFICIT : MAX_DAILY_SURPLUS;
+  const capped = requestedDaily > cap;
+  const dailyMagnitude = Math.round(Math.min(requestedDaily, cap));
+  const cappedRatePerWeek = cap / DAILY_KCAL_PER_KG_PER_WEEK;
+
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + Math.round(weeks * 7));
+
+  return {
+    weeks,
+    totalKg: Math.round(totalKg * 10) / 10,
+    kgPerWeek: Math.round(kgPerWeek * 100) / 100,
+    dailyAdjustment: profile.goal === 'lose' ? -dailyMagnitude : dailyMagnitude,
+    requestedDaily: Math.round(requestedDaily),
+    capped,
+    achievableWeeks: capped ? Math.ceil(totalKg / cappedRatePerWeek) : weeks,
+    targetDate: targetDate.toISOString().slice(0, 10),
+  };
+};
+
 export const calorieAdjustmentFor = (profile: BodyProfile): number => {
+  const plan = planForGoal(profile);
+  if (plan) return plan.dailyAdjustment;
   const pace = PACE_DEFICIT[profile.goalPace] ? profile.goalPace : 'steady';
   if (profile.goal === 'lose') return -PACE_DEFICIT[pace];
   if (profile.goal === 'gain') return PACE_SURPLUS[pace];

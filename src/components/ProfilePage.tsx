@@ -3,6 +3,7 @@ import type { BrainTrainingMetadata, HealthEvent, MealMetadata } from "../domain
 import {
   FOCUS_AREAS,
   calculateMacroTargets,
+  planForGoal,
   cmToFeetAndInches,
   convertHeightToFeetAndInches,
   convertWeightValue,
@@ -44,6 +45,7 @@ export function ProfilePage({
   const displayedHeight = profile.heightUnit === "ft"
     ? convertHeightToFeetAndInches(profile.heightCm)
     : { feet: 0, inches: profile.heightCm };
+  const plan = planForGoal(profile);
   const displayedTarget = profile.targetWeightKg
     ? profile.weightUnit === "lb"
       ? Math.round(convertWeightValue(profile.targetWeightKg, "kg", "lb") * 10) / 10
@@ -269,6 +271,22 @@ const HISTORY_PAGE_SIZE = 20;
                 />
               </label>
               <label>
+                Goal timeline (weeks)
+                <input
+                  type="number"
+                  min="1"
+                  max="104"
+                  placeholder="Optional"
+                  value={profile.goalWeeks ?? ""}
+                  onChange={(event) =>
+                    update(
+                      "goalWeeks",
+                      event.target.value ? parseNumberInput(event.target.value) : undefined,
+                    )
+                  }
+                />
+              </label>
+              <label>
                 Training days / week
                 <input
                   type="number"
@@ -317,6 +335,13 @@ const HISTORY_PAGE_SIZE = 20;
                 </label>
               ))}
             </fieldset>
+            {plan && (
+              <p className="profile-plan">
+                {plan.totalKg} kg over {plan.achievableWeeks} weeks — {plan.kgPerWeek} kg per week,{" "}
+                {Math.abs(plan.dailyAdjustment)} kcal {profile.goal === "lose" ? "below" : "above"} maintenance
+                {plan.capped ? " (capped to a safe rate)" : ""}.
+              </p>
+            )}
             <button className="primary" type="submit">
               Save profile <span>→</span>
             </button>

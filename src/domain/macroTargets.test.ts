@@ -5,6 +5,7 @@ import {
   convertHeightToFeetAndInches,
   convertWeightValue,
   feetAndInchesToCm,
+  planForGoal,
   weightGoalProgress,
   withSurveyDefaults,
   type BodyProfile,
@@ -122,5 +123,61 @@ describe('withSurveyDefaults', () => {
     const answered = withSurveyDefaults({ goalPace: 'focused', focusAreas: ['mind'] });
     expect(answered.goalPace).toBe('focused');
     expect(answered.focusAreas).toEqual(['mind']);
+  });
+});
+
+describe('planForGoal', () => {
+  const cutting = { ...baseProfile, goal: 'lose' as const, targetWeightKg: 74, goalWeeks: 12 };
+
+  it('turns a target and a deadline into a daily calorie gap', () => {
+    const plan = planForGoal(cutting);
+    expect(plan?.totalKg).toBe(6);
+    expect(plan?.kgPerWeek).toBe(0.5);
+    // 0.5 kg/week ≈ 550 kcal/day
+    expect(plan?.dailyAdjustment).toBe(-550);
+    expect(plan?.capped).toBe(false);
+    expect(plan?.achievableWeeks).toBe(12);
+  });
+
+  it('drives the calorie target instead of the pace preset', () => {
+    const fromTimeline = calculateMacroTargets(cutting).calories;
+    const fromPace = calculateMacroTargets({ ...cutting, goalWeeks: undefined }).calories;
+    expect(fromTimeline).not.toBe(fromPace);
+
+    const slower = calculateMacroTargets({ ...cutting, goalWeeks: 24 }).calories;
+    expect(slower).toBeGreaterThan(fromTimeline);
+  });
+
+  it('caps an unsafe deadline and says how long it would really take', () => {
+    const crash = planForGoal({ ...cutting, targetWeightKg: 60, goalWeeks: 4 });
+    expect(crash?.requestedDaily).toBeGreaterThan(1000);
+    expect(crash?.dailyAdjustment).toBe(-1000);
+    expect(crash?.capped).toBe(true);
+    expect(crash?.achievableWeeks).toBeGreaterThan(4);
+  });
+
+  it('caps a bulk lower than a cut', () => {
+    const bulk = planForGoal({ ...baseProfile, goal: 'gain', targetWeightKg: 90, goalWeeks: 4 });
+    expect(bulk?.dailyAdjustment).toBe(500);
+  });
+
+  it('falls back to the pace presets without both answers', () => {
+    expect(planForGoal({ ...cutting, goalWeeks: undefined })).toBeNull();
+    expect(planForGoal({ ...cutting, targetWeightKg: undefined })).toBeNull();
+    expect(planForGoal({ ...cutting, goal: 'maintain' })).toBeNull();
+    expect(planForGoal({ ...cutting, goalWeeks: 0 })).toBeNull();
+  });
+
+  it('still respects the calorie floor when the deadline is aggressive', () => {
+    const targets = calculateMacroTargets({
+      ...baseProfile,
+      sex: 'female',
+      weightKg: 55,
+      heightCm: 160,
+      goal: 'lose',
+      targetWeightKg: 50,
+      goalWeeks: 4,
+    });
+    expect(targets.calories).toBeGreaterThanOrEqual(1200);
   });
 });
