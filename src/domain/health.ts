@@ -2,6 +2,7 @@ export type HealthEventType =
   | 'STEP_ACTIVITY'
   | 'WORKOUT'
   | 'MEAL'
+  | 'BRAIN_TRAINING'
   | 'SLEEP'
   | 'SCREEN_TIME'
   | 'HYDRATION'
@@ -36,6 +37,17 @@ export interface WorkoutStats { durationMinutes: number; exerciseCount: number; 
 export interface StepMetadata {
   steps: number;
   date?: string;
+}
+
+export interface BrainTrainingMetadata {
+  game: 'math' | 'reading';
+  correct: number;
+  total: number;
+  durationSeconds: number;
+  score: number;
+  bestStreak?: number;
+  passageId?: string;
+  passageTitle?: string;
 }
 
 export interface MealMetadata {

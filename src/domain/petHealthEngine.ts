@@ -1,4 +1,4 @@
-import type { HealthEvent, MealMetadata, StepMetadata, WorkoutMetadata } from './health';
+import type { BrainTrainingMetadata, HealthEvent, MealMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 
 export interface EngineResult {
@@ -10,6 +10,7 @@ const HUNGRY_NUTRITION_THRESHOLD = 35;
 const SLEEPY_ENERGY_THRESHOLD = 40;
 const BRIGHT_ENERGY_THRESHOLD = 65;
 const BRIGHT_HAPPINESS_THRESHOLD = 65;
+const SHARP_SESSION_ACCURACY = 0.8;
 
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
   if (nutrition < HUNGRY_NUTRITION_THRESHOLD) return 'hungry';
@@ -38,6 +39,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
     legStrength: clamp(pet.legStrength + (delta.legStrength ?? 0), 0, 100),
     endurance: clamp(pet.endurance + (delta.endurance ?? 0), 0, 100),
     recovery: clamp(pet.recovery + (delta.recovery ?? 0)),
+    mind: clamp(pet.mind + (delta.mind ?? 0)),
     mood: determineMood(nextEnergy, nextNutrition, nextHappiness),
     lastEventAt: occurredAt,
   };
@@ -62,7 +64,7 @@ export class PetHealthEngine {
         const pullBonus = muscles.some((group) => ['back', 'biceps'].includes(group)) ? 4 : 0;
         const legBonus = muscles.includes('legs') ? 4 : 0;
         delta = hasWorkoutStats
-          ? { health: 2, energy: 6, happiness: 5, strength: cardio ? 1 : Math.min(5, 2 + Math.floor(sets / 8)), pushingStrength: pushBonus, pullingStrength: pullBonus, legStrength: legBonus, endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : 2, recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0, xp: Math.min(40, 10 + Math.min(15, sets) + durationBonus + hardBonus) }
+          ? { health: 2, energy: 6, happiness: 5, strength: cardio ? 1 : Math.min(5, 2 + Math.floor(sets / 8)), pushingStrength: pushBonus, pullingStrength: pullBonus, legStrength: legBonus, endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : 2, recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0, mind: 1, xp: Math.min(40, 10 + Math.min(15, sets) + durationBonus + hardBonus) }
           : { energy: 6, happiness: 5, strength: metadata.workoutType === 'strength' ? 4 : 1, endurance: 2, xp: 18 + hardBonus };
         message = `${pet.name} trained for ${metadata.durationMinutes} minutes and feels stronger.`;
         eventLabel = `Trained ${metadata.workoutType}`;
@@ -74,6 +76,23 @@ export class PetHealthEngine {
         delta = { energy: milestone ? 7 : 3, happiness: 4, endurance: milestone ? 3 : 1, xp: milestone ? 16 : 8 };
         message = milestone ? `${pet.name} explored somewhere new today.` : `${pet.name} enjoyed a little walk with you.`;
         eventLabel = milestone ? 'Explored the wilds' : 'Went for a walk';
+        break;
+      }
+      case 'BRAIN_TRAINING': {
+        const metadata = event.metadata as unknown as BrainTrainingMetadata;
+        const accuracy = metadata.total > 0 ? metadata.correct / metadata.total : 0;
+        const sharp = accuracy >= SHARP_SESSION_ACCURACY;
+        delta = {
+          happiness: sharp ? 5 : 3,
+          recovery: sharp ? 4 : 2,
+          energy: 1,
+          mind: Math.max(2, Math.round(accuracy * (metadata.game === 'reading' ? 8 : 6))),
+          xp: Math.min(24, 8 + Math.round(accuracy * 12) + (metadata.game === 'reading' ? 2 : 0)),
+        };
+        message = sharp
+          ? `${pet.name} feels clear-headed after thinking that through with you.`
+          : `${pet.name} liked puzzling over that together.`;
+        eventLabel = metadata.game === 'math' ? 'Quick maths' : 'Read and recall';
         break;
       }
       case 'MEAL': {

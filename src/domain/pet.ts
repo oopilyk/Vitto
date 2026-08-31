@@ -17,6 +17,7 @@ export interface PetState {
   legStrength: number;
   endurance: number;
   recovery: number;
+  mind: number;
   mood: PetMood;
   adoptedAt: string;
   lastEventAt?: string;
@@ -33,6 +34,7 @@ export interface PetDelta {
   legStrength?: number;
   endurance?: number;
   recovery?: number;
+  mind?: number;
   xp?: number;
 }
 
@@ -81,6 +83,7 @@ export const createPet = (userId: string, name: string, species: PetState['speci
   legStrength: 10,
   endurance: 16,
   recovery: 64,
+  mind: 20,
   mood: 'content',
   adoptedAt: new Date().toISOString(),
 });

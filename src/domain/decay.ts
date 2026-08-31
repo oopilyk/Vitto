@@ -6,6 +6,7 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ENERGY_DECAY_PER_DAY = 4;
 const NUTRITION_DECAY_PER_DAY = 6;
 const HAPPINESS_DECAY_PER_DAY = 3;
+const MIND_DECAY_PER_DAY = 2;
 
 /**
  * Projects a pet's needs-based stats forward from its last care event to `asOf`.
@@ -21,12 +22,14 @@ export const applyTimeDecay = (pet: PetState, asOf: Date): PetState => {
   const energy = clamp(pet.energy - elapsedDays * ENERGY_DECAY_PER_DAY);
   const nutrition = clamp(pet.nutrition - elapsedDays * NUTRITION_DECAY_PER_DAY);
   const happiness = clamp(pet.happiness - elapsedDays * HAPPINESS_DECAY_PER_DAY);
+  const mind = clamp(pet.mind - elapsedDays * MIND_DECAY_PER_DAY);
 
   return {
     ...pet,
     energy,
     nutrition,
     happiness,
+    mind,
     mood: determineMood(energy, nutrition, happiness),
   };
 };

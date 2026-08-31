@@ -3,7 +3,7 @@ import type { PetState } from '../domain/pet';
 import type { BodyProfile } from '../domain/macroTargets';
 import { supabase } from './supabaseClient';
 
-type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; adopted_at: string | null };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 
 // Every numeric column on `pets` is an integer in Postgres, and decayed stats can
@@ -12,6 +12,19 @@ const wholeNumbers = <T extends Record<string, unknown>>(row: T): T =>
   Object.fromEntries(
     Object.entries(row).map(([key, value]) => [key, typeof value === 'number' ? Math.round(value) : value]),
   ) as T;
+
+/**
+ * PostgREST reports an unknown column as PGRST204 on writes and Postgres as 42703
+ * on reads; both name the column. Pulling that name out lets a save recover from a
+ * database that has not run the latest migration yet, one column at a time.
+ */
+const missingColumn = (error: { code?: string; message?: string } | null): string | null => {
+  if (!error?.message) return null;
+  if (error.code !== 'PGRST204' && error.code !== '42703') return null;
+  const quoted = error.message.match(/'([a-z_]+)' column/);
+  const named = error.message.match(/column (?:[a-z_]+\.)?([a-z_]+) does not exist/);
+  return quoted?.[1] ?? named?.[1] ?? null;
+};
 
 const requireClient = () => {
   if (!supabase) throw new Error('Supabase is not configured. Add the VITE_SUPABASE_* variables.');
@@ -76,7 +89,7 @@ export class SupabaseRepository {
     };
 
     const { error } = await client.from('profiles').update(payload).eq('id', user.id);
-    if (error && (error.code === '42703' || /height_unit/i.test(error.message))) {
+    if (missingColumn(error) === 'height_unit') {
       const { height_unit: _heightUnit, ...legacyPayload } = payload;
       const retry = await client.from('profiles').update(legacyPayload).eq('id', user.id);
       if (retry.error) throw retry.error;
@@ -91,7 +104,7 @@ export class SupabaseRepository {
     if (error?.code === 'PGRST116') return null;
     if (error) throw error;
     const pet = data as PetRow;
-    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength, adoptedAt: pet.adopted_at ?? new Date().toISOString() };
+    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength, mind: pet.mind ?? 20, adoptedAt: pet.adopted_at ?? new Date().toISOString() };
   }
 
   async savePet(pet: PetState): Promise<void> {
@@ -113,19 +126,21 @@ export class SupabaseRepository {
       leg_strength: pet.legStrength,
       endurance: pet.endurance,
       recovery: pet.recovery,
+      mind: pet.mind,
       mood: pet.mood,
       adopted_at: pet.adoptedAt,
       last_event_at: pet.lastEventAt ?? null,
     });
 
-    const { error } = await client.from('pets').upsert(payload);
-    if (error && (error.code === '42703' || /adopted_at/i.test(error.message))) {
-      const { adopted_at: _adoptedAt, ...legacyPayload } = payload;
-      const retry = await client.from('pets').upsert(legacyPayload);
-      if (retry.error) throw retry.error;
-      return;
+    let row: Record<string, unknown> = payload;
+    for (let attempt = 0; attempt <= Object.keys(payload).length; attempt += 1) {
+      const { error } = await client.from('pets').upsert(row);
+      if (!error) return;
+      const column = missingColumn(error);
+      if (!column || !(column in row)) throw error;
+      const { [column]: _absent, ...remaining } = row;
+      row = remaining;
     }
-    if (error) throw error;
   }
 
   async loadEvents(): Promise<HealthEvent[]> {

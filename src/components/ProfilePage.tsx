@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { HealthEvent, MealMetadata } from "../domain/health";
+import type { BrainTrainingMetadata, HealthEvent, MealMetadata } from "../domain/health";
 import {
   calculateMacroTargets,
   cmToFeetAndInches,
@@ -48,6 +48,7 @@ export function ProfilePage({
   const changeHeightUnit = (nextUnit: BodyProfile["heightUnit"]) => update("heightUnit", nextUnit);
   const meals = events.filter((event) => event.type === "MEAL").length;
   const workouts = events.filter((event) => event.type === "WORKOUT").length;
+  const mindSessions = events.filter((event) => event.type === "BRAIN_TRAINING").length;
   const today = new Date();
   const todaysEvents = getEventsForDay(events, today);
   const todaysMeals = getMealsForDay(events, today);
@@ -55,7 +56,18 @@ export function ProfilePage({
   const burned = estimateCaloriesBurned(todaysEvents);
   const remaining = targets.calories - consumed.calories + burned;
   const streaks = calculateStreaks(events, today);
-  const HISTORY_PAGE_SIZE = 20;
+  const describeEvent = (event: HealthEvent): string => {
+  if (event.type === "WORKOUT") return "Workout";
+  if (event.type === "STEP_ACTIVITY") return "Steps";
+  if (event.type === "BRAIN_TRAINING") {
+    const session = event.metadata as BrainTrainingMetadata;
+    const game = session.game === "math" ? "Quick maths" : "Read and recall";
+    return `${game} · ${session.score} mind score`;
+  }
+  return "Healthy moment";
+};
+
+const HISTORY_PAGE_SIZE = 20;
   const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE);
 
   const update = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) =>
@@ -266,6 +278,10 @@ export function ProfilePage({
               <small>workouts</small>
             </span>
             <span>
+              <b>{mindSessions}</b>
+              <small>mind sessions</small>
+            </span>
+            <span>
               <b>{events.length}</b>
               <small>care moments</small>
             </span>
@@ -300,13 +316,7 @@ export function ProfilePage({
                 <div className="history-row" key={event.id}>
                   <span className="event-dot" />
                   <div>
-                    <b>
-                      {event.type === "WORKOUT"
-                        ? "Workout"
-                        : event.type === "STEP_ACTIVITY"
-                          ? "Steps"
-                          : "Healthy moment"}
-                    </b>
+                    <b>{describeEvent(event)}</b>
                     <small>
                       {new Date(event.occurredAt).toLocaleString([], {
                         dateStyle: "medium",

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type {
+  BrainTrainingMetadata,
   HealthEvent,
   MealAnalysis,
   MealMetadata,
@@ -47,6 +48,8 @@ import { isSupabaseConfigured } from "./services/supabaseClient";
 import { SupabaseRepository } from "./services/supabaseRepository";
 import { ProfilePage } from "./components/ProfilePage";
 import { WorkoutFlow } from "./components/WorkoutFlow";
+import { MindGym } from "./components/MindGym";
+import { mindScoreLabel } from "./domain/brainGames";
 import { playCelebrationSound, playMealSound, playMunchSound } from "./services/mealFeedback";
 import { errorMessage } from "./services/errorMessage";
 
@@ -58,6 +61,11 @@ const WORKOUT_ANIMATION_MS = 1100;
 const EXPLORE_ANIMATION_MS = 1100;
 const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100, 200, 365];
 const STREAK_MILESTONE_BONUS_XP = 25;
+const CARE_EVENT_LABEL: Partial<Record<HealthEvent["type"], string>> = {
+  WORKOUT: "Trained together",
+  STEP_ACTIVITY: "Went exploring",
+  BRAIN_TRAINING: "Trained your mind",
+};
 const withTimeout = <T,>(promise: Promise<T>, message: string) => Promise.race([
   promise,
   new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error(message)), 10000)),
@@ -106,6 +114,7 @@ function App() {
   const [showMealCapture, setShowMealCapture] = useState(false);
   const [view, setView] = useState<"pet" | "profile">("pet");
   const [showWorkout, setShowWorkout] = useState(false);
+  const [showMindGym, setShowMindGym] = useState(false);
   const [stepGoal, setStepGoal] = useState(10000);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [accountDataReady, setAccountDataReady] =
@@ -305,6 +314,11 @@ function App() {
     await recordEvent(makeEvent<MealMetadata>(userId, "MEAL", metadata));
     setShowMealCapture(false);
   };
+  const trainMind = () => setShowMindGym(true);
+  const completeMindSession = async (metadata: BrainTrainingMetadata) => {
+    await recordEvent(makeEvent<BrainTrainingMetadata>(userId, "BRAIN_TRAINING", metadata));
+    setShowMindGym(false);
+  };
   const startFeeding = (imageUrl: string | null, grade: MealAnalysis["grade"]) => {
     setFeedingImage(imageUrl);
     setFeedingGrade(grade);
@@ -355,6 +369,13 @@ function App() {
   const todaysEvents = getEventsForDay(events, today);
   const todaysMeals = getMealsForDay(events, today);
   const todaysNonMealEvents = todaysEvents.filter((event) => event.type !== "MEAL");
+  const todaysMindSessions = todaysEvents.filter(
+    (event): event is HealthEvent<BrainTrainingMetadata> => event.type === "BRAIN_TRAINING",
+  );
+  const bestMindScore = todaysMindSessions.reduce(
+    (best, event) => Math.max(best, event.metadata.score),
+    0,
+  );
   const consumed = sumMealMacros(todaysMeals);
   const burned = estimateCaloriesBurned(todaysEvents);
   const remaining = targets.calories - consumed.calories + burned;
@@ -725,7 +746,7 @@ function App() {
         >
           <div className="pet-stats-hud">
             <p className="kicker">VITALS</p>
-            {[["Push", pet.pushingStrength], ["Pull", pet.pullingStrength], ["Legs", pet.legStrength], ["Endurance", pet.endurance], ["Health", pet.health]].map(([label, value]) => (
+            {[["Push", pet.pushingStrength], ["Pull", pet.pullingStrength], ["Legs", pet.legStrength], ["Endurance", pet.endurance], ["Mind", pet.mind], ["Health", pet.health]].map(([label, value]) => (
               <div className="hud-stat" key={label as string}>
                 <span>{label as string}</span>
                 <i><em style={{ width: `${value as number}%` }} /></i>
@@ -796,6 +817,39 @@ function App() {
             )}
           </div>
           <div className="steps-panel"><div><p className="kicker">TODAY'S EXPLORING</p><h3>{steps.toLocaleString()} <small>/ {stepGoal.toLocaleString()} steps</small></h3><p>{pet.name} {steps ? "explored with you today." : "is waiting for today's adventure."}</p></div><label>Daily goal<input type="number" min="1000" max="100000" value={stepGoal} onChange={(event) => setStepGoal(Number(event.target.value) || 1000)} /></label></div>
+          <div className="steps-panel mind-panel">
+            <div>
+              <p className="kicker">TODAY'S THINKING</p>
+              <h3>
+                {bestMindScore || "—"}{" "}
+                <small>
+                  best mind score
+                  {todaysMindSessions.length
+                    ? ` · ${todaysMindSessions.length} session${todaysMindSessions.length > 1 ? "s" : ""}`
+                    : ""}
+                </small>
+              </h3>
+              <p>
+                {todaysMindSessions.length
+                  ? `${mindScoreLabel(bestMindScore)} — ${pet.name} felt you thinking.`
+                  : `${pet.name} is up for a puzzle whenever you are.`}
+              </p>
+              <p className="mind-stat-line">
+                Mind <i><em style={{ width: `${pet.mind}%` }} /></i> <b>{pet.mind}</b>/100
+              </p>
+            </div>
+            <button className="text-button mind-panel-start" onClick={trainMind}>
+              Train your mind <span>→</span>
+            </button>
+          </div>
+          <div className="steps-panel screen-panel">
+            <div>
+              <p className="kicker">TODAY'S SCREEN TIME</p>
+              <h3>— <small>nothing logged yet</small></h3>
+              <p>Screen time tracking is not built yet — {pet.name} will notice the quiet hours once it is.</p>
+            </div>
+            <span className="soon-tag">Placeholder</span>
+          </div>
           <div className="actions">
             <button onClick={logWorkout}>
               <span className="action-icon coral">↗</span>
@@ -821,6 +875,22 @@ function App() {
               </span>
               <strong>+</strong>
             </button>
+            <button onClick={trainMind}>
+              <span className="action-icon lilac">✻</span>
+              <span>
+                <b>Train your mind</b>
+                <small>Sharpen focus</small>
+              </span>
+              <strong>+</strong>
+            </button>
+            <button className="action-soon" disabled title="Not built yet">
+              <span className="action-icon slate">▢</span>
+              <span>
+                <b>Log screen time</b>
+                <small>Coming soon</small>
+              </span>
+              <strong>·</strong>
+            </button>
           </div>
           <div className="recent">
             <div className="recent-heading">
@@ -831,18 +901,14 @@ function App() {
             </div>
             {todaysNonMealEvents.length === 0 ? (
               <p className="empty">
-                Log a workout or sync steps to see it here.
+                Log a workout, sync steps, or train your mind to see it here.
               </p>
             ) : (
               todaysNonMealEvents.map((event) => (
                 <div className="event" key={event.id}>
                   <span className="event-dot" />
                   <span>
-                    <b>
-                      {event.type === "WORKOUT"
-                        ? "Trained together"
-                        : "Went exploring"}
-                    </b>
+                    <b>{CARE_EVENT_LABEL[event.type] ?? "A healthy moment"}</b>
                     <small>
                       {new Date(event.occurredAt).toLocaleTimeString([], {
                         hour: "numeric",
@@ -870,6 +936,7 @@ function App() {
         />
       )}
       {showWorkout && <WorkoutFlow onFinish={completeWorkout} onClose={() => setShowWorkout(false)} />}
+      {showMindGym && <MindGym onFinish={completeMindSession} onClose={() => setShowMindGym(false)} />}
     </>
   );
 }

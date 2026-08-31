@@ -11,7 +11,7 @@ export class LocalRepository {
     const value = localStorage.getItem(petKey) ?? localStorage.getItem(legacyPetKey);
     if (!value) return null;
     const pet = JSON.parse(value) as PetState;
-    return { ...pet, pushingStrength: pet.pushingStrength ?? 10, pullingStrength: pet.pullingStrength ?? 10, legStrength: pet.legStrength ?? 10, adoptedAt: pet.adoptedAt ?? new Date().toISOString() };
+    return { ...pet, pushingStrength: pet.pushingStrength ?? 10, pullingStrength: pet.pullingStrength ?? 10, legStrength: pet.legStrength ?? 10, mind: pet.mind ?? 20, adoptedAt: pet.adoptedAt ?? new Date().toISOString() };
   }
 
   savePet(pet: PetState) {

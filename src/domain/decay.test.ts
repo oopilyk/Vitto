@@ -37,6 +37,14 @@ describe('applyTimeDecay', () => {
     expect(Number.isInteger(decayed.happiness)).toBe(true);
   });
 
+  it('lets a sharp mind fade when nothing is logged', () => {
+    const pet = { ...createPet('user-1', 'Miso'), mind: 40 };
+    const fiveDaysLater = new Date(new Date(pet.adoptedAt).getTime() + 5 * 24 * 60 * 60 * 1000);
+    expect(applyTimeDecay(pet, fiveDaysLater).mind).toBe(30);
+    const muchLater = new Date(new Date(pet.adoptedAt).getTime() + 90 * 24 * 60 * 60 * 1000);
+    expect(applyTimeDecay(pet, muchLater).mind).toBe(0);
+  });
+
   it('marks a pet hungry once nutrition drops low enough', () => {
     const pet = { ...createPet('user-1', 'Miso'), nutrition: 40 };
     const later = new Date(new Date(pet.adoptedAt).getTime() + 2 * 24 * 60 * 60 * 1000);
