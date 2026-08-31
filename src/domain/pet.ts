@@ -42,8 +42,10 @@ export interface PetReaction {
   delta: PetDelta;
 }
 
+// Pet stats are whole numbers everywhere they are stored (integer columns) and shown,
+// while time decay works in fractional days, so clamping rounds as well as bounds.
 export const clamp = (value: number, minimum = 0, maximum = 100) =>
-  Math.min(maximum, Math.max(minimum, value));
+  Math.round(Math.min(maximum, Math.max(minimum, value)));
 
 export type EvolutionStage = 'baby' | 'teen' | 'adult';
 

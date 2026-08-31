@@ -2,6 +2,7 @@ import { BrowserMultiFormatReader } from '@zxing/browser';
 import { useEffect, useRef, useState } from 'react';
 import type { MealAnalysis, MealMetadata } from '../domain/health';
 import { lookupBarcode, toMealAnalysis, type FoodSearchResult } from '../services/foodDatabase';
+import { errorMessage } from '../services/errorMessage';
 
 interface BarcodeScannerProps {
   onComplete: (metadata: MealMetadata) => Promise<void>;
@@ -64,7 +65,7 @@ export function BarcodeScanner({ onComplete, onFeedStart, onAnalyzingChange, onC
       onFeedStart(null, analysis.grade);
       setSaved(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save this meal.');
+      setError(errorMessage(cause, 'Could not save this meal.'));
     } finally {
       setIsSaving(false);
     }

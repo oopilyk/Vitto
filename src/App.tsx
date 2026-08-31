@@ -48,6 +48,7 @@ import { SupabaseRepository } from "./services/supabaseRepository";
 import { ProfilePage } from "./components/ProfilePage";
 import { WorkoutFlow } from "./components/WorkoutFlow";
 import { playCelebrationSound, playMealSound, playMunchSound } from "./services/mealFeedback";
+import { errorMessage } from "./services/errorMessage";
 
 const repository = new LocalRepository();
 const engine = new PetHealthEngine();
@@ -287,7 +288,7 @@ function App() {
       setReaction(reaction);
       setEvents(repository.loadEvents());
     } catch (cause) {
-      setAuthError(cause instanceof Error ? cause.message : "Could not save this care moment.");
+      setAuthError(errorMessage(cause, "Could not save this care moment."));
       throw cause;
     }
   };

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { HealthEvent, MealMetadata } from '../domain/health';
+import { calorieEstimate } from '../domain/macros';
 
 interface MealDiaryRowProps {
   event: HealthEvent<MealMetadata>;
@@ -23,7 +24,7 @@ export function MealDiaryRow({ event }: MealDiaryRowProps) {
   const loggedVia = event.metadata.loggedVia ?? 'ai';
   const isAiLogged = loggedVia === 'ai';
   const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
-  const calories = analysis?.macros.calories ?? 0;
+  const calories = calorieEstimate(analysis?.macros);
   const time = new Date(event.occurredAt).toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
@@ -52,7 +53,7 @@ export function MealDiaryRow({ event }: MealDiaryRowProps) {
         <div className="diary-row-detail">
           <div className="diary-macro-grid">
             <div>
-              <b>{analysis.macros.calories}</b>
+              <b>{calories}</b>
               <small>Calories</small>
             </div>
             <div>

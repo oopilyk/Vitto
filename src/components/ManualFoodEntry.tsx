@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MealAnalysis, MealMetadata } from '../domain/health';
 import { searchFoodsByName, toMealAnalysis, type FoodSearchResult } from '../services/foodDatabase';
+import { errorMessage } from '../services/errorMessage';
 
 interface ManualFoodEntryProps {
   onComplete: (metadata: MealMetadata) => Promise<void>;
@@ -50,7 +51,7 @@ export function ManualFoodEntry({ onComplete, onFeedStart, onAnalyzingChange, on
       onFeedStart(null, analysis.grade);
       setSaved(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save this meal.');
+      setError(errorMessage(cause, 'Could not save this meal.'));
     } finally {
       setIsSaving(false);
     }

@@ -28,6 +28,15 @@ describe('applyTimeDecay', () => {
     expect(decayed.adoptedAt).toBe(pet.adoptedAt);
   });
 
+  it('keeps decayed stats whole, since they are stored in integer columns', () => {
+    const pet = createPet('user-1', 'Miso');
+    const partialDay = new Date(new Date(pet.adoptedAt).getTime() + 5.4 * 60 * 60 * 1000);
+    const decayed = applyTimeDecay(pet, partialDay);
+    expect(Number.isInteger(decayed.energy)).toBe(true);
+    expect(Number.isInteger(decayed.nutrition)).toBe(true);
+    expect(Number.isInteger(decayed.happiness)).toBe(true);
+  });
+
   it('marks a pet hungry once nutrition drops low enough', () => {
     const pet = { ...createPet('user-1', 'Miso'), nutrition: 40 };
     const later = new Date(new Date(pet.adoptedAt).getTime() + 2 * 24 * 60 * 60 * 1000);

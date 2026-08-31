@@ -1,7 +1,9 @@
 import { lazy, Suspense, useState } from 'react';
 import type { MealAnalysis, MealMetadata } from '../domain/health';
+import { calorieEstimate } from '../domain/macros';
 import { analyzeMealImage } from '../services/mealAnalysis';
 import { ManualFoodEntry } from './ManualFoodEntry';
+import { errorMessage } from '../services/errorMessage';
 
 const BarcodeScanner = lazy(() =>
   import('./BarcodeScanner').then((module) => ({ default: module.BarcodeScanner })),
@@ -46,7 +48,7 @@ export function MealCapture({ onComplete, onFeedStart, onAnalyzingChange, onClos
     try {
       setAnalysis(await analyzeMealImage(file));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Meal analysis failed.');
+      setError(errorMessage(cause, 'Meal analysis failed.'));
     } finally {
       setIsAnalyzing(false);
       onAnalyzingChange(false);
@@ -62,7 +64,7 @@ export function MealCapture({ onComplete, onFeedStart, onAnalyzingChange, onClos
       if (preview) onFeedStart(preview, analysis.grade);
       setSaved(true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save this meal.');
+      setError(errorMessage(cause, 'Could not save this meal.'));
     } finally {
       setIsSaving(false);
     }
@@ -83,8 +85,36 @@ export function MealCapture({ onComplete, onFeedStart, onAnalyzingChange, onClos
             <input type="file" accept="image/*" onChange={(event) => chooseFile(event.target.files?.[0])} />
           </label>
           {error && <p className="form-error">{error}</p>}
-          {analysis && <div className="analysis-result"><div className="grade">{analysis.grade}<small>plate grade</small></div><div><h3>{analysis.foodDescription || analysis.detectedFoods.join(', ') || 'Meal detected'}</h3>{analysis.foodDescription && <p className="analysis-secondary">{analysis.summary}</p>}<div className="macro-line"><b>{analysis.macros.calories}</b> kcal <b>{analysis.macros.proteinGrams}g</b> protein <b>{analysis.macros.carbsGrams}g</b> carbs <b>{analysis.macros.fatGrams}g</b> fat</div></div></div>}
-          {saved && <p className="auth-message">Meal added to your care log.</p>}<div className="meal-actions">{!analysis ? <button className="primary" disabled={!file || isAnalyzing} onClick={analyze}>{isAnalyzing ? 'Reading your plate...' : 'Analyze meal'} <span>→</span></button> : <button className="primary" disabled={isSaving} onClick={addToCareLog}>{isSaving ? 'Saving meal...' : 'Add to care log'} <span>→</span></button>}<button className="text-button" disabled={isSaving} onClick={onClose}>Cancel</button></div>
+          {analysis && (
+            <div className="analysis-result">
+              <div className="grade-wrap">
+                <div className="grade"><b>{analysis.grade}</b><small>PLATE GRADE</small></div>
+              </div>
+              <div className="analysis-copy">
+                <h3>{analysis.foodDescription || analysis.detectedFoods.join(', ') || 'Meal detected'}</h3>
+                {analysis.foodDescription && <p className="analysis-secondary">{analysis.summary}</p>}
+                <div className="macro-line">
+                  <span><strong>{calorieEstimate(analysis.macros)}</strong> kcal</span>
+                  <span><strong>{analysis.macros.proteinGrams}g</strong> protein</span>
+                  <span><strong>{analysis.macros.carbsGrams}g</strong> carbs</span>
+                  <span><strong>{analysis.macros.fatGrams}g</strong> fat</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {saved && <p className="auth-message">Meal added to your care log.</p>}
+          <div className="meal-actions">
+            {!analysis ? (
+              <button className="primary" disabled={!file || isAnalyzing} onClick={analyze}>
+                {isAnalyzing ? 'Reading your plate...' : 'Analyze meal'} <span>→</span>
+              </button>
+            ) : (
+              <button className="primary" disabled={isSaving} onClick={addToCareLog}>
+                {isSaving ? 'Saving meal...' : 'Add to care log'} <span>→</span>
+              </button>
+            )}
+            <button className="text-button inline-cancel" disabled={isSaving} onClick={onClose}>Cancel</button>
+          </div>
         </>
       )}
       {mode === 'search' && (

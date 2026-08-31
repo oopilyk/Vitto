@@ -6,6 +6,13 @@ import { supabase } from './supabaseClient';
 type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; adopted_at: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 
+// Every numeric column on `pets` is an integer in Postgres, and decayed stats can
+// still arrive fractional from older locally stored pets.
+const wholeNumbers = <T extends Record<string, unknown>>(row: T): T =>
+  Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [key, typeof value === 'number' ? Math.round(value) : value]),
+  ) as T;
+
 const requireClient = () => {
   if (!supabase) throw new Error('Supabase is not configured. Add the VITE_SUPABASE_* variables.');
   return supabase;
@@ -89,7 +96,7 @@ export class SupabaseRepository {
 
   async savePet(pet: PetState): Promise<void> {
     const client = requireClient();
-    const payload = {
+    const payload = wholeNumbers({
       id: pet.id,
       user_id: pet.userId,
       name: pet.name,
@@ -109,7 +116,7 @@ export class SupabaseRepository {
       mood: pet.mood,
       adopted_at: pet.adoptedAt,
       last_event_at: pet.lastEventAt ?? null,
-    };
+    });
 
     const { error } = await client.from('pets').upsert(payload);
     if (error && (error.code === '42703' || /adopted_at/i.test(error.message))) {

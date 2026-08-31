@@ -1,4 +1,5 @@
 import type { HealthEvent, MealMetadata, StepMetadata, WorkoutMetadata } from './health';
+import { calorieEstimate, nonNegative } from './macros';
 
 export interface MacroTotals {
   calories: number;
@@ -25,14 +26,11 @@ export const sumMealMacros = (mealEvents: HealthEvent<MealMetadata>[]): MacroTot
   mealEvents.reduce((total, event) => {
     const macros = event.metadata.analysis?.macros;
     if (!macros) return total;
-    const proteinGrams = Number.isFinite(macros.proteinGrams) ? macros.proteinGrams : 0;
-    const carbsGrams = Number.isFinite(macros.carbsGrams) ? macros.carbsGrams : 0;
-    const fatGrams = Number.isFinite(macros.fatGrams) ? macros.fatGrams : 0;
-    const calories = Number.isFinite(macros.calories)
-      ? macros.calories
-      : proteinGrams * 4 + carbsGrams * 4 + fatGrams * 9;
+    const proteinGrams = nonNegative(macros.proteinGrams);
+    const carbsGrams = nonNegative(macros.carbsGrams);
+    const fatGrams = nonNegative(macros.fatGrams);
     return {
-      calories: total.calories + calories,
+      calories: total.calories + calorieEstimate(macros),
       proteinGrams: total.proteinGrams + proteinGrams,
       carbsGrams: total.carbsGrams + carbsGrams,
       fatGrams: total.fatGrams + fatGrams,

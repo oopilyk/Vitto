@@ -1,4 +1,5 @@
 import type { MealAnalysis } from '../domain/health';
+import { withEstimatedCalories } from '../domain/macros';
 import { supabase } from './supabaseClient';
 
 const bucket = 'meal-images';
@@ -30,5 +31,5 @@ export const analyzeMealImage = async (file: File): Promise<MealAnalysis> => {
     }
     throw error;
   }
-  return data.analysis as MealAnalysis;
+  return withEstimatedCalories(data.analysis as MealAnalysis);
 };
