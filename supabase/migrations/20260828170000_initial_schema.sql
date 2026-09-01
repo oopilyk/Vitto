@@ -1,4 +1,4 @@
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
   age integer check (age between 13 and 100),
@@ -12,7 +12,7 @@ create table public.profiles (
   created_at timestamptz not null default now()
 );
 
-create table public.pets (
+create table if not exists public.pets (
   id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null check (char_length(name) between 1 and 18),
@@ -34,9 +34,9 @@ create table public.pets (
   created_at timestamptz not null default now()
 );
 
-create unique index one_pet_per_user on public.pets(user_id);
+create unique index if not exists one_pet_per_user on public.pets(user_id);
 
-create table public.health_events (
+create table if not exists public.health_events (
   id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   occurred_at timestamptz not null,
@@ -46,16 +46,19 @@ create table public.health_events (
   created_at timestamptz not null default now()
 );
 
-create index health_events_user_occurred_idx on public.health_events(user_id, occurred_at desc);
+create index if not exists health_events_user_occurred_idx on public.health_events(user_id, occurred_at desc);
 
 alter table public.profiles enable row level security;
 alter table public.pets enable row level security;
 alter table public.health_events enable row level security;
 
+drop policy if exists "Users manage their profile" on public.profiles;
 create policy "Users manage their profile" on public.profiles
   for all using (auth.uid() = id) with check (auth.uid() = id);
+drop policy if exists "Users manage their pet" on public.pets;
 create policy "Users manage their pet" on public.pets
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage their health events" on public.health_events;
 create policy "Users manage their health events" on public.health_events
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -77,6 +80,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();

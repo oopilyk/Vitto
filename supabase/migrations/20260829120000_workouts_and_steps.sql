@@ -20,5 +20,7 @@ create table if not exists public.daily_steps (
 
 alter table public.workouts enable row level security;
 alter table public.daily_steps enable row level security;
+drop policy if exists "Users manage their workouts" on public.workouts;
 create policy "Users manage their workouts" on public.workouts for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users manage their daily steps" on public.daily_steps;
 create policy "Users manage their daily steps" on public.daily_steps for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
