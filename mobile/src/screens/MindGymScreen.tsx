@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { type BrainTrainingMetadata, MATH_ROUND_SECONDS, type MathProblem, type ReadingPassage, errorMessage, generateMathProblem, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
@@ -140,7 +140,10 @@ export function MindGymScreen({ onFinish, onClose }: Props) {
 
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.sheet}>
+      <KeyboardAvoidingView
+        style={styles.sheet}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.header}>
           <View>
             <Kicker>Mind gym</Kicker>
@@ -322,7 +325,7 @@ export function MindGymScreen({ onFinish, onClose }: Props) {
             </>
           ) : null}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

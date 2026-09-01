@@ -1,5 +1,14 @@
 import { Fragment, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, estimateCaloriesBurned, getEventsForDay, getEvolutionStage, getMealsForDay, mindScoreLabel, sumMealMacros } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
@@ -19,6 +28,8 @@ interface Props {
   onSyncSteps: () => void;
   onTrainMind: () => void;
   onOpenProfile: () => void;
+  /** Letter shown in the account button — the signed-in email's initial. */
+  accountInitial?: string;
   isAnalyzingMeal: boolean;
   isEating: boolean;
   feedingImage: string | null;
@@ -27,6 +38,26 @@ interface Props {
   isWorkingOut: boolean;
   isExploring: boolean;
 }
+
+interface QuickAction {
+  key: string;
+  label: string;
+  icon: string;
+  tint: string;
+  ink: string;
+}
+
+/** The four things you can log, kept within thumb reach at all times. */
+const QUICK_ACTIONS: QuickAction[] = [
+  { key: 'meal', label: 'Meal', icon: '✣', tint: colors.yellow, ink: colors.yellowDeep },
+  { key: 'workout', label: 'Workout', icon: '↗', tint: colors.coralWash, ink: colors.coralDeep },
+  { key: 'steps', label: 'Steps', icon: '⁁', tint: colors.mint, ink: colors.mintDeep },
+  { key: 'mind', label: 'Mind', icon: '✻', tint: colors.lilac, ink: colors.lilacDeep },
+];
+
+// Clears the home indicator on modern iPhones without pulling in a safe-area
+// package, which drags a second copy of React into the workspace.
+const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
 
 const CARE_EVENT_LABEL: Partial<Record<HealthEvent['type'], string>> = {
   WORKOUT: 'Trained together',
@@ -46,6 +77,7 @@ export function DashboardScreen({
   onSyncSteps,
   onTrainMind,
   onOpenProfile,
+  accountInitial,
   isAnalyzingMeal,
   isEating,
   feedingImage,
@@ -54,6 +86,9 @@ export function DashboardScreen({
   isWorkingOut,
   isExploring,
 }: Props) {
+  const { width } = useWindowDimensions();
+  // Three rings, two 10px gaps, inside 22px page padding: never wider than that.
+  const ringSize = Math.max(76, Math.min(104, Math.floor((width - 44 - 20) / 3)));
   const today = new Date();
   const todaysEvents = getEventsForDay(events, today);
   const todaysMeals = getMealsForDay(events, today);
@@ -80,18 +115,21 @@ export function DashboardScreen({
           <NutrientRing
             value={consumed.calories}
             percent={(consumed.calories / targets.calories) * 100}
+            size={ringSize}
             label="Consumed"
             color={colors.coral}
           />
           <NutrientRing
             value={burned}
             percent={(burned / targets.calories) * 100}
+            size={ringSize}
             label="Burned"
             color="#78a598"
           />
           <NutrientRing
             value={remaining}
             percent={(Math.abs(remaining) / targets.calories) * 100}
+            size={ringSize}
             label={remaining < 0 ? 'Over' : 'Remaining'}
             color={remaining < 0 ? colors.danger : '#9c8dba'}
             emphasis={remaining < 0}
@@ -227,8 +265,39 @@ export function DashboardScreen({
     ...FOCUS_AREAS.filter((area) => !profile.focusAreas.includes(area)),
   ];
 
+  const onQuickAction = (key: string) => {
+    if (key === 'meal') return onLogMeal();
+    if (key === 'workout') return onLogWorkout();
+    if (key === 'steps') return onSyncSteps();
+    return onTrainMind();
+  };
+
   return (
-    <ScrollView style={layout.screen} contentContainerStyle={styles.body}>
+    <View style={layout.screen}>
+      <View style={styles.topbar}>
+        <View style={styles.brand}>
+          <View style={styles.brandMark}>
+            <Text style={styles.brandMarkLetter}>v</Text>
+          </View>
+          <Text style={styles.brandName}>vitto</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open your profile"
+          onPress={onOpenProfile}
+          hitSlop={8}
+          style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}
+        >
+          <Text style={styles.avatarLetter}>
+            {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
+          </Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        style={layout.screen}
+        contentContainerStyle={[styles.body, { paddingBottom: 96 + HOME_INDICATOR_INSET }]}
+      >
       <View style={styles.hero}>
         <Kicker>
           {EVOLUTION_STAGE_LABEL[stage].toUpperCase()} · DAY{' '}
@@ -305,43 +374,64 @@ export function DashboardScreen({
           <Text style={styles.soonTag}>Placeholder</Text>
         </View>
 
-        <View style={styles.actions}>
-          {[
-            { label: 'Log workout', hint: 'Build strength', icon: '↗', tint: colors.coralWash, ink: colors.coralDeep, onPress: onLogWorkout },
-            { label: 'Sync steps', hint: 'Go exploring', icon: '⌁', tint: colors.mint, ink: colors.mintDeep, onPress: onSyncSteps },
-            { label: 'Add a meal', hint: 'Fuel your pet', icon: '✣', tint: colors.yellow, ink: colors.yellowDeep, onPress: onLogMeal },
-            { label: 'Train your mind', hint: 'Sharpen focus', icon: '✻', tint: colors.lilac, ink: colors.lilacDeep, onPress: onTrainMind },
-          ].map((action) => (
-            <Pressable key={action.label} style={styles.action} onPress={action.onPress}>
-              <View style={[styles.actionIcon, { backgroundColor: action.tint }]}>
-                <Text style={{ color: action.ink, fontSize: 17 }}>{action.icon}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.actionLabel}>{action.label}</Text>
-                <Text style={styles.actionHint}>{action.hint}</Text>
-              </View>
-              <Text style={styles.actionPlus}>+</Text>
-            </Pressable>
-          ))}
-          <View style={[styles.action, styles.actionDisabled]}>
-            <View style={[styles.actionIcon, { backgroundColor: colors.slate }]}>
-              <Text style={{ color: colors.slateDeep, fontSize: 17 }}>▢</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actionLabel}>Log screen time</Text>
-              <Text style={styles.actionHint}>Coming soon</Text>
-            </View>
-            <Text style={styles.actionPlus}>·</Text>
-          </View>
-        </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      <View style={styles.actionBar}>
+        {QUICK_ACTIONS.map((action) => (
+          <Pressable
+            key={action.key}
+            accessibilityRole="button"
+            accessibilityLabel={`Log ${action.label.toLowerCase()}`}
+            onPress={() => onQuickAction(action.key)}
+            style={({ pressed }) => [styles.barItem, pressed && styles.barItemPressed]}
+          >
+            <View style={[styles.barIcon, { backgroundColor: action.tint }]}>
+              <Text style={{ color: action.ink, fontSize: 17 }}>{action.icon}</Text>
+            </View>
+            <Text style={styles.barLabel}>{action.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   body: { paddingBottom: 60 },
-  hero: { paddingHorizontal: 22, paddingTop: 70, paddingBottom: 26 },
+  topbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    paddingTop: 62,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+    backgroundColor: colors.paper,
+  },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brandMark: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandMarkLetter: { fontFamily: fonts.display, fontSize: 16, color: '#fff' },
+  brandName: { fontSize: 19, fontWeight: '700', color: colors.ink, letterSpacing: -0.6 },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#d8e1d6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPressed: { opacity: 0.7 },
+  avatarLetter: { fontSize: 14, fontWeight: '700', color: colors.ink },
+  hero: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 26 },
   petName: { ...text.display, fontSize: 42, marginTop: 14 },
   mood: { ...text.body, marginTop: 10 },
   heroMeta: { marginTop: 20 },
@@ -360,9 +450,9 @@ const styles = StyleSheet.create({
   macros: { gap: 12, marginBottom: 8 },
   macroRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   macroLabel: { width: 56, fontFamily: fonts.mono, fontSize: 10, color: colors.muted },
-  macroTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#deded7', overflow: 'hidden' },
+  macroTrack: { flex: 1, minWidth: 0, height: 4, borderRadius: 2, backgroundColor: '#deded7', overflow: 'hidden' },
   macroFill: { height: '100%', backgroundColor: colors.coral },
-  macroValue: { fontSize: 13, fontWeight: '600', color: colors.ink, width: 92, textAlign: 'right' },
+  macroValue: { fontSize: 13, fontWeight: '600', color: colors.ink, minWidth: 78, textAlign: 'right' },
   macroTarget: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, fontWeight: '400' },
   block: { marginTop: 26 },
   blockTitle: { fontSize: 15, fontWeight: '600', color: colors.ink, marginBottom: 6 },
@@ -410,20 +500,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  actions: { marginTop: 26, gap: 10 },
-  action: {
+  actionBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 14,
-    backgroundColor: colors.cardSoft,
+    justifyContent: 'space-around',
+    paddingTop: 10,
+    paddingBottom: HOME_INDICATOR_INSET,
+    paddingHorizontal: 8,
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+    // Lifts the bar off the content scrolling beneath it.
+    shadowColor: '#26312d',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -3 },
+    elevation: 12,
   },
-  actionDisabled: { opacity: 0.55 },
-  actionIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  actionLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  actionHint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
-  actionPlus: { fontSize: 19, color: '#b1b6b0' },
+  barItem: { alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingTop: 2 },
+  barItemPressed: { opacity: 0.6 },
+  barIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  barLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, letterSpacing: 0.3 },
 });

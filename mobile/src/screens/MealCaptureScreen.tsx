@@ -8,8 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from 'react-native';
+  View, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
@@ -61,13 +60,24 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       );
       return;
     }
+    // base64 keeps the bytes in hand, so nothing has to read the file back later.
+    const options: ImagePicker.ImagePickerOptions = {
+      quality: 0.6,
+      mediaTypes: ['images'],
+      base64: true,
+    };
     const picked =
       from === 'camera'
-        ? await ImagePicker.launchCameraAsync({ quality: 0.6, mediaTypes: ['images'] })
-        : await ImagePicker.launchImageLibraryAsync({ quality: 0.6, mediaTypes: ['images'] });
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
     if (picked.canceled || !picked.assets?.length) return;
+
     const asset = picked.assets[0];
-    setImage({ uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg', fileName: asset.fileName ?? undefined });
+    if (!asset.base64) {
+      setError('That photo could not be read. Try another one.');
+      return;
+    }
+    setImage({ uri: asset.uri, base64: asset.base64, mimeType: asset.mimeType ?? 'image/jpeg' });
   };
 
   const analyze = async () => {
@@ -142,7 +152,10 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.sheet}>
+      <KeyboardAvoidingView
+        style={styles.sheet}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.header}>
           <View>
             <Kicker>Nourishment check</Kicker>
@@ -324,7 +337,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             </>
           ) : null}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

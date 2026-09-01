@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { type BodyProfile, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, withSurveyDefaults } from '@vitto/core';
 import { LocalRepository } from './src/services/localRepository';
@@ -13,11 +13,12 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
-import { randomUUID } from './src/services/uuid';
+import { hasNativeUUID, randomUUID } from './src/services/uuid';
 import { colors, fonts, layout } from './src/theme';
 
-// Swap the domain's fallback id generator for the platform's crypto-backed one.
-setIdGenerator(randomUUID);
+// Prefer the platform's crypto-backed ids, but keep the domain's pure fallback if
+// this client has no native crypto module.
+if (hasNativeUUID()) setIdGenerator(randomUUID);
 
 const repository = new LocalRepository();
 const remoteRepository = new SupabaseRepository();
@@ -288,24 +289,24 @@ export default function App() {
 
   if (!authReady || !dataReady) {
     return (
-      <SafeAreaView style={[layout.screen, styles.center]}>
-        <ActivityIndicator color={colors.coral} />
-      </SafeAreaView>
+      <View style={[layout.screen, styles.center]}>
+          <ActivityIndicator color={colors.coral} />
+      </View>
     );
   }
 
   if (isSupabaseConfigured && !session) {
     return (
-      <SafeAreaView style={layout.screen}>
-        <StatusBar barStyle="dark-content" />
-        <AuthScreen />
-      </SafeAreaView>
+      <View style={layout.screen}>
+          <StatusBar barStyle="dark-content" />
+          <AuthScreen />
+      </View>
     );
   }
 
   if (!pet) {
     return (
-      <SafeAreaView style={layout.screen}>
+      <View style={layout.screen}>
         <StatusBar barStyle="dark-content" />
         <OnboardingScreen
           name={name}
@@ -316,7 +317,7 @@ export default function App() {
           error={error}
           onSignOut={isSupabaseConfigured && session ? logOut : undefined}
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -344,6 +345,7 @@ export default function App() {
           onSyncSteps={() => void syncSteps()}
           onTrainMind={() => setShowMindGym(true)}
           onOpenProfile={() => setView('profile')}
+          accountInitial={session?.user.email?.charAt(0)}
           isAnalyzingMeal={isAnalyzingMeal}
           isEating={isEating}
           feedingImage={feedingImage}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { type WorkoutExercise, type WorkoutMetadata, addSet, calculateWorkoutStats, createExercise, errorMessage, exerciseLibrary, updateSet } from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
@@ -19,6 +19,8 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const stats = calculateWorkoutStats(exercises, Math.max(1, Number(duration) || 1));
+  // Only ticked sets count toward the workout, so show the entered total too.
+  const totalSets = exercises.reduce((count, exercise) => count + exercise.sets.length, 0);
 
   const finish = async () => {
     if (!exercises.length) {
@@ -50,7 +52,10 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
 
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.sheet}>
+      <KeyboardAvoidingView
+        style={styles.sheet}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Kicker>Vitto / training</Kicker>
@@ -116,6 +121,14 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
                   label="Delete"
                   onPress={() => setExercises(exercises.filter((item) => item.id !== exercise.id))}
                 />
+              </View>
+              <View style={styles.setHead}>
+                <Text style={[styles.setHeadLabel, styles.setIndex]}>#</Text>
+                <Text style={[styles.setHeadLabel, styles.setInputHead]}>
+                  {exercise.bodyweight ? 'body' : 'kg'}
+                </Text>
+                <Text style={[styles.setHeadLabel, styles.setInputHead]}>reps</Text>
+                <Text style={[styles.setHeadLabel, styles.setDoneHead]}>done</Text>
               </View>
               {exercise.sets.map((set, index) => (
                 <View key={set.id} style={styles.setRow}>
@@ -193,8 +206,12 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
 
           <View style={styles.footer}>
             <Text style={styles.stats}>
-              {stats.completedSets} sets · {stats.totalReps} reps · {stats.totalVolume} kg volume
+              {stats.completedSets} of {totalSets} sets done · {stats.totalReps} reps ·{' '}
+              {stats.totalVolume} kg volume
             </Text>
+            {totalSets > 0 && stats.completedSets === 0 ? (
+              <Text style={styles.statsHint}>Tap the circle on a set to count it.</Text>
+            ) : null}
             <PrimaryButton
               label={saving ? 'Saving...' : 'Finish workout'}
               busy={saving}
@@ -202,7 +219,7 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
             />
           </View>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -251,13 +268,18 @@ const styles = StyleSheet.create({
   },
   exerciseHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   exerciseName: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  setRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 10 },
+  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  setHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  setHeadLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, textAlign: 'center' },
+  setInputHead: { flex: 1, minWidth: 0 },
+  setDoneHead: { width: 38 },
   setIndex: { width: 18, fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
-  setInput: { flex: 1, paddingVertical: 9, textAlign: 'center' },
+  // minWidth 0 lets the field shrink; without it the row runs off the screen.
+  setInput: { flex: 1, minWidth: 0, paddingVertical: 9, paddingHorizontal: 6, textAlign: 'center' },
   done: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -269,4 +291,5 @@ const styles = StyleSheet.create({
   notes: { marginTop: 16, minHeight: 80, textAlignVertical: 'top' },
   footer: { marginTop: 24, gap: 14 },
   stats: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted },
+  statsHint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: -6 },
 });
