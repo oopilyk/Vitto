@@ -1,0 +1,416 @@
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import type { Session } from '@supabase/supabase-js';
+import type {
+  BrainTrainingMetadata,
+  HealthEvent,
+  MealAnalysis,
+  MealMetadata,
+  StepMetadata,
+  WorkoutMetadata,
+} from './src/domain/health';
+import { applyDelta, PetHealthEngine } from './src/domain/petHealthEngine';
+import { applyTimeDecay } from './src/domain/decay';
+import { calculateStreaks } from './src/domain/streaks';
+import { createPet, type PetReaction, type PetState } from './src/domain/pet';
+import { newId, setIdGenerator } from './src/domain/ids';
+import {
+  PROFILE_SURVEY_DEFAULTS,
+  withSurveyDefaults,
+  type BodyProfile,
+} from './src/domain/macroTargets';
+import { getEventsForDay } from './src/domain/nutritionSummary';
+import { LocalRepository } from './src/services/localRepository';
+import { SupabaseRepository } from './src/services/supabaseRepository';
+import { MockHealthDataProvider } from './src/services/healthDataProvider';
+import { isSupabaseConfigured } from './src/services/supabaseClient';
+import { getSession, onAuthStateChange, signOut } from './src/services/auth';
+import { errorMessage } from './src/services/errorMessage';
+import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
+import { AuthScreen } from './src/screens/AuthScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { DashboardScreen } from './src/screens/DashboardScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
+import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
+import { MindGymScreen } from './src/screens/MindGymScreen';
+import { WorkoutScreen } from './src/screens/WorkoutScreen';
+import { randomUUID } from './src/services/uuid';
+import { colors, fonts, layout } from './src/theme';
+
+// Swap the domain's fallback id generator for the platform's crypto-backed one.
+setIdGenerator(randomUUID);
+
+const repository = new LocalRepository();
+const remoteRepository = new SupabaseRepository();
+const engine = new PetHealthEngine();
+const stepsProvider = new MockHealthDataProvider();
+
+const WORKOUT_ANIMATION_MS = 1100;
+const EXPLORE_ANIMATION_MS = 1100;
+const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100, 200, 365];
+const STREAK_MILESTONE_BONUS_XP = 25;
+
+const DEFAULT_PROFILE: BodyProfile = {
+  age: 30,
+  sex: 'other',
+  heightCm: 170,
+  heightUnit: 'cm',
+  weightKg: 70,
+  weightUnit: 'kg',
+  activity: 'moderate',
+  goal: 'maintain',
+  ...PROFILE_SURVEY_DEFAULTS,
+};
+
+const makeEvent = <T,>(userId: string, type: HealthEvent['type'], metadata: T): HealthEvent<T> => ({
+  id: newId(),
+  userId,
+  occurredAt: new Date().toISOString(),
+  type,
+  source: 'manual',
+  metadata,
+});
+
+const withTimeout = <T,>(promise: Promise<T>, message: string) =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), 10000)),
+  ]);
+
+export default function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
+  const [dataReady, setDataReady] = useState(false);
+  const [pet, setPet] = useState<PetState | null>(null);
+  const [events, setEvents] = useState<HealthEvent[]>([]);
+  const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
+  const [reaction, setReaction] = useState<PetReaction | null>(null);
+  const [name, setName] = useState('Miso');
+  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'pet' | 'profile'>('pet');
+  const [stepGoal, setStepGoal] = useState(10000);
+
+  const [showMeal, setShowMeal] = useState(false);
+  const [showWorkout, setShowWorkout] = useState(false);
+  const [showMindGym, setShowMindGym] = useState(false);
+
+  const [isAnalyzingMeal, setIsAnalyzingMeal] = useState(false);
+  const [isEating, setIsEating] = useState(false);
+  const [feedingImage, setFeedingImage] = useState<string | null>(null);
+  const [feedingGrade, setFeedingGrade] = useState<MealAnalysis['grade'] | null>(null);
+  const [isCelebrating, setIsCelebrating] = useState(false);
+  const [isWorkingOut, setIsWorkingOut] = useState(false);
+  const [isExploring, setIsExploring] = useState(false);
+
+  const userId = session?.user.id ?? 'demo-user';
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setAuthReady(true);
+      return;
+    }
+    getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setAuthReady(true);
+      })
+      .catch(() => {
+        setError('Could not connect to Supabase.');
+        setAuthReady(true);
+      });
+    const { data: listener } = onAuthStateChange((_event, next) => setSession(next));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // Local storage is async on device, so the first load happens in an effect
+  // rather than in a state initialiser the way the web build could.
+  useEffect(() => {
+    let cancelled = false;
+    setDataReady(false);
+
+    void (async () => {
+      if (isSupabaseConfigured && session) {
+        const [petResult, eventsResult, profileResult] = await Promise.allSettled([
+          remoteRepository.loadPet(),
+          remoteRepository.loadEvents(),
+          remoteRepository.loadProfile(),
+        ]);
+        if (cancelled) return;
+
+        if (petResult.status === 'fulfilled') {
+          setPet(petResult.value ? applyTimeDecay(petResult.value, new Date()) : null);
+        }
+        if (eventsResult.status === 'fulfilled') setEvents(eventsResult.value);
+        if (profileResult.status === 'fulfilled' && profileResult.value) {
+          setProfile(profileResult.value);
+        }
+
+        const failure = [petResult, eventsResult, profileResult].find(
+          (result) => result.status === 'rejected',
+        );
+        setError(
+          failure && failure.status === 'rejected'
+            ? errorMessage(failure.reason, 'Could not load your account data.')
+            : null,
+        );
+        setDataReady(true);
+        return;
+      }
+
+      const [storedPet, storedEvents, storedProfile] = await Promise.all([
+        repository.loadPet(),
+        repository.loadEvents(),
+        repository.loadProfile<Partial<BodyProfile>>(),
+      ]);
+      if (cancelled) return;
+      setPet(storedPet ? applyTimeDecay(storedPet, new Date()) : null);
+      setEvents(storedEvents);
+      if (storedProfile) setProfile(withSurveyDefaults({ ...DEFAULT_PROFILE, ...storedProfile }));
+      setDataReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  const persistProfile = async (next: BodyProfile) => {
+    setProfile(next);
+    if (isSupabaseConfigured && session) {
+      await remoteRepository.saveProfile(next);
+      return;
+    }
+    await repository.saveProfile(next);
+  };
+
+  const updateProfile = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => {
+    setProfile((current) => {
+      const next = { ...current, [key]: value };
+      if (isSupabaseConfigured && session) {
+        void remoteRepository.saveProfile(next).catch(() => undefined);
+      } else {
+        void repository.saveProfile(next);
+      }
+      return next;
+    });
+  };
+
+  const recordEvent = async (event: HealthEvent<unknown>) => {
+    if (!pet) return;
+    try {
+      const eventDay = new Date(event.occurredAt);
+      const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
+      const decayed = applyTimeDecay(pet, eventDay);
+      const result = engine.apply(decayed, event);
+      let nextPet = result.pet;
+      let nextReaction = result.reaction;
+
+      if (!wasActiveToday) {
+        const projected = calculateStreaks([...events, event], eventDay).currentStreak;
+        if (STREAK_MILESTONES.includes(projected)) {
+          const bonus = { xp: STREAK_MILESTONE_BONUS_XP, happiness: 10 };
+          nextPet = applyDelta(nextPet, bonus, event.occurredAt);
+          nextReaction = {
+            message: `${pet.name} celebrates your ${projected}-day streak! +${STREAK_MILESTONE_BONUS_XP} bonus XP`,
+            eventLabel: 'Streak milestone',
+            delta: bonus,
+          };
+        }
+      }
+
+      if (isSupabaseConfigured && session) {
+        await withTimeout(remoteRepository.savePet(nextPet), 'Saving timed out. Check your connection.');
+        await withTimeout(remoteRepository.saveEvent(event), 'Saving timed out. Check your connection.');
+      }
+      await repository.savePet(nextPet);
+      await repository.saveEvent(event);
+      setPet(nextPet);
+      setReaction(nextReaction);
+      setEvents((current) => [event, ...current]);
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not save this care moment.'));
+      throw cause;
+    }
+  };
+
+  const adopt = async () => {
+    try {
+      setError(null);
+      if (profile.age < 13 || profile.age > 100) throw new Error('Age must be between 13 and 100.');
+      if (profile.heightCm < 120 || profile.heightCm > 230)
+        throw new Error('Height must be between 120 and 230 cm.');
+      if (profile.weightKg < 30 || profile.weightKg > 300)
+        throw new Error('Weight must be between 30 and 300 kg.');
+
+      const nextPet = createPet(userId, name.trim() || 'Miso');
+      if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
+      await persistProfile(profile);
+      await repository.savePet(nextPet);
+      setPet(nextPet);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not save your pet.'));
+    }
+  };
+
+  const startFeeding = (imageUri: string | null, grade: MealAnalysis['grade']) => {
+    setFeedingImage(imageUri);
+    setFeedingGrade(grade);
+    setIsEating(true);
+    const munch = setInterval(playMunchSound, 420);
+    setTimeout(() => {
+      setFeedingImage(null);
+      setTimeout(() => {
+        clearInterval(munch);
+        setIsEating(false);
+        setIsCelebrating(true);
+        playCelebrationSound();
+        setTimeout(() => setIsCelebrating(false), 1500);
+      }, 1900);
+    }, 900);
+  };
+
+  const completeMeal = async (metadata: MealMetadata) => {
+    playMealSound();
+    await recordEvent(makeEvent<MealMetadata>(userId, 'MEAL', metadata));
+    setShowMeal(false);
+  };
+
+  const completeWorkout = async (metadata: WorkoutMetadata) => {
+    setIsWorkingOut(true);
+    setTimeout(() => setIsWorkingOut(false), WORKOUT_ANIMATION_MS);
+    await recordEvent(makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata));
+    setShowWorkout(false);
+  };
+
+  const completeMindSession = async (metadata: BrainTrainingMetadata) => {
+    await recordEvent(makeEvent<BrainTrainingMetadata>(userId, 'BRAIN_TRAINING', metadata));
+    setShowMindGym(false);
+  };
+
+  const syncSteps = async () => {
+    setIsExploring(true);
+    setTimeout(() => setIsExploring(false), EXPLORE_ANIMATION_MS);
+    const event = await stepsProvider.getTodaySteps(userId);
+    await recordEvent(event as HealthEvent<StepMetadata>);
+  };
+
+  const logOut = () => {
+    void signOut()
+      .then(async () => {
+        setSession(null);
+        setPet(null);
+        setEvents([]);
+        setView('pet');
+        await repository.clear();
+      })
+      .catch(() => setError('Could not sign out.'));
+  };
+
+  if (!authReady || !dataReady) {
+    return (
+      <SafeAreaView style={[layout.screen, styles.center]}>
+        <ActivityIndicator color={colors.coral} />
+      </SafeAreaView>
+    );
+  }
+
+  if (isSupabaseConfigured && !session) {
+    return (
+      <SafeAreaView style={layout.screen}>
+        <StatusBar barStyle="dark-content" />
+        <AuthScreen />
+      </SafeAreaView>
+    );
+  }
+
+  if (!pet) {
+    return (
+      <SafeAreaView style={layout.screen}>
+        <StatusBar barStyle="dark-content" />
+        <OnboardingScreen
+          name={name}
+          onNameChange={setName}
+          profile={profile}
+          onUpdate={updateProfile}
+          onAdopt={adopt}
+          error={error}
+          onSignOut={isSupabaseConfigured && session ? logOut : undefined}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <View style={layout.screen}>
+      <StatusBar barStyle="dark-content" />
+      {view === 'profile' ? (
+        <ProfileScreen
+          profile={profile}
+          events={events}
+          onSave={persistProfile}
+          onClose={() => setView('pet')}
+          onSignOut={isSupabaseConfigured && session ? logOut : undefined}
+        />
+      ) : (
+        <DashboardScreen
+          pet={pet}
+          events={events}
+          profile={profile}
+          reaction={reaction}
+          stepGoal={stepGoal}
+          onStepGoalChange={setStepGoal}
+          onLogMeal={() => setShowMeal(true)}
+          onLogWorkout={() => setShowWorkout(true)}
+          onSyncSteps={() => void syncSteps()}
+          onTrainMind={() => setShowMindGym(true)}
+          onOpenProfile={() => setView('profile')}
+          isAnalyzingMeal={isAnalyzingMeal}
+          isEating={isEating}
+          feedingImage={feedingImage}
+          feedingGrade={feedingGrade}
+          isCelebrating={isCelebrating}
+          isWorkingOut={isWorkingOut}
+          isExploring={isExploring}
+        />
+      )}
+
+      {error ? (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {showMeal ? (
+        <MealCaptureScreen
+          onComplete={completeMeal}
+          onFeedStart={startFeeding}
+          onAnalyzingChange={setIsAnalyzingMeal}
+          onClose={() => setShowMeal(false)}
+        />
+      ) : null}
+      {showWorkout ? (
+        <WorkoutScreen onFinish={completeWorkout} onClose={() => setShowWorkout(false)} />
+      ) : null}
+      {showMindGym ? (
+        <MindGymScreen onFinish={completeMindSession} onClose={() => setShowMindGym(false)} />
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  center: { alignItems: 'center', justifyContent: 'center' },
+  banner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 34,
+    backgroundColor: '#f7e2dd',
+    borderWidth: 1,
+    borderColor: '#e0b3a8',
+    borderRadius: 12,
+    padding: 13,
+  },
+  bannerText: { fontFamily: fonts.mono, fontSize: 11, color: '#8c4433', lineHeight: 16 },
+});

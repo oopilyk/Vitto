@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Vitto",
+    "slug": "vitto",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vitto.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Vitto uses the camera to photograph meals and scan barcodes.",
+        "NSPhotoLibraryUsageDescription": "Vitto reads meal photos you choose so it can grade the plate."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.vitto.app",
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Vitto reads meal photos you choose so it can grade the plate.",
+          "cameraPermission": "Vitto uses the camera to photograph meals."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Vitto uses the camera to scan product barcodes."
+        }
+      ]
+    ],
+    "scheme": "vitto",
+    "backgroundColor": "#f5f2eb"
+  }
+}
