@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
+import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { Session } from '@supabase/supabase-js';
 import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, withSurveyDefaults } from '@vitto/core';
 import { LocalRepository } from './src/services/localRepository';
@@ -24,6 +27,34 @@ const repository = new LocalRepository();
 const remoteRepository = new SupabaseRepository();
 const engine = new PetHealthEngine();
 const stepsProvider = new MockHealthDataProvider();
+
+// The main app's screens, once a session exists and a pet has been adopted.
+// Auth and Onboarding stay outside this tree — they're single-screen states
+// with no back/forward navigation of their own.
+type RootStackParamList = {
+  Main: undefined;
+  MealCapture: undefined;
+  Workout: undefined;
+  MindGym: undefined;
+};
+type MainTabParamList = {
+  Dashboard: undefined;
+  Profile: undefined;
+};
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const MainTab = createBottomTabNavigator<MainTabParamList>();
+
+const navigationTheme: NavigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: colors.paper,
+    card: colors.card,
+    text: colors.ink,
+    border: colors.hairline,
+    primary: colors.coral,
+  },
+};
 
 const WORKOUT_ANIMATION_MS = 1100;
 const EXPLORE_ANIMATION_MS = 1100;
@@ -69,12 +100,7 @@ export default function App() {
   // Chosen at adoption; changeable later from the profile.
   const [breed, setBreed] = useState<PetBreed>('bichon');
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<'pet' | 'profile'>('pet');
   const [stepGoal, setStepGoal] = useState(10000);
-
-  const [showMeal, setShowMeal] = useState(false);
-  const [showWorkout, setShowWorkout] = useState(false);
-  const [showMindGym, setShowMindGym] = useState(false);
 
   const [isAnalyzingMeal, setIsAnalyzingMeal] = useState(false);
   const [isEating, setIsEating] = useState(false);
@@ -268,19 +294,16 @@ export default function App() {
   const completeMeal = async (metadata: MealMetadata) => {
     playMealSound();
     await recordEvent(makeEvent<MealMetadata>(userId, 'MEAL', metadata));
-    setShowMeal(false);
   };
 
   const completeWorkout = async (metadata: WorkoutMetadata) => {
     setIsWorkingOut(true);
     setTimeout(() => setIsWorkingOut(false), WORKOUT_ANIMATION_MS);
     await recordEvent(makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata));
-    setShowWorkout(false);
   };
 
   const completeMindSession = async (metadata: BrainTrainingMetadata) => {
     await recordEvent(makeEvent<BrainTrainingMetadata>(userId, 'BRAIN_TRAINING', metadata));
-    setShowMindGym(false);
   };
 
   const syncSteps = async () => {
@@ -296,7 +319,6 @@ export default function App() {
         setSession(null);
         setPet(null);
         setEvents([]);
-        setView('pet');
         await repository.clear();
       })
       .catch(() => setError('Could not sign out.'));
@@ -339,63 +361,109 @@ export default function App() {
   }
 
   return (
-    <View style={layout.screen}>
+    <NavigationContainer theme={navigationTheme}>
       <StatusBar barStyle="dark-content" />
-      {view === 'profile' ? (
-        <ProfileScreen
-          profile={profile}
-          breed={pet.breed}
-          onBreedChange={(next) => void changeBreed(next)}
-          events={events}
-          onSave={persistProfile}
-          onClose={() => setView('pet')}
-          onSignOut={isSupabaseConfigured && session ? logOut : undefined}
-        />
-      ) : (
-        <DashboardScreen
-          pet={pet}
-          events={events}
-          profile={profile}
-          reaction={reaction}
-          stepGoal={stepGoal}
-          onStepGoalChange={setStepGoal}
-          onLogMeal={() => setShowMeal(true)}
-          onLogWorkout={() => setShowWorkout(true)}
-          onSyncSteps={() => void syncSteps()}
-          onTrainMind={() => setShowMindGym(true)}
-          onOpenProfile={() => setView('profile')}
-          accountInitial={session?.user.email?.charAt(0)}
-          isAnalyzingMeal={isAnalyzingMeal}
-          isEating={isEating}
-          feedingImage={feedingImage}
-          feedingGrade={feedingGrade}
-          isCelebrating={isCelebrating}
-          isWorkingOut={isWorkingOut}
-          isExploring={isExploring}
-        />
-      )}
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="Main">
+          {() => (
+            <MainTab.Navigator
+              screenOptions={{
+                headerShown: false,
+                tabBarActiveTintColor: colors.coral,
+                tabBarInactiveTintColor: colors.muted,
+                tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.hairline },
+                tabBarLabelStyle: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.4 },
+              }}
+            >
+              <MainTab.Screen name="Dashboard" options={{ tabBarLabel: 'My Pet' }}>
+                {({ navigation }) => {
+                  const rootNav = navigation.getParent() as NativeStackNavigationProp<RootStackParamList> | undefined;
+                  return (
+                    <DashboardScreen
+                      pet={pet}
+                      events={events}
+                      profile={profile}
+                      reaction={reaction}
+                      stepGoal={stepGoal}
+                      onStepGoalChange={setStepGoal}
+                      onLogMeal={() => rootNav?.navigate('MealCapture')}
+                      onLogWorkout={() => rootNav?.navigate('Workout')}
+                      onSyncSteps={() => void syncSteps()}
+                      onTrainMind={() => rootNav?.navigate('MindGym')}
+                      onOpenProfile={() => navigation.navigate('Profile')}
+                      accountInitial={session?.user.email?.charAt(0)}
+                      isAnalyzingMeal={isAnalyzingMeal}
+                      isEating={isEating}
+                      feedingImage={feedingImage}
+                      feedingGrade={feedingGrade}
+                      isCelebrating={isCelebrating}
+                      isWorkingOut={isWorkingOut}
+                      isExploring={isExploring}
+                    />
+                  );
+                }}
+              </MainTab.Screen>
+              <MainTab.Screen name="Profile">
+                {({ navigation }) => (
+                  <ProfileScreen
+                    profile={profile}
+                    breed={pet.breed}
+                    onBreedChange={(next) => void changeBreed(next)}
+                    events={events}
+                    onSave={persistProfile}
+                    onClose={() => navigation.navigate('Dashboard')}
+                    onSignOut={isSupabaseConfigured && session ? logOut : undefined}
+                  />
+                )}
+              </MainTab.Screen>
+            </MainTab.Navigator>
+          )}
+        </RootStack.Screen>
+        <RootStack.Group screenOptions={{ presentation: 'modal' }}>
+          <RootStack.Screen name="MealCapture">
+            {({ navigation }) => (
+              <MealCaptureScreen
+                onComplete={async (metadata) => {
+                  await completeMeal(metadata);
+                  navigation.goBack();
+                }}
+                onFeedStart={startFeeding}
+                onAnalyzingChange={setIsAnalyzingMeal}
+                onClose={() => navigation.goBack()}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen name="Workout">
+            {({ navigation }) => (
+              <WorkoutScreen
+                onFinish={async (metadata) => {
+                  await completeWorkout(metadata);
+                  navigation.goBack();
+                }}
+                onClose={() => navigation.goBack()}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen name="MindGym">
+            {({ navigation }) => (
+              <MindGymScreen
+                onFinish={async (metadata) => {
+                  await completeMindSession(metadata);
+                  navigation.goBack();
+                }}
+                onClose={() => navigation.goBack()}
+              />
+            )}
+          </RootStack.Screen>
+        </RootStack.Group>
+      </RootStack.Navigator>
 
       {error ? (
-        <View style={styles.banner}>
+        <View style={styles.banner} pointerEvents="none">
           <Text style={styles.bannerText}>{error}</Text>
         </View>
       ) : null}
-
-      {showMeal ? (
-        <MealCaptureScreen
-          onComplete={completeMeal}
-          onFeedStart={startFeeding}
-          onAnalyzingChange={setIsAnalyzingMeal}
-          onClose={() => setShowMeal(false)}
-        />
-      ) : null}
-      {showWorkout ? (
-        <WorkoutScreen onFinish={completeWorkout} onClose={() => setShowWorkout(false)} />
-      ) : null}
-      {showMindGym ? (
-        <MindGymScreen onFinish={completeMindSession} onClose={() => setShowMindGym(false)} />
-      ) : null}
-    </View>
+    </NavigationContainer>
   );
 }
 
