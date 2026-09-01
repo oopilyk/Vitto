@@ -1,6 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { type MealAnalysis, type PetState, getEvolutionStage } from '@vitto/core';
+import { FRAME_MS, type PetAnimation, sheetForPet } from './petSprites';
+import { SpriteFrame } from './SpriteFrame';
+import { Confetti, HeartStream } from './PetEffects';
 import { colors, fonts } from '../theme';
 
 type PetActivity = 'idle' | 'analyzing' | 'eating' | 'workout' | 'exploring' | 'celebrating';
@@ -17,13 +20,6 @@ interface PetAvatarProps {
   children?: React.ReactNode;
 }
 
-const MOOD_MOUTH: Record<PetState['mood'], string> = {
-  bright: '◡',
-  content: '⌣',
-  sleepy: '─',
-  hungry: '○',
-};
-
 const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
   celebrating: (name) => `${name} feels great!`,
   eating: (name) => `${name} is enjoying dinner`,
@@ -33,13 +29,24 @@ const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
   idle: (name) => `${name} is here`,
 };
 
-const STAGE_SIZE = { baby: 112, teen: 144, adult: 168 } as const;
+const STAGE_SIZE = { baby: 148, teen: 184, adult: 216 } as const;
+
+/** Matches the window App keeps `feedingImage` set for. */
+const FOOD_FLIGHT_MS = 880;
 
 const AURA_BY_MOOD: Record<PetState['mood'], string> = {
   bright: '#c8e6cc',
   content: '#b8d3bb',
   sleepy: '#cfc4bb',
   hungry: '#e3c9a6',
+};
+
+/** Which band of the sheet plays, given what the pet is doing right now. */
+export const animationFor = (activity: PetActivity, mood: PetState['mood']): PetAnimation => {
+  if (activity === 'celebrating' || activity === 'eating') return 'cheer';
+  if (activity === 'workout' || activity === 'exploring') return 'move';
+  if (activity === 'analyzing') return 'idle';
+  return mood === 'sleepy' ? 'rest' : 'idle';
 };
 
 export function PetAvatar({
@@ -65,26 +72,37 @@ export function PetAvatar({
             ? 'exploring'
             : 'idle';
 
-  const stage = getEvolutionStage(pet.level);
-  const size = STAGE_SIZE[stage];
-  const sleepy = pet.mood === 'sleepy';
+  const sheet = sheetForPet(pet);
+  const animation = animationFor(activity, pet.mood);
+  const frames = sheet.animations[animation];
+  const size = STAGE_SIZE[getEvolutionStage(pet.level)];
 
-  // The web build ran these as CSS keyframes; Animated is the native equivalent.
-  const breathe = useRef(new Animated.Value(0)).current;
-  const activityValue = useRef(new Animated.Value(0)).current;
+  // Step through the band's cells; each animation restarts from its first frame.
+  const [frameIndex, setFrameIndex] = useState(0);
+  useEffect(() => {
+    setFrameIndex(0);
+    if (frames.length < 2) return;
+    const timer = setInterval(
+      () => setFrameIndex((current) => (current + 1) % frames.length),
+      FRAME_MS[animation],
+    );
+    return () => clearInterval(timer);
+  }, [animation, frames.length]);
 
+  // A gentle bob on top of the frame animation, so idle never sits perfectly still.
+  const bob = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(breathe, {
+        Animated.timing(bob, {
           toValue: 1,
-          duration: sleepy ? 2200 : 1400,
+          duration: pet.mood === 'sleepy' ? 2400 : 1500,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(breathe, {
+        Animated.timing(bob, {
           toValue: 0,
-          duration: sleepy ? 2200 : 1400,
+          duration: pet.mood === 'sleepy' ? 2400 : 1500,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -92,81 +110,92 @@ export function PetAvatar({
     );
     loop.start();
     return () => loop.stop();
-  }, [breathe, sleepy]);
+  }, [bob, pet.mood]);
 
-  useEffect(() => {
-    activityValue.setValue(0);
-    if (activity === 'idle') return;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(activityValue, {
-          toValue: 1,
-          duration: 420,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(activityValue, {
-          toValue: 0,
-          duration: 420,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [activity, activityValue]);
-
-  const faceTransform: ViewStyle['transform'] = [
-    { translateY: breathe.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) as unknown as number },
-    activity === 'exploring'
-      ? { translateY: activityValue.interpolate({ inputRange: [0, 1], outputRange: [0, -14] }) as unknown as number }
-      : { translateY: 0 },
-    activity === 'workout'
-      ? { scaleX: activityValue.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) as unknown as number }
-      : { scaleX: 1 },
-    activity === 'analyzing'
-      ? {
-          rotate: activityValue.interpolate({
-            inputRange: [0, 1],
-            outputRange: ['0deg', '-6deg'],
-          }) as unknown as string,
-        }
-      : { rotate: '0deg' },
+  const bobTransform: ViewStyle['transform'] = [
+    {
+      translateY: bob.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, animation === 'rest' ? -2 : -5],
+      }) as unknown as number,
+    },
   ];
+
+  // The plate flies in from the lower left, arcs up, and shrinks into the pet's
+  // mouth — the same path the web build ran as a CSS keyframe.
+  const flight = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!feedingImage) return;
+    flight.setValue(0);
+    Animated.timing(flight, {
+      toValue: 1,
+      duration: FOOD_FLIGHT_MS,
+      easing: Easing.bezier(0.2, 0.8, 0.3, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [feedingImage, flight]);
+
+  const foodStyle = {
+    transform: [
+      {
+        translateX: flight.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-size * 0.85, 0],
+        }) as unknown as number,
+      },
+      {
+        translateY: flight.interpolate({
+          inputRange: [0, 0.6, 1],
+          outputRange: [size * 0.45, -size * 0.3, -size * 0.12],
+        }) as unknown as number,
+      },
+      {
+        rotate: flight.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['-12deg', '300deg'],
+        }) as unknown as string,
+      },
+      {
+        scale: flight.interpolate({
+          inputRange: [0, 0.65, 1],
+          outputRange: [1, 0.7, 0.12],
+        }) as unknown as number,
+      },
+    ],
+    opacity: flight.interpolate({
+      inputRange: [0, 0.8, 1],
+      outputRange: [1, 1, 0],
+    }) as unknown as number,
+  };
 
   const showHearts = isCelebrating && (feedingGrade === 'A' || feedingGrade === 'B');
 
   return (
     <View style={styles.stage}>
       {children}
-      <View style={[styles.aura, { backgroundColor: AURA_BY_MOOD[pet.mood], width: size * 1.4, height: size * 1.4, borderRadius: size }]} />
-      {feedingImage ? <Image source={{ uri: feedingImage }} style={styles.food} /> : null}
+      <View
+        style={[
+          styles.aura,
+          {
+            backgroundColor: AURA_BY_MOOD[pet.mood],
+            width: size * 1.15,
+            height: size * 1.15,
+            borderRadius: size,
+          },
+        ]}
+      />
+      {feedingImage ? (
+        <Animated.Image source={{ uri: feedingImage }} style={[styles.food, foodStyle]} />
+      ) : null}
 
-      <View style={styles.petWrap}>
-        <View style={[styles.ear, styles.earLeft, { left: size * 0.06, top: -size * 0.18 }]} />
-        <View style={[styles.ear, styles.earRight, { right: size * 0.06, top: -size * 0.18 }]} />
-        <Animated.View
-          style={[
-            styles.face,
-            { width: size, height: size * 0.92, transform: faceTransform },
-          ]}
-        >
-          <View style={styles.eyes}>
-            <View style={[styles.eye, sleepy && styles.eyeClosed]} />
-            <View style={[styles.eye, sleepy && styles.eyeClosed]} />
-          </View>
-          <Text style={[styles.mouth, { fontSize: size * 0.3 }]}>
-            {feedingImage ? '○' : MOOD_MOUTH[pet.mood]}
-          </Text>
-          {isEating ? (
-            <>
-              <View style={[styles.cheek, { left: size * 0.1 }]} />
-              <View style={[styles.cheek, { right: size * 0.1 }]} />
-            </>
-          ) : null}
-        </Animated.View>
-      </View>
+      {/* A window one cell wide, with the whole sheet slid behind it. */}
+      <Animated.View
+        accessibilityRole="image"
+        accessibilityLabel={`${pet.name}, ${STATUS_TEXT[activity](pet.name)}`}
+        style={[styles.window, { transform: bobTransform }]}
+      >
+        <SpriteFrame sheet={sheet} frame={frames[Math.min(frameIndex, frames.length - 1)]} size={size} />
+      </Animated.View>
 
       {activity === 'analyzing' ? (
         <View style={styles.thought}>
@@ -183,12 +212,8 @@ export function PetAvatar({
           </Text>
         </View>
       ) : null}
-      {showHearts ? (
-        <View style={styles.particles} pointerEvents="none">
-          <Text style={[styles.particle, { color: colors.coral }]}>♥</Text>
-          <Text style={[styles.particle, { color: colors.coral }]}>♥</Text>
-        </View>
-      ) : null}
+      <Confetti active={isCelebrating} headOffset={size * 0.42} />
+      <HeartStream active={showHearts} headOffset={size * 0.38} />
 
       <Text style={styles.status}>
         {STATUS_TEXT[activity](pet.name)} <Text style={{ color: colors.coral }}>♥</Text>
@@ -205,61 +230,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  aura: { position: 'absolute', opacity: 0.65 },
-  food: { position: 'absolute', top: 40, width: 84, height: 84, borderRadius: 42 },
-  petWrap: { alignItems: 'center', justifyContent: 'center' },
-  face: {
-    backgroundColor: colors.petSkin,
-    borderTopLeftRadius: 90,
-    borderTopRightRadius: 90,
-    borderBottomLeftRadius: 76,
-    borderBottomRightRadius: 76,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomWidth: 8,
-    borderBottomColor: colors.petShade,
-  },
-  ear: {
-    position: 'absolute',
-    width: 30,
-    height: 46,
-    backgroundColor: colors.petSkin,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  earLeft: { transform: [{ rotate: '-18deg' }] },
-  earRight: { transform: [{ rotate: '18deg' }] },
-  eyes: { flexDirection: 'row', gap: 34, marginBottom: 6 },
-  eye: { width: 8, height: 12, borderRadius: 6, backgroundColor: colors.petInk },
-  eyeClosed: { height: 3 },
-  mouth: { color: colors.petInk, marginTop: -2 },
-  cheek: {
-    position: 'absolute',
-    top: '54%',
-    width: 14,
-    height: 10,
-    borderRadius: 7,
-    backgroundColor: '#f0a48c',
-  },
+  aura: { position: 'absolute', opacity: 0.6 },
+  window: { overflow: 'hidden', zIndex: 1 },
+  // Centred on the pet; the flight transform carries it in from off to the side.
+  food: { position: 'absolute', width: 76, height: 76, borderRadius: 38, zIndex: 3 },
   thought: {
     position: 'absolute',
-    top: 28,
+    top: 26,
     width: 34,
     height: 34,
     borderRadius: 17,
     backgroundColor: colors.cardSoft,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   thoughtMark: { color: colors.yellowDeep, fontSize: 16 },
   particles: {
     position: 'absolute',
-    top: '30%',
-    width: '70%',
+    top: '26%',
+    width: '74%',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    zIndex: 2,
   },
   particle: { fontSize: 20, fontWeight: '700' },
   status: {

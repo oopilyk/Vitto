@@ -16,6 +16,7 @@ import {
   type FocusArea,
   type HealthEvent,
   type MealMetadata,
+  type PetBreed,
   calculateMacroTargets,
   calculateStreaks,
   convertHeightToFeetAndInches,
@@ -31,11 +32,14 @@ import {
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';
+import { BreedPicker } from '../components/BreedPicker';
 import { ChoiceRow, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
   profile: BodyProfile;
+  breed: PetBreed | undefined;
+  onBreedChange: (breed: PetBreed) => void;
   events: HealthEvent[];
   onSave: (profile: BodyProfile) => Promise<void>;
   onClose: () => void;
@@ -82,7 +86,15 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function ProfileScreen({ profile: initial, events, onSave, onClose, onSignOut }: Props) {
+export function ProfileScreen({
+  profile: initial,
+  breed,
+  onBreedChange,
+  events,
+  onSave,
+  onClose,
+  onSignOut,
+}: Props) {
   const [profile, setProfile] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -206,6 +218,10 @@ export function ProfileScreen({ profile: initial, events, onSave, onClose, onSig
               </View>
             ))}
           </View>
+        </Card>
+
+        <Card title="Your companion" hint="Changes take effect straight away">
+          <BreedPicker value={breed} onChange={onBreedChange} size={88} />
         </Card>
 
         <Card title="About you" hint="Private to you · used to tune your daily fuel targets">

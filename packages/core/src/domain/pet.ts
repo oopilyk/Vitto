@@ -2,11 +2,17 @@ import { newId } from './ids';
 
 export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
 
+/** Which drawn companion the pet is. Optional: pets adopted before the picker have none. */
+export type PetBreed = 'bichon' | 'shiba';
+
+export const PET_BREEDS: PetBreed[] = ['bichon', 'shiba'];
+
 export interface PetState {
   id: string;
   userId: string;
   name: string;
   species: 'cat' | 'dog' | 'bunny';
+  breed?: PetBreed;
   level: number;
   xp: number;
   health: number;
@@ -72,9 +78,11 @@ export const createPet = (
   userId: string,
   name: string,
   species: PetState['species'] = 'cat',
+  breed: PetBreed = 'bichon',
   id: string = newId(),
 ): PetState => ({
   id,
+  breed,
   userId,
   name,
   species,

@@ -71,6 +71,8 @@ describe('screens render', () => {
         profile={profile}
         onUpdate={() => {}}
         onAdopt={() => {}}
+        breed="shiba"
+        onBreedChange={() => {}}
         error={null}
       />,
       );
@@ -110,6 +112,66 @@ describe('screens render', () => {
     // 38*4 + 55*4 + 10*9 = 462, the fallback for an analysis with no calories.
     expect(rendered).toContain('462');
     expect(rendered).toContain('Miso');
+    tree.unmount();
+  });
+
+  it("shows only five of today's care events, with a link to the rest", () => {
+    const stepEvents: HealthEvent[] = Array.from({ length: 9 }, (_, index) => ({
+      id: `step-${index}`,
+      userId: 'user-1',
+      occurredAt: new Date().toISOString(),
+      type: 'STEP_ACTIVITY',
+      source: 'mock',
+      metadata: { steps: 6840 },
+    })) as unknown as HealthEvent[];
+
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={stepEvents}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {
+            opened += 1;
+          }}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+
+    const { Text: RNText } = require('react-native');
+    const rows = tree.root
+      .findAllByType(RNText)
+      .filter((node: any) => node.props.children === 'Went exploring');
+    expect(rows).toHaveLength(5);
+
+    const more = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node
+          .findAllByType(RNText)
+          .some((label: any) => JSON.stringify(label.props.children).includes('more today')),
+      );
+    expect(more).toBeTruthy();
+    // Nine events, five shown, so four are behind the link.
+    expect(JSON.stringify(more!.findAllByType(RNText)[0].props.children)).toContain('4');
+    act(() => more!.props.onPress());
+    expect(opened).toBe(1);
     tree.unmount();
   });
 
@@ -231,6 +293,28 @@ describe('screens render', () => {
   });
 });
 
+describe('breed picker', () => {
+  const { BreedPicker } = require('../components/BreedPicker');
+
+  it('reports the breed that was tapped', () => {
+    const chosen: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<BreedPicker value="bichon" onChange={(b: string) => chosen.push(b)} />);
+    });
+
+    const shiba = tree.root
+      .findAllByProps({ accessibilityLabel: 'Choose the Shiba' })
+      .find((node: any) => typeof node.props.onPress === 'function');
+    expect(shiba).toBeTruthy();
+    expect(shiba!.props.accessibilityState).toEqual({ selected: false });
+
+    act(() => shiba!.props.onPress());
+    expect(chosen).toEqual(['shiba']);
+    tree.unmount();
+  });
+});
+
 describe('profile screen', () => {
   const { ProfileScreen } = require('../screens/ProfileScreen');
 
@@ -238,7 +322,14 @@ describe('profile screen', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <ProfileScreen profile={profile} events={[]} onSave={onSave} onClose={() => {}} />,
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={onSave}
+          onClose={() => {}}
+        />,
       );
     });
     return tree;
@@ -278,5 +369,166 @@ describe('profile screen', () => {
     act(() => findButton(tree, 'Discard')!.props.onPress());
     expect(findButton(tree, 'Save changes')).toBeUndefined();
     tree.unmount();
+  });
+});
+
+describe('pet sprite', () => {
+  const { PetAvatar, animationFor } = require('../components/PetAvatar');
+  const { sheetForPet, PET_SHEETS } = require('../components/petSprites');
+  const { Image } = require('react-native');
+
+  const spriteOffset = (overrides: Record<string, unknown>) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <PetAvatar
+          pet={pet}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+          {...overrides}
+        />,
+      );
+    });
+    // The sheet is the Image with a negative offset windowing one cell.
+    const sheet = tree.root
+      .findAllByType(Image)
+      .find((node: any) => node.props.style?.marginLeft !== undefined);
+    const { marginLeft, marginTop } = sheet!.props.style;
+    tree.unmount();
+    return { marginLeft, marginTop };
+  };
+
+  it('picks the band that matches what the pet is doing', () => {
+    expect(animationFor('celebrating', 'content')).toBe('cheer');
+    expect(animationFor('exploring', 'content')).toBe('move');
+    expect(animationFor('idle', 'sleepy')).toBe('rest');
+    expect(animationFor('idle', 'hungry')).toBe('idle');
+  });
+
+  it('windows a different cell of the sheet for resting than for running', () => {
+    const resting = spriteOffset({ pet: { ...pet, mood: 'sleepy' } });
+    const running = spriteOffset({ isExploring: true });
+    expect(resting).not.toEqual(running);
+    // Every frame is windowed from inside the sheet, never past its edge.
+    expect(resting.marginTop).toBeLessThanOrEqual(0);
+    expect(running.marginLeft).toBeLessThanOrEqual(0);
+  });
+
+  it('draws the breed the pet was given', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    expect(sheetForPet({ id: 'any-id', breed: 'shiba' }).name).toBe('shiba');
+    expect(sheetForPet({ id: 'any-id', breed: 'bichon' }).name).toBe('bichon');
+  });
+
+  it('falls back to a stable breed for pets adopted before the picker', () => {
+    expect(sheetForPet({ id: 'pet-a' })).toBe(sheetForPet({ id: 'pet-a' }));
+    const breeds = new Set(
+      ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((id) => sheetForPet({ id }).name),
+    );
+    expect(breeds.size).toBe(PET_SHEETS.length);
+  });
+
+  it('flies the meal photo in rather than parking it above the pet', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <PetAvatar
+          pet={pet}
+          isAnalyzingMeal={false}
+          isEating
+          feedingImage="file:///tmp/plate.jpg"
+          feedingGrade="A"
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+
+    const food = tree.root
+      .findAllByType(Image)
+      .find((node: any) => node.props.source?.uri === 'file:///tmp/plate.jpg');
+    expect(food).toBeTruthy();
+
+    const style = [food!.props.style].flat().find((entry: any) => entry?.transform);
+    // Animated values, not a fixed offset: it travels and shrinks into the pet.
+    expect(style?.transform?.length).toBeGreaterThanOrEqual(4);
+    expect([food!.props.style].flat().some((entry: any) => entry?.top !== undefined)).toBe(false);
+    tree.unmount();
+  });
+
+  it('throws confetti when celebrating and hearts for a good plate', () => {
+    const { Confetti, HeartStream } = require('../components/PetEffects');
+    const render = (overrides: Record<string, unknown>) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <PetAvatar
+            pet={pet}
+            isAnalyzingMeal={false}
+            isEating={false}
+            feedingImage={null}
+            feedingGrade={null}
+            isCelebrating={false}
+            isWorkingOut={false}
+            isExploring={false}
+            {...overrides}
+          />,
+        );
+      });
+      const confetti = tree.root.findByType(Confetti).props.active;
+      const hearts = tree.root.findByType(HeartStream).props.active;
+      tree.unmount();
+      return { confetti, hearts };
+    };
+
+    expect(render({})).toEqual({ confetti: false, hearts: false });
+    // Confetti for any celebration; hearts only when the plate graded well.
+    expect(render({ isCelebrating: true, feedingGrade: 'D' })).toEqual({
+      confetti: true,
+      hearts: false,
+    });
+    expect(render({ isCelebrating: true, feedingGrade: 'A' })).toEqual({
+      confetti: true,
+      hearts: true,
+    });
+  });
+
+  it('sends the hearts up out of the top of the pet', () => {
+    const { HeartStream } = require('../components/PetEffects');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<HeartStream active headOffset={80} />);
+    });
+
+    const { Text: RNText } = require('react-native');
+    const hearts = tree.root.findAllByType(RNText).filter((node: any) => node.props.children === '♥');
+    expect(hearts.length).toBeGreaterThan(0);
+
+    // The layer is lifted above centre, and each heart travels upward.
+    const layer = tree.root.findAll((node: any) =>
+      [node.props.style].flat(2).some((entry: any) => entry?.marginTop === -80),
+    );
+    expect(layer.length).toBeGreaterThan(0);
+    tree.unmount();
+  });
+
+  it('only references frames that exist on the sheet', () => {
+    for (const sheet of PET_SHEETS) {
+      for (const frames of Object.values(sheet.animations) as [number, number][][]) {
+        expect(frames.length).toBeGreaterThan(0);
+        for (const [row, column] of frames) {
+          expect(row).toBeGreaterThanOrEqual(0);
+          expect(row).toBeLessThan(11);
+          expect(column).toBeGreaterThanOrEqual(0);
+          expect(column).toBeLessThan(4);
+        }
+      }
+    }
   });
 });

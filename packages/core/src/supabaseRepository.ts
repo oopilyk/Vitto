@@ -110,7 +110,7 @@ export class SupabaseRepository {
     if (error?.code === 'PGRST116') return null;
     if (error) throw error;
     const pet = data as PetRow;
-    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength, mind: pet.mind ?? 20, adoptedAt: pet.adopted_at ?? new Date().toISOString() };
+    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength, mind: pet.mind ?? 20, breed: pet.breed ?? undefined, adoptedAt: pet.adopted_at ?? new Date().toISOString() };
   }
 
   async savePet(pet: PetState): Promise<void> {
@@ -120,6 +120,7 @@ export class SupabaseRepository {
       user_id: pet.userId,
       name: pet.name,
       species: pet.species,
+      breed: pet.breed ?? null,
       level: pet.level,
       xp: pet.xp,
       health: pet.health,

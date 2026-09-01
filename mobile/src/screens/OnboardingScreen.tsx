@@ -10,7 +10,9 @@ import {
   weightGoalProgress,
   type BodyProfile,
   type FocusArea,
+  type PetBreed,
 } from '@vitto/core';
+import { BreedPicker } from '../components/BreedPicker';
 import { ChoiceRow, ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -19,6 +21,8 @@ interface Props {
   onNameChange: (value: string) => void;
   profile: BodyProfile;
   onUpdate: <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => void;
+  breed: PetBreed;
+  onBreedChange: (breed: PetBreed) => void;
   onAdopt: () => Promise<void> | void;
   error: string | null;
   onSignOut?: () => void;
@@ -59,7 +63,17 @@ const FOCUS_OPTIONS: { value: FocusArea; label: string; detail: string }[] = [
 
 const TIMELINE_PRESETS = [8, 12, 16, 24];
 
-export function OnboardingScreen({ name, onNameChange, profile, onUpdate, onAdopt, error, onSignOut }: Props) {
+export function OnboardingScreen({
+  name,
+  onNameChange,
+  breed,
+  onBreedChange,
+  profile,
+  onUpdate,
+  onAdopt,
+  error,
+  onSignOut,
+}: Props) {
   const [step, setStep] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
 
@@ -127,6 +141,8 @@ export function OnboardingScreen({ name, onNameChange, profile, onUpdate, onAdop
             <Text style={styles.intro}>
               Set a few basics so your companion can learn what fuel supports your goals.
             </Text>
+            <Text style={styles.groupLabel}>Who will you raise?</Text>
+            <BreedPicker value={breed} onChange={onBreedChange} />
             <Field label="What will you call them?">
               <TextInput style={layout.input} value={name} onChangeText={onNameChange} maxLength={18} />
             </Field>

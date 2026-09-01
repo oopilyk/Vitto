@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, withSurveyDefaults } from '@vitto/core';
+import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, withSurveyDefaults } from '@vitto/core';
 import { LocalRepository } from './src/services/localRepository';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
@@ -66,6 +66,8 @@ export default function App() {
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
   const [name, setName] = useState('Miso');
+  // Chosen at adoption; changeable later from the profile.
+  const [breed, setBreed] = useState<PetBreed>('bichon');
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'pet' | 'profile'>('pet');
   const [stepGoal, setStepGoal] = useState(10000);
@@ -214,6 +216,19 @@ export default function App() {
     }
   };
 
+  const changeBreed = async (next: PetBreed) => {
+    if (!pet) return;
+    const nextPet = { ...pet, breed: next };
+    setPet(nextPet);
+    setBreed(next);
+    try {
+      if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
+      await repository.savePet(nextPet);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not change your companion.'));
+    }
+  };
+
   const adopt = async () => {
     try {
       setError(null);
@@ -223,7 +238,7 @@ export default function App() {
       if (profile.weightKg < 30 || profile.weightKg > 300)
         throw new Error('Weight must be between 30 and 300 kg.');
 
-      const nextPet = createPet(userId, name.trim() || 'Miso');
+      const nextPet = createPet(userId, name.trim() || 'Miso', 'dog', breed);
       if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
       await persistProfile(profile);
       await repository.savePet(nextPet);
@@ -311,6 +326,8 @@ export default function App() {
         <OnboardingScreen
           name={name}
           onNameChange={setName}
+          breed={breed}
+          onBreedChange={setBreed}
           profile={profile}
           onUpdate={updateProfile}
           onAdopt={adopt}
@@ -327,6 +344,8 @@ export default function App() {
       {view === 'profile' ? (
         <ProfileScreen
           profile={profile}
+          breed={pet.breed}
+          onBreedChange={(next) => void changeBreed(next)}
           events={events}
           onSave={persistProfile}
           onClose={() => setView('pet')}

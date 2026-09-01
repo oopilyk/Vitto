@@ -57,6 +57,9 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 // Clears the home indicator on modern iPhones without pulling in a safe-area
 // package, which drags a second copy of React into the workspace.
+/** The dashboard shows a preview; the profile has the full record. */
+const CARE_PREVIEW_LIMIT = 5;
+
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
 
 const CARE_EVENT_LABEL: Partial<Record<HealthEvent['type'], string>> = {
@@ -181,7 +184,7 @@ export function DashboardScreen({
           {todaysOther.length === 0 ? (
             <Text style={styles.empty}>Log a workout, sync steps, or train your mind to see it here.</Text>
           ) : (
-            todaysOther.map((event) => (
+            todaysOther.slice(0, CARE_PREVIEW_LIMIT).map((event) => (
               <View key={event.id} style={styles.eventRow}>
                 <View style={styles.dot} />
                 <View style={{ flex: 1 }}>
@@ -199,6 +202,13 @@ export function DashboardScreen({
               </View>
             ))
           )}
+          {todaysOther.length > CARE_PREVIEW_LIMIT ? (
+            <Pressable onPress={onOpenProfile} hitSlop={6}>
+              <Text style={styles.moreLink}>
+                {todaysOther.length - CARE_PREVIEW_LIMIT} more today →
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </Fragment>
     ),
@@ -470,6 +480,7 @@ const styles = StyleSheet.create({
   eventName: { fontSize: 13, fontWeight: '500', color: colors.ink },
   eventTime: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
   eventXp: { fontFamily: fonts.mono, fontSize: 10, color: '#879187' },
+  moreLink: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
   panel: {
     flexDirection: 'row',
     alignItems: 'center',
