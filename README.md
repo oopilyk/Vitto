@@ -1,47 +1,66 @@
-# vitto
+# Vitto
 
-Vitto is a pet-centered social fitness game: your real-life care becomes your pet's energy, mood, and growth.
+A health tracker where your habits raise a pet. One shared brain, two apps.
 
-## Run the MVP
-
-```bash
-npm install
-npm run dev
+```
+packages/core/   @vitto/core — domain logic + Supabase-backed services (shared)
+web/             Vite + React web app
+mobile/          Expo + React Native app
+supabase/        SQL schema and the analyze-meal edge function
 ```
 
-The current vertical slice is local-first so it can be tried without accounts or backend credentials:
-
-`adopt pet -> log workout / sync mock steps / add meal -> pet state and reaction update`
-
-## Supabase setup
-
-1. Create a Supabase project and copy `.env.example` to `.env.local`.
-2. Fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
-3. Run `supabase/schema.sql` in the Supabase SQL editor.
-
-### Gemini meal analysis
-
-Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey), then set it as a Supabase Edge Function secret and deploy the function:
+## Getting started
 
 ```bash
-supabase secrets set GEMINI_API_KEY=your-key
-supabase functions deploy analyze-meal
+npm install            # installs every workspace and links @vitto/core
+
+npm run web            # Vite dev server
+npm run mobile         # Expo — scan the QR with Expo Go (needs 57.0.9+)
+
+npm test               # every workspace's tests
+npm run typecheck      # every workspace
 ```
 
-The key must not be added to `VITE_*` variables. Gemini availability and limits depend on the current free-tier terms and region.
+Each app carries its own `.env.local` (copy from the `.env.example` beside it):
+`VITE_*` for web, `EXPO_PUBLIC_*` for mobile.
 
-The Supabase client and repository are ready for the auth and database wiring. Until those environment variables are present, the browser demo continues using local storage.
+## What lives where
 
-## Architecture
+**`packages/core`** is everything that does not care what it is running on: the pet
+engine, time decay, streaks, macro targets, calorie estimation, the brain games, and
+the Supabase repository, auth, and food lookup. It has no React, no DOM, and no React
+Native imports, so it type-checks and tests under plain Node.
 
-- `src/domain/health.ts`: versionable `HealthEvent` contract and metadata types.
-- `src/domain/petHealthEngine.ts`: pure event-to-pet rules; health inputs never couple directly to a provider.
-- `src/services/healthDataProvider.ts`: provider boundary, currently backed by mock steps.
-- `src/services/localRepository.ts`: temporary browser persistence, replaceable with Supabase repositories.
-- `src/App.tsx`: pet-first home screen and vertical slice orchestration.
+Two seams keep it platform-free:
 
-## Product architecture
+- **`configureCore({ supabase, envHint, fdcApiKey })`** — each app builds its own
+  Supabase client (the browser's with default storage, the device's with AsyncStorage)
+  and hands it in. Everything downstream just asks core for it.
+- **`setIdGenerator(...)`** — the web installs `crypto.randomUUID`, native installs
+  `expo-crypto`, because Hermes has no such global.
 
-The planned production stack is Expo + React Native + TypeScript for iOS/Android, Supabase Auth/Postgres/Storage/Realtime, and an API-side meal vision service behind an `MealAnalysisProvider` interface. Supabase Row Level Security should protect user, pet, health event, meal image, friendship, and challenge rows. Health data and meal images are sensitive: collect only what the feature needs, use private storage paths, short-lived signed URLs, deletion/export controls, and explicit consent for HealthKit/Health Connect.
+**`web/`** and **`mobile/`** hold only what is genuinely platform-specific: screens,
+components, local storage, image handling, and sound/haptics.
 
-The next dependency-ordered slices are authentication and Supabase schema, meal capture and AI classification, friendships and pet-event reactions, then cooperative challenges. Sleep, screen time, automatic health imports, monetization, and harsh neglect states remain intentionally deferred.
+## Tests
+
+The shared logic is tested once, in `packages/core` (48 tests, vitest). `mobile` adds
+three jest-expo tests that render real screens. Run them all with `npm test` at the root.
+
+## Database
+
+Migrations in `supabase/` still to be applied to the live project — writes tolerate
+their absence, but silently drop those columns:
+
+```sql
+alter table public.pets add column if not exists adopted_at timestamptz not null default now();
+alter table public.profiles add column if not exists height_unit text not null default 'cm' check (height_unit in ('cm','ft'));
+-- plus supabase/mind.sql and supabase/onboarding-survey.sql
+```
+
+## Known gaps
+
+- Steps are mocked in both apps (`MockHealthDataProvider`). Real steps need
+  HealthKit / Health Connect and a native development build.
+- Screen time is a placeholder in both.
+- The pet is drawn from primitives, not a sprite.

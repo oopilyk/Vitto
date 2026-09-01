@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { HealthEvent, MealMetadata } from '../domain/health';
-import { calorieEstimate } from '../domain/macros';
+import { type HealthEvent, type MealMetadata, calorieEstimate } from '@vitto/core';
 import { colors, fonts } from '../theme';
 
 const LOGGED_VIA_ICON: Record<NonNullable<MealMetadata['loggedVia']>, string> = {

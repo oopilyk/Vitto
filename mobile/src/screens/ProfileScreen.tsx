@@ -1,23 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { BrainTrainingMetadata, HealthEvent, MealMetadata } from '../domain/health';
-import {
-  FOCUS_AREAS,
-  calculateMacroTargets,
-  convertHeightToFeetAndInches,
-  convertWeightValue,
-  feetAndInchesToCm,
-  planForGoal,
-  type BodyProfile,
-  type FocusArea,
-} from '../domain/macroTargets';
-import {
-  estimateCaloriesBurned,
-  getEventsForDay,
-  getMealsForDay,
-  sumMealMacros,
-} from '../domain/nutritionSummary';
-import { calculateStreaks, getActiveDateKeys } from '../domain/streaks';
+import { type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealMetadata, calculateMacroTargets, calculateStreaks, convertHeightToFeetAndInches, convertWeightValue, estimateCaloriesBurned, feetAndInchesToCm, getActiveDateKeys, getEventsForDay, getMealsForDay, planForGoal, sumMealMacros } from '@vitto/core';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';

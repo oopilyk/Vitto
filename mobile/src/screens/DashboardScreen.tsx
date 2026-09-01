@@ -1,17 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { BrainTrainingMetadata, HealthEvent, MealAnalysis } from '../domain/health';
-import type { PetState, PetReaction } from '../domain/pet';
-import { EVOLUTION_STAGE_LABEL, getEvolutionStage } from '../domain/pet';
-import { FOCUS_AREAS, calculateMacroTargets, type BodyProfile } from '../domain/macroTargets';
-import {
-  estimateCaloriesBurned,
-  getEventsForDay,
-  getMealsForDay,
-  sumMealMacros,
-} from '../domain/nutritionSummary';
-import { calculateStreaks } from '../domain/streaks';
-import { mindScoreLabel } from '../domain/brainGames';
+import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, estimateCaloriesBurned, getEventsForDay, getEvolutionStage, getMealsForDay, mindScoreLabel, sumMealMacros } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';

@@ -18,7 +18,7 @@ npx expo run:ios       # requires Xcode
 npx expo run:android   # requires Android Studio
 ```
 
-## Layout
+## Layout (see the root README for the monorepo)
 
 | Path | What it holds |
 | --- | --- |

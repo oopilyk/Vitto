@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { getRecentDays, toDateKey } from '../domain/streaks';
+import { getRecentDays, toDateKey } from '@vitto/core';
 import { colors } from '../theme';
 
 interface ActivityCalendarProps {

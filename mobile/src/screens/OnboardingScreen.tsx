@@ -10,7 +10,7 @@ import {
   weightGoalProgress,
   type BodyProfile,
   type FocusArea,
-} from '../domain/macroTargets';
+} from '@vitto/core';
 import { ChoiceRow, ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 

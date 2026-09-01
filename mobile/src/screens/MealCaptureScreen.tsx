@@ -12,16 +12,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import type { MealAnalysis, MealMetadata } from '../domain/health';
-import { calorieEstimate } from '../domain/macros';
+import { type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
 import { analyzeMealImage, type PickedImage } from '../services/mealAnalysis';
-import {
-  lookupBarcode,
-  searchFoodsByName,
-  toMealAnalysis,
-  type FoodSearchResult,
-} from '../services/foodDatabase';
-import { errorMessage } from '../services/errorMessage';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 

@@ -1,8 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 import { decode } from 'base64-arraybuffer';
-import type { MealAnalysis } from '../domain/health';
-import { withEstimatedCalories } from '../domain/macros';
-import { newId } from '../domain/ids';
+import { type MealAnalysis, newId, withEstimatedCalories } from '@vitto/core';
 import { supabase } from './supabaseClient';
 
 const bucket = 'meal-images';

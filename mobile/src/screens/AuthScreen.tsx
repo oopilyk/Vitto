@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { signInWithEmail, signUpWithEmail } from '../services/auth';
-import { errorMessage } from '../services/errorMessage';
+import { errorMessage, signInWithEmail, signUpWithEmail } from '@vitto/core';
 import { ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 

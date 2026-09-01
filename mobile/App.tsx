@@ -1,31 +1,10 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
-import type {
-  BrainTrainingMetadata,
-  HealthEvent,
-  MealAnalysis,
-  MealMetadata,
-  StepMetadata,
-  WorkoutMetadata,
-} from './src/domain/health';
-import { applyDelta, PetHealthEngine } from './src/domain/petHealthEngine';
-import { applyTimeDecay } from './src/domain/decay';
-import { calculateStreaks } from './src/domain/streaks';
-import { createPet, type PetReaction, type PetState } from './src/domain/pet';
-import { newId, setIdGenerator } from './src/domain/ids';
-import {
-  PROFILE_SURVEY_DEFAULTS,
-  withSurveyDefaults,
-  type BodyProfile,
-} from './src/domain/macroTargets';
-import { getEventsForDay } from './src/domain/nutritionSummary';
+import { type BodyProfile, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, withSurveyDefaults } from '@vitto/core';
 import { LocalRepository } from './src/services/localRepository';
-import { SupabaseRepository } from './src/services/supabaseRepository';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
-import { getSession, onAuthStateChange, signOut } from './src/services/auth';
-import { errorMessage } from './src/services/errorMessage';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';

@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { WorkoutExercise, WorkoutMetadata } from '../domain/health';
-import { addSet, calculateWorkoutStats, createExercise, exerciseLibrary, updateSet } from '../domain/workout';
-import { errorMessage } from '../services/errorMessage';
+import { type WorkoutExercise, type WorkoutMetadata, addSet, calculateWorkoutStats, createExercise, errorMessage, exerciseLibrary, updateSet } from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 

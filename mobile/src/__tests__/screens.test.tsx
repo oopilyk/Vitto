@@ -2,9 +2,7 @@ import renderer, { act } from 'react-test-renderer';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { MindGymScreen } from '../screens/MindGymScreen';
-import { createPet } from '../domain/pet';
-import { PROFILE_SURVEY_DEFAULTS, type BodyProfile } from '../domain/macroTargets';
-import type { HealthEvent, MealMetadata } from '../domain/health';
+import { type BodyProfile, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, createPet } from '@vitto/core';
 
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),

@@ -1,16 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import type { BrainTrainingMetadata } from '../domain/health';
-import {
-  MATH_ROUND_SECONDS,
-  generateMathProblem,
-  mindScore,
-  mindScoreLabel,
-  pickReadingPassage,
-  type MathProblem,
-  type ReadingPassage,
-} from '../domain/brainGames';
-import { errorMessage } from '../services/errorMessage';
+import { type BrainTrainingMetadata, MATH_ROUND_SECONDS, type MathProblem, type ReadingPassage, errorMessage, generateMathProblem, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 

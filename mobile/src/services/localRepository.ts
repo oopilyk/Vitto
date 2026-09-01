@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { HealthEvent } from '../domain/health';
-import type { PetState } from '../domain/pet';
+import { type HealthEvent, type PetState } from '@vitto/core';
 
 const petKey = 'vitto.pet';
 const eventKey = 'vitto.events';

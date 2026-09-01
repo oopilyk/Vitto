@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import type { MealAnalysis } from '../domain/health';
-import { getEvolutionStage, type PetState } from '../domain/pet';
+import { type MealAnalysis, type PetState, getEvolutionStage } from '@vitto/core';
 import { colors, fonts } from '../theme';
 
 type PetActivity = 'idle' | 'analyzing' | 'eating' | 'workout' | 'exploring' | 'celebrating';

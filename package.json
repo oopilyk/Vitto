@@ -1,26 +1,16 @@
 {
   "name": "vitto",
   "private": true,
-  "version": "0.1.0",
-  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "web",
+    "mobile"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.112.4",
-    "@vitejs/plugin-react": "latest",
-    "@zxing/browser": "^0.2.1",
-    "@zxing/library": "^0.23.0",
-    "react": "latest",
-    "react-dom": "latest",
-    "typescript": "latest",
-    "vite": "latest",
-    "vitest": "latest"
-  },
-  "devDependencies": {
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.5"
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "web": "npm run dev --workspace web",
+    "mobile": "npm run start --workspace mobile",
+    "build:web": "npm run build --workspace web"
   }
 }
