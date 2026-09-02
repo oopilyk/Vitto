@@ -12,6 +12,25 @@ const BRIGHT_ENERGY_THRESHOLD = 65;
 const BRIGHT_HAPPINESS_THRESHOLD = 65;
 const SHARP_SESSION_ACCURACY = 0.8;
 
+/**
+ * A "sharp" session is meant to read as a good day, not a flawless one. The timed
+ * games have many questions, so 0.8 sits comfortably below perfect. The daily word
+ * puzzle has only four rounds, where a single miss is already 25% -- at 0.8 the bar
+ * would mean a clean sweep, so it gets its own threshold to preserve the intent.
+ */
+const SHARP_ACCURACY_BY_GAME: Record<BrainTrainingMetadata['game'], number> = {
+  math: SHARP_SESSION_ACCURACY,
+  reading: SHARP_SESSION_ACCURACY,
+  wordPuzzle: 0.75,
+};
+
+/** Keyed on the whole union, so a new brain game must be labelled here or the build fails. */
+const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
+  math: 'Quick maths',
+  reading: 'Read and recall',
+  wordPuzzle: "Daily word puzzle",
+};
+
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
   if (nutrition < HUNGRY_NUTRITION_THRESHOLD) return 'hungry';
   if (energy < SLEEPY_ENERGY_THRESHOLD) return 'sleepy';
@@ -81,18 +100,18 @@ export class PetHealthEngine {
       case 'BRAIN_TRAINING': {
         const metadata = event.metadata as unknown as BrainTrainingMetadata;
         const accuracy = metadata.total > 0 ? metadata.correct / metadata.total : 0;
-        const sharp = accuracy >= SHARP_SESSION_ACCURACY;
+        const sharp = accuracy >= SHARP_ACCURACY_BY_GAME[metadata.game];
         delta = {
           happiness: sharp ? 5 : 3,
           recovery: sharp ? 4 : 2,
           energy: 1,
-          mind: Math.max(2, Math.round(accuracy * (metadata.game === 'reading' ? 8 : 6))),
+          mind: Math.max(2, Math.round(accuracy * (metadata.game === 'math' ? 6 : 8))),
           xp: Math.min(24, 8 + Math.round(accuracy * 12) + (metadata.game === 'reading' ? 2 : 0)),
         };
         message = sharp
           ? `${pet.name} feels clear-headed after thinking that through with you.`
           : `${pet.name} liked puzzling over that together.`;
-        eventLabel = metadata.game === 'math' ? 'Quick maths' : 'Read and recall';
+        eventLabel = BRAIN_GAME_LABEL[metadata.game];
         break;
       }
       case 'MEAL': {

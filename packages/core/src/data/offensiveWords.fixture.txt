@@ -1,0 +1,676 @@
+# Vitto / WordPuzzle -- offensive-terms fixture
+#
+# PURPOSE
+#   Applied at build time by packages/core/scripts/buildWordPuzzleWords.ts to filter the
+#   generated WordPuzzle wordlists. Retained in-repo as a TEST FIXTURE so that a regression
+#   in the build script cannot ship silently.
+#
+# ATTRIBUTION / LICENSE
+#   The [severe] section is derived from "List of Dirty, Naughty, Obscene and Otherwise
+#   Bad Words" (LDNOOBW), English list, by Shutterstock, Inc.
+#     https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words
+#   Licensed under the Creative Commons Attribution 4.0 International licence (CC-BY-4.0):
+#     https://creativecommons.org/licenses/by/4.0/
+#   Redistributed here in modified form: entries have been partitioned into the two tiers
+#   below, and a hand-selected supplement has been added (see NOTE ON LDNOOBW_V2).
+#
+# NOTE ON LDNOOBW_V2
+#   LDNOOBWV2/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words_V2 (CC0-1.0) was
+#   evaluated as a replacement source and REJECTED for bulk application: its aggregated
+#   English list flags ordinary vocabulary such as "church", "faith", "food", "beach",
+#   "blind", "attack", "stroke", "acumen" and "virgin". Applying it wholesale would make
+#   those words unguessable. A hand-reviewed subset of genuine slurs and explicit terms
+#   that it contributes over the Shutterstock list has been merged into [severe] instead.
+#
+# TIERS
+#   [severe]  Removed from BOTH the guess-validity list and the answer pool.
+#             Slurs, explicit sexual content, and sexual-violence terms.
+#   [mild]    Remains a VALID GUESS; removed from the answer pool only.
+#             Mild profanity and clinical/anatomical vocabulary. Players type rude words
+#             to probe a new game, and rejecting a real word as "not a word" reads as
+#             broken -- but a wellness app must never serve one as the word of the day.
+#
+#   A term listed in [mild] takes precedence over the same term in [severe].
+#   Matching is WHOLE-WORD, so substring false positives (the Scunthorpe problem) cannot
+#   arise. Multi-word phrases are retained for fidelity to the source; they never match a
+#   single dictionary word.
+#
+#
+#   Some [mild] entries were added after cross-checking the generated answer pool against
+#   the LDNOOBWV2 aggregate: sexual and anatomical vocabulary that is unremarkable in a
+#   dictionary but wrong as a wellness app's word of the day. They remain valid guesses.
+#   That cross-check was a REVIEW AID only; the aggregate is not applied automatically.
+#
+#   Deliberately NOT swept here: violence, grief, illness, self-harm and body-image
+#   vocabulary. Those categories are context-sensitive, and half-automating them would
+#   give a false impression of coverage. They belong to the human sign-off pass below.
+#
+# HUMAN SIGN-OFF REQUIRED
+#   This list is NOT sufficient on its own. The generated answer pool still needs a human
+#   review pass before launch -- automated blocklists do not catch context-sensitive
+#   entries that are unremarkable in a dictionary and wrong as a wellness app's word of
+#   the day (grief, illness, self-harm and body-image vocabulary in particular).
+
+[severe]
+2 girls 1 cup
+2g1c
+acrotomophilia
+alabama hot pocket
+alaskan pipeline
+anilingus
+apeshit
+assmunch
+auto erotic
+autoerotic
+babeland
+baby batter
+baby juice
+ball gag
+ball gravy
+ball kicking
+ball licking
+ball sack
+ball sucking
+bangbros
+bangbus
+bareback
+barely legal
+barenaked
+bastardo
+bastinado
+bbw
+bdsm
+beaner
+beaners
+beastiality
+beaver cleaver
+beaver lips
+bestiality
+big black
+big breasts
+big knockers
+big tits
+bimbos
+birdlock
+black cock
+blonde action
+blonde on blonde action
+blow job
+blow your load
+blowjob
+blue waffle
+blumpkin
+boche
+boches
+bohunk
+bondage
+boner
+booty call
+brown showers
+brunette action
+buckra
+bukkake
+bulldyke
+bullet vibe
+bung hole
+bunghole
+butt
+buttcheeks
+butthole
+camel toe
+camgirl
+camslut
+camwhore
+carpet muncher
+carpetmuncher
+chink
+chinks
+chinky
+chocolate rosebuds
+cialis
+circlejerk
+cleveland steamer
+clit
+clitoris
+clover clamps
+clusterfuck
+cock
+cocks
+coolie
+cooly
+coon
+coons
+coprolagnia
+coprophilia
+cornhole
+creampie
+cretin
+cum
+cumming
+cumshot
+cumshots
+cunnilingus
+cunt
+cunts
+dago
+dagoes
+dagos
+darkey
+darkie
+darky
+date rape
+daterape
+deep throat
+deepthroat
+dendrophilia
+dick
+dicks
+dildo
+dildos
+dingleberries
+dingleberry
+dirty pillows
+dirty sanchez
+dog style
+doggie style
+doggiestyle
+doggy style
+doggystyle
+dolcett
+domination
+dominatrix
+dommes
+donkey punch
+double dong
+double penetration
+dp action
+dry hump
+dvda
+dyke
+dykes
+eat my ass
+ecchi
+ejaculation
+erotism
+fag
+faggot
+felch
+fellatio
+feltch
+female squirting
+femdom
+figging
+fingerbang
+fingering
+fisting
+floozy
+foot fetish
+footjob
+frotting
+fuck buttons
+fucked
+fucker
+fuckers
+fucks
+fucktards
+fuckup
+fudge packer
+fudgepacker
+futanari
+g-spot
+gang bang
+gangbang
+gay sex
+genitals
+giant cock
+gigolo
+gimp
+girl on
+girl on top
+girls gone wild
+goatcx
+goatse
+god damn
+gokkun
+golden shower
+goo girl
+goodpoop
+gook
+gooks
+gooky
+goregasm
+gringo
+grope
+group sex
+guro
+hand job
+handjob
+hard core
+hardcore
+harlot
+hebe
+hebes
+hentai
+homo
+homoerotic
+honkey
+honkie
+honky
+hooker
+hot carl
+hot chick
+how to kill
+how to murder
+huge fat
+humping
+hussy
+incest
+intercourse
+jack off
+jail bait
+jailbait
+jelly donut
+jerk off
+jigaboo
+jiggaboo
+jiggerboo
+jism
+jisms
+jizz
+juggs
+kaffir
+kafir
+kafirs
+kike
+kikes
+kinbaku
+kinkster
+knobbing
+kraut
+krauts
+leather restraint
+leather straight jacket
+lemon party
+lezzes
+lezzie
+lezzy
+limey
+livesex
+lolita
+lovemaking
+lynch
+make me come
+male squirting
+masturbate
+masturbating
+masturbation
+menage a trois
+mick
+micks
+midget
+milf
+missionary position
+molest
+molested
+mong
+motherfucker
+mound of venus
+mr hands
+muff diver
+muffdiving
+nambla
+nance
+nances
+nawashi
+negro
+neonazi
+nig nog
+nigga
+nigger
+nimphomania
+nsfw
+nsfw images
+nutten
+nympho
+nymphomania
+octopussy
+ofay
+ofays
+omorashi
+one cup two girls
+one guy one jar
+orgasm
+orgy
+paedophile
+paki
+panties
+panty
+pedobear
+pedophile
+pegging
+phone sex
+piece of shit
+pikey
+pimp
+pimped
+pinko
+piss pig
+pisspig
+playboy
+pleasure chest
+pole smoker
+pommie
+pommy
+ponyplay
+poof
+poofs
+poofy
+poon
+poontang
+poop chute
+poopchute
+poove
+pooves
+porn
+porno
+pornography
+prince albert piercing
+pthc
+punany
+pussy
+queaf
+queef
+quim
+raghead
+raging boner
+rape
+raped
+raper
+rapes
+raping
+rapist
+retard
+reverse cowgirl
+rimjob
+rimming
+rosy palm
+rosy palm and her 5 sisters
+rusty trombone
+s&m
+sadism
+sambo
+sambos
+santorum
+schlong
+scissoring
+sexcam
+sexo
+shaved beaver
+shaved pussy
+shemale
+shibari
+shiksa
+shikse
+shitblimp
+shota
+shrimping
+skeet
+slanteye
+slut
+sluts
+slutty
+smegma
+smut
+snowballing
+sodom
+sodomize
+sodomy
+spastic
+spaz
+spic
+spick
+spicks
+spics
+spik
+spiks
+splooge
+splooge moose
+spooge
+spread legs
+spunk
+squaw
+squaws
+strap on
+strapon
+strappado
+strip club
+style doggy
+suicide girls
+sultry women
+swastika
+swinger
+tainted love
+taste my
+tea bagging
+threesome
+throating
+thumbzilla
+tied up
+tight white
+titties
+tongue in a
+topless
+towelhead
+tranny
+tribadism
+tub girl
+tubgirl
+twat
+twink
+twinkie
+two girls one cup
+undressing
+upskirt
+urethra play
+urophilia
+venus mound
+viagra
+vibrator
+violet wand
+vorarephilia
+voyeur
+voyeurweb
+voyuer
+wank
+wet dream
+wetback
+white power
+whitey
+whity
+whore
+whored
+whores
+wog
+wogs
+wop
+wops
+worldsex
+wrapping men
+wrinkled starfish
+xx
+xxx
+yaoi
+yellow showers
+yid
+yids
+yiffy
+zoophilia
+
+[mild]
+anal
+anus
+arse
+arsehole
+arses
+ass
+asshole
+bastard
+bawdy
+bimbo
+bitch
+bitches
+bloody
+bollix
+bollocks
+boob
+boobs
+booby
+booty
+bosom
+bugged
+bugger
+bullshit
+bum
+busty
+butch
+buxom
+cervix
+coitus
+crap
+crappy
+craps
+crotch
+damn
+damned
+damnit
+dang
+darn
+dike
+douche
+douches
+dumb
+enema
+erect
+erotic
+escort
+eunuch
+fairy
+fanny
+fart
+farted
+farts
+fecal
+feces
+fetish
+fondle
+fuck
+fuckin
+fucking
+gash
+goddam
+harem
+hell
+hells
+hickey
+horny
+hymen
+idiot
+jerk
+kinky
+knob
+lecher
+libido
+loins
+lust
+lusty
+moron
+muff
+naked
+nipple
+nipples
+nude
+nudism
+nudist
+nudity
+nymph
+pansy
+pee
+peed
+penis
+phalli
+piss
+pissed
+pisser
+pisses
+pissing
+poop
+pooped
+poops
+potty
+prat
+prick
+pubes
+pubic
+puke
+racy
+randy
+raunch
+rectal
+rectum
+scat
+scrota
+seduce
+semen
+sex
+sexual
+sexuality
+sexually
+sexy
+shag
+shat
+shit
+shits
+shitty
+sissy
+slag
+sleaze
+sleazy
+smutty
+snatch
+snot
+spank
+sperm
+squirt
+steamy
+stupid
+suck
+sucked
+sucker
+sucks
+sultry
+tart
+teat
+thong
+tit
+tits
+titty
+tosser
+tramp
+turd
+turds
+tushy
+twit
+undies
+urea
+urinal
+urine
+uteri
+uterus
+vagina
+vulva
+wanker
+wedgie
+wee
+weewee
+wench
+wuss

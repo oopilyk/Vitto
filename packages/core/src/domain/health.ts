@@ -39,8 +39,14 @@ export interface StepMetadata {
   date?: string;
 }
 
+export interface WordPuzzleRoundOutcome {
+  length: number;
+  solved: boolean;
+  guessesUsed: number;
+}
+
 export interface BrainTrainingMetadata {
-  game: 'math' | 'reading';
+  game: 'math' | 'reading' | 'wordPuzzle';
   correct: number;
   total: number;
   durationSeconds: number;
@@ -48,6 +54,9 @@ export interface BrainTrainingMetadata {
   bestStreak?: number;
   passageId?: string;
   passageTitle?: string;
+  puzzleDate?: string;
+  generatorVersion?: number;
+  roundOutcomes?: WordPuzzleRoundOutcome[];
 }
 
 export interface MealMetadata {
