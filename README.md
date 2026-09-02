@@ -6,7 +6,7 @@ A health tracker where your habits raise a pet. One shared brain, two apps.
 packages/core/   @vitto/core — domain logic + Supabase-backed services (shared)
 web/             Vite + React web app
 mobile/          Expo + React Native app
-supabase/        SQL schema and the analyze-meal edge function
+supabase/        migrations and the analyze-meal edge function
 ```
 
 ## Getting started
@@ -49,14 +49,45 @@ three jest-expo tests that render real screens. Run them all with `npm test` at 
 
 ## Database
 
-Migrations in `supabase/` still to be applied to the live project — writes tolerate
-their absence, but silently drop those columns:
+Schema lives in `supabase/migrations/`, one timestamped SQL file per change, applied in
+filename order:
 
-```sql
-alter table public.pets add column if not exists adopted_at timestamptz not null default now();
-alter table public.profiles add column if not exists height_unit text not null default 'cm' check (height_unit in ('cm','ft'));
--- plus supabase/mind.sql and supabase/onboarding-survey.sql
 ```
+20260828170000_initial_schema.sql     profiles, pets, health_events + RLS + new-user trigger
+20260828170100_profile_columns.sql    profile body/goal columns
+20260829120000_workouts_and_steps.sql workouts, daily_steps
+20260829130000_meal_analysis.sql      meal_analyses + the meal-images storage bucket
+20260830090000_pet_strength_stats.sql pets.pushing/pulling/leg_strength
+20260830100000_pet_adopted_at.sql     pets.adopted_at
+20260831120000_pet_mind_stat.sql      pets.mind
+20260831130000_onboarding_survey.sql  profile survey columns
+20260901140000_pet_breed.sql          pets.breed
+20260901150000_pet_stat_bounds.sql    clamps pets.strength/endurance to 0-100
+```
+
+Every migration is written to be re-runnable (`if not exists` / `if exists` guards), so
+applying the whole directory to a database that is already partly migrated is safe.
+
+These replace the loose hand-run `supabase/*.sql` files the project started with
+(`schema.sql`, `profile.sql`, `pet-stats.sql`, `adopted-at.sql`, and friends). Those files
+are gone; do not add new SQL outside `migrations/`.
+
+**Applied state is unverified.** The Supabase project is not linked locally — there is no
+`supabase/config.toml` and no `.temp/project-ref`, and `supabase/.temp/pooler-url` still
+carries the placeholder password — so nothing here has confirmed which migrations the live
+project actually has. Check before trusting the schema:
+
+```bash
+supabase link --project-ref <your-project-ref>   # prompts for the database password
+supabase migration list --linked                 # local vs. remote, side by side
+```
+
+This matters because `SupabaseRepository` writes through `saveDroppingMissingColumns`,
+which retries a failed write with the offending column removed. A missing column therefore
+costs you a silent data loss rather than an error: `loadPet` backfills `mind` to 20 and
+`adopted_at` to "now", so an unmigrated database looks like a working one with oddly
+default-looking stats. If a stat renders as its default and never persists, suspect an
+unapplied migration first.
 
 ## Known gaps
 

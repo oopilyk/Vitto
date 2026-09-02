@@ -98,6 +98,7 @@ describe('screens render', () => {
         onSyncSteps={() => {}}
         onTrainMind={() => {}}
         onOpenProfile={() => {}}
+        onOpenStats={() => {}}
         isAnalyzingMeal={false}
         isEating={false}
         feedingImage={null}
@@ -143,6 +144,7 @@ describe('screens render', () => {
           onOpenProfile={() => {
             opened += 1;
           }}
+          onOpenStats={() => {}}
           isAnalyzingMeal={false}
           isEating={false}
           feedingImage={null}
@@ -194,6 +196,7 @@ describe('screens render', () => {
           onOpenProfile={() => {
             opened += 1;
           }}
+          onOpenStats={() => {}}
           accountInitial="k"
           isAnalyzingMeal={false}
           isEating={false}
@@ -217,6 +220,46 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('opens the stat sheet from the vitals HUD on the pet', () => {
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {
+            opened += 1;
+          }}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+
+    const hud = tree.root
+      .findAllByProps({ accessibilityLabel: 'Open pet stats' })
+      .find((node: any) => typeof node.props.onPress === 'function');
+    expect(hud).toBeTruthy();
+    act(() => hud!.props.onPress());
+    expect(opened).toBe(1);
+    tree.unmount();
+  });
+
   it('keeps every log action reachable without scrolling', () => {
     const pressed: string[] = [];
     let tree!: renderer.ReactTestRenderer;
@@ -234,6 +277,7 @@ describe('screens render', () => {
           onSyncSteps={() => pressed.push('steps')}
           onTrainMind={() => pressed.push('mind')}
           onOpenProfile={() => {}}
+          onOpenStats={() => {}}
           isAnalyzingMeal={false}
           isEating={false}
           feedingImage={null}
@@ -368,6 +412,92 @@ describe('profile screen', () => {
 
     act(() => findButton(tree, 'Discard')!.props.onPress());
     expect(findButton(tree, 'Save changes')).toBeUndefined();
+    tree.unmount();
+  });
+});
+
+describe('pet stats screen', () => {
+  const { PetStatsScreen } = require('../screens/PetStatsScreen');
+  const { StatBar } = require('../components/StatBar');
+
+  const render = (overrides: Record<string, unknown> = {}, onClose: () => void = () => {}) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <PetStatsScreen
+          pet={{ ...pet, lastEventAt: new Date().toISOString(), ...overrides }}
+          events={[mealEvent]}
+          onClose={onClose}
+        />,
+      );
+    });
+    return tree;
+  };
+
+  const bars = (tree: renderer.ReactTestRenderer) =>
+    new Map<string, number>(
+      tree.root.findAllByType(StatBar).map((node: any) => [node.props.label, node.props.value]),
+    );
+
+  it('surfaces the stats the dashboard never shows', () => {
+    const tree = render({
+      energy: 57,
+      nutrition: 43,
+      happiness: 91,
+      strength: 33,
+      recovery: 27,
+    });
+
+    const shown = bars(tree);
+    // None of these five appear anywhere else in the app.
+    expect(shown.get('Energy')).toBe(57);
+    expect(shown.get('Nutrition')).toBe(43);
+    expect(shown.get('Happiness')).toBe(91);
+    expect(shown.get('Strength')).toBe(33);
+    expect(shown.get('Recovery')).toBe(27);
+
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Miso');
+    expect(rendered).toContain('Condition');
+    expect(rendered).toContain('Body');
+    tree.unmount();
+  });
+
+  it('shows what the stats have decayed to, without touching the pet it was given', () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
+    const source = { ...pet, lastEventAt: twoDaysAgo, energy: 80, nutrition: 60 };
+    const tree = render(source);
+
+    // Energy falls 4 a day and nutrition 6, so two days cost 8 and 12.
+    const shown = bars(tree);
+    expect(shown.get('Energy')).toBe(72);
+    expect(shown.get('Nutrition')).toBe(48);
+    // The decayed values are for display only — the caller's pet is untouched.
+    expect(source.energy).toBe(80);
+    expect(source.nutrition).toBe(60);
+    tree.unmount();
+  });
+
+  it('caps a legacy stat that was stored above the bar maximum', () => {
+    const tree = render({ strength: 140, endurance: 260 });
+    const shown = bars(tree);
+    expect(shown.get('Strength')).toBe(100);
+    expect(shown.get('Endurance')).toBe(100);
+    tree.unmount();
+  });
+
+  it('goes back to the pet from the top bar', () => {
+    let closed = 0;
+    const tree = render({}, () => {
+      closed += 1;
+    });
+
+    const back = tree.root
+      .findAllByProps({ accessibilityLabel: 'Back to your pet' })
+      .find((node: any) => typeof node.props.onPress === 'function');
+    expect(back).toBeTruthy();
+    act(() => back!.props.onPress());
+    expect(closed).toBe(1);
     tree.unmount();
   });
 });
