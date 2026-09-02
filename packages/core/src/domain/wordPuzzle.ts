@@ -1,7 +1,7 @@
 /**
  * WordPuzzle -- the daily word puzzle.
  *
- * Five rounds a day at lengths [4, 5, 5, 6, 6], with the guess budget equal to the
+ * Four rounds a day at lengths [4, 5, 5, 6], with the guess budget equal to the
  * word length. Everything here is pure and hermetically deterministic: the same
  * puzzle date yields the same puzzle on every device, every platform and every run,
  * with no `Math.random`, no `Date.now`, and no locale-sensitive call in the path.
@@ -14,8 +14,8 @@ import { WORD_PUZZLE_WORDS, type WordPuzzleWordLength } from '../data/wordPuzzle
 import type { BrainTrainingMetadata, HealthEvent, WordPuzzleRoundOutcome } from './health';
 import { calculateStreaks, toDateKey, type StreakSummary } from './streaks';
 
-export const WORD_PUZZLE_ROUNDS = 5;
-export const WORD_PUZZLE_LENGTHS = [4, 5, 5, 6, 6] as const;
+export const WORD_PUZZLE_LENGTHS = [4, 5, 5, 6] as const;
+export const WORD_PUZZLE_ROUNDS = WORD_PUZZLE_LENGTHS.length;
 export const WORD_PUZZLE_GENERATOR_VERSION = 1;
 /** Day zero of the schedule. The shuffle is seeded from this, never from the date. */
 export const WORD_PUZZLE_EPOCH = '2026-01-01';
@@ -177,8 +177,8 @@ const isAnswerEligible = (length: WordPuzzleWordLength, index: number): boolean 
 // shuffled once, deterministically, from a seed derived from the EPOCH -- so the
 // order is the same forever -- and the daily draw is an index into that
 // permutation. A word therefore cannot recur until the pool has been fully spent,
-// which at 365 draws/year (4-letter) and 730 (5- and 6-letter) is ~4.5, ~3.2 and
-// ~4.2 years respectively. The 5-letter pool is the binding constraint.
+// which at 365 draws/year (4- and 6-letter) and 730 (5-letter) is ~4.5, ~3.2 and
+// ~8.4 years respectively. The 5-letter pool is the binding constraint.
 // ---------------------------------------------------------------------------
 
 /** How many rounds of each length a single day draws. */
@@ -326,9 +326,9 @@ export const markGuess = (guess: string, answer: string): LetterMark[] => {
 //     efficiency lives.
 // ---------------------------------------------------------------------------
 
-const POINTS_PER_ROUND = 20;
-const POINTS_SPARE = 16;
-const POINTS_FINAL_GUESS = 12;
+const POINTS_PER_ROUND = 25;
+const POINTS_SPARE = 20;
+const POINTS_FINAL_GUESS = 15;
 
 const roundPoints = ({ length, solved, guessesUsed }: WordPuzzleRoundOutcome): number => {
   if (!solved) return 0;

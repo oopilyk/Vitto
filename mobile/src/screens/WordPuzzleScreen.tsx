@@ -202,7 +202,7 @@ export function WordPuzzleScreen({
       <View style={styles.sheet}>
         <View style={styles.header}>
           <View>
-            <Kicker>WordPuzzle</Kicker>
+            <Kicker>Word puzzle</Kicker>
             <Text style={styles.title}>{title}</Text>
           </View>
           <Pressable

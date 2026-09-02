@@ -130,7 +130,7 @@ describe('wordPuzzle screen', () => {
     ]);
 
     act(() => byText(tree, 'Next round')!.props.onPress());
-    expect(JSON.stringify(tree.toJSON())).toContain('Round 2 of 5');
+    expect(JSON.stringify(tree.toJSON())).toContain('Round 2 of 4');
     tree.unmount();
   });
 
@@ -147,7 +147,7 @@ describe('wordPuzzle screen', () => {
     };
     const tree = render({ progress });
 
-    expect(JSON.stringify(tree.toJSON())).toContain('Round 3 of 5');
+    expect(JSON.stringify(tree.toJSON())).toContain('Round 3 of 4');
     // Straight into play — the intro is not shown again.
     expect(byText(tree, "Start today's puzzle")).toBeUndefined();
     expect(byLabel(tree, 'Submit guess')).toBeTruthy();
