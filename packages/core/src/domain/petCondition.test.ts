@@ -72,7 +72,14 @@ describe('assessCondition', () => {
     const condition = assessCondition(pet);
     expect(condition.ailments).toEqual(['starving', 'exhausted', 'sad', 'foggy']);
     expect(condition.primary).toBe('starving');
-    expect(condition.overlays).toEqual(['exhausted', 'sad']);
+    expect(condition.overlays).toEqual(['starving', 'exhausted']);
+  });
+
+  it('gives a lone ailment its own overlay, so one problem still shows particles', () => {
+    const condition = assessCondition(healthyPet({ nutrition: 0 }));
+    expect(condition.ailments).toEqual(['starving']);
+    expect(condition.primary).toBe('starving');
+    expect(condition.overlays).toEqual(['starving']);
   });
 
   it('keeps `foggy` last so a fresh pet with a seeded mind of 20 is not headline news', () => {
@@ -83,7 +90,7 @@ describe('assessCondition', () => {
     // ...but anything else wrong takes the sprite away from it.
     const alsoSad = assessCondition({ ...fresh, mind: 5, happiness: 10 });
     expect(alsoSad.primary).toBe('sad');
-    expect(alsoSad.overlays).toEqual(['foggy']);
+    expect(alsoSad.overlays).toEqual(['sad', 'foggy']);
   });
 
   it('scores severity from the worst vital, ignoring mind', () => {

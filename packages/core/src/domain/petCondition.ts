@@ -36,7 +36,7 @@ export interface PetCondition {
   ailments: PetAilment[];
   /** Drives the sprite band and the headline copy. The sprite is a single body pose. */
   primary: PetAilment | null;
-  /** At most two; `dying` suppresses all others. */
+  /** The worst two, primary included; `dying` suppresses all of them. */
   overlays: PetAilment[];
   /** 0 = perfect, 1 = flatlined. Mind is excluded: it is a look, not a vital. */
   severity: number;
@@ -89,9 +89,14 @@ export const assessCondition = (pet: PetState): PetCondition => {
   );
 
   const primary = ailments[0] ?? null;
-  // A dying pet must never render as merely sad, and nothing should compete with
-  // that read -- so `dying` takes the sprite and clears the overlay slots.
-  const overlays = primary === 'dying' ? [] : ailments.slice(1, 1 + MAX_OVERLAYS);
+  // The primary keeps its own overlay. Skipping it used to mean each ailment's
+  // signature particles only appeared while something WORSE was also wrong --
+  // so a pet whose only problem was hunger showed no hunger pangs at all, which
+  // is exactly the case they exist to describe. `starving` has no sprite art of
+  // its own either, so without this it had nothing left to read as hunger.
+  //
+  // A dying pet is still the exception: nothing competes with that read.
+  const overlays = primary === 'dying' ? [] : ailments.slice(0, MAX_OVERLAYS);
 
   const severity =
     1 - Math.min(pet.health, pet.nutrition, pet.energy, pet.happiness) / 100;

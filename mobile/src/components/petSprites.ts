@@ -24,6 +24,18 @@ export const CELL = 128;
 export const SHEET_COLUMNS = 4;
 export const SHEET_ROWS = 11;
 
+/**
+ * Where the artwork starts inside a cell, as a fraction of the cell height.
+ *
+ * Measured off both sheets rather than guessed: the topmost opaque row across
+ * every non-empty cell is row 18 of 128 on each of them (the cheer/jump band,
+ * where the dog is at full stretch). Poses sit lower — the bichon's idle starts
+ * at 27, the shiba's at 38 — so anchoring on the tallest pose means an effect
+ * placed here clears the pet in every frame it can be shown with, instead of
+ * only in the pose it happened to be tuned against.
+ */
+export const SPRITE_ART_TOP = 18 / CELL;
+
 export type PetAnimation = 'idle' | 'cheer' | 'move' | 'rest' | 'unwell' | 'sad' | 'faint';
 
 /** [row, column] pairs, in playback order. */

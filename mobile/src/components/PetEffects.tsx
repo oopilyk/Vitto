@@ -5,6 +5,20 @@ import { SpriteFrame } from './SpriteFrame';
 import type { PetSheet } from './petSprites';
 import { colors } from '../theme';
 
+/**
+ * How far above the head each effect parks, in points.
+ *
+ * Each value covers whatever that effect draws BELOW its own anchor, so nothing
+ * reaches back down into the sprite: the orbit dips by its squashed y-radius, a
+ * glyph by half its line box, and the cloud by half its 56pt frame plus the
+ * length of the rain. Fixed rather than scaled by pet size, because the art
+ * being cleared — glyphs, drops, the cloud — is itself a fixed size.
+ */
+const GLYPH_CLEARANCE = 16;
+const ORBIT_CLEARANCE = 24;
+const CLOUD_CLEARANCE = 36;
+const CONFETTI_CLEARANCE = 10;
+
 const CONFETTI_COLORS = [colors.coral, colors.mintDeep, colors.yellowDeep, colors.lilacDeep, '#84a08a'];
 
 /** Fixed, not random, so pieces do not jump around between renders. */
@@ -21,7 +35,11 @@ const CONFETTI = Array.from({ length: 16 }, (_, index) => ({
 
 interface EffectProps {
   active: boolean;
-  /** Distance from the stage centre up to the top of the pet. */
+  /**
+   * Distance from the stage centre up to the top of the pet's head. Each effect
+   * adds its own clearance on top, sized to how far its own art hangs below the
+   * anchor — a rain cloud needs far more room than a drifting glyph.
+   */
   headOffset: number;
 }
 
@@ -51,7 +69,7 @@ export function Confetti({ active, headOffset }: EffectProps) {
   if (!active) return null;
 
   return (
-    <View style={[styles.layer, { marginTop: -headOffset }]} pointerEvents="none">
+    <View style={[styles.layer, { marginTop: -(headOffset + CONFETTI_CLEARANCE) }]} pointerEvents="none">
       {CONFETTI.map((piece, index) => (
         <Animated.View
           key={piece.key}
@@ -95,7 +113,11 @@ export function Confetti({ active, headOffset }: EffectProps) {
 
 export interface GlyphStreamProps {
   active: boolean;
-  /** Distance from the stage centre up to the top of the pet. */
+  /**
+   * Distance from the stage centre up to the top of the pet's head. Each effect
+   * adds its own clearance on top, sized to how far its own art hangs below the
+   * anchor — a rain cloud needs far more room than a drifting glyph.
+   */
   headOffset: number;
   /** One entry per drifting glyph; the array's length fixes how many there are. */
   glyphs: readonly string[];
@@ -155,7 +177,7 @@ export function GlyphStream({
   const travel = direction === 'up' ? -riseDistance : riseDistance;
 
   return (
-    <View style={[styles.layer, { marginTop: -headOffset }]} pointerEvents="none">
+    <View style={[styles.layer, { marginTop: -(headOffset + GLYPH_CLEARANCE) }]} pointerEvents="none">
       {glyphs.map((glyph, index) => (
         <Animated.Text
           key={index}
@@ -276,7 +298,7 @@ export function RainCloud({ active, headOffset }: EffectProps) {
   if (!active) return null;
 
   return (
-    <View style={[styles.layer, { marginTop: -headOffset }]} pointerEvents="none">
+    <View style={[styles.layer, { marginTop: -(headOffset + CLOUD_CLEARANCE) }]} pointerEvents="none">
       <View style={styles.cloud}>
         <Svg width={54} height={30} viewBox="0 0 54 30">
           <Path d={CLOUD_PATH} fill={colors.slateDeep} fillOpacity={0.38} />
@@ -353,7 +375,7 @@ export function DizzyOrbit({ active, headOffset }: EffectProps) {
   if (!active) return null;
 
   return (
-    <View style={[styles.layer, { marginTop: -headOffset }]} pointerEvents="none">
+    <View style={[styles.layer, { marginTop: -(headOffset + ORBIT_CLEARANCE) }]} pointerEvents="none">
       {ORBIT_GLYPHS.map((orbit) => (
         <Animated.Text
           key={orbit.key}
@@ -475,7 +497,7 @@ export function PetAura({ color, size }: PetAuraProps) {
 
 const styles = StyleSheet.create({
   aura: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
-  // Sits at the stage centre; marginTop lifts it to the pet's head.
+  // Sits at the stage centre; marginTop lifts it clear of the pet's head.
   layer: {
     position: 'absolute',
     alignItems: 'center',

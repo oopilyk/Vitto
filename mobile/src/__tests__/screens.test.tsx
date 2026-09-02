@@ -627,11 +627,20 @@ describe('pet sprite', () => {
       return state;
     };
 
-    // Worst ailment takes the sprite, so the rest of them become the overlays.
+    // Worst ailment takes the sprite AND keeps its own overlay, so an exhausted,
+    // sad pet shows both sets of particles rather than only the lesser one's.
     expect(overlayState({ energy: 8, happiness: 12 })).toEqual({
       hunger: false,
-      zzz: false,
+      zzz: true,
       rain: true,
+      dizzy: false,
+      fading: false,
+    });
+    // A single ailment still gets its own particles -- the case they describe best.
+    expect(overlayState({ nutrition: 4 })).toEqual({
+      hunger: true,
+      zzz: false,
+      rain: false,
       dizzy: false,
       fading: false,
     });
@@ -759,9 +768,10 @@ describe('pet sprite', () => {
     const hearts = tree.root.findAllByType(RNText).filter((node: any) => node.props.children === '♥');
     expect(hearts.length).toBeGreaterThan(0);
 
-    // The layer is lifted above centre, and each heart travels upward.
+    // `headOffset` is the top of the pet's head, so the layer must sit strictly
+    // past it — an effect level with the anchor would still touch the sprite.
     const layer = tree.root.findAll((node: any) =>
-      [node.props.style].flat(2).some((entry: any) => entry?.marginTop === -80),
+      [node.props.style].flat(2).some((entry: any) => typeof entry?.marginTop === 'number' && entry.marginTop < -80),
     );
     expect(layer.length).toBeGreaterThan(0);
     tree.unmount();

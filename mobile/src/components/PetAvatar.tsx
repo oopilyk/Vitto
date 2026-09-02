@@ -8,7 +8,7 @@ import {
   assessCondition,
   getEvolutionStage,
 } from '@vitto/core';
-import { FRAME_MS, HOLDS_LAST_FRAME, type PetAnimation, sheetForPet } from './petSprites';
+import { FRAME_MS, HOLDS_LAST_FRAME, type PetAnimation, SPRITE_ART_TOP, sheetForPet } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
 import {
   Confetti,
@@ -234,7 +234,10 @@ export function PetAvatar({
 
   const currentFrame = frames[Math.min(frameIndex, frames.length - 1)];
   const showHearts = isCelebrating && (feedingGrade === 'A' || feedingGrade === 'B');
-  const headOffset = size * 0.4;
+  // Distance from the stage centre up to the top of the pet's head. Effects take
+  // it as their anchor and add their own clearance, so none of them has to know
+  // how the sprite sits inside its cell.
+  const headOffset = size * (0.5 - SPRITE_ART_TOP);
   const overlays = new Set(condition.overlays);
 
   return (
@@ -283,8 +286,8 @@ export function PetAvatar({
       <RainCloud active={overlays.has('sad')} headOffset={headOffset} />
       <DizzyOrbit active={overlays.has('foggy')} headOffset={headOffset} />
 
-      <Confetti active={isCelebrating} headOffset={size * 0.42} />
-      <HeartStream active={showHearts} headOffset={size * 0.38} />
+      <Confetti active={isCelebrating} headOffset={headOffset} />
+      <HeartStream active={showHearts} headOffset={headOffset} />
 
       <Text style={styles.status}>
         {STATUS_TEXT[activity](pet.name)} <Text style={{ color: colors.coral }}>♥</Text>
