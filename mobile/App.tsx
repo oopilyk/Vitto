@@ -5,7 +5,7 @@ import { createNativeStackNavigator, type NativeStackNavigationProp } from '@rea
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { Session } from '@supabase/supabase-js';
 import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
-import { type InklingProgress, LocalRepository } from './src/services/localRepository';
+import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/healthKitProvider';
@@ -19,7 +19,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
-import { InklingScreen } from './src/screens/InklingScreen';
+import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
 import { hasNativeUUID, randomUUID } from './src/services/uuid';
 import { colors, fonts, layout } from './src/theme';
@@ -47,7 +47,7 @@ type RootStackParamList = {
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
-  Inkling: undefined;
+  WordPuzzle: undefined;
 };
 type MainTabParamList = {
   Dashboard: undefined;
@@ -113,7 +113,7 @@ export default function App() {
   const [breed, setBreed] = useState<PetBreed>('bichon');
   const [error, setError] = useState<string | null>(null);
   const [stepGoal, setStepGoal] = useState(10000);
-  const [inklingProgress, setInklingProgress] = useState<InklingProgress | null>(null);
+  const [wordPuzzleProgress, setWordPuzzleProgress] = useState<WordPuzzleProgress | null>(null);
 
   const [isAnalyzingMeal, setIsAnalyzingMeal] = useState(false);
   const [isEating, setIsEating] = useState(false);
@@ -154,13 +154,13 @@ export default function App() {
     void (async () => {
       // Kept on the device either way: a half-finished board is local scratch state,
       // not account data, and it is only ever good for the day it was opened.
-      const storedInkling = await repository.loadInklingProgress();
+      const storedWordPuzzle = await repository.loadWordPuzzleProgress();
       if (cancelled) return;
-      if (storedInkling && storedInkling.puzzleDate === toDateKey(new Date())) {
-        setInklingProgress(storedInkling);
+      if (storedWordPuzzle && storedWordPuzzle.puzzleDate === toDateKey(new Date())) {
+        setWordPuzzleProgress(storedWordPuzzle);
       } else {
-        setInklingProgress(null);
-        if (storedInkling) void repository.clearInklingProgress();
+        setWordPuzzleProgress(null);
+        if (storedWordPuzzle) void repository.clearWordPuzzleProgress();
       }
 
       if (isSupabaseConfigured && session) {
@@ -332,14 +332,14 @@ export default function App() {
     await recordEvent(makeEvent<BrainTrainingMetadata>(userId, 'BRAIN_TRAINING', metadata));
   };
 
-  const saveInklingProgress = (progress: InklingProgress) => {
-    setInklingProgress(progress);
-    void repository.saveInklingProgress(progress).catch(() => undefined);
+  const saveWordPuzzleProgress = (progress: WordPuzzleProgress) => {
+    setWordPuzzleProgress(progress);
+    void repository.saveWordPuzzleProgress(progress).catch(() => undefined);
   };
 
-  const clearInklingProgress = () => {
-    setInklingProgress(null);
-    void repository.clearInklingProgress().catch(() => undefined);
+  const clearWordPuzzleProgress = () => {
+    setWordPuzzleProgress(null);
+    void repository.clearWordPuzzleProgress().catch(() => undefined);
   };
 
   const syncSteps = async () => {
@@ -404,7 +404,7 @@ export default function App() {
         setSession(null);
         setPet(null);
         setEvents([]);
-        setInklingProgress(null);
+        setWordPuzzleProgress(null);
         setIsAppleHealthConnected(false);
         await repository.clear();
       })
@@ -557,21 +557,21 @@ export default function App() {
                 }}
                 // `replace` swaps this sheet for the puzzle rather than stacking a
                 // second modal on top of the one already presented.
-                onOpenInkling={() => navigation.replace('Inkling')}
+                onOpenWordPuzzle={() => navigation.replace('WordPuzzle')}
                 onClose={() => navigation.goBack()}
               />
             )}
           </RootStack.Screen>
-          <RootStack.Screen name="Inkling">
+          <RootStack.Screen name="WordPuzzle">
             {({ navigation }) => (
-              <InklingScreen
+              <WordPuzzleScreen
                 events={events}
-                progress={inklingProgress}
-                onSaveProgress={saveInklingProgress}
-                onClearProgress={clearInklingProgress}
+                progress={wordPuzzleProgress}
+                onSaveProgress={saveWordPuzzleProgress}
+                onClearProgress={clearWordPuzzleProgress}
                 onFinish={async (metadata) => {
                   await completeMindSession(metadata);
-                  clearInklingProgress();
+                  clearWordPuzzleProgress();
                 }}
                 onClose={() => navigation.goBack()}
               />

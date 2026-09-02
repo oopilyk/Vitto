@@ -46,7 +46,7 @@ interface Props {
   entry: string;
 }
 
-export function InklingGrid({ length, maxGuesses, guesses, marks, entry }: Props) {
+export function WordPuzzleGrid({ length, maxGuesses, guesses, marks, entry }: Props) {
   return (
     <View style={styles.grid}>
       {Array.from({ length: maxGuesses }, (_, row) => {

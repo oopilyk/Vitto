@@ -6,19 +6,19 @@ import {
   revealAnswer,
   toDateKey,
 } from '@vitto/core';
-import { InklingScreen } from '../screens/InklingScreen';
-import { type InklingProgress } from '../services/localRepository';
+import { WordPuzzleScreen } from '../screens/WordPuzzleScreen';
+import { type WordPuzzleProgress } from '../services/localRepository';
 
 const todayKey = toDateKey(new Date());
 
 const playedToday: HealthEvent<BrainTrainingMetadata> = {
-  id: 'inkling-1',
+  id: 'wordPuzzle-1',
   userId: 'user-1',
   occurredAt: new Date().toISOString(),
   type: 'BRAIN_TRAINING',
   source: 'manual',
   metadata: {
-    game: 'inkling',
+    game: 'wordPuzzle',
     correct: 4,
     total: 5,
     durationSeconds: 420,
@@ -35,11 +35,11 @@ const playedToday: HealthEvent<BrainTrainingMetadata> = {
   },
 };
 
-const render = (overrides: Partial<React.ComponentProps<typeof InklingScreen>> = {}) => {
+const render = (overrides: Partial<React.ComponentProps<typeof WordPuzzleScreen>> = {}) => {
   let tree!: renderer.ReactTestRenderer;
   act(() => {
     tree = renderer.create(
-      <InklingScreen
+      <WordPuzzleScreen
         events={[]}
         progress={null}
         onSaveProgress={() => {}}
@@ -75,7 +75,7 @@ const type = (tree: renderer.ReactTestRenderer, word: string) => {
   }
 };
 
-describe('inkling screen', () => {
+describe('wordPuzzle screen', () => {
   it('closes the board when today is already logged, with no way to replay', () => {
     const tree = render({ events: [playedToday] });
     const rendered = JSON.stringify(tree.toJSON());
@@ -89,7 +89,7 @@ describe('inkling screen', () => {
   });
 
   it('rejects a word it does not know without spending a guess', () => {
-    const saved: InklingProgress[] = [];
+    const saved: WordPuzzleProgress[] = [];
     const tree = render({ onSaveProgress: (progress) => saved.push(progress) });
 
     act(() => byText(tree, "Start today's puzzle")!.props.onPress());
@@ -108,7 +108,7 @@ describe('inkling screen', () => {
   });
 
   it('solves a round, saves the outcome and moves on', () => {
-    const saved: InklingProgress[] = [];
+    const saved: WordPuzzleProgress[] = [];
     const tree = render({ onSaveProgress: (progress) => saved.push(progress) });
 
     act(() => byText(tree, "Start today's puzzle")!.props.onPress());
@@ -135,7 +135,7 @@ describe('inkling screen', () => {
   });
 
   it('resumes a saved day at the round it left off', () => {
-    const progress: InklingProgress = {
+    const progress: WordPuzzleProgress = {
       puzzleDate: todayKey,
       startedAt: new Date().toISOString(),
       roundIndex: 2,

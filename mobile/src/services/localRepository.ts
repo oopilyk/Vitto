@@ -1,19 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { type HealthEvent, type InklingRoundOutcome, type PetState } from '@vitto/core';
+import { type HealthEvent, type WordPuzzleRoundOutcome, type PetState } from '@vitto/core';
 
 const petKey = 'vitto.pet';
 const eventKey = 'vitto.events';
-const inklingKey = 'vitto.inkling.progress';
+const wordPuzzleKey = 'vitto.wordpuzzle.progress';
 const MAX_STORED_EVENTS = 2000;
 
 /**
- * A day's Inkling in flight.
+ * A day's WordPuzzle in flight.
  *
  * Only the player's own guesses are kept -- never the answers. The board rebuilds
  * itself from the guesses alone, and a device backup or file dump of a half-finished
  * game must not hand over the words the player has not solved yet.
  */
-export interface InklingProgress {
+export interface WordPuzzleProgress {
   puzzleDate: string;
   startedAt: string;
   /** The round to resume at; equals the round count once every round is played. */
@@ -21,7 +21,7 @@ export interface InklingProgress {
   /** Guesses per round, in order. */
   guesses: string[][];
   /** One entry per completed round. */
-  outcomes: InklingRoundOutcome[];
+  outcomes: WordPuzzleRoundOutcome[];
 }
 
 /**
@@ -60,17 +60,17 @@ export class LocalRepository {
     );
   }
 
-  async loadInklingProgress(): Promise<InklingProgress | null> {
-    const value = await AsyncStorage.getItem(inklingKey);
-    return value ? (JSON.parse(value) as InklingProgress) : null;
+  async loadWordPuzzleProgress(): Promise<WordPuzzleProgress | null> {
+    const value = await AsyncStorage.getItem(wordPuzzleKey);
+    return value ? (JSON.parse(value) as WordPuzzleProgress) : null;
   }
 
-  async saveInklingProgress(progress: InklingProgress): Promise<void> {
-    await AsyncStorage.setItem(inklingKey, JSON.stringify(progress));
+  async saveWordPuzzleProgress(progress: WordPuzzleProgress): Promise<void> {
+    await AsyncStorage.setItem(wordPuzzleKey, JSON.stringify(progress));
   }
 
-  async clearInklingProgress(): Promise<void> {
-    await AsyncStorage.removeItem(inklingKey);
+  async clearWordPuzzleProgress(): Promise<void> {
+    await AsyncStorage.removeItem(wordPuzzleKey);
   }
 
   async loadProfile<T>(): Promise<T | null> {
@@ -83,6 +83,6 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, inklingKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, 'vitto.profile']);
   }
 }

@@ -1,10 +1,10 @@
-export type BrainGameKind = 'math' | 'reading' | 'inkling';
+export type BrainGameKind = 'math' | 'reading' | 'wordPuzzle';
 
 /**
- * The timed games. Inkling is untimed, so pace scoring is meaningless for it and
+ * The timed games. WordPuzzle is untimed, so pace scoring is meaningless for it and
  * it is deliberately excluded here rather than left to convention.
  */
-export type PacedBrainGameKind = Exclude<BrainGameKind, 'inkling'>;
+export type PacedBrainGameKind = Exclude<BrainGameKind, 'wordPuzzle'>;
 
 export interface MathProblem {
   id: string;

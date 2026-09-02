@@ -16,7 +16,7 @@ const SHARP_SESSION_ACCURACY = 0.8;
 const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
   math: 'Quick maths',
   reading: 'Read and recall',
-  inkling: "Today's Inkling",
+  wordPuzzle: "Daily word puzzle",
 };
 
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {

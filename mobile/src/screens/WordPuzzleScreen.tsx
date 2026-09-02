@@ -3,32 +3,32 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import {
   type BrainTrainingMetadata,
   type HealthEvent,
-  INKLING_LENGTHS,
-  INKLING_ROUNDS,
-  type InklingRoundOutcome,
+  WORD_PUZZLE_LENGTHS,
+  WORD_PUZZLE_ROUNDS,
+  type WordPuzzleRoundOutcome,
   type LetterMark,
   errorMessage,
-  findInklingEventForDate,
-  generateInkling,
-  inklingScore,
-  inklingSolvedCount,
-  inklingStreak,
+  findWordPuzzleEventForDate,
+  generateWordPuzzle,
+  wordPuzzleScore,
+  wordPuzzleSolvedCount,
+  wordPuzzleStreak,
   isValidGuess,
   markGuess,
   revealAnswer,
   toDateKey,
-  toInklingMetadata,
+  toWordPuzzleMetadata,
 } from '@vitto/core';
-import { InklingGrid } from '../components/InklingGrid';
-import { InklingKeyboard } from '../components/InklingKeyboard';
+import { WordPuzzleGrid } from '../components/WordPuzzleGrid';
+import { WordPuzzleKeyboard } from '../components/WordPuzzleKeyboard';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
-import { type InklingProgress } from '../services/localRepository';
+import { type WordPuzzleProgress } from '../services/localRepository';
 import { colors, fonts, text } from '../theme';
 
 interface Props {
   events: HealthEvent[];
-  progress: InklingProgress | null;
-  onSaveProgress: (progress: InklingProgress) => void;
+  progress: WordPuzzleProgress | null;
+  onSaveProgress: (progress: WordPuzzleProgress) => void;
   onClearProgress: () => void;
   onFinish: (metadata: BrainTrainingMetadata) => Promise<void>;
   onClose: () => void;
@@ -39,7 +39,7 @@ type Stage = 'intro' | 'play' | 'summary' | 'done';
 /** Later marks never downgrade an earlier one: once correct, a key stays correct. */
 const MARK_RANK: Record<LetterMark, number> = { absent: 0, present: 1, correct: 2 };
 
-export function InklingScreen({
+export function WordPuzzleScreen({
   events,
   progress,
   onSaveProgress,
@@ -50,25 +50,25 @@ export function InklingScreen({
   // The puzzle date is fixed at mount. A session carried across midnight keeps playing
   // -- and scoring -- the day it opened, which is what the streak is keyed on.
   const todayKey = useMemo(() => toDateKey(new Date()), []);
-  const puzzle = useMemo(() => generateInkling(todayKey), [todayKey]);
+  const puzzle = useMemo(() => generateWordPuzzle(todayKey), [todayKey]);
   const todayEvent = useMemo(
-    () => findInklingEventForDate(events, todayKey),
+    () => findWordPuzzleEventForDate(events, todayKey),
     [events, todayKey],
   );
-  const streak = useMemo(() => inklingStreak(events), [events]);
+  const streak = useMemo(() => wordPuzzleStreak(events), [events]);
 
   // Read once, at mount. One attempt a day: an event for today means the board is
   // closed, and nothing that happens later in this session may reopen it.
   const [stage, setStage] = useState<Stage>(() => {
     if (todayEvent) return 'done';
     if (!progress) return 'intro';
-    return progress.outcomes.length >= INKLING_ROUNDS ? 'summary' : 'play';
+    return progress.outcomes.length >= WORD_PUZZLE_ROUNDS ? 'summary' : 'play';
   });
   const [roundIndex, setRoundIndex] = useState(() =>
-    Math.min(Math.max(progress?.roundIndex ?? 0, 0), INKLING_ROUNDS - 1),
+    Math.min(Math.max(progress?.roundIndex ?? 0, 0), WORD_PUZZLE_ROUNDS - 1),
   );
   const [guesses, setGuesses] = useState<string[][]>(() => progress?.guesses ?? []);
-  const [outcomes, setOutcomes] = useState<InklingRoundOutcome[]>(() => progress?.outcomes ?? []);
+  const [outcomes, setOutcomes] = useState<WordPuzzleRoundOutcome[]>(() => progress?.outcomes ?? []);
   const [startedAt, setStartedAt] = useState(() => progress?.startedAt ?? new Date().toISOString());
   const [entry, setEntry] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
@@ -167,7 +167,7 @@ export function InklingScreen({
   const nextRound = () => {
     setEntry('');
     setNotice(null);
-    if (roundIndex + 1 >= INKLING_ROUNDS) {
+    if (roundIndex + 1 >= WORD_PUZZLE_ROUNDS) {
       setStage('summary');
       return;
     }
@@ -182,7 +182,7 @@ export function InklingScreen({
         1,
         Math.round((Date.now() - Date.parse(startedAt)) / 1000),
       );
-      const metadata = toInklingMetadata(puzzle, outcomes, durationSeconds);
+      const metadata = toWordPuzzleMetadata(puzzle, outcomes, durationSeconds);
       await onFinish(metadata);
       setSaved(metadata);
       onClearProgress();
@@ -195,14 +195,14 @@ export function InklingScreen({
   };
 
   const title =
-    stage === 'play' ? `Round ${roundIndex + 1} of ${INKLING_ROUNDS}` : "Today's Inkling";
+    stage === 'play' ? `Round ${roundIndex + 1} of ${WORD_PUZZLE_ROUNDS}` : "Today's word puzzle";
 
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.sheet}>
         <View style={styles.header}>
           <View>
-            <Kicker>Inkling</Kicker>
+            <Kicker>WordPuzzle</Kicker>
             <Text style={styles.title}>{title}</Text>
           </View>
           <Pressable
@@ -226,7 +226,7 @@ export function InklingScreen({
             </View>
 
             <View style={styles.board}>
-              <InklingGrid
+              <WordPuzzleGrid
                 length={round.length}
                 maxGuesses={round.maxGuesses}
                 guesses={roundGuesses}
@@ -244,7 +244,7 @@ export function InklingScreen({
                       : `The word was ${answer.toUpperCase()}.`}
                   </Text>
                   <PrimaryButton
-                    label={roundIndex + 1 >= INKLING_ROUNDS ? 'See your day' : 'Next round'}
+                    label={roundIndex + 1 >= WORD_PUZZLE_ROUNDS ? 'See your day' : 'Next round'}
                     onPress={nextRound}
                   />
                 </>
@@ -253,7 +253,7 @@ export function InklingScreen({
                   <Text style={[styles.notice, !notice && styles.noticeIdle]}>
                     {notice ?? 'Tap ENTER when the row is full.'}
                   </Text>
-                  <InklingKeyboard
+                  <WordPuzzleKeyboard
                     marks={keyMarks}
                     onKey={typeLetter}
                     onEnter={submit}
@@ -273,7 +273,7 @@ export function InklingScreen({
                 </Text>
                 <View style={styles.card}>
                   <Text style={styles.cardLabel}>Today's ladder</Text>
-                  <Text style={styles.cardValue}>{INKLING_LENGTHS.join(' · ')} letters</Text>
+                  <Text style={styles.cardValue}>{WORD_PUZZLE_LENGTHS.join(' · ')} letters</Text>
                   <Text style={styles.cardHint}>
                     {streak.currentStreak > 0
                       ? `${streak.currentStreak}-day streak on the line`
@@ -290,8 +290,8 @@ export function InklingScreen({
             {stage === 'summary' ? (
               <>
                 <ScoreCard
-                  score={inklingScore(outcomes)}
-                  solvedCount={inklingSolvedCount(outcomes)}
+                  score={wordPuzzleScore(outcomes)}
+                  solvedCount={wordPuzzleSolvedCount(outcomes)}
                 />
                 <OutcomeStrip outcomes={outcomes} />
                 <Text style={styles.note}>
@@ -342,14 +342,14 @@ function ScoreCard({ score, solvedCount }: { score: number; solvedCount: number 
     <View style={styles.scoreCard}>
       <View style={styles.scoreBadge}>
         <Text style={styles.scoreNumber}>{score}</Text>
-        <Text style={styles.scoreCaption}>INKLING</Text>
+        <Text style={styles.scoreCaption}>WORD PUZZLE</Text>
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.scoreLabel}>
-          {solvedCount} of {INKLING_ROUNDS} solved
+          {solvedCount} of {WORD_PUZZLE_ROUNDS} solved
         </Text>
         <Text style={styles.scoreMeta}>
-          {solvedCount === INKLING_ROUNDS
+          {solvedCount === WORD_PUZZLE_ROUNDS
             ? 'A clean sweep.'
             : solvedCount >= 4
               ? 'Strong day.'
@@ -365,12 +365,12 @@ function OutcomeStrip({
   outcomes,
   current,
 }: {
-  outcomes: InklingRoundOutcome[];
+  outcomes: WordPuzzleRoundOutcome[];
   current?: number;
 }) {
   return (
     <View style={styles.strip}>
-      {INKLING_LENGTHS.map((length, index) => {
+      {WORD_PUZZLE_LENGTHS.map((length, index) => {
         const outcome = outcomes[index];
         const inPlay = current === index && !outcome;
         const state = outcome

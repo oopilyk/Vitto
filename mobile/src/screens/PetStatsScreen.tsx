@@ -11,10 +11,10 @@ import {
   calculateStreaks,
   careCountsByType,
   daysWithPet,
-  findInklingEventForDate,
+  findWordPuzzleEventForDate,
   getActiveDateKeys,
   getEvolutionStage,
-  inklingStreak,
+  wordPuzzleStreak,
   isSameDay,
   mindScoreLabel,
   statValue,
@@ -70,7 +70,7 @@ function Card({ title, hint, children }: { title: string; hint?: string; childre
 
 /**
  * Which brain sessions count toward a given day. The timed games are stamped the
- * moment they finish, so their completion time is their day. Inkling fixes its day
+ * moment they finish, so their completion time is their day. WordPuzzle fixes its day
  * when the board opens, so it is keyed on `puzzleDate` instead — a puzzle carried
  * past midnight still belongs to the day it was set for.
  */
@@ -116,8 +116,8 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
   const todaysMind = mindEventsForDay(events, now);
   const bestMindScore = todaysMind.reduce((best, event) => Math.max(best, event.metadata.score), 0);
 
-  const todaysInkling = findInklingEventForDate(events, toDateKey(now));
-  const inklingDays = inklingStreak(events, now);
+  const todaysWordPuzzle = findWordPuzzleEventForDate(events, toDateKey(now));
+  const wordPuzzleDays = wordPuzzleStreak(events, now);
 
   const lastEventAt = pet.lastEventAt ? new Date(pet.lastEventAt) : null;
   const daysSinceCare = lastEventAt
@@ -210,16 +210,16 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
           </View>
           <View style={styles.moodRow}>
             <Text style={styles.moodValue}>
-              Today's Inkling: {todaysInkling ? todaysInkling.metadata.score : 'not played yet'}
+              Today's word puzzle: {todaysWordPuzzle ? todaysWordPuzzle.metadata.score : 'not played yet'}
             </Text>
             <Text style={styles.moodHint}>
-              {todaysInkling
-                ? `${todaysInkling.metadata.correct}/${todaysInkling.metadata.total} rounds solved.`
+              {todaysWordPuzzle
+                ? `${todaysWordPuzzle.metadata.correct}/${todaysWordPuzzle.metadata.total} rounds solved.`
                 : `Five rounds, once a day — ${pet.name} is waiting on today's board.`}
             </Text>
             <View style={styles.facts}>
-              <Fact label="inkling streak" value={String(inklingDays.currentStreak)} />
-              <Fact label="longest inkling run" value={String(inklingDays.longestStreak)} />
+              <Fact label="word puzzle streak" value={String(wordPuzzleDays.currentStreak)} />
+              <Fact label="longest word puzzle run" value={String(wordPuzzleDays.longestStreak)} />
             </View>
           </View>
         </Card>

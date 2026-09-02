@@ -2,7 +2,7 @@
  * GENERATED FILE -- DO NOT EDIT BY HAND.
  *
  * Regenerate with:
- *   npm run build:inkling-words --workspace @vitto/core
+ *   npm run build:word-puzzle-words --workspace @vitto/core
  * (a manual script; it needs network access and must never run in CI)
  *
  * Generated: 2026-09-02
@@ -49,13 +49,13 @@
  * NOT DERIVED FROM any published puzzle's authored answer sequence.
  */
 
-export const INKLING_WORD_LENGTHS = [4, 5, 6] as const;
+export const WORD_PUZZLE_WORD_LENGTHS = [4, 5, 6] as const;
 
-export type InklingWordLength = (typeof INKLING_WORD_LENGTHS)[number];
+export type WordPuzzleWordLength = (typeof WORD_PUZZLE_WORD_LENGTHS)[number];
 
-export interface InklingLengthData {
+export interface WordPuzzleLengthData {
   /** Number of letters in every word of this entry. */
-  readonly length: InklingWordLength;
+  readonly length: WordPuzzleWordLength;
   /** Total number of valid guesses of this length. */
   readonly count: number;
   /** How many of those are answer-eligible (the number of set bits in answerMask). */
@@ -66,7 +66,7 @@ export interface InklingLengthData {
   readonly answerMask: string;
 }
 
-export const INKLING_WORDS: Readonly<Record<InklingWordLength, InklingLengthData>> = {
+export const WORD_PUZZLE_WORDS: Readonly<Record<WordPuzzleWordLength, WordPuzzleLengthData>> = {
   4: {
     length: 4,
     count: 3873,

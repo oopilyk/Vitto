@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { LetterMark } from '@vitto/core';
 import { colors, fonts } from '../theme';
-import { MARK_APPEARANCE } from './InklingGrid';
+import { MARK_APPEARANCE } from './WordPuzzleGrid';
 
 /**
  * The board needs an on-screen keyboard rather than a text input: a letter's state
@@ -19,7 +19,7 @@ interface Props {
   disabled?: boolean;
 }
 
-export function InklingKeyboard({ marks, onKey, onEnter, onBackspace, disabled }: Props) {
+export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disabled }: Props) {
   return (
     <View style={styles.keyboard}>
       {ROWS.map((row, rowIndex) => (

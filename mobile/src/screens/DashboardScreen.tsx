@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findInklingEventForDate, getEventsForDay, getEvolutionStage, getMealsForDay, isSameDay, mindScoreLabel, sumMealMacros, toDateKey } from '@vitto/core';
+import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getEvolutionStage, getMealsForDay, isSameDay, mindScoreLabel, sumMealMacros, toDateKey } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
@@ -28,10 +28,10 @@ interface Props {
   onSyncSteps: () => void;
   onTrainMind: () => void;
   /**
-   * Opens today's Inkling board. Optional: the mind card hides the action until the
+   * Opens today's word puzzle board. Optional: the mind card hides the action until the
    * navigation is wired, so this screen stays renderable without it.
    */
-  onOpenInkling?: () => void;
+  onOpenWordPuzzle?: () => void;
   onOpenProfile: () => void;
   /** Opens the full stat sheet — the HUD on the pet is the way in. */
   onOpenStats: () => void;
@@ -77,10 +77,10 @@ const CARE_EVENT_LABEL: Partial<Record<HealthEvent['type'], string>> = {
 
 /**
  * Which brain sessions count toward a given day. The timed games are stamped the
- * moment they finish, so their completion time is their day. Inkling fixes its day
+ * moment they finish, so their completion time is their day. WordPuzzle fixes its day
  * when the board opens, so it is keyed on `puzzleDate` instead — a puzzle carried
  * past midnight still belongs to the day it was set for, and the count agrees with
- * the Inkling action beside it.
+ * the WordPuzzle action beside it.
  */
 const mindEventsForDay = (
   events: HealthEvent[],
@@ -105,7 +105,7 @@ export function DashboardScreen({
   onLogWorkout,
   onSyncSteps,
   onTrainMind,
-  onOpenInkling,
+  onOpenWordPuzzle,
   onOpenProfile,
   onOpenStats,
   accountInitial,
@@ -126,7 +126,7 @@ export function DashboardScreen({
   const todaysOther = todaysEvents.filter((event) => event.type !== 'MEAL');
   const todaysMind = mindEventsForDay(events, today);
   const bestMindScore = todaysMind.reduce((best, event) => Math.max(best, event.metadata.score), 0);
-  const todaysInkling = findInklingEventForDate(events, toDateKey(today));
+  const todaysWordPuzzle = findWordPuzzleEventForDate(events, toDateKey(today));
 
   const todaySteps = todaysEvents.find((event) => event.type === 'STEP_ACTIVITY');
   const steps = todaySteps ? (todaySteps.metadata as { steps: number }).steps : 0;
@@ -293,18 +293,18 @@ export function DashboardScreen({
             <Pressable onPress={onTrainMind} hitSlop={8}>
               <Text style={styles.mindLink}>Train →</Text>
             </Pressable>
-            {onOpenInkling ? (
+            {onOpenWordPuzzle ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={
-                  todaysInkling ? "Review today's Inkling" : "Play today's Inkling"
+                  todaysWordPuzzle ? "Review today's word puzzle" : "Play today's word puzzle"
                 }
-                onPress={onOpenInkling}
+                onPress={onOpenWordPuzzle}
                 hitSlop={8}
               >
-                <Text style={styles.mindLink}>Today's Inkling →</Text>
-                <Text style={[styles.mindNote, todaysInkling && styles.mindNoteDone]}>
-                  {todaysInkling ? `done · ${todaysInkling.metadata.score}` : 'not played yet'}
+                <Text style={styles.mindLink}>Today's word puzzle →</Text>
+                <Text style={[styles.mindNote, todaysWordPuzzle && styles.mindNoteDone]}>
+                  {todaysWordPuzzle ? `done · ${todaysWordPuzzle.metadata.score}` : 'not played yet'}
                 </Text>
               </Pressable>
             ) : null}

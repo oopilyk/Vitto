@@ -1,8 +1,8 @@
-# Vitto / Inkling -- offensive-terms fixture
+# Vitto / WordPuzzle -- offensive-terms fixture
 #
 # PURPOSE
-#   Applied at build time by packages/core/scripts/buildInklingWords.ts to filter the
-#   generated Inkling wordlists. Retained in-repo as a TEST FIXTURE so that a regression
+#   Applied at build time by packages/core/scripts/buildWordPuzzleWords.ts to filter the
+#   generated WordPuzzle wordlists. Retained in-repo as a TEST FIXTURE so that a regression
 #   in the build script cannot ship silently.
 #
 # ATTRIBUTION / LICENSE

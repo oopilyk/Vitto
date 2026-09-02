@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
-import { type BrainTrainingMetadata, type HealthEvent, MATH_ROUND_SECONDS, type MathProblem, type ReadingPassage, errorMessage, findInklingEventForDate, generateMathProblem, inklingStreak, mindScore, mindScoreLabel, pickReadingPassage, toDateKey } from '@vitto/core';
+import { type BrainTrainingMetadata, type HealthEvent, MATH_ROUND_SECONDS, type MathProblem, type ReadingPassage, errorMessage, findWordPuzzleEventForDate, generateMathProblem, wordPuzzleStreak, mindScore, mindScoreLabel, pickReadingPassage, toDateKey } from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -8,7 +8,7 @@ interface Props {
   onFinish: (metadata: BrainTrainingMetadata) => Promise<void>;
   onClose: () => void;
   /** Optional so the mind gym still stands alone if the daily puzzle isn't wired up. */
-  onOpenInkling?: () => void;
+  onOpenWordPuzzle?: () => void;
   events?: HealthEvent[];
 }
 
@@ -18,7 +18,7 @@ interface SessionResult extends BrainTrainingMetadata {
   missed?: { prompt: string; chosen: string; answer: string }[];
 }
 
-export function MindGymScreen({ onFinish, onClose, onOpenInkling, events = [] }: Props) {
+export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = [] }: Props) {
   const [stage, setStage] = useState<Stage>('pick');
   const [problem, setProblem] = useState<MathProblem | null>(null);
   const [entry, setEntry] = useState('');
@@ -136,11 +136,11 @@ export function MindGymScreen({ onFinish, onClose, onOpenInkling, events = [] }:
     }
   };
 
-  const inkling = useMemo(() => {
+  const wordPuzzle = useMemo(() => {
     const todayKey = toDateKey(new Date());
-    const streak = inklingStreak(events);
+    const streak = wordPuzzleStreak(events);
     return {
-      done: findInklingEventForDate(events, todayKey) !== null,
+      done: findWordPuzzleEventForDate(events, todayKey) !== null,
       streak: streak.currentStreak,
     };
   }, [events]);
@@ -179,16 +179,16 @@ export function MindGymScreen({ onFinish, onClose, onOpenInkling, events = [] }:
                 A few focused minutes counts as care too. Pick a session — your pet feels the difference
                 either way.
               </Text>
-              {onOpenInkling ? (
-                <Pressable style={styles.gameCard} onPress={onOpenInkling}>
+              {onOpenWordPuzzle ? (
+                <Pressable style={styles.gameCard} onPress={onOpenWordPuzzle}>
                   <View style={[styles.gameIcon, { backgroundColor: colors.lilac }]}>
                     <Text style={{ color: colors.lilacDeep, fontSize: 18 }}>✎</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.gameName}>Today's Inkling</Text>
+                    <Text style={styles.gameName}>Today's word puzzle</Text>
                     <Text style={styles.gameHint}>
-                      {inkling.done ? 'Played today' : 'Not played yet'} ·{' '}
-                      {inkling.streak > 0 ? `${inkling.streak}-day streak` : 'no streak yet'}
+                      {wordPuzzle.done ? 'Played today' : 'Not played yet'} ·{' '}
+                      {wordPuzzle.streak > 0 ? `${wordPuzzle.streak}-day streak` : 'no streak yet'}
                     </Text>
                   </View>
                   <Text style={styles.gameArrow}>→</Text>

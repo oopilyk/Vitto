@@ -7,7 +7,7 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:inkling-words": "node scripts/buildInklingWords.ts"
+    "build:word-puzzle-words": "node scripts/buildWordPuzzleWords.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4"

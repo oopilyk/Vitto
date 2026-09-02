@@ -1,16 +1,16 @@
 /**
- * Inkling wordlist build script.
+ * WordPuzzle wordlist build script.
  *
  * ############################################################################
  * # MANUAL SCRIPT -- DO NOT RUN IN CI.                                       #
  * # It downloads several megabytes from the public internet, and its output  #
- * # (src/data/inklingWords.ts) is committed. The committed data is the        #
+ * # (src/data/wordPuzzleWords.ts) is committed. The committed data is the        #
  * # source of truth; regenerating it in CI would be both impossible (no      #
  * # network) and undesirable (the daily puzzle must be stable forever).      #
  * ############################################################################
  *
  * Run manually, then commit the regenerated data module:
- *   npm run build:inkling-words --workspace @vitto/core
+ *   npm run build:word-puzzle-words --workspace @vitto/core
  *
  * Needs Node >= 22.6 (it is executed directly by node, which strips the types).
  * No build-tool dependency is added to @vitto/core for this.
@@ -53,7 +53,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(HERE, '..');
 const CACHE_DIR = join(HERE, '.wordlist-cache');
 const FIXTURE_PATH = join(PACKAGE_ROOT, 'src', 'data', 'offensiveWords.fixture.txt');
-const OUTPUT_PATH = join(PACKAGE_ROOT, 'src', 'data', 'inklingWords.ts');
+const OUTPUT_PATH = join(PACKAGE_ROOT, 'src', 'data', 'wordPuzzleWords.ts');
 
 const ENABLE_URL = 'https://norvig.com/ngrams/enable1.txt';
 const TWELVE_DICTS_URL = 'http://downloads.sourceforge.net/wordlist/12dicts-6.0.2.zip';
@@ -338,7 +338,7 @@ interface LengthResult {
 }
 
 async function main(): Promise<void> {
-  console.log('Inkling wordlist build\n');
+  console.log('WordPuzzle wordlist build\n');
 
   console.log('Acquiring sources:');
   const enableRaw = (await download(ENABLE_URL, 'enable1.txt')).toString('utf8');
@@ -444,7 +444,7 @@ async function main(): Promise<void> {
  * GENERATED FILE -- DO NOT EDIT BY HAND.
  *
  * Regenerate with:
- *   npm run build:inkling-words --workspace @vitto/core
+ *   npm run build:word-puzzle-words --workspace @vitto/core
  * (a manual script; it needs network access and must never run in CI)
  *
  * Generated: ${generatedOn}
@@ -491,13 +491,13 @@ async function main(): Promise<void> {
  * NOT DERIVED FROM any published puzzle's authored answer sequence.
  */
 
-export const INKLING_WORD_LENGTHS = [${WORD_LENGTHS.join(', ')}] as const;
+export const WORD_PUZZLE_WORD_LENGTHS = [${WORD_LENGTHS.join(', ')}] as const;
 
-export type InklingWordLength = (typeof INKLING_WORD_LENGTHS)[number];
+export type WordPuzzleWordLength = (typeof WORD_PUZZLE_WORD_LENGTHS)[number];
 
-export interface InklingLengthData {
+export interface WordPuzzleLengthData {
   /** Number of letters in every word of this entry. */
-  readonly length: InklingWordLength;
+  readonly length: WordPuzzleWordLength;
   /** Total number of valid guesses of this length. */
   readonly count: number;
   /** How many of those are answer-eligible (the number of set bits in answerMask). */
@@ -508,7 +508,7 @@ export interface InklingLengthData {
   readonly answerMask: string;
 }
 
-export const INKLING_WORDS: Readonly<Record<InklingWordLength, InklingLengthData>> = {
+export const WORD_PUZZLE_WORDS: Readonly<Record<WordPuzzleWordLength, WordPuzzleLengthData>> = {
 ${blocks}
 };
 `;

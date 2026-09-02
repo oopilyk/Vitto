@@ -15,7 +15,7 @@ const startOfDay = (date: Date): Date => new Date(date.getFullYear(), date.getMo
 
 /**
  * Which day an event counts toward. Defaults to its completion time, but a game whose
- * identity is fixed when it is opened -- Inkling picks its puzzle date up front -- passes
+ * identity is fixed when it is opened -- WordPuzzle picks its puzzle date up front -- passes
  * its own `keyOf` so a session carried across midnight still credits the day it belongs to.
  */
 export type EventDateKey = (event: HealthEvent) => string;
