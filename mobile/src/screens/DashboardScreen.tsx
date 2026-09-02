@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, estimateCaloriesBurned, getEventsForDay, getEvolutionStage, getMealsForDay, mindScoreLabel, sumMealMacros } from '@vitto/core';
+import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, getEventsForDay, getEvolutionStage, getMealsForDay, mindScoreLabel, sumMealMacros } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
@@ -28,6 +28,8 @@ interface Props {
   onSyncSteps: () => void;
   onTrainMind: () => void;
   onOpenProfile: () => void;
+  /** Opens the full stat sheet — the HUD on the pet is the way in. */
+  onOpenStats: () => void;
   /** Letter shown in the account button — the signed-in email's initial. */
   accountInitial?: string;
   isAnalyzingMeal: boolean;
@@ -80,6 +82,7 @@ export function DashboardScreen({
   onSyncSteps,
   onTrainMind,
   onOpenProfile,
+  onOpenStats,
   accountInitial,
   isAnalyzingMeal,
   isEating,
@@ -310,12 +313,8 @@ export function DashboardScreen({
       >
       <View style={styles.hero}>
         <Kicker>
-          {EVOLUTION_STAGE_LABEL[stage].toUpperCase()} · DAY{' '}
-          {Math.max(
-            1,
-            Math.floor((today.getTime() - new Date(pet.adoptedAt).getTime()) / 86400000) + 1,
-          )}{' '}
-          WITH {pet.name.toUpperCase()}
+          {EVOLUTION_STAGE_LABEL[stage].toUpperCase()} · DAY {daysWithPet(pet, today)} WITH{' '}
+          {pet.name.toUpperCase()}
         </Kicker>
         <Text style={styles.petName}>{pet.name}</Text>
         <Text style={styles.mood}>
@@ -346,26 +345,35 @@ export function DashboardScreen({
         isWorkingOut={isWorkingOut}
         isExploring={isExploring}
       >
-        <View style={styles.hud}>
-          <Text style={styles.hudTitle}>VITALS</Text>
-          {(
-            [
-              ['Push', pet.pushingStrength],
-              ['Pull', pet.pullingStrength],
-              ['Legs', pet.legStrength],
-              ['Endurance', pet.endurance],
-              ['Mind', pet.mind],
-              ['Health', pet.health],
-            ] as const
-          ).map(([label, value]) => (
-            <View key={label} style={styles.hudRow}>
-              <Text style={styles.hudLabel}>{label}</Text>
-              <View style={styles.hudTrack}>
-                <View style={[styles.hudFill, { width: `${value}%` }]} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open pet stats"
+          onPress={onOpenStats}
+          hitSlop={6}
+          style={({ pressed }) => [styles.hudTap, pressed && styles.hudTapPressed]}
+        >
+          <View style={styles.hud}>
+            <Text style={styles.hudTitle}>VITALS</Text>
+            {(
+              [
+                ['Push', pet.pushingStrength],
+                ['Pull', pet.pullingStrength],
+                ['Legs', pet.legStrength],
+                ['Endurance', pet.endurance],
+                ['Mind', pet.mind],
+                ['Health', pet.health],
+              ] as const
+            ).map(([label, value]) => (
+              <View key={label} style={styles.hudRow}>
+                <Text style={styles.hudLabel}>{label}</Text>
+                <View style={styles.hudTrack}>
+                  <View style={[styles.hudFill, { width: `${value}%` }]} />
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+            <Text style={styles.hudMore}>All stats →</Text>
+          </View>
+        </Pressable>
       </PetAvatar>
 
       <View style={styles.dashboard}>
@@ -449,7 +457,10 @@ const styles = StyleSheet.create({
   xpTrack: { height: 4, borderRadius: 2, backgroundColor: '#deded7', marginTop: 8, overflow: 'hidden' },
   xpFill: { height: '100%', backgroundColor: colors.coral, borderRadius: 2 },
   streak: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 10 },
-  hud: { position: 'absolute', top: 16, left: 16, zIndex: 2, width: 128 },
+  hudTap: { position: 'absolute', top: 16, left: 16, zIndex: 2 },
+  hudTapPressed: { opacity: 0.6 },
+  hud: { width: 128 },
+  hudMore: { fontFamily: fonts.mono, fontSize: 8, color: '#5f7167', marginTop: 2 },
   hudTitle: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: '#5f7167', marginBottom: 8 },
   hudRow: { marginBottom: 6 },
   hudLabel: { fontFamily: fonts.mono, fontSize: 8, color: '#55705d', marginBottom: 3 },

@@ -13,6 +13,7 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
@@ -33,6 +34,8 @@ const stepsProvider = new MockHealthDataProvider();
 // with no back/forward navigation of their own.
 type RootStackParamList = {
   Main: undefined;
+  // A drill-down off the dashboard, so it pushes rather than presenting as a modal.
+  PetStats: undefined;
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -391,6 +394,7 @@ export default function App() {
                       onSyncSteps={() => void syncSteps()}
                       onTrainMind={() => rootNav?.navigate('MindGym')}
                       onOpenProfile={() => navigation.navigate('Profile')}
+                      onOpenStats={() => rootNav?.navigate('PetStats')}
                       accountInitial={session?.user.email?.charAt(0)}
                       isAnalyzingMeal={isAnalyzingMeal}
                       isEating={isEating}
@@ -417,6 +421,11 @@ export default function App() {
                 )}
               </MainTab.Screen>
             </MainTab.Navigator>
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="PetStats">
+          {({ navigation }) => (
+            <PetStatsScreen pet={pet} events={events} onClose={() => navigation.goBack()} />
           )}
         </RootStack.Screen>
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>

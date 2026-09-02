@@ -22,3 +22,11 @@ For complex work:
 4. Resolve integration problems.
 5. Have QA verify the result.
 6. Summarize what changed.
+
+Before delegating parallel work:
+- Ensure agents are not editing the same files.
+- Define API/interface contracts first.
+- If two tasks touch the same files, run them sequentially.
+- Do not let QA modify files while implementation agents are still working.
+
+- DO NOT LEAK SENSITIVE INFORMATION (API keys, secrets, etc.) TO THE FRONTEND OR QA AGENTS.
