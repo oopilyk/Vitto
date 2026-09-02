@@ -44,6 +44,11 @@ interface Props {
   onSave: (profile: BodyProfile) => Promise<void>;
   onClose: () => void;
   onSignOut?: () => void;
+  /** Omitted entirely on platforms with no HealthKit provider (Android, web). */
+  appleHealthStatus?: 'disconnected' | 'connected';
+  onConnectAppleHealth?: () => void;
+  onSyncAppleHealth?: () => void;
+  isSyncingAppleHealth?: boolean;
 }
 
 const FOCUS_LABEL: Record<FocusArea, string> = {
@@ -94,6 +99,10 @@ export function ProfileScreen({
   onSave,
   onClose,
   onSignOut,
+  appleHealthStatus,
+  onConnectAppleHealth,
+  onSyncAppleHealth,
+  isSyncingAppleHealth,
 }: Props) {
   const [profile, setProfile] = useState(initial);
   const [saving, setSaving] = useState(false);
@@ -466,6 +475,33 @@ export function ProfileScreen({
           )}
         </Card>
 
+        {appleHealthStatus ? (
+          <View style={styles.appleHealth}>
+            <Kicker>Apple Health</Kicker>
+            {appleHealthStatus === 'connected' ? (
+              <>
+                <Text style={text.body}>
+                  Connected — workouts and meals from apps like Strong or MyFitnessPal will show up here
+                  automatically.
+                </Text>
+                <TextButton
+                  label={isSyncingAppleHealth ? 'Syncing...' : 'Sync now'}
+                  onPress={() => onSyncAppleHealth?.()}
+                  disabled={isSyncingAppleHealth}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={text.body}>
+                  Connect Apple Health to pull in workouts and meals you've already logged in Strong,
+                  MyFitnessPal, or similar apps.
+                </Text>
+                <TextButton label="Connect Apple Health" onPress={() => onConnectAppleHealth?.()} />
+              </>
+            )}
+          </View>
+        ) : null}
+
         {onSignOut ? (
           <View style={styles.signOut}>
             <TextButton label="Log out" onPress={onSignOut} />
@@ -576,6 +612,7 @@ const styles = StyleSheet.create({
   historyTime: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
   empty: { fontSize: 13, color: colors.faint, paddingVertical: 12 },
   link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
+  appleHealth: { gap: 8, paddingVertical: 14, ...layout.hairline },
   signOut: { alignItems: 'center', paddingVertical: 10 },
   saveBar: {
     position: 'absolute',

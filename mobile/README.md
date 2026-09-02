@@ -45,12 +45,16 @@ npx expo run:android   # requires Android Studio
 
 ## Not yet native
 
-- **Steps are still mocked** (`MockHealthDataProvider` returns 6,840). Real steps
-  need HealthKit / Health Connect, which require a development build and a config
-  plugin — this is the first thing worth doing now that the shell is native.
+- **HealthKit is done on iOS** (`HealthKitProvider` in `src/services/`) — steps,
+  workouts (e.g. from Strong), and meals (e.g. from MyFitnessPal) can be pulled
+  in from Apple Health via "Connect Apple Health" in Profile. See
+  [HEALTHKIT.md](./HEALTHKIT.md) for the design, its known limitations, and the
+  manual device/build setup it needs — none of it has run on a real device yet.
+- **Android still uses the mock provider.** Health Connect (Android's
+  equivalent) needs its own provider implementing the same `HealthDataProvider`
+  interface — see HEALTHKIT.md's "What this does not do" section.
 - **Screen time** remains a placeholder. It needs `DeviceActivity` (iOS, plus an
   Apple entitlement) or `UsageStatsManager` (Android).
-- **The pet is still drawn from primitives** rather than a sprite.
 
 ## Tests
 
