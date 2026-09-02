@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getEvolutionStage, getMealsForDay, isSameDay, mindScoreLabel, sumMealMacros, toDateKey } from '@vitto/core';
+import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getEvolutionStage, getMealsForDay, isSameDay, mindScoreLabel, statValue, sumMealMacros, toDateKey } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
@@ -428,14 +428,14 @@ export function DashboardScreen({
         >
           <View style={styles.hud}>
             <Text style={styles.hudTitle}>VITALS</Text>
+            {/* The push/pull/legs breakdown lives on the stats sheet; the HUD carries
+                the single `strength` roll-up so it stays glanceable. */}
             {(
               [
-                ['Push', pet.pushingStrength],
-                ['Pull', pet.pullingStrength],
-                ['Legs', pet.legStrength],
-                ['Endurance', pet.endurance],
-                ['Mind', pet.mind],
-                ['Health', pet.health],
+                ['Strength', statValue(pet, 'strength')],
+                ['Endurance', statValue(pet, 'endurance')],
+                ['Mind', statValue(pet, 'mind')],
+                ['Health', statValue(pet, 'health')],
               ] as const
             ).map(([label, value]) => (
               <View key={label} style={styles.hudRow}>
