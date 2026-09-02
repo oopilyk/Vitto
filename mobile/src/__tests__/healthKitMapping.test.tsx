@@ -10,7 +10,7 @@ import type { HealthEvent, MealMetadata, WorkoutMetadata } from '@vitto/core';
 
 describe('mapStepSample', () => {
   it('rounds fractional step counts and tags the event as HealthKit-sourced', () => {
-    const event = mapStepSample('user-1', { value: 6840.7, startDate: '2026-08-28T09:00:00.000Z' });
+    const event = mapStepSample('user-1', { quantity: 6840.7, startDate: new Date('2026-08-28T09:00:00.000Z') });
     expect(event.metadata.steps).toBe(6841);
     expect(event.source).toBe('healthkit');
     expect(event.type).toBe('STEP_ACTIVITY');
@@ -21,10 +21,10 @@ describe('mapStepSample', () => {
 describe('mapWorkoutSample', () => {
   it('maps a known strength activity name to workoutType "strength"', () => {
     const event = mapWorkoutSample('user-1', {
-      id: 'hk-workout-1',
-      activityName: 'TraditionalStrengthTraining',
-      duration: 2700,
-      start: '2026-08-28T18:00:00.000Z',
+      uuid: 'hk-workout-1',
+      activityName: 'traditionalStrengthTraining',
+      durationSeconds: 2700,
+      startDate: new Date('2026-08-28T18:00:00.000Z'),
       sourceName: 'Strong',
     });
     expect(event.metadata.workoutType).toBe('strength');
@@ -35,10 +35,10 @@ describe('mapWorkoutSample', () => {
 
   it('falls back to "cardio" for activity names outside the known strength set', () => {
     const event = mapWorkoutSample('user-1', {
-      id: 'hk-workout-2',
-      activityName: 'Running',
-      duration: 1800,
-      start: '2026-08-28T07:00:00.000Z',
+      uuid: 'hk-workout-2',
+      activityName: 'running',
+      durationSeconds: 1800,
+      startDate: new Date('2026-08-28T07:00:00.000Z'),
       sourceName: 'Strong',
     });
     expect(event.metadata.workoutType).toBe('cardio');
@@ -46,10 +46,10 @@ describe('mapWorkoutSample', () => {
 
   it('rounds a sub-minute duration up to at least one minute', () => {
     const event = mapWorkoutSample('user-1', {
-      id: 'hk-workout-3',
-      activityName: 'Running',
-      duration: 20,
-      start: '2026-08-28T07:00:00.000Z',
+      uuid: 'hk-workout-3',
+      activityName: 'running',
+      durationSeconds: 20,
+      startDate: new Date('2026-08-28T07:00:00.000Z'),
       sourceName: 'Strong',
     });
     expect(event.metadata.durationMinutes).toBe(1);
@@ -58,13 +58,13 @@ describe('mapWorkoutSample', () => {
 
 describe('reconstructMealsFromNutrientSamples', () => {
   it('joins nutrient samples that share the same timestamp into one meal', () => {
-    const startDate = '2026-08-28T12:30:00.000Z';
+    const startDate = new Date('2026-08-28T12:30:00.000Z');
     const events = reconstructMealsFromNutrientSamples('user-1', {
-      energy: [{ id: 'e1', value: 520, startDate }],
-      protein: [{ id: 'p1', value: 42, startDate }],
-      carbohydrates: [{ id: 'c1', value: 48, startDate }],
-      fat: [{ id: 'f1', value: 14, startDate }],
-      fiber: [{ id: 'fi1', value: 6, startDate }],
+      energy: [{ uuid: 'e1', quantity: 520, startDate }],
+      protein: [{ uuid: 'p1', quantity: 42, startDate }],
+      carbohydrates: [{ uuid: 'c1', quantity: 48, startDate }],
+      fat: [{ uuid: 'f1', quantity: 14, startDate }],
+      fiber: [{ uuid: 'fi1', quantity: 6, startDate }],
     });
 
     expect(events).toHaveLength(1);
@@ -80,9 +80,9 @@ describe('reconstructMealsFromNutrientSamples', () => {
   });
 
   it('defaults unmatched nutrients to zero rather than dropping the meal', () => {
-    const startDate = '2026-08-28T12:30:00.000Z';
+    const startDate = new Date('2026-08-28T12:30:00.000Z');
     const events = reconstructMealsFromNutrientSamples('user-1', {
-      energy: [{ id: 'e1', value: 300, startDate }],
+      energy: [{ uuid: 'e1', quantity: 300, startDate }],
       protein: [],
       carbohydrates: [],
       fat: [],
@@ -101,10 +101,10 @@ describe('reconstructMealsFromNutrientSamples', () => {
   it('does not join nutrient samples logged at different times', () => {
     const events = reconstructMealsFromNutrientSamples('user-1', {
       energy: [
-        { id: 'e1', value: 300, startDate: '2026-08-28T08:00:00.000Z' },
-        { id: 'e2', value: 600, startDate: '2026-08-28T18:00:00.000Z' },
+        { uuid: 'e1', quantity: 300, startDate: new Date('2026-08-28T08:00:00.000Z') },
+        { uuid: 'e2', quantity: 600, startDate: new Date('2026-08-28T18:00:00.000Z') },
       ],
-      protein: [{ id: 'p1', value: 40, startDate: '2026-08-28T18:00:00.000Z' }],
+      protein: [{ uuid: 'p1', quantity: 40, startDate: new Date('2026-08-28T18:00:00.000Z') }],
       carbohydrates: [],
       fat: [],
       fiber: [],
@@ -164,13 +164,13 @@ describe('excludeKnownExternalIds', () => {
     expect(result.map((item) => item.externalId)).toEqual(['a', 'c']);
   });
 
-  it('falls back to the id field when externalId is absent', () => {
-    const items = [{ id: 'x' }, { id: 'y' }];
+  it('falls back to the uuid field when externalId is absent', () => {
+    const items = [{ uuid: 'x' }, { uuid: 'y' }];
     const result = excludeKnownExternalIds(items, new Set(['x']));
-    expect(result.map((item) => item.id)).toEqual(['y']);
+    expect(result.map((item) => item.uuid)).toEqual(['y']);
   });
 
-  it('keeps items with neither externalId nor id rather than silently dropping them', () => {
+  it('keeps items with neither externalId nor uuid rather than silently dropping them', () => {
     const items = [{}, { externalId: 'known' }];
     const result = excludeKnownExternalIds(items, new Set(['known']));
     expect(result).toHaveLength(1);

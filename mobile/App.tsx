@@ -319,10 +319,23 @@ export default function App() {
   };
 
   const syncSteps = async () => {
-    setIsExploring(true);
-    setTimeout(() => setIsExploring(false), EXPLORE_ANIMATION_MS);
-    const event = await stepsProvider.getTodaySteps(userId);
-    await recordEvent(event as HealthEvent<StepMetadata>);
+    try {
+      if (!isAppleHealthConnected) {
+        const granted = await stepsProvider.requestAuthorization();
+        setIsAppleHealthConnected(granted);
+        if (!granted) {
+          setError('Connect Apple Health (in Profile) to sync steps.');
+          return;
+        }
+      }
+      setIsExploring(true);
+      setTimeout(() => setIsExploring(false), EXPLORE_ANIMATION_MS);
+      const event = await stepsProvider.getTodaySteps(userId);
+      await recordEvent(event as HealthEvent<StepMetadata>);
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not sync steps.'));
+    }
   };
 
   const connectAppleHealth = async () => {

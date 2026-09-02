@@ -1,21 +1,35 @@
 import { Platform } from 'react-native';
-import AppleHealthKit, {
-  type HealthInputOptions,
-  type HealthKitPermissions,
-  type HealthValue,
-  type HKWorkoutQueriedSampleType,
-} from 'react-native-health';
+import {
+  isHealthDataAvailableAsync,
+  queryQuantitySamples,
+  queryWorkoutSamples,
+  requestAuthorization,
+  WorkoutActivityType,
+} from '@kingstinct/react-native-healthkit';
 import type { HealthEvent, MealMetadata, StepMetadata, WorkoutMetadata } from '@vitto/core';
 import type { HealthDataProvider } from './healthDataProvider';
-import { excludeKnownExternalIds, mapStepSample, mapWorkoutSample, reconstructMealsFromNutrientSamples } from './healthKitMapping';
+import {
+  excludeKnownExternalIds,
+  mapStepSample,
+  mapWorkoutSample,
+  reconstructMealsFromNutrientSamples,
+} from './healthKitMapping';
 
 /**
- * The real, iOS-only `HealthDataProvider`. See mobile/HEALTHKIT.md for the
- * full design writeup, the manual setup this needs on a real device, and its
- * known limitations. Everything here is a thin wrapper around
- * `react-native-health`'s callback API — the actual data transformation lives
- * in `healthKitMapping.ts`, which is unit-tested; this file cannot be, since
- * it only does anything on a real device with Apple Health data in it.
+ * The real, iOS-only `HealthDataProvider`, backed by
+ * @kingstinct/react-native-healthkit (a Nitro Modules library, built for
+ * React Native's New Architecture). See mobile/HEALTHKIT.md for the full
+ * design writeup, the manual setup this needs on a real device, and its
+ * known limitations. Everything here is a thin wrapper around the library's
+ * Promise-based query API — the actual data transformation lives in
+ * `healthKitMapping.ts`, which is unit-tested; this file cannot be, since it
+ * only does anything on a real device with Apple Health data in it.
+ *
+ * A previous implementation used `react-native-health`, a callback-based
+ * library whose native methods never bridged to JS under the New
+ * Architecture (`AppleHealthKit.initHealthKit` resolved to `undefined` at
+ * runtime on-device, confirmed via diagnostic logging). This library was
+ * swapped in to fix that; see HEALTHKIT.md for the full story.
  */
 
 /**
@@ -28,110 +42,41 @@ import { excludeKnownExternalIds, mapStepSample, mapWorkoutSample, reconstructMe
  */
 export const RECENT_SYNC_WINDOW_HOURS = 48;
 
-const PERMISSIONS: HealthKitPermissions = {
-  permissions: {
-    read: [
-      AppleHealthKit.Constants.Permissions.StepCount,
-      AppleHealthKit.Constants.Permissions.Workout,
-      AppleHealthKit.Constants.Permissions.EnergyConsumed,
-      AppleHealthKit.Constants.Permissions.Protein,
-      AppleHealthKit.Constants.Permissions.Carbohydrates,
-      AppleHealthKit.Constants.Permissions.FatTotal,
-      AppleHealthKit.Constants.Permissions.Fiber,
-    ],
-    write: [],
-  },
-};
-
-const checkAvailability = (): Promise<boolean> =>
-  new Promise((resolve) => {
-    AppleHealthKit.isAvailable((_error, available) => resolve(Boolean(available)));
-  });
-
-const initHealthKit = (): Promise<void> =>
-  new Promise((resolve, reject) => {
-    AppleHealthKit.initHealthKit(PERMISSIONS, (error) => {
-      if (error) reject(new Error(error));
-      else resolve();
-    });
-  });
-
-const fetchStepCount = (options: HealthInputOptions): Promise<HealthValue> =>
-  new Promise((resolve, reject) => {
-    AppleHealthKit.getStepCount(options, (error, result) => {
-      if (error) reject(new Error(error));
-      else resolve(result);
-    });
-  });
-
-const fetchAnchoredWorkouts = (options: HealthInputOptions): Promise<HKWorkoutQueriedSampleType[]> =>
-  new Promise((resolve, reject) => {
-    AppleHealthKit.getAnchoredWorkouts(options, (error, result) => {
-      if (error) reject(new Error(error.message ?? 'Could not read workouts from Apple Health.'));
-      else resolve(result.data);
-    });
-  });
-
-const fetchEnergyConsumedSamples = (options: HealthInputOptions): Promise<HealthValue[]> =>
-  new Promise((resolve, reject) => {
-    AppleHealthKit.getEnergyConsumedSamples(options, (error, results) => {
-      if (error) reject(new Error(error));
-      else resolve(results);
-    });
-  });
-
-const fetchProteinSamples = (options: HealthInputOptions): Promise<HealthValue[]> =>
-  new Promise((resolve, reject) => {
-    AppleHealthKit.getProteinSamples(options, (error, results) => {
-      if (error) reject(new Error(error));
-      else resolve(results);
-    });
-  });
-
-const fetchCarbohydrateSamples = (options: HealthInputOptions): Promise<HealthValue[]> =>
-  new Promise((resolve, reject) => {
-    AppleHealthKit.getCarbohydratesSamples(options, (error, results) => {
-      if (error) reject(new Error(error));
-      else resolve(results);
-    });
-  });
-
-const fetchTotalFatSamples = (options: HealthInputOptions): Promise<HealthValue[]> =>
-  new Promise((resolve, reject) => {
-    AppleHealthKit.getTotalFatSamples(options, (error, results) => {
-      if (error) reject(new Error(error));
-      else resolve(results);
-    });
-  });
-
-const fetchFiberSamples = (options: HealthInputOptions): Promise<HealthValue[]> =>
-  new Promise((resolve, reject) => {
-    AppleHealthKit.getFiberSamples(options, (error, results) => {
-      if (error) reject(new Error(error));
-      else resolve(results);
-    });
-  });
+const STEP_COUNT = 'HKQuantityTypeIdentifierStepCount' as const;
+const DIETARY_ENERGY = 'HKQuantityTypeIdentifierDietaryEnergyConsumed' as const;
+const DIETARY_PROTEIN = 'HKQuantityTypeIdentifierDietaryProtein' as const;
+const DIETARY_CARBS = 'HKQuantityTypeIdentifierDietaryCarbohydrates' as const;
+const DIETARY_FAT = 'HKQuantityTypeIdentifierDietaryFatTotal' as const;
+const DIETARY_FIBER = 'HKQuantityTypeIdentifierDietaryFiber' as const;
 
 const byOccurredAtAscending = (a: HealthEvent<unknown>, b: HealthEvent<unknown>) =>
   a.occurredAt.localeCompare(b.occurredAt);
+
+/** WorkoutActivityType is a numeric enum; this recovers its readable name for mapWorkoutSample. */
+const workoutActivityName = (activityType: WorkoutActivityType): string =>
+  WorkoutActivityType[activityType] ?? 'other';
 
 export class HealthKitProvider implements HealthDataProvider {
   private authorized = false;
 
   async isAvailable(): Promise<boolean> {
     if (Platform.OS !== 'ios') return false;
-    return checkAvailability();
+    return isHealthDataAvailableAsync();
   }
 
   async requestAuthorization(): Promise<boolean> {
     if (Platform.OS !== 'ios') return false;
     try {
-      await initHealthKit();
-      this.authorized = true;
-      return true;
-    } catch {
+      const granted = await requestAuthorization({
+        toRead: [STEP_COUNT, 'HKWorkoutTypeIdentifier', DIETARY_ENERGY, DIETARY_PROTEIN, DIETARY_CARBS, DIETARY_FAT, DIETARY_FIBER],
+      });
+      this.authorized = granted;
+      return granted;
+    } catch (cause) {
       this.authorized = false;
-      return false;
+      // Rethrow (rather than swallow) so the caller can surface the actual
+      // native error instead of a generic "not granted" message.
+      throw cause;
     }
   }
 
@@ -145,8 +90,13 @@ export class HealthKitProvider implements HealthDataProvider {
     this.assertAuthorized();
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const result = await fetchStepCount({ date: now.toISOString() });
-    return mapStepSample(userId, { value: result.value, startDate: startOfToday.toISOString() });
+    const samples = await queryQuantitySamples(STEP_COUNT, {
+      filter: { date: { startDate: startOfToday } },
+      limit: 0,
+      unit: 'count',
+    });
+    const totalSteps = samples.reduce((sum, sample) => sum + sample.quantity, 0);
+    return mapStepSample(userId, { quantity: totalSteps, startDate: startOfToday });
   }
 
   async getNewWorkouts(
@@ -155,9 +105,21 @@ export class HealthKitProvider implements HealthDataProvider {
     knownExternalIds: ReadonlySet<string>,
   ): Promise<HealthEvent<WorkoutMetadata>[]> {
     this.assertAuthorized();
-    const samples = await fetchAnchoredWorkouts({ startDate: since.toISOString() });
+    const samples = await queryWorkoutSamples({
+      filter: { date: { startDate: since } },
+      limit: 0,
+      ascending: true,
+    });
     return excludeKnownExternalIds(samples, knownExternalIds)
-      .map((sample) => mapWorkoutSample(userId, sample))
+      .map((sample) =>
+        mapWorkoutSample(userId, {
+          uuid: sample.uuid,
+          activityName: workoutActivityName(sample.workoutActivityType),
+          durationSeconds: sample.duration.quantity,
+          startDate: sample.startDate,
+          sourceName: sample.sourceRevision.source.name,
+        }),
+      )
       .sort(byOccurredAtAscending);
   }
 
@@ -167,13 +129,13 @@ export class HealthKitProvider implements HealthDataProvider {
     knownExternalIds: ReadonlySet<string>,
   ): Promise<HealthEvent<MealMetadata>[]> {
     this.assertAuthorized();
-    const options: HealthInputOptions = { startDate: since.toISOString() };
+    const filter = { date: { startDate: since } };
     const [energy, protein, carbohydrates, fat, fiber] = await Promise.all([
-      fetchEnergyConsumedSamples(options),
-      fetchProteinSamples(options),
-      fetchCarbohydrateSamples(options),
-      fetchTotalFatSamples(options),
-      fetchFiberSamples(options),
+      queryQuantitySamples(DIETARY_ENERGY, { filter, limit: 0, unit: 'kcal' }),
+      queryQuantitySamples(DIETARY_PROTEIN, { filter, limit: 0, unit: 'g' }),
+      queryQuantitySamples(DIETARY_CARBS, { filter, limit: 0, unit: 'g' }),
+      queryQuantitySamples(DIETARY_FAT, { filter, limit: 0, unit: 'g' }),
+      queryQuantitySamples(DIETARY_FIBER, { filter, limit: 0, unit: 'g' }),
     ]);
     const freshEnergy = excludeKnownExternalIds(energy, knownExternalIds);
     return reconstructMealsFromNutrientSamples(userId, {

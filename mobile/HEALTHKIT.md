@@ -21,8 +21,32 @@ permission. That's the integration.
 - **Background/automatic sync.** There's a "Sync now" button in Profile.
   Nothing runs while the app is closed. A real background sync would need
   `expo-task-manager` + a HealthKit anchored/observer query and is a bigger,
-  separate feature.
+  separate feature. (The library's background-delivery entitlement is
+  explicitly turned *off* in `app.json`'s plugin config — see below — since
+  nothing here uses it yet.)
 - **Writing to Health.** Read-only. Vitto never writes anything back.
+
+## Library: @kingstinct/react-native-healthkit
+
+This integration originally used `react-native-health`, a callback-based
+HealthKit wrapper. **It doesn't work.** Its native methods never bridge to
+JS under React Native's New Architecture (the default in RN 0.86 / Expo SDK
+57, which this project is on) — `AppleHealthKit.initHealthKit` resolved to
+`undefined` at runtime on a real device, confirmed via diagnostic logging in
+Metro. `AppleHealthKit.Constants` (pure static JS data, no bridging
+required) was fully populated, which is what pinned down that it was
+specifically the New-Arch bridge that was broken, not permissions or
+entitlements.
+
+It was replaced with `@kingstinct/react-native-healthkit` (+ its peer
+dependency `react-native-nitro-modules`), a Promise-based library built on
+Nitro Modules — Nitro is designed for the New Architecture from the ground
+up, so this doesn't hit the same wall. The public API this codebase uses
+(`requestAuthorization`, `queryQuantitySamples`, `queryWorkoutSamples`,
+`isHealthDataAvailableAsync`) is otherwise very similar in shape to what
+`react-native-health` offered, so the swap didn't change the product design
+— see git history on `healthKitMapping.ts`/`healthKitProvider.ts` if you
+want the exact diff.
 
 ## Architecture
 
@@ -31,11 +55,11 @@ healthKitMapping.ts   Pure functions: raw HealthKit sample shapes → Vitto's
                        HealthEvent domain types. No native calls. Fully unit
                        tested (mobile/src/__tests__/healthKitMapping.test.tsx).
 
-healthKitProvider.ts   Thin wrapper around react-native-health's callback API.
-                       Implements HealthDataProvider. Cannot be unit tested —
-                       it only does anything with a real device and real
-                       Health data. Delegates all actual logic to the mapping
-                       module above.
+healthKitProvider.ts   Thin wrapper around @kingstinct/react-native-healthkit's
+                       Promise-based query API. Implements HealthDataProvider.
+                       Cannot be unit tested — it only does anything with a
+                       real device and real Health data. Delegates all actual
+                       logic to the mapping module above.
 
 healthDataProvider.ts  The interface both HealthKitProvider and
                        MockHealthDataProvider implement, so App.tsx never has
@@ -75,13 +99,13 @@ this one.
 
 ### Why meals are reconstructed from separate samples
 
-`react-native-health` doesn't expose a query for `HKCorrelation` ("this one
-meal has these nutrients"). Each nutrient — calories, protein, carbs, fat,
-fiber — comes back as its own independent sample series. Apps that log one
-meal (MyFitnessPal included) write all of that meal's samples with the same
-`startDate`, so `reconstructMealsFromNutrientSamples` groups by **exact
-timestamp match** across the five series. This is a heuristic, not a
-guarantee:
+HealthKit has no query for "give me this correlated meal with all its
+nutrients as one object" that this library exposes for reads. Each nutrient
+— calories, protein, carbs, fat, fiber — comes back as its own independent
+quantity sample series. Apps that log one meal (MyFitnessPal included) write
+all of that meal's samples with the same `startDate`, so
+`reconstructMealsFromNutrientSamples` groups by **exact timestamp match**
+across the five series. This is a heuristic, not a guarantee:
 - A source app that doesn't write matching timestamps for one meal's
   nutrients will have that meal's macros show up fragmented or incomplete.
 - A meal missing some nutrients (e.g. no fiber logged) still comes through,
@@ -100,22 +124,54 @@ UUID (the anchor sample for that reconstructed meal). Before each sync,
 from *any* source, not just previous HealthKit syncs — and both provider
 methods filter against it, so nothing is ever double-imported.
 
-## What's already verified
+## What's verified
 
 - `tsc --noEmit` is clean across `mobile`, `web`, and `packages/core`.
-- `packages/core` (48 tests), `mobile` (29 tests, 11 of them new) all pass.
+- The full mobile test suite (34 tests, including the 11 for the mapping
+  layer) passes.
 - The mapping layer — the part with actual logic — has direct unit test
   coverage: rounding, strength/cardio classification, timestamp grouping,
   zero-defaulting for missing nutrients, and dedup filtering.
+- The app has been built and installed on a real physical iPhone
+  (`expo run:ios --device`) with the HealthKit entitlement present and no
+  provisioning errors.
 
-## What's NOT verified — and can't be, from here
+**Still to confirm on-device after the library swap**: that "Connect Apple
+Health" actually completes and pulls real Strong/MyFitnessPal data through
+end-to-end with `@kingstinct/react-native-healthkit`. The previous library's
+failure mode (silent `undefined` methods) only surfaced through real-device
+testing, not `tsc`/unit tests — so treat this integration as trustworthy only
+after that walkthrough, not before.
 
-I have no iOS device, simulator, or native build environment in this
-session. Everything above the mapping layer (`healthKitProvider.ts`, the
-Expo config plugin, the actual native calls) is written carefully against
-`react-native-health`'s type definitions but has never actually run. Treat
-first real-device testing as the point this becomes trustworthy, not this
-document.
+## Real-world lessons from getting this running
+
+These are things that only showed up building and testing on an actual
+device, not from documentation — worth knowing if this breaks again later:
+
+- **The iOS Simulator cannot test HealthKit at all.** Entitlements are not
+  embedded in Simulator builds (`codesign -d --entitlements - <app>` shows an
+  empty `[Dict]` even on a build that works fine on a real device). If
+  "Connect Apple Health" fails with no permission dialog ever appearing on
+  Simulator, that's expected — it's not a bug, test on a real device.
+- **A free "Personal Team" Apple ID can use HealthKit, but not Health
+  Records.** Plain read access to steps/workouts/nutrition works fine on a
+  personal team. The **Clinical Health Records** capability
+  (`com.apple.developer.healthkit.access` with clinical-record types) is
+  blocked for personal teams and will fail provisioning. Both this library's
+  and the previous library's config plugins only add that key when clinical
+  data types are explicitly requested — this app never requests them, so it
+  isn't affected — but if that error resurfaces, check the generated
+  `ios/Vitto/Vitto.entitlements` for that key and confirm nothing added it.
+- **Developer Mode must be manually enabled** on iOS 16+ real devices before
+  a dev-signed build will launch (Settings → Privacy & Security → Developer
+  Mode → toggle on → restart → confirm). `expo run:ios --device` will hang
+  with "Timed out waiting for all destinations" until this is done.
+- **`ApplicationVerificationFailed` on install** usually means a
+  differently-signed previous copy of the app is still on the phone —
+  delete it first, then reinstall.
+- **"Untrusted Developer" on first launch** is normal for any non-App-Store
+  dev build — Settings → General → VPN & Device Management → trust your
+  developer certificate.
 
 ## What you need to do
 
@@ -132,8 +188,8 @@ document.
    npx expo prebuild -p ios      # generates the ios/ Xcode project with the
                                   # HealthKit entitlement + Info.plist strings
                                   # already wired in via app.json's plugin config
-   npx expo run:ios               # builds and installs on a simulator or
-                                  # connected device
+   npx expo run:ios --device      # builds and installs on a connected real
+                                   # device (required — see Simulator note above)
    ```
    or, for a shareable build without a local Xcode setup:
    ```bash
@@ -146,12 +202,11 @@ document.
    this automatically from `app.json`, but if the build fails on a
    provisioning/entitlement error, this is the first thing to check manually.
 
-4. **Test on a real device if you can.** The iOS Simulator's Health app lets
-   you manually add sample workout/nutrition data for testing, but a real
-   device with your actual Strong/MyFitnessPal history is the real test —
-   and the only way to find out if the "same timestamp" meal-grouping
-   heuristic actually holds for how those apps write their data, which I
-   can't verify myself.
+4. **Test on a real device — required, not optional.** See the Simulator
+   limitation above. A real device with your actual Strong/MyFitnessPal
+   history is also the only way to find out if the "same timestamp"
+   meal-grouping heuristic actually holds for how those apps write their
+   data.
 
 5. **Walk through it once, end to end:** open Vitto → Profile → "Connect
    Apple Health" → grant permission at the system prompt → confirm the
@@ -168,11 +223,12 @@ document.
 
 ## If something doesn't work
 
-- **Permission prompt never appears**: usually a signing/entitlement issue —
-  re-run `expo prebuild` and check the generated
+- **Permission prompt never appears**: on Simulator, this is expected (see
+  above) — test on a real device. On a real device, it's usually a
+  signing/entitlement issue — re-run `expo prebuild` and check the generated
   `ios/Vitto/Vitto.entitlements` file actually has
   `com.apple.developer.healthkit: true`.
-- **`getAnchoredWorkouts`/nutrient queries return empty**: confirm the source
+- **`queryWorkoutSamples`/nutrient queries return empty**: confirm the source
   app's HealthKit sync is actually turned on (step 1) and that you granted
   read access for *all* the categories Vitto asks for — a partial grant
   (e.g. steps only) will silently return empty arrays for the rest, not an
@@ -182,3 +238,10 @@ document.
   the known limitation above rather than a bug to chase blindly — check the
   actual `startDate` values for that meal's samples in the Health app if you
   want to confirm.
+- **A native method appears to silently do nothing (no error, no data)**:
+  this is exactly the failure mode that took down `react-native-health` under
+  the New Architecture. Add a temporary log of `typeof <the library's default
+  export>` and `typeof <the specific function>` right before the call — if
+  the function is `undefined` despite the import succeeding, that's a
+  bridging problem, not a permissions problem, and no amount of entitlement
+  or provisioning fiddling will fix it.
