@@ -59,7 +59,9 @@ export interface MealMetadata {
   treats: boolean;
   imageUrl?: string;
   analysis?: MealAnalysis;
-  loggedVia?: 'ai' | 'barcode' | 'manual';
+  loggedVia?: 'ai' | 'barcode' | 'manual' | 'healthkit';
+  /** Dedup key for entries imported from an external source (e.g. a HealthKit sample UUID). */
+  externalId?: string;
 }
 
 export interface MealAnalysis {

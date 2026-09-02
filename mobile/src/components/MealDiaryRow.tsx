@@ -7,12 +7,14 @@ const LOGGED_VIA_ICON: Record<NonNullable<MealMetadata['loggedVia']>, string> = 
   ai: '✣',
   barcode: '▤',
   manual: '✎',
+  healthkit: '♥',
 };
 
 const LOGGED_VIA_LABEL: Record<NonNullable<MealMetadata['loggedVia']>, string> = {
   ai: 'AI photo',
   barcode: 'Barcode',
   manual: 'Manual',
+  healthkit: 'Apple Health',
 };
 
 export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {

@@ -45,6 +45,13 @@
         {
           "cameraPermission": "Vitto uses the camera to scan product barcodes."
         }
+      ],
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Vitto reads your steps, workouts, and logged meals from Apple Health so apps like Strong or MyFitnessPal can feed your pet automatically.",
+          "healthUpdatePermission": "Vitto does not write data back to Apple Health."
+        }
       ]
     ],
     "scheme": "vitto",

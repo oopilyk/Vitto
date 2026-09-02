@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { Session } from '@supabase/supabase-js';
 import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, withSurveyDefaults } from '@vitto/core';
 import { LocalRepository } from './src/services/localRepository';
+import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
+import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/healthKitProvider';
+import { getKnownHealthKitExternalIds } from './src/services/healthKitMapping';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
 import { AuthScreen } from './src/screens/AuthScreen';
@@ -26,7 +29,11 @@ if (hasNativeUUID()) setIdGenerator(randomUUID);
 const repository = new LocalRepository();
 const remoteRepository = new SupabaseRepository();
 const engine = new PetHealthEngine();
-const stepsProvider = new MockHealthDataProvider();
+// iOS gets the real HealthKit-backed provider; every other platform (Android,
+// web-via-react-native-web) falls back to the mock until a Health Connect
+// provider exists. See mobile/HEALTHKIT.md.
+const stepsProvider: HealthDataProvider =
+  Platform.OS === 'ios' ? new HealthKitProvider() : new MockHealthDataProvider();
 
 // The main app's screens, once a session exists and a pet has been adopted.
 // Auth and Onboarding stay outside this tree — they're single-screen states
@@ -109,6 +116,8 @@ export default function App() {
   const [isCelebrating, setIsCelebrating] = useState(false);
   const [isWorkingOut, setIsWorkingOut] = useState(false);
   const [isExploring, setIsExploring] = useState(false);
+  const [isAppleHealthConnected, setIsAppleHealthConnected] = useState(false);
+  const [isSyncingAppleHealth, setIsSyncingAppleHealth] = useState(false);
 
   const userId = session?.user.id ?? 'demo-user';
 
@@ -313,12 +322,62 @@ export default function App() {
     await recordEvent(event as HealthEvent<StepMetadata>);
   };
 
+  const connectAppleHealth = async () => {
+    try {
+      const granted = await stepsProvider.requestAuthorization();
+      setIsAppleHealthConnected(granted);
+      if (!granted) {
+        setError('Apple Health access was not granted.');
+        return;
+      }
+      setError(null);
+      await syncAppleHealth();
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not connect to Apple Health.'));
+    }
+  };
+
+  const syncAppleHealth = async () => {
+    if (!pet) return;
+    setIsSyncingAppleHealth(true);
+    try {
+      // Never ask for anything older than the pet's current anchor: replaying an
+      // event earlier than `lastEventAt` would rewind it, corrupting future
+      // decay math. The recent-window cap on top of that is a deliberate scope
+      // choice — see RECENT_SYNC_WINDOW_HOURS in healthKitProvider.ts.
+      const windowStart = Date.now() - RECENT_SYNC_WINDOW_HOURS * 60 * 60 * 1000;
+      const lastEventAtMs = pet.lastEventAt ? new Date(pet.lastEventAt).getTime() : windowStart;
+      const since = new Date(Math.max(windowStart, lastEventAtMs));
+      const knownExternalIds = getKnownHealthKitExternalIds(events);
+
+      const [workouts, meals] = await Promise.all([
+        stepsProvider.getNewWorkouts(userId, since, knownExternalIds),
+        stepsProvider.getNewMeals(userId, since, knownExternalIds),
+      ]);
+      const importedInOrder = [...workouts, ...meals].sort((a, b) =>
+        a.occurredAt.localeCompare(b.occurredAt),
+      );
+      for (const event of importedInOrder) {
+        // Sequential and awaited on purpose: each recordEvent depends on the
+        // previous one's updated pet state (decay anchors off lastEventAt).
+        // eslint-disable-next-line no-await-in-loop
+        await recordEvent(event);
+      }
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not sync Apple Health.'));
+    } finally {
+      setIsSyncingAppleHealth(false);
+    }
+  };
+
   const logOut = () => {
     void signOut()
       .then(async () => {
         setSession(null);
         setPet(null);
         setEvents([]);
+        setIsAppleHealthConnected(false);
         await repository.clear();
       })
       .catch(() => setError('Could not sign out.'));
@@ -413,6 +472,16 @@ export default function App() {
                     onSave={persistProfile}
                     onClose={() => navigation.navigate('Dashboard')}
                     onSignOut={isSupabaseConfigured && session ? logOut : undefined}
+                    appleHealthStatus={
+                      Platform.OS === 'ios'
+                        ? isAppleHealthConnected
+                          ? 'connected'
+                          : 'disconnected'
+                        : undefined
+                    }
+                    onConnectAppleHealth={() => void connectAppleHealth()}
+                    onSyncAppleHealth={() => void syncAppleHealth()}
+                    isSyncingAppleHealth={isSyncingAppleHealth}
                   />
                 )}
               </MainTab.Screen>
