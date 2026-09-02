@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, AppState, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
+import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetStatus, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, applyDelta, applyForcedAilment, applyTimeDecay, assessCondition, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, isDevAccount, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
@@ -72,6 +72,18 @@ const WORKOUT_ANIMATION_MS = 1100;
 const EXPLORE_ANIMATION_MS = 1100;
 const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100, 200, 365];
 const STREAK_MILESTONE_BONUS_XP = 25;
+/**
+ * How long a care moment's message stays up. It has to clear on its own: the
+ * dashboard shows an ailment on the same line, so a reaction that never expires
+ * would permanently hide "Miso is starving".
+ */
+const REACTION_VISIBLE_MS = 6000;
+/**
+ * One care moment has to visibly pull a pet back from `dying`, or the only thing
+ * a returning user can do is watch it stay collapsed. Paid once, on the event
+ * that finds the pet dying.
+ */
+const REVIVAL_BONUS = { health: 35, nutrition: 25, energy: 20, happiness: 20 } as const;
 
 const DEFAULT_PROFILE: BodyProfile = {
   age: 30,
@@ -102,6 +114,9 @@ const withTimeout = <T,>(promise: Promise<T>, message: string) =>
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
+  // Dev tool, display only — see `applyForcedAilment`. Never persisted, and reset
+  // by a sign-out along with the rest of the session's state.
+  const [forcedAilment, setForcedAilment] = useState<ForcedPetStatus | null>(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [dataReady, setDataReady] = useState(false);
   const [pet, setPet] = useState<PetState | null>(null);
@@ -124,8 +139,37 @@ export default function App() {
   const [isExploring, setIsExploring] = useState(false);
   const [isAppleHealthConnected, setIsAppleHealthConnected] = useState(false);
   const [isSyncingAppleHealth, setIsSyncingAppleHealth] = useState(false);
+  // The clock the decay projection is read against. Stored state, not `new Date()`
+  // inline, so a tick is what re-renders the pet rather than an unrelated update.
+  const [now, setNow] = useState(() => new Date());
 
   const userId = session?.user.id ?? 'demo-user';
+
+  useEffect(() => {
+    const tick = setInterval(() => setNow(new Date()), DECAY_TICK_MS);
+    // RN throttles timers in the background, so an app resumed after a night away
+    // would otherwise paint yesterday's stats until the next tick landed.
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setNow(new Date());
+    });
+    return () => {
+      clearInterval(tick);
+      foreground.remove();
+    };
+  }, []);
+
+  // Cleared on a timer, so the handle has to outlive the call that set it.
+  const reactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (reactionTimer.current) clearTimeout(reactionTimer.current);
+  }, []);
+
+  const showReaction = (next: PetReaction | null) => {
+    if (reactionTimer.current) clearTimeout(reactionTimer.current);
+    setReaction(next);
+    if (!next) return;
+    reactionTimer.current = setTimeout(() => setReaction(null), REACTION_VISIBLE_MS);
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -172,7 +216,10 @@ export default function App() {
         if (cancelled) return;
 
         if (petResult.status === 'fulfilled') {
-          setPet(petResult.value ? applyTimeDecay(petResult.value, new Date()) : null);
+          // The STORED pet, never the decayed projection: `applyTimeDecay` leaves
+          // `lastEventAt` where it was, so holding its output in state makes the
+          // next care moment replay the same elapsed window a second time.
+          setPet(petResult.value);
         }
         if (eventsResult.status === 'fulfilled') setEvents(eventsResult.value);
         if (profileResult.status === 'fulfilled' && profileResult.value) {
@@ -197,7 +244,8 @@ export default function App() {
         repository.loadProfile<Partial<BodyProfile>>(),
       ]);
       if (cancelled) return;
-      setPet(storedPet ? applyTimeDecay(storedPet, new Date()) : null);
+      // Raw, for the same reason as the remote branch above.
+      setPet(storedPet);
       setEvents(storedEvents);
       if (storedProfile) setProfile(withSurveyDefaults({ ...DEFAULT_PROFILE, ...storedProfile }));
       setDataReady(true);
@@ -235,6 +283,9 @@ export default function App() {
       const eventDay = new Date(event.occurredAt);
       const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
       const decayed = applyTimeDecay(pet, eventDay);
+      // Read before the event lands: the point is whether this care moment is the
+      // one that arrived at the brink, not where it left the pet afterwards.
+      const wasDying = assessCondition(decayed).primary === 'dying';
       const result = engine.apply(decayed, event);
       let nextPet = result.pet;
       let nextReaction = result.reaction;
@@ -252,6 +303,17 @@ export default function App() {
         }
       }
 
+      // Last, so its message is the one shown: coming back from the brink outranks
+      // both the event's own reaction and a streak milestone.
+      if (wasDying) {
+        nextPet = applyDelta(nextPet, REVIVAL_BONUS, event.occurredAt);
+        nextReaction = {
+          message: `${pet.name} was fading — that care moment brought them back.`,
+          eventLabel: 'Back from the brink',
+          delta: { ...REVIVAL_BONUS },
+        };
+      }
+
       if (isSupabaseConfigured && session) {
         await withTimeout(remoteRepository.savePet(nextPet), 'Saving timed out. Check your connection.');
         await withTimeout(remoteRepository.saveEvent(event), 'Saving timed out. Check your connection.');
@@ -259,7 +321,7 @@ export default function App() {
       await repository.savePet(nextPet);
       await repository.saveEvent(event);
       setPet(nextPet);
-      setReaction(nextReaction);
+      showReaction(nextReaction);
       setEvents((current) => [event, ...current]);
       setError(null);
     } catch (cause) {
@@ -270,6 +332,8 @@ export default function App() {
 
   const changeBreed = async (next: PetBreed) => {
     if (!pet) return;
+    // `pet` is the stored pet, so this saves a breed change and nothing else —
+    // it cannot bake a decay projection into the row on its way past.
     const nextPet = { ...pet, breed: next };
     setPet(nextPet);
     setBreed(next);
@@ -419,6 +483,7 @@ export default function App() {
         setEvents([]);
         setWordPuzzleProgress(null);
         setIsAppleHealthConnected(false);
+        setForcedAilment(null);
         await repository.clear();
       })
       .catch(() => setError('Could not sign out.'));
@@ -441,6 +506,8 @@ export default function App() {
     );
   }
 
+  // Gated on the STORED pet: a pet whose projection has bottomed out is still an
+  // adopted pet, and must never be sent back through onboarding.
   if (!pet) {
     return (
       <View style={layout.screen}>
@@ -459,6 +526,14 @@ export default function App() {
       </View>
     );
   }
+
+  // What the screens draw: the stored pet projected forward to `now`. Derived on
+  // every tick, stored nowhere.
+  const isDev = isDevAccount(session?.user.email);
+  // Applies to this projection only -- `recordEvent` decays from the STORED pet,
+  // so a forced stat can never be written back. Gated again on `isDev` here so a
+  // stale value could not survive switching to a non-dev account.
+  const livePet = applyForcedAilment(applyTimeDecay(pet, now), isDev ? forcedAilment : null);
 
   return (
     <NavigationContainer theme={navigationTheme}>
@@ -480,7 +555,7 @@ export default function App() {
                   const rootNav = navigation.getParent() as NativeStackNavigationProp<RootStackParamList> | undefined;
                   return (
                     <DashboardScreen
-                      pet={pet}
+                      pet={livePet}
                       events={events}
                       profile={profile}
                       reaction={reaction}
@@ -493,6 +568,8 @@ export default function App() {
                       onOpenProfile={() => navigation.navigate('Profile')}
                       onOpenStats={() => rootNav?.navigate('PetStats')}
                       accountInitial={session?.user.email?.charAt(0)}
+                      forcedAilment={isDev ? forcedAilment : undefined}
+                      onForceAilment={isDev ? setForcedAilment : undefined}
                       isAnalyzingMeal={isAnalyzingMeal}
                       isEating={isEating}
                       feedingImage={feedingImage}
@@ -532,7 +609,7 @@ export default function App() {
         </RootStack.Screen>
         <RootStack.Screen name="PetStats">
           {({ navigation }) => (
-            <PetStatsScreen pet={pet} events={events} onClose={() => navigation.goBack()} />
+            <PetStatsScreen pet={livePet} events={events} onClose={() => navigation.goBack()} />
           )}
         </RootStack.Screen>
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>

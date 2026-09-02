@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { PET_STAT_DESCRIPTORS, careCountsByType, daysWithPet, statValue } from './petStats';
+import {
+  PET_STAT_DESCRIPTORS,
+  careCountsByType,
+  daysWithPet,
+  statValue,
+  type PetStatKey,
+} from './petStats';
+import { DECAY_PER_DAY } from './decay';
 import type { HealthEvent, HealthEventType } from './health';
 import { createPet, type PetState } from './pet';
 
@@ -47,6 +54,31 @@ describe('PET_STAT_DESCRIPTORS', () => {
       expect(descriptor.label.length).toBeGreaterThan(0);
       expect(descriptor.hint.length).toBeGreaterThan(0);
     }
+  });
+
+  const hintFor = (key: PetStatKey): string => {
+    const descriptor = PET_STAT_DESCRIPTORS.find((entry) => entry.key === key);
+    if (!descriptor) throw new Error(`no descriptor for ${key}`);
+    return descriptor.hint;
+  };
+
+  // These assert the hint is *derived* from DECAY_PER_DAY, not that it says any
+  // particular number: retuning the engine must never leave the copy behind.
+  it.each(['energy', 'happiness', 'nutrition', 'mind'] as const)(
+    'quotes the live decay rate in the %s hint',
+    (key) => {
+      expect(hintFor(key)).toContain(`${String(DECAY_PER_DAY[key])} a day`);
+    },
+  );
+
+  it('describes health as a consequence of the other needs, not a timed decline', () => {
+    const hint = hintFor('health');
+    for (const need of ['nutrition', 'energy', 'happiness']) {
+      expect(hint).toContain(need);
+    }
+    // Health has no DECAY_PER_DAY entry, so it must not claim a daily fall.
+    expect(hint).not.toMatch(/a day/);
+    expect(hint).not.toMatch(/\bmind\b/i);
   });
 });
 

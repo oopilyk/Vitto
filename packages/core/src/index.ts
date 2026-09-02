@@ -5,6 +5,8 @@ export * from './domain/pet';
 export * from './domain/petHealthEngine';
 export * from './domain/petStats';
 export * from './domain/decay';
+export * from './domain/devAccess';
+export * from './domain/petCondition';
 export * from './domain/streaks';
 export * from './domain/macros';
 export * from './domain/macroTargets';

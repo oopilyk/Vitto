@@ -9,11 +9,11 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getEvolutionStage, getMealsForDay, isSameDay, mindScoreLabel, sumMealMacros, toDateKey } from '@vitto/core';
+import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getEvolutionStage, getMealsForDay, isSameDay, mindScoreLabel, sumMealMacros, toDateKey } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
-import { Kicker } from '../components/ui';
+import { ChoiceRow, Kicker } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
@@ -37,6 +37,12 @@ interface Props {
   onOpenStats: () => void;
   /** Letter shown in the account button — the signed-in email's initial. */
   accountInitial?: string;
+  /**
+   * Dev tool: which ailment the pet is being forced into, and the setter.
+   * Both absent for normal accounts, which is what hides the control entirely.
+   */
+  forcedAilment?: ForcedPetStatus | null;
+  onForceAilment?: (status: ForcedPetStatus | null) => void;
   isAnalyzingMeal: boolean;
   isEating: boolean;
   feedingImage: string | null;
@@ -64,6 +70,24 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 // Clears the home indicator on modern iPhones without pulling in a safe-area
 // package, which drags a second copy of React into the workspace.
+type DevAilmentChoice = ForcedPetStatus | 'live';
+
+/**
+ * Built from the precedence list so a new ailment shows up here for free.
+ *
+ * 'Live' and 'Healthy' are not the same thing and both are needed: 'Live' drops
+ * the override and shows the pet's true stats, which on a compressed decay clock
+ * is usually an ailing pet, while 'Healthy' forces the well state.
+ */
+const DEV_AILMENT_OPTIONS: { value: DevAilmentChoice; label: string; detail?: string }[] = [
+  { value: 'live', label: 'Live', detail: 'real stats' },
+  { value: 'healthy', label: 'Healthy' },
+  ...AILMENT_PRECEDENCE.map((ailment) => ({
+    value: ailment as DevAilmentChoice,
+    label: ailment.charAt(0).toUpperCase() + ailment.slice(1),
+  })),
+];
+
 /** The dashboard shows a preview; the profile has the full record. */
 const CARE_PREVIEW_LIMIT = 5;
 
@@ -109,6 +133,8 @@ export function DashboardScreen({
   onOpenProfile,
   onOpenStats,
   accountInitial,
+  forcedAilment,
+  onForceAilment,
   isAnalyzingMeal,
   isEating,
   feedingImage,
@@ -137,6 +163,9 @@ export function DashboardScreen({
   const remaining = targets.calories - consumed.calories + burned;
   const streaks = calculateStreaks(events, today);
   const stage = getEvolutionStage(pet.level);
+  // `pet` arrives already projected forward by App, so this reads the stats the
+  // user is looking at rather than the stored ones.
+  const condition = assessCondition(pet);
 
   const sections: Record<string, ReactNode> = {
     nutrition: (
@@ -358,8 +387,12 @@ export function DashboardScreen({
           {pet.name.toUpperCase()}
         </Kicker>
         <Text style={styles.petName}>{pet.name}</Text>
+        {/* An ailment outranks the reaction: a message about the meal you just
+            logged must not sit on top of "Miso is fading". */}
         <Text style={styles.mood}>
-          {reaction?.message ?? `${pet.name} is feeling ${pet.mood}.`}
+          {condition.primary
+            ? AILMENT_MESSAGE[condition.primary](pet.name)
+            : (reaction?.message ?? `${pet.name} is feeling ${pet.mood}.`)}
         </Text>
         <View style={styles.heroMeta}>
           <Text style={styles.heroLabel}>
@@ -418,6 +451,25 @@ export function DashboardScreen({
       </PetAvatar>
 
       <View style={styles.dashboard}>
+        {/* Dev accounts only — `onForceAilment` is simply not passed otherwise.
+            Sits directly under the pet so the sprite is in view while cycling. */}
+        {onForceAilment ? (
+          <View style={styles.devPanel}>
+            <Kicker>Dev · force status</Kicker>
+            <View style={styles.devChoices}>
+              <ChoiceRow
+                options={DEV_AILMENT_OPTIONS}
+                value={forcedAilment ?? 'live'}
+                onChange={(next) => onForceAilment(next === 'live' ? null : next)}
+              />
+            </View>
+            <Text style={styles.devHint}>
+              Rewrites the stats shown on screen. Nothing here is saved, and logging real care
+              clears it back to whatever {pet.name} actually is.
+            </Text>
+          </View>
+        ) : null}
+
         {orderedFocus.map((area) => sections[area])}
 
         <View style={styles.panel}>
@@ -544,6 +596,13 @@ const styles = StyleSheet.create({
   panelValue: { fontSize: 24, fontWeight: '600', color: colors.ink, marginTop: 6 },
   panelUnit: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint, fontWeight: '400' },
   panelHint: { fontSize: 13, color: colors.muted, marginTop: 6, lineHeight: 19 },
+  devPanel: {
+    paddingVertical: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  devChoices: { marginTop: 12 },
+  devHint: { fontSize: 12, color: colors.faint, marginTop: 10, lineHeight: 17 },
   fieldLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginBottom: 6 },
   goalInput: { width: 96, textAlign: 'center' },
   mindStat: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 12 },

@@ -23,6 +23,8 @@ export const colors = {
   lilac: '#e3ddf0',
   lilacDeep: '#6b5b8f',
   slate: '#dfe1e4',
+  /** Pale blue-grey. The aura palette is all light tones, so `sad` needs one too. */
+  periwinkle: '#c9d0e0',
   slateDeep: '#6a7079',
   danger: '#b34e3e',
   petSkin: '#d87855',

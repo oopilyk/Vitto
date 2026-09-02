@@ -2,12 +2,14 @@ import type { ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   type BrainTrainingMetadata,
+  DECAY_PERIOD_MS,
+  DECAY_PER_DAY,
   EVOLUTION_STAGE_LABEL,
   type HealthEvent,
+  IS_TEST_DECAY_PERIOD,
   PET_STAT_DESCRIPTORS,
   type PetStatGroup,
   type PetState,
-  applyTimeDecay,
   calculateStreaks,
   careCountsByType,
   daysWithPet,
@@ -28,6 +30,11 @@ import { Kicker } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
+  /**
+   * Already projected forward to now by App. This screen must NOT decay it again:
+   * `applyTimeDecay` leaves `lastEventAt` alone, so a second pass would subtract
+   * the same elapsed window twice.
+   */
   pet: PetState;
   events: HealthEvent[];
   onClose: () => void;
@@ -55,8 +62,34 @@ const CARE_LABEL = [
   ['BRAIN_TRAINING', 'Mind sessions'],
 ] as const;
 
-/** The per-day pull on the needs-based stats, mirroring `applyTimeDecay`. */
-const DECAY_RATES = 'Energy −4 · Nutrition −6 · Happiness −3 · Mind −2, every day without care.';
+/**
+ * The per-day pull on the needs-based stats, read straight off the engine's own
+ * table. Hand-copying these numbers is how the copy drifts from the behaviour.
+ * Health is deliberately absent — it is derived, not a rate.
+ */
+const DECAY_RATES = `${(
+  [
+    ['Energy', DECAY_PER_DAY.energy],
+    ['Nutrition', DECAY_PER_DAY.nutrition],
+    ['Happiness', DECAY_PER_DAY.happiness],
+    ['Mind', DECAY_PER_DAY.mind],
+  ] as const
+)
+  .map(([label, rate]) => `${label} −${rate}`)
+  .join(' · ')}, every day without care.`;
+
+/**
+ * How long one "day" of decline actually lasts, in words. Derived rather than
+ * written down, so the banner below cannot claim a rate the engine is not running.
+ */
+const DECAY_PERIOD_LABEL = (() => {
+  const seconds = DECAY_PERIOD_MS / 1000;
+  if (seconds < 60) return `${seconds} seconds`;
+  const minutes = seconds / 60;
+  if (minutes < 60) return minutes === 1 ? 'minute' : `${minutes} minutes`;
+  const hours = minutes / 60;
+  return hours === 1 ? 'hour' : `${hours} hours`;
+})();
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
@@ -104,9 +137,6 @@ const describeMood = (pet: PetState): string => {
 
 export function PetStatsScreen({ pet, events, onClose }: Props) {
   const now = new Date();
-  // Shown, never saved: `applyTimeDecay` leaves `lastEventAt` alone, so persisting
-  // it would decay the same stretch of time again on the next care moment.
-  const shown = applyTimeDecay(pet, now);
   const sheet = sheetForPet(pet);
   const stage = getEvolutionStage(pet.level);
   const streaks = calculateStreaks(events, now);
@@ -132,7 +162,7 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
       <StatBar
         key={descriptor.key}
         label={descriptor.label}
-        value={statValue(shown, descriptor.key)}
+        value={statValue(pet, descriptor.key)}
         color={GROUP_COLOR[group]}
         hint={descriptor.hint}
       />
@@ -156,6 +186,21 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: 40 + HOME_INDICATOR_INSET }]}>
+        {/* Deletes itself the moment DECAY_PERIOD_MS goes back to a real day.
+            Shipping the compressed clock would put every pet in the death
+            animation overnight, so this is deliberately impossible to miss. */}
+        {IS_TEST_DECAY_PERIOD ? (
+          <View style={styles.testBanner}>
+            <Text style={styles.testBannerTitle}>
+              TEST MODE — one day of decline per {DECAY_PERIOD_LABEL}
+            </Text>
+            <Text style={styles.testBannerBody}>
+              Decline is running on a compressed clock. Set DECAY_PERIOD_MS to ONE_DAY_MS in
+              packages/core/src/domain/decay.ts before shipping.
+            </Text>
+          </View>
+        ) : null}
+
         <View style={styles.identity}>
           <View style={styles.portrait}>
             <SpriteFrame sheet={sheet} frame={sheet.animations.idle[0]} size={96} />
@@ -180,16 +225,21 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
           </View>
           <StatBar label="XP" value={pet.xp} color={colors.coral} />
           <View style={styles.moodRow}>
-            <Text style={styles.moodValue}>Feeling {shown.mood}</Text>
-            <Text style={styles.moodHint}>{describeMood(shown)}</Text>
+            <Text style={styles.moodValue}>Feeling {pet.mood}</Text>
+            <Text style={styles.moodHint}>{describeMood(pet)}</Text>
           </View>
         </Card>
 
         <Card
           title="Condition"
-          hint={`How ${pet.name} is doing right now. These fade on their own — everything else only ever climbs.`}
+          hint={`How ${pet.name} is doing right now. Nutrition, energy, happiness and mind fade on their own — everything else only ever climbs.`}
         >
           {renderGroup('condition')}
+          <Text style={styles.healthNote}>
+            Health has no timer of its own. It climbs while nutrition, energy and happiness are
+            all comfortable, and drains for each one you let bottom out — so it is the
+            consequence of the other three, not a fifth thing to keep topped up.
+          </Text>
         </Card>
 
         <Card title="Body" hint="Built up through training, and it stays built.">
@@ -343,4 +393,19 @@ const styles = StyleSheet.create({
   },
   lastCare: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 14, lineHeight: 16 },
   decayNote: { fontSize: 12, color: colors.faint, marginTop: 8, lineHeight: 18 },
+  healthNote: { fontSize: 12, color: colors.muted, marginTop: 14, lineHeight: 18 },
+  testBanner: {
+    backgroundColor: colors.coral,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  testBannerTitle: {
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    color: colors.card,
+    fontWeight: '700',
+  },
+  testBannerBody: { fontSize: 12, color: colors.card, marginTop: 6, lineHeight: 17 },
 });

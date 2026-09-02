@@ -1,9 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import { type MealAnalysis, type PetState, getEvolutionStage } from '@vitto/core';
-import { FRAME_MS, type PetAnimation, sheetForPet } from './petSprites';
+import {
+  type MealAnalysis,
+  type PetAilment,
+  type PetCondition,
+  type PetState,
+  assessCondition,
+  getEvolutionStage,
+} from '@vitto/core';
+import { FRAME_MS, HOLDS_LAST_FRAME, type PetAnimation, sheetForPet } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
-import { Confetti, HeartStream } from './PetEffects';
+import {
+  Confetti,
+  DizzyOrbit,
+  Fading,
+  HeartStream,
+  HungerPangs,
+  PetAura,
+  RainCloud,
+  Zzz,
+} from './PetEffects';
 import { colors, fonts } from '../theme';
 
 type PetActivity = 'idle' | 'analyzing' | 'eating' | 'workout' | 'exploring' | 'celebrating';
@@ -41,10 +57,44 @@ const AURA_BY_MOOD: Record<PetState['mood'], string> = {
   hungry: '#e3c9a6',
 };
 
-/** Which band of the sheet plays, given what the pet is doing right now. */
-export const animationFor = (activity: PetActivity, mood: PetState['mood']): PetAnimation => {
+/**
+ * An ailment repaints the aura, because the mood palette has no colour that reads
+ * as "something is wrong". `exhausted` reuses the sleepy tone deliberately: it is
+ * the same dulled-out read, just further along.
+ */
+const AURA_BY_AILMENT: Record<PetAilment, string> = {
+  dying: colors.slate,
+  starving: colors.yellow,
+  exhausted: AURA_BY_MOOD.sleepy,
+  sad: colors.periwinkle,
+  foggy: colors.lilac,
+};
+
+/** The body pose each ailment puts the pet in. `starving` has no art of its own. */
+const ANIMATION_BY_AILMENT: Record<PetAilment, PetAnimation> = {
+  dying: 'faint',
+  starving: 'sad',
+  exhausted: 'rest',
+  sad: 'sad',
+  foggy: 'unwell',
+};
+
+/**
+ * Which band of the sheet plays, given what the pet is doing right now.
+ *
+ * Activity outranks condition on purpose: feeding a starving dog has to show it
+ * eating, not still starving, or the care moment reads as having done nothing.
+ * Condition then outranks mood, since `mood` only knows about three needs and
+ * cannot express "dying".
+ */
+export const animationFor = (
+  activity: PetActivity,
+  mood: PetState['mood'],
+  condition: PetCondition,
+): PetAnimation => {
   if (activity === 'celebrating' || activity === 'eating') return 'cheer';
   if (activity === 'workout' || activity === 'exploring') return 'move';
+  if (condition.primary) return ANIMATION_BY_AILMENT[condition.primary];
   if (activity === 'analyzing') return 'idle';
   return mood === 'sleepy' ? 'rest' : 'idle';
 };
@@ -73,7 +123,9 @@ export function PetAvatar({
             : 'idle';
 
   const sheet = sheetForPet(pet);
-  const animation = animationFor(activity, pet.mood);
+  // Cheap and pure, so it is derived here rather than threaded down as a prop.
+  const condition = assessCondition(pet);
+  const animation = animationFor(activity, pet.mood, condition);
   const frames = sheet.animations[animation];
   const size = STAGE_SIZE[getEvolutionStage(pet.level)];
 
@@ -82,8 +134,14 @@ export function PetAvatar({
   useEffect(() => {
     setFrameIndex(0);
     if (frames.length < 2) return;
+    // A collapse plays once and stays down. Looping it would stand the pet back
+    // up every couple of seconds, which reads as recovery that never happened.
+    const holds = HOLDS_LAST_FRAME.has(animation);
     const timer = setInterval(
-      () => setFrameIndex((current) => (current + 1) % frames.length),
+      () =>
+        setFrameIndex((current) =>
+          holds ? Math.min(current + 1, frames.length - 1) : (current + 1) % frames.length,
+        ),
       FRAME_MS[animation],
     );
     return () => clearInterval(timer);
@@ -92,6 +150,12 @@ export function PetAvatar({
   // A gentle bob on top of the frame animation, so idle never sits perfectly still.
   const bob = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    // A fainted pet does not breathe up and down. Nothing else about the stage
+    // moves at that point, and that stillness is the whole read.
+    if (animation === 'faint') {
+      bob.setValue(0);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(bob, {
@@ -110,7 +174,7 @@ export function PetAvatar({
     );
     loop.start();
     return () => loop.stop();
-  }, [bob, pet.mood]);
+  }, [animation, bob, pet.mood]);
 
   const bobTransform: ViewStyle['transform'] = [
     {
@@ -168,21 +232,17 @@ export function PetAvatar({
     }) as unknown as number,
   };
 
+  const currentFrame = frames[Math.min(frameIndex, frames.length - 1)];
   const showHearts = isCelebrating && (feedingGrade === 'A' || feedingGrade === 'B');
+  const headOffset = size * 0.4;
+  const overlays = new Set(condition.overlays);
 
   return (
     <View style={styles.stage}>
       {children}
-      <View
-        style={[
-          styles.aura,
-          {
-            backgroundColor: AURA_BY_MOOD[pet.mood],
-            width: size * 1.15,
-            height: size * 1.15,
-            borderRadius: size,
-          },
-        ]}
+      <PetAura
+        color={condition.primary ? AURA_BY_AILMENT[condition.primary] : AURA_BY_MOOD[pet.mood]}
+        size={size}
       />
       {feedingImage ? (
         <Animated.Image source={{ uri: feedingImage }} style={[styles.food, foodStyle]} />
@@ -194,7 +254,12 @@ export function PetAvatar({
         accessibilityLabel={`${pet.name}, ${STATUS_TEXT[activity](pet.name)}`}
         style={[styles.window, { transform: bobTransform }]}
       >
-        <SpriteFrame sheet={sheet} frame={frames[Math.min(frameIndex, frames.length - 1)]} size={size} />
+        <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
+        {/* Inside the window on purpose: the wash is a tinted copy of the frame
+            stacked on it, so it must share the sprite's exact position. */}
+        {condition.primary === 'dying' ? (
+          <Fading active severity={condition.severity} sheet={sheet} frame={currentFrame} size={size} />
+        ) : null}
       </Animated.View>
 
       {activity === 'analyzing' ? (
@@ -212,6 +277,12 @@ export function PetAvatar({
           </Text>
         </View>
       ) : null}
+      {/* At most two of these; `assessCondition` clears them all while dying. */}
+      <HungerPangs active={overlays.has('starving')} headOffset={headOffset} />
+      <Zzz active={overlays.has('exhausted')} headOffset={headOffset} />
+      <RainCloud active={overlays.has('sad')} headOffset={headOffset} />
+      <DizzyOrbit active={overlays.has('foggy')} headOffset={headOffset} />
+
       <Confetti active={isCelebrating} headOffset={size * 0.42} />
       <HeartStream active={showHearts} headOffset={size * 0.38} />
 
@@ -230,7 +301,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  aura: { position: 'absolute', opacity: 0.6 },
   window: { overflow: 'hidden', zIndex: 1 },
   // Centred on the pet; the flight transform carries it in from off to the side.
   food: { position: 'absolute', width: 76, height: 76, borderRadius: 38, zIndex: 3 },

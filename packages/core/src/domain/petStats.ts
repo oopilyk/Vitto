@@ -1,3 +1,4 @@
+import { DECAY_PER_DAY } from './decay';
 import type { HealthEvent, HealthEventType } from './health';
 import { clamp, type PetState } from './pet';
 
@@ -28,7 +29,12 @@ export interface PetStatDescriptor {
   key: PetStatKey;
   label: string;
   group: PetStatGroup;
-  /** How this stat is actually raised, read off PetHealthEngine.apply. */
+  /**
+   * How this stat moves, in the app's own voice: how it is raised (read off
+   * PetHealthEngine.apply) and, for the needs that decline, how fast it falls.
+   * Decline rates are interpolated from DECAY_PER_DAY so the copy cannot drift
+   * away from the engine.
+   */
   hint: string;
 }
 
@@ -43,25 +49,25 @@ export const PET_STAT_DESCRIPTORS: PetStatDescriptor[] = [
     key: 'health',
     label: 'Health',
     group: 'condition',
-    hint: 'Rises with nourishing meals (three or more food groups) and with training.',
+    hint: 'Not fed directly — it holds up while nutrition, energy and happiness all stay in good shape, and slips away for every one of them you let run empty.',
   },
   {
     key: 'energy',
     label: 'Energy',
     group: 'condition',
-    hint: 'Workouts, walks and good meals lift it. Falls 4 a day when nothing is logged.',
+    hint: `Workouts, walks and good meals lift it. Falls ${DECAY_PER_DAY.energy} a day when nothing is logged.`,
   },
   {
     key: 'happiness',
     label: 'Happiness',
     group: 'condition',
-    hint: 'Every care moment lifts it, treats most of all. Falls 3 a day when nothing is logged.',
+    hint: `Every care moment lifts it, treats most of all. Falls ${DECAY_PER_DAY.happiness} a day when nothing is logged.`,
   },
   {
     key: 'nutrition',
     label: 'Nutrition',
     group: 'condition',
-    hint: 'Worth 3 for each of protein, vegetables, fruit, whole grains and fiber in a logged meal. Falls 6 a day.',
+    hint: `Worth 3 for each of protein, vegetables, fruit, whole grains and fiber in a logged meal. Falls ${DECAY_PER_DAY.nutrition} a day.`,
   },
   {
     key: 'strength',
@@ -103,7 +109,7 @@ export const PET_STAT_DESCRIPTORS: PetStatDescriptor[] = [
     key: 'mind',
     label: 'Mind',
     group: 'mind',
-    hint: 'Brain training — up to 8 for a reading session and 6 for maths, scaled by your accuracy. Falls 2 a day.',
+    hint: `Brain training — up to 8 for a reading session and 6 for maths, scaled by your accuracy. Falls ${DECAY_PER_DAY.mind} a day.`,
   },
 ];
 

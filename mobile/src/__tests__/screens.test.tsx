@@ -2,7 +2,17 @@ import renderer, { act } from 'react-test-renderer';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { MindGymScreen } from '../screens/MindGymScreen';
-import { type BodyProfile, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, createPet } from '@vitto/core';
+import {
+  type BodyProfile,
+  DECAY_PERIOD_MS,
+  DECAY_PER_DAY,
+  type HealthEvent,
+  type MealMetadata,
+  PROFILE_SURVEY_DEFAULTS,
+  applyTimeDecay,
+  assessCondition,
+  createPet,
+} from '@vitto/core';
 
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -463,18 +473,40 @@ describe('pet stats screen', () => {
     tree.unmount();
   });
 
-  it('shows what the stats have decayed to, without touching the pet it was given', () => {
-    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString();
-    const source = { ...pet, lastEventAt: twoDaysAgo, energy: 80, nutrition: 60 };
-    const tree = render(source);
+  it('draws the projection it was handed, without decaying it a second time', () => {
+    // Offsets are counted in decay PERIODS and losses in DECAY_PER_DAY, so this
+    // holds whether a "day" is a minute of test time or an actual day. Hard-coding
+    // either mode would make the test fail the moment the constant is flipped.
+    const at = Date.now();
+    const source = {
+      ...pet,
+      lastEventAt: new Date(at - 2 * DECAY_PERIOD_MS).toISOString(),
+      energy: 80,
+      nutrition: 60,
+    };
+    // App does this once and passes the result down; the screen must not repeat it.
+    const projected = applyTimeDecay(source, new Date(at));
+    const tree = render({ ...projected });
 
-    // Energy falls 4 a day and nutrition 6, so two days cost 8 and 12.
     const shown = bars(tree);
-    expect(shown.get('Energy')).toBe(72);
-    expect(shown.get('Nutrition')).toBe(48);
-    // The decayed values are for display only — the caller's pet is untouched.
+    expect(shown.get('Energy')).toBe(80 - 2 * DECAY_PER_DAY.energy);
+    expect(shown.get('Nutrition')).toBe(60 - 2 * DECAY_PER_DAY.nutrition);
+    // Exactly what it was given: a second pass would subtract the same window again.
+    expect(shown.get('Energy')).toBe(projected.energy);
+    expect(shown.get('Nutrition')).toBe(projected.nutrition);
+    // Projecting is non-destructive — the caller's stored pet is untouched.
     expect(source.energy).toBe(80);
     expect(source.nutrition).toBe(60);
+    tree.unmount();
+  });
+
+  it('warns loudly while the compressed test clock is in force', () => {
+    const { IS_TEST_DECAY_PERIOD } = require('@vitto/core');
+    const tree = render();
+    const rendered = JSON.stringify(tree.toJSON());
+    // The banner is the guard against shipping the test constant, so it has to be
+    // present exactly while the constant is wrong — and gone once it is fixed.
+    expect(rendered.includes('TEST MODE')).toBe(IS_TEST_DECAY_PERIOD);
     tree.unmount();
   });
 
@@ -533,11 +565,98 @@ describe('pet sprite', () => {
     return { marginLeft, marginTop };
   };
 
+  const well = assessCondition(pet);
+
   it('picks the band that matches what the pet is doing', () => {
-    expect(animationFor('celebrating', 'content')).toBe('cheer');
-    expect(animationFor('exploring', 'content')).toBe('move');
-    expect(animationFor('idle', 'sleepy')).toBe('rest');
-    expect(animationFor('idle', 'hungry')).toBe('idle');
+    expect(animationFor('celebrating', 'content', well)).toBe('cheer');
+    expect(animationFor('exploring', 'content', well)).toBe('move');
+    expect(animationFor('idle', 'sleepy', well)).toBe('rest');
+    expect(animationFor('idle', 'hungry', well)).toBe('idle');
+  });
+
+  it('lets what the pet is doing outrank what is wrong with it', () => {
+    const starving = assessCondition({ ...pet, nutrition: 4 });
+    expect(starving.primary).toBe('starving');
+    // Feeding a starving dog has to show it eating, or the meal reads as wasted.
+    expect(animationFor('eating', 'hungry', starving)).toBe('cheer');
+    expect(animationFor('workout', 'hungry', starving)).toBe('move');
+    // Idle, the ailment takes the sprite back over.
+    expect(animationFor('idle', 'hungry', starving)).toBe('sad');
+  });
+
+  it('gives each ailment its own body pose, worst first', () => {
+    const poseFor = (overrides: Record<string, number>) =>
+      animationFor('idle', 'content', assessCondition({ ...pet, ...overrides }));
+
+    expect(poseFor({ health: 5 })).toBe('faint');
+    expect(poseFor({ energy: 8 })).toBe('rest');
+    expect(poseFor({ happiness: 12 })).toBe('sad');
+    expect(poseFor({ mind: 3 })).toBe('unwell');
+    // Dying outranks everything else that is also true at the time.
+    expect(poseFor({ health: 5, energy: 8, happiness: 12, mind: 3 })).toBe('faint');
+    // And an ailment outranks the mood fallback rather than the other way round.
+    expect(animationFor('idle', 'sleepy', assessCondition({ ...pet, mind: 3 }))).toBe('unwell');
+  });
+
+  it('shows the overlays the condition names, and none at all while dying', () => {
+    const { DizzyOrbit, Fading, HungerPangs, RainCloud, Zzz } = require('../components/PetEffects');
+    const overlayState = (overrides: Record<string, number>) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <PetAvatar
+            pet={{ ...pet, ...overrides }}
+            isAnalyzingMeal={false}
+            isEating={false}
+            feedingImage={null}
+            feedingGrade={null}
+            isCelebrating={false}
+            isWorkingOut={false}
+            isExploring={false}
+          />,
+        );
+      });
+      const state = {
+        hunger: tree.root.findByType(HungerPangs).props.active,
+        zzz: tree.root.findByType(Zzz).props.active,
+        rain: tree.root.findByType(RainCloud).props.active,
+        dizzy: tree.root.findByType(DizzyOrbit).props.active,
+        fading: tree.root.findAllByType(Fading).length > 0,
+      };
+      tree.unmount();
+      return state;
+    };
+
+    // Worst ailment takes the sprite, so the rest of them become the overlays.
+    expect(overlayState({ energy: 8, happiness: 12 })).toEqual({
+      hunger: false,
+      zzz: false,
+      rain: true,
+      dizzy: false,
+      fading: false,
+    });
+    // Dying suppresses every overlay and washes the pet out instead.
+    expect(overlayState({ health: 5, nutrition: 4, energy: 8, happiness: 12, mind: 3 })).toEqual({
+      hunger: false,
+      zzz: false,
+      rain: false,
+      dizzy: false,
+      fading: true,
+    });
+    expect(overlayState({})).toEqual({
+      hunger: false,
+      zzz: false,
+      rain: false,
+      dizzy: false,
+      fading: false,
+    });
+  });
+
+  it('keeps a fainted pet down instead of standing it back up', () => {
+    const { HOLDS_LAST_FRAME } = require('../components/petSprites');
+    // The frame timer holds on the last cell for these; everything else loops.
+    expect(HOLDS_LAST_FRAME.has('faint')).toBe(true);
+    expect(HOLDS_LAST_FRAME.has('idle')).toBe(false);
   });
 
   it('windows a different cell of the sheet for resting than for running', () => {

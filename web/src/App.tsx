@@ -54,10 +54,10 @@ function App() {
   const [authName, setAuthName] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
-  const [pet, setPet] = useState<PetState | null>(() => {
-    const savedPet = repository.loadPet();
-    return savedPet ? applyTimeDecay(savedPet, new Date()) : null;
-  });
+  // Raw stored pet: never a decayed projection. Decay is derived at render
+  // time as `livePet`; storing the projection would re-apply the same elapsed
+  // window on every pass (`lastEventAt` does not move) and persist the loss.
+  const [pet, setPet] = useState<PetState | null>(() => repository.loadPet());
   const [events, setEvents] = useState(() => repository.loadEvents());
   const [reaction, setReaction] = useState<PetReaction | null>(null);
   const [name, setName] = useState("Miso");
@@ -122,7 +122,7 @@ function App() {
         if (cancelled) return;
 
         if (petResult.status === "fulfilled") {
-          setPet(petResult.value ? applyTimeDecay(petResult.value, new Date()) : null);
+          setPet(petResult.value ?? null);
         }
         if (eventsResult.status === "fulfilled") {
           setEvents(eventsResult.value);
@@ -237,6 +237,8 @@ function App() {
     try {
       const eventDay = new Date(event.occurredAt);
       const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
+      // `pet` is the raw stored pet, so this is the one legitimate decay ->
+      // delta -> new `lastEventAt` sequence; `nextPet` is raw again and safe to persist.
       const decayedPet = applyTimeDecay(pet, eventDay);
       const result = engine.apply(decayedPet, event);
       let nextPet = result.pet;
@@ -418,6 +420,10 @@ function App() {
     );
   }
 
+  // Display projection only -- derived on every render from the raw pet above.
+  // Never write this back into state or into a repository.
+  const livePet = applyTimeDecay(pet, today);
+
   if (view === "profile")
     return (
       <ProfilePage
@@ -428,9 +434,9 @@ function App() {
       />
     );
 
-  const progress = pet.xp;
+  const progress = livePet.xp;
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-  const daysSinceAdoption = Math.max(1, Math.floor((today.getTime() - new Date(pet.adoptedAt).getTime()) / ONE_DAY_MS) + 1);
+  const daysSinceAdoption = Math.max(1, Math.floor((today.getTime() - new Date(livePet.adoptedAt).getTime()) / ONE_DAY_MS) + 1);
   const focusSections: Record<FocusArea, ReactNode> = {
     nutrition: (
       <Fragment key="nutrition">
@@ -519,7 +525,7 @@ function App() {
     ),
     movement: (
       <Fragment key="movement">
-          <div className="steps-panel"><div><p className="kicker">TODAY'S EXPLORING</p><h3>{steps.toLocaleString()} <small>/ {stepGoal.toLocaleString()} steps</small></h3><p>{pet.name} {steps ? "explored with you today." : "is waiting for today's adventure."}</p></div><label>Daily goal<input type="number" min="1000" max="100000" value={stepGoal} onChange={(event) => setStepGoal(Number(event.target.value) || 1000)} /></label></div>
+          <div className="steps-panel"><div><p className="kicker">TODAY'S EXPLORING</p><h3>{steps.toLocaleString()} <small>/ {stepGoal.toLocaleString()} steps</small></h3><p>{livePet.name} {steps ? "explored with you today." : "is waiting for today's adventure."}</p></div><label>Daily goal<input type="number" min="1000" max="100000" value={stepGoal} onChange={(event) => setStepGoal(Number(event.target.value) || 1000)} /></label></div>
       </Fragment>
     ),
     mind: (
@@ -538,11 +544,11 @@ function App() {
               </h3>
               <p>
                 {todaysMindSessions.length
-                  ? `${mindScoreLabel(bestMindScore)} — ${pet.name} felt you thinking.`
-                  : `${pet.name} is up for a puzzle whenever you are.`}
+                  ? `${mindScoreLabel(bestMindScore)} — ${livePet.name} felt you thinking.`
+                  : `${livePet.name} is up for a puzzle whenever you are.`}
               </p>
               <p className="mind-stat-line">
-                Mind <i><em style={{ width: `${pet.mind}%` }} /></i> <b>{pet.mind}</b>/100
+                Mind <i><em style={{ width: `${livePet.mind}%` }} /></i> <b>{livePet.mind}</b>/100
               </p>
             </div>
             <button className="text-button mind-panel-start" onClick={trainMind}>
@@ -616,17 +622,17 @@ function App() {
           <div className="hero-heading">
             <p className="kicker">
               {today.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }).toUpperCase()}
-              {" · DAY "}{daysSinceAdoption}{" WITH "}{pet.name.toUpperCase()}
+              {" · DAY "}{daysSinceAdoption}{" WITH "}{livePet.name.toUpperCase()}
             </p>
             <h1>
-              {pet.name}
-              <span className="level">LVL {pet.level}</span>
+              {livePet.name}
+              <span className="level">LVL {livePet.level}</span>
               <span className="stage-pill">
-                {EVOLUTION_STAGE_LABEL[getEvolutionStage(pet.level)]}
+                {EVOLUTION_STAGE_LABEL[getEvolutionStage(livePet.level)]}
               </span>
             </h1>
             <p className="mood">
-              {reaction?.message || `${pet.name} is feeling ready for the day.`}
+              {reaction?.message || `${livePet.name} is feeling ready for the day.`}
             </p>
             {streaks.currentStreak > 0 && (
               <p className="streak-badge">
@@ -654,7 +660,7 @@ function App() {
           </div>
         </section>
         <PetAvatar
-          pet={pet}
+          pet={livePet}
           isAnalyzingMeal={isAnalyzingMeal}
           isEating={isEating}
           feedingImage={feedingImage}
@@ -665,7 +671,7 @@ function App() {
         >
           <div className="pet-stats-hud">
             <p className="kicker">VITALS</p>
-            {[["Push", pet.pushingStrength], ["Pull", pet.pullingStrength], ["Legs", pet.legStrength], ["Endurance", pet.endurance], ["Mind", pet.mind], ["Health", pet.health]].map(([label, value]) => (
+            {[["Push", livePet.pushingStrength], ["Pull", livePet.pullingStrength], ["Legs", livePet.legStrength], ["Endurance", livePet.endurance], ["Mind", livePet.mind], ["Health", livePet.health]].map(([label, value]) => (
               <div className="hud-stat" key={label as string}>
                 <span>{label as string}</span>
                 <i><em style={{ width: `${value as number}%` }} /></i>
@@ -692,7 +698,7 @@ function App() {
             <div>
               <p className="kicker">TODAY'S SCREEN TIME</p>
               <h3>— <small>nothing logged yet</small></h3>
-              <p>Screen time tracking is not built yet — {pet.name} will notice the quiet hours once it is.</p>
+              <p>Screen time tracking is not built yet — {livePet.name} will notice the quiet hours once it is.</p>
             </div>
             <span className="soon-tag">Placeholder</span>
           </div>
