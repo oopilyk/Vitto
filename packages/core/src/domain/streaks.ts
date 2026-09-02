@@ -13,11 +13,26 @@ const toDateKey = (date: Date): string =>
 
 const startOfDay = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-export const getActiveDateKeys = (events: HealthEvent[]): Set<string> =>
-  new Set(events.map((event) => toDateKey(new Date(event.occurredAt))));
+/**
+ * Which day an event counts toward. Defaults to its completion time, but a game whose
+ * identity is fixed when it is opened -- Inkling picks its puzzle date up front -- passes
+ * its own `keyOf` so a session carried across midnight still credits the day it belongs to.
+ */
+export type EventDateKey = (event: HealthEvent) => string;
 
-export const calculateStreaks = (events: HealthEvent[], today: Date = new Date()): StreakSummary => {
-  const activeDateKeys = getActiveDateKeys(events);
+const occurredAtKey: EventDateKey = (event) => toDateKey(new Date(event.occurredAt));
+
+export const getActiveDateKeys = (
+  events: HealthEvent[],
+  keyOf: EventDateKey = occurredAtKey,
+): Set<string> => new Set(events.map(keyOf));
+
+export const calculateStreaks = (
+  events: HealthEvent[],
+  today: Date = new Date(),
+  keyOf: EventDateKey = occurredAtKey,
+): StreakSummary => {
+  const activeDateKeys = getActiveDateKeys(events, keyOf);
   const todayKey = toDateKey(today);
 
   const sortedKeys = Array.from(activeDateKeys).sort();

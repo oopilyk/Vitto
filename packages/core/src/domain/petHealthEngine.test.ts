@@ -39,6 +39,21 @@ describe('PetHealthEngine', () => {
     expect(sharp.pet.recovery).toBeLessThanOrEqual(100);
   });
 
+  it('treats an inkling session as a sharp one at the accuracy bar', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(pet, {
+      id: 'event-4',
+      userId: 'user-1',
+      occurredAt: '2026-08-28T12:00:00Z',
+      type: 'BRAIN_TRAINING' as const,
+      source: 'manual' as const,
+      metadata: { game: 'inkling' as const, correct: 4, total: 5, durationSeconds: 240, score: 84, puzzleDate: '2026-08-28' },
+    });
+
+    expect(result.reaction.delta.recovery).toBe(4);
+    expect(result.reaction.eventLabel).toBe("Today's Inkling");
+  });
+
   it('leaves an empty mind session harmless rather than dividing by zero', () => {
     const pet = createPet('user-1', 'Miso');
     const result = new PetHealthEngine().apply(pet, {

@@ -1,4 +1,10 @@
-export type BrainGameKind = 'math' | 'reading';
+export type BrainGameKind = 'math' | 'reading' | 'inkling';
+
+/**
+ * The timed games. Inkling is untimed, so pace scoring is meaningless for it and
+ * it is deliberately excluded here rather than left to convention.
+ */
+export type PacedBrainGameKind = Exclude<BrainGameKind, 'inkling'>;
 
 export interface MathProblem {
   id: string;
@@ -26,6 +32,11 @@ export interface BrainSessionResult {
   correct: number;
   total: number;
   durationSeconds: number;
+}
+
+/** A session {@link mindScore} can score: the untimed games are not scored on pace. */
+export interface PacedBrainSessionResult extends BrainSessionResult {
+  game: PacedBrainGameKind;
 }
 
 export const MATH_ROUND_SECONDS = 60;
@@ -268,13 +279,13 @@ export const pickReadingPassage = (
 };
 
 /** Answers per minute that earn the full pace bonus, per game. */
-const PACE_CEILING: Record<BrainGameKind, number> = { math: 12, reading: 3 };
+const PACE_CEILING: Record<PacedBrainGameKind, number> = { math: 12, reading: 3 };
 
 /**
  * A 0-100 read on the session: accuracy carries most of it, and the pace bonus is
  * itself scaled by accuracy so that answering fast and wrong never scores well.
  */
-export const mindScore = ({ game, correct, total, durationSeconds }: BrainSessionResult): number => {
+export const mindScore = ({ game, correct, total, durationSeconds }: PacedBrainSessionResult): number => {
   if (total <= 0) return 0;
   const accuracy = Math.max(0, Math.min(1, correct / total));
   const minutes = Math.max(1 / 60, durationSeconds / 60);

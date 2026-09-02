@@ -1,9 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { type HealthEvent, type PetState } from '@vitto/core';
+import { type HealthEvent, type InklingRoundOutcome, type PetState } from '@vitto/core';
 
 const petKey = 'vitto.pet';
 const eventKey = 'vitto.events';
+const inklingKey = 'vitto.inkling.progress';
 const MAX_STORED_EVENTS = 2000;
+
+/**
+ * A day's Inkling in flight.
+ *
+ * Only the player's own guesses are kept -- never the answers. The board rebuilds
+ * itself from the guesses alone, and a device backup or file dump of a half-finished
+ * game must not hand over the words the player has not solved yet.
+ */
+export interface InklingProgress {
+  puzzleDate: string;
+  startedAt: string;
+  /** The round to resume at; equals the round count once every round is played. */
+  roundIndex: number;
+  /** Guesses per round, in order. */
+  guesses: string[][];
+  /** One entry per completed round. */
+  outcomes: InklingRoundOutcome[];
+}
 
 /**
  * AsyncStorage is promise-based, so every method here is async — the web version
@@ -41,6 +60,19 @@ export class LocalRepository {
     );
   }
 
+  async loadInklingProgress(): Promise<InklingProgress | null> {
+    const value = await AsyncStorage.getItem(inklingKey);
+    return value ? (JSON.parse(value) as InklingProgress) : null;
+  }
+
+  async saveInklingProgress(progress: InklingProgress): Promise<void> {
+    await AsyncStorage.setItem(inklingKey, JSON.stringify(progress));
+  }
+
+  async clearInklingProgress(): Promise<void> {
+    await AsyncStorage.removeItem(inklingKey);
+  }
+
   async loadProfile<T>(): Promise<T | null> {
     const value = await AsyncStorage.getItem('vitto.profile');
     return value ? (JSON.parse(value) as T) : null;
@@ -51,6 +83,6 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, inklingKey, 'vitto.profile']);
   }
 }

@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, getEventsForDay, getEvolutionStage, getMealsForDay, mindScoreLabel, sumMealMacros } from '@vitto/core';
+import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findInklingEventForDate, getEventsForDay, getEvolutionStage, getMealsForDay, isSameDay, mindScoreLabel, sumMealMacros, toDateKey } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
@@ -27,6 +27,11 @@ interface Props {
   onLogWorkout: () => void;
   onSyncSteps: () => void;
   onTrainMind: () => void;
+  /**
+   * Opens today's Inkling board. Optional: the mind card hides the action until the
+   * navigation is wired, so this screen stays renderable without it.
+   */
+  onOpenInkling?: () => void;
   onOpenProfile: () => void;
   /** Opens the full stat sheet — the HUD on the pet is the way in. */
   onOpenStats: () => void;
@@ -70,6 +75,25 @@ const CARE_EVENT_LABEL: Partial<Record<HealthEvent['type'], string>> = {
   BRAIN_TRAINING: 'Trained your mind',
 };
 
+/**
+ * Which brain sessions count toward a given day. The timed games are stamped the
+ * moment they finish, so their completion time is their day. Inkling fixes its day
+ * when the board opens, so it is keyed on `puzzleDate` instead — a puzzle carried
+ * past midnight still belongs to the day it was set for, and the count agrees with
+ * the Inkling action beside it.
+ */
+const mindEventsForDay = (
+  events: HealthEvent[],
+  day: Date,
+): HealthEvent<BrainTrainingMetadata>[] => {
+  const dayKey = toDateKey(day);
+  return events.filter((event): event is HealthEvent<BrainTrainingMetadata> => {
+    if (event.type !== 'BRAIN_TRAINING') return false;
+    const { puzzleDate } = event.metadata as BrainTrainingMetadata;
+    return puzzleDate ? puzzleDate === dayKey : isSameDay(event.occurredAt, day);
+  });
+};
+
 export function DashboardScreen({
   pet,
   events,
@@ -81,6 +105,7 @@ export function DashboardScreen({
   onLogWorkout,
   onSyncSteps,
   onTrainMind,
+  onOpenInkling,
   onOpenProfile,
   onOpenStats,
   accountInitial,
@@ -99,10 +124,9 @@ export function DashboardScreen({
   const todaysEvents = getEventsForDay(events, today);
   const todaysMeals = getMealsForDay(events, today);
   const todaysOther = todaysEvents.filter((event) => event.type !== 'MEAL');
-  const todaysMind = todaysEvents.filter(
-    (event): event is HealthEvent<BrainTrainingMetadata> => event.type === 'BRAIN_TRAINING',
-  );
+  const todaysMind = mindEventsForDay(events, today);
   const bestMindScore = todaysMind.reduce((best, event) => Math.max(best, event.metadata.score), 0);
+  const todaysInkling = findInklingEventForDate(events, toDateKey(today));
 
   const todaySteps = todaysEvents.find((event) => event.type === 'STEP_ACTIVITY');
   const steps = todaySteps ? (todaySteps.metadata as { steps: number }).steps : 0;
@@ -265,9 +289,26 @@ export function DashboardScreen({
               <Text style={styles.mindStatValue}>{pet.mind}/100</Text>
             </View>
           </View>
-          <Pressable onPress={onTrainMind} hitSlop={8}>
-            <Text style={styles.mindLink}>Train →</Text>
-          </Pressable>
+          <View style={styles.mindActions}>
+            <Pressable onPress={onTrainMind} hitSlop={8}>
+              <Text style={styles.mindLink}>Train →</Text>
+            </Pressable>
+            {onOpenInkling ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  todaysInkling ? "Review today's Inkling" : "Play today's Inkling"
+                }
+                onPress={onOpenInkling}
+                hitSlop={8}
+              >
+                <Text style={styles.mindLink}>Today's Inkling →</Text>
+                <Text style={[styles.mindNote, todaysInkling && styles.mindNoteDone]}>
+                  {todaysInkling ? `done · ${todaysInkling.metadata.score}` : 'not played yet'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       </Fragment>
     ),
@@ -511,6 +552,9 @@ const styles = StyleSheet.create({
   mindFill: { height: '100%', backgroundColor: colors.lilacDeep },
   mindStatValue: { fontFamily: fonts.mono, fontSize: 10, color: colors.ink },
   mindLink: { fontFamily: fonts.mono, fontSize: 11, color: colors.lilacDeep },
+  mindActions: { alignItems: 'flex-end', gap: 14 },
+  mindNote: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 4, textAlign: 'right' },
+  mindNoteDone: { color: colors.mintDeep },
   soonTag: {
     fontFamily: fonts.mono,
     fontSize: 9,

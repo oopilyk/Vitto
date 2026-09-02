@@ -6,7 +6,8 @@
   "types": "src/index.ts",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:inkling-words": "node scripts/buildInklingWords.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4"

@@ -12,6 +12,13 @@ const BRIGHT_ENERGY_THRESHOLD = 65;
 const BRIGHT_HAPPINESS_THRESHOLD = 65;
 const SHARP_SESSION_ACCURACY = 0.8;
 
+/** Keyed on the whole union, so a new brain game must be labelled here or the build fails. */
+const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
+  math: 'Quick maths',
+  reading: 'Read and recall',
+  inkling: "Today's Inkling",
+};
+
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
   if (nutrition < HUNGRY_NUTRITION_THRESHOLD) return 'hungry';
   if (energy < SLEEPY_ENERGY_THRESHOLD) return 'sleepy';
@@ -86,13 +93,13 @@ export class PetHealthEngine {
           happiness: sharp ? 5 : 3,
           recovery: sharp ? 4 : 2,
           energy: 1,
-          mind: Math.max(2, Math.round(accuracy * (metadata.game === 'reading' ? 8 : 6))),
+          mind: Math.max(2, Math.round(accuracy * (metadata.game === 'math' ? 6 : 8))),
           xp: Math.min(24, 8 + Math.round(accuracy * 12) + (metadata.game === 'reading' ? 2 : 0)),
         };
         message = sharp
           ? `${pet.name} feels clear-headed after thinking that through with you.`
           : `${pet.name} liked puzzling over that together.`;
-        eventLabel = metadata.game === 'math' ? 'Quick maths' : 'Read and recall';
+        eventLabel = BRAIN_GAME_LABEL[metadata.game];
         break;
       }
       case 'MEAL': {

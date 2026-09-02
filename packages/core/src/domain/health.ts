@@ -39,8 +39,14 @@ export interface StepMetadata {
   date?: string;
 }
 
+export interface InklingRoundOutcome {
+  length: number;
+  solved: boolean;
+  guessesUsed: number;
+}
+
 export interface BrainTrainingMetadata {
-  game: 'math' | 'reading';
+  game: 'math' | 'reading' | 'inkling';
   correct: number;
   total: number;
   durationSeconds: number;
@@ -48,6 +54,9 @@ export interface BrainTrainingMetadata {
   bestStreak?: number;
   passageId?: string;
   passageTitle?: string;
+  puzzleDate?: string;
+  generatorVersion?: number;
+  roundOutcomes?: InklingRoundOutcome[];
 }
 
 export interface MealMetadata {

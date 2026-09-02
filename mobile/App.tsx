@@ -4,8 +4,8 @@ import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from
 import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, withSurveyDefaults } from '@vitto/core';
-import { LocalRepository } from './src/services/localRepository';
+import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
+import { type InklingProgress, LocalRepository } from './src/services/localRepository';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
@@ -16,6 +16,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
+import { InklingScreen } from './src/screens/InklingScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
 import { hasNativeUUID, randomUUID } from './src/services/uuid';
 import { colors, fonts, layout } from './src/theme';
@@ -39,6 +40,7 @@ type RootStackParamList = {
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
+  Inkling: undefined;
 };
 type MainTabParamList = {
   Dashboard: undefined;
@@ -104,6 +106,7 @@ export default function App() {
   const [breed, setBreed] = useState<PetBreed>('bichon');
   const [error, setError] = useState<string | null>(null);
   const [stepGoal, setStepGoal] = useState(10000);
+  const [inklingProgress, setInklingProgress] = useState<InklingProgress | null>(null);
 
   const [isAnalyzingMeal, setIsAnalyzingMeal] = useState(false);
   const [isEating, setIsEating] = useState(false);
@@ -140,6 +143,17 @@ export default function App() {
     setDataReady(false);
 
     void (async () => {
+      // Kept on the device either way: a half-finished board is local scratch state,
+      // not account data, and it is only ever good for the day it was opened.
+      const storedInkling = await repository.loadInklingProgress();
+      if (cancelled) return;
+      if (storedInkling && storedInkling.puzzleDate === toDateKey(new Date())) {
+        setInklingProgress(storedInkling);
+      } else {
+        setInklingProgress(null);
+        if (storedInkling) void repository.clearInklingProgress();
+      }
+
       if (isSupabaseConfigured && session) {
         const [petResult, eventsResult, profileResult] = await Promise.allSettled([
           remoteRepository.loadPet(),
@@ -309,6 +323,16 @@ export default function App() {
     await recordEvent(makeEvent<BrainTrainingMetadata>(userId, 'BRAIN_TRAINING', metadata));
   };
 
+  const saveInklingProgress = (progress: InklingProgress) => {
+    setInklingProgress(progress);
+    void repository.saveInklingProgress(progress).catch(() => undefined);
+  };
+
+  const clearInklingProgress = () => {
+    setInklingProgress(null);
+    void repository.clearInklingProgress().catch(() => undefined);
+  };
+
   const syncSteps = async () => {
     setIsExploring(true);
     setTimeout(() => setIsExploring(false), EXPLORE_ANIMATION_MS);
@@ -322,6 +346,7 @@ export default function App() {
         setSession(null);
         setPet(null);
         setEvents([]);
+        setInklingProgress(null);
         await repository.clear();
       })
       .catch(() => setError('Could not sign out.'));
@@ -456,9 +481,28 @@ export default function App() {
           <RootStack.Screen name="MindGym">
             {({ navigation }) => (
               <MindGymScreen
+                events={events}
                 onFinish={async (metadata) => {
                   await completeMindSession(metadata);
                   navigation.goBack();
+                }}
+                // `replace` swaps this sheet for the puzzle rather than stacking a
+                // second modal on top of the one already presented.
+                onOpenInkling={() => navigation.replace('Inkling')}
+                onClose={() => navigation.goBack()}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen name="Inkling">
+            {({ navigation }) => (
+              <InklingScreen
+                events={events}
+                progress={inklingProgress}
+                onSaveProgress={saveInklingProgress}
+                onClearProgress={clearInklingProgress}
+                onFinish={async (metadata) => {
+                  await completeMindSession(metadata);
+                  clearInklingProgress();
                 }}
                 onClose={() => navigation.goBack()}
               />

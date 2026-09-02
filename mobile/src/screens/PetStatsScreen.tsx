@@ -11,11 +11,14 @@ import {
   calculateStreaks,
   careCountsByType,
   daysWithPet,
+  findInklingEventForDate,
   getActiveDateKeys,
-  getEventsForDay,
   getEvolutionStage,
+  inklingStreak,
+  isSameDay,
   mindScoreLabel,
   statValue,
+  toDateKey,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { SpriteFrame } from '../components/SpriteFrame';
@@ -65,6 +68,24 @@ function Card({ title, hint, children }: { title: string; hint?: string; childre
   );
 }
 
+/**
+ * Which brain sessions count toward a given day. The timed games are stamped the
+ * moment they finish, so their completion time is their day. Inkling fixes its day
+ * when the board opens, so it is keyed on `puzzleDate` instead — a puzzle carried
+ * past midnight still belongs to the day it was set for.
+ */
+const mindEventsForDay = (
+  events: HealthEvent[],
+  day: Date,
+): HealthEvent<BrainTrainingMetadata>[] => {
+  const dayKey = toDateKey(day);
+  return events.filter((event): event is HealthEvent<BrainTrainingMetadata> => {
+    if (event.type !== 'BRAIN_TRAINING') return false;
+    const { puzzleDate } = event.metadata as BrainTrainingMetadata;
+    return puzzleDate ? puzzleDate === dayKey : isSameDay(event.occurredAt, day);
+  });
+};
+
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.fact}>
@@ -92,10 +113,11 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
   const last7 = careCountsByType(events, 7, now);
   const last30 = careCountsByType(events, 30, now);
 
-  const todaysMind = getEventsForDay(events, now).filter(
-    (event): event is HealthEvent<BrainTrainingMetadata> => event.type === 'BRAIN_TRAINING',
-  );
+  const todaysMind = mindEventsForDay(events, now);
   const bestMindScore = todaysMind.reduce((best, event) => Math.max(best, event.metadata.score), 0);
+
+  const todaysInkling = findInklingEventForDate(events, toDateKey(now));
+  const inklingDays = inklingStreak(events, now);
 
   const lastEventAt = pet.lastEventAt ? new Date(pet.lastEventAt) : null;
   const daysSinceCare = lastEventAt
@@ -185,6 +207,20 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
                 ? `${mindScoreLabel(bestMindScore)} · ${todaysMind.length} session${todaysMind.length > 1 ? 's' : ''} today.`
                 : `${mindScoreLabel(0)} — no mind session logged today.`}
             </Text>
+          </View>
+          <View style={styles.moodRow}>
+            <Text style={styles.moodValue}>
+              Today's Inkling: {todaysInkling ? todaysInkling.metadata.score : 'not played yet'}
+            </Text>
+            <Text style={styles.moodHint}>
+              {todaysInkling
+                ? `${todaysInkling.metadata.correct}/${todaysInkling.metadata.total} rounds solved.`
+                : `Five rounds, once a day — ${pet.name} is waiting on today's board.`}
+            </Text>
+            <View style={styles.facts}>
+              <Fact label="inkling streak" value={String(inklingDays.currentStreak)} />
+              <Fact label="longest inkling run" value={String(inklingDays.longestStreak)} />
+            </View>
           </View>
         </Card>
 
