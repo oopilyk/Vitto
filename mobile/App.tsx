@@ -12,6 +12,7 @@ import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/heal
 import { getKnownHealthKitExternalIds } from './src/services/healthKitMapping';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
+import { PrimaryButton, TextButton } from './src/components/ui';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -120,6 +121,14 @@ export default function App() {
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [dataReady, setDataReady] = useState(false);
   const [pet, setPet] = useState<PetState | null>(null);
+  // Distinguishes "this account has no pet yet" from "the pet could not be
+  // loaded". Both leave `pet` null, but only the first one means onboarding:
+  // offering adoption after a failed load asks an existing owner to replace a
+  // pet they still have, and the unique index on pets(user_id) would reject the
+  // adoption anyway, so it is a dead end as well as a lie.
+  const [petLoadFailed, setPetLoadFailed] = useState(false);
+  // Bumped by the retry button to re-run the loading effect.
+  const [reloadToken, setReloadToken] = useState(0);
   const [events, setEvents] = useState<HealthEvent[]>([]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
@@ -194,6 +203,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     setDataReady(false);
+    setPetLoadFailed(false);
 
     void (async () => {
       // Kept on the device either way: a half-finished board is local scratch state,
@@ -215,6 +225,7 @@ export default function App() {
         ]);
         if (cancelled) return;
 
+        setPetLoadFailed(petResult.status === 'rejected');
         if (petResult.status === 'fulfilled') {
           // The STORED pet, never the decayed projection: `applyTimeDecay` leaves
           // `lastEventAt` where it was, so holding its output in state makes the
@@ -254,7 +265,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, reloadToken]);
 
   const persistProfile = async (next: BodyProfile) => {
     setProfile(next);
@@ -506,6 +517,23 @@ export default function App() {
     );
   }
 
+  // A failed load is not an empty account. Sending an owner to onboarding here
+  // would invite them to replace a pet that still exists, so offer the retry the
+  // situation actually calls for instead.
+  if (petLoadFailed) {
+    return (
+      <View style={[layout.screen, styles.center, styles.loadFailed]}>
+        <StatusBar barStyle="dark-content" />
+        <Text style={styles.loadFailedTitle}>Could not reach your pet</Text>
+        <Text style={styles.loadFailedBody}>
+          {error ?? 'Your account data did not load. Check your connection and try again.'}
+        </Text>
+        <PrimaryButton label="Try again" onPress={() => setReloadToken((token) => token + 1)} />
+        {isSupabaseConfigured && session ? <TextButton label="Sign out" onPress={logOut} /> : null}
+      </View>
+    );
+  }
+
   // Gated on the STORED pet: a pet whose projection has bottomed out is still an
   // adopted pet, and must never be sent back through onboarding.
   if (!pet) {
@@ -681,6 +709,9 @@ export default function App() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
+  loadFailed: { paddingHorizontal: 32, gap: 12 },
+  loadFailedTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, textAlign: 'center' },
+  loadFailedBody: { fontFamily: fonts.body, fontSize: 15, color: colors.inkSoft, textAlign: 'center' },
   banner: {
     position: 'absolute',
     left: 16,
