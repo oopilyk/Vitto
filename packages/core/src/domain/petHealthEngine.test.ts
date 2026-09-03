@@ -1,8 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { PetHealthEngine } from './petHealthEngine';
 import { createPet } from './pet';
+import type { HealthEvent, WorkoutStats } from './health';
 
 const event = { id: 'event-1', userId: 'user-1', occurredAt: '2026-08-28T12:00:00Z', type: 'WORKOUT' as const, source: 'manual' as const, metadata: { workoutType: 'strength', durationMinutes: 30, intensity: 'moderate' as const } };
+
+const statsWith = (over: Partial<WorkoutStats>): WorkoutStats => ({
+  durationMinutes: 45,
+  exerciseCount: 3,
+  completedSets: 9,
+  totalReps: 72,
+  totalVolume: 0,
+  muscleGroups: [],
+  volumeByMuscleGroup: {},
+  bodyweightRepsByMuscleGroup: {},
+  ...over,
+});
+
+const strengthWorkout = (id: string, occurredAt: string, stats: WorkoutStats): HealthEvent => ({
+  id,
+  userId: 'user-1',
+  occurredAt,
+  type: 'WORKOUT',
+  source: 'manual',
+  metadata: { workoutType: 'strength', durationMinutes: stats.durationMinutes, stats },
+});
 
 describe('PetHealthEngine', () => {
   it('turns a workout into bounded progression and a pet reaction', () => {
@@ -14,6 +36,56 @@ describe('PetHealthEngine', () => {
     expect(result.reaction.message).toContain('trained');
     expect(result.pet.health).toBeGreaterThanOrEqual(0);
     expect(result.pet.health).toBeLessThanOrEqual(100);
+  });
+
+  it('still works as a two-argument call, awarding volume-driven strength with no history', () => {
+    const pet = createPet('user-1', 'Miso');
+    const workout = strengthWorkout('w-bc', '2026-08-28T12:00:00Z', statsWith({
+      volumeByMuscleGroup: { chest: 1800, back: 1200, legs: 3000 },
+      totalVolume: 6000,
+      muscleGroups: ['chest', 'back', 'legs'],
+    }));
+
+    const result = new PetHealthEngine().apply(pet, workout);
+
+    expect(result.pet.pushingStrength).toBeGreaterThan(pet.pushingStrength);
+    expect(result.pet.pullingStrength).toBeGreaterThan(pet.pullingStrength);
+    expect(result.pet.legStrength).toBeGreaterThan(pet.legStrength);
+    expect(result.pet.strength).toBeGreaterThan(pet.strength);
+    expect(Number.isInteger(result.pet.strength)).toBe(true);
+    expect(result.pet.pushingStrength).toBeLessThanOrEqual(100);
+  });
+
+  it('keeps the no-stats workout branch on the old flat formula', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(pet, event, { history: [], bodyWeightKg: 80 });
+    expect(result.pet.strength).toBe(pet.strength + 4);
+    expect(result.pet.pushingStrength).toBe(pet.pushingStrength);
+  });
+
+  it('pays more for a workout that beats the user\'s recent training than one that matches it', () => {
+    const pet = createPet('user-1', 'Miso');
+    const engine = new PetHealthEngine();
+    const history: HealthEvent[] = [
+      strengthWorkout('h1', '2026-08-25T12:00:00Z', statsWith({ volumeByMuscleGroup: { chest: 1000 }, totalVolume: 1000, muscleGroups: ['chest'] })),
+      strengthWorkout('h2', '2026-08-23T12:00:00Z', statsWith({ volumeByMuscleGroup: { chest: 1000 }, totalVolume: 1000, muscleGroups: ['chest'] })),
+    ];
+    const matching = engine.apply(pet, strengthWorkout('m', '2026-08-28T12:00:00Z', statsWith({ volumeByMuscleGroup: { chest: 1000 }, totalVolume: 1000, muscleGroups: ['chest'] })), { history });
+    const beating = engine.apply(pet, strengthWorkout('b', '2026-08-28T12:00:00Z', statsWith({ volumeByMuscleGroup: { chest: 3000 }, totalVolume: 3000, muscleGroups: ['chest'] })), { history });
+
+    expect(beating.reaction.delta.pushingStrength).toBeGreaterThan(matching.reaction.delta.pushingStrength ?? 0);
+  });
+
+  it('leaves a cardio workout on its token strength gain and leans on endurance', () => {
+    const pet = createPet('user-1', 'Miso');
+    const cardio: HealthEvent = {
+      id: 'c1', userId: 'user-1', occurredAt: '2026-08-28T12:00:00Z', type: 'WORKOUT', source: 'manual',
+      metadata: { workoutType: 'cardio', durationMinutes: 40, stats: statsWith({ bodyweightRepsByMuscleGroup: { cardio: 200 }, muscleGroups: ['cardio'] }) },
+    };
+    const result = new PetHealthEngine().apply(pet, cardio, { history: [] });
+    expect(result.reaction.delta.strength).toBe(1);
+    expect(result.reaction.delta.pushingStrength).toBe(0);
+    expect(result.reaction.delta.endurance).toBeGreaterThan(0);
   });
 
   it('rewards a sharp mind session more than a scrappy one', () => {
