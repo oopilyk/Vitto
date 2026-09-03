@@ -3,7 +3,7 @@ import { ActivityIndicator, AppState, Platform, StatusBar, StyleSheet, Text, Vie
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetStatus, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, applyDelta, applyForcedAilment, applyTimeDecay, assessCondition, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, isDevAccount, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
+import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, applyDelta, applyForcedAilment, applyForcedForm, applyTimeDecay, assessCondition, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, isDevAccount, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
@@ -122,6 +122,8 @@ export default function App() {
   // Dev tool, display only — see `applyForcedAilment`. Never persisted, and reset
   // by a sign-out along with the rest of the session's state.
   const [forcedAilment, setForcedAilment] = useState<ForcedPetStatus | null>(null);
+  // Same deal for which form is drawn — display only, never persisted.
+  const [forcedForm, setForcedForm] = useState<ForcedPetForm | null>(null);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [dataReady, setDataReady] = useState(false);
   const [pet, setPet] = useState<PetState | null>(null);
@@ -510,6 +512,7 @@ export default function App() {
         setWordPuzzleProgress(null);
         setIsAppleHealthConnected(false);
         setForcedAilment(null);
+        setForcedForm(null);
         await repository.clear();
       })
       .catch(() => setError('Could not sign out.'));
@@ -576,7 +579,10 @@ export default function App() {
   // Applies to this projection only -- `recordEvent` decays from the STORED pet,
   // so a forced stat can never be written back. Gated again on `isDev` here so a
   // stale value could not survive switching to a non-dev account.
-  const livePet = applyForcedAilment(applyTimeDecay(pet, now), isDev ? forcedAilment : null);
+  const livePet = applyForcedForm(
+    applyForcedAilment(applyTimeDecay(pet, now), isDev ? forcedAilment : null),
+    isDev ? forcedForm : null,
+  );
 
   return (
     <NavigationContainer theme={navigationTheme}>
@@ -601,6 +607,8 @@ export default function App() {
               accountInitial={session?.user.email?.charAt(0)}
               forcedAilment={isDev ? forcedAilment : undefined}
               onForceAilment={isDev ? setForcedAilment : undefined}
+              forcedForm={isDev ? forcedForm : undefined}
+              onForceForm={isDev ? setForcedForm : undefined}
               isAnalyzingMeal={isAnalyzingMeal}
               isEating={isEating}
               feedingImage={feedingImage}

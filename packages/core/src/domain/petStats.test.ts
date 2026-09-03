@@ -6,6 +6,7 @@ import {
   statValue,
   type PetStatKey,
 } from './petStats';
+import { applyForcedForm, getEvolutionStage, getPetBuild, hasEvolved } from './pet';
 import { DECAY_PER_DAY } from './decay';
 import type { HealthEvent, HealthEventType } from './health';
 import { createPet, type PetState } from './pet';
@@ -161,5 +162,63 @@ describe('careCountsByType', () => {
 
   it('ignores an unparseable timestamp rather than counting it', () => {
     expect(careCountsByType([makeEvent('not-a-date')], 7, asOf).MEAL).toBe(0);
+  });
+});
+
+describe('getPetBuild', () => {
+  const base = createPet('user-1', 'Blue', 'cat');
+
+  it('leaves a new pet balanced rather than reading its starting stats as a build', () => {
+    expect(getPetBuild(base)).toBe('balanced');
+  });
+
+  it('calls a pet a runner once endurance is high and clearly ahead of strength', () => {
+    expect(getPetBuild({ ...base, endurance: 60, strength: 20 })).toBe('runner');
+  });
+
+  it('needs endurance to be substantial, not merely ahead', () => {
+    expect(getPetBuild({ ...base, endurance: 30, strength: 2 })).toBe('balanced');
+  });
+
+  it('needs a clear lead, so even training stays balanced', () => {
+    expect(getPetBuild({ ...base, endurance: 60, strength: 55 })).toBe('balanced');
+  });
+});
+
+describe('hasEvolved', () => {
+  const runner = { level: 1, endurance: 60, strength: 20 };
+
+  it('holds the evolution back until the pet is past baby', () => {
+    expect(hasEvolved(runner)).toBe(false);
+    expect(hasEvolved({ ...runner, level: 11 })).toBe(true);
+  });
+
+  it('stays false for a grown pet with no specialism', () => {
+    expect(hasEvolved({ level: 40, endurance: 20, strength: 20 })).toBe(false);
+  });
+});
+
+describe('applyForcedForm', () => {
+  const pet = createPet('user-1', 'Blue', 'cat');
+
+  it('is a no-op without a form, so it is safe to leave in the render path', () => {
+    expect(applyForcedForm(pet, null)).toBe(pet);
+  });
+
+  it('forces a runner that reads as evolved', () => {
+    const forced = applyForcedForm(pet, 'runner');
+    expect(getPetBuild(forced)).toBe('runner');
+    expect(hasEvolved(forced)).toBe(true);
+  });
+
+  it('previews a real runner as unevolved when a balanced form is asked for', () => {
+    const realRunner = { ...pet, level: 40, endurance: 90, strength: 5 };
+    expect(hasEvolved(applyForcedForm(realRunner, 'adult'))).toBe(false);
+  });
+
+  it('maps each stage to a level that lands in it', () => {
+    expect(getEvolutionStage(applyForcedForm(pet, 'baby').level)).toBe('baby');
+    expect(getEvolutionStage(applyForcedForm(pet, 'teen').level)).toBe('teen');
+    expect(getEvolutionStage(applyForcedForm(pet, 'adult').level)).toBe('adult');
   });
 });

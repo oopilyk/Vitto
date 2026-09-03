@@ -5,6 +5,7 @@ import {
   DECAY_PERIOD_MS,
   DECAY_PER_DAY,
   EVOLUTION_STAGE_LABEL,
+  PET_BUILD_LABEL,
   type HealthEvent,
   IS_TEST_DECAY_PERIOD,
   PET_STAT_DESCRIPTORS,
@@ -16,6 +17,7 @@ import {
   findWordPuzzleEventForDate,
   getActiveDateKeys,
   getEvolutionStage,
+  getPetBuild,
   wordPuzzleStreak,
   isSameDay,
   mindScoreLabel,
@@ -222,6 +224,7 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
             <Fact label="level" value={String(pet.level)} />
             <Fact label="XP this level" value={`${pet.xp}/100`} />
             <Fact label="stage" value={EVOLUTION_STAGE_LABEL[stage]} />
+            <Fact label="build" value={PET_BUILD_LABEL[getPetBuild(pet)]} />
           </View>
           <StatBar label="XP" value={pet.xp} color={colors.coral} />
           <View style={styles.moodRow}>

@@ -1,5 +1,5 @@
 import type { ImageSourcePropType } from 'react-native';
-import type { PetAilment, PetBreed, PetState } from '@vitto/core';
+import { getEvolutionStage, getPetBuild, type PetAilment, type PetBreed, type PetBuild, type PetState } from '@vitto/core';
 
 /**
  * Every sheet is a 4-column grid of 128px cells. Rows come in bands, and the
@@ -86,7 +86,61 @@ export interface PetSheet {
    * the keys given are overridden.
    */
   frameMs?: Partial<Record<PetAnimation, number>>;
+  /**
+   * Evolved forms of this companion, keyed by the build that earns them. Held on
+   * the base sheet rather than listed alongside it so the breed picker keeps
+   * offering exactly the forms a pet can be adopted as — an evolution is grown
+   * into, never chosen.
+   */
+  evolutions?: Partial<Record<PetBuild, PetSheet>>;
 }
+
+/**
+ * The runner's evolved sheet. Same eleven-band layout as the base cat, so the
+ * frame mapping carries over unchanged; the art differs (leaner build, scarf,
+ * socks) and its cells are 256px rather than 189px. Cell size is free — see the
+ * note on the orangeCat sheet — and 256 keeps the art filling the same ~89% of
+ * its cell as the base sheet, so evolving does not also jump the pet's scale.
+ */
+const ORANGE_CAT_RUNNER: PetSheet = {
+  name: 'orangeCat',
+  label: 'Orange Cat · Runner',
+  source: require('../../assets/pet/orangeCatRunner.png'),
+  animations: {
+    // Eyes open, eyes closed, nothing else moving. [2, 0] — a pounce frame,
+    // redundant with the leap band `cheer` already uses — holds frame [0, 0]'s
+    // body carrying frame [0, 3]'s closed eyes, patched over just the eye sockets
+    // plus 2px so none of the fur that shifted between those frames comes with it.
+    // Weighted seven-to-one rather than a straight alternation: at 200ms that is
+    // ~1.4s still, then a 200ms blink. An even two-frame loop blinks five times a
+    // second.
+    idle: [
+      [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
+      [0, 3], [0, 3]
+    ],
+    cheer: [[3, 0], [3, 1], [3, 2], [3, 3]],
+    move: [[5, 0], [5, 1], [5, 2], [5, 3]],
+    // Row 6, the flat-out band, rather than the curled sleep on row 8: `rest` is
+    // what an exhausted pet plays, and this reads as a cat with nothing left
+    // rather than one that has settled down for the night. [6, 0] and [6, 3] are
+    // the closest pair on the row — 12.5% of the silhouette apart, where every
+    // other pairing is 23-36% — so the loop is a breath, not a reposition.
+    rest: [[6, 0], [6, 3]],
+    // [7, 2] and [7, 3], not the first two: on this sheet the dizzy band opens
+    // with two frames whose eyes are still normal — only these two have the
+    // spiral eyes that make the state read as dizzy. (The base cat is the other
+    // way round: its first three are spiral-eyed and its fourth is the collapse.)
+    unwell: [[7, 2], [7,1]],
+    sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
+    // Moved to row 10 now that row 6 is `rest`. It is the better collapse anyway:
+    // upset, stumbling, down, then out cold with X eyes — which is the frame
+    // HOLDS_LAST_FRAME parks on. Row 6 only ever showed a tired lie-down, so
+    // dying and exhausted would otherwise have looked identical.
+    faint: [[10, 0], [10, 1], [10, 2], [10, 3]],
+  },
+  selfDrawn: ['foggy'],
+  frameMs: { idle: 200, unwell: 340 },
+};
 
 export const PET_SHEETS: PetSheet[] = [
   {
@@ -157,16 +211,16 @@ export const PET_SHEETS: PetSheet[] = [
       // gait twice a second, which read as a glitch rather than as movement. The
       // walk band (row 4) is the calmer swap if this ever wants toning down.
       move: [[5, 0], [5, 1], [5, 2], [5, 3]],
-      // Just the two curled frames. The full band is a settling sequence — lying,
-      // stretching out, curling — and looping that had the cat repeatedly getting
-      // up and lying back down instead of sleeping. These two differ only by how
-      // tightly it is tucked, so the loop reads as breathing.
-      rest: [[8, 2], [8, 3]],
-      // Actual dizzy art too, so unlike the shiba this does not have to borrow
-      // the sad band and lean on the DizzyOrbit overlay to read as unwell.
-      // [7, 3] is left out: it is the lying-down beat, and dropping into it every
-      // loop made a dizzy pet look like it kept collapsing and getting back up.
-      unwell: [[7, 0], [7, 1], [7, 2]],
+      // One frame: the tightest curl. `rest` is what an exhausted pet plays, and
+      // a pet with nothing left should be still — the bob is all the movement it
+      // needs. [8, 2] is the looser curl if a two-frame breath is ever wanted.
+      rest: [[8, 3]],
+      // Two frames. This sheet has real dizzy art, so unlike the shiba it does not
+      // borrow the sad band or lean on the DizzyOrbit overlay to read as unwell.
+      // [7, 2] and [7, 3] are left out: [7, 3] is the lying-down beat, which made
+      // a dizzy pet look like it kept collapsing and getting back up, and a
+      // two-frame sway is enough to read as dizzy without the third.
+      unwell: [[7, 0], [7, 1]],
       sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
       // Upset, going down, out cold. Ends on the X-eyed frame, which is where
       // HOLDS_LAST_FRAME parks it.
@@ -174,6 +228,7 @@ export const PET_SHEETS: PetSheet[] = [
     },
     // The dizzy band draws its own spiral eyes and orbiting stars.
     selfDrawn: ['foggy'],
+    evolutions: { runner: ORANGE_CAT_RUNNER },
     // Slower than the shared table: these bands are 3-4 frames where the dogs'
     // are 6-10, so the default interval raced through them. `idle` is fast because
     // it is a blink cycle, not a pose cycle — see the note on that band.
@@ -188,7 +243,25 @@ export const sheetByBreed = (breed: PetBreed): PetSheet =>
  * The chosen breed wins. Pets adopted before the picker existed have none, so they
  * fall back to a stable hash of their id rather than all becoming the same dog.
  */
-export const sheetForPet = (pet: Pick<PetState, 'id' | 'breed'>): PetSheet => {
+/**
+ * The sheet a pet is drawn from, evolutions included.
+ *
+ * `level`, `endurance` and `strength` are optional so the still previews in the
+ * breed picker can ask for a breed's base look without inventing a pet: a partial
+ * pet has no level, reads as `baby`, and so never resolves to an evolved form.
+ */
+export const sheetForPet = (
+  pet: Pick<PetState, 'id' | 'breed'> & Partial<Pick<PetState, 'level' | 'endurance' | 'strength'>>,
+): PetSheet => {
+  const base = baseSheetForPet(pet);
+  // Gated on the stage as well as the build: a level-2 pet that has been walked a
+  // lot is still a baby, and growing up is what the evolution is meant to mark.
+  if (getEvolutionStage(pet.level ?? 1) === 'baby') return base;
+  const build = getPetBuild({ endurance: pet.endurance ?? 0, strength: pet.strength ?? 0 });
+  return base.evolutions?.[build] ?? base;
+};
+
+const baseSheetForPet = (pet: Pick<PetState, 'id' | 'breed'>): PetSheet => {
   if (pet.breed) return sheetByBreed(pet.breed);
   let hash = 0;
   for (let index = 0; index < pet.id.length; index += 1) {
@@ -209,9 +282,9 @@ export const FRAME_MS: Record<PetAnimation, number> = {
   idle: 180,
   cheer: 110,
   move: 90,
-  // Slow: the only sheet with a multi-frame rest is the cat, whose two curled
-  // frames are a breath apart. The dogs hold a single frame, and PetAvatar skips
-  // the timer below two frames, so this is free for them.
+  // Unused in practice: every sheet now holds a single `rest` frame, and
+  // PetAvatar skips the timer below two frames. Kept slow so that a sheet which
+  // one day has a real sleeping loop breathes rather than fidgets.
   rest: 700,
   unwell: 200,
   sad: 300,

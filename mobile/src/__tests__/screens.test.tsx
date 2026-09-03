@@ -782,8 +782,39 @@ describe('pet sprite', () => {
     tree.unmount();
   });
 
+  it('keeps a baby on its base sheet however it has been trained', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const runnerStats = { id: 'p', breed: 'orangeCat', level: 5, endurance: 80, strength: 10 };
+    expect(sheetForPet(runnerStats).label).toBe('Orange Cat');
+  });
+
+  it('evolves a grown, endurance-built cat onto the runner sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const runner = { id: 'p', breed: 'orangeCat', level: 12, endurance: 80, strength: 10 };
+    expect(sheetForPet(runner).label).toBe('Orange Cat · Runner');
+  });
+
+  it('leaves a grown cat with no specialism on its base sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const balanced = { id: 'p', breed: 'orangeCat', level: 40, endurance: 50, strength: 48 };
+    expect(sheetForPet(balanced).label).toBe('Orange Cat');
+  });
+
+  it('has no evolution for breeds without evolved art, however trained', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const shiba = { id: 'p', breed: 'shiba', level: 40, endurance: 90, strength: 10 };
+    expect(sheetForPet(shiba).name).toBe('shiba');
+  });
+
   it('only references frames that exist on the sheet', () => {
-    for (const sheet of PET_SHEETS) {
+    // Evolutions included: they hang off a base sheet rather than sitting in
+    // PET_SHEETS, so iterating the list alone would leave their frames unchecked.
+    const everySheet = PET_SHEETS.flatMap((sheet: any) => [
+      sheet,
+      ...Object.values(sheet.evolutions ?? {}),
+    ]);
+    expect(everySheet.length).toBeGreaterThan(PET_SHEETS.length);
+    for (const sheet of everySheet as any[]) {
       for (const frames of Object.values(sheet.animations) as [number, number][][]) {
         expect(frames.length).toBeGreaterThan(0);
         for (const [row, column] of frames) {

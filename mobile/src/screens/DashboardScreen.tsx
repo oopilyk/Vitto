@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type HealthEvent, type MealAnalysis, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getEvolutionStage, getMealsForDay, isSameDay, mindScoreLabel, statValue, sumMealMacros, toDateKey } from '@vitto/core';
+import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, PET_BUILD_LABEL, type HealthEvent, type MealAnalysis, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getEvolutionStage, getPetBuild, hasEvolved, getMealsForDay, isSameDay, mindScoreLabel, statValue, sumMealMacros, toDateKey } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
@@ -49,6 +49,9 @@ interface Props {
    */
   forcedAilment?: ForcedPetStatus | null;
   onForceAilment?: (status: ForcedPetStatus | null) => void;
+  /** Dev tool, display only, alongside `forcedAilment` — see `applyForcedForm`. */
+  forcedForm?: ForcedPetForm | null;
+  onForceForm?: (form: ForcedPetForm | null) => void;
   isAnalyzingMeal: boolean;
   isEating: boolean;
   feedingImage: string | null;
@@ -92,6 +95,20 @@ const DEV_AILMENT_OPTIONS: { value: DevAilmentChoice; label: string; detail?: st
     value: ailment as DevAilmentChoice,
     label: ailment.charAt(0).toUpperCase() + ailment.slice(1),
   })),
+];
+
+type DevFormChoice = ForcedPetForm | 'live';
+
+/**
+ * Forms to preview. An evolution is weeks of real training away, so without this
+ * the only way to see one is to earn it.
+ */
+const DEV_FORM_OPTIONS: { value: DevFormChoice; label: string; detail?: string }[] = [
+  { value: 'live', label: 'Live', detail: 'real form' },
+  { value: 'baby', label: 'Baby' },
+  { value: 'teen', label: 'Teen' },
+  { value: 'adult', label: 'Adult' },
+  { value: 'runner', label: 'Runner', detail: 'evolved' },
 ];
 
 /** The dashboard shows a preview; the profile has the full record. */
@@ -143,6 +160,8 @@ export function DashboardScreen({
   petFocusToken,
   forcedAilment,
   onForceAilment,
+  forcedForm,
+  onForceForm,
   isAnalyzingMeal,
   isEating,
   feedingImage,
@@ -180,6 +199,12 @@ export function DashboardScreen({
   const remaining = targets.calories - consumed.calories + burned;
   const streaks = calculateStreaks(events, today);
   const stage = getEvolutionStage(pet.level);
+  // "Runner Teen" once the pet has grown into a build, plain "Teen" until then —
+  // the kicker is where the evolution is announced, since the sprite changing is
+  // easy to miss if you were not watching for it.
+  const formLabel = hasEvolved(pet)
+    ? `${PET_BUILD_LABEL[getPetBuild(pet)]} ${EVOLUTION_STAGE_LABEL[stage]}`
+    : EVOLUTION_STAGE_LABEL[stage];
   // `pet` arrives already projected forward by App, so this reads the stats the
   // user is looking at rather than the stored ones.
   const condition = assessCondition(pet);
@@ -401,7 +426,7 @@ export function DashboardScreen({
       >
       <View style={styles.hero}>
         <Kicker>
-          {EVOLUTION_STAGE_LABEL[stage].toUpperCase()} · DAY {daysWithPet(pet, today)} WITH{' '}
+          {formLabel.toUpperCase()} · DAY {daysWithPet(pet, today)} WITH{' '}
           {pet.name.toUpperCase()}
         </Kicker>
         <Text style={styles.petName}>{pet.name}</Text>
@@ -484,6 +509,23 @@ export function DashboardScreen({
             <Text style={styles.devHint}>
               Rewrites the stats shown on screen. Nothing here is saved, and logging real care
               clears it back to whatever {pet.name} actually is.
+            </Text>
+          </View>
+        ) : null}
+
+        {onForceForm ? (
+          <View style={styles.devPanel}>
+            <Kicker>Dev · force form</Kicker>
+            <View style={styles.devChoices}>
+              <ChoiceRow
+                options={DEV_FORM_OPTIONS}
+                value={forcedForm ?? 'live'}
+                onChange={(next) => onForceForm(next === 'live' ? null : next)}
+              />
+            </View>
+            <Text style={styles.devHint}>
+              Moves level, endurance and strength, so the sprite, the stage copy and the stat
+              bars all agree. Runner needs Teen or Adult — a baby has not grown into a build yet.
             </Text>
           </View>
         ) : null}

@@ -1,0 +1,12 @@
+{"_e":"root:init","_t":1788474593169,"format":"v0-jsonl","version":"57.0.21"}
+{"_e":"env:mode","_t":1788474593170,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1788474593171,"mode":"development","files":["../../../.env.local"],"env":{"VITE_SUPABASE_ANON_KEY":"sb_publishable_Z7ZNxNDYIdjR_UYdZXV81w_-JG11Ijy","VITE_SUPABASE_URL":"https://kkdbheflzfoxwvelzlmk.supabase.co"}}
+{"_e":"devserver:start","_t":1788474593302,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../../../app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1788474593486,"serverRoot":"../../..","projectRoot":"../../..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1788474593568,"plugins":[]}
+{"_e":"metro:instantiate","_t":1788474593872,"atlas":false,"workers":6,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1788474597160,"id":"2","platform":"web","environment":null,"entry":"node_modules/expo/AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1788474597161,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1788474597165,"id":"2","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1788474597456,"id":"2","progress":0.010000000000000002,"total":1,"current":1}
+{"_e":"metro:bundling:failed","_t":1788474597462,"id":"2","message":"Unable to resolve \"../../App\" from \"node_modules/expo/AppEntry.js\"\n  1 | import registerRootComponent from 'expo/src/launch/registerRootComponent';\n  2 |\n> 3 | import App from '../../App';\n    |                  ^\n  4 |\n  5 | registerRootComponent(App);\n  6 |","importStack":"\u001b[1mImport stack:\u001b[22m\n\u001b[90m\u001b[39m\n\u001b[90m\u001b[90m \u001b[39m\u001b[90mnode_modules/\u001b[1mexpo\u001b[22m/AppEntry.js\u001b[39m\n\u001b[90m\u001b[90m |\u001b[39m\u001b[90m \u001b[36mimport\u001b[39m\u001b[90m \u001b[32m\"../../App\"\u001b[39m\u001b[90m\u001b[39m\n\u001b[90m\u001b[39m\n\u001b[90m\u001b[90m \u001b[39m\u001b[90m\u001b[39m\n\u001b[90m\u001b[90m |\u001b[39m\u001b[90m \u001b[36mimport\u001b[39m\u001b[90m \u001b[32m\"./node_modules/\u001b[1mexpo\u001b[22m/AppEntry\"\u001b[39m\u001b[90m\u001b[39m\n","filename":null,"targetModuleName":"../../App","originModulePath":"node_modules/expo/AppEntry.js"}
