@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
-import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
 import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetStatus, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, applyDelta, applyForcedAilment, applyTimeDecay, assessCondition, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, isDevAccount, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
@@ -12,6 +11,7 @@ import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/heal
 import { getKnownHealthKitExternalIds } from './src/services/healthKitMapping';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
+import { PrimaryButton, TextButton } from './src/components/ui';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -41,7 +41,10 @@ const stepsProvider: HealthDataProvider =
 // Auth and Onboarding stay outside this tree — they're single-screen states
 // with no back/forward navigation of their own.
 type RootStackParamList = {
-  Main: undefined;
+  Dashboard: undefined;
+  // Reached from the dashboard's account button rather than a tab, so it pushes
+  // and backs out the same way every other screen off the dashboard does.
+  Profile: undefined;
   // A drill-down off the dashboard, so it pushes rather than presenting as a modal.
   PetStats: undefined;
   MealCapture: undefined;
@@ -49,12 +52,7 @@ type RootStackParamList = {
   MindGym: undefined;
   WordPuzzle: undefined;
 };
-type MainTabParamList = {
-  Dashboard: undefined;
-  Profile: undefined;
-};
 const RootStack = createNativeStackNavigator<RootStackParamList>();
-const MainTab = createBottomTabNavigator<MainTabParamList>();
 
 const navigationTheme: NavigationTheme = {
   ...DefaultTheme,
@@ -69,6 +67,13 @@ const navigationTheme: NavigationTheme = {
 };
 
 const WORKOUT_ANIMATION_MS = 1100;
+/**
+ * How long to wait after the meal sheet is told to close before the food starts
+ * flying. The sheet is dismissed before `startFeeding` runs, and an iOS pageSheet
+ * takes about this long to slide away — without the wait the whole 880ms flight
+ * plays behind it and is cleared just as the dashboard becomes visible.
+ */
+const SHEET_DISMISS_MS = Platform.OS === 'ios' ? 480 : 320;
 const EXPLORE_ANIMATION_MS = 1100;
 const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100, 200, 365];
 const STREAK_MILESTONE_BONUS_XP = 25;
@@ -120,6 +125,18 @@ export default function App() {
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [dataReady, setDataReady] = useState(false);
   const [pet, setPet] = useState<PetState | null>(null);
+  // Distinguishes "this account has no pet yet" from "the pet could not be
+  // loaded". Both leave `pet` null, but only the first one means onboarding:
+  // offering adoption after a failed load asks an existing owner to replace a
+  // pet they still have, and the unique index on pets(user_id) would reject the
+  // adoption anyway, so it is a dead end as well as a lie.
+  const [petLoadFailed, setPetLoadFailed] = useState(false);
+  // Bumped by the retry button to re-run the loading effect.
+  const [reloadToken, setReloadToken] = useState(0);
+  // Bumped by every logged care moment. The dashboard watches it and scrolls back
+  // to the pet, so the reaction and stat movement are never off-screen below
+  // wherever the user happened to be reading.
+  const [petFocusToken, setPetFocusToken] = useState(0);
   const [events, setEvents] = useState<HealthEvent[]>([]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
@@ -194,6 +211,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     setDataReady(false);
+    setPetLoadFailed(false);
 
     void (async () => {
       // Kept on the device either way: a half-finished board is local scratch state,
@@ -215,6 +233,7 @@ export default function App() {
         ]);
         if (cancelled) return;
 
+        setPetLoadFailed(petResult.status === 'rejected');
         if (petResult.status === 'fulfilled') {
           // The STORED pet, never the decayed projection: `applyTimeDecay` leaves
           // `lastEventAt` where it was, so holding its output in state makes the
@@ -254,7 +273,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, reloadToken]);
 
   const persistProfile = async (next: BodyProfile) => {
     setProfile(next);
@@ -279,6 +298,7 @@ export default function App() {
 
   const recordEvent = async (event: HealthEvent<unknown>) => {
     if (!pet) return;
+    setPetFocusToken((token) => token + 1);
     try {
       const eventDay = new Date(event.occurredAt);
       const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
@@ -367,20 +387,23 @@ export default function App() {
   };
 
   const startFeeding = (imageUri: string | null, grade: MealAnalysis['grade']) => {
-    setFeedingImage(imageUri);
     setFeedingGrade(grade);
-    setIsEating(true);
-    const munch = setInterval(playMunchSound, 420);
+    // Waits out the sheet so the flight is actually on screen; see SHEET_DISMISS_MS.
     setTimeout(() => {
-      setFeedingImage(null);
+      setFeedingImage(imageUri);
+      setIsEating(true);
+      const munch = setInterval(playMunchSound, 420);
       setTimeout(() => {
-        clearInterval(munch);
-        setIsEating(false);
-        setIsCelebrating(true);
-        playCelebrationSound();
-        setTimeout(() => setIsCelebrating(false), 1500);
-      }, 1900);
-    }, 900);
+        setFeedingImage(null);
+        setTimeout(() => {
+          clearInterval(munch);
+          setIsEating(false);
+          setIsCelebrating(true);
+          playCelebrationSound();
+          setTimeout(() => setIsCelebrating(false), 1500);
+        }, 1900);
+      }, 900);
+    }, SHEET_DISMISS_MS);
   };
 
   const completeMeal = async (metadata: MealMetadata) => {
@@ -508,6 +531,23 @@ export default function App() {
     );
   }
 
+  // A failed load is not an empty account. Sending an owner to onboarding here
+  // would invite them to replace a pet that still exists, so offer the retry the
+  // situation actually calls for instead.
+  if (petLoadFailed) {
+    return (
+      <View style={[layout.screen, styles.center, styles.loadFailed]}>
+        <StatusBar barStyle="dark-content" />
+        <Text style={styles.loadFailedTitle}>Could not reach your pet</Text>
+        <Text style={styles.loadFailedBody}>
+          {error ?? 'Your account data did not load. Check your connection and try again.'}
+        </Text>
+        <PrimaryButton label="Try again" onPress={() => setReloadToken((token) => token + 1)} />
+        {isSupabaseConfigured && session ? <TextButton label="Sign out" onPress={logOut} /> : null}
+      </View>
+    );
+  }
+
   // Gated on the STORED pet: a pet whose projection has bottomed out is still an
   // adopted pet, and must never be sent back through onboarding.
   if (!pet) {
@@ -541,72 +581,56 @@ export default function App() {
     <NavigationContainer theme={navigationTheme}>
       <StatusBar barStyle="dark-content" />
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name="Main">
-          {() => (
-            <MainTab.Navigator
-              screenOptions={{
-                headerShown: false,
-                tabBarActiveTintColor: colors.coral,
-                tabBarInactiveTintColor: colors.muted,
-                tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.hairline },
-                tabBarLabelStyle: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.4 },
-              }}
-            >
-              <MainTab.Screen name="Dashboard" options={{ tabBarLabel: 'My Pet' }}>
-                {({ navigation }) => {
-                  const rootNav = navigation.getParent() as NativeStackNavigationProp<RootStackParamList> | undefined;
-                  return (
-                    <DashboardScreen
-                      pet={livePet}
-                      events={events}
-                      profile={profile}
-                      reaction={reaction}
-                      stepGoal={stepGoal}
-                      onStepGoalChange={setStepGoal}
-                      onLogMeal={() => rootNav?.navigate('MealCapture')}
-                      onLogWorkout={() => rootNav?.navigate('Workout')}
-                      onSyncSteps={() => void syncSteps()}
-                      onTrainMind={() => rootNav?.navigate('MindGym')}
-                      onOpenProfile={() => navigation.navigate('Profile')}
-                      onOpenStats={() => rootNav?.navigate('PetStats')}
-                      accountInitial={session?.user.email?.charAt(0)}
-                      forcedAilment={isDev ? forcedAilment : undefined}
-                      onForceAilment={isDev ? setForcedAilment : undefined}
-                      isAnalyzingMeal={isAnalyzingMeal}
-                      isEating={isEating}
-                      feedingImage={feedingImage}
-                      feedingGrade={feedingGrade}
-                      isCelebrating={isCelebrating}
-                      isWorkingOut={isWorkingOut}
-                      isExploring={isExploring}
-                    />
-                  );
-                }}
-              </MainTab.Screen>
-              <MainTab.Screen name="Profile">
-                {({ navigation }) => (
-                  <ProfileScreen
-                    profile={profile}
-                    breed={pet.breed}
-                    onBreedChange={(next) => void changeBreed(next)}
-                    events={events}
-                    onSave={persistProfile}
-                    onClose={() => navigation.navigate('Dashboard')}
-                    onSignOut={isSupabaseConfigured && session ? logOut : undefined}
-                    appleHealthStatus={
-                      Platform.OS === 'ios'
-                        ? isAppleHealthConnected
-                          ? 'connected'
-                          : 'disconnected'
-                        : undefined
-                    }
-                    onConnectAppleHealth={() => void connectAppleHealth()}
-                    onSyncAppleHealth={() => void syncAppleHealth()}
-                    isSyncingAppleHealth={isSyncingAppleHealth}
-                  />
-                )}
-              </MainTab.Screen>
-            </MainTab.Navigator>
+        <RootStack.Screen name="Dashboard">
+          {({ navigation }) => (
+            <DashboardScreen
+              pet={livePet}
+              events={events}
+              profile={profile}
+              reaction={reaction}
+              stepGoal={stepGoal}
+              onStepGoalChange={setStepGoal}
+              onLogMeal={() => navigation.navigate('MealCapture')}
+              onLogWorkout={() => navigation.navigate('Workout')}
+              onSyncSteps={() => void syncSteps()}
+              onTrainMind={() => navigation.navigate('MindGym')}
+              onOpenProfile={() => navigation.navigate('Profile')}
+              onOpenStats={() => navigation.navigate('PetStats')}
+              petFocusToken={petFocusToken}
+              accountInitial={session?.user.email?.charAt(0)}
+              forcedAilment={isDev ? forcedAilment : undefined}
+              onForceAilment={isDev ? setForcedAilment : undefined}
+              isAnalyzingMeal={isAnalyzingMeal}
+              isEating={isEating}
+              feedingImage={feedingImage}
+              feedingGrade={feedingGrade}
+              isCelebrating={isCelebrating}
+              isWorkingOut={isWorkingOut}
+              isExploring={isExploring}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Profile">
+          {({ navigation }) => (
+            <ProfileScreen
+              profile={profile}
+              breed={pet.breed}
+              onBreedChange={(next) => void changeBreed(next)}
+              events={events}
+              onSave={persistProfile}
+              onClose={() => navigation.goBack()}
+              onSignOut={isSupabaseConfigured && session ? logOut : undefined}
+              appleHealthStatus={
+                Platform.OS === 'ios'
+                  ? isAppleHealthConnected
+                    ? 'connected'
+                    : 'disconnected'
+                  : undefined
+              }
+              onConnectAppleHealth={() => void connectAppleHealth()}
+              onSyncAppleHealth={() => void syncAppleHealth()}
+              isSyncingAppleHealth={isSyncingAppleHealth}
+            />
           )}
         </RootStack.Screen>
         <RootStack.Screen name="PetStats">
@@ -618,10 +642,9 @@ export default function App() {
           <RootStack.Screen name="MealCapture">
             {({ navigation }) => (
               <MealCaptureScreen
-                onComplete={async (metadata) => {
-                  await completeMeal(metadata);
-                  navigation.goBack();
-                }}
+                // No navigation here: the screen calls `onFeedStart` and then
+                // `onClose` itself, and closing twice raced the feed animation.
+                onComplete={completeMeal}
                 onFeedStart={startFeeding}
                 onAnalyzingChange={setIsAnalyzingMeal}
                 onClose={() => navigation.goBack()}
@@ -683,6 +706,9 @@ export default function App() {
 
 const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
+  loadFailed: { paddingHorizontal: 32, gap: 12 },
+  loadFailedTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, textAlign: 'center' },
+  loadFailedBody: { fontFamily: fonts.body, fontSize: 15, color: colors.inkSoft, textAlign: 'center' },
   banner: {
     position: 'absolute',
     left: 16,
