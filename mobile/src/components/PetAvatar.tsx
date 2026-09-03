@@ -281,14 +281,32 @@ export function PetAvatar({
   // it as their anchor and add their own clearance, so none of them has to know
   // how the sprite sits inside its cell.
   const headOffset = size * (0.5 - SPRITE_ART_TOP);
-  const overlays = new Set(condition.overlays);
+  /**
+   * The same precedence `animationFor` applies to the sprite, extended to
+   * everything else the condition drives. A care moment is the pet doing
+   * something, so while one plays the ailment dressing stands down: a rain cloud
+   * parked over a pet mid-meal, or a grey dying wash over a cheering one, reads
+   * as the care moment having accomplished nothing. `analyzing` is not in the
+   * list on purpose — it leaves the sprite on the ailment band too, since
+   * nothing has actually been given to the pet yet.
+   */
+  const activityOutranksCondition =
+    activity === 'celebrating' ||
+    activity === 'eating' ||
+    activity === 'workout' ||
+    activity === 'exploring';
+  const overlays = new Set(activityOutranksCondition ? [] : condition.overlays);
 
   // The aura is the pool of light the pet stands in, so draining colour out of it
   // as health falls is the quietest way to show a gradual decline. An ailment
   // aura already reads as "something is wrong", so only dull the mood palette.
-  const baseAura = condition.primary
-    ? AURA_BY_AILMENT[condition.primary]
-    : mixHex(AURA_BY_MOOD[pet.mood], colors.slate, decline.intensity * 0.7);
+  // While a care moment plays the pet is doing something good, so the aura drops
+  // back to the plain mood palette — no ailment tint, no decline wash.
+  const baseAura = activityOutranksCondition
+    ? AURA_BY_MOOD[pet.mood]
+    : condition.primary
+      ? AURA_BY_AILMENT[condition.primary]
+      : mixHex(AURA_BY_MOOD[pet.mood], colors.slate, decline.intensity * 0.7);
 
   return (
     <View style={styles.stage}>
@@ -308,8 +326,9 @@ export function PetAvatar({
         {/* Inside the window on purpose: the wash is a tinted copy of the frame
             stacked on it, so it must share the sprite's exact position. It ramps
             in from the first sign of decline rather than snapping on at `dying`,
-            so a pet losing health looks like it is losing health the whole way. */}
-        {decline.intensity > 0 ? (
+            so a pet losing health looks like it is losing health the whole way —
+            but a care moment stands it down, same as every other ailment cue. */}
+        {decline.intensity > 0 && !activityOutranksCondition ? (
           <Fading
             active
             severity={decline.intensity}

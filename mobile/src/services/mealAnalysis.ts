@@ -38,13 +38,25 @@ export const analyzeMealImage = async (image: PickedImage): Promise<MealAnalysis
     body: { storagePath: path },
   });
   if (error) {
-    const response = 'context' in error && error.context instanceof Response ? error.context : null;
-    if (response) {
-      try {
-        const details = (await response.json()) as { error?: string };
-        throw new Error(details.error || error.message);
-      } catch (cause) {
-        if (cause instanceof Error && cause.message !== error.message) throw cause;
+    // supabase-js hangs the failed Response off `context`, and the function puts the
+    // real reason in its JSON body. Duck-typed rather than `instanceof Response`:
+    // React Native's fetch polyfill defines its own Response class, so an identity
+    // check fails on device and buries every server error under the useless
+    // "Edge Function returned a non-2xx status code".
+    const context = (error as { context?: unknown }).context;
+    const body =
+      context && typeof (context as Response).text === 'function' ? (context as Response) : null;
+    if (body) {
+      const raw = await body.text().catch(() => '');
+      if (raw) {
+        let detail = raw;
+        try {
+          detail = ((JSON.parse(raw) as { error?: string }).error ?? raw).trim();
+        } catch {
+          // Not JSON — a gateway or runtime error page. Its text is still the
+          // most specific thing we have, so pass it through as-is.
+        }
+        if (detail) throw new Error(detail);
       }
     }
     throw error;
