@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, type ReactNode, useEffect, useRef } from 'react';
 import {
   Platform,
   Pressable,
@@ -37,6 +37,12 @@ interface Props {
   onOpenStats: () => void;
   /** Letter shown in the account button — the signed-in email's initial. */
   accountInitial?: string;
+  /**
+   * Changes each time a care moment is logged. The value itself means nothing —
+   * only that it moved, which scrolls the pet back into view so the reaction and
+   * the stat bars are visible wherever the user had scrolled to.
+   */
+  petFocusToken: number;
   /**
    * Dev tool: which ailment the pet is being forced into, and the setter.
    * Both absent for normal accounts, which is what hides the control entirely.
@@ -133,6 +139,7 @@ export function DashboardScreen({
   onOpenProfile,
   onOpenStats,
   accountInitial,
+  petFocusToken,
   forcedAilment,
   onForceAilment,
   isAnalyzingMeal,
@@ -144,6 +151,15 @@ export function DashboardScreen({
   isExploring,
 }: Props) {
   const { width } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+  // Skips the first run: mounting the dashboard is not a care moment, and an
+  // animated scroll to a position it is already at would be a visible twitch.
+  const seenFocusToken = useRef(petFocusToken);
+  useEffect(() => {
+    if (seenFocusToken.current === petFocusToken) return;
+    seenFocusToken.current = petFocusToken;
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }, [petFocusToken]);
   // Three rings, two 10px gaps, inside 22px page padding: never wider than that.
   const ringSize = Math.max(76, Math.min(104, Math.floor((width - 44 - 20) / 3)));
   const today = new Date();
@@ -378,6 +394,7 @@ export function DashboardScreen({
       </View>
 
       <ScrollView
+        ref={scrollRef}
         style={layout.screen}
         contentContainerStyle={[styles.body, { paddingBottom: 96 + HOME_INDICATOR_INSET }]}
       >

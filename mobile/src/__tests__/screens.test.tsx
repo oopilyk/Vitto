@@ -97,6 +97,7 @@ describe('screens render', () => {
     act(() => {
       tree = renderer.create(
       <DashboardScreen
+        petFocusToken={0}
         pet={pet}
         events={[mealEvent]}
         profile={profile}
@@ -141,6 +142,7 @@ describe('screens render', () => {
     act(() => {
       tree = renderer.create(
         <DashboardScreen
+          petFocusToken={0}
           pet={pet}
           events={stepEvents}
           profile={profile}
@@ -193,6 +195,7 @@ describe('screens render', () => {
     act(() => {
       tree = renderer.create(
         <DashboardScreen
+          petFocusToken={0}
           pet={pet}
           events={[]}
           profile={profile}
@@ -236,6 +239,7 @@ describe('screens render', () => {
     act(() => {
       tree = renderer.create(
         <DashboardScreen
+          petFocusToken={0}
           pet={pet}
           events={[]}
           profile={profile}
@@ -276,6 +280,7 @@ describe('screens render', () => {
     act(() => {
       tree = renderer.create(
         <DashboardScreen
+          petFocusToken={0}
           pet={pet}
           events={[]}
           profile={profile}
