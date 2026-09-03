@@ -103,6 +103,7 @@ const CARE_EVENT_LABEL: Partial<Record<HealthEvent['type'], string>> = {
   WORKOUT: 'Trained together',
   STEP_ACTIVITY: 'Went exploring',
   BRAIN_TRAINING: 'Trained your mind',
+  SLEEP: 'Rested up',
 };
 
 /**

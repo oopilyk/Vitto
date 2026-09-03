@@ -479,11 +479,12 @@ export default function App() {
       const since = new Date(Math.max(windowStart, lastEventAtMs));
       const knownExternalIds = getKnownHealthKitExternalIds(events);
 
-      const [workouts, meals] = await Promise.all([
+      const [workouts, meals, sleep] = await Promise.all([
         stepsProvider.getNewWorkouts(userId, since, knownExternalIds),
         stepsProvider.getNewMeals(userId, since, knownExternalIds),
+        stepsProvider.getNewSleep(userId, since, knownExternalIds),
       ]);
-      const importedInOrder = [...workouts, ...meals].sort((a, b) =>
+      const importedInOrder = [...workouts, ...meals, ...sleep].sort((a, b) =>
         a.occurredAt.localeCompare(b.occurredAt),
       );
       for (const event of importedInOrder) {

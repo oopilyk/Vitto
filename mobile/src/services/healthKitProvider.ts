@@ -1,15 +1,18 @@
 import { Platform } from 'react-native';
 import {
   isHealthDataAvailableAsync,
+  queryCategorySamples,
   queryQuantitySamples,
   queryWorkoutSamples,
   requestAuthorization,
   WorkoutActivityType,
 } from '@kingstinct/react-native-healthkit';
-import type { HealthEvent, MealMetadata, StepMetadata, WorkoutMetadata } from '@vitto/core';
+import type { HealthEvent, MealMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from '@vitto/core';
 import type { HealthDataProvider } from './healthDataProvider';
 import {
   excludeKnownExternalIds,
+  groupSleepSegmentsIntoNights,
+  mapSleepNight,
   mapStepSample,
   mapWorkoutSample,
   reconstructMealsFromNutrientSamples,
@@ -48,6 +51,7 @@ const DIETARY_PROTEIN = 'HKQuantityTypeIdentifierDietaryProtein' as const;
 const DIETARY_CARBS = 'HKQuantityTypeIdentifierDietaryCarbohydrates' as const;
 const DIETARY_FAT = 'HKQuantityTypeIdentifierDietaryFatTotal' as const;
 const DIETARY_FIBER = 'HKQuantityTypeIdentifierDietaryFiber' as const;
+const SLEEP_ANALYSIS = 'HKCategoryTypeIdentifierSleepAnalysis' as const;
 
 const byOccurredAtAscending = (a: HealthEvent<unknown>, b: HealthEvent<unknown>) =>
   a.occurredAt.localeCompare(b.occurredAt);
@@ -68,7 +72,7 @@ export class HealthKitProvider implements HealthDataProvider {
     if (Platform.OS !== 'ios') return false;
     try {
       const granted = await requestAuthorization({
-        toRead: [STEP_COUNT, 'HKWorkoutTypeIdentifier', DIETARY_ENERGY, DIETARY_PROTEIN, DIETARY_CARBS, DIETARY_FAT, DIETARY_FIBER],
+        toRead: [STEP_COUNT, 'HKWorkoutTypeIdentifier', DIETARY_ENERGY, DIETARY_PROTEIN, DIETARY_CARBS, DIETARY_FAT, DIETARY_FIBER, SLEEP_ANALYSIS],
       });
       this.authorized = granted;
       return granted;
@@ -145,5 +149,33 @@ export class HealthKitProvider implements HealthDataProvider {
       fat,
       fiber,
     }).sort(byOccurredAtAscending);
+  }
+
+  async getNewSleep(
+    userId: string,
+    since: Date,
+    knownExternalIds: ReadonlySet<string>,
+  ): Promise<HealthEvent<SleepMetadata>[]> {
+    this.assertAuthorized();
+    const samples = await queryCategorySamples(SLEEP_ANALYSIS, {
+      filter: { date: { startDate: since } },
+      limit: 0,
+      ascending: true,
+    });
+    // Filtered after grouping, not before: dedupe keys on the id of the night's
+    // last segment, which only exists once the segments have been stitched. A
+    // per-sample filter would also strip half a night and report the remainder
+    // as a short one.
+    const nights = groupSleepSegmentsIntoNights(
+      samples.map((sample) => ({
+        uuid: sample.uuid,
+        startDate: sample.startDate,
+        endDate: sample.endDate,
+        value: sample.value as unknown as number,
+      })),
+    );
+    return excludeKnownExternalIds(nights, knownExternalIds)
+      .map((night) => mapSleepNight(userId, night))
+      .sort(byOccurredAtAscending);
   }
 }

@@ -1,4 +1,4 @@
-import { type HealthEvent, type MealMetadata, newId, type StepMetadata, type WorkoutMetadata } from '@vitto/core';
+import { type HealthEvent, type MealMetadata, newId, type SleepMetadata, type StepMetadata, type WorkoutMetadata } from '@vitto/core';
 
 /**
  * A source of real-world activity data — steps, workouts, meals — that can feed
@@ -30,6 +30,16 @@ export interface HealthDataProvider {
     since: Date,
     knownExternalIds: ReadonlySet<string>,
   ): Promise<HealthEvent<MealMetadata>[]>;
+  /**
+   * Same idea again, for nights of sleep. One event per night rather than per
+   * sample: the platforms report sleep as many short segments, and stitching
+   * them together is the provider's job, not the caller's.
+   */
+  getNewSleep(
+    userId: string,
+    since: Date,
+    knownExternalIds: ReadonlySet<string>,
+  ): Promise<HealthEvent<SleepMetadata>[]>;
 }
 
 /**
@@ -62,6 +72,10 @@ export class MockHealthDataProvider implements HealthDataProvider {
   }
 
   async getNewMeals(): Promise<HealthEvent<MealMetadata>[]> {
+    return [];
+  }
+
+  async getNewSleep(): Promise<HealthEvent<SleepMetadata>[]> {
     return [];
   }
 }

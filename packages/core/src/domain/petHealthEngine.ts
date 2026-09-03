@@ -1,4 +1,4 @@
-import type { BrainTrainingMetadata, HealthEvent, MealMetadata, StepMetadata, WorkoutMetadata } from './health';
+import type { BrainTrainingMetadata, HealthEvent, MealMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { workoutStrengthDelta } from './strengthProgression';
 
@@ -79,6 +79,16 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
 
 const CARDIO_STRENGTH_GAIN = 1;
 
+/**
+ * Sleep bands, in minutes asleep. A full night is the adult 7-hour guideline;
+ * below `SLEEP_SHORT_MINUTES` the night is short enough that it restores a
+ * little and no more. Nothing here is a penalty: a bad night is already its own
+ * punishment through the energy the pet did not get back, and docking stats for
+ * insomnia would make the app scold someone for something they cannot choose.
+ */
+const SLEEP_FULL_MINUTES = 7 * 60;
+const SLEEP_SHORT_MINUTES = 5.5 * 60;
+
 export class PetHealthEngine {
   apply(pet: PetState, event: HealthEvent, context: PetHealthContext = {}): EngineResult {
     let delta: PetDelta;
@@ -141,6 +151,23 @@ export class PetHealthEngine {
         delta = { nutrition: nourishingSignals * 3, health: nourishingSignals >= 3 ? 2 : 0, happiness: meal.treats ? 4 : 2, energy: nourishingSignals >= 3 ? 3 : 0, xp: 10 };
         message = meal.treats ? `${pet.name} savored the treat. Balance feels good.` : `${pet.name} loved the variety in that meal.`;
         eventLabel = 'Shared a meal';
+        break;
+      }
+      case 'SLEEP': {
+        const metadata = event.metadata as unknown as SleepMetadata;
+        const minutes = Math.max(0, metadata.asleepMinutes);
+        const hours = Math.round((minutes / 60) * 10) / 10;
+        if (minutes >= SLEEP_FULL_MINUTES) {
+          delta = { energy: 14, recovery: 5, health: 2, happiness: 3, xp: 16 };
+          message = `${pet.name} slept soundly for ${hours}h and woke up bright.`;
+        } else if (minutes >= SLEEP_SHORT_MINUTES) {
+          delta = { energy: 9, recovery: 3, happiness: 1, xp: 11 };
+          message = `${pet.name} got ${hours}h — enough to take the edge off.`;
+        } else {
+          delta = { energy: 4, recovery: 1, xp: 6 };
+          message = `${pet.name} only managed ${hours}h. A longer night would help.`;
+        }
+        eventLabel = 'Rested up';
         break;
       }
       default:

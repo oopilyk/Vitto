@@ -142,3 +142,50 @@ describe('PetHealthEngine', () => {
     expect(result.reaction.eventLabel).toBe('Read and recall');
   });
 });
+
+describe('SLEEP', () => {
+  const sleepEvent = (asleepMinutes: number): HealthEvent => ({
+    id: 'sleep-1',
+    userId: 'user-1',
+    occurredAt: '2026-09-03T06:00:00Z',
+    type: 'SLEEP',
+    source: 'healthkit',
+    metadata: { asleepMinutes, night: '2026-09-03' },
+  });
+
+  it('restores the most energy for a full night', () => {
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), energy: 20, recovery: 20 };
+    const { pet: rested, reaction } = new PetHealthEngine().apply(pet, sleepEvent(8 * 60));
+    expect(rested.energy).toBe(34);
+    expect(rested.recovery).toBe(25);
+    expect(reaction.eventLabel).toBe('Rested up');
+  });
+
+  it('gives less for a short night than a full one', () => {
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), energy: 20 };
+    const engine = new PetHealthEngine();
+    const short = engine.apply(pet, sleepEvent(6 * 60)).pet.energy;
+    const full = engine.apply(pet, sleepEvent(8 * 60)).pet.energy;
+    expect(short).toBeLessThan(full);
+    expect(short).toBe(29);
+  });
+
+  it('still rewards a bad night rather than punishing it', () => {
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), energy: 20, happiness: 40 };
+    const { pet: rested } = new PetHealthEngine().apply(pet, sleepEvent(3 * 60));
+    expect(rested.energy).toBeGreaterThan(pet.energy);
+    expect(rested.happiness).toBe(40);
+  });
+
+  it('reports the hours slept in the reaction message', () => {
+    const pet = createPet('user-1', 'Blue', 'dog');
+    const { reaction } = new PetHealthEngine().apply(pet, sleepEvent(7 * 60 + 30));
+    expect(reaction.message).toContain('7.5h');
+  });
+
+  it('treats a missing or negative duration as a bad night, not a crash', () => {
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), energy: 20 };
+    const { pet: rested } = new PetHealthEngine().apply(pet, sleepEvent(-10));
+    expect(rested.energy).toBe(24);
+  });
+});

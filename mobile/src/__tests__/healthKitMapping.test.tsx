@@ -2,11 +2,13 @@ import { describe, expect, it } from '@jest/globals';
 import {
   excludeKnownExternalIds,
   getKnownHealthKitExternalIds,
+  groupSleepSegmentsIntoNights,
+  mapSleepNight,
   mapStepSample,
   mapWorkoutSample,
   reconstructMealsFromNutrientSamples,
 } from '../services/healthKitMapping';
-import type { HealthEvent, MealMetadata, WorkoutMetadata } from '@vitto/core';
+import type { HealthEvent, MealMetadata, SleepMetadata, WorkoutMetadata } from '@vitto/core';
 
 describe('mapStepSample', () => {
   it('rounds fractional step counts and tags the event as HealthKit-sourced', () => {
@@ -174,5 +176,94 @@ describe('excludeKnownExternalIds', () => {
     const items = [{}, { externalId: 'known' }];
     const result = excludeKnownExternalIds(items, new Set(['known']));
     expect(result).toHaveLength(1);
+  });
+});
+
+describe('groupSleepSegmentsIntoNights', () => {
+  const seg = (startIso: string, endIso: string, value: number, uuid?: string) => ({
+    uuid,
+    startDate: new Date(startIso),
+    endDate: new Date(endIso),
+    value,
+  });
+
+  it('stitches consecutive asleep segments into one night', () => {
+    const nights = groupSleepSegmentsIntoNights([
+      seg('2026-09-02T23:00:00Z', '2026-09-03T01:00:00Z', 3),
+      seg('2026-09-03T01:00:00Z', '2026-09-03T03:30:00Z', 5),
+      seg('2026-09-03T03:30:00Z', '2026-09-03T06:00:00Z', 4),
+    ]);
+    expect(nights).toHaveLength(1);
+    expect(nights[0].asleepMinutes).toBe(420);
+  });
+
+  it('excludes inBed and awake segments so lying awake is not counted as rest', () => {
+    const nights = groupSleepSegmentsIntoNights([
+      seg('2026-09-02T22:00:00Z', '2026-09-02T23:00:00Z', 0),
+      seg('2026-09-02T23:00:00Z', '2026-09-03T02:00:00Z', 3),
+      seg('2026-09-03T02:00:00Z', '2026-09-03T02:30:00Z', 2),
+      seg('2026-09-03T02:30:00Z', '2026-09-03T05:00:00Z', 5),
+    ]);
+    expect(nights).toHaveLength(1);
+    // Three asleep hours plus two and a half; the inBed hour and the awake half
+    // hour contribute nothing.
+    expect(nights[0].asleepMinutes).toBe(330);
+  });
+
+  it('counts overlapping segments from two devices once, not twice', () => {
+    const nights = groupSleepSegmentsIntoNights([
+      seg('2026-09-02T23:00:00Z', '2026-09-03T05:00:00Z', 1, 'phone'),
+      seg('2026-09-02T23:30:00Z', '2026-09-03T04:30:00Z', 3, 'watch'),
+    ]);
+    expect(nights).toHaveLength(1);
+    expect(nights[0].asleepMinutes).toBe(360);
+  });
+
+  it('splits an evening nap from the night that follows it', () => {
+    const nights = groupSleepSegmentsIntoNights([
+      seg('2026-09-02T14:00:00Z', '2026-09-02T14:40:00Z', 1),
+      seg('2026-09-02T23:00:00Z', '2026-09-03T06:00:00Z', 3),
+    ]);
+    expect(nights.map((night) => night.asleepMinutes)).toEqual([40, 420]);
+  });
+
+  it('keeps a short mid-night wake-up inside the same night', () => {
+    const nights = groupSleepSegmentsIntoNights([
+      seg('2026-09-02T23:00:00Z', '2026-09-03T02:00:00Z', 3),
+      seg('2026-09-03T03:00:00Z', '2026-09-03T06:00:00Z', 3),
+    ]);
+    expect(nights).toHaveLength(1);
+    expect(nights[0].asleepMinutes).toBe(360);
+  });
+
+  it('drops zero-length segments rather than emitting empty nights', () => {
+    expect(groupSleepSegmentsIntoNights([
+      seg('2026-09-03T01:00:00Z', '2026-09-03T01:00:00Z', 3),
+    ])).toEqual([]);
+  });
+});
+
+describe('mapSleepNight', () => {
+  it('attributes the night to the morning it ended and carries its id for dedupe', () => {
+    const event = mapSleepNight('user-1', {
+      asleepMinutes: 415,
+      endedAt: new Date('2026-09-03T06:00:00Z'),
+      externalId: 'last-segment',
+    });
+    expect(event.type).toBe('SLEEP');
+    expect(event.source).toBe('healthkit');
+    expect(event.metadata.asleepMinutes).toBe(415);
+    expect(event.metadata.externalId).toBe('last-segment');
+    expect(event.occurredAt).toBe('2026-09-03T06:00:00.000Z');
+  });
+
+  it('is recognised by the dedupe index so a night is never replayed', () => {
+    const event = mapSleepNight('user-1', {
+      asleepMinutes: 400,
+      endedAt: new Date('2026-09-03T06:00:00Z'),
+      externalId: 'night-1',
+    });
+    const known = getKnownHealthKitExternalIds([event as HealthEvent<SleepMetadata>]);
+    expect(known.has('night-1')).toBe(true);
   });
 });

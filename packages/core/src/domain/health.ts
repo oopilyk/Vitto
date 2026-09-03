@@ -55,6 +55,28 @@ export interface StepMetadata {
   date?: string;
 }
 
+export interface SleepMetadata {
+  /**
+   * Minutes actually asleep, summed across the night's asleep segments. Time
+   * merely `inBed`, and `awake` stretches in the middle of the night, are both
+   * excluded: lying down is not rest, and the pet's energy should reflect sleep
+   * the user actually got.
+   */
+  asleepMinutes: number;
+  /**
+   * The date key of the morning the night ended, so a night that crosses
+   * midnight is attributed to the day the user wakes into rather than split in
+   * two. Also what makes "one night per day" checkable.
+   */
+  night?: string;
+  /**
+   * HealthKit id of the night's last segment. Nights arrive as many segments and
+   * are stitched together here, so one representative id is what dedupe keys on
+   * -- see `getKnownHealthKitExternalIds`.
+   */
+  externalId?: string;
+}
+
 export interface WordPuzzleRoundOutcome {
   length: number;
   solved: boolean;

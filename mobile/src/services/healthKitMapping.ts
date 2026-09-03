@@ -3,7 +3,9 @@ import {
   type MealAnalysis,
   type MealMetadata,
   newId,
+  type SleepMetadata,
   type StepMetadata,
+  toDateKey,
   toMealAnalysis,
   type WorkoutMetadata,
 } from '@vitto/core';
@@ -145,6 +147,117 @@ export const reconstructMealsFromNutrientSamples = (
  * to dedup a HealthKit sync even against events logged another way, not just
  * against previous HealthKit syncs.
  */
+/**
+ * One row of HKCategoryTypeIdentifierSleepAnalysis. HealthKit reports a night as
+ * many short consecutive segments, not one record, which is why nothing here
+ * maps a sample straight to an event the way steps and workouts do.
+ */
+export interface RawSleepSample {
+  uuid?: string;
+  startDate: Date;
+  endDate: Date;
+  /** HKCategoryValueSleepAnalysis: 0 inBed, 1 asleepUnspecified, 2 awake, 3 core, 4 deep, 5 REM. */
+  value: number;
+}
+
+/**
+ * The category values that mean "actually asleep" — unspecified plus the three
+ * staged ones. `inBed` (0) and `awake` (2) are deliberately excluded: an hour
+ * spent lying awake should not restore the pet's energy.
+ */
+const ASLEEP_VALUES: ReadonlySet<number> = new Set([1, 3, 4, 5]);
+
+/**
+ * A break at least this long ends the night. Long enough to swallow the ordinary
+ * wake-ups inside one night (which arrive as `awake` gaps between asleep
+ * segments), short enough that an evening nap and the following night's sleep do
+ * not merge into a single implausible twelve-hour record.
+ */
+export const SLEEP_NIGHT_GAP_MS = 3 * 60 * 60 * 1000;
+
+/** One night, stitched together from its segments. */
+export interface SleepNight {
+  asleepMinutes: number;
+  /** When the last segment ended — the night is attributed to the day it woke into. */
+  endedAt: Date;
+  externalId?: string;
+}
+
+/**
+ * Stitches raw sleep segments into whole nights.
+ *
+ * Two things make this more than a sum. Segments **overlap**: a phone and a
+ * watch both writing sleep produce duplicate ranges for the same minutes, so the
+ * asleep time is the union of the intervals, never the sum of their durations —
+ * summing double-counts every night recorded by two devices. And segments must
+ * be **grouped**, since a night is many rows; consecutive asleep stretches are
+ * one night until a gap of `SLEEP_NIGHT_GAP_MS` breaks it.
+ */
+export const groupSleepSegmentsIntoNights = (
+  samples: readonly RawSleepSample[],
+): SleepNight[] => {
+  const asleep = samples
+    .filter((sample) => ASLEEP_VALUES.has(sample.value))
+    .filter((sample) => sample.endDate.getTime() > sample.startDate.getTime())
+    .slice()
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+
+  const nights: SleepNight[] = [];
+  // Flat locals rather than a nullable "current night" object: `flush` closes
+  // over them, and TypeScript cannot follow a closure's assignments well enough
+  // to keep an object's narrowing honest across iterations.
+  let open = false;
+  let asleepMs = 0;
+  // The furthest end seen, which is not always the last segment's end — a short
+  // segment can sit entirely inside a longer one. This is what makes the merge a
+  // union rather than a sum.
+  let coveredUntil = 0;
+  let externalId: string | undefined;
+
+  const flush = () => {
+    if (open) {
+      nights.push({
+        asleepMinutes: Math.round(asleepMs / 60_000),
+        endedAt: new Date(coveredUntil),
+        externalId,
+      });
+    }
+    open = false;
+    asleepMs = 0;
+    coveredUntil = 0;
+    externalId = undefined;
+  };
+
+  for (const sample of asleep) {
+    const start = sample.startDate.getTime();
+    const end = sample.endDate.getTime();
+    if (open && start - coveredUntil >= SLEEP_NIGHT_GAP_MS) flush();
+
+    // Only the part of this segment not already covered by an earlier one.
+    const uncoveredFrom = open ? Math.max(start, coveredUntil) : start;
+    if (end > uncoveredFrom) asleepMs += end - uncoveredFrom;
+    coveredUntil = Math.max(coveredUntil, end);
+    if (sample.uuid) externalId = sample.uuid;
+    open = true;
+  }
+  flush();
+
+  return nights.filter((night) => night.asleepMinutes > 0);
+};
+
+export const mapSleepNight = (userId: string, night: SleepNight): HealthEvent<SleepMetadata> => ({
+  id: newId(),
+  userId,
+  occurredAt: night.endedAt.toISOString(),
+  type: 'SLEEP',
+  source: 'healthkit',
+  metadata: {
+    asleepMinutes: night.asleepMinutes,
+    night: toDateKey(night.endedAt),
+    externalId: night.externalId,
+  },
+});
+
 export const getKnownHealthKitExternalIds = (events: HealthEvent[]): Set<string> => {
   const ids = new Set<string>();
   for (const event of events) {
@@ -153,6 +266,9 @@ export const getKnownHealthKitExternalIds = (events: HealthEvent[]): Set<string>
       if (workoutId) ids.add(workoutId);
     } else if (event.type === 'MEAL') {
       const externalId = (event.metadata as MealMetadata).externalId;
+      if (externalId) ids.add(externalId);
+    } else if (event.type === 'SLEEP') {
+      const externalId = (event.metadata as SleepMetadata).externalId;
       if (externalId) ids.add(externalId);
     }
   }
