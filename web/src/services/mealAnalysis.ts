@@ -1,4 +1,4 @@
-import { type MealAnalysis, withEstimatedCalories } from '@vitto/core';
+import { type MealAnalysis, parseMealAnalysisResponse } from '@vitto/core';
 import { supabase } from './supabaseClient';
 
 const bucket = 'meal-images';
@@ -30,5 +30,5 @@ export const analyzeMealImage = async (file: File): Promise<MealAnalysis> => {
     }
     throw error;
   }
-  return withEstimatedCalories(data.analysis as MealAnalysis);
+  return parseMealAnalysisResponse(data);
 };

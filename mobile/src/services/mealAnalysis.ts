@@ -1,5 +1,5 @@
 import { decode } from 'base64-arraybuffer';
-import { type MealAnalysis, newId, withEstimatedCalories } from '@vitto/core';
+import { type MealAnalysis, newId, parseMealAnalysisResponse } from '@vitto/core';
 import { supabase } from './supabaseClient';
 
 const bucket = 'meal-images';
@@ -49,5 +49,5 @@ export const analyzeMealImage = async (image: PickedImage): Promise<MealAnalysis
     }
     throw error;
   }
-  return withEstimatedCalories(data.analysis as MealAnalysis);
+  return parseMealAnalysisResponse(data);
 };

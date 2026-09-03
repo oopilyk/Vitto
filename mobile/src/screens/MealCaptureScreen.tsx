@@ -264,7 +264,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               {selectedAnalysis ? (
                 <>
                   <View style={styles.servingsRow}>
-                    <Text style={styles.servingsLabel}>Servings</Text>
+                    <Text style={styles.servingsLabel}>
+                      Servings{selected ? ` · ${selected.servingDescription}` : ''}
+                    </Text>
                     <TextInput
                       style={[layout.input, styles.servingsInput]}
                       keyboardType="decimal-pad"

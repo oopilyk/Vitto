@@ -9,6 +9,7 @@ export * from './domain/devAccess';
 export * from './domain/petCondition';
 export * from './domain/streaks';
 export * from './domain/macros';
+export * from './domain/mealAnalysis';
 export * from './domain/macroTargets';
 export * from './domain/nutritionSummary';
 export * from './domain/brainGames';

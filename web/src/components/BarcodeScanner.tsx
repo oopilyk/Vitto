@@ -1,6 +1,6 @@
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { useEffect, useRef, useState } from 'react';
-import { type FoodSearchResult, type MealAnalysis, type MealMetadata, errorMessage, lookupBarcode, toMealAnalysis } from '@vitto/core';
+import { type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, lookupBarcode, toMealAnalysis } from '@vitto/core';
 
 interface BarcodeScannerProps {
   onComplete: (metadata: MealMetadata) => Promise<void>;
@@ -53,12 +53,14 @@ export function BarcodeScanner({ onComplete, onFeedStart, onAnalyzingChange, onC
     };
   }, [isScanning, onAnalyzingChange]);
 
+  const preview = found ? toMealAnalysis(found, DEFAULT_SERVINGS) : null;
+
   const addToCareLog = async () => {
-    if (!found) return;
+    if (!found || !preview) return;
     setIsSaving(true);
     setError(null);
     try {
-      const analysis = toMealAnalysis(found, DEFAULT_SERVINGS);
+      const analysis = preview;
       await onComplete({ ...analysis.nutrients, analysis, loggedVia: 'barcode' });
       onFeedStart(null, analysis.grade);
       setSaved(true);
@@ -84,14 +86,14 @@ export function BarcodeScanner({ onComplete, onFeedStart, onAnalyzingChange, onC
         </div>
       )}
       {error && <p className="form-error">{error}</p>}
-      {found && (
+      {found && preview && (
         <div className="analysis-result">
           <div>
             <h3>{found.name}</h3>
-            <p>{found.brand} · {found.servingDescription}</p>
+            <p>{[found.brand, found.servingDescription].filter(Boolean).join(' · ')}</p>
             <div className="macro-line">
-              <b>{found.macros.proteinGrams}g</b> protein <b>{found.macros.carbsGrams}g</b> carbs{' '}
-              <b>{found.macros.fatGrams}g</b> fat <b>{found.macros.calories}</b> kcal
+              <b>{preview.macros.proteinGrams}g</b> protein <b>{preview.macros.carbsGrams}g</b> carbs{' '}
+              <b>{preview.macros.fatGrams}g</b> fat <b>{calorieEstimate(preview.macros)}</b> kcal
             </div>
           </div>
         </div>

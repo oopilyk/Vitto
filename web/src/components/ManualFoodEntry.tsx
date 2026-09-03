@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { type FoodSearchResult, type MealAnalysis, type MealMetadata, errorMessage, searchFoodsByName, toMealAnalysis } from '@vitto/core';
+import { type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, searchFoodsByName, toMealAnalysis } from '@vitto/core';
 
 interface ManualFoodEntryProps {
   onComplete: (metadata: MealMetadata) => Promise<void>;
@@ -39,12 +39,14 @@ export function ManualFoodEntry({ onComplete, onFeedStart, onAnalyzingChange, on
     }
   };
 
+  const preview = selected ? toMealAnalysis(selected, servings) : null;
+
   const addToCareLog = async () => {
-    if (!selected) return;
+    if (!selected || !preview) return;
     setIsSaving(true);
     setError(null);
     try {
-      const analysis = toMealAnalysis(selected, servings);
+      const analysis = preview;
       await onComplete({ ...analysis.nutrients, analysis, loggedVia: 'manual' });
       onFeedStart(null, analysis.grade);
       setSaved(true);
@@ -84,11 +86,14 @@ export function ManualFoodEntry({ onComplete, onFeedStart, onAnalyzingChange, on
           ))}
         </ul>
       )}
-      {selected && (
+      {selected && preview && (
         <div className="analysis-result">
           <div>
             <h3>{selected.name}</h3>
-            <p>{selected.servingDescription}</p>
+            <p>
+              {servings} × {selected.servingDescription}
+              {selected.isPer100g ? ' (per 100 g)' : ''}
+            </p>
             <label className="servings-field">
               Servings
               <input
@@ -100,10 +105,10 @@ export function ManualFoodEntry({ onComplete, onFeedStart, onAnalyzingChange, on
               />
             </label>
             <div className="macro-line">
-              <b>{Math.round(selected.macros.proteinGrams * servings)}g</b> protein{' '}
-              <b>{Math.round(selected.macros.carbsGrams * servings)}g</b> carbs{' '}
-              <b>{Math.round(selected.macros.fatGrams * servings)}g</b> fat{' '}
-              <b>{Math.round(selected.macros.calories * servings)}</b> kcal
+              <b>{preview.macros.proteinGrams}g</b> protein{' '}
+              <b>{preview.macros.carbsGrams}g</b> carbs{' '}
+              <b>{preview.macros.fatGrams}g</b> fat{' '}
+              <b>{calorieEstimate(preview.macros)}</b> kcal
             </div>
           </div>
         </div>
