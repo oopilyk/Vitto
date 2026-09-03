@@ -182,10 +182,10 @@ export function PetAvatar({
         setFrameIndex((current) =>
           holds ? Math.min(current + 1, frames.length - 1) : (current + 1) % frames.length,
         ),
-      FRAME_MS[animation],
+      sheet.frameMs?.[animation] ?? FRAME_MS[animation],
     );
     return () => clearInterval(timer);
-  }, [animation, frames.length]);
+  }, [animation, frames.length, sheet]);
 
   // A gentle bob on top of the frame animation, so idle never sits perfectly still.
   // A sleeping or sleepy pet breathes slower; a fainted one not at all.
@@ -296,6 +296,9 @@ export function PetAvatar({
     activity === 'workout' ||
     activity === 'exploring';
   const overlays = new Set(activityOutranksCondition ? [] : condition.overlays);
+  // Drop the overlays this sheet's art already draws, so a pet whose sprite has
+  // its own spiral eyes does not also get the stand-in particles on top.
+  for (const ailment of sheet.selfDrawn ?? []) overlays.delete(ailment);
 
   // The aura is the pool of light the pet stands in, so draining colour out of it
   // as health falls is the quietest way to show a gradual decline. An ailment
