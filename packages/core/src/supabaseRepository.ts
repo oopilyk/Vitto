@@ -3,7 +3,7 @@ import type { PetState } from './domain/pet';
 import { withSurveyDefaults, type BodyProfile } from './domain/macroTargets';
 import { requireSupabase } from './config';
 
-type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 
 // Every numeric column on `pets` is an integer in Postgres, and decayed stats can
@@ -45,6 +45,30 @@ const saveDroppingMissingColumns = async (
     const { [column]: _absent, ...remaining } = row;
     row = remaining;
   }
+};
+
+/**
+ * When a pet was really adopted.
+ *
+ * `adopted_at` was added by a later migration as `not null default now()`, so
+ * every pet that already existed carries the moment that migration ran instead
+ * of its adoption date. That made the dashboard restart "Day N with <pet>"
+ * while the care streak -- derived from the events themselves -- kept counting,
+ * so a pet could show a streak longer than it had existed.
+ *
+ * A pet cannot have been adopted after the row describing it was written, so the
+ * row's own `created_at` is the floor. Taking the earlier of the two repairs the
+ * read even on a database where the backfill migration has not run yet.
+ */
+const resolveAdoptedAt = (adoptedAt: string | null, createdAt: string | null): string => {
+  const parsed = [adoptedAt, createdAt]
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => ({ value, time: Date.parse(value) }))
+    .filter((candidate) => Number.isFinite(candidate.time));
+  if (parsed.length === 0) return new Date().toISOString();
+  return parsed.reduce((earliest, candidate) =>
+    candidate.time < earliest.time ? candidate : earliest,
+  ).value;
 };
 
 const requireClient = requireSupabase;
@@ -110,7 +134,7 @@ export class SupabaseRepository {
     if (error?.code === 'PGRST116') return null;
     if (error) throw error;
     const pet = data as PetRow;
-    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength, mind: pet.mind ?? 20, breed: pet.breed ?? undefined, adoptedAt: pet.adopted_at ?? new Date().toISOString() };
+    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength, mind: pet.mind ?? 20, breed: pet.breed ?? undefined, adoptedAt: resolveAdoptedAt(pet.adopted_at, pet.created_at) };
   }
 
   async savePet(pet: PetState): Promise<void> {
