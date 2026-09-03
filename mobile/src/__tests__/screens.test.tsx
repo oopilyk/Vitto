@@ -800,6 +800,29 @@ describe('pet sprite', () => {
     expect(sheetForPet(balanced).label).toBe('Orange Cat');
   });
 
+  it('evolves a grown, endurance-built bichon onto the runner sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const runner = { id: 'p', breed: 'bichon', level: 12, endurance: 80, strength: 10 };
+    expect(sheetForPet(runner).label).toBe('Bichon · Runner');
+  });
+
+  it('keeps a baby bichon on its base sheet however it has been trained', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const baby = { id: 'p', breed: 'bichon', level: 5, endurance: 80, strength: 10 };
+    expect(sheetForPet(baby).label).toBe('Bichon');
+  });
+
+  it('draws the bichon runner from exactly the same frames as its base form', () => {
+    // The runner sheet was drawn to the base sheet's layout, so evolving must
+    // change the art and nothing else. Comparing the maps catches a divergence
+    // that the per-frame bounds check above would not.
+    const { sheetForPet } = require('../components/petSprites');
+    const base = sheetForPet({ id: 'p', breed: 'bichon', level: 5 });
+    const runner = sheetForPet({ id: 'p', breed: 'bichon', level: 12, endurance: 80, strength: 10 });
+    expect(runner.source).not.toBe(base.source);
+    expect(runner.animations).toEqual(base.animations);
+  });
+
   it('has no evolution for breeds without evolved art, however trained', () => {
     const { sheetForPet } = require('../components/petSprites');
     const shiba = { id: 'p', breed: 'shiba', level: 40, endurance: 90, strength: 10 };

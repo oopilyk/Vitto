@@ -95,6 +95,110 @@ export interface PetSheet {
   evolutions?: Partial<Record<PetBuild, PetSheet>>;
 }
 
+// ---------------------------------------------------------------------------
+// Bichon
+//
+// Each companion is grouped with its evolutions: shared frame map first, then
+// the evolved sheets, then the base sheet that lists them. That order is load
+// bearing — PET_SHEETS is built at module evaluation, so a base sheet cannot
+// name an evolution declared below it.
+// ---------------------------------------------------------------------------
+
+/**
+ * The bichon's frame mapping, shared by its base and evolved sheets.
+ *
+ * The runner sheet was drawn to this exact layout — same eleven bands, same
+ * frames per band, same cells left empty ([1,2], [1,3], [3,3], [5,2], [5,3],
+ * [8,2], [8,3]) — so one map serves both. Holding it once means evolving cannot
+ * silently change which pose an animation plays.
+ */
+const BICHON_ANIMATIONS: Record<PetAnimation, readonly Frame[]> = {
+  idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
+  cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1], [3, 2]],
+  move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1]],
+  // The one frame on this sheet that reads as peaceful out of context: lying
+  // flat, face down, eyes closed. It is the third beat of the collapse, but
+  // alone it is a dog having a lie-down. Single frame on purpose — PetAvatar
+  // skips the frame timer under two frames and its bob keeps the pet alive.
+  rest: [[9, 2]],
+  // Queasy (blush, wavy mouth) shading into fully dizzy (swirl/X eyes).
+  unwell: [
+    [6, 0], [6, 1], [6, 2], [6, 3],
+    [7, 0], [7, 1], [7, 2], [7, 3],
+    [8, 0], [8, 1],
+  ],
+  // Just the standing-sad beats; the collapse belongs to `faint`.
+  sad: [[9, 0], [9, 1]],
+  // Wobble → collapse → down for good. Row 10 is four frames of lying still.
+  faint: [[9, 1], [9, 2], [9, 3], [10, 0], [10, 1], [10, 2], [10, 3]],
+};
+
+/**
+ * The bichon's runner evolution. Leaner, groomed back, navy bandana and grey
+ * socks — the same gear language as the cat's runner, so the builds read as a
+ * set rather than as two unrelated redesigns.
+ *
+ * Rebuilt from an export that had no alpha at all: the art sat on solid black,
+ * so the background was keyed out by flood-filling inward from the borders at a
+ * threshold below the dog's own outlines (0-2 for the ground, 16-31 for the
+ * linework), then the one-pixel blend ring left against the black was stripped.
+ *
+ * Its bands also did not sit on the base sheet's grid — the jump is four frames
+ * where the base has seven, which pushed every later band up a row — so each
+ * frame was re-seated cell for cell onto the base layout, feet-anchored so a
+ * swinging tail cannot shove the body sideways. The jump ping-pongs (0 1 2 3 2
+ * 1 0) to fill row 3, giving a hop up and back down rather than three blank
+ * cells. That is what lets both forms share one frame map.
+ *
+ * Cells are 232px, not the base sheet's 128. Cell size is free — SpriteFrame
+ * derives everything from `size / CELL` — and going larger than the 216px adult
+ * stage keeps every stage downscaling. Upscaling is what tore the outlines on the
+ * previous export: this is hard-edged pixel art, and a 1.156x stretch put some
+ * blocks on two screen pixels and their neighbours on three.
+ */
+const BICHON_RUNNER: PetSheet = {
+  name: 'bichon',
+  label: 'Bichon · Runner',
+  source: require('../../assets/pet/bichonRunner.png'),
+  animations: BICHON_ANIMATIONS,
+};
+
+const BICHON: PetSheet = {
+  name: 'bichon',
+  label: 'Bichon',
+  source: require('../../assets/pet/bichon.png'),
+  animations: BICHON_ANIMATIONS,
+  evolutions: { runner: BICHON_RUNNER },
+};
+
+// ---------------------------------------------------------------------------
+// Shiba — no evolved art yet, so it stays on its base sheet however it trains.
+// ---------------------------------------------------------------------------
+
+const SHIBA: PetSheet = {
+  name: 'shiba',
+  label: 'Shiba',
+  source: require('../../assets/pet/shiba.png'),
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
+    cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1]],
+    move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3]],
+    // The tail of the content-sitting band: a calm, closed-mouth sit.
+    rest: [[8, 0]],
+    // This sheet has no dizzy art at all, so the sad sit stands in and the
+    // DizzyOrbit overlay carries the "unwell" reading instead of the sprite.
+    unwell: [[9, 0], [9, 1], [9, 2], [9, 3]],
+    sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
+    // No collapse art either — this sheet fades out instead of falling over.
+    // [10, 1] is the same sit at roughly half alpha, so it must be the last frame.
+    faint: [[9, 0], [9, 3], [10, 0], [10, 1]],
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Orange cat
+// ---------------------------------------------------------------------------
+
 /**
  * The runner's evolved sheet. Same eleven-band layout as the base cat, so the
  * frame mapping carries over unchanged; the art differs (leaner build, scarf,
@@ -107,12 +211,10 @@ const ORANGE_CAT_RUNNER: PetSheet = {
   label: 'Orange Cat · Runner',
   source: require('../../assets/pet/orangeCatRunner.png'),
   animations: {
-    // Eyes open, eyes closed, nothing else moving. [2, 0] — a pounce frame,
-    // redundant with the leap band `cheer` already uses — holds frame [0, 0]'s
-    // body carrying frame [0, 3]'s closed eyes, patched over just the eye sockets
-    // plus 2px so none of the fur that shifted between those frames comes with it.
-    // Weighted seven-to-one rather than a straight alternation: at 200ms that is
-    // ~1.4s still, then a 200ms blink. An even two-frame loop blinks five times a
+    // Eyes open, eyes closed, nothing else moving: [0, 0] is the open-eyed
+    // stance and [0, 3] the same pose with the eyes shut. Weighted rather than
+    // alternated — seven open cells to two closed, which at 200ms is ~1.4s of
+    // stillness and a ~400ms blink. An even two-frame loop blinks five times a
     // second.
     idle: [
       [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
@@ -126,11 +228,11 @@ const ORANGE_CAT_RUNNER: PetSheet = {
     // the closest pair on the row — 12.5% of the silhouette apart, where every
     // other pairing is 23-36% — so the loop is a breath, not a reposition.
     rest: [[6, 0], [6, 3]],
-    // [7, 2] and [7, 3], not the first two: on this sheet the dizzy band opens
-    // with two frames whose eyes are still normal — only these two have the
-    // spiral eyes that make the state read as dizzy. (The base cat is the other
-    // way round: its first three are spiral-eyed and its fourth is the collapse.)
-    unwell: [[7, 2], [7,1]],
+    // Not the first frame: on this sheet the dizzy band opens with eyes that are
+    // still normal, and only the later cells have the spiral eyes that make the
+    // state read as dizzy. (The base cat is the other way round — its first
+    // frames are spiral-eyed and its last is the collapse.)
+    unwell: [[7, 2], [7, 1]],
     sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
     // Moved to row 10 now that row 6 is `rest`. It is the better collapse anyway:
     // upset, stumbling, down, then out cold with X eyes — which is the frame
@@ -142,99 +244,56 @@ const ORANGE_CAT_RUNNER: PetSheet = {
   frameMs: { idle: 200, unwell: 340 },
 };
 
-export const PET_SHEETS: PetSheet[] = [
-  {
-    name: 'bichon',
-    label: 'Bichon',
-    source: require('../../assets/pet/bichon.png'),
-    animations: {
-      idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
-      cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1], [3, 2]],
-      move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1]],
-      // The one frame on this sheet that reads as peaceful out of context: lying
-      // flat, face down, eyes closed. It is the third beat of the collapse, but
-      // alone it is a dog having a lie-down. Single frame on purpose — PetAvatar
-      // skips the frame timer under two frames and its bob keeps the pet alive.
-      rest: [[9, 2]],
-      // Queasy (blush, wavy mouth) shading into fully dizzy (swirl/X eyes).
-      unwell: [
-        [6, 0], [6, 1], [6, 2], [6, 3],
-        [7, 0], [7, 1], [7, 2], [7, 3],
-        [8, 0], [8, 1],
-      ],
-      // Just the standing-sad beats; the collapse belongs to `faint`.
-      sad: [[9, 0], [9, 1]],
-      // Wobble → collapse → down for good. Row 10 is four frames of lying still.
-      faint: [[9, 1], [9, 2], [9, 3], [10, 0], [10, 1], [10, 2], [10, 3]],
-    },
+const ORANGE_CAT: PetSheet = {
+  name: 'orangeCat',
+  label: 'Orange Cat',
+  source: require('../../assets/pet/orangeCat.png'),
+  animations: {
+    // A blink, and nothing else. The drawn idle band could not do this: every
+    // cell in it is a different stance, 8-11% of the silhouette apart, with the
+    // body leaning several pixels left and right — cycling it read as fidgeting.
+    //
+    // So [10, 0] is frame [0, 0]'s body with frame [0, 3]'s closed eyes patched
+    // over it. Those two frames draw the head in exactly the same place (both
+    // span x 23-169, y 21-89) and their eyes sit at the same x, so the swap is
+    // seamless. Weighted: seven open cells to one closed, which at 200ms is
+    // ~1.4s of stillness and a 200ms blink.
+    idle: [
+      [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
+      [10, 0],
+    ],
+    // A leap with an open-mouthed grin — the liveliest band on the sheet.
+    cheer: [[3, 0], [3, 1], [3, 2], [3, 3]],
+    // The run band only. Playing walk and run as one cycle made the cat change
+    // gait twice a second, which read as a glitch rather than as movement. The
+    // walk band (row 4) is the calmer swap if this ever wants toning down.
+    move: [[5, 0], [5, 1], [5, 2], [5, 3]],
+    // One frame: the tightest curl. `rest` is what an exhausted pet plays, and
+    // a pet with nothing left should be still — the bob is all the movement it
+    // needs. [8, 2] is the looser curl if a two-frame breath is ever wanted.
+    rest: [[8, 3]],
+    // Two frames. This sheet has real dizzy art, so unlike the shiba it does not
+    // borrow the sad band or lean on the DizzyOrbit overlay to read as unwell.
+    // [7, 2] and [7, 3] are left out: [7, 3] is the lying-down beat, which made
+    // a dizzy pet look like it kept collapsing and getting back up, and a
+    // two-frame sway is enough to read as dizzy without the third.
+    unwell: [[7, 0], [7, 1]],
+    sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
+    // Upset, going down, out cold. Ends on the X-eyed frame, which is where
+    // HOLDS_LAST_FRAME parks it.
+    faint: [[6, 0], [6, 1], [6, 2], [6, 3]],
   },
-  {
-    name: 'shiba',
-    label: 'Shiba',
-    source: require('../../assets/pet/shiba.png'),
-    animations: {
-      idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
-      cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1]],
-      move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3]],
-      // The tail of the content-sitting band: a calm, closed-mouth sit.
-      rest: [[8, 0]],
-      // This sheet has no dizzy art at all, so the sad sit stands in and the
-      // DizzyOrbit overlay carries the "unwell" reading instead of the sprite.
-      unwell: [[9, 0], [9, 1], [9, 2], [9, 3]],
-      sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
-      // No collapse art either — this sheet fades out instead of falling over.
-      // [10, 1] is the same sit at roughly half alpha, so it must be the last frame.
-      faint: [[9, 0], [9, 3], [10, 0], [10, 1]],
-    },
-  },
-  {
-    name: 'orangeCat',
-    label: 'Orange Cat',
-    source: require('../../assets/pet/orangeCat.png'),
-    animations: {
-      // A blink, and nothing else. The drawn idle band could not do this: every
-      // cell in it is a different stance, 8-11% of the silhouette apart, with the
-      // body leaning several pixels left and right — cycling it read as fidgeting.
-      //
-      // So [10, 0] is frame [0, 0]'s body with frame [0, 3]'s closed eyes patched
-      // over it. Those two frames draw the head in exactly the same place (both
-      // span x 23-169, y 21-89) and their eyes sit at the same x, so the swap is
-      // seamless. Weighted: seven open cells to one closed, which at 200ms is
-      // ~1.4s of stillness and a 200ms blink.
-      idle: [
-        [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
-        [10, 0],
-      ],
-      // A leap with an open-mouthed grin — the liveliest band on the sheet.
-      cheer: [[3, 0], [3, 1], [3, 2], [3, 3]],
-      // The run band only. Playing walk and run as one cycle made the cat change
-      // gait twice a second, which read as a glitch rather than as movement. The
-      // walk band (row 4) is the calmer swap if this ever wants toning down.
-      move: [[5, 0], [5, 1], [5, 2], [5, 3]],
-      // One frame: the tightest curl. `rest` is what an exhausted pet plays, and
-      // a pet with nothing left should be still — the bob is all the movement it
-      // needs. [8, 2] is the looser curl if a two-frame breath is ever wanted.
-      rest: [[8, 3]],
-      // Two frames. This sheet has real dizzy art, so unlike the shiba it does not
-      // borrow the sad band or lean on the DizzyOrbit overlay to read as unwell.
-      // [7, 2] and [7, 3] are left out: [7, 3] is the lying-down beat, which made
-      // a dizzy pet look like it kept collapsing and getting back up, and a
-      // two-frame sway is enough to read as dizzy without the third.
-      unwell: [[7, 0], [7, 1]],
-      sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
-      // Upset, going down, out cold. Ends on the X-eyed frame, which is where
-      // HOLDS_LAST_FRAME parks it.
-      faint: [[6, 0], [6, 1], [6, 2], [6, 3]],
-    },
-    // The dizzy band draws its own spiral eyes and orbiting stars.
-    selfDrawn: ['foggy'],
-    evolutions: { runner: ORANGE_CAT_RUNNER },
-    // Slower than the shared table: these bands are 3-4 frames where the dogs'
-    // are 6-10, so the default interval raced through them. `idle` is fast because
-    // it is a blink cycle, not a pose cycle — see the note on that band.
-    frameMs: { idle: 200, unwell: 340 },
-  },
-];
+  // The dizzy band draws its own spiral eyes and orbiting stars.
+  selfDrawn: ['foggy'],
+  evolutions: { runner: ORANGE_CAT_RUNNER },
+  // Slower than the shared table: these bands are 3-4 frames where the dogs'
+  // are 6-10, so the default interval raced through them. `idle` is fast because
+  // it is a blink cycle, not a pose cycle — see the note on that band.
+  frameMs: { idle: 200, unwell: 340 },
+};
+
+/** Adoptable companions, in the order the breed picker offers them. */
+export const PET_SHEETS: PetSheet[] = [BICHON, SHIBA, ORANGE_CAT];
 
 export const sheetByBreed = (breed: PetBreed): PetSheet =>
   PET_SHEETS.find((sheet) => sheet.name === breed) ?? PET_SHEETS[0];
