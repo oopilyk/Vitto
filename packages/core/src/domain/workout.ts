@@ -10,8 +10,39 @@ export const exerciseLibrary = [
 export const createExercise = (name: string, muscleGroup: string, bodyweight = false): WorkoutExercise => ({ id: newId(), name, muscleGroup, bodyweight, sets: [{ id: newId(), reps: 8, weight: bodyweight ? undefined : 20, unit: 'kg', completed: false }] });
 
 export const calculateWorkoutStats = (exercises: WorkoutExercise[], durationMinutes: number): WorkoutStats => {
-  const completed = exercises.flatMap((exercise) => exercise.sets.filter((set) => set.completed));
-  return { durationMinutes: Math.min(180, Math.max(1, durationMinutes)), exerciseCount: exercises.length, completedSets: completed.length, totalReps: completed.reduce((sum, set) => sum + Math.max(0, set.reps), 0), totalVolume: completed.reduce((sum, set) => sum + (set.weight ?? 0) * set.reps, 0), muscleGroups: [...new Set(exercises.map((exercise) => exercise.muscleGroup))] };
+  const volumeByMuscleGroup: Record<string, number> = {};
+  const bodyweightRepsByMuscleGroup: Record<string, number> = {};
+  let completedSets = 0;
+  let totalReps = 0;
+  let totalVolume = 0;
+
+  for (const exercise of exercises) {
+    const group = exercise.muscleGroup;
+    for (const set of exercise.sets) {
+      if (!set.completed) continue;
+      const reps = Math.max(0, set.reps);
+      completedSets += 1;
+      totalReps += reps;
+      if (set.weight && set.weight > 0) {
+        const volume = set.weight * reps;
+        totalVolume += volume;
+        volumeByMuscleGroup[group] = (volumeByMuscleGroup[group] ?? 0) + volume;
+      } else {
+        bodyweightRepsByMuscleGroup[group] = (bodyweightRepsByMuscleGroup[group] ?? 0) + reps;
+      }
+    }
+  }
+
+  return {
+    durationMinutes: Math.min(180, Math.max(1, durationMinutes)),
+    exerciseCount: exercises.length,
+    completedSets,
+    totalReps,
+    totalVolume,
+    muscleGroups: [...new Set(exercises.map((exercise) => exercise.muscleGroup))],
+    volumeByMuscleGroup,
+    bodyweightRepsByMuscleGroup,
+  };
 };
 
 export const addSet = (exercise: WorkoutExercise): WorkoutExercise => ({ ...exercise, sets: [...exercise.sets, { id: newId(), reps: 8, weight: exercise.bodyweight ? undefined : 20, unit: 'kg', completed: false }] });

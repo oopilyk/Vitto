@@ -240,7 +240,9 @@ function App() {
       // `pet` is the raw stored pet, so this is the one legitimate decay ->
       // delta -> new `lastEventAt` sequence; `nextPet` is raw again and safe to persist.
       const decayedPet = applyTimeDecay(pet, eventDay);
-      const result = engine.apply(decayedPet, event);
+      // Strength is scored against recent training, so hand the engine the
+      // history it needs plus body weight for bodyweight-exercise volume.
+      const result = engine.apply(decayedPet, event, { history: events, bodyWeightKg: profile.weightKg });
       let nextPet = result.pet;
       let reaction = result.reaction;
 

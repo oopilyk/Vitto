@@ -1,9 +1,22 @@
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
+import { workoutStrengthDelta } from './strengthProgression';
 
 export interface EngineResult {
   pet: PetState;
   reaction: PetReaction;
+}
+
+/**
+ * Optional context for {@link PetHealthEngine.apply}. Everything here is used to
+ * score an event *relative to the user's recent behaviour* rather than off a
+ * flat table. Omit it and the engine falls back to a history-free formula.
+ */
+export interface PetHealthContext {
+  /** Prior health events, newest or oldest order both fine. The event being applied must not be in here. */
+  history?: HealthEvent[];
+  /** The user's body weight in kg, if known — lets bodyweight workouts scale by how much they actually move. */
+  bodyWeightKg?: number;
 }
 
 const HUNGRY_NUTRITION_THRESHOLD = 35;
@@ -64,8 +77,10 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
   };
 };
 
+const CARDIO_STRENGTH_GAIN = 1;
+
 export class PetHealthEngine {
-  apply(pet: PetState, event: HealthEvent): EngineResult {
+  apply(pet: PetState, event: HealthEvent, context: PetHealthContext = {}): EngineResult {
     let delta: PetDelta;
     let message: string;
     let eventLabel: string;
@@ -78,12 +93,18 @@ export class PetHealthEngine {
         const sets = Math.min(30, metadata.stats?.completedSets ?? 0);
         const durationBonus = Math.min(8, Math.floor(Math.min(120, metadata.durationMinutes) / 30));
         const cardio = metadata.workoutType === 'cardio';
-        const muscles = metadata.stats?.muscleGroups ?? [];
-        const pushBonus = muscles.some((group) => ['chest', 'shoulders', 'triceps'].includes(group)) ? 4 : 0;
-        const pullBonus = muscles.some((group) => ['back', 'biceps'].includes(group)) ? 4 : 0;
-        const legBonus = muscles.includes('legs') ? 4 : 0;
+        // Strength is volume-driven and measured against the user's own recent
+        // training (see strengthProgression). Cardio keeps its token gain and
+        // leans on endurance instead.
+        const strengthDelta = cardio
+          ? { strength: CARDIO_STRENGTH_GAIN, pushingStrength: 0, pullingStrength: 0, legStrength: 0 }
+          : workoutStrengthDelta(pet, metadata.stats, {
+              history: context.history,
+              bodyWeightKg: context.bodyWeightKg,
+              occurredAt: event.occurredAt,
+            });
         delta = hasWorkoutStats
-          ? { health: 2, energy: 6, happiness: 5, strength: cardio ? 1 : Math.min(5, 2 + Math.floor(sets / 8)), pushingStrength: pushBonus, pullingStrength: pullBonus, legStrength: legBonus, endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : 2, recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0, mind: 1, xp: Math.min(40, 10 + Math.min(15, sets) + durationBonus + hardBonus) }
+          ? { health: 2, energy: 6, happiness: 5, ...strengthDelta, endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : 2, recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0, mind: 1, xp: Math.min(40, 10 + Math.min(15, sets) + durationBonus + hardBonus) }
           : { energy: 6, happiness: 5, strength: metadata.workoutType === 'strength' ? 4 : 1, endurance: 2, xp: 18 + hardBonus };
         message = `${pet.name} trained for ${metadata.durationMinutes} minutes and feels stronger.`;
         eventLabel = `Trained ${metadata.workoutType}`;

@@ -32,7 +32,23 @@ export interface WorkoutMetadata {
 
 export interface WorkoutSet { id: string; reps: number; weight?: number; unit?: 'kg' | 'lb'; rpe?: number; completed: boolean; previous?: { reps: number; weight?: number; unit?: 'kg' | 'lb' }; }
 export interface WorkoutExercise { id: string; name: string; muscleGroup: string; bodyweight?: boolean; sets: WorkoutSet[]; }
-export interface WorkoutStats { durationMinutes: number; exerciseCount: number; completedSets: number; totalReps: number; totalVolume: number; muscleGroups: string[]; }
+export interface WorkoutStats {
+  durationMinutes: number;
+  exerciseCount: number;
+  completedSets: number;
+  totalReps: number;
+  totalVolume: number;
+  muscleGroups: string[];
+  /**
+   * Loaded training volume (Σ weight×reps) split by muscle group. Optional
+   * because events stored before this field existed will not carry it — read it
+   * with a `?? {}` fallback. The sum can differ from `totalVolume` when a
+   * group's exercises were all bodyweight (those reps live in the next field).
+   */
+  volumeByMuscleGroup?: Record<string, number>;
+  /** Completed reps of bodyweight (unweighted) sets, split by muscle group. Optional for the same reason. */
+  bodyweightRepsByMuscleGroup?: Record<string, number>;
+}
 
 export interface StepMetadata {
   steps: number;

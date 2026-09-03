@@ -306,7 +306,9 @@ export default function App() {
       // Read before the event lands: the point is whether this care moment is the
       // one that arrived at the brink, not where it left the pet afterwards.
       const wasDying = assessCondition(decayed).primary === 'dying';
-      const result = engine.apply(decayed, event);
+      // Strength is scored against recent training, so hand the engine the
+      // history it needs plus body weight for bodyweight-exercise volume.
+      const result = engine.apply(decayed, event, { history: events, bodyWeightKg: profile.weightKg });
       let nextPet = result.pet;
       let nextReaction = result.reaction;
 
