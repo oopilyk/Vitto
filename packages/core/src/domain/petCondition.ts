@@ -83,6 +83,56 @@ export const applyForcedAilment = (pet: PetState, status: ForcedPetStatus | null
   return forced;
 };
 
+/**
+ * The visible "getting less healthy" ladder BEFORE the `dying` cliff.
+ *
+ * `assessCondition` only changes the pet's look once an ailment threshold is
+ * crossed, so between full health and `dying` (health 15) the pet reads as
+ * identical no matter how long it has been neglected. This is the graduated
+ * read for that gap: a stage plus a continuous 0..1 intensity the avatar maps
+ * to a grey wash / dulled aura, so multi-day decline is something you can watch
+ * happen rather than a switch that flips at the end.
+ */
+export type PetDeclineStage = 'well' | 'waning' | 'unwell' | 'ailing' | 'critical';
+
+/** Upper health bound (exclusive) for each declining stage. Above `waning` = well. */
+export const DECLINE_BANDS = {
+  waning: 70, // health < 70
+  unwell: 52,
+  ailing: 34,
+  critical: AILMENT_THRESHOLDS.dying + 1, // <= dying threshold: the cliff
+} as const;
+
+/**
+ * Health at/above this is untouched (stage `well`, intensity 0); the wash ramps
+ * from here down to the floor. Tied to the first declining band so "not well"
+ * and "visibly declining" turn on together.
+ */
+const DECLINE_VISIBLE_AT = DECLINE_BANDS.waning;
+/** Derived health never reaches 0, so the ramp bottoms out here, not at 0. */
+const DECLINE_FLOOR = 1;
+
+export interface PetDecline {
+  stage: PetDeclineStage;
+  /** 0 = untouched, 1 = as far gone as the visual goes. Drives wash/aura strength. */
+  intensity: number;
+}
+
+const declineStage = (health: number): PetDeclineStage => {
+  if (health < DECLINE_BANDS.critical) return 'critical';
+  if (health < DECLINE_BANDS.ailing) return 'ailing';
+  if (health < DECLINE_BANDS.unwell) return 'unwell';
+  if (health < DECLINE_BANDS.waning) return 'waning';
+  return 'well';
+};
+
+export const assessDecline = (pet: Pick<PetState, 'health'>): PetDecline => {
+  const span = DECLINE_VISIBLE_AT - DECLINE_FLOOR;
+  const raw = (DECLINE_VISIBLE_AT - pet.health) / span;
+  const intensity = Math.max(0, Math.min(1, raw));
+  return { stage: declineStage(pet.health), intensity };
+};
+
 export const assessCondition = (pet: PetState): PetCondition => {
   const ailments = AILMENT_PRECEDENCE.filter(
     (ailment) => pet[AILMENT_STAT[ailment]] <= AILMENT_THRESHOLDS[ailment],

@@ -6,6 +6,7 @@ import {
   type PetCondition,
   type PetState,
   assessCondition,
+  assessDecline,
   getEvolutionStage,
 } from '@vitto/core';
 import { FRAME_MS, HOLDS_LAST_FRAME, type PetAnimation, SPRITE_ART_TOP, sheetForPet } from './petSprites';
@@ -22,7 +23,7 @@ import {
 } from './PetEffects';
 import { colors, fonts } from '../theme';
 
-type PetActivity = 'idle' | 'analyzing' | 'eating' | 'workout' | 'exploring' | 'celebrating';
+export type PetActivity = 'idle' | 'analyzing' | 'eating' | 'workout' | 'exploring' | 'celebrating';
 
 interface PetAvatarProps {
   pet: PetState;
@@ -80,6 +81,43 @@ const ANIMATION_BY_AILMENT: Record<PetAilment, PetAnimation> = {
 };
 
 /**
+ * Energy at or below this reads as a pet that has chosen to nap. It sits ABOVE
+ * the `exhausted` ailment line (energy <= 20): below that the pet has collapsed
+ * from exhaustion and `condition.primary` takes over, so this band is only the
+ * gentle "winding down" stretch in between.
+ */
+export const NAP_ENERGY = 34;
+
+/**
+ * A true sleep read, distinct from `exhausted`: the pet is idle, nothing is
+ * actually wrong, and energy has drifted low. Drives a peaceful rest pose, the
+ * Zzz overlay and a slowed bob.
+ *
+ * ART GAP: neither sprite sheet has a real sleeping pose, so this still borrows
+ * `rest` (the calmest single frame each sheet owns). A dedicated curled-up /
+ * eyes-closed frame per sheet would let this stop sharing a pose with
+ * `exhausted`.
+ */
+export const isSleeping = (
+  energy: number,
+  condition: PetCondition,
+  activity: PetActivity,
+): boolean => activity === 'idle' && condition.primary === null && energy <= NAP_ENERGY;
+
+/** Linear blend between two `#rrggbb` strings; `t` clamped to 0..1. */
+export const mixHex = (from: string, to: string, t: number): string => {
+  const amount = Math.max(0, Math.min(1, t));
+  const parse = (hex: string) => [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16));
+  const [fr, fg, fb] = parse(from);
+  const [tr, tg, tb] = parse(to);
+  const channel = (a: number, b: number) =>
+    Math.round(a + (b - a) * amount)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${channel(fr, tr)}${channel(fg, tg)}${channel(fb, tb)}`;
+};
+
+/**
  * Which band of the sheet plays, given what the pet is doing right now.
  *
  * Activity outranks condition on purpose: feeding a starving dog has to show it
@@ -125,7 +163,9 @@ export function PetAvatar({
   const sheet = sheetForPet(pet);
   // Cheap and pure, so it is derived here rather than threaded down as a prop.
   const condition = assessCondition(pet);
-  const animation = animationFor(activity, pet.mood, condition);
+  const decline = assessDecline(pet);
+  const sleeping = isSleeping(pet.energy, condition, activity);
+  const animation = sleeping ? 'rest' : animationFor(activity, pet.mood, condition);
   const frames = sheet.animations[animation];
   const size = STAGE_SIZE[getEvolutionStage(pet.level)];
 
@@ -148,6 +188,8 @@ export function PetAvatar({
   }, [animation, frames.length]);
 
   // A gentle bob on top of the frame animation, so idle never sits perfectly still.
+  // A sleeping or sleepy pet breathes slower; a fainted one not at all.
+  const slowBob = sleeping || pet.mood === 'sleepy' || animation === 'rest';
   const bob = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     // A fainted pet does not breathe up and down. Nothing else about the stage
@@ -156,17 +198,18 @@ export function PetAvatar({
       bob.setValue(0);
       return;
     }
+    const halfCycleMs = slowBob ? 2600 : 1500;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(bob, {
           toValue: 1,
-          duration: pet.mood === 'sleepy' ? 2400 : 1500,
+          duration: halfCycleMs,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(bob, {
           toValue: 0,
-          duration: pet.mood === 'sleepy' ? 2400 : 1500,
+          duration: halfCycleMs,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -174,7 +217,7 @@ export function PetAvatar({
     );
     loop.start();
     return () => loop.stop();
-  }, [animation, bob, pet.mood]);
+  }, [animation, bob, slowBob]);
 
   const bobTransform: ViewStyle['transform'] = [
     {
@@ -240,13 +283,17 @@ export function PetAvatar({
   const headOffset = size * (0.5 - SPRITE_ART_TOP);
   const overlays = new Set(condition.overlays);
 
+  // The aura is the pool of light the pet stands in, so draining colour out of it
+  // as health falls is the quietest way to show a gradual decline. An ailment
+  // aura already reads as "something is wrong", so only dull the mood palette.
+  const baseAura = condition.primary
+    ? AURA_BY_AILMENT[condition.primary]
+    : mixHex(AURA_BY_MOOD[pet.mood], colors.slate, decline.intensity * 0.7);
+
   return (
     <View style={styles.stage}>
       {children}
-      <PetAura
-        color={condition.primary ? AURA_BY_AILMENT[condition.primary] : AURA_BY_MOOD[pet.mood]}
-        size={size}
-      />
+      <PetAura color={baseAura} size={size} />
       {feedingImage ? (
         <Animated.Image source={{ uri: feedingImage }} style={[styles.food, foodStyle]} />
       ) : null}
@@ -259,9 +306,17 @@ export function PetAvatar({
       >
         <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
         {/* Inside the window on purpose: the wash is a tinted copy of the frame
-            stacked on it, so it must share the sprite's exact position. */}
-        {condition.primary === 'dying' ? (
-          <Fading active severity={condition.severity} sheet={sheet} frame={currentFrame} size={size} />
+            stacked on it, so it must share the sprite's exact position. It ramps
+            in from the first sign of decline rather than snapping on at `dying`,
+            so a pet losing health looks like it is losing health the whole way. */}
+        {decline.intensity > 0 ? (
+          <Fading
+            active
+            severity={decline.intensity}
+            sheet={sheet}
+            frame={currentFrame}
+            size={size}
+          />
         ) : null}
       </Animated.View>
 
@@ -282,7 +337,7 @@ export function PetAvatar({
       ) : null}
       {/* At most two of these; `assessCondition` clears them all while dying. */}
       <HungerPangs active={overlays.has('starving')} headOffset={headOffset} />
-      <Zzz active={overlays.has('exhausted')} headOffset={headOffset} />
+      <Zzz active={overlays.has('exhausted') || sleeping} headOffset={headOffset} />
       <RainCloud active={overlays.has('sad')} headOffset={headOffset} />
       <DizzyOrbit active={overlays.has('foggy')} headOffset={headOffset} />
 

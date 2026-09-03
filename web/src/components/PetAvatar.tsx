@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { type MealAnalysis, type PetState, getEvolutionStage } from '@vitto/core';
+import { type MealAnalysis, type PetState, assessDecline, getEvolutionStage } from '@vitto/core';
 
 const MOOD_MOUTH: Record<PetState["mood"], string> = {
   bright: "◡",
@@ -86,11 +86,18 @@ export function PetAvatar({
     isExploring,
   });
 
+  // Graduated visual decline: the pet loses colour and its aura fades as health
+  // falls, rather than looking untouched right up until the `dying` cliff.
+  // `--decline` is a 0..1 knob the stylesheet maps to a saturate()/brightness()
+  // filter; `decline-<stage>` is there for coarser per-band styling.
+  const decline = assessDecline(pet);
+
   const stageClassName = [
     "pet-stage",
     `stage-${stage}`,
     `mood-${pet.mood}`,
     `activity-${activity}`,
+    `decline-${decline.stage}`,
     isEating ? "pet-eating" : "",
   ]
     .filter(Boolean)
@@ -108,7 +115,10 @@ export function PetAvatar({
     isCelebrating && (feedingGrade === "A" || feedingGrade === "B");
 
   return (
-    <section className={stageClassName}>
+    <section
+      className={stageClassName}
+      style={{ "--decline": decline.intensity } as CSSProperties}
+    >
       {children}
       <div className="pet-aura" />
       {feedingImage && (

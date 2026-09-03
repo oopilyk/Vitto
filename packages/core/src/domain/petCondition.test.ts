@@ -3,8 +3,11 @@ import {
   AILMENT_MESSAGE,
   AILMENT_PRECEDENCE,
   AILMENT_THRESHOLDS,
+  DECLINE_BANDS,
   assessCondition,
+  assessDecline,
   type PetAilment,
+  type PetDeclineStage,
 } from './petCondition';
 import { createPet, type PetState } from './pet';
 
@@ -110,5 +113,40 @@ describe('assessCondition', () => {
     const condition = assessCondition(pet);
     expect(condition).not.toHaveProperty('mood');
     expect(pet.mood).toBe('content');
+  });
+});
+
+describe('assessDecline', () => {
+  it('reads a healthy pet as well, with no visual decline', () => {
+    const decline = assessDecline({ health: 90 });
+    expect(decline.stage).toBe('well');
+    expect(decline.intensity).toBe(0);
+  });
+
+  it('leaves a freshly adopted pet (health 78) untouched', () => {
+    expect(assessDecline({ health: 78 }).stage).toBe('well');
+    expect(assessDecline({ health: 78 }).intensity).toBe(0);
+  });
+
+  it('walks down the stages as health falls, without waiting for the dying cliff', () => {
+    const stageAt = (health: number): PetDeclineStage => assessDecline({ health }).stage;
+    expect(stageAt(DECLINE_BANDS.waning - 1)).toBe('waning');
+    expect(stageAt(DECLINE_BANDS.unwell - 1)).toBe('unwell');
+    expect(stageAt(DECLINE_BANDS.ailing - 1)).toBe('ailing');
+    expect(stageAt(AILMENT_THRESHOLDS.dying)).toBe('critical');
+  });
+
+  it('ramps intensity up monotonically as health drops', () => {
+    const readings = [80, 60, 40, 20, 1].map((health) => assessDecline({ health }).intensity);
+    for (let index = 1; index < readings.length; index += 1) {
+      expect(readings[index]).toBeGreaterThan(readings[index - 1]);
+    }
+    expect(readings[0]).toBe(0);
+    expect(readings[readings.length - 1]).toBe(1);
+  });
+
+  it('keeps intensity inside 0..1 even for out-of-range health', () => {
+    expect(assessDecline({ health: 200 }).intensity).toBe(0);
+    expect(assessDecline({ health: -50 }).intensity).toBe(1);
   });
 });
