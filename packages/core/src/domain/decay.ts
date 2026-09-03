@@ -5,15 +5,45 @@ export const ONE_MINUTE_MS = 60 * 1000;
 export const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * The env var that opts a build into the compressed QA clock. Any other value
+ * (including unset) runs the real one-day-per-day cadence. `EXPO_PUBLIC_` so
+ * Expo inlines it into the mobile bundle at build time, matching the rest of the
+ * app's env conventions.
+ */
+export const DECAY_FAST_ENV_KEY = 'EXPO_PUBLIC_DECAY_FAST';
+
+/** The values that turn the fast clock on. Everything else leaves it off. */
+const DECAY_FAST_ENABLED_VALUES: ReadonlySet<string> = new Set(['1', 'true']);
+
+/** `process` is absent in some RN/web runtimes; never throw while reading it. */
+const readProcessEnv = (): Readonly<Record<string, string | undefined>> =>
+  typeof process !== 'undefined' && process.env ? process.env : {};
+
+/**
+ * Whether the given environment asks for the compressed decay clock. Pure and
+ * env-injected so a test can exercise both modes without reloading the module.
+ */
+export const isDecayFastMode = (
+  env: Readonly<Record<string, string | undefined>> = readProcessEnv(),
+): boolean => DECAY_FAST_ENABLED_VALUES.has(env[DECAY_FAST_ENV_KEY] ?? '');
+
+/**
+ * Maps the fast-mode flag to the length of one decline "day".
+ * Exported so the cadence choice is unit-testable on its own.
+ */
+export const resolveDecayPeriodMs = (fastMode: boolean): number =>
+  fastMode ? ONE_MINUTE_MS : ONE_DAY_MS;
+
+/**
  * How much wall-clock time one "day" of decline represents. THE ONE TUNABLE.
  * Testing compresses the clock, never the rates -- so a test run exercises the
  * real curve, just faster. The whole ladder is observable in ~11 minutes.
  *
- * SHIPPING THIS AS ONE_MINUTE_MS PUTS EVERY PET IN THE DEATH ANIMATION
- * OVERNIGHT. IS_TEST_DECAY_PERIOD drives a loud in-app banner so a wrong
- * value cannot survive a build review.
+ * Production cadence (`ONE_DAY_MS`) is the default. Set EXPO_PUBLIC_DECAY_FAST=1
+ * for the ~11-minute QA clock. IS_TEST_DECAY_PERIOD drives a loud in-app banner
+ * so a fast build cannot ship unnoticed.
  */
-export const DECAY_PERIOD_MS = ONE_MINUTE_MS; // <- flip to ONE_DAY_MS to ship
+export const DECAY_PERIOD_MS = resolveDecayPeriodMs(isDecayFastMode());
 
 export const IS_TEST_DECAY_PERIOD = DECAY_PERIOD_MS !== ONE_DAY_MS;
 

@@ -186,17 +186,17 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: 40 + HOME_INDICATOR_INSET }]}>
-        {/* Deletes itself the moment DECAY_PERIOD_MS goes back to a real day.
-            Shipping the compressed clock would put every pet in the death
-            animation overnight, so this is deliberately impossible to miss. */}
+        {/* Only shows when EXPO_PUBLIC_DECAY_FAST is set. Production cadence is the
+            default now, so a normal build never renders this — but a QA build on
+            the compressed clock must be impossible to mistake for the real one. */}
         {IS_TEST_DECAY_PERIOD ? (
           <View style={styles.testBanner}>
             <Text style={styles.testBannerTitle}>
               TEST MODE — one day of decline per {DECAY_PERIOD_LABEL}
             </Text>
             <Text style={styles.testBannerBody}>
-              Decline is running on a compressed clock. Set DECAY_PERIOD_MS to ONE_DAY_MS in
-              packages/core/src/domain/decay.ts before shipping.
+              Decline is running on the compressed QA clock. Unset EXPO_PUBLIC_DECAY_FAST
+              (or set it to 0) and rebuild for real one-day-per-day cadence.
             </Text>
           </View>
         ) : null}

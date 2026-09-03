@@ -50,6 +50,10 @@
 .mood-sleepy .pet-face{animation-duration:4.4s;background:#b98b76;box-shadow:inset 0 -10px #a97a67}.mood-sleepy .pet-face:before,.mood-sleepy .pet-face:after{height:4px;top:56px;animation:none;transform:scaleY(1)}.mood-hungry .pet-aura{background:#e3c9a6}.mood-bright .pet-aura{background:#c8e6cc}
 .activity-analyzing .pet-face{animation:pet-curious 1.6s ease-in-out infinite}@keyframes pet-curious{0%,100%{transform:rotate(0) translateY(0)}50%{transform:rotate(-6deg) translateY(-3px)}}.activity-workout .pet-face{animation:pet-flex .5s ease-in-out 2}@keyframes pet-flex{0%,100%{transform:scale(1,1)}50%{transform:scale(1.08,.94)}}.activity-exploring .pet-face{animation:pet-hop .5s ease-in-out 2}@keyframes pet-hop{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-14px) rotate(-6deg)}}
 .pet-eating .pet-cheek{opacity:1;animation:cheek-puff .3s ease-in-out 5}@keyframes cheek-puff{0%,100%{transform:scale(1)}50%{transform:scale(1.5)}}
+/* Graduated decline: --decline is 0 (well) to 1 (at death's door). The pet loses
+   saturation and a little brightness, and its aura fades, the further it drops —
+   a progressive read instead of one that only appears at the very end. */
+.pet-stage{--decline:0}.pet-stage .pet-face,.pet-stage .pet-ear{filter:saturate(calc(1 - .72*var(--decline))) brightness(calc(1 - .12*var(--decline)));transition:filter .6s ease}.pet-stage .pet-aura{opacity:calc(.7 - .5*var(--decline))}.decline-critical .pet-face{filter:saturate(.2) brightness(.85) grayscale(.4)}
 @media(prefers-reduced-motion: reduce){.pet-face,.pet-face:before,.pet-face:after,.pet-aura{animation:none!important}}
 .meal-mode-tabs{display:flex;gap:8px;margin:20px 0 4px;border-bottom:1px solid #dedbd3}.meal-mode-tabs button{border:0;background:none;padding:10px 4px;color:#8a918c;font:500 12px 'DM Mono';cursor:pointer;border-bottom:2px solid transparent}.meal-mode-tabs .mode-active{color:#26312d;border-bottom-color:#d85d45}
 .food-search-form{display:flex;gap:10px;margin-top:16px}.food-search-form input{flex:1;padding:12px 14px;border:1px solid #c7cdc5;background:#fffdf8;font:14px 'DM Sans';color:#26312d}

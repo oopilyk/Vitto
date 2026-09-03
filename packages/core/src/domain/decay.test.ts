@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DECAY_FAST_ENV_KEY,
   DECAY_PERIOD_MS,
   DECAY_PER_DAY,
+  DECAY_TICK_MS,
+  IS_TEST_DECAY_PERIOD,
   MAX_DECAY_DAYS,
   MIN_LIVING_HEALTH,
+  ONE_DAY_MS,
+  ONE_MINUTE_MS,
   applyTimeDecay,
+  isDecayFastMode,
+  resolveDecayPeriodMs,
 } from './decay';
 import { createPet } from './pet';
 
@@ -140,3 +147,39 @@ describe('applyTimeDecay', () => {
 
 /** Mirrors the regen half of the health formula for the all-thriving case. */
 const clampedRegen = (health: number, days: number) => Math.round(health + 3 * days);
+
+describe('decay cadence', () => {
+  it('ships production cadence by default: one decline day is one real day', () => {
+    expect(DECAY_PERIOD_MS).toBe(ONE_DAY_MS);
+    expect(IS_TEST_DECAY_PERIOD).toBe(false);
+  });
+
+  it('keeps the UI tick at a sane 60s under production cadence', () => {
+    expect(DECAY_TICK_MS).toBe(60_000);
+  });
+
+  it('maps the fast-mode flag to the compressed ~11-minute clock', () => {
+    expect(resolveDecayPeriodMs(false)).toBe(ONE_DAY_MS);
+    expect(resolveDecayPeriodMs(true)).toBe(ONE_MINUTE_MS);
+  });
+
+  it('only turns the fast clock on for an explicit opt-in value', () => {
+    expect(isDecayFastMode({})).toBe(false);
+    expect(isDecayFastMode({ [DECAY_FAST_ENV_KEY]: undefined })).toBe(false);
+    expect(isDecayFastMode({ [DECAY_FAST_ENV_KEY]: '0' })).toBe(false);
+    expect(isDecayFastMode({ [DECAY_FAST_ENV_KEY]: 'false' })).toBe(false);
+    expect(isDecayFastMode({ [DECAY_FAST_ENV_KEY]: '1' })).toBe(true);
+    expect(isDecayFastMode({ [DECAY_FAST_ENV_KEY]: 'true' })).toBe(true);
+  });
+
+  it('exercises the same curve regardless of cadence, since tests scale by DECAY_PERIOD_MS', () => {
+    // This is the guarantee that flipping cadence did not move the rates: a full
+    // decline day still costs exactly DECAY_PER_DAY on every need.
+    const pet = { ...createPet('user-1', 'Miso'), nutrition: 100, energy: 100, happiness: 100 };
+    const oneDay = new Date(new Date(pet.adoptedAt).getTime() + DECAY_PERIOD_MS);
+    const decayed = applyTimeDecay(pet, oneDay);
+    expect(decayed.nutrition).toBe(100 - DECAY_PER_DAY.nutrition);
+    expect(decayed.energy).toBe(100 - DECAY_PER_DAY.energy);
+    expect(decayed.happiness).toBe(100 - DECAY_PER_DAY.happiness);
+  });
+});
