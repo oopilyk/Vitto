@@ -238,13 +238,31 @@ export function PetAvatar({
   // it as their anchor and add their own clearance, so none of them has to know
   // how the sprite sits inside its cell.
   const headOffset = size * (0.5 - SPRITE_ART_TOP);
-  const overlays = new Set(condition.overlays);
+  /**
+   * The same precedence `animationFor` applies to the sprite, extended to
+   * everything else the condition drives. A care moment is the pet doing
+   * something, so while one plays the ailment dressing stands down: a rain cloud
+   * parked over a pet mid-meal, or a grey dying wash over a cheering one, reads
+   * as the care moment having accomplished nothing. `analyzing` is not in the
+   * list on purpose — it leaves the sprite on the ailment band too, since
+   * nothing has actually been given to the pet yet.
+   */
+  const activityOutranksCondition =
+    activity === 'celebrating' ||
+    activity === 'eating' ||
+    activity === 'workout' ||
+    activity === 'exploring';
+  const overlays = new Set(activityOutranksCondition ? [] : condition.overlays);
 
   return (
     <View style={styles.stage}>
       {children}
       <PetAura
-        color={condition.primary ? AURA_BY_AILMENT[condition.primary] : AURA_BY_MOOD[pet.mood]}
+        color={
+          condition.primary && !activityOutranksCondition
+            ? AURA_BY_AILMENT[condition.primary]
+            : AURA_BY_MOOD[pet.mood]
+        }
         size={size}
       />
       {feedingImage ? (
@@ -260,7 +278,7 @@ export function PetAvatar({
         <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
         {/* Inside the window on purpose: the wash is a tinted copy of the frame
             stacked on it, so it must share the sprite's exact position. */}
-        {condition.primary === 'dying' ? (
+        {condition.primary === 'dying' && !activityOutranksCondition ? (
           <Fading active severity={condition.severity} sheet={sheet} frame={currentFrame} size={size} />
         ) : null}
       </Animated.View>
