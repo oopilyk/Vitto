@@ -332,14 +332,14 @@ const OTTER: PetSheet = {
   animations: {
     // Body holds still; the face does the work. Eases out to [0,4] and back so
     // it reads as the otter emoting, not fidgeting.
-    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [0, 3], [0, 2], [0, 1]],
+    idle: [[0, 0], [0, 1], [0,3]],
     // The arms-up, open-mouthed band with the sparkles. Only three drawn frames,
     // so it bounces off the last one rather than cutting straight back.
     cheer: [[2, 3], [2, 4], [2, 5], [2, 4]],
     // The dash band. [4,5] is left out — it is a dizzy sit, not a stride.
     move: [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4]],
     // Curled asleep. Two near-identical tight curls, so the loop is a breath.
-    rest: [[7, 0], [7, 5]],
+    rest: [[7, 0]],
     // Real dizzy art — spiral eyes and its own orbiting stars, so `selfDrawn`
     // drops the DizzyOrbit overlay the shiba leans on.
     unwell: [[6, 0], [6, 1]],
@@ -347,7 +347,7 @@ const OTTER: PetSheet = {
     // Stagger, stagger, flop forward, down for good. [9,3]/[9,4] are skipped
     // (near-duplicate / muddy); [9,5] is the clean X-eyed collapse
     // HOLDS_LAST_FRAME parks on.
-    faint: [[9, 0], [9, 1], [9, 2], [9, 5]],
+    faint: [[9, 1], [9, 2], [9, 5]],
   },
   selfDrawn: ['foggy'],
   // Short bands, same as the cat — the shared table is paced for the dogs.
