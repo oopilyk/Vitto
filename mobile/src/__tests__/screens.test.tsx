@@ -812,15 +812,31 @@ describe('pet sprite', () => {
     expect(sheetForPet(baby).label).toBe('Bichon');
   });
 
-  it('draws the bichon runner from exactly the same frames as its base form', () => {
-    // The runner sheet was drawn to the base sheet's layout, so evolving must
-    // change the art and nothing else. Comparing the maps catches a divergence
-    // that the per-frame bounds check above would not.
+  it('gives the bichon runner its own art and its own frame map', () => {
+    // The two are free to animate differently, so the maps are deliberately not
+    // compared for equality — only that the evolution is a separate sheet with a
+    // frame map of its own, rather than an alias of the base's.
     const { sheetForPet } = require('../components/petSprites');
     const base = sheetForPet({ id: 'p', breed: 'bichon', level: 5 });
     const runner = sheetForPet({ id: 'p', breed: 'bichon', level: 12, endurance: 80, strength: 10 });
     expect(runner.source).not.toBe(base.source);
-    expect(runner.animations).toEqual(base.animations);
+    expect(runner.animations).not.toBe(base.animations);
+  });
+
+  it('defines every animation on every sheet, evolutions included', () => {
+    // Now that each sheet carries its own map, a form can lose an animation
+    // without anything else noticing until the pet renders nothing in that state.
+    const animations = ['idle', 'cheer', 'move', 'rest', 'unwell', 'sad', 'faint'];
+    const everySheet = PET_SHEETS.flatMap((sheet: any) => [
+      sheet,
+      ...Object.values(sheet.evolutions ?? {}),
+    ]);
+    for (const sheet of everySheet as any[]) {
+      for (const name of animations) {
+        expect(Array.isArray(sheet.animations[name])).toBe(true);
+        expect(sheet.animations[name].length).toBeGreaterThan(0);
+      }
+    }
   });
 
   it('has no evolution for breeds without evolved art, however trained', () => {
