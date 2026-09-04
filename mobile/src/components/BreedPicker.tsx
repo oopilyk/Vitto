@@ -10,8 +10,8 @@ interface Props {
   size?: number;
 }
 
-/** Side-by-side portraits — the choice is visual, so show the actual sprite. */
-export function BreedPicker({ value, onChange, size = 96 }: Props) {
+/** Portraits in a wrapping grid — the choice is visual, so show the actual sprite. */
+export function BreedPicker({ value, onChange, size = 84 }: Props) {
   return (
     <View style={styles.row}>
       {PET_SHEETS.map((sheet) => {
@@ -35,9 +35,11 @@ export function BreedPicker({ value, onChange, size = 96 }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   option: {
-    flex: 1,
+    // Two per row: enough width for the portrait, and it wraps cleanly at 3 or 4.
+    flexGrow: 1,
+    flexBasis: '45%',
     minWidth: 0,
     alignItems: 'center',
     paddingVertical: 12,

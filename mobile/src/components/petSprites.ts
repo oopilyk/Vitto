@@ -2,9 +2,10 @@ import type { ImageSourcePropType } from 'react-native';
 import { getEvolutionStage, getPetBuild, type PetAilment, type PetBreed, type PetBuild, type PetState } from '@vitto/core';
 
 /**
- * Every sheet is a 4-column grid of 128px cells. Rows come in bands, and the
- * frame lists below were read off the sheets rather than assumed — the sheets do
- * not agree on how many frames a band has, or even which bands they own.
+ * The dogs and cat are 4-column grids of square cells; the otter is a 6x10 grid
+ * and carries its own `columns`/`rows`. Rows come in bands, and the frame lists
+ * below were read off the sheets rather than assumed — the sheets do not agree on
+ * how many frames a band has, or even which bands they own.
  *
  * The bands, verified cell by cell against the artwork:
  *
@@ -65,6 +66,14 @@ export interface PetSheet {
   name: PetBreed;
   label: string;
   source: ImageSourcePropType;
+  /**
+   * Grid shape of this sheet, when it is not the 4x11 the dogs and cat use. Only
+   * the shape matters — `SpriteFrame` derives every pixel from `size`, so the
+   * cell's actual resolution cancels out (see the note on the orangeCat sheet).
+   * The otter is a 6x10 sheet; everything else omits these and takes the default.
+   */
+  columns?: number;
+  rows?: number;
   animations: Record<PetAnimation, readonly Frame[]>;
   /**
    * Ailments this sheet's own art already depicts, so PetAvatar can drop the
@@ -296,8 +305,57 @@ const ORANGE_CAT: PetSheet = {
   frameMs: { idle: 200, unwell: 340 },
 };
 
+const OTTER: PetSheet = {
+  /**
+   * A 6-column, 10-row sheet — its own shape, so `columns`/`rows` are set. The
+   * source art was not on a clean grid (poses drifted cell to cell and the wide
+   * lying poses overran their column), so it was repacked: each pose lifted onto
+   * a uniform square cell, centred and stood on a common floor line. The bands,
+   * as repacked:
+   *
+   *   row 0  standing idle (6, last is a back view)
+   *   row 1  sitting (6, unused)
+   *   row 2  [0] wave  [1] empty  [2] turn  [3-5] arms-up cheer with sparkles
+   *   row 3  leaping play (6, unused — cheer already reads as celebration)
+   *   row 4  run / swim dash (5, then [4,5] is a dizzy sit)
+   *   row 5  crying, hunched (6)
+   *   row 6  dizzy: spiral eyes, orbiting stars (3, then a lying beat + scraps)
+   *   row 7  curled asleep (6 — a real sleep pose, like the cat's)
+   *   row 8  tearful sitting (4, then a back view + scraps)
+   *   row 9  stagger → flop → out cold, X eyes (col 4 is messy; [9,5] holds)
+   */
+  name: 'otter',
+  label: 'Otter',
+  source: require('../../assets/pet/otter.png'),
+  columns: 6,
+  rows: 10,
+  animations: {
+    // Body holds still; the face does the work. Eases out to [0,4] and back so
+    // it reads as the otter emoting, not fidgeting.
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [0, 3], [0, 2], [0, 1]],
+    // The arms-up, open-mouthed band with the sparkles. Only three drawn frames,
+    // so it bounces off the last one rather than cutting straight back.
+    cheer: [[2, 3], [2, 4], [2, 5], [2, 4]],
+    // The dash band. [4,5] is left out — it is a dizzy sit, not a stride.
+    move: [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4]],
+    // Curled asleep. Two near-identical tight curls, so the loop is a breath.
+    rest: [[7, 0], [7, 5]],
+    // Real dizzy art — spiral eyes and its own orbiting stars, so `selfDrawn`
+    // drops the DizzyOrbit overlay the shiba leans on.
+    unwell: [[6, 0], [6, 1]],
+    sad: [[5, 0], [5, 1], [5, 2], [5, 3]],
+    // Stagger, stagger, flop forward, down for good. [9,3]/[9,4] are skipped
+    // (near-duplicate / muddy); [9,5] is the clean X-eyed collapse
+    // HOLDS_LAST_FRAME parks on.
+    faint: [[9, 0], [9, 1], [9, 2], [9, 5]],
+  },
+  selfDrawn: ['foggy'],
+  // Short bands, same as the cat — the shared table is paced for the dogs.
+  frameMs: { unwell: 340, sad: 340 },
+};
+
 /** Adoptable companions, in the order the breed picker offers them. */
-export const PET_SHEETS: PetSheet[] = [BICHON, SHIBA, ORANGE_CAT];
+export const PET_SHEETS: PetSheet[] = [BICHON, SHIBA, ORANGE_CAT, OTTER];
 
 export const sheetByBreed = (breed: PetBreed): PetSheet =>
   PET_SHEETS.find((sheet) => sheet.name === breed) ?? PET_SHEETS[0];

@@ -854,13 +854,15 @@ describe('pet sprite', () => {
     ]);
     expect(everySheet.length).toBeGreaterThan(PET_SHEETS.length);
     for (const sheet of everySheet as any[]) {
+      const maxRows = sheet.rows ?? 11;
+      const maxColumns = sheet.columns ?? 4;
       for (const frames of Object.values(sheet.animations) as [number, number][][]) {
         expect(frames.length).toBeGreaterThan(0);
         for (const [row, column] of frames) {
           expect(row).toBeGreaterThanOrEqual(0);
-          expect(row).toBeLessThan(11);
+          expect(row).toBeLessThan(maxRows);
           expect(column).toBeGreaterThanOrEqual(0);
-          expect(column).toBeLessThan(4);
+          expect(column).toBeLessThan(maxColumns);
         }
       }
     }

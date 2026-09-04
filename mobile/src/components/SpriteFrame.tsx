@@ -19,6 +19,8 @@ interface Props {
  */
 export function SpriteFrame({ sheet, frame, size, tintColor }: Props) {
   const scale = size / CELL;
+  const columns = sheet.columns ?? SHEET_COLUMNS;
+  const rows = sheet.rows ?? SHEET_ROWS;
   const [row, column] = frame;
 
   return (
@@ -28,8 +30,8 @@ export function SpriteFrame({ sheet, frame, size, tintColor }: Props) {
         tintColor={tintColor}
         resizeMode="stretch"
         style={{
-          width: CELL * SHEET_COLUMNS * scale,
-          height: CELL * SHEET_ROWS * scale,
+          width: CELL * columns * scale,
+          height: CELL * rows * scale,
           marginLeft: -column * CELL * scale,
           marginTop: -row * CELL * scale,
         }}

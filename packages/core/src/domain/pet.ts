@@ -3,9 +3,9 @@ import { newId } from './ids';
 export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
 
 /** Which drawn companion the pet is. Optional: pets adopted before the picker have none. */
-export type PetBreed = 'bichon' | 'shiba' | 'orangeCat';
+export type PetBreed = 'bichon' | 'shiba' | 'orangeCat' | 'otter';
 
-export const PET_BREEDS: PetBreed[] = ['bichon', 'shiba', 'orangeCat'];
+export const PET_BREEDS: PetBreed[] = ['bichon', 'shiba', 'orangeCat', 'otter'];
 
 export interface PetState {
   id: string;
