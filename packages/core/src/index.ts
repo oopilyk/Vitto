@@ -2,6 +2,7 @@
 // Supabase client, which each app injects through `configureCore`.
 export * from './domain/health';
 export * from './domain/pet';
+export * from './domain/friends';
 export * from './domain/petHealthEngine';
 export * from './domain/strengthProgression';
 export * from './domain/petStats';
