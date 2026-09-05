@@ -823,6 +823,71 @@ describe('pet sprite', () => {
     expect(runner.animations).not.toBe(base.animations);
   });
 
+  it('evolves a grown, strength-built cat onto the lifter sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const lifter = { id: 'p', breed: 'orangeCat', level: 12, strength: 80, endurance: 10, mind: 10 };
+    expect(sheetForPet(lifter).label).toBe('Orange Cat · Lifter');
+  });
+
+  it('evolves a grown, mind-built otter onto the scholar sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const scholar = { id: 'p', breed: 'otter', level: 12, mind: 80, endurance: 10, strength: 10 };
+    expect(sheetForPet(scholar).label).toBe('Otter · Scholar');
+  });
+
+  it('evolves a grown, mind-built shiba onto the scholar sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const scholar = { id: 'p', breed: 'shiba', level: 12, mind: 80, endurance: 10, strength: 10 };
+    expect(sheetForPet(scholar).label).toBe('Shiba · Scholar');
+  });
+
+  it('keeps a baby lifter on its base sheet however it has been trained', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const baby = { id: 'p', breed: 'bichon', level: 5, strength: 80, endurance: 10, mind: 10 };
+    expect(sheetForPet(baby).label).toBe('Bichon');
+  });
+
+  it('gives every breed a lifter and a scholar form', () => {
+    for (const sheet of PET_SHEETS as any[]) {
+      expect(sheet.evolutions?.lifter?.label).toBe(`${sheet.label} · Lifter`);
+      expect(sheet.evolutions?.scholar?.label).toBe(`${sheet.label} · Scholar`);
+      expect(sheet.evolutions.lifter.name).toBe(sheet.name);
+      expect(sheet.evolutions.scholar.name).toBe(sheet.name);
+    }
+  });
+
+  it('derives the lifter and scholar sheets from the base art and frame map', () => {
+    // These sheets are generated from the base art cell for cell, so their frame
+    // maps must match the base's exactly — but as a copy, not the same object, so
+    // a derived form can still be given a map of its own later.
+    const { sheetForPet } = require('../components/petSprites');
+    const base = sheetForPet({ id: 'p', breed: 'bichon', level: 5 });
+    const lifter = sheetForPet({ id: 'p', breed: 'bichon', level: 12, strength: 80, endurance: 10, mind: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'bichon', level: 12, mind: 80, endurance: 10, strength: 10 });
+    for (const derived of [lifter, scholar]) {
+      expect(derived.source).not.toBe(base.source);
+      expect(derived.animations).not.toBe(base.animations);
+      expect(derived.animations).toEqual(base.animations);
+    }
+    expect(lifter.source).not.toBe(scholar.source);
+  });
+
+  it('keeps the otter grid shape and timings on its derived sheets', () => {
+    // A 6x10 sheet read with the default 4x11 grid slices every cell wrong, so
+    // the derived otters have to carry the base's shape, not just its frames.
+    const { sheetForPet } = require('../components/petSprites');
+    const base = sheetForPet({ id: 'p', breed: 'otter', level: 5 });
+    const lifter = sheetForPet({ id: 'p', breed: 'otter', level: 12, strength: 80, endurance: 10, mind: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'otter', level: 12, mind: 80, endurance: 10, strength: 10 });
+    for (const derived of [lifter, scholar]) {
+      expect(derived.columns).toBe(6);
+      expect(derived.rows).toBe(10);
+      expect(derived.selfDrawn).toEqual(base.selfDrawn);
+      expect(derived.frameMs).toEqual(base.frameMs);
+      expect(derived.animations).toEqual(base.animations);
+    }
+  });
+
   it('defines every animation on every sheet, evolutions included', () => {
     // Now that each sheet carries its own map, a form can lose an animation
     // without anything else noticing until the pet renders nothing in that state.
@@ -839,10 +904,12 @@ describe('pet sprite', () => {
     }
   });
 
-  it('has no evolution for breeds without evolved art, however trained', () => {
+  it('keeps a build with no evolved art on the base sheet, however trained', () => {
+    // The shiba has lifter and scholar art but no runner, so an endurance build
+    // grows up and stays exactly where it was.
     const { sheetForPet } = require('../components/petSprites');
-    const shiba = { id: 'p', breed: 'shiba', level: 40, endurance: 90, strength: 10 };
-    expect(sheetForPet(shiba).name).toBe('shiba');
+    const shiba = { id: 'p', breed: 'shiba', level: 40, endurance: 90, strength: 10, mind: 10 };
+    expect(sheetForPet(shiba).label).toBe('Shiba');
   });
 
   it('only references frames that exist on the sheet', () => {

@@ -183,18 +183,50 @@ describe('getPetBuild', () => {
   it('needs a clear lead, so even training stays balanced', () => {
     expect(getPetBuild({ ...base, endurance: 60, strength: 55 })).toBe('balanced');
   });
+
+  it('calls a pet a lifter once strength is high and clearly ahead of the rest', () => {
+    expect(getPetBuild({ ...base, strength: 60, endurance: 20, mind: 20 })).toBe('lifter');
+  });
+
+  it('calls a pet a scholar once mind is high and clearly ahead of the rest', () => {
+    expect(getPetBuild({ ...base, mind: 60, endurance: 20, strength: 20 })).toBe('scholar');
+  });
+
+  it('needs strength or mind to be substantial, not merely ahead', () => {
+    expect(getPetBuild({ ...base, strength: 30, endurance: 2, mind: 2 })).toBe('balanced');
+    expect(getPetBuild({ ...base, mind: 30, endurance: 2, strength: 2 })).toBe('balanced');
+  });
+
+  it('stays balanced when two stats are high but close together', () => {
+    expect(getPetBuild({ ...base, strength: 60, mind: 55, endurance: 10 })).toBe('balanced');
+    expect(getPetBuild({ ...base, mind: 60, endurance: 55, strength: 10 })).toBe('balanced');
+  });
+
+  it('needs a lead over BOTH rivals, not just one of them', () => {
+    // Endurance is far ahead of strength, but mind is right behind it.
+    expect(getPetBuild({ ...base, endurance: 60, strength: 10, mind: 52 })).toBe('balanced');
+  });
 });
 
 describe('hasEvolved', () => {
-  const runner = { level: 1, endurance: 60, strength: 20 };
+  const runner = { level: 1, endurance: 60, strength: 20, mind: 20 };
+  const lifter = { level: 1, strength: 60, endurance: 20, mind: 20 };
+  const scholar = { level: 1, mind: 60, endurance: 20, strength: 20 };
 
   it('holds the evolution back until the pet is past baby', () => {
     expect(hasEvolved(runner)).toBe(false);
     expect(hasEvolved({ ...runner, level: 11 })).toBe(true);
   });
 
+  it('treats a lifter and a scholar the same way', () => {
+    expect(hasEvolved(lifter)).toBe(false);
+    expect(hasEvolved({ ...lifter, level: 11 })).toBe(true);
+    expect(hasEvolved(scholar)).toBe(false);
+    expect(hasEvolved({ ...scholar, level: 11 })).toBe(true);
+  });
+
   it('stays false for a grown pet with no specialism', () => {
-    expect(hasEvolved({ level: 40, endurance: 20, strength: 20 })).toBe(false);
+    expect(hasEvolved({ level: 40, endurance: 20, strength: 20, mind: 20 })).toBe(false);
   });
 });
 
@@ -211,9 +243,34 @@ describe('applyForcedForm', () => {
     expect(hasEvolved(forced)).toBe(true);
   });
 
+  it('forces a lifter that reads as evolved', () => {
+    const forced = applyForcedForm(pet, 'lifter');
+    expect(getPetBuild(forced)).toBe('lifter');
+    expect(hasEvolved(forced)).toBe(true);
+  });
+
+  it('forces a scholar that reads as evolved', () => {
+    const forced = applyForcedForm(pet, 'scholar');
+    expect(getPetBuild(forced)).toBe('scholar');
+    expect(hasEvolved(forced)).toBe(true);
+  });
+
   it('previews a real runner as unevolved when a balanced form is asked for', () => {
-    const realRunner = { ...pet, level: 40, endurance: 90, strength: 5 };
+    const realRunner = { ...pet, level: 40, endurance: 90, strength: 5, mind: 5 };
     expect(hasEvolved(applyForcedForm(realRunner, 'adult'))).toBe(false);
+  });
+
+  it('previews a real lifter or scholar as unevolved when a balanced form is asked for', () => {
+    const realLifter = { ...pet, level: 40, strength: 90, endurance: 5, mind: 5 };
+    const realScholar = { ...pet, level: 40, mind: 90, endurance: 5, strength: 5 };
+    expect(hasEvolved(applyForcedForm(realLifter, 'teen'))).toBe(false);
+    expect(hasEvolved(applyForcedForm(realScholar, 'adult'))).toBe(false);
+  });
+
+  it('lets a forced specialism override whichever build the pet really has', () => {
+    const realScholar = { ...pet, level: 40, mind: 90, endurance: 5, strength: 5 };
+    expect(getPetBuild(applyForcedForm(realScholar, 'lifter'))).toBe('lifter');
+    expect(getPetBuild(applyForcedForm(realScholar, 'runner'))).toBe('runner');
   });
 
   it('maps each stage to a level that lands in it', () => {

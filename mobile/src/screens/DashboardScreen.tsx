@@ -109,6 +109,8 @@ const DEV_FORM_OPTIONS: { value: DevFormChoice; label: string; detail?: string }
   { value: 'teen', label: 'Teen' },
   { value: 'adult', label: 'Adult' },
   { value: 'runner', label: 'Runner', detail: 'evolved' },
+  { value: 'lifter', label: 'Lifter', detail: 'evolved · strength' },
+  { value: 'scholar', label: 'Scholar', detail: 'evolved · mind' },
 ];
 
 /** The dashboard shows a preview; the profile has the full record. */

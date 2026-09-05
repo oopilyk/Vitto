@@ -79,30 +79,38 @@ export const EVOLUTION_STAGE_LABEL: Record<EvolutionStage, string> = {
  * chosen: the point is that the pet reflects the user's own habits back at them.
  *
  * `balanced` is the absence of a specialism rather than a build of its own, and
- * is what a pet keeps while nothing dominates. Only builds with evolved artwork
- * are listed — a build with no sheet behind it would promise a change that never
- * visibly arrives.
+ * is what a pet keeps while nothing dominates. Every specialism listed here has
+ * evolved artwork for all four breeds — a build with no sheet behind it would
+ * promise a change that never visibly arrives, so add the art before the build.
  */
-export type PetBuild = 'balanced' | 'runner';
+export type PetBuild = 'balanced' | 'runner' | 'lifter' | 'scholar';
 
 /**
- * Endurance has to be both substantial and clearly ahead of strength. Both halves
- * matter: the floor stops a level-1 pet (endurance 16, strength 14) from being
- * declared a runner on a two-point lead, and the margin stops a pet training
- * everything evenly from tipping into a specialism on noise.
+ * A specialism's stat has to be both substantial and clearly ahead of the other
+ * two. Both halves matter: the floor stops a level-1 pet (endurance 16, strength
+ * 14) from being declared a runner on a two-point lead, and the margin stops a pet
+ * training everything evenly from tipping into a specialism on noise. Because the
+ * lead is required over BOTH rivals, at most one specialism can ever qualify.
  */
-const RUNNER_MIN_ENDURANCE = 45;
-const RUNNER_LEAD_OVER_STRENGTH = 12;
+const BUILD_MIN_STAT = 45;
+const BUILD_LEAD_OVER_OTHERS = 12;
 
-export const getPetBuild = (pet: Pick<PetState, 'endurance' | 'strength'>): PetBuild =>
-  pet.endurance >= RUNNER_MIN_ENDURANCE &&
-  pet.endurance - pet.strength >= RUNNER_LEAD_OVER_STRENGTH
-    ? 'runner'
-    : 'balanced';
+const dominates = (stat: number, ...others: number[]): boolean =>
+  stat >= BUILD_MIN_STAT && others.every((other) => stat - other >= BUILD_LEAD_OVER_OTHERS);
+
+export const getPetBuild = (pet: Pick<PetState, 'endurance' | 'strength' | 'mind'>): PetBuild => {
+  const { endurance, strength, mind } = pet;
+  if (dominates(endurance, strength, mind)) return 'runner';
+  if (dominates(strength, endurance, mind)) return 'lifter';
+  if (dominates(mind, endurance, strength)) return 'scholar';
+  return 'balanced';
+};
 
 export const PET_BUILD_LABEL: Record<PetBuild, string> = {
   balanced: 'Balanced',
   runner: 'Runner',
+  lifter: 'Lifter',
+  scholar: 'Scholar',
 };
 
 /**
@@ -110,44 +118,60 @@ export const PET_BUILD_LABEL: Record<PetBuild, string> = {
  * into a specialism. Kept here rather than in the sprite layer so the copy on the
  * dashboard and the sheet the avatar draws can never disagree about it.
  */
-export const hasEvolved = (pet: Pick<PetState, 'level' | 'endurance' | 'strength'>): boolean =>
-  getEvolutionStage(pet.level) !== 'baby' && getPetBuild(pet) !== 'balanced';
+export const hasEvolved = (
+  pet: Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'>,
+): boolean => getEvolutionStage(pet.level) !== 'baby' && getPetBuild(pet) !== 'balanced';
 
 /**
  * DEV TOOL -- which form to preview. Evolutions are earned over weeks of real
  * training, so without this the only way to see one is to wait for it.
  */
-export type ForcedPetForm = 'baby' | 'teen' | 'adult' | 'runner';
+export type ForcedPetForm = 'baby' | 'teen' | 'adult' | 'runner' | 'lifter' | 'scholar';
 
 /** Enough to clear each stage's threshold, and comfortably inside the next. */
 const FORCED_FORM_LEVEL: Record<ForcedPetForm, number> = {
   baby: 1,
   teen: TEEN_LEVEL_THRESHOLD,
   adult: ADULT_LEVEL_THRESHOLD,
-  // A runner has to be past `baby` to show its evolved sheet at all.
+  // A specialism has to be past `baby` to show its evolved sheet at all.
   runner: TEEN_LEVEL_THRESHOLD,
+  lifter: TEEN_LEVEL_THRESHOLD,
+  scholar: TEEN_LEVEL_THRESHOLD,
+};
+
+/** Which of the three stats `getPetBuild` reads a forced specialism pushes up. */
+const FORCED_FORM_STAT: Partial<Record<ForcedPetForm, 'endurance' | 'strength' | 'mind'>> = {
+  runner: 'endurance',
+  lifter: 'strength',
+  scholar: 'mind',
 };
 
 /**
- * DEV TOOL -- rewrites level and the two stats `getPetBuild` reads, so the real
+ * DEV TOOL -- rewrites level and the three stats `getPetBuild` reads, so the real
  * `sheetForPet` path resolves to the requested form and nothing is special-cased.
  *
  * Moves the STATS, not the sheet, for the same reason `applyForcedAilment` does:
  * the sprite, the stage copy and the stat bars then all agree with each other.
- * The balanced forms pin endurance and strength level with each other so a pet
- * that really is a runner still previews as unevolved when asked to.
+ * A specialism gets its stat well past the floor with the other two held low; the
+ * balanced forms pin all three level with each other so a pet that really is a
+ * runner, lifter or scholar still previews as unevolved when asked to.
  *
  * Display only. Apply it to the projection being rendered, never to a pet on its
  * way to being saved.
  */
 export const applyForcedForm = (pet: PetState, form: ForcedPetForm | null): PetState => {
   if (!form) return pet;
-  const runner = form === 'runner';
+  const dominant = FORCED_FORM_STAT[form];
+  const statFor = (stat: 'endurance' | 'strength' | 'mind'): number => {
+    if (!dominant) return 20;
+    return stat === dominant ? BUILD_MIN_STAT + 20 : 10;
+  };
   return {
     ...pet,
     level: FORCED_FORM_LEVEL[form],
-    endurance: runner ? RUNNER_MIN_ENDURANCE + 20 : 20,
-    strength: runner ? 10 : 20,
+    endurance: statFor('endurance'),
+    strength: statFor('strength'),
+    mind: statFor('mind'),
   };
 };
 
