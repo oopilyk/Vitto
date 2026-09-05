@@ -984,6 +984,99 @@ describe('friends screen', () => {
     expect(rendered).toContain('Decline');
     tree.unmount();
   });
+
+  it('shows "no one found" for a search with no results', async () => {
+    friendsService.loadMyFriendRequests.mockResolvedValue([]);
+    friendsService.getMyUsername.mockResolvedValue('me');
+    friendsService.searchUsersByUsername.mockResolvedValue([]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+
+    const { TextInput } = require('react-native');
+    const searchInput = tree.root
+      .findAllByType(TextInput)
+      .find((node: any) => node.props.placeholder === 'Search a username');
+    expect(searchInput).toBeTruthy();
+
+    jest.useFakeTimers();
+    act(() => {
+      searchInput!.props.onChangeText('nobody');
+    });
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+    jest.useRealTimers();
+    // Flush the resolved searchUsersByUsername() promise.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(friendsService.searchUsersByUsername).toHaveBeenCalledWith('nobody');
+    expect(JSON.stringify(tree.toJSON())).toContain('No one found with that username.');
+    tree.unmount();
+  });
+
+  it('does not show "Add" for a search result who is already a friend or has a pending request', async () => {
+    friendsService.loadMyFriendRequests.mockResolvedValue([
+      {
+        id: 'r1',
+        requesterId: 'user-1',
+        addresseeId: 'user-2',
+        status: 'accepted',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+    friendsService.getMyUsername.mockResolvedValue('me');
+    friendsService.loadFriendProfile.mockResolvedValue({
+      id: 'user-2',
+      username: 'friend_two',
+      displayName: 'Friend Two',
+    });
+    friendsService.searchUsersByUsername.mockResolvedValue([
+      { id: 'user-2', username: 'friend_two', displayName: 'Friend Two' },
+    ]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+
+    const { TextInput } = require('react-native');
+    const searchInput = tree.root
+      .findAllByType(TextInput)
+      .find((node: any) => node.props.placeholder === 'Search a username');
+
+    jest.useFakeTimers();
+    act(() => {
+      searchInput!.props.onChangeText('friend');
+    });
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+    jest.useRealTimers();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const { Text: RNText } = require('react-native');
+    const addButtons = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .filter((node: any) => node.findAllByType(RNText).some((t: any) => t.props.children === 'Add'));
+    // Already an accepted friend -- the search result must show status text
+    // ("Friends"), never an actionable "Add" button.
+    expect(addButtons.length).toBe(0);
+    expect(JSON.stringify(tree.toJSON())).toContain('Friends');
+    tree.unmount();
+  });
 });
 
 describe('friend pet screen', () => {
