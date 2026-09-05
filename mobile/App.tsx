@@ -17,6 +17,8 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
+import { FriendsScreen } from './src/screens/FriendsScreen';
+import { FriendPetScreen } from './src/screens/FriendPetScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
@@ -47,6 +49,9 @@ type RootStackParamList = {
   Profile: undefined;
   // A drill-down off the dashboard, so it pushes rather than presenting as a modal.
   PetStats: undefined;
+  // Reached from Profile, same as Profile itself is reached from the dashboard.
+  Friends: undefined;
+  FriendPet: { friendUserId: string };
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -629,6 +634,9 @@ export default function App() {
               onSave={persistProfile}
               onClose={() => navigation.goBack()}
               onSignOut={isSupabaseConfigured && session ? logOut : undefined}
+              onOpenFriends={
+                isSupabaseConfigured && session ? () => navigation.navigate('Friends') : undefined
+              }
               appleHealthStatus={
                 Platform.OS === 'ios'
                   ? isAppleHealthConnected
@@ -645,6 +653,20 @@ export default function App() {
         <RootStack.Screen name="PetStats">
           {({ navigation }) => (
             <PetStatsScreen pet={livePet} events={events} onClose={() => navigation.goBack()} />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Friends">
+          {({ navigation }) => (
+            <FriendsScreen
+              currentUserId={userId}
+              onClose={() => navigation.goBack()}
+              onOpenFriendPet={(friendUserId) => navigation.navigate('FriendPet', { friendUserId })}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="FriendPet">
+          {({ navigation, route }) => (
+            <FriendPetScreen friendUserId={route.params.friendUserId} onClose={() => navigation.goBack()} />
           )}
         </RootStack.Screen>
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>

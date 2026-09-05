@@ -3,6 +3,7 @@
 export * from './domain/health';
 export * from './domain/pet';
 export * from './domain/friends';
+export * from './domain/friendRequests';
 export * from './domain/petHealthEngine';
 export * from './domain/strengthProgression';
 export * from './domain/petStats';
