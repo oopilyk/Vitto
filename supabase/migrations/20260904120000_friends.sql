@@ -43,9 +43,12 @@ drop policy if exists "View own friend requests" on public.friend_requests;
 create policy "View own friend requests" on public.friend_requests
   for select using (auth.uid() = requester_id or auth.uid() = addressee_id);
 
+-- `status = 'pending'` is pinned here (not just defaulted) so a caller cannot
+-- self-service-insert an already-'accepted' row and skip the addressee's
+-- consent step entirely.
 drop policy if exists "Users send friend requests as themselves" on public.friend_requests;
 create policy "Users send friend requests as themselves" on public.friend_requests
-  for insert with check (auth.uid() = requester_id and requester_id <> addressee_id);
+  for insert with check (auth.uid() = requester_id and requester_id <> addressee_id and status = 'pending');
 
 drop policy if exists "Addressee responds to a pending request" on public.friend_requests;
 create policy "Addressee responds to a pending request" on public.friend_requests
@@ -55,6 +58,28 @@ create policy "Addressee responds to a pending request" on public.friend_request
 drop policy if exists "Either party removes a friend request" on public.friend_requests;
 create policy "Either party removes a friend request" on public.friend_requests
   for delete using (auth.uid() = requester_id or auth.uid() = addressee_id);
+
+-- The UPDATE policy above only re-checks addressee_id/status on the new row --
+-- nothing stops the same UPDATE from also rewriting requester_id to name an
+-- arbitrary third party, forging an "accepted" relationship that party never
+-- agreed to. A trigger enforces identity columns are immutable after insert,
+-- independent of (and defensively redundant with) any future policy change.
+create or replace function public.lock_friend_request_identity()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.requester_id <> old.requester_id or new.addressee_id <> old.addressee_id then
+    raise exception 'requester_id and addressee_id cannot be changed on an existing friend_requests row';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists friend_requests_lock_identity on public.friend_requests;
+create trigger friend_requests_lock_identity
+  before update on public.friend_requests
+  for each row execute procedure public.lock_friend_request_identity();
 
 -- pets: keep the existing owner-only ALL policy untouched. Add a second,
 -- additive SELECT-only policy so an accepted friend can view (never edit) a
@@ -70,20 +95,13 @@ create policy "Friends view accepted friend pets" on public.pets
     )
   );
 
--- profiles: keep the existing owner-only ALL policy untouched. Add a second,
--- additive SELECT-only policy so a friend's display name/username can be
--- shown next to their pet. Username search for non-friends stays off this
--- table entirely -- see search_profiles below.
-drop policy if exists "Friends view accepted friend profiles" on public.profiles;
-create policy "Friends view accepted friend profiles" on public.profiles
-  for select using (
-    exists (
-      select 1 from public.friend_requests fr
-      where fr.status = 'accepted'
-        and ((fr.requester_id = auth.uid() and fr.addressee_id = profiles.id)
-          or (fr.addressee_id = auth.uid() and fr.requester_id = profiles.id))
-    )
-  );
+-- profiles: keep the existing owner-only ALL policy untouched, and add NO
+-- table-level SELECT policy for friends. RLS gates rows, not columns -- a
+-- friend-scoped `for select` policy on `profiles` would let any accepted
+-- friend `select *` and read every column, including age/sex/height_cm/
+-- weight_kg/activity/goal, which must stay owner-only even between friends.
+-- A friend's display name/username is exposed only through the column-limited
+-- RPC below, the same pattern as search_profiles.
 
 -- d. Username search RPC ------------------------------------------------------
 
@@ -100,7 +118,9 @@ as $$
   select p.id, p.username, p.display_name
   from public.profiles p
   where p.username is not null
-    and p.username ilike search_query || '%'
+    -- Escape LIKE wildcards in the caller-supplied query so '%'/'_' search for
+    -- themselves literally rather than broadening the match.
+    and p.username ilike replace(replace(replace(search_query, '\', '\\'), '%', '\%'), '_', '\_') || '%' escape '\'
     and p.id <> auth.uid()
     and length(search_query) >= 2
   order by p.username
@@ -109,3 +129,30 @@ $$;
 
 revoke all on function public.search_profiles(text) from public;
 grant execute on function public.search_profiles(text) to authenticated;
+
+-- e. Friend-facing profile lookup RPC ----------------------------------------
+
+-- Column-limited counterpart to search_profiles, used once two users are
+-- already friends (e.g. to show a display name next to their pet). Deliberately
+-- NOT a table-level SELECT policy on `profiles` -- see the comment above the
+-- (intentionally absent) friends policy on that table.
+create or replace function public.get_friend_profile(friend_id uuid)
+returns table(id uuid, username text, display_name text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select p.id, p.username, p.display_name
+  from public.profiles p
+  where p.id = friend_id
+    and exists (
+      select 1 from public.friend_requests fr
+      where fr.status = 'accepted'
+        and ((fr.requester_id = auth.uid() and fr.addressee_id = friend_id)
+          or (fr.addressee_id = auth.uid() and fr.requester_id = friend_id))
+    );
+$$;
+
+revoke all on function public.get_friend_profile(uuid) from public;
+grant execute on function public.get_friend_profile(uuid) to authenticated;

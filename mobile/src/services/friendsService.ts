@@ -90,6 +90,14 @@ const toPetState = (row: FriendPetRow): PetState => ({
  * Postgres reports a unique-constraint violation as `23505` -- see the
  * `missingColumn` comment in `packages/core/src/supabaseRepository.ts` for the
  * sibling pattern of matching on Supabase's error shape.
+ *
+ * SECURITY NOTE (accepted, in-scope): surfacing "taken" on a 23505 here is a
+ * broader username-existence oracle than `search_profiles` (no 2-char minimum,
+ * no self-exclusion, no prefix-only match -- an attacker can confirm any exact
+ * candidate username exists by trying to claim it). This app already treats
+ * username-existence-via-search as acceptable, in-scope exposure (usernames
+ * are meant to be discoverable, that's the point of "add a friend by
+ * username"); this is incremental, not novel. Not treated as a defect.
  */
 const UNIQUE_VIOLATION = '23505';
 
@@ -186,15 +194,20 @@ export class FriendsService {
     return data ? toPetState(data as FriendPetRow) : null;
   }
 
+  /**
+   * Calls `get_friend_profile`, not `.from('profiles').select(...)` -- `profiles`
+   * carries no friend-facing SELECT policy at all (RLS gates rows, not columns,
+   * so a row-level policy there would let a raw `select *` return age/sex/
+   * height/weight/activity/goal too). The RPC is SECURITY DEFINER and projects
+   * only id/username/display_name, and returns nothing unless the two users are
+   * already accepted friends.
+   */
   async loadFriendProfile(friendUserId: string): Promise<FriendProfileSummary | null> {
     const client = requireSupabase();
-    const { data, error } = await client
-      .from('profiles')
-      .select('id, username, display_name')
-      .eq('id', friendUserId)
-      .maybeSingle();
+    const { data, error } = await client.rpc('get_friend_profile', { friend_id: friendUserId });
     if (error) throw new Error(errorMessage(error, "Could not load your friend's profile."));
-    return data ? toProfileSummary(data as ProfileSummaryRow) : null;
+    const rows = (data ?? []) as ProfileSummaryRow[];
+    return rows.length > 0 ? toProfileSummary(rows[0]) : null;
   }
 
   /**

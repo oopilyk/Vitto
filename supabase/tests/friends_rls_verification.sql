@@ -44,7 +44,9 @@
 -- set local role authenticated;
 -- set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 -- select * from public.pets where user_id = '22222222-2222-2222-2222-222222222222';       -- expect 0 rows
--- select * from public.profiles where id = '22222222-2222-2222-2222-222222222222';        -- expect 0 rows
+-- select * from public.profiles where id = '22222222-2222-2222-2222-222222222222';        -- expect 0 rows (no
+--   friend-scoped SELECT policy exists on profiles at all -- see get_friend_profile below)
+-- select * from public.get_friend_profile('22222222-2222-2222-2222-222222222222');        -- expect 0 rows
 
 -- ---------------------------------------------------------------------------
 -- 2. A sends a request to B; status = 'pending' -> still no visibility either way.
@@ -70,11 +72,14 @@
 --   where id = 'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1';                                     -- expect success (addressee, was pending)
 
 -- select * from public.pets where user_id = '11111111-1111-1111-1111-111111111111';       -- expect 1 row (Ash)
--- select * from public.profiles where id = '11111111-1111-1111-1111-111111111111';        -- expect 1 row (User A)
+-- select * from public.profiles where id = '11111111-1111-1111-1111-111111111111';        -- expect 0 rows (see
+--   above -- profiles has no friend SELECT policy; use get_friend_profile instead)
+-- select * from public.get_friend_profile('11111111-1111-1111-1111-111111111111');        -- expect 1 row
+--   (id, username='user_a', display_name='User A' -- exactly 3 columns, no age/sex/height/weight/activity/goal)
 
 -- set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 -- select * from public.pets where user_id = '22222222-2222-2222-2222-222222222222';       -- expect 1 row (Birch) -- symmetry
--- select * from public.profiles where id = '22222222-2222-2222-2222-222222222222';        -- expect 1 row (User B)
+-- select * from public.get_friend_profile('22222222-2222-2222-2222-222222222222');        -- expect 1 row (User B) -- symmetry
 
 -- ---------------------------------------------------------------------------
 -- 4. Insert forgery: A cannot name someone else as requester_id.
@@ -86,6 +91,20 @@
 --           '22222222-2222-2222-2222-222222222222',    -- pretending to be B
 --           '11111111-1111-1111-1111-111111111111');
 -- -- expect: rejected by RLS (new row violates row-level security policy)
+
+-- ---------------------------------------------------------------------------
+-- 4b. Insert forgery: A cannot self-service-insert an already-'accepted' row
+--     to skip B's consent entirely (security review finding #1).
+-- ---------------------------------------------------------------------------
+
+-- set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+-- insert into public.friend_requests (id, requester_id, addressee_id, status)
+--   values ('a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2',
+--           '11111111-1111-1111-1111-111111111111',
+--           '22222222-2222-2222-2222-222222222222',
+--           'accepted');
+-- -- expect: rejected by RLS (new row violates row-level security policy --
+-- -- the INSERT policy's WITH CHECK pins status = 'pending')
 
 -- ---------------------------------------------------------------------------
 -- 5. Update forgery: only the addressee can respond, and only while pending.
@@ -102,6 +121,28 @@
 -- As the addressee, attempt to update a request that is already 'accepted' or 'declined':
 -- update public.friend_requests set status = 'declined' where id = '<already-accepted id>';
 -- -- expect: 0 rows updated (USING clause requires status = 'pending')
+
+-- ---------------------------------------------------------------------------
+-- 5b. Update forgery: the addressee cannot rewrite requester_id to forge an
+--     'accepted' relationship with an arbitrary third party who never sent or
+--     agreed to any request (security review finding #2).
+-- ---------------------------------------------------------------------------
+
+-- Setup: a throwaway user S sends A a pending request.
+-- set local request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333'; -- S
+-- insert into public.friend_requests (id, requester_id, addressee_id)
+--   values ('b3b3b3b3-b3b3-b3b3-b3b3-b3b3b3b3b3b3',
+--           '33333333-3333-3333-3333-333333333333',
+--           '11111111-1111-1111-1111-111111111111');                        -- expect success
+
+-- A (the addressee) tries to also rewrite requester_id to V while accepting:
+-- set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111'; -- A
+-- update public.friend_requests
+--   set requester_id = '22222222-2222-2222-2222-222222222222', -- V, who never sent anything
+--       status = 'accepted', responded_at = now()
+--   where id = 'b3b3b3b3-b3b3-b3b3-b3b3-b3b3b3b3b3b3';
+-- -- expect: rejected (the friend_requests_lock_identity trigger raises on any
+-- -- change to requester_id/addressee_id, independent of the UPDATE policy)
 
 -- ---------------------------------------------------------------------------
 -- 6. Duplicate / reciprocal pending or accepted requests are rejected.
@@ -147,12 +188,12 @@
 -- select * from public.search_profiles('user');   -- expect only user_b row (id, username, display_name columns only -- no email/age/etc)
 -- select * from public.search_profiles('user_a'); -- expect 0 rows (caller's own row excluded)
 -- select * from public.search_profiles('u');      -- expect 0 rows (query shorter than 2 chars)
+-- select * from public.search_profiles('user%');  -- expect 0 rows (literal '%' in a real username is vanishingly
+--   likely to match nothing anyway, but confirms '%'/'_' are escaped rather than acting as wildcards)
 
--- Confirm the returned shape has exactly 3 columns:
--- select column_name from information_schema.routine_column_usage
---   where specific_name = (select specific_name from information_schema.routines
---     where routine_name = 'search_profiles' limit 1);
--- -- or simply: \sf public.search_profiles   (psql) and eyeball the RETURNS TABLE clause.
+-- Confirm the returned shape has exactly 3 columns (id, username, display_name) for both RPCs:
+-- \sf public.search_profiles       (psql) and eyeball the RETURNS TABLE clause.
+-- \sf public.get_friend_profile    (psql) and eyeball the RETURNS TABLE clause.
 
 -- ---------------------------------------------------------------------------
 -- Cleanup (service_role):
