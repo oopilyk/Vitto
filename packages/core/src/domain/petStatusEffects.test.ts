@@ -63,9 +63,21 @@ describe('getStatusEffects', () => {
     expect(ids(pet({ nutrition: 45, energy: 45, happiness: 45, mind: 45 }))).toEqual([]);
   });
 
-  it('puts buffs after debuffs', () => {
-    const effects = getStatusEffects(pet({ mind: 5 }));
-    const kinds = effects.map((effect) => effect.kind);
-    expect(kinds).toEqual([...kinds].sort((a, b) => (a === 'debuff' ? -1 : 1) - (b === 'debuff' ? -1 : 1)));
+  it('hides buffs while anything is wrong', () => {
+    // A foggy pet with high needs is genuinely regenerating health, but showing
+    // "Thriving" next to "Foggy" reads as a contradiction. The debuff wins.
+    const foggyButFed = pet({ mind: 5, nutrition: 80, energy: 80, happiness: 80 });
+    expect(ids(foggyButFed)).toEqual(['foggy']);
+  });
+
+  it('shows the buff again once the debuff clears', () => {
+    expect(ids(pet({ mind: 80, nutrition: 80, energy: 80, happiness: 80 }))).toEqual(['thriving']);
+  });
+
+  it('only ever shows one kind at a time', () => {
+    const kinds = (p: ReturnType<typeof pet>) =>
+      new Set(getStatusEffects(p).map((effect) => effect.kind));
+    expect(kinds(pet({ mind: 5, nutrition: 80, energy: 80, happiness: 80 }))).toEqual(new Set(['debuff']));
+    expect(kinds(pet({ nutrition: 80, energy: 80, happiness: 80 }))).toEqual(new Set(['buff']));
   });
 });

@@ -92,7 +92,11 @@ export const getStatusEffects = (pet: PetState): StatusEffect[] => {
     });
   }
 
-  const thriving = VITAL_NEEDS.every((need) => pet[need] >= THRIVING_NEED);
+  // Buffs are suppressed while anything is wrong. `mind` is not a vital need, so
+  // a foggy pet with its other needs high really is regenerating health — but
+  // "Thriving" sitting beside "Foggy" reads as a contradiction rather than as the
+  // two separate facts it is, and the debuff is the one worth acting on.
+  const thriving = effects.length === 0 && VITAL_NEEDS.every((need) => pet[need] >= THRIVING_NEED);
   if (thriving) {
     effects.push({
       id: 'thriving',
