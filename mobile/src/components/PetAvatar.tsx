@@ -47,10 +47,11 @@ const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
 
 /**
  * One size for every pet. The sprite used to grow with the baby/teen/adult ladder
- * that no longer exists; this is the middle of that old range, which fills the
- * 320px stage without crowding the HUD or the status chips in the corners.
+ * that no longer exists; this is what that ladder started at, so a pet keeps the
+ * proportions it was drawn and framed against rather than growing into a size
+ * nothing was tuned for.
  */
-const PET_SIZE = 184;
+const PET_SIZE = 148;
 
 /** Matches the window App keeps `feedingImage` set for. */
 const FOOD_FLIGHT_MS = 880;

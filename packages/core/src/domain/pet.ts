@@ -131,6 +131,18 @@ const FORCED_FORM_LEVEL: Record<ForcedPetForm, number> = {
   scholar: EVOLUTION_LEVEL,
 };
 
+/**
+ * What the stats a forced form is not pushing up get held at.
+ *
+ * Must stay clear of every ailment threshold in `petCondition.ts` — it used to be
+ * 10, which is exactly the `foggy` line, so forcing Runner or Lifter dropped
+ * `mind` onto it and the preview came back dizzy no matter what the forced status
+ * said. Still far enough below the dominant stat (65) to clear
+ * `BUILD_LEAD_OVER_OTHERS` several times over, so the build still reads correctly.
+ * `petStats.test.ts` asserts a forced form produces no ailments at all.
+ */
+const FORCED_FORM_FLOOR = 20;
+
 /** Which of the three stats `getPetBuild` reads a forced specialism pushes up. */
 const FORCED_FORM_STAT: Partial<Record<ForcedPetForm, 'endurance' | 'strength' | 'mind'>> = {
   runner: 'endurance',
@@ -155,8 +167,8 @@ export const applyForcedForm = (pet: PetState, form: ForcedPetForm | null): PetS
   if (!form) return pet;
   const dominant = FORCED_FORM_STAT[form];
   const statFor = (stat: 'endurance' | 'strength' | 'mind'): number => {
-    if (!dominant) return 20;
-    return stat === dominant ? BUILD_MIN_STAT + 20 : 10;
+    if (!dominant) return FORCED_FORM_FLOOR;
+    return stat === dominant ? BUILD_MIN_STAT + 20 : FORCED_FORM_FLOOR;
   };
   return {
     ...pet,

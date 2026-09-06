@@ -7,6 +7,7 @@ import {
   type PetStatKey,
 } from './petStats';
 import { applyForcedForm, EVOLUTION_LEVEL, getPetBuild, hasEvolved } from './pet';
+import { assessCondition } from './petCondition';
 import { DECAY_PER_DAY } from './decay';
 import type { HealthEvent, HealthEventType } from './health';
 import { createPet, type PetState } from './pet';
@@ -265,6 +266,15 @@ describe('applyForcedForm', () => {
     const realScholar = { ...pet, level: 40, mind: 90, endurance: 5, strength: 5 };
     expect(hasEvolved(applyForcedForm(realLifter, 'base'))).toBe(false);
     expect(hasEvolved(applyForcedForm(realScholar, 'base'))).toBe(false);
+  });
+
+  it('never leaves a forced form ailing, whatever it holds the other stats at', () => {
+    // Regression: the non-dominant stats were pinned to 10, which is exactly the
+    // `foggy` line, so forcing Runner or Lifter came back dizzy — and because the
+    // form is applied after the forced status, it overrode "Healthy" too.
+    for (const form of ['base', 'runner', 'lifter', 'scholar'] as const) {
+      expect(assessCondition(applyForcedForm(pet, form)).ailments).toEqual([]);
+    }
   });
 
   it('lets a forced specialism override whichever build the pet really has', () => {
