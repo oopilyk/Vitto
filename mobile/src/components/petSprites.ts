@@ -380,7 +380,7 @@ const ORANGE_CAT: PetSheet = {
 const OTTER_ANIMATIONS: PetSheet['animations'] = {
   // Body holds still; the face does the work. Eases out to [0,4] and back so
   // it reads as the otter emoting, not fidgeting.
-  idle: [[0, 0], [0, 1], [0,3]],
+  idle: [[0, 0], [0,0], [0,0], [0, 1],[0,3], [0,3]],
   // The arms-up, open-mouthed band with the sparkles. Only three drawn frames,
   // so it bounces off the last one rather than cutting straight back.
   cheer: [[2, 3], [2, 4], [2, 5], [2, 4]],
@@ -391,7 +391,7 @@ const OTTER_ANIMATIONS: PetSheet['animations'] = {
   // Real dizzy art — spiral eyes and its own orbiting stars, so `selfDrawn`
   // drops the DizzyOrbit overlay the shiba leans on.
   unwell: [[6, 0], [6, 1]],
-  sad: [[5, 0], [5, 1], [5, 2], [5, 3]],
+  sad: [[5, 0], [5, 2]],
   // Stagger, stagger, flop forward, down for good. [9,3]/[9,4] are skipped
   // (near-duplicate / muddy); [9,5] is the clean X-eyed collapse
   // HOLDS_LAST_FRAME parks on.

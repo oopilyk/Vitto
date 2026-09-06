@@ -1,0 +1,21 @@
+// Local Expo module (picked up from mobile/modules by expo-modules-autolinking,
+// whose default nativeModulesDir is ./modules). Same plugin the published Expo
+// modules use, so no extra Gradle wiring is needed in the generated android/.
+//
+// UNVERIFIED ON-DEVICE: written without an Android SDK on this machine. First
+// build: `cd mobile && npx expo prebuild -p android && npx expo run:android`.
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.vitto'
+version = '1.0.0'
+
+android {
+  namespace "com.vitto.screentime"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}

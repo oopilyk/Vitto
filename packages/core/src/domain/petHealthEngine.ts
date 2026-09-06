@@ -1,4 +1,4 @@
-import type { BrainTrainingMetadata, HealthEvent, MealMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
+import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { workoutStrengthDelta } from './strengthProgression';
 
@@ -19,8 +19,8 @@ export interface PetHealthContext {
   bodyWeightKg?: number;
 }
 
-const HUNGRY_NUTRITION_THRESHOLD = 35;
-const SLEEPY_ENERGY_THRESHOLD = 40;
+export const HUNGRY_NUTRITION_THRESHOLD = 35;
+export const SLEEPY_ENERGY_THRESHOLD = 40;
 const BRIGHT_ENERGY_THRESHOLD = 65;
 const BRIGHT_HAPPINESS_THRESHOLD = 65;
 const SHARP_SESSION_ACCURACY = 0.8;
@@ -88,6 +88,30 @@ const CARDIO_STRENGTH_GAIN = 1;
  */
 const SLEEP_FULL_MINUTES = 7 * 60;
 const SLEEP_SHORT_MINUTES = 5.5 * 60;
+
+/**
+ * Screen time follows the sleep principle: the good outcome is rewarded and the
+ * bad one is never punished. A day under the user's own budget restores `mind`
+ * by `SCREEN_TIME_UNDER_BUDGET_MIND` — between a maths and a reading session,
+ * since an evening off the screen is real rest for the head but not an
+ * exercise for it. Going over gets a tiny xp acknowledgement rather than zero:
+ * the habit being built is *checking in honestly*, and a log that earns nothing
+ * on a bad day teaches people to skip logging bad days. No stat ever moves
+ * down here, so the app never scolds. With no budget set there is nothing to
+ * measure against, so the log is neutral — small xp for paying attention.
+ */
+const SCREEN_TIME_UNDER_BUDGET_MIND = 5;
+const SCREEN_TIME_UNDER_BUDGET_XP = 12;
+const SCREEN_TIME_OVER_BUDGET_XP = 4;
+const SCREEN_TIME_NO_BUDGET_XP = 6;
+
+/** "2h 05m" style, for the pet's screen-time messages. */
+const formatMinutes = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest}m`;
+  return rest === 0 ? `${hours}h` : `${hours}h ${String(rest).padStart(2, '0')}m`;
+};
 
 export class PetHealthEngine {
   apply(pet: PetState, event: HealthEvent, context: PetHealthContext = {}): EngineResult {
@@ -168,6 +192,28 @@ export class PetHealthEngine {
           message = `${pet.name} only managed ${hours}h. A longer night would help.`;
         }
         eventLabel = 'Rested up';
+        break;
+      }
+      case 'SCREEN_TIME': {
+        const metadata = event.metadata as unknown as ScreenTimeMetadata;
+        // NaN is not a total: it would read "NaNh" and fail every comparison.
+        const minutes = Number.isFinite(metadata.minutes) ? Math.max(0, Math.round(metadata.minutes)) : 0;
+        const budget = metadata.budgetMinutes;
+        if (budget === undefined || !Number.isFinite(budget) || budget <= 0) {
+          delta = { xp: SCREEN_TIME_NO_BUDGET_XP };
+          message = `${pet.name} saw you check your screen time — ${formatMinutes(minutes)} today. Set a budget and staying under it will sharpen ${pet.name}'s mind.`;
+          eventLabel = 'Screen check-in';
+        } else if (metadata.withinBudget ?? minutes <= budget) {
+          // Recovery 2 matches the "scrappy" mind session: time off the screen
+          // is rest, not training.
+          delta = { mind: SCREEN_TIME_UNDER_BUDGET_MIND, happiness: 3, recovery: 2, xp: SCREEN_TIME_UNDER_BUDGET_XP };
+          message = `${pet.name} loved the quieter day — ${formatMinutes(minutes)} on the screen, under your ${formatMinutes(budget)} budget.`;
+          eventLabel = 'Unplugged';
+        } else {
+          delta = { xp: SCREEN_TIME_OVER_BUDGET_XP };
+          message = `${pet.name} noticed you checking in — ${formatMinutes(minutes)} today. Tomorrow is a fresh screen.`;
+          eventLabel = 'Screen check-in';
+        }
         break;
       }
       default:

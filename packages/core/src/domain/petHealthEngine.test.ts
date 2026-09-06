@@ -189,3 +189,85 @@ describe('SLEEP', () => {
     expect(rested.energy).toBe(24);
   });
 });
+
+describe('SCREEN_TIME', () => {
+  const screenTime = (minutes: number, budgetMinutes?: number): HealthEvent => ({
+    id: 'screen-1',
+    userId: 'user-1',
+    occurredAt: '2026-09-05T21:00:00Z',
+    type: 'SCREEN_TIME',
+    source: 'manual',
+    metadata: {
+      minutes,
+      date: '2026-09-05',
+      source: 'manual',
+      budgetMinutes,
+      withinBudget: budgetMinutes === undefined ? undefined : minutes <= budgetMinutes,
+    },
+  });
+
+  it('restores mind for a day under budget, with the sleep-sized side rewards', () => {
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), mind: 40, happiness: 40, recovery: 40 };
+    const { pet: next, reaction } = new PetHealthEngine().apply(pet, screenTime(95, 120));
+    expect(next.mind).toBe(45);
+    expect(next.happiness).toBe(43);
+    expect(next.recovery).toBe(42);
+    expect(reaction.delta.xp).toBe(12);
+    expect(reaction.eventLabel).toBe('Unplugged');
+    expect(reaction.message).toContain('1h 35m');
+    expect(reaction.message).toContain('2h budget');
+  });
+
+  it('never lowers a stat for a day over budget, and still acknowledges the log', () => {
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), mind: 40, happiness: 40, recovery: 40, energy: 40 };
+    const { pet: next, reaction } = new PetHealthEngine().apply(pet, screenTime(300, 120));
+    for (const key of ['mind', 'happiness', 'recovery', 'energy', 'health', 'nutrition'] as const) {
+      expect(next[key]).toBeGreaterThanOrEqual(pet[key]);
+    }
+    expect(next.mind).toBe(40);
+    expect(reaction.delta).toEqual({ xp: 4 });
+    expect(reaction.eventLabel).toBe('Screen check-in');
+    expect(reaction.message).not.toMatch(/too much|bad|over/i);
+  });
+
+  it('treats a log with no budget as neutral: small xp, no stat movement', () => {
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), mind: 40 };
+    const { pet: next, reaction } = new PetHealthEngine().apply(pet, screenTime(200));
+    expect(next.mind).toBe(40);
+    expect(reaction.delta).toEqual({ xp: 6 });
+    expect(reaction.message).toContain('Set a budget');
+  });
+
+  it('pays less for an over-budget day than an under-budget one, and less than a brain session', () => {
+    const pet = createPet('user-1', 'Blue', 'dog');
+    const engine = new PetHealthEngine();
+    const under = engine.apply(pet, screenTime(60, 120)).reaction.delta.xp ?? 0;
+    const over = engine.apply(pet, screenTime(240, 120)).reaction.delta.xp ?? 0;
+    expect(over).toBeLessThan(under);
+    expect(under).toBeLessThanOrEqual(24);
+  });
+
+  it('derives the verdict from minutes and budget when the flag was not precomputed', () => {
+    const pet = createPet('user-1', 'Blue', 'dog');
+    const event = screenTime(90, 120);
+    delete (event.metadata as { withinBudget?: boolean }).withinBudget;
+    expect(new PetHealthEngine().apply(pet, event).reaction.eventLabel).toBe('Unplugged');
+  });
+
+  it('shrugs off a negative or non-finite total rather than crashing', () => {
+    const pet = createPet('user-1', 'Blue', 'dog');
+    const { reaction } = new PetHealthEngine().apply(pet, screenTime(-30, 120));
+    expect(reaction.message).toContain('0m');
+    expect(Number.isFinite(reaction.delta.xp)).toBe(true);
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY])('reads a %s total as zero minutes, never as "NaNh"', (minutes) => {
+    const pet = createPet('user-1', 'Blue', 'dog');
+    const event = screenTime(minutes, 120);
+    delete (event.metadata as { withinBudget?: boolean }).withinBudget;
+    const { reaction } = new PetHealthEngine().apply(pet, event);
+    expect(reaction.message).toContain('0m');
+    expect(reaction.message).not.toMatch(/NaN|Infinity/);
+    expect(Number.isFinite(reaction.delta.xp)).toBe(true);
+  });
+});

@@ -1,0 +1,13 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!--
+      Usage access is a "special app access", not a runtime permission: declaring
+      it here (merged into the app manifest) makes the app appear in
+      Settings → Special app access → Usage access, and the user flips the
+      switch there. Google Play restricts this permission to apps that can
+      justify it; a screen-time budget feature is the canonical justification.
+    -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+</manifest>

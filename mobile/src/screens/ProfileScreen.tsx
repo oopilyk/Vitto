@@ -17,6 +17,7 @@ import {
   type HealthEvent,
   type MealMetadata,
   type PetBreed,
+  type ScreenTimeMetadata,
   calculateMacroTargets,
   calculateStreaks,
   convertHeightToFeetAndInches,
@@ -33,7 +34,8 @@ import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { BreedPicker } from '../components/BreedPicker';
-import { ChoiceRow, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { ChoiceRow, Field, Kicker, NumberField, PrimaryButton, TextButton } from '../components/ui';
+import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
@@ -49,6 +51,18 @@ interface Props {
   onConnectAppleHealth?: () => void;
   onSyncAppleHealth?: () => void;
   isSyncingAppleHealth?: boolean;
+  /**
+   * Logs a manually entered screen-time total for today (any platform). Should
+   * reject with a readable message when today is already logged.
+   */
+  onLogScreenTime?: (minutes: number, budgetMinutes?: number) => Promise<void>;
+  /** Android only: the UsageStatsManager path. Omitted wherever the native module is absent. */
+  screenTimeAccess?: {
+    granted: boolean;
+    onOpenSettings: () => void;
+    onSync: (budgetMinutes?: number) => void;
+    syncing?: boolean;
+  };
 }
 
 const FOCUS_LABEL: Record<FocusArea, string> = {
@@ -59,6 +73,42 @@ const FOCUS_LABEL: Record<FocusArea, string> = {
 };
 
 const HISTORY_PAGE_SIZE = 20;
+const MINUTES_PER_DAY = 24 * 60;
+
+/** "2h 05m" for the screen-time card; whole minutes in, so no rounding surprises. */
+const formatMinutes = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest}m`;
+  return rest === 0 ? `${hours}h` : `${hours}h ${String(rest).padStart(2, '0')}m`;
+};
+
+/** Splits a minute total into the hours + minutes pair the fields show. */
+const splitMinutes = (minutes: number | undefined) =>
+  minutes === undefined ? { hours: undefined, minutes: undefined } : { hours: Math.floor(minutes / 60), minutes: minutes % 60 };
+
+/**
+ * Joins the pair back. An empty pair and a zero total both mean "no value":
+ * zero is "no budget" to the engine, the mapping and the database check alike,
+ * so it must never be stored as a number. A pair with an unparsable half (the
+ * field accepts "1.2.3") yields NaN, which callers gate on with Number.isFinite.
+ */
+const joinMinutes = (hours: number | undefined, minutes: number | undefined): number | undefined => {
+  if (hours === undefined && minutes === undefined) return undefined;
+  const total = Math.round((hours ?? 0) * 60 + (minutes ?? 0));
+  if (!Number.isFinite(total)) return Number.NaN;
+  const clamped = Math.max(0, Math.min(MINUTES_PER_DAY, total));
+  return clamped === 0 ? undefined : clamped;
+};
+
+/** Raw text → number for the budget fields; empty stays undefined so joinMinutes can tell "blank" from "0". */
+const parseField = (value: string): number | undefined => (value.trim() === '' ? undefined : Number(value));
+
+/** What the budget fields show for a stored total — only used to seed and reset them, never while typing. */
+const budgetText = (minutes: number | undefined) => {
+  const split = splitMinutes(minutes);
+  return { hours: split.hours === undefined ? '' : String(split.hours), minutes: split.minutes === undefined ? '' : String(split.minutes) };
+};
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
 
 const describeEvent = (event: HealthEvent): string => {
@@ -67,6 +117,11 @@ const describeEvent = (event: HealthEvent): string => {
   if (event.type === 'BRAIN_TRAINING') {
     const session = event.metadata as BrainTrainingMetadata;
     return `${session.game === 'math' ? 'Quick maths' : 'Read and recall'} · ${session.score} mind score`;
+  }
+  if (event.type === 'SCREEN_TIME') {
+    const screen = event.metadata as ScreenTimeMetadata;
+    const verdict = screen.withinBudget === undefined ? '' : screen.withinBudget ? ' · under budget' : ' · over budget';
+    return `Screen time · ${formatMinutes(screen.minutes)}${verdict}`;
   }
   return 'Healthy moment';
 };
@@ -103,11 +158,22 @@ export function ProfileScreen({
   onConnectAppleHealth,
   onSyncAppleHealth,
   isSyncingAppleHealth,
+  onLogScreenTime,
+  screenTimeAccess,
 }: Props) {
   const [profile, setProfile] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE);
+  // The budget fields hold raw text so they never re-normalise under the
+  // user's fingers ("90" minutes must not flip to 1h/30m mid-entry); the joined
+  // total is what lands in the profile.
+  const [budgetFields, setBudgetFields] = useState(() => budgetText(initial.screenTimeBudgetMinutes));
+  // Today's screen-time entry, as the hours/minutes pair the user types.
+  const [screenHours, setScreenHours] = useState<number | undefined>(undefined);
+  const [screenMinutes, setScreenMinutes] = useState<number | undefined>(undefined);
+  const [screenTimeError, setScreenTimeError] = useState<string | null>(null);
+  const [loggingScreenTime, setLoggingScreenTime] = useState(false);
 
   // Drives the save bar: it only appears once something actually differs.
   const dirty = useMemo(
@@ -147,6 +213,42 @@ export function ProfileScreen({
     [events.filter((event) => event.type === 'BRAIN_TRAINING').length, 'mind sessions'],
     [events.length, 'care moments'],
   ] as const;
+
+  const screenTimeToday = findScreenTimeForDate(events, today);
+  const screenTimeEntry = joinMinutes(screenHours, screenMinutes);
+  // A blank pair joins to undefined, a typed one to a number; NaN (a stray
+  // second decimal point) must never reach the log button.
+  const canLogScreenTime = screenTimeEntry !== undefined && Number.isFinite(screenTimeEntry);
+
+  const updateBudget = (next: { hours: string; minutes: string }) => {
+    setBudgetFields(next);
+    const joined = joinMinutes(parseField(next.hours), parseField(next.minutes));
+    // Leave the stored budget alone while a half is unparsable; the text keeps
+    // what was typed, and the next keystroke resolves it.
+    if (joined === undefined || Number.isFinite(joined)) update('screenTimeBudgetMinutes', joined);
+  };
+
+  const discard = () => {
+    setProfile(initial);
+    setBudgetFields(budgetText(initial.screenTimeBudgetMinutes));
+  };
+
+  const logScreenTime = async () => {
+    if (!onLogScreenTime || screenTimeEntry === undefined || !Number.isFinite(screenTimeEntry)) return;
+    setLoggingScreenTime(true);
+    setScreenTimeError(null);
+    try {
+      // The budget as shown on screen, saved or not: scoring against a number
+      // the user cannot see would be baffling.
+      await onLogScreenTime(screenTimeEntry, profile.screenTimeBudgetMinutes);
+      setScreenHours(undefined);
+      setScreenMinutes(undefined);
+    } catch (cause) {
+      setScreenTimeError(cause instanceof Error ? cause.message : 'Could not log screen time.');
+    } finally {
+      setLoggingScreenTime(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -443,6 +545,81 @@ export function ProfileScreen({
           />
         </Card>
 
+        <Card
+          title="Screen time"
+          hint="Stay under a budget you set and your pet's mind sharpens. Going over never costs anything."
+        >
+          <View style={styles.grid}>
+            <Field label="Daily budget (h)" hint="optional">
+              <TextInput
+                style={layout.input}
+                keyboardType="decimal-pad"
+                placeholder="—"
+                placeholderTextColor={colors.faint}
+                value={budgetFields.hours}
+                onChangeText={(value) => updateBudget({ ...budgetFields, hours: digits(value, true) })}
+              />
+            </Field>
+            <Field label="(min)">
+              <TextInput
+                style={layout.input}
+                keyboardType="number-pad"
+                placeholder="—"
+                placeholderTextColor={colors.faint}
+                value={budgetFields.minutes}
+                onChangeText={(value) => updateBudget({ ...budgetFields, minutes: digits(value) })}
+              />
+            </Field>
+          </View>
+          {profile.screenTimeBudgetMinutes === undefined ? (
+            <Text style={styles.cardHint}>No budget set — a log still counts, it just is not scored.</Text>
+          ) : null}
+
+          {screenTimeToday ? (
+            <Text style={[text.body, styles.screenLogged]}>
+              Logged today: {formatMinutes(screenTimeToday.metadata.minutes)}
+              {screenTimeToday.metadata.withinBudget === undefined
+                ? ''
+                : screenTimeToday.metadata.withinBudget
+                  ? ' — under budget.'
+                  : ' — over budget. Tomorrow is a fresh screen.'}
+            </Text>
+          ) : (
+            <Group label={Platform.OS === 'ios' ? 'Today · from Settings → Screen Time' : 'Today'}>
+              <View style={styles.grid}>
+                <NumberField label="Hours" placeholder="0" value={screenHours} onChange={setScreenHours} />
+                <NumberField label="Minutes" placeholder="0" value={screenMinutes} onChange={setScreenMinutes} />
+              </View>
+              {screenTimeError ? <Text style={styles.saveError}>{screenTimeError}</Text> : null}
+              <View style={styles.screenActions}>
+                <TextButton
+                  label={loggingScreenTime ? 'Logging...' : "Log today's screen time"}
+                  tone="coral"
+                  onPress={() => void logScreenTime()}
+                  disabled={!onLogScreenTime || !canLogScreenTime || loggingScreenTime}
+                />
+                {screenTimeAccess ? (
+                  screenTimeAccess.granted ? (
+                    <TextButton
+                      label={screenTimeAccess.syncing ? 'Reading...' : 'Read from this phone'}
+                      onPress={() => screenTimeAccess.onSync(profile.screenTimeBudgetMinutes)}
+                      disabled={screenTimeAccess.syncing}
+                    />
+                  ) : (
+                    <TextButton label="Allow usage access" onPress={screenTimeAccess.onOpenSettings} />
+                  )
+                ) : null}
+              </View>
+              {screenTimeAccess && !screenTimeAccess.granted ? (
+                <Text style={styles.cardHint}>
+                  Android can read today's total for you. Vitto asks for "usage access" in Settings, keeps only the
+                  total, and never sees which apps you used.
+                </Text>
+              ) : null}
+            </Group>
+          )}
+        </Card>
+
         <Card title="Activity history" hint="Your full record">
           {events.length === 0 ? (
             <Text style={styles.empty}>Your care history will appear here.</Text>
@@ -520,7 +697,7 @@ export function ProfileScreen({
                 onPress={() => void save()}
               />
             </View>
-            <TextButton label="Discard" onPress={() => setProfile(initial)} disabled={saving} />
+            <TextButton label="Discard" onPress={discard} disabled={saving} />
           </View>
         </View>
       ) : null}
@@ -613,6 +790,8 @@ const styles = StyleSheet.create({
   empty: { fontSize: 13, color: colors.faint, paddingVertical: 12 },
   link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
   appleHealth: { gap: 8, paddingVertical: 14, ...layout.hairline },
+  screenLogged: { marginTop: 14 },
+  screenActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, marginTop: 14 },
   signOut: { alignItems: 'center', paddingVertical: 10 },
   saveBar: {
     position: 'absolute',

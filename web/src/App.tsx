@@ -25,6 +25,7 @@ const CARE_EVENT_LABEL: Partial<Record<HealthEvent["type"], string>> = {
   WORKOUT: "Trained together",
   STEP_ACTIVITY: "Went exploring",
   BRAIN_TRAINING: "Trained your mind",
+  SCREEN_TIME: "Screen check-in",
 };
 const withTimeout = <T,>(promise: Promise<T>, message: string) => Promise.race([
   promise,

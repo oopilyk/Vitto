@@ -12,6 +12,7 @@ import {
   applyTimeDecay,
   assessCondition,
   createPet,
+  toDateKey,
 } from '@vitto/core';
 
 jest.mock('expo-haptics', () => ({
@@ -36,6 +37,39 @@ const profile: BodyProfile = {
 };
 
 const pet = createPet('user-1', 'Miso');
+
+/**
+ * Fourteen days of sleep and brain sessions ending yesterday: six short nights with
+ * 60% accuracy, eight full nights with 80%, which is a clear signal for `calculateInsights`.
+ */
+const sleepMindEvents = (): HealthEvent[] => {
+  const events: HealthEvent[] = [];
+  for (let daysAgo = 14; daysAgo >= 1; daysAgo -= 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const key = toDateKey(date);
+    const isShort = daysAgo > 8;
+    events.push(
+      {
+        id: `sleep-${key}`,
+        userId: 'user-1',
+        occurredAt: `${key}T07:00:00`,
+        type: 'SLEEP',
+        source: 'healthkit',
+        metadata: { asleepMinutes: isShort ? 300 : 480, night: key },
+      },
+      {
+        id: `mind-${key}`,
+        userId: 'user-1',
+        occurredAt: `${key}T12:00:00`,
+        type: 'BRAIN_TRAINING',
+        source: 'manual',
+        metadata: { game: 'math', correct: isShort ? 12 : 16, total: 20, durationSeconds: 60, score: 50 },
+      },
+    );
+  }
+  return events;
+};
 
 const mealEvent: HealthEvent<MealMetadata> = {
   id: 'meal-1',
@@ -124,6 +158,145 @@ describe('screens render', () => {
     // 38*4 + 55*4 + 10*9 = 462, the fallback for an analysis with no calories.
     expect(rendered).toContain('462');
     expect(rendered).toContain('Miso');
+    tree.unmount();
+  });
+
+  it('shows a status chip for every active ailment, not just the worst', () => {
+    // The sprite and headline only ever show the highest-precedence ailment, so
+    // this tray is the only place a second problem is visible at all.
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={{ ...pet, nutrition: 8, happiness: 8, mind: 4, energy: 80, health: 60 }}
+          petFocusToken={0}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Starving');
+    expect(rendered).toContain('Lonely');
+    expect(rendered).toContain('Foggy');
+    tree.unmount();
+  });
+
+  it('shows no status chips for a pet that is neither ailing nor thriving', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={{ ...pet, nutrition: 45, happiness: 45, mind: 45, energy: 45, health: 60 }}
+          petFocusToken={0}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).not.toContain('Starving');
+    expect(rendered).not.toContain('Thriving');
+    expect(rendered).not.toContain('Sleepy');
+    tree.unmount();
+  });
+
+  it('renders the dashboard without an insight card when there is nothing to say', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+      <DashboardScreen
+        petFocusToken={0}
+        pet={pet}
+        events={[]}
+        profile={profile}
+        reaction={null}
+        stepGoal={10000}
+        onStepGoalChange={() => {}}
+        onLogMeal={() => {}}
+        onLogWorkout={() => {}}
+        onSyncSteps={() => {}}
+        onTrainMind={() => {}}
+        onOpenProfile={() => {}}
+        onOpenStats={() => {}}
+        isAnalyzingMeal={false}
+        isEating={false}
+        feedingImage={null}
+        feedingGrade={null}
+        isCelebrating={false}
+        isWorkingOut={false}
+        isExploring={false}
+      />,
+      );
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Miso noticed');
+    tree.unmount();
+  });
+
+  it('shows what the pet noticed once the data can carry a finding', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+      <DashboardScreen
+        petFocusToken={0}
+        pet={pet}
+        events={sleepMindEvents()}
+        profile={profile}
+        reaction={null}
+        stepGoal={10000}
+        onStepGoalChange={() => {}}
+        onLogMeal={() => {}}
+        onLogWorkout={() => {}}
+        onSyncSteps={() => {}}
+        onTrainMind={() => {}}
+        onOpenProfile={() => {}}
+        onOpenStats={() => {}}
+        isAnalyzingMeal={false}
+        isEating={false}
+        feedingImage={null}
+        feedingGrade={null}
+        isCelebrating={false}
+        isWorkingOut={false}
+        isExploring={false}
+      />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Miso noticed');
+    expect(rendered).toContain('Your sharper puzzle days seem to follow your longer nights.');
+    expect(rendered).toContain('your mind accuracy averaged 25% lower (14 days: 6 short nights, 8 fuller)');
     tree.unmount();
   });
 

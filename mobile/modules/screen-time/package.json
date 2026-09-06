@@ -1,0 +1,7 @@
+{
+  "name": "vitto-screen-time",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Expo module: today's total foreground screen time on Android via UsageStatsManager. Android-only; iOS has no readable equivalent.",
+  "main": "index.ts"
+}

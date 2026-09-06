@@ -109,7 +109,7 @@ export const PET_STAT_DESCRIPTORS: PetStatDescriptor[] = [
     key: 'mind',
     label: 'Mind',
     group: 'mind',
-    hint: `Brain training — up to 8 for a reading session and 6 for maths, scaled by your accuracy. Falls ${DECAY_PER_DAY.mind} a day.`,
+    hint: `Brain training — up to 8 for a reading session and 6 for maths, scaled by your accuracy — and 5 for a day that stays under your screen-time budget. Falls ${DECAY_PER_DAY.mind} a day.`,
   },
 ];
 

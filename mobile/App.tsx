@@ -3,12 +3,15 @@ import { ActivityIndicator, AppState, Platform, StatusBar, StyleSheet, Text, Vie
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, applyDelta, applyForcedAilment, applyForcedForm, applyTimeDecay, assessCondition, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, isDevAccount, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
+import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, applyDelta, applyForcedAilment, applyForcedForm, applyTimeDecay, assessCondition, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, isDevAccount, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/healthKitProvider';
 import { getKnownHealthKitExternalIds } from './src/services/healthKitMapping';
+import { AndroidUsageStatsProvider } from './src/services/androidUsageStatsProvider';
+import { findScreenTimeForDate, mapManualScreenTime } from './src/services/screenTimeMapping';
+import { hasUsageAccess, isScreenTimeModuleAvailable, openUsageAccessSettings } from './modules/screen-time';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
 import { PrimaryButton, TextButton } from './src/components/ui';
@@ -31,11 +34,16 @@ if (hasNativeUUID()) setIdGenerator(randomUUID);
 const repository = new LocalRepository();
 const remoteRepository = new SupabaseRepository();
 const engine = new PetHealthEngine();
-// iOS gets the real HealthKit-backed provider; every other platform (Android,
-// web-via-react-native-web) falls back to the mock until a Health Connect
-// provider exists. See mobile/HEALTHKIT.md.
+// iOS gets the real HealthKit-backed provider. Android gets the mock for
+// everything except screen time, which it can actually read (see
+// mobile/SCREENTIME.md); web-via-react-native-web stays on the mock until a
+// Health Connect provider exists. See mobile/HEALTHKIT.md.
 const stepsProvider: HealthDataProvider =
-  Platform.OS === 'ios' ? new HealthKitProvider() : new MockHealthDataProvider();
+  Platform.OS === 'ios'
+    ? new HealthKitProvider()
+    : Platform.OS === 'android'
+      ? new AndroidUsageStatsProvider()
+      : new MockHealthDataProvider();
 
 // The main app's screens, once a session exists and a pet has been adopted.
 // Auth and Onboarding stay outside this tree — they're single-screen states
@@ -124,6 +132,7 @@ export default function App() {
   const [forcedAilment, setForcedAilment] = useState<ForcedPetStatus | null>(null);
   // Same deal for which form is drawn — display only, never persisted.
   const [forcedForm, setForcedForm] = useState<ForcedPetForm | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [dataReady, setDataReady] = useState(false);
   const [pet, setPet] = useState<PetState | null>(null);
@@ -158,6 +167,10 @@ export default function App() {
   const [isExploring, setIsExploring] = useState(false);
   const [isAppleHealthConnected, setIsAppleHealthConnected] = useState(false);
   const [isSyncingAppleHealth, setIsSyncingAppleHealth] = useState(false);
+  // Android only: whether Settings → Usage access has been granted. Re-read on
+  // every return to the foreground, since granting it happens in Settings.
+  const [hasScreenTimeAccess, setHasScreenTimeAccess] = useState(() => hasUsageAccess());
+  const [isSyncingScreenTime, setIsSyncingScreenTime] = useState(false);
   // The clock the decay projection is read against. Stored state, not `new Date()`
   // inline, so a tick is what re-renders the pet rather than an unrelated update.
   const [now, setNow] = useState(() => new Date());
@@ -169,7 +182,10 @@ export default function App() {
     // RN throttles timers in the background, so an app resumed after a night away
     // would otherwise paint yesterday's stats until the next tick landed.
     const foreground = AppState.addEventListener('change', (state) => {
-      if (state === 'active') setNow(new Date());
+      if (state === 'active') {
+        setNow(new Date());
+        setHasScreenTimeAccess(hasUsageAccess());
+      }
     });
     return () => {
       clearInterval(tick);
@@ -423,6 +439,61 @@ export default function App() {
     await recordEvent(makeEvent<BrainTrainingMetadata>(userId, 'BRAIN_TRAINING', metadata));
   };
 
+  /**
+   * One screen-time log per day, like one night of sleep per day: a second
+   * total for the same day is refused rather than stacked, so the pet cannot be
+   * fed the same day twice. Refused, not replaced: neither repository has a
+   * delete or update path for events (both only `saveEvent`/insert), so a
+   * mistyped total cannot be corrected yet and the message says so plainly.
+   */
+  const assertTodayScreenTimeNotLogged = () => {
+    const existing = findScreenTimeForDate(events, new Date());
+    if (existing) {
+      throw new Error(
+        `Today's screen time is already logged (${existing.metadata.minutes} min) and can't be changed yet — try again tomorrow.`,
+      );
+    }
+  };
+
+  /**
+   * Manual path (every platform): the number the user read off their phone's
+   * own Screen Time page. The Profile screen owns the error for this path, so
+   * the global banner `recordEvent` sets is cleared before rethrowing — the
+   * same message must not show twice.
+   */
+  const logScreenTime = async (minutes: number, budgetMinutes?: number) => {
+    assertTodayScreenTimeNotLogged();
+    try {
+      await recordEvent(mapManualScreenTime(userId, minutes, budgetMinutes) as HealthEvent<ScreenTimeMetadata>);
+    } catch (cause) {
+      setError(null);
+      throw cause;
+    }
+  };
+
+  /** Android path: read today's total from UsageStatsManager, routing to Settings first if access is missing. */
+  const syncScreenTime = async (budgetMinutes?: number) => {
+    if (!hasUsageAccess()) {
+      if (!openUsageAccessSettings()) setError('Screen time sync is not available in this build.');
+      return;
+    }
+    setIsSyncingScreenTime(true);
+    try {
+      assertTodayScreenTimeNotLogged();
+      const event = await stepsProvider.getTodayScreenTime(userId, budgetMinutes);
+      if (!event) {
+        setError('Could not read screen time from this device.');
+        return;
+      }
+      await recordEvent(event);
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not sync screen time.'));
+    } finally {
+      setIsSyncingScreenTime(false);
+    }
+  };
+
   const saveWordPuzzleProgress = (progress: WordPuzzleProgress) => {
     setWordPuzzleProgress(progress);
     void repository.saveWordPuzzleProgress(progress).catch(() => undefined);
@@ -465,6 +536,47 @@ export default function App() {
       await syncAppleHealth();
     } catch (cause) {
       setError(errorMessage(cause, 'Could not connect to Apple Health.'));
+    }
+  };
+
+  /**
+   * DEV ONLY. Writes ~90 days of synthetic history so the insights layer can be
+   * seen working: its thresholds keep a real account silent for weeks, which
+   * makes a broken insight and an unproven one look identical.
+   *
+   * Seeded events are written straight to the repository rather than through
+   * `recordEvent`, on purpose. `recordEvent` replays each event through the pet
+   * engine and moves `lastEventAt`, so pushing three months of history through it
+   * would rewrite the pet's stats and wreck its decay anchor. The insights layer
+   * reads the event log, not the pet, so the log is all that needs filling.
+   */
+  const seedTestData = async () => {
+    if (!isSupabaseConfigured || !session) return;
+    setIsSeeding(true);
+    try {
+      const seeded = generateSeedEvents(userId);
+      await remoteRepository.saveEvents(seeded);
+      setEvents(await remoteRepository.loadEvents());
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not seed test data.'));
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  /** Sweeps out everything `seedTestData` wrote, keyed on its `mock` source. */
+  const clearSeededData = async () => {
+    if (!isSupabaseConfigured || !session) return;
+    setIsSeeding(true);
+    try {
+      await remoteRepository.deleteEventsBySource(SEED_SOURCE);
+      setEvents(await remoteRepository.loadEvents());
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not clear seeded data.'));
+    } finally {
+      setIsSeeding(false);
     }
   };
 
@@ -609,6 +721,9 @@ export default function App() {
               onForceAilment={isDev ? setForcedAilment : undefined}
               forcedForm={isDev ? forcedForm : undefined}
               onForceForm={isDev ? setForcedForm : undefined}
+              onSeedTestData={isDev ? () => void seedTestData() : undefined}
+              onClearSeededData={isDev ? () => void clearSeededData() : undefined}
+              isSeeding={isSeeding}
               isAnalyzingMeal={isAnalyzingMeal}
               isEating={isEating}
               feedingImage={feedingImage}
@@ -639,6 +754,17 @@ export default function App() {
               onConnectAppleHealth={() => void connectAppleHealth()}
               onSyncAppleHealth={() => void syncAppleHealth()}
               isSyncingAppleHealth={isSyncingAppleHealth}
+              onLogScreenTime={logScreenTime}
+              screenTimeAccess={
+                Platform.OS === 'android' && isScreenTimeModuleAvailable()
+                  ? {
+                      granted: hasScreenTimeAccess,
+                      onOpenSettings: () => void openUsageAccessSettings(),
+                      onSync: (budgetMinutes) => void syncScreenTime(budgetMinutes),
+                      syncing: isSyncingScreenTime,
+                    }
+                  : undefined
+              }
             />
           )}
         </RootStack.Screen>

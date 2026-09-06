@@ -98,6 +98,7 @@ export class SupabaseRepository {
       trainingDaysPerWeek: data.training_days_per_week ?? undefined,
       trainingStyle: data.training_style ?? undefined,
       focusAreas: Array.isArray(data.focus_areas) ? data.focus_areas : undefined,
+      screenTimeBudgetMinutes: data.screen_time_budget_minutes ?? undefined,
     });
   }
 
@@ -121,6 +122,11 @@ export class SupabaseRepository {
       training_days_per_week: profile.trainingDaysPerWeek,
       training_style: profile.trainingStyle,
       focus_areas: profile.focusAreas,
+      // Dropped and retried by saveDroppingMissingColumns on a database that
+      // has not run the screen-time migration yet, so the rest still saves.
+      // `||` not `??`: zero means "no budget" everywhere else (engine, mapping),
+      // and the column's CHECK (1..1440) would reject it and sink the whole save.
+      screen_time_budget_minutes: profile.screenTimeBudgetMinutes || null,
     };
 
     await saveDroppingMissingColumns(payload, (row) =>
@@ -178,6 +184,40 @@ export class SupabaseRepository {
       ...event,
       occurredAt,
     }));
+  }
+
+  /**
+   * Bulk insert, for the dev seeder. Chunked because a single statement with a
+   * few hundred rows is the kind of thing PostgREST rejects on payload size, and
+   * a partial failure here is recoverable — seeded data is disposable.
+   */
+  async saveEvents(events: HealthEvent[]): Promise<void> {
+    const client = requireClient();
+    const CHUNK = 200;
+    for (let index = 0; index < events.length; index += CHUNK) {
+      const rows = events.slice(index, index + CHUNK).map((event) => ({
+        id: event.id,
+        user_id: event.userId,
+        occurred_at: event.occurredAt,
+        type: event.type,
+        source: event.source,
+        metadata: event.metadata,
+      }));
+      // eslint-disable-next-line no-await-in-loop
+      const { error } = await client.from('health_events').insert(rows);
+      if (error) throw error;
+    }
+  }
+
+  /**
+   * Removes every event from one source for the signed-in user. Used to sweep
+   * seeded data back out; RLS scopes the delete to the caller's own rows, so this
+   * cannot reach anyone else's history.
+   */
+  async deleteEventsBySource(source: HealthEvent['source']): Promise<void> {
+    const client = requireClient();
+    const { error } = await client.from('health_events').delete().eq('source', source);
+    if (error) throw error;
   }
 
   async saveEvent(event: HealthEvent): Promise<void> {

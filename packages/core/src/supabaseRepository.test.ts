@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createPet } from './domain/pet';
+import { withSurveyDefaults } from './domain/macroTargets';
 import { configureCore } from './config';
 import { SupabaseRepository } from './supabaseRepository';
 
 const upsert = vi.fn();
 const single = vi.fn();
+const update = vi.fn();
 configureCore({
-  supabase: { from: () => ({ upsert, select: () => ({ single }) }) } as unknown as SupabaseClient,
+  supabase: {
+    from: () => ({ upsert, update, select: () => ({ single }) }),
+    auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
+  } as unknown as SupabaseClient,
 });
 
 const petRow = (over: Record<string, unknown> = {}) => ({
@@ -84,6 +89,26 @@ describe('SupabaseRepository.savePet', () => {
     await new SupabaseRepository().savePet(pet);
 
     expect(upsert.mock.calls[0][0].energy).toBe(80);
+  });
+});
+
+describe('SupabaseRepository.saveProfile', () => {
+  beforeEach(() => update.mockReset());
+
+  const profile = withSurveyDefaults({
+    age: 30, sex: 'other', heightCm: 170, heightUnit: 'cm', weightKg: 70, weightUnit: 'kg', activity: 'moderate', goal: 'maintain',
+  });
+
+  it.each([
+    [undefined, null],
+    [0, null],
+    [150, 150],
+  ])('writes a screen-time budget of %s as %s so the 1..1440 check never rejects the row', async (budget, column) => {
+    update.mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+
+    await new SupabaseRepository().saveProfile({ ...profile, screenTimeBudgetMinutes: budget });
+
+    expect(update.mock.calls[0][0].screen_time_budget_minutes).toBe(column);
   });
 });
 
