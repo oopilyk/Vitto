@@ -1,5 +1,5 @@
 import type { ImageSourcePropType } from 'react-native';
-import { getEvolutionStage, getPetBuild, type PetAilment, type PetBreed, type PetBuild, type PetState } from '@vitto/core';
+import { EVOLUTION_LEVEL, getPetBuild, type PetAilment, type PetBreed, type PetBuild, type PetState } from '@vitto/core';
 
 /**
  * The dogs and cat are 4-column grids of square cells; the otter is a 6x10 grid
@@ -436,9 +436,9 @@ export const sheetForPet = (
   pet: Pick<PetState, 'id' | 'breed'> & Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'>>,
 ): PetSheet => {
   const base = baseSheetForPet(pet);
-  // Gated on the stage as well as the build: a level-2 pet that has been walked a
-  // lot is still a baby, and growing up is what the evolution is meant to mark.
-  if (getEvolutionStage(pet.level ?? 1) === 'baby') return base;
+  // Gated on level as well as build: a level-2 pet that has been walked a lot has
+  // not been raised long enough for how it was raised to mean anything yet.
+  if ((pet.level ?? 1) < EVOLUTION_LEVEL) return base;
   const build = getPetBuild({
     endurance: pet.endurance ?? 0,
     strength: pet.strength ?? 0,

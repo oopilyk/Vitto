@@ -1,4 +1,5 @@
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
+import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
 import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { workoutStrengthDelta } from './strengthProgression';
 
@@ -91,18 +92,29 @@ const SLEEP_SHORT_MINUTES = 5.5 * 60;
 
 /**
  * Screen time follows the sleep principle: the good outcome is rewarded and the
- * bad one is never punished. A day under the user's own budget restores `mind`
- * by `SCREEN_TIME_UNDER_BUDGET_MIND` — between a maths and a reading session,
- * since an evening off the screen is real rest for the head but not an
- * exercise for it. Going over gets a tiny xp acknowledgement rather than zero:
- * the habit being built is *checking in honestly*, and a log that earns nothing
- * on a bad day teaches people to skip logging bad days. No stat ever moves
- * down here, so the app never scolds. With no budget set there is nothing to
- * measure against, so the log is neutral — small xp for paying attention.
+ * bad one is never punished. Graded in bands (`screenTime.ts`) rather than
+ * against one budget line, so nine hours reads differently from five instead of
+ * both being "over".
+ *
+ * The reward tapers to a floor and never goes negative. Even the heaviest day
+ * earns a little xp, because the habit being built is *checking in honestly* and
+ * a log that earns nothing on a bad day teaches people to stop logging bad days.
+ * A light day restores `mind` — an evening off the screen is real rest for the
+ * head, though not exercise for it — and `recovery` at the same rate a scrappy
+ * mind session gives.
+ *
+ * A personal budget is still honoured, as a bonus on top of the band rather than
+ * the thing being measured: the bands are the shared scale, the budget is the
+ * user's own target.
  */
-const SCREEN_TIME_UNDER_BUDGET_MIND = 5;
-const SCREEN_TIME_UNDER_BUDGET_XP = 12;
-const SCREEN_TIME_OVER_BUDGET_XP = 4;
+const SCREEN_TIME_BAND_DELTA: Record<ScreenTimeBandId, PetDelta> = {
+  light: { mind: 5, happiness: 3, recovery: 2, xp: 14 },
+  moderate: { mind: 3, happiness: 1, xp: 11 },
+  heavy: { xp: 8 },
+  excessive: { xp: 5 },
+};
+/** Paid on top of the band when the user set a budget and came in under it. */
+const SCREEN_TIME_BUDGET_BONUS_XP = 3;
 const SCREEN_TIME_NO_BUDGET_XP = 6;
 
 /** "2h 05m" style, for the pet's screen-time messages. */
@@ -198,22 +210,19 @@ export class PetHealthEngine {
         const metadata = event.metadata as unknown as ScreenTimeMetadata;
         // NaN is not a total: it would read "NaNh" and fail every comparison.
         const minutes = Number.isFinite(metadata.minutes) ? Math.max(0, Math.round(metadata.minutes)) : 0;
+        const band = getScreenTimeBand(minutes);
         const budget = metadata.budgetMinutes;
-        if (budget === undefined || !Number.isFinite(budget) || budget <= 0) {
-          delta = { xp: SCREEN_TIME_NO_BUDGET_XP };
-          message = `${pet.name} saw you check your screen time — ${formatMinutes(minutes)} today. Set a budget and staying under it will sharpen ${pet.name}'s mind.`;
-          eventLabel = 'Screen check-in';
-        } else if (metadata.withinBudget ?? minutes <= budget) {
-          // Recovery 2 matches the "scrappy" mind session: time off the screen
-          // is rest, not training.
-          delta = { mind: SCREEN_TIME_UNDER_BUDGET_MIND, happiness: 3, recovery: 2, xp: SCREEN_TIME_UNDER_BUDGET_XP };
-          message = `${pet.name} loved the quieter day — ${formatMinutes(minutes)} on the screen, under your ${formatMinutes(budget)} budget.`;
-          eventLabel = 'Unplugged';
-        } else {
-          delta = { xp: SCREEN_TIME_OVER_BUDGET_XP };
-          message = `${pet.name} noticed you checking in — ${formatMinutes(minutes)} today. Tomorrow is a fresh screen.`;
-          eventLabel = 'Screen check-in';
-        }
+        const hasBudget = budget !== undefined && Number.isFinite(budget) && budget > 0;
+        const underBudget = hasBudget && (metadata.withinBudget ?? minutes <= (budget as number));
+        delta = { ...SCREEN_TIME_BAND_DELTA[band.id] };
+        if (underBudget) delta = { ...delta, xp: (delta.xp ?? 0) + SCREEN_TIME_BUDGET_BONUS_XP };
+        else if (!hasBudget) delta = { ...delta, xp: Math.max(delta.xp ?? 0, SCREEN_TIME_NO_BUDGET_XP) };
+
+        const spent = `${formatMinutes(minutes)} on the screen — ${band.verdict}`;
+        message = underBudget
+          ? `${pet.name} liked that: ${spent}, and under your ${formatMinutes(budget as number)} budget.`
+          : `${pet.name} saw you check in: ${spent}.`;
+        eventLabel = band.id === 'light' ? 'Unplugged' : 'Screen check-in';
         break;
       }
       default:

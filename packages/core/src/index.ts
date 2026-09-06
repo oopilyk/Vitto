@@ -9,6 +9,7 @@ export * from './domain/decay';
 export * from './domain/devAccess';
 export * from './domain/petCondition';
 export * from './domain/petStatusEffects';
+export * from './domain/screenTime';
 export * from './domain/streaks';
 export * from './domain/insights';
 export * from './dev/seedEvents';

@@ -6,7 +6,7 @@ import {
   statValue,
   type PetStatKey,
 } from './petStats';
-import { applyForcedForm, getEvolutionStage, getPetBuild, hasEvolved } from './pet';
+import { applyForcedForm, EVOLUTION_LEVEL, getPetBuild, hasEvolved } from './pet';
 import { DECAY_PER_DAY } from './decay';
 import type { HealthEvent, HealthEventType } from './health';
 import { createPet, type PetState } from './pet';
@@ -255,16 +255,16 @@ describe('applyForcedForm', () => {
     expect(hasEvolved(forced)).toBe(true);
   });
 
-  it('previews a real runner as unevolved when a balanced form is asked for', () => {
+  it('previews a real runner as unevolved when the base form is asked for', () => {
     const realRunner = { ...pet, level: 40, endurance: 90, strength: 5, mind: 5 };
-    expect(hasEvolved(applyForcedForm(realRunner, 'adult'))).toBe(false);
+    expect(hasEvolved(applyForcedForm(realRunner, 'base'))).toBe(false);
   });
 
-  it('previews a real lifter or scholar as unevolved when a balanced form is asked for', () => {
+  it('previews a real lifter or scholar as unevolved when the base form is asked for', () => {
     const realLifter = { ...pet, level: 40, strength: 90, endurance: 5, mind: 5 };
     const realScholar = { ...pet, level: 40, mind: 90, endurance: 5, strength: 5 };
-    expect(hasEvolved(applyForcedForm(realLifter, 'teen'))).toBe(false);
-    expect(hasEvolved(applyForcedForm(realScholar, 'adult'))).toBe(false);
+    expect(hasEvolved(applyForcedForm(realLifter, 'base'))).toBe(false);
+    expect(hasEvolved(applyForcedForm(realScholar, 'base'))).toBe(false);
   });
 
   it('lets a forced specialism override whichever build the pet really has', () => {
@@ -273,9 +273,19 @@ describe('applyForcedForm', () => {
     expect(getPetBuild(applyForcedForm(realScholar, 'runner'))).toBe('runner');
   });
 
-  it('maps each stage to a level that lands in it', () => {
-    expect(getEvolutionStage(applyForcedForm(pet, 'baby').level)).toBe('baby');
-    expect(getEvolutionStage(applyForcedForm(pet, 'teen').level)).toBe('teen');
-    expect(getEvolutionStage(applyForcedForm(pet, 'adult').level)).toBe('adult');
+  it('puts a forced specialism over the evolution line and the base form under it', () => {
+    expect(applyForcedForm(pet, 'base').level).toBeLessThan(EVOLUTION_LEVEL);
+    for (const form of ['runner', 'lifter', 'scholar'] as const) {
+      expect(applyForcedForm(pet, form).level).toBeGreaterThanOrEqual(EVOLUTION_LEVEL);
+    }
+  });
+
+  it('holds a specialism back until the pet is old enough for it to mean anything', () => {
+    // The level gate is what is left of the old baby/teen/adult ladder: how a pet
+    // was raised only says something once it has been raised for a while.
+    const youngRunner = { ...pet, level: EVOLUTION_LEVEL - 1, endurance: 90, strength: 5, mind: 5 };
+    expect(getPetBuild(youngRunner)).toBe('runner');
+    expect(hasEvolved(youngRunner)).toBe(false);
+    expect(hasEvolved({ ...youngRunner, level: EVOLUTION_LEVEL })).toBe(true);
   });
 });

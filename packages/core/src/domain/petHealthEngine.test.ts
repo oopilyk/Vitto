@@ -206,13 +206,14 @@ describe('SCREEN_TIME', () => {
     },
   });
 
-  it('restores mind for a day under budget, with the sleep-sized side rewards', () => {
+  it('restores mind for a light day, with the sleep-sized side rewards', () => {
     const pet = { ...createPet('user-1', 'Blue', 'dog'), mind: 40, happiness: 40, recovery: 40 };
     const { pet: next, reaction } = new PetHealthEngine().apply(pet, screenTime(95, 120));
     expect(next.mind).toBe(45);
     expect(next.happiness).toBe(43);
     expect(next.recovery).toBe(42);
-    expect(reaction.delta.xp).toBe(12);
+    // The light band pays 14, plus 3 for also clearing the user's own budget.
+    expect(reaction.delta.xp).toBe(17);
     expect(reaction.eventLabel).toBe('Unplugged');
     expect(reaction.message).toContain('1h 35m');
     expect(reaction.message).toContain('2h budget');
@@ -225,17 +226,50 @@ describe('SCREEN_TIME', () => {
       expect(next[key]).toBeGreaterThanOrEqual(pet[key]);
     }
     expect(next.mind).toBe(40);
-    expect(reaction.delta).toEqual({ xp: 4 });
+    // Five hours is the `heavy` band: xp only, and no stat moves down.
+    expect(reaction.delta).toEqual({ xp: 8 });
     expect(reaction.eventLabel).toBe('Screen check-in');
     expect(reaction.message).not.toMatch(/too much|bad|over/i);
   });
 
-  it('treats a log with no budget as neutral: small xp, no stat movement', () => {
-    const pet = { ...createPet('user-1', 'Blue', 'dog'), mind: 40 };
+  it('still grades a log with no budget set, since the bands do not need one', () => {
+    // The budget used to be the only yardstick, so a user without one got a
+    // neutral log however long the day was. The bands are a shared scale, so the
+    // day is graded either way and the budget is just a bonus on top.
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), mind: 40, happiness: 40 };
     const { pet: next, reaction } = new PetHealthEngine().apply(pet, screenTime(200));
-    expect(next.mind).toBe(40);
-    expect(reaction.delta).toEqual({ xp: 6 });
-    expect(reaction.message).toContain('Set a budget');
+    expect(next.mind).toBe(43);
+    expect(next.happiness).toBe(41);
+    expect(reaction.delta.xp).toBe(11);
+    expect(reaction.message).toContain('3h 20m');
+  });
+
+  it.each([
+    [60, 'a good day', 'Unplugged'],
+    [200, 'fine', 'Screen check-in'],
+    [330, 'pushing it', 'Screen check-in'],
+    [540, 'a lot', 'Screen check-in'],
+  ])('grades %i minutes as "%s"', (minutes, verdict, label) => {
+    const pet = createPet('user-1', 'Blue', 'dog');
+    const { reaction } = new PetHealthEngine().apply(pet, screenTime(minutes as number));
+    expect(reaction.message).toContain(verdict as string);
+    expect(reaction.eventLabel).toBe(label as string);
+  });
+
+  it('pays less as the day gets heavier, but never nothing and never a penalty', () => {
+    const pet = createPet('user-1', 'Blue', 'dog');
+    const engine = new PetHealthEngine();
+    const xp = [60, 200, 330, 540].map(
+      (minutes) => engine.apply(pet, screenTime(minutes)).reaction.delta.xp ?? 0,
+    );
+    expect(xp).toEqual([...xp].sort((a, b) => b - a));
+    expect(Math.min(...xp)).toBeGreaterThan(0);
+    for (const minutes of [60, 200, 330, 540]) {
+      const delta = engine.apply(pet, screenTime(minutes)).reaction.delta;
+      for (const value of Object.values(delta)) {
+        expect(value as number).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
 
   it('pays less for an over-budget day than an under-budget one, and less than a brain session', () => {

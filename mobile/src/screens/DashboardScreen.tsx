@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, PET_BUILD_LABEL, type HealthEvent, type MealAnalysis, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateInsights, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getEvolutionStage, getPetBuild, hasEvolved, getMealsForDay, isSameDay, mindScoreLabel, statValue, sumMealMacros, toDateKey, getStatusEffects} from '@vitto/core';
+import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, PET_BUILD_LABEL, type HealthEvent, type MealAnalysis, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateInsights, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getPetBuild, hasEvolved, getMealsForDay, isSameDay, mindScoreLabel, statValue, sumMealMacros, toDateKey, getStatusEffects} from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
@@ -110,9 +110,7 @@ type DevFormChoice = ForcedPetForm | 'live';
  */
 const DEV_FORM_OPTIONS: { value: DevFormChoice; label: string; detail?: string }[] = [
   { value: 'live', label: 'Live', detail: 'real form' },
-  { value: 'baby', label: 'Baby' },
-  { value: 'teen', label: 'Teen' },
-  { value: 'adult', label: 'Adult' },
+  { value: 'base', label: 'Base', detail: 'unevolved' },
   { value: 'runner', label: 'Runner', detail: 'evolved' },
   { value: 'lifter', label: 'Lifter', detail: 'evolved · strength' },
   { value: 'scholar', label: 'Scholar', detail: 'evolved · mind' },
@@ -226,13 +224,12 @@ export function DashboardScreen({
   const burned = estimateCaloriesBurned(todaysEvents);
   const remaining = targets.calories - consumed.calories + burned;
   const streaks = calculateStreaks(events, today);
-  const stage = getEvolutionStage(pet.level);
-  // "Runner Teen" once the pet has grown into a build, plain "Teen" until then —
-  // the kicker is where the evolution is announced, since the sprite changing is
-  // easy to miss if you were not watching for it.
+  // The kicker is where an evolution is announced — the sprite changing is easy
+  // to miss if you were not watching for it. Before then there is no form to name,
+  // so it shows the level instead of the old stage word.
   const formLabel = hasEvolved(pet)
-    ? `${PET_BUILD_LABEL[getPetBuild(pet)]} ${EVOLUTION_STAGE_LABEL[stage]}`
-    : EVOLUTION_STAGE_LABEL[stage];
+    ? PET_BUILD_LABEL[getPetBuild(pet)]
+    : `Level ${pet.level}`;
   // `pet` arrives already projected forward by App, so this reads the stats the
   // user is looking at rather than the stored ones.
   const condition = assessCondition(pet);

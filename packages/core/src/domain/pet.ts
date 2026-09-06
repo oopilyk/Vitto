@@ -57,22 +57,17 @@ export interface PetReaction {
 export const clamp = (value: number, minimum = 0, maximum = 100) =>
   Math.round(Math.min(maximum, Math.max(minimum, value)));
 
-export type EvolutionStage = 'baby' | 'teen' | 'adult';
-
-const TEEN_LEVEL_THRESHOLD = 11;
-const ADULT_LEVEL_THRESHOLD = 31;
-
-export const getEvolutionStage = (level: number): EvolutionStage => {
-  if (level >= ADULT_LEVEL_THRESHOLD) return 'adult';
-  if (level >= TEEN_LEVEL_THRESHOLD) return 'teen';
-  return 'baby';
-};
-
-export const EVOLUTION_STAGE_LABEL: Record<EvolutionStage, string> = {
-  baby: 'Baby',
-  teen: 'Teen',
-  adult: 'Adult',
-};
+/**
+ * The level a pet has to reach before a specialism can show as an evolution.
+ *
+ * There used to be a baby/teen/adult ladder that gated this and also drove the
+ * sprite's size. It was removed: the builds are the progression the pet actually
+ * has, and a second, parallel one measured only in levels said nothing the level
+ * number was not already saying. What is left is the part that mattered — a pet
+ * has to have been raised a while before how it was raised means anything, so a
+ * level-2 pet that has been walked twice is not yet a runner.
+ */
+export const EVOLUTION_LEVEL = 11;
 
 /**
  * The shape a pet has grown into. Derived from how it was actually raised, never
@@ -114,29 +109,26 @@ export const PET_BUILD_LABEL: Record<PetBuild, string> = {
 };
 
 /**
- * Whether the pet has visibly evolved: it has both grown past `baby` and grown
- * into a specialism. Kept here rather than in the sprite layer so the copy on the
- * dashboard and the sheet the avatar draws can never disagree about it.
+ * Whether the pet has visibly evolved: it has both reached `EVOLUTION_LEVEL` and
+ * grown into a specialism. Kept here rather than in the sprite layer so the copy
+ * on the dashboard and the sheet the avatar draws can never disagree about it.
  */
 export const hasEvolved = (
   pet: Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'>,
-): boolean => getEvolutionStage(pet.level) !== 'baby' && getPetBuild(pet) !== 'balanced';
+): boolean => pet.level >= EVOLUTION_LEVEL && getPetBuild(pet) !== 'balanced';
 
 /**
  * DEV TOOL -- which form to preview. Evolutions are earned over weeks of real
  * training, so without this the only way to see one is to wait for it.
  */
-export type ForcedPetForm = 'baby' | 'teen' | 'adult' | 'runner' | 'lifter' | 'scholar';
+export type ForcedPetForm = 'base' | 'runner' | 'lifter' | 'scholar';
 
-/** Enough to clear each stage's threshold, and comfortably inside the next. */
+/** `base` stays under the line on purpose; a specialism has to clear it. */
 const FORCED_FORM_LEVEL: Record<ForcedPetForm, number> = {
-  baby: 1,
-  teen: TEEN_LEVEL_THRESHOLD,
-  adult: ADULT_LEVEL_THRESHOLD,
-  // A specialism has to be past `baby` to show its evolved sheet at all.
-  runner: TEEN_LEVEL_THRESHOLD,
-  lifter: TEEN_LEVEL_THRESHOLD,
-  scholar: TEEN_LEVEL_THRESHOLD,
+  base: 1,
+  runner: EVOLUTION_LEVEL,
+  lifter: EVOLUTION_LEVEL,
+  scholar: EVOLUTION_LEVEL,
 };
 
 /** Which of the three stats `getPetBuild` reads a forced specialism pushes up. */
@@ -151,10 +143,10 @@ const FORCED_FORM_STAT: Partial<Record<ForcedPetForm, 'endurance' | 'strength' |
  * `sheetForPet` path resolves to the requested form and nothing is special-cased.
  *
  * Moves the STATS, not the sheet, for the same reason `applyForcedAilment` does:
- * the sprite, the stage copy and the stat bars then all agree with each other.
- * A specialism gets its stat well past the floor with the other two held low; the
- * balanced forms pin all three level with each other so a pet that really is a
- * runner, lifter or scholar still previews as unevolved when asked to.
+ * the sprite, the build copy and the stat bars then all agree with each other.
+ * A specialism gets its stat well past the floor with the other two held low;
+ * `base` pins all three level with each other so a pet that really is a runner,
+ * lifter or scholar still previews as unevolved when asked to.
  *
  * Display only. Apply it to the projection being rendered, never to a pet on its
  * way to being saved.

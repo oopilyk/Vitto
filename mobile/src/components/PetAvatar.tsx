@@ -7,7 +7,6 @@ import {
   type PetState,
   assessCondition,
   assessDecline,
-  getEvolutionStage,
 } from '@vitto/core';
 import { FRAME_MS, HOLDS_LAST_FRAME, type PetAnimation, SPRITE_ART_TOP, sheetForPet } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
@@ -46,7 +45,12 @@ const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
   idle: (name) => `${name} is here`,
 };
 
-const STAGE_SIZE = { baby: 148, teen: 184, adult: 216 } as const;
+/**
+ * One size for every pet. The sprite used to grow with the baby/teen/adult ladder
+ * that no longer exists; this is the middle of that old range, which fills the
+ * 320px stage without crowding the HUD or the status chips in the corners.
+ */
+const PET_SIZE = 184;
 
 /** Matches the window App keeps `feedingImage` set for. */
 const FOOD_FLIGHT_MS = 880;
@@ -167,7 +171,7 @@ export function PetAvatar({
   const sleeping = isSleeping(pet.energy, condition, activity);
   const animation = sleeping ? 'rest' : animationFor(activity, pet.mood, condition);
   const frames = sheet.animations[animation];
-  const size = STAGE_SIZE[getEvolutionStage(pet.level)];
+  const size = PET_SIZE;
 
   // Step through the band's cells; each animation restarts from its first frame.
   const [frameIndex, setFrameIndex] = useState(0);

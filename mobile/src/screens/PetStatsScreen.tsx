@@ -4,7 +4,6 @@ import {
   type BrainTrainingMetadata,
   DECAY_PERIOD_MS,
   DECAY_PER_DAY,
-  EVOLUTION_STAGE_LABEL,
   PET_BUILD_LABEL,
   type HealthEvent,
   IS_TEST_DECAY_PERIOD,
@@ -16,7 +15,6 @@ import {
   daysWithPet,
   findWordPuzzleEventForDate,
   getActiveDateKeys,
-  getEvolutionStage,
   getPetBuild,
   wordPuzzleStreak,
   isSameDay,
@@ -140,7 +138,6 @@ const describeMood = (pet: PetState): string => {
 export function PetStatsScreen({ pet, events, onClose }: Props) {
   const now = new Date();
   const sheet = sheetForPet(pet);
-  const stage = getEvolutionStage(pet.level);
   const streaks = calculateStreaks(events, now);
   const last7 = careCountsByType(events, 7, now);
   const last30 = careCountsByType(events, 30, now);
@@ -208,7 +205,7 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
             <SpriteFrame sheet={sheet} frame={sheet.animations.idle[0]} size={96} />
           </View>
           <View style={styles.identityText}>
-            <Kicker>{EVOLUTION_STAGE_LABEL[stage].toUpperCase()}</Kicker>
+            <Kicker>{PET_BUILD_LABEL[getPetBuild(pet)].toUpperCase()}</Kicker>
             <Text style={styles.petName}>{pet.name}</Text>
             <Text style={styles.identityMeta}>
               {sheet.label} · {SPECIES_LABEL[pet.species]}
@@ -223,7 +220,6 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
           <View style={styles.facts}>
             <Fact label="level" value={String(pet.level)} />
             <Fact label="XP this level" value={`${pet.xp}/100`} />
-            <Fact label="stage" value={EVOLUTION_STAGE_LABEL[stage]} />
             <Fact label="build" value={PET_BUILD_LABEL[getPetBuild(pet)]} />
           </View>
           <StatBar label="XP" value={pet.xp} color={colors.coral} />

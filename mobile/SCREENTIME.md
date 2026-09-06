@@ -1,10 +1,33 @@
 # Screen time
 
 Lets the pet respond to how much of the day the user spent on their phone. The
-product rule is the same as for sleep (see `petHealthEngine.ts`): a day under a
-budget **the user set for themselves** restores the pet's `mind`; a day over it
-costs nothing and is acknowledged with a few xp; a day with no budget set is a
-neutral log. The app never imposes a budget and never scolds.
+product rule is the same as for sleep (see `petHealthEngine.ts`): the good day is
+rewarded and the bad one is never punished. No stat ever moves down, and even the
+heaviest day earns a little xp — the habit being built is *checking in honestly*,
+and a log that pays nothing on a bad day teaches people to stop logging bad days.
+
+Days are graded in bands (`packages/core/src/domain/screenTime.ts`) rather than
+against a single line, so nine hours reads differently from five instead of both
+being "over":
+
+| Up to | Band | Reads as | Pet gets |
+| --- | --- | --- | --- |
+| 2h | `light` | a good day | mind +5, happiness +3, recovery +2, 14xp |
+| 4h | `moderate` | fine | mind +3, happiness +1, 11xp |
+| 6h | `heavy` | pushing it | 8xp |
+| more | `excessive` | a lot | 5xp |
+
+A boundary falls in the gentler band: exactly two hours is still `light`.
+
+A personal budget is optional and sits **on top** of the bands as a +3xp bonus
+for coming in under it — the bands are the shared scale, the budget is the user's
+own target. A user who never sets one still gets a graded day, which is the main
+change from the original budget-only rule.
+
+The band boundaries double as the thresholds an iOS `DeviceActivityMonitor` would
+register (`SCREEN_TIME_THRESHOLD_MINUTES`, with 8h added for resolution inside
+the heaviest band). That platform can only ever report "a threshold was crossed",
+never a total — so a banded design is one iOS can actually deliver.
 
 ## Privacy rule
 

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { type MealAnalysis, type PetState, assessDecline, getEvolutionStage } from '@vitto/core';
+import { type MealAnalysis, type PetState, assessDecline } from '@vitto/core';
 
 const MOOD_MOUTH: Record<PetState["mood"], string> = {
   bright: "◡",
@@ -77,7 +77,6 @@ export function PetAvatar({
   isExploring,
   children,
 }: PetAvatarProps) {
-  const stage = getEvolutionStage(pet.level);
   const activity = getActivity({
     isCelebrating,
     isEating,
@@ -94,7 +93,6 @@ export function PetAvatar({
 
   const stageClassName = [
     "pet-stage",
-    `stage-${stage}`,
     `mood-${pet.mood}`,
     `activity-${activity}`,
     `decline-${decline.stage}`,
