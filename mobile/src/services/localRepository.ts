@@ -1,10 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { type HealthEvent, type WordPuzzleRoundOutcome, type PetState } from '@vitto/core';
+import {
+  type CareLogEntry,
+  type HealthEvent,
+  type PetInvite,
+  type PetMember,
+  type PetSaveResult,
+  type PetState,
+  type WordPuzzleRoundOutcome,
+} from '@vitto/core';
 
 const petKey = 'vitto.pet';
 const eventKey = 'vitto.events';
 const wordPuzzleKey = 'vitto.wordpuzzle.progress';
 const MAX_STORED_EVENTS = 2000;
+const CARE_PARTNERS_OFFLINE_MESSAGE = 'Care partners need an online account.';
 
 /**
  * A day's WordPuzzle in flight.
@@ -84,5 +93,58 @@ export class LocalRepository {
 
   async clear(): Promise<void> {
     await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, 'vitto.profile']);
+  }
+
+  // --- Care partners -------------------------------------------------------
+  // Same method names as SupabaseRepository so the care-moment pipeline can be
+  // handed either one. A single device has exactly one writer, so an optimistic
+  // write can never conflict, and there is nobody to share the pet with: the
+  // read-side methods answer "nobody" and the invite/leave actions refuse. The
+  // UI never shows them in local mode (it is gated on `isSupabaseConfigured`).
+
+  async savePetIfUnchanged(pet: PetState, expectedVersion: number): Promise<PetSaveResult> {
+    void expectedVersion;
+    await this.savePet(pet);
+    return { status: 'saved', version: pet.version ?? 0 };
+  }
+
+  async loadPetMembers(petId: string): Promise<PetMember[]> {
+    void petId;
+    return [];
+  }
+
+  async loadCareLog(petId: string, limit?: number): Promise<CareLogEntry[]> {
+    void petId;
+    void limit;
+    return [];
+  }
+
+  async appendCareLog(entry: Omit<CareLogEntry, 'id'>): Promise<void> {
+    void entry;
+  }
+
+  async loadOpenInvite(petId: string): Promise<PetInvite | null> {
+    void petId;
+    return null;
+  }
+
+  async createInvite(petId: string): Promise<PetInvite> {
+    void petId;
+    throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
+  }
+
+  async revokeInvite(inviteId: string): Promise<void> {
+    void inviteId;
+    throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
+  }
+
+  async redeemInvite(code: string, options?: { confirmLeave?: boolean }): Promise<string> {
+    void code;
+    void options;
+    throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
+  }
+
+  async leavePet(): Promise<void> {
+    throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
   }
 }

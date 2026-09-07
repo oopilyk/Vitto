@@ -1108,3 +1108,399 @@ describe('pet sprite', () => {
     }
   });
 });
+
+describe('care partners', () => {
+  const { ProfileScreen } = require('../screens/ProfileScreen');
+  const { Text: RNText, TextInput: RNTextInput } = require('react-native');
+  const { CARE_LOG_LABEL, inviteExpiresAt } = require('@vitto/core');
+
+  const owner = { userId: 'user-1', role: 'owner' as const, joinedAt: '2026-09-01T00:00:00Z', displayName: 'Kyle' };
+  const alex = { userId: 'user-2', role: 'partner' as const, joinedAt: '2026-09-02T00:00:00Z', displayName: 'Alex' };
+  const openInvite = {
+    id: 'inv-1',
+    petId: pet.id,
+    code: 'ABCDEF',
+    createdAt: new Date().toISOString(),
+    expiresAt: inviteExpiresAt(new Date()),
+  };
+
+  const findButton = (tree: renderer.ReactTestRenderer, label: string) =>
+    tree.root
+      .findAll((node) => typeof node.props.onPress === 'function')
+      .find((node) => node.findAllByType(RNText).some((t: any) => t.props.children === label));
+
+  const renderProfile = (carePartner?: Record<string, unknown>) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async () => {}}
+          onClose={() => {}}
+          carePartner={carePartner}
+        />,
+      );
+    });
+    return tree;
+  };
+
+  const partnerProps = (overrides: Record<string, unknown> = {}) => ({
+    petName: 'Miso',
+    selfUserId: 'user-1',
+    members: [owner],
+    invite: null,
+    busy: false,
+    onCreateInvite: async () => {},
+    onRevokeInvite: async () => {},
+    onRedeemInvite: async () => true,
+    onLeave: async () => {},
+    ...overrides,
+  });
+
+  it('shows no care partner card at all without the prop (local mode)', () => {
+    const tree = renderProfile();
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).not.toContain('Care partner');
+    expect(rendered).not.toContain('Have a code?');
+    tree.unmount();
+  });
+
+  it('shows the open invite code, formatted, with a way to cancel it', () => {
+    const tree = renderProfile(partnerProps({ invite: openInvite }));
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('ABC-DEF');
+    expect(findButton(tree, 'Cancel code')).toBeTruthy();
+    expect(findButton(tree, 'New code')).toBeTruthy();
+    // One live code at a time: no "invite" button while one is open.
+    expect(findButton(tree, 'Invite a care partner')).toBeUndefined();
+    tree.unmount();
+  });
+
+  it('offers a code when there is none, and hides the code UI once shared', () => {
+    const solo = renderProfile(partnerProps());
+    expect(findButton(solo, 'Invite a care partner')).toBeTruthy();
+    solo.unmount();
+
+    const shared = renderProfile(partnerProps({ members: [owner, alex] }));
+    expect(findButton(shared, 'Invite a care partner')).toBeUndefined();
+    expect(findButton(shared, 'Have a code?')).toBeUndefined();
+    shared.unmount();
+  });
+
+  it('normalises a typed code and hands it to onRedeemInvite', async () => {
+    const redeemed: string[] = [];
+    const tree = renderProfile(
+      partnerProps({
+        onRedeemInvite: async (code: string) => {
+          redeemed.push(code);
+          return true;
+        },
+      }),
+    );
+
+    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    expect(input).toBeTruthy();
+    act(() => input!.props.onChangeText('abc-def'));
+    await act(async () => {
+      await findButton(tree, 'Join')!.props.onPress();
+    });
+    expect(redeemed).toEqual(['ABCDEF']);
+    // Joined: the field is cleared.
+    expect(input!.props.value).toBe('');
+    tree.unmount();
+  });
+
+  it('keeps the typed code when the join confirm is cancelled', async () => {
+    const tree = renderProfile(partnerProps({ onRedeemInvite: async () => false }));
+    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    act(() => input!.props.onChangeText('ABC-DEF'));
+    await act(async () => {
+      await findButton(tree, 'Join')!.props.onPress();
+    });
+    expect(input!.props.value).toBe('ABC-DEF');
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Could not join');
+    tree.unmount();
+  });
+
+  it('shows a rejected join inline, beside the code field', async () => {
+    const tree = renderProfile(
+      partnerProps({
+        onRedeemInvite: async () => {
+          throw new Error('That code has already been used.');
+        },
+      }),
+    );
+    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    act(() => input!.props.onChangeText('ABCDEF'));
+    await act(async () => {
+      await findButton(tree, 'Join')!.props.onPress();
+    });
+    expect(JSON.stringify(tree.toJSON())).toContain('That code has already been used.');
+    tree.unmount();
+  });
+
+  it('lists both carers on a shared pet and offers to leave it', async () => {
+    let left = 0;
+    const tree = renderProfile(
+      partnerProps({
+        members: [owner, alex],
+        onLeave: async () => {
+          left += 1;
+        },
+      }),
+    );
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('You');
+    expect(rendered).toContain('Alex');
+    expect(rendered).toContain('partner');
+    const leave = findButton(tree, 'Leave Miso');
+    expect(leave).toBeTruthy();
+    await act(async () => {
+      await leave!.props.onPress();
+    });
+    expect(left).toBe(1);
+    tree.unmount();
+  });
+
+  it('has a display-name field that rides the ordinary save bar', async () => {
+    const saved: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async (next: unknown) => {
+            saved.push(next);
+          }}
+          onClose={() => {}}
+        />,
+      );
+    });
+    expect(findButton(tree, 'Save changes')).toBeUndefined();
+    const nameInput = tree.root
+      .findAllByType(RNTextInput)
+      .find((node: any) => node.props.maxLength === 40);
+    expect(nameInput).toBeTruthy();
+    act(() => nameInput!.props.onChangeText('Kyle'));
+    await act(async () => {
+      await findButton(tree, 'Save changes')!.props.onPress();
+    });
+    expect(saved[0].displayName).toBe('Kyle');
+    tree.unmount();
+  });
+
+  it("lists the partner's moments in today's care, named, and still capped at five", () => {
+    const careDiary = Array.from({ length: 7 }, (_, index) => ({
+      id: `log-${index}`,
+      occurredAt: new Date().toISOString(),
+      type: 'WORKOUT' as const,
+      label: CARE_LOG_LABEL.WORKOUT,
+      actorUserId: 'user-2',
+      actorName: 'Alex',
+    }));
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          petFocusToken={0}
+          pet={pet}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+          careDiary={careDiary}
+          partnerName="Alex"
+          onRefresh={async () => {}}
+        />,
+      );
+    });
+    const rows = tree.root
+      .findAllByType(RNText)
+      .filter((node: any) => node.props.children === 'Alex · Trained together');
+    expect(rows).toHaveLength(5);
+    // The refresh control puts a React element in the tree's props, so match on
+    // the Text nodes rather than serialising the whole render.
+    const texts = tree.root.findAllByType(RNText).map((node: any) =>
+      [node.props.children]
+        .flat()
+        .filter((child: unknown) => typeof child === 'string' || typeof child === 'number')
+        .join(''),
+    );
+    // The link opens Profile, which lists own events only, so partner rows
+    // beyond the preview are not counted as "more".
+    expect(texts.some((children) => children.includes('more today'))).toBe(false);
+    expect(texts).toContain('Raised with Alex');
+    tree.unmount();
+  });
+
+  it('counts only own moments behind the "more" link on a shared dashboard', () => {
+    const now = new Date().toISOString();
+    const ownSteps: HealthEvent[] = Array.from({ length: 2 }, (_, index) => ({
+      id: `own-${index}`,
+      userId: 'user-1',
+      occurredAt: now,
+      type: 'STEP_ACTIVITY',
+      source: 'mock',
+      metadata: { steps: 100 },
+    })) as unknown as HealthEvent[];
+    // Partner rows first, so both own rows fall past the five-row preview.
+    const careDiary = [
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `log-${index}`,
+        occurredAt: new Date(Date.now() + 1000).toISOString(),
+        type: 'WORKOUT' as const,
+        label: CARE_LOG_LABEL.WORKOUT,
+        actorUserId: 'user-2',
+        actorName: 'Alex',
+      })),
+      ...ownSteps.map((event) => ({
+        id: event.id,
+        occurredAt: event.occurredAt,
+        type: event.type,
+        label: CARE_LOG_LABEL[event.type],
+        actorUserId: 'user-1',
+        actorName: null,
+      })),
+    ];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          petFocusToken={0}
+          pet={pet}
+          events={ownSteps}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+          careDiary={careDiary}
+        />,
+      );
+    });
+    const texts = tree.root.findAllByType(RNText).map((node: any) =>
+      [node.props.children]
+        .flat()
+        .filter((child: unknown) => typeof child === 'string' || typeof child === 'number')
+        .join(''),
+    );
+    // Two own rows are hidden behind the preview and are exactly what Profile lists.
+    expect(texts).toContain('2 more today →');
+    tree.unmount();
+  });
+
+  it('keeps the solo dashboard free of any partner line', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          petFocusToken={0}
+          pet={pet}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Raised with');
+    tree.unmount();
+  });
+
+  const renderOnboardingLastStep = (onRedeemInvite?: (code: string) => Promise<boolean>) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <OnboardingScreen
+          name="Miso"
+          onNameChange={() => {}}
+          profile={profile}
+          onUpdate={() => {}}
+          onAdopt={() => {}}
+          breed="shiba"
+          onBreedChange={() => {}}
+          error={null}
+          onRedeemInvite={onRedeemInvite}
+        />,
+      );
+    });
+    // Three "Continue"s reach the last step; the test profile passes every check.
+    for (let step = 0; step < 3; step += 1) {
+      act(() => findButton(tree, 'Continue')!.props.onPress());
+    }
+    expect(findButton(tree, 'Adopt Miso')).toBeTruthy();
+    return tree;
+  };
+
+  it('offers to join a partner instead of adopting, only when signed in online', async () => {
+    const redeemed: string[] = [];
+    const tree = renderOnboardingLastStep(async (code) => {
+      redeemed.push(code);
+      return true;
+    });
+    const reveal = findButton(tree, "Got an invite code? Join a partner's pet instead");
+    expect(reveal).toBeTruthy();
+    act(() => reveal!.props.onPress());
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    expect(input).toBeTruthy();
+    act(() => input!.props.onChangeText('abc def'));
+    await act(async () => {
+      await findButton(tree, 'Join')!.props.onPress();
+    });
+    expect(redeemed).toEqual(['ABCDEF']);
+    tree.unmount();
+
+    const offline = renderOnboardingLastStep();
+    expect(findButton(offline, "Got an invite code? Join a partner's pet instead")).toBeUndefined();
+    offline.unmount();
+  });
+});

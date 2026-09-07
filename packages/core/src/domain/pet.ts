@@ -9,6 +9,10 @@ export const PET_BREEDS: PetBreed[] = ['bichon', 'shiba', 'orangeCat', 'otter'];
 
 export interface PetState {
   id: string;
+  /**
+   * Who adopted the pet — the creator, not the sole carer. A care partner can
+   * hold and save this same pet; membership lives in `pet_members`, not here.
+   */
   userId: string;
   name: string;
   species: 'cat' | 'dog' | 'bunny';
@@ -29,6 +33,12 @@ export interface PetState {
   mood: PetMood;
   adoptedAt: string;
   lastEventAt?: string;
+  /**
+   * Row version from the database, bumped by a trigger on every update. Used
+   * for optimistic writes (`savePetIfUnchanged`) so two carers cannot overwrite
+   * each other. Optional: local pets, `createPet` and the web never carry one.
+   */
+  version?: number;
 }
 
 export interface PetDelta {

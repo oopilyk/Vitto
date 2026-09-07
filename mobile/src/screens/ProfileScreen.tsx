@@ -17,16 +17,25 @@ import {
   type HealthEvent,
   type MealMetadata,
   type PetBreed,
+  type PetInvite,
+  type PetMember,
   type ScreenTimeMetadata,
+  activeMembers,
   calculateMacroTargets,
   calculateStreaks,
   convertHeightToFeetAndInches,
   convertWeightValue,
   estimateCaloriesBurned,
   feetAndInchesToCm,
+  formatInviteCode,
   getActiveDateKeys,
   getEventsForDay,
   getMealsForDay,
+  isInviteOpen,
+  isSharedPet,
+  memberDisplayName,
+  memberRole,
+  normalizeInviteCode,
   planForGoal,
   sumMealMacros,
 } from '@vitto/core';
@@ -63,7 +72,29 @@ interface Props {
     onSync: (budgetMinutes?: number) => void;
     syncing?: boolean;
   };
+  /**
+   * Care partners: two accounts raising one pet. Absent entirely in local mode
+   * and when signed out, which is what hides the card. Every action rejects
+   * with a readable message, shown inline under the control that raised it.
+   */
+  carePartner?: {
+    petName: string;
+    selfUserId: string;
+    members: PetMember[];
+    invite: PetInvite | null;
+    busy: boolean;
+    onCreateInvite: () => Promise<void>;
+    onRevokeInvite: () => Promise<void>;
+    /** Resolves true once joined, false when the user backed out of the confirm; rejects on failure. */
+    onRedeemInvite: (code: string) => Promise<boolean>;
+    onLeave: () => Promise<void>;
+  };
 }
+
+/** Longest a display name can be; matches the server-side `left(..., 40)` so what is typed is what the partner sees. */
+const DISPLAY_NAME_MAX_LENGTH = 40;
+/** Six characters plus the hyphen `formatInviteCode` shows, so a pasted formatted code fits. */
+const INVITE_INPUT_MAX_LENGTH = 7;
 
 const FOCUS_LABEL: Record<FocusArea, string> = {
   nutrition: 'Eat better',
@@ -160,8 +191,13 @@ export function ProfileScreen({
   isSyncingAppleHealth,
   onLogScreenTime,
   screenTimeAccess,
+  carePartner,
 }: Props) {
   const [profile, setProfile] = useState(initial);
+  // The invite-code entry, revealed on demand; raw text, normalised on submit.
+  const [showJoin, setShowJoin] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [partnerError, setPartnerError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE);
@@ -262,6 +298,30 @@ export function ProfileScreen({
     }
   };
 
+  /** Runs one partner action, keeping its failure next to the card rather than in the global banner. */
+  const runPartnerAction = async (action: () => Promise<void>, fallback: string) => {
+    setPartnerError(null);
+    try {
+      await action();
+    } catch (cause) {
+      setPartnerError(cause instanceof Error && cause.message ? cause.message : fallback);
+    }
+  };
+
+  const joinWithCode = () =>
+    runPartnerAction(async () => {
+      if (!carePartner) return;
+      const code = normalizeInviteCode(joinCode);
+      if (code.length !== 6) throw new Error('Enter the six-character code your partner shared.');
+      // A cancelled confirm keeps the code where it was typed.
+      if (await carePartner.onRedeemInvite(code)) setJoinCode('');
+    }, 'Could not join that pet.');
+
+  const shared = carePartner ? isSharedPet(carePartner.members) : false;
+  const isOwner = carePartner ? memberRole(carePartner.members, carePartner.selfUserId) === 'owner' : false;
+  const openInvite =
+    carePartner?.invite && isInviteOpen(carePartner.invite, new Date()) ? carePartner.invite : null;
+
   return (
     <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.topbar}>
@@ -335,7 +395,130 @@ export function ProfileScreen({
           <BreedPicker value={breed} onChange={onBreedChange} size={88} />
         </Card>
 
+        {carePartner ? (
+          <Card
+            title="Care partner"
+            hint={
+              shared
+                ? `You both care for ${carePartner.petName}. They only ever see that you did, never what you logged.`
+                : `Raise ${carePartner.petName} with one other person. They see when you care, never what you ate or did.`
+            }
+          >
+            {activeMembers(carePartner.members).map((member) => (
+              <View key={member.userId} style={styles.memberRow}>
+                <View style={styles.dot} />
+                <Text style={styles.memberName}>
+                  {member.userId === carePartner.selfUserId
+                    ? 'You'
+                    : memberDisplayName(carePartner.members, member.userId)}
+                </Text>
+                <Text style={styles.memberRole}>· {member.role}</Text>
+              </View>
+            ))}
+
+            {shared ? (
+              <View style={styles.partnerActions}>
+                <TextButton
+                  label={`Leave ${carePartner.petName}`}
+                  onPress={() => void runPartnerAction(carePartner.onLeave, 'Could not leave this pet.')}
+                  disabled={carePartner.busy}
+                />
+              </View>
+            ) : (
+              <>
+                {isOwner ? (
+                  openInvite ? (
+                    <Group label="Invite code · share it with your partner">
+                      <Text style={styles.inviteCode} selectable>
+                        {formatInviteCode(openInvite.code)}
+                      </Text>
+                      <Text style={styles.cardHint}>
+                        Expires{' '}
+                        {new Date(openInvite.expiresAt).toLocaleDateString([], {
+                          day: 'numeric',
+                          month: 'long',
+                        })}
+                        . One use only.
+                      </Text>
+                      <View style={styles.partnerActions}>
+                        <TextButton
+                          label="New code"
+                          onPress={() =>
+                            void runPartnerAction(carePartner.onCreateInvite, 'Could not create a code.')
+                          }
+                          disabled={carePartner.busy}
+                        />
+                        <TextButton
+                          label="Cancel code"
+                          onPress={() =>
+                            void runPartnerAction(carePartner.onRevokeInvite, 'Could not cancel the code.')
+                          }
+                          disabled={carePartner.busy}
+                        />
+                      </View>
+                    </Group>
+                  ) : (
+                    <View style={styles.partnerActions}>
+                      <PrimaryButton
+                        label="Invite a care partner"
+                        busy={carePartner.busy}
+                        onPress={() =>
+                          void runPartnerAction(carePartner.onCreateInvite, 'Could not create a code.')
+                        }
+                      />
+                    </View>
+                  )
+                ) : null}
+
+                {showJoin ? (
+                  <Group label="Join a partner's pet">
+                    <Field label="Invite code" hint={`you'll stop caring for ${carePartner.petName}`}>
+                      <TextInput
+                        style={[layout.input, styles.inviteInput]}
+                        value={joinCode}
+                        onChangeText={(value) => {
+                          setJoinCode(value);
+                          setPartnerError(null);
+                        }}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        maxLength={INVITE_INPUT_MAX_LENGTH}
+                        placeholder="ABC-DEF"
+                        placeholderTextColor={colors.faint}
+                      />
+                    </Field>
+                    <View style={styles.partnerActions}>
+                      <PrimaryButton
+                        label="Join"
+                        busy={carePartner.busy}
+                        disabled={normalizeInviteCode(joinCode).length !== 6}
+                        onPress={() => void joinWithCode()}
+                      />
+                    </View>
+                  </Group>
+                ) : (
+                  <View style={styles.partnerActions}>
+                    <TextButton label="Have a code?" onPress={() => setShowJoin(true)} />
+                  </View>
+                )}
+              </>
+            )}
+
+            {partnerError ? <Text style={styles.partnerError}>{partnerError}</Text> : null}
+          </Card>
+        ) : null}
+
         <Card title="About you" hint="Private to you · used to tune your daily fuel targets">
+          <Field label="Your name" hint="shown to your care partner">
+            <TextInput
+              style={layout.input}
+              value={profile.displayName ?? ''}
+              placeholder="—"
+              placeholderTextColor={colors.faint}
+              maxLength={DISPLAY_NAME_MAX_LENGTH}
+              onChangeText={(value) => update('displayName', value === '' ? undefined : value)}
+            />
+          </Field>
           <View style={styles.grid}>
             <Field label="Age">
               <TextInput
@@ -790,6 +973,13 @@ const styles = StyleSheet.create({
   empty: { fontSize: 13, color: colors.faint, paddingVertical: 12 },
   link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
   appleHealth: { gap: 8, paddingVertical: 14, ...layout.hairline },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  memberName: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  memberRole: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint },
+  partnerActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, marginTop: 14 },
+  inviteCode: { fontFamily: fonts.mono, fontSize: 30, letterSpacing: 4, color: colors.ink, marginTop: 10 },
+  inviteInput: { fontFamily: fonts.mono, letterSpacing: 3 },
+  partnerError: { ...text.error, fontSize: 12, marginTop: 12 },
   screenLogged: { marginTop: 14 },
   screenActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, marginTop: 14 },
   signOut: { alignItems: 'center', paddingVertical: 10 },

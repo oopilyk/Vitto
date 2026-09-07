@@ -1,7 +1,8 @@
-import { Fragment, type ReactNode, useEffect, useMemo, useRef } from 'react';
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +10,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, PET_BUILD_LABEL, type HealthEvent, type MealAnalysis, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateInsights, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getPetBuild, hasEvolved, getMealsForDay, isSameDay, mindScoreLabel, statValue, sumMealMacros, toDateKey, getStatusEffects} from '@vitto/core';
+import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, type CareDiaryEntry, FOCUS_AREAS, PET_BUILD_LABEL, type HealthEvent, type MealAnalysis, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateInsights, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getPetBuild, hasEvolved, getMealsForDay, isSameDay, mindScoreLabel, statValue, sumMealMacros, toDateKey, getStatusEffects} from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
@@ -53,6 +54,14 @@ interface Props {
   /** Dev tool, display only, alongside `forcedAilment` — see `applyForcedForm`. */
   forcedForm?: ForcedPetForm | null;
   onForceForm?: (form: ForcedPetForm | null) => void;
+  /**
+   * Every pet the user cares for, and which one is on screen. Absent or single
+   * for most accounts, which is what hides the switcher. Care moments feed all
+   * of them either way — this only chooses what is displayed.
+   */
+  pets?: { id: string; name: string }[];
+  activePetId?: string | null;
+  onSelectPet?: (petId: string) => void;
   /** Dev only: fills the event log with synthetic history so insights have data. */
   onSeedTestData?: () => void;
   onClearSeededData?: () => void;
@@ -64,6 +73,17 @@ interface Props {
   isCelebrating: boolean;
   isWorkingOut: boolean;
   isExploring: boolean;
+  /**
+   * Care partners. All three are absent for a solo pet, and the screen then
+   * renders exactly as it always has. `careDiary` is the user's own events
+   * merged with the partner's care-log shadows; when present it is what
+   * "Today's care" lists, so the partner's moments show up beside the user's own.
+   */
+  careDiary?: CareDiaryEntry[];
+  /** Named under the kicker: "Raised with Alex". */
+  partnerName?: string;
+  /** Pull-to-refresh, wired only for a shared pet — the partner may have cared since the app was opened. */
+  onRefresh?: () => Promise<void>;
 }
 
 interface QuickAction {
@@ -176,6 +196,9 @@ export function DashboardScreen({
   onForceAilment,
   forcedForm,
   onForceForm,
+  pets,
+  activePetId,
+  onSelectPet,
   onSeedTestData,
   onClearSeededData,
   isSeeding,
@@ -186,9 +209,22 @@ export function DashboardScreen({
   isCelebrating,
   isWorkingOut,
   isExploring,
+  careDiary,
+  partnerName,
+  onRefresh,
 }: Props) {
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    if (!onRefresh) return;
+    setRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setRefreshing(false);
+    }
+  };
   // Skips the first run: mounting the dashboard is not a care moment, and an
   // animated scroll to a position it is already at would be a visible twitch.
   const seenFocusToken = useRef(petFocusToken);
@@ -212,6 +248,27 @@ export function DashboardScreen({
   const todaysEvents = getEventsForDay(events, today);
   const todaysMeals = getMealsForDay(events, today);
   const todaysOther = todaysEvents.filter((event) => event.type !== 'MEAL');
+  // What "Today's care" lists. Solo: the user's own non-meal events, as ever.
+  // Shared: the merged diary — the user's own meals still belong to the diary
+  // block above, but a partner's "Shared a meal" is a care moment to show here.
+  const todaysCare: CareDiaryEntry[] = careDiary
+    ? careDiary.filter(
+        (entry) => isSameDay(entry.occurredAt, today) && (entry.actorName !== null || entry.type !== 'MEAL'),
+      )
+    : todaysOther.map((event) => ({
+        id: event.id,
+        occurredAt: event.occurredAt,
+        type: event.type,
+        label: CARE_EVENT_LABEL[event.type] ?? 'A healthy moment',
+        actorUserId: event.userId,
+        actorName: null,
+      }));
+  const shownCare = todaysCare.slice(0, CARE_PREVIEW_LIMIT);
+  // The "more" link opens Profile, whose history is the user's OWN events only,
+  // so it counts what Profile will actually show: own moments not previewed here.
+  const moreCareCount = careDiary
+    ? todaysOther.filter((event) => !shownCare.some((entry) => entry.id === event.id)).length
+    : todaysCare.length - shownCare.length;
   const todaysMind = mindEventsForDay(events, today);
   const bestMindScore = todaysMind.reduce((best, event) => Math.max(best, event.metadata.score), 0);
   const todaysWordPuzzle = findWordPuzzleEventForDate(events, toDateKey(today));
@@ -304,18 +361,22 @@ export function DashboardScreen({
               <Text style={styles.link}>Full history →</Text>
             </Pressable>
           </View>
-          {todaysOther.length === 0 ? (
+          {todaysCare.length === 0 ? (
             <Text style={styles.empty}>Log a workout, sync steps, or train your mind to see it here.</Text>
           ) : (
-            todaysOther.slice(0, CARE_PREVIEW_LIMIT).map((event) => (
-              <View key={event.id} style={styles.eventRow}>
-                <View style={styles.dot} />
+            shownCare.map((entry) => (
+              <View key={entry.id} style={styles.eventRow}>
+                <View style={[styles.dot, entry.actorName !== null && styles.partnerDot]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.eventName}>
-                    {CARE_EVENT_LABEL[event.type] ?? 'A healthy moment'}
+                    {/* Own entries keep the solo wording (CARE_EVENT_LABEL); a partner's
+                        carries the type-only label the care log allows, prefixed by who. */}
+                    {entry.actorName === null
+                      ? (CARE_EVENT_LABEL[entry.type] ?? 'A healthy moment')
+                      : `${entry.actorName} · ${entry.label}`}
                   </Text>
                   <Text style={styles.eventTime}>
-                    {new Date(event.occurredAt).toLocaleTimeString([], {
+                    {new Date(entry.occurredAt).toLocaleTimeString([], {
                       hour: 'numeric',
                       minute: '2-digit',
                     })}
@@ -325,10 +386,10 @@ export function DashboardScreen({
               </View>
             ))
           )}
-          {todaysOther.length > CARE_PREVIEW_LIMIT ? (
+          {moreCareCount > 0 ? (
             <Pressable onPress={onOpenProfile} hitSlop={6}>
               <Text style={styles.moreLink}>
-                {todaysOther.length - CARE_PREVIEW_LIMIT} more today →
+                {moreCareCount} more today →
               </Text>
             </Pressable>
           ) : null}
@@ -448,12 +509,39 @@ export function DashboardScreen({
         ref={scrollRef}
         style={layout.screen}
         contentContainerStyle={[styles.body, { paddingBottom: 96 + HOME_INDICATOR_INSET }]}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.coral} />
+          ) : undefined
+        }
       >
       <View style={styles.hero}>
+        {pets && pets.length > 1 && onSelectPet ? (
+          <View style={styles.petSwitcher}>
+            {pets.map((candidate) => {
+              const selected = candidate.id === (activePetId ?? pets[0].id);
+              return (
+                <Pressable
+                  key={candidate.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Show ${candidate.name}`}
+                  onPress={() => onSelectPet(candidate.id)}
+                  style={[styles.petTab, selected && styles.petTabOn]}
+                >
+                  <Text style={[styles.petTabLabel, selected && styles.petTabLabelOn]}>
+                    {candidate.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
         <Kicker>
           {formLabel.toUpperCase()} · DAY {daysWithPet(pet, today)} WITH{' '}
           {pet.name.toUpperCase()}
         </Kicker>
+        {partnerName ? <Text style={styles.partnerLine}>Raised with {partnerName}</Text> : null}
         <Text style={styles.petName}>{pet.name}</Text>
         {/* An ailment outranks the reaction: a message about the meal you just
             logged must not sit on top of "Miso is fading". */}
@@ -696,6 +784,17 @@ const styles = StyleSheet.create({
   xpTrack: { height: 4, borderRadius: 2, backgroundColor: '#deded7', marginTop: 8, overflow: 'hidden' },
   xpFill: { height: '100%', backgroundColor: colors.coral, borderRadius: 2 },
   streak: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 10 },
+  petSwitcher: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  petTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  petTabOn: { borderColor: colors.coral, backgroundColor: '#fdf1ee' },
+  petTabLabel: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted },
+  petTabLabelOn: { color: colors.coralDeep },
   hudTap: { position: 'absolute', top: 16, left: 16, zIndex: 2 },
   statusTray: { position: 'absolute', top: 16, right: 16, zIndex: 2, alignItems: 'flex-end', gap: 4 },
   statusChip: {
@@ -737,6 +836,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e2db',
   },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral },
+  partnerDot: { backgroundColor: colors.mintDeep },
+  partnerLine: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 6, letterSpacing: 0.5 },
   eventName: { fontSize: 13, fontWeight: '500', color: colors.ink },
   eventTime: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
   eventXp: { fontFamily: fonts.mono, fontSize: 10, color: '#879187' },

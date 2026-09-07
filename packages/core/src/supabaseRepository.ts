@@ -1,10 +1,61 @@
 import type { HealthEvent } from './domain/health';
 import type { PetState } from './domain/pet';
 import { withSurveyDefaults, type BodyProfile } from './domain/macroTargets';
+import {
+  generateInviteCode,
+  inviteExpiresAt,
+  normalizeInviteCode,
+  type CareLogEntry,
+  type PetInvite,
+  type PetMember,
+  type PetSaveResult,
+} from './domain/carePartners';
 import { requireSupabase } from './config';
 
 type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
+type PetMemberRow = { user_id: string; role: PetMember['role']; joined_at: string; left_at: string | null; display_name: string | null };
+type PetInviteRow = { id: string; pet_id: string; code: string; created_at: string; expires_at: string; redeemed_at: string | null; revoked_at: string | null };
+type CareLogRow = { id: string; pet_id: string; user_id: string; type: CareLogEntry['type']; occurred_at: string };
+
+const CARE_LOG_DEFAULT_LIMIT = 50;
+
+const toPetMember = (row: PetMemberRow): PetMember => ({
+  userId: row.user_id,
+  role: row.role,
+  joinedAt: row.joined_at,
+  leftAt: row.left_at ?? undefined,
+  displayName: row.display_name ?? null,
+});
+
+const toPetInvite = (row: PetInviteRow): PetInvite => ({
+  id: row.id,
+  petId: row.pet_id,
+  code: row.code,
+  createdAt: row.created_at,
+  expiresAt: row.expires_at,
+  redeemedAt: row.redeemed_at ?? undefined,
+  revokedAt: row.revoked_at ?? undefined,
+});
+
+const toCareLogEntry = (row: CareLogRow): CareLogEntry => ({
+  id: row.id,
+  petId: row.pet_id,
+  userId: row.user_id,
+  type: row.type,
+  occurredAt: row.occurred_at,
+});
+
+/**
+ * `handle_new_user` seeds `profiles.display_name` from the sign-up email, so a
+ * stored name is only a name when it is non-blank and not email-shaped. Mirrors
+ * the filter `get_pet_members` applies before showing it to a partner.
+ */
+const usableDisplayName = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed && !trimmed.includes('@') ? trimmed : undefined;
+};
 
 // Every numeric column on `pets` is an integer in Postgres, and decayed stats can
 // still arrive fractional from older locally stored pets.
@@ -73,6 +124,32 @@ const resolveAdoptedAt = (adoptedAt: string | null, createdAt: string | null): s
 
 const requireClient = requireSupabase;
 
+/** The `pets` row as the app writes it. No `version`: clients never send one. */
+const petPayload = (pet: PetState) =>
+  wholeNumbers({
+    id: pet.id,
+    user_id: pet.userId,
+    name: pet.name,
+    species: pet.species,
+    breed: pet.breed ?? null,
+    level: pet.level,
+    xp: pet.xp,
+    health: pet.health,
+    energy: pet.energy,
+    happiness: pet.happiness,
+    nutrition: pet.nutrition,
+    strength: pet.strength,
+    pushing_strength: pet.pushingStrength,
+    pulling_strength: pet.pullingStrength,
+    leg_strength: pet.legStrength,
+    endurance: pet.endurance,
+    recovery: pet.recovery,
+    mind: pet.mind,
+    mood: pet.mood,
+    adopted_at: pet.adoptedAt,
+    last_event_at: pet.lastEventAt ?? null,
+  });
+
 export class SupabaseRepository {
   async loadProfile(): Promise<BodyProfile | null> {
     const client = requireClient();
@@ -99,6 +176,7 @@ export class SupabaseRepository {
       trainingStyle: data.training_style ?? undefined,
       focusAreas: Array.isArray(data.focus_areas) ? data.focus_areas : undefined,
       screenTimeBudgetMinutes: data.screen_time_budget_minutes ?? undefined,
+      displayName: usableDisplayName(data.display_name),
     });
   }
 
@@ -127,6 +205,8 @@ export class SupabaseRepository {
       // `||` not `??`: zero means "no budget" everywhere else (engine, mapping),
       // and the column's CHECK (1..1440) would reject it and sink the whole save.
       screen_time_budget_minutes: profile.screenTimeBudgetMinutes || null,
+      // Blank means "no name" (the partner then sees a fallback), never ''.
+      display_name: profile.displayName?.trim() || null,
     };
 
     await saveDroppingMissingColumns(payload, (row) =>
@@ -134,42 +214,57 @@ export class SupabaseRepository {
     );
   }
 
-  async loadPet(): Promise<PetState | null> {
-    const client = requireClient();
-    const { data, error } = await client.from('pets').select('*').single();
-    if (error?.code === 'PGRST116') return null;
-    if (error) throw error;
-    const pet = data as PetRow;
-    return { ...pet, userId: pet.user_id, lastEventAt: pet.last_event_at ?? undefined, pushingStrength: pet.pushing_strength, pullingStrength: pet.pulling_strength, legStrength: pet.leg_strength, mind: pet.mind ?? 20, breed: pet.breed ?? undefined, adoptedAt: resolveAdoptedAt(pet.adopted_at, pet.created_at) };
+  private static toPetState(row: PetRow): PetState {
+    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
   }
 
+  /**
+   * Every pet the signed-in user is an active member of — their own, and one
+   * shared with a partner. RLS does the filtering, so this is a plain select.
+   *
+   * Ordered oldest first so the list is stable across loads: the UI keeps an
+   * active pet by id, but anything falling back to "the first one" should not
+   * get a different answer each time.
+   */
+  async loadPets(): Promise<PetState[]> {
+    const client = requireClient();
+    const { data, error } = await client
+      .from('pets')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data as PetRow[]).map((row) => SupabaseRepository.toPetState(row));
+  }
+
+  /** One pet by id, for reloading the right row after a version conflict. */
+  async loadPetById(petId: string): Promise<PetState | null> {
+    const client = requireClient();
+    const { data, error } = await client.from('pets').select('*').eq('id', petId).maybeSingle();
+    if (error) throw error;
+    return data ? SupabaseRepository.toPetState(data as PetRow) : null;
+  }
+
+  /**
+   * The user's primary pet, kept for the single-pet callers (adoption, web).
+   *
+   * Deliberately NOT `.single()` any more: two pets made that fail with PGRST116,
+   * which this class maps to "no pet at all" — so a user with a partner's pet as
+   * well as their own would have been sent back through onboarding.
+   */
+  async loadPet(): Promise<PetState | null> {
+    const pets = await this.loadPets();
+    return pets[0] ?? null;
+  }
+
+  /**
+   * Whole-row upsert. After the care-partners migration only the creator may
+   * insert, so this is the adoption (and web) path; every later mobile write
+   * goes through {@link savePetIfUnchanged}. `version` is never sent: the
+   * database bumps it.
+   */
   async savePet(pet: PetState): Promise<void> {
     const client = requireClient();
-    const payload = wholeNumbers({
-      id: pet.id,
-      user_id: pet.userId,
-      name: pet.name,
-      species: pet.species,
-      breed: pet.breed ?? null,
-      level: pet.level,
-      xp: pet.xp,
-      health: pet.health,
-      energy: pet.energy,
-      happiness: pet.happiness,
-      nutrition: pet.nutrition,
-      strength: pet.strength,
-      pushing_strength: pet.pushingStrength,
-      pulling_strength: pet.pullingStrength,
-      leg_strength: pet.legStrength,
-      endurance: pet.endurance,
-      recovery: pet.recovery,
-      mind: pet.mind,
-      mood: pet.mood,
-      adopted_at: pet.adoptedAt,
-      last_event_at: pet.lastEventAt ?? null,
-    });
-
-    await saveDroppingMissingColumns(payload, (row) => client.from('pets').upsert(row));
+    await saveDroppingMissingColumns(petPayload(pet), (row) => client.from('pets').upsert(row));
   }
 
   async loadEvents(): Promise<HealthEvent[]> {
@@ -230,6 +325,145 @@ export class SupabaseRepository {
       source: event.source,
       metadata: event.metadata,
     });
+    if (error) throw error;
+  }
+
+  // --- Care partners -------------------------------------------------------
+
+  /**
+   * Optimistic write: updates the row only if its `version` still equals
+   * `expectedVersion`. `conflict` means reload, recompute, retry — never resend.
+   *
+   * On a database that has not run the care-partners migration there is no
+   * `version` column to check, so the write degrades to the plain upsert: a
+   * single writer cannot conflict there.
+   */
+  async savePetIfUnchanged(pet: PetState, expectedVersion: number): Promise<PetSaveResult> {
+    const client = requireClient();
+    const { id: _id, user_id: _userId, ...payload } = petPayload(pet);
+    const { data, error } = await client
+      .from('pets')
+      .update(payload)
+      .eq('id', pet.id)
+      .eq('version', expectedVersion)
+      .select('version')
+      .maybeSingle();
+    if (error) {
+      if (missingColumn(error) === 'version') {
+        await this.savePet(pet);
+        return { status: 'saved', version: expectedVersion };
+      }
+      throw error;
+    }
+    if (!data) return { status: 'conflict' };
+    return { status: 'saved', version: (data as { version: number }).version };
+  }
+
+  /** All members, including ones who left, via `get_pet_members` (names already sanitised). */
+  async loadPetMembers(petId: string): Promise<PetMember[]> {
+    const client = requireClient();
+    const { data, error } = await client.rpc('get_pet_members', { p_pet_id: petId });
+    if (error) throw error;
+    return ((data ?? []) as PetMemberRow[]).map(toPetMember);
+  }
+
+  /** Newest first; default limit 50. */
+  async loadCareLog(petId: string, limit: number = CARE_LOG_DEFAULT_LIMIT): Promise<CareLogEntry[]> {
+    const client = requireClient();
+    const { data, error } = await client
+      .from('pet_care_log')
+      .select('*')
+      .eq('pet_id', petId)
+      .order('occurred_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return ((data ?? []) as CareLogRow[]).map(toCareLogEntry);
+  }
+
+  /** Best effort: callers must not let a failure here block the care moment. */
+  async appendCareLog(entry: Omit<CareLogEntry, 'id'>): Promise<void> {
+    const client = requireClient();
+    const { error } = await client.from('pet_care_log').insert({
+      pet_id: entry.petId,
+      user_id: entry.userId,
+      type: entry.type,
+      occurred_at: entry.occurredAt,
+    });
+    if (error) throw error;
+  }
+
+  /** The newest invite that is unredeemed, unrevoked and unexpired, or null. */
+  async loadOpenInvite(petId: string): Promise<PetInvite | null> {
+    const client = requireClient();
+    const { data, error } = await client
+      .from('pet_invites')
+      .select('*')
+      .eq('pet_id', petId)
+      .is('redeemed_at', null)
+      .is('revoked_at', null)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? toPetInvite(data as PetInviteRow) : null;
+  }
+
+  /**
+   * Revokes any open invite for the pet first, so exactly one code is ever live.
+   * The code column is globally unique; a collision (23505) is retried once
+   * with a fresh code, which at 32^6 codes is already more than enough.
+   */
+  async createInvite(petId: string): Promise<PetInvite> {
+    const client = requireClient();
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) throw new Error('Sign in before inviting a care partner.');
+
+    const now = new Date();
+    const { error: revokeError } = await client
+      .from('pet_invites')
+      .update({ revoked_at: now.toISOString() })
+      .eq('pet_id', petId)
+      .is('redeemed_at', null)
+      .is('revoked_at', null);
+    if (revokeError) throw revokeError;
+
+    for (let attempt = 0; ; attempt += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error } = await client
+        .from('pet_invites')
+        .insert({ pet_id: petId, created_by: user.id, code: generateInviteCode(), expires_at: inviteExpiresAt(now) })
+        .select()
+        .single();
+      if (!error && data) return toPetInvite(data as PetInviteRow);
+      if (error?.code === '23505' && attempt === 0) continue;
+      throw error ?? new Error('Could not create an invite.');
+    }
+  }
+
+  async revokeInvite(inviteId: string): Promise<void> {
+    const client = requireClient();
+    const { error } = await client
+      .from('pet_invites')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', inviteId);
+    if (error) throw error;
+  }
+
+  /** Returns the joined pet's id. `confirmLeave` is required when the caller already has a pet. */
+  async redeemInvite(code: string, options?: { confirmLeave?: boolean }): Promise<string> {
+    const client = requireClient();
+    const { data, error } = await client.rpc('redeem_pet_invite', {
+      p_code: normalizeInviteCode(code),
+      p_confirm_leave: options?.confirmLeave ?? false,
+    });
+    if (error) throw error;
+    return data as string;
+  }
+
+  async leavePet(): Promise<void> {
+    const client = requireClient();
+    const { error } = await client.rpc('leave_pet');
     if (error) throw error;
   }
 }

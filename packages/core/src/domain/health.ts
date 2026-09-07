@@ -1,12 +1,20 @@
-export type HealthEventType =
-  | 'STEP_ACTIVITY'
-  | 'WORKOUT'
-  | 'MEAL'
-  | 'BRAIN_TRAINING'
-  | 'SLEEP'
-  | 'SCREEN_TIME'
-  | 'HYDRATION'
-  | 'MANUAL_ACTIVITY';
+/**
+ * Every kind of care moment, as a runtime list so tables keyed by type (care-log
+ * labels, the `pet_care_log.type` CHECK in the migration) can be checked for
+ * completeness in tests rather than drifting silently when a type is added.
+ */
+export const HEALTH_EVENT_TYPES = [
+  'STEP_ACTIVITY',
+  'WORKOUT',
+  'MEAL',
+  'BRAIN_TRAINING',
+  'SLEEP',
+  'SCREEN_TIME',
+  'HYDRATION',
+  'MANUAL_ACTIVITY',
+] as const;
+
+export type HealthEventType = (typeof HEALTH_EVENT_TYPES)[number];
 
 /**
  * Where an event came from. `device` is the phone itself rather than a health

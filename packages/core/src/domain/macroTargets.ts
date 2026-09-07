@@ -26,6 +26,12 @@ export interface BodyProfile {
    * the engine treats a screen-time log as neutral rather than judging it.
    */
   screenTimeBudgetMinutes?: number;
+  /**
+   * What a care partner sees this user as. Optional and undefaulted: the
+   * server-side fallback (`profiles.display_name`) is the sign-up email, which
+   * must never be shown to the partner, so "unset" has to stay distinguishable.
+   */
+  displayName?: string;
 }
 
 /**

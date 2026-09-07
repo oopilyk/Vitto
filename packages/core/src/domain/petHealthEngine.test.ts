@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PetHealthEngine } from './petHealthEngine';
+import { PetHealthEngine, applyDelta } from './petHealthEngine';
 import { createPet } from './pet';
 import type { HealthEvent, WorkoutStats } from './health';
 
@@ -303,5 +303,31 @@ describe('SCREEN_TIME', () => {
     expect(reaction.message).toContain('0m');
     expect(reaction.message).not.toMatch(/NaN|Infinity/);
     expect(Number.isFinite(reaction.delta.xp)).toBe(true);
+  });
+});
+
+describe('applyDelta lastEventAt', () => {
+  const anchor = '2026-09-07T12:00:00.000Z';
+  const pet = { ...createPet('user-1', 'Miso'), lastEventAt: anchor };
+
+  it('keeps the later anchor when the event is older than it', () => {
+    // A care partner's log can post-date a HealthKit import; rewinding the
+    // anchor would make the next decay pass charge for a window already settled.
+    const next = applyDelta(pet, { xp: 5 }, '2026-09-06T12:00:00.000Z');
+
+    expect(next.lastEventAt).toBe(anchor);
+    expect(next.xp).toBe(pet.xp + 5);
+  });
+
+  it('moves the anchor forward when the event is newer', () => {
+    const next = applyDelta(pet, { xp: 5 }, '2026-09-08T12:00:00.000Z');
+
+    expect(next.lastEventAt).toBe('2026-09-08T12:00:00.000Z');
+  });
+
+  it('takes the event time when the pet has no anchor yet', () => {
+    const next = applyDelta(createPet('user-1', 'Miso'), { xp: 5 }, '2026-09-08T12:00:00.000Z');
+
+    expect(next.lastEventAt).toBe('2026-09-08T12:00:00.000Z');
   });
 });

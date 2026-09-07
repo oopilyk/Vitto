@@ -52,6 +52,21 @@ export const determineMood = (energy: number, nutrition: number, happiness: numb
   return 'content';
 };
 
+/**
+ * The decay anchor only ever moves forward. With a care partner, an event can
+ * legitimately be older than the pet's last care (a HealthKit import that
+ * predates the partner's last log); it still applies its delta, but rewinding
+ * the anchor would make the next decay pass charge for a window that has already
+ * been settled. Solo behaviour is unchanged: solo events are never older than
+ * the anchor. An unparsable stored anchor loses to the event's time.
+ */
+const laterOf = (anchor: string | undefined, occurredAt: string): string => {
+  if (anchor === undefined) return occurredAt;
+  const anchorTime = Date.parse(anchor);
+  const eventTime = Date.parse(occurredAt);
+  return Number.isFinite(anchorTime) && Number.isFinite(eventTime) && anchorTime > eventTime ? anchor : occurredAt;
+};
+
 export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): PetState => {
   const nextXp = pet.xp + (delta.xp ?? 0);
   const nextLevel = pet.level + Math.floor(nextXp / 100);
@@ -74,7 +89,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
     recovery: clamp(pet.recovery + (delta.recovery ?? 0)),
     mind: clamp(pet.mind + (delta.mind ?? 0)),
     mood: determineMood(nextEnergy, nextNutrition, nextHappiness),
-    lastEventAt: occurredAt,
+    lastEventAt: laterOf(pet.lastEventAt, occurredAt),
   };
 };
 

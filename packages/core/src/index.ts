@@ -20,6 +20,7 @@ export * from './domain/nutritionSummary';
 export * from './domain/brainGames';
 export * from './domain/wordPuzzle';
 export * from './domain/workout';
+export * from './domain/carePartners';
 export * from './domain/ids';
 export * from './config';
 export * from './errorMessage';

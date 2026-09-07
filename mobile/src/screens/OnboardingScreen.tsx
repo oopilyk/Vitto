@@ -6,6 +6,7 @@ import {
   convertHeightToFeetAndInches,
   convertWeightValue,
   feetAndInchesToCm,
+  normalizeInviteCode,
   planForGoal,
   weightGoalProgress,
   type BodyProfile,
@@ -26,7 +27,17 @@ interface Props {
   onAdopt: () => Promise<void> | void;
   error: string | null;
   onSignOut?: () => void;
+  /**
+   * Joins a care partner's pet with their invite code instead of adopting one.
+   * Only passed for a signed-in online account; absent, the reveal is not shown.
+   * Resolves true once joined, false when the user backed out; rejects with a
+   * readable message, shown in place of the step error.
+   */
+  onRedeemInvite?: (code: string) => Promise<boolean>;
 }
+
+/** Six characters plus the hyphen `formatInviteCode` shows, so a pasted formatted code fits. */
+const INVITE_INPUT_MAX_LENGTH = 7;
 
 const STEPS = ['About you', 'Your goal', 'Your rhythm', 'What you want'];
 
@@ -73,9 +84,13 @@ export function OnboardingScreen({
   onAdopt,
   error,
   onSignOut,
+  onRedeemInvite,
 }: Props) {
   const [step, setStep] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
+  const [showJoin, setShowJoin] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
+  const [joining, setJoining] = useState(false);
 
   const metric = profile.weightUnit === 'kg';
   const displayedWeight = metric
@@ -115,6 +130,28 @@ export function OnboardingScreen({
     if (failure) return;
     if (step < STEPS.length - 1) setStep(step + 1);
     else void onAdopt();
+  };
+
+  // The profile is still checked first: App saves it before redeeming, so the
+  // joiner's macro targets work from their first day on the partner's pet.
+  const join = async () => {
+    if (!onRedeemInvite) return;
+    const failure = validate();
+    setStepError(failure);
+    if (failure) return;
+    const code = normalizeInviteCode(joinCode);
+    if (code.length !== 6) {
+      setStepError('Enter the six-character code your partner shared.');
+      return;
+    }
+    setJoining(true);
+    try {
+      await onRedeemInvite(code);
+    } catch (cause) {
+      setStepError(cause instanceof Error && cause.message ? cause.message : 'Could not join that pet.');
+    } finally {
+      setJoining(false);
+    }
   };
 
   return (
@@ -394,6 +431,44 @@ export function OnboardingScreen({
                 </Text>
               ) : null}
             </View>
+
+            {onRedeemInvite ? (
+              <View style={styles.join}>
+                {showJoin ? (
+                  <>
+                    <Text style={styles.groupLabel}>Join a partner's pet</Text>
+                    <Field label="Invite code" hint="from your care partner">
+                      <TextInput
+                        style={[layout.input, styles.inviteInput]}
+                        value={joinCode}
+                        onChangeText={(value) => {
+                          setJoinCode(value);
+                          setStepError(null);
+                        }}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        maxLength={INVITE_INPUT_MAX_LENGTH}
+                        placeholder="ABC-DEF"
+                        placeholderTextColor={colors.faint}
+                      />
+                    </Field>
+                    <View style={styles.joinActions}>
+                      <PrimaryButton
+                        label="Join"
+                        busy={joining}
+                        disabled={normalizeInviteCode(joinCode).length !== 6}
+                        onPress={() => void join()}
+                      />
+                    </View>
+                  </>
+                ) : (
+                  <TextButton
+                    label="Got an invite code? Join a partner's pet instead"
+                    onPress={() => setShowJoin(true)}
+                  />
+                )}
+              </View>
+            ) : null}
           </>
         ) : null}
 
@@ -470,5 +545,8 @@ const styles = StyleSheet.create({
   summaryText: { fontSize: 13, lineHeight: 22, color: colors.inkSoft, marginTop: 8 },
   summaryValue: { fontSize: 16, fontWeight: '700', color: colors.ink },
   summaryMeta: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 8 },
+  join: { marginTop: 22, alignItems: 'flex-start' },
+  joinActions: { marginTop: 14, alignSelf: 'stretch' },
+  inviteInput: { fontFamily: fonts.mono, letterSpacing: 3 },
   actions: { marginTop: 28, gap: 16 },
 });
