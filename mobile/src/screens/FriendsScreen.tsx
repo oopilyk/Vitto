@@ -24,7 +24,7 @@ import { colors, fonts, layout, text } from '../theme';
 interface Props {
   currentUserId: string;
   onClose: () => void;
-  onOpenFriendPet: (friendUserId: string) => void;
+  onOpenFriendPet: (friendUserId: string, friendUserIds: string[]) => void;
 }
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
@@ -152,6 +152,9 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet }: Props
   };
 
   const { accepted, incoming, outgoing } = partitionFriendRequests(requests, currentUserId);
+  // The full ordered id list `onOpenFriendPet` hands to `FriendPetScreen` so it
+  // can browse every accepted friend, not just the one tapped.
+  const acceptedIds = accepted.map((request) => otherPartyId(request, currentUserId));
   const hasUsername = typeof username === 'string';
 
   return (
@@ -192,7 +195,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet }: Props
                       <View key={request.id} style={styles.row}>
                         <Text style={styles.rowName}>{nameFor(profile, otherId)}</Text>
                         <View style={styles.rowActions}>
-                          <TextButton label="View pet" onPress={() => onOpenFriendPet(otherId)} />
+                          <TextButton label="View pet" onPress={() => onOpenFriendPet(otherId, acceptedIds)} />
                           <TextButton
                             label="Unfriend"
                             tone="coral"

@@ -1,4 +1,44 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { configureCore } from '@vitto/core';
 import { FriendsService, mapSetUsernameError, validateUsernameInput } from '../services/friendsService';
+
+/**
+ * A chainable, thenable stand-in for the supabase-js query builder -- mirrors
+ * the pattern in packages/core/src/supabaseRepository.test.ts. Pass-through
+ * methods return the builder itself, so `.from().select().eq().order().limit()`
+ * type-checks; awaiting the builder resolves the next queued response (an
+ * empty success by default). `rpc` is a separate mock resolved directly.
+ */
+const chain: Record<string, unknown> = {};
+const passThrough = () => jest.fn((..._args: unknown[]) => chain);
+const select = passThrough();
+const eq = passThrough();
+const order = passThrough();
+const limit = passThrough();
+const rpc = jest.fn();
+const from = jest.fn((_table: string) => chain);
+const responses: unknown[] = [];
+Object.assign(chain, {
+  select,
+  eq,
+  order,
+  limit,
+  then: (onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) =>
+    Promise.resolve(responses.shift() ?? { data: null, error: null }).then(onFulfilled, onRejected),
+});
+configureCore({
+  supabase: { from, rpc } as unknown as SupabaseClient,
+});
+
+beforeEach(() => {
+  for (const fn of [select, eq, order, limit, rpc, from]) fn.mockReset();
+  from.mockImplementation(() => chain);
+  select.mockImplementation(() => chain);
+  eq.mockImplementation(() => chain);
+  order.mockImplementation(() => chain);
+  limit.mockImplementation(() => chain);
+  responses.length = 0;
+});
 
 describe('validateUsernameInput', () => {
   it('lower-cases and trims a valid username', () => {
@@ -42,11 +82,125 @@ describe('FriendsService.searchUsersByUsername', () => {
   const service = new FriendsService();
 
   it('returns no results for a query under two characters, without touching Supabase', async () => {
-    // No Supabase client is configured in this test environment at all -- if this
-    // ever tried to reach the network it would throw synchronously via
-    // `requireSupabase()`, so resolving cleanly proves the short-circuit runs first.
+    // The fake client configured above would throw if `rpc` were called without
+    // being mocked to resolve -- resolving cleanly proves the short-circuit
+    // runs first, before any network call.
     await expect(service.searchUsersByUsername('a')).resolves.toEqual([]);
     await expect(service.searchUsersByUsername('')).resolves.toEqual([]);
     await expect(service.searchUsersByUsername('  a  ')).resolves.toEqual([]);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('FriendsService.loadFriendRecentActivity', () => {
+  const service = new FriendsService();
+
+  it('maps rows to camelCase RecentActivitySignal objects', async () => {
+    rpc.mockResolvedValue({
+      data: [
+        { type: 'WORKOUT', occurred_at: '2026-09-07T10:00:00.000Z' },
+        { type: 'MEAL', occurred_at: '2026-09-07T08:00:00.000Z' },
+      ],
+      error: null,
+    });
+
+    const result = await service.loadFriendRecentActivity('friend-1');
+
+    expect(rpc).toHaveBeenCalledWith('get_friend_recent_activity', { friend_id: 'friend-1' });
+    expect(result).toEqual([
+      { type: 'WORKOUT', occurredAt: '2026-09-07T10:00:00.000Z' },
+      { type: 'MEAL', occurredAt: '2026-09-07T08:00:00.000Z' },
+    ]);
+  });
+
+  it('resolves to an empty array for a friend who has never logged anything, without throwing', async () => {
+    rpc.mockResolvedValue({ data: [], error: null });
+
+    await expect(service.loadFriendRecentActivity('friend-1')).resolves.toEqual([]);
+  });
+
+  it('resolves to an empty array when data comes back null', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+
+    await expect(service.loadFriendRecentActivity('friend-1')).resolves.toEqual([]);
+  });
+
+  it('surfaces an RPC error as a friendly Error', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: 'permission denied' } });
+
+    await expect(service.loadFriendRecentActivity('friend-1')).rejects.toThrow('permission denied');
+  });
+});
+
+describe('FriendsService.loadFriendPet', () => {
+  const service = new FriendsService();
+
+  const petRow = (over: Record<string, unknown> = {}) => ({
+    id: 'pet-1',
+    user_id: 'friend-1',
+    name: 'Blue',
+    species: 'cat',
+    breed: null,
+    level: 4,
+    xp: 66,
+    health: 51,
+    energy: 19,
+    happiness: 31,
+    nutrition: 27,
+    strength: 22,
+    pushing_strength: 8,
+    pulling_strength: 0,
+    leg_strength: 0,
+    endurance: 35,
+    recovery: 74,
+    mind: 3,
+    mood: 'hungry',
+    last_event_at: null,
+    created_at: '2026-08-28T20:34:03.748Z',
+    adopted_at: '2026-09-01T19:17:44.627Z',
+    ...over,
+  });
+
+  it('returns null when the friend has no pet', async () => {
+    responses.push({ data: [], error: null });
+
+    await expect(service.loadFriendPet('friend-1')).resolves.toBeNull();
+  });
+
+  it('maps a single pet row to a PetState', async () => {
+    responses.push({ data: [petRow()], error: null });
+
+    const result = await service.loadFriendPet('friend-1');
+
+    expect(result?.id).toBe('pet-1');
+    expect(result?.userId).toBe('friend-1');
+    expect(result?.pushingStrength).toBe(8);
+  });
+
+  // Regression test: since 20260907140000_two_pets_per_user.sql, one user_id can
+  // legitimately own two `pets` rows (leave a shared pet, then adopt a new one).
+  // `.maybeSingle()` used to throw when the friends-view RLS policy matched more
+  // than one row; this asserts the fix picks the more-recently-created pet
+  // instead of throwing.
+  it('resolves with the more-recently-created pet rather than throwing when a friend has two pets', async () => {
+    responses.push({
+      data: [
+        petRow({ id: 'pet-new', created_at: '2026-09-05T00:00:00.000Z' }),
+        petRow({ id: 'pet-old', created_at: '2026-08-01T00:00:00.000Z' }),
+      ],
+      error: null,
+    });
+
+    const result = await service.loadFriendPet('friend-1');
+
+    expect(result?.id).toBe('pet-new');
+    expect(order).toHaveBeenCalledWith('created_at', { ascending: false });
+    expect(limit).toHaveBeenCalledWith(1);
+  });
+
+  it('surfaces a query error as a friendly Error', async () => {
+    responses.push({ data: null, error: { message: 'permission denied' } });
+
+    await expect(service.loadFriendPet('friend-1')).rejects.toThrow('permission denied');
   });
 });

@@ -3,6 +3,7 @@ import {
   type FriendRequest,
   type FriendRequestStatus,
   type PetState,
+  type RecentActivitySignal,
   errorMessage,
   isValidUsername,
   newId,
@@ -48,6 +49,13 @@ const toProfileSummary = (row: ProfileSummaryRow): FriendProfileSummary => ({
   id: row.id,
   username: row.username ?? '',
   displayName: row.display_name,
+});
+
+type RecentActivityRow = { type: RecentActivitySignal['type']; occurred_at: string };
+
+const toRecentActivitySignal = (row: RecentActivityRow): RecentActivitySignal => ({
+  type: row.type,
+  occurredAt: row.occurred_at,
 });
 
 /**
@@ -183,15 +191,40 @@ export class FriendsService {
     return ((data ?? []) as FriendRequestRow[]).map(toFriendRequest);
   }
 
+  /**
+   * Since the two-pets-per-user migration (20260907140000), one `user_id` can
+   * legitimately own two `pets` rows: a user can leave a pet they created --
+   * that's a `pet_members` departure, not a `pets` row delete, so the old row
+   * and its `user_id` persist -- and then adopt a new one. `.maybeSingle()`
+   * would throw if the friends-view RLS policy matches more than one row for
+   * that `user_id`, so this orders by `created_at` (most recent first) and
+   * takes the first row instead of asserting exactly one exists.
+   */
   async loadFriendPet(friendUserId: string): Promise<PetState | null> {
     const client = requireSupabase();
     const { data, error } = await client
       .from('pets')
       .select('*')
       .eq('user_id', friendUserId)
-      .maybeSingle();
+      .order('created_at', { ascending: false })
+      .limit(1);
     if (error) throw new Error(errorMessage(error, "Could not load your friend's pet."));
-    return data ? toPetState(data as FriendPetRow) : null;
+    const rows = (data ?? []) as FriendPetRow[];
+    return rows.length > 0 ? toPetState(rows[0]) : null;
+  }
+
+  /**
+   * Calls `get_friend_recent_activity`, the same privacy-limited pattern as
+   * `get_friend_profile`: SECURITY DEFINER, projects only `type`/`occurred_at`
+   * (never `health_events.metadata`), and returns nothing unless the two users
+   * are already accepted friends. Safe to call for a friend who has never
+   * logged anything -- the RPC returns an empty set, not an error.
+   */
+  async loadFriendRecentActivity(friendUserId: string): Promise<RecentActivitySignal[]> {
+    const client = requireSupabase();
+    const { data, error } = await client.rpc('get_friend_recent_activity', { friend_id: friendUserId });
+    if (error) throw new Error(errorMessage(error, "Could not load your friend's activity."));
+    return ((data ?? []) as RecentActivityRow[]).map(toRecentActivitySignal);
   }
 
   /**
