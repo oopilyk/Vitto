@@ -1,0 +1,39 @@
+-- Fix: adopting a pet (INSERT into public.pets) failed for every single user,
+-- on both sign-up and sign-in, with:
+--   "new row violates row-level security policy for table "pets"" (42501)
+-- even though the INSERT policy's own WITH CHECK (auth.uid() = user_id) was
+-- correct and passed.
+--
+-- Root cause, confirmed by reproducing against a real local Supabase stack
+-- (PostgREST + GoTrue + Postgres, migrations applied fresh) and isolating the
+-- exact statement PostgREST executes:
+--
+-- PostgREST always executes inserts/upserts with an implicit `RETURNING
+-- "pets".*` (visible in its generated SQL, regardless of whether the client
+-- chained `.select()` -- it needs the row to build its HTTP response). Per
+-- Postgres's documented RLS behaviour, a RETURNING clause additionally
+-- requires the table's SELECT policy to pass for the row being returned, not
+-- just the INSERT policy.
+--
+-- The SELECT policy introduced by 20260907120000_care_partners.sql --
+-- "Members read their pet" -- requires is_active_pet_member(id). That
+-- membership row is only created by the on_pet_created AFTER INSERT trigger,
+-- which (like all regular, non-constraint AFTER ROW triggers) fires at the
+-- end of the statement -- after Postgres has already evaluated whether the
+-- newly inserted row may be returned. So the SELECT check always ran before
+-- the trigger's membership row existed, and always failed, for every single
+-- adoption. This was reproduced identically with a plain `INSERT ... VALUES
+-- ... RETURNING id` (no PostgREST, no JS, no upsert) once the JWT/user_id
+-- matched -- proving it has nothing to do with the client apps (web or
+-- mobile both call the same shared packages/core SupabaseRepository.savePet,
+-- so both were equally broken) and nothing to do with a wrong/missing
+-- user_id, session timing, or a schema/grant drift.
+--
+-- Fix: let the creator read their own pet unconditionally, the same way
+-- "Creators delete their pet" already checks auth.uid() = user_id directly
+-- instead of relying on pet_members alone. This removes the dependency on
+-- trigger-ordering entirely for the row that matters (the adopter's own pet)
+-- while leaving partner access exactly as before.
+drop policy if exists "Members read their pet" on public.pets;
+create policy "Members read their pet" on public.pets
+  for select using (auth.uid() = user_id or public.is_active_pet_member(id));
