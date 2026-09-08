@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -17,6 +17,7 @@ import { hasUsageAccess, isScreenTimeModuleAvailable, openUsageAccessSettings } 
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
 import { PrimaryButton, TextButton } from './src/components/ui';
+import { usePetInteraction } from './src/petWorld/usePetInteraction';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -87,15 +88,6 @@ const navigationTheme: NavigationTheme = {
   },
 };
 
-const WORKOUT_ANIMATION_MS = 1100;
-/**
- * How long to wait after the meal sheet is told to close before the food starts
- * flying. The sheet is dismissed before `startFeeding` runs, and an iOS pageSheet
- * takes about this long to slide away — without the wait the whole 880ms flight
- * plays behind it and is cleared just as the dashboard becomes visible.
- */
-const SHEET_DISMISS_MS = Platform.OS === 'ios' ? 480 : 320;
-const EXPLORE_ANIMATION_MS = 1100;
 /**
  * How long a care moment's message stays up. It has to clear on its own: the
  * dashboard shows an ailment on the same line, so a reaction that never expires
@@ -215,13 +207,13 @@ export default function App() {
   const [stepGoal, setStepGoal] = useState(10000);
   const [wordPuzzleProgress, setWordPuzzleProgress] = useState<WordPuzzleProgress | null>(null);
 
-  const [isAnalyzingMeal, setIsAnalyzingMeal] = useState(false);
-  const [isEating, setIsEating] = useState(false);
-  const [feedingImage, setFeedingImage] = useState<string | null>(null);
-  const [feedingGrade, setFeedingGrade] = useState<MealAnalysis['grade'] | null>(null);
-  const [isCelebrating, setIsCelebrating] = useState(false);
-  const [isWorkingOut, setIsWorkingOut] = useState(false);
-  const [isExploring, setIsExploring] = useState(false);
+  // What the pet is doing on screen, and the choreography (walk to food, eat,
+  // celebrate, ...) that drives it. Replaces the seven booleans plus nested
+  // setTimeout chain this used to be — see `src/petWorld/usePetInteraction.ts`.
+  const interaction = usePetInteraction({
+    onMunch: playMunchSound,
+    onEatingFinished: playCelebrationSound,
+  });
   const [isAppleHealthConnected, setIsAppleHealthConnected] = useState(false);
   const [isSyncingAppleHealth, setIsSyncingAppleHealth] = useState(false);
   // Android only: whether Settings → Usage access has been granted. Re-read on
@@ -673,34 +665,13 @@ export default function App() {
     }
   };
 
-  const startFeeding = (imageUri: string | null, grade: MealAnalysis['grade']) => {
-    setFeedingGrade(grade);
-    // Waits out the sheet so the flight is actually on screen; see SHEET_DISMISS_MS.
-    setTimeout(() => {
-      setFeedingImage(imageUri);
-      setIsEating(true);
-      const munch = setInterval(playMunchSound, 420);
-      setTimeout(() => {
-        setFeedingImage(null);
-        setTimeout(() => {
-          clearInterval(munch);
-          setIsEating(false);
-          setIsCelebrating(true);
-          playCelebrationSound();
-          setTimeout(() => setIsCelebrating(false), 1500);
-        }, 1900);
-      }, 900);
-    }, SHEET_DISMISS_MS);
-  };
-
   const completeMeal = async (metadata: MealMetadata) => {
     playMealSound();
     await recordEvent(makeEvent<MealMetadata>(userId, 'MEAL', metadata));
   };
 
   const completeWorkout = async (metadata: WorkoutMetadata) => {
-    setIsWorkingOut(true);
-    setTimeout(() => setIsWorkingOut(false), WORKOUT_ANIMATION_MS);
+    interaction.startWorkout();
     await recordEvent(makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata));
   };
 
@@ -783,8 +754,7 @@ export default function App() {
           return;
         }
       }
-      setIsExploring(true);
-      setTimeout(() => setIsExploring(false), EXPLORE_ANIMATION_MS);
+      interaction.startExploring();
       const event = await stepsProvider.getTodaySteps(userId);
       await recordEvent(event as HealthEvent<StepMetadata>);
       setError(null);
@@ -998,13 +968,7 @@ export default function App() {
                 // refetched for whichever is now on screen.
                 if (isSupabaseConfigured && session) void refreshShared();
               }}
-              isAnalyzingMeal={isAnalyzingMeal}
-              isEating={isEating}
-              feedingImage={feedingImage}
-              feedingGrade={feedingGrade}
-              isCelebrating={isCelebrating}
-              isWorkingOut={isWorkingOut}
-              isExploring={isExploring}
+              interaction={interaction}
               partnerName={shared ? partnerName : undefined}
             />
           )}
@@ -1117,8 +1081,10 @@ export default function App() {
                 // No navigation here: the screen calls `onFeedStart` and then
                 // `onClose` itself, and closing twice raced the feed animation.
                 onComplete={completeMeal}
-                onFeedStart={startFeeding}
-                onAnalyzingChange={setIsAnalyzingMeal}
+                onFeedStart={interaction.startFeeding}
+                onAnalyzingChange={(analyzing) =>
+                  analyzing ? interaction.startAnalyzing() : interaction.stopAnalyzing()
+                }
                 onClose={() => navigation.goBack()}
               />
             )}
