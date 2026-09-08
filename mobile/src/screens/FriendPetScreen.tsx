@@ -1,48 +1,76 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { type FriendProfileSummary, type PetState, errorMessage } from '@vitto/core';
+import {
+  type FriendProfileSummary,
+  type PetState,
+  type RecentActivitySignal,
+  type SocialPetStatus,
+  deriveSocialPetStatus,
+  errorMessage,
+} from '@vitto/core';
 import { friendsService } from '../services/friendsService';
-import { PetAvatar } from '../components/PetAvatar';
+import { FriendPetCard, displayName } from '../components/FriendPetCard';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
-  friendUserId: string;
+  friendUserIds: string[];
+  initialFriendUserId: string;
   onClose: () => void;
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-const displayName = (profile: FriendProfileSummary): string =>
-  profile.displayName || `@${profile.username}`;
-
 /**
- * A friend's pet, read-only: rendered via the same `PetAvatar` the dashboard
- * uses for the signed-in user's own pet, with every activity flag false and no
- * `children` -- so no HUD button, no feed/train affordance renders at all. See
- * `mobile/src/components/PetAvatar.tsx`: every mutation trigger lives in the
- * parent screen, never inside the component itself, so this is genuinely
- * view-only rather than a read-only mode bolted on top of an editable one.
+ * A Snapchat-style "browse one friend's pet at a time" screen. `friendUserIds`
+ * is the full ordered accepted-friends list from `FriendsScreen`; this screen
+ * only ever fetches ONE friend's data at a time (the current index) -- no
+ * neighbor prefetching, matching the rest of the codebase's per-screen-load
+ * pattern.
  */
-export function FriendPetScreen({ friendUserId, onClose }: Props) {
+export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }: Props) {
+  // Falls back to the start of the list rather than crashing if the initial id
+  // is somehow no longer in it (e.g. unfriended in the moment between tapping
+  // and this screen mounting).
+  const [index, setIndex] = useState(() => Math.max(0, friendUserIds.indexOf(initialFriendUserId)));
+
   const [state, setState] = useState<LoadState>('loading');
   const [pet, setPet] = useState<PetState | null>(null);
   const [profile, setProfile] = useState<FriendProfileSummary | null>(null);
+  const [status, setStatus] = useState<SocialPetStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const currentFriendId: string | undefined = friendUserIds[index];
+
   useEffect(() => {
+    if (!currentFriendId) return;
     let cancelled = false;
     setState('loading');
     setError(null);
+    setStatus(null);
 
     void (async () => {
       try {
         const [loadedPet, loadedProfile] = await Promise.all([
-          friendsService.loadFriendPet(friendUserId),
-          friendsService.loadFriendProfile(friendUserId),
+          friendsService.loadFriendPet(currentFriendId),
+          friendsService.loadFriendProfile(currentFriendId),
         ]);
         if (cancelled) return;
         setPet(loadedPet);
         setProfile(loadedProfile);
+
+        if (loadedPet) {
+          // Best-effort: an RPC error/network blip here must never take the
+          // whole card down with it -- fall back to an empty signal list, which
+          // `deriveSocialPetStatus` already treats as "quiet lately".
+          let signals: RecentActivitySignal[] = [];
+          try {
+            signals = await friendsService.loadFriendRecentActivity(currentFriendId);
+          } catch {
+            signals = [];
+          }
+          if (cancelled) return;
+          setStatus(deriveSocialPetStatus(loadedPet, signals));
+        }
         setState('ready');
       } catch (cause) {
         if (cancelled) return;
@@ -54,7 +82,12 @@ export function FriendPetScreen({ friendUserId, onClose }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [friendUserId]);
+  }, [currentFriendId]);
+
+  const canGoPrev = index > 0;
+  const canGoNext = index < friendUserIds.length - 1;
+  const goPrev = () => canGoPrev && setIndex((current) => current - 1);
+  const goNext = () => canGoNext && setIndex((current) => current + 1);
 
   const Topbar = ({ title }: { title: string }) => (
     <View style={styles.topbar}>
@@ -67,10 +100,53 @@ export function FriendPetScreen({ friendUserId, onClose }: Props) {
     </View>
   );
 
+  // Pager is always visible (never swipe-only) so this works with mouse/click
+  // too -- the product spec explicitly wants desktop/web parity here.
+  const Pager = () => (
+    <View style={styles.pager}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Previous friend"
+        disabled={!canGoPrev}
+        onPress={goPrev}
+        hitSlop={8}
+        style={styles.pagerButton}
+      >
+        <Text style={[styles.pagerLabel, !canGoPrev && styles.pagerLabelDisabled]}>‹ Prev</Text>
+      </Pressable>
+      <Text style={styles.pagerCount}>
+        {friendUserIds.length > 0 ? `${index + 1} / ${friendUserIds.length}` : ''}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Next friend"
+        disabled={!canGoNext}
+        onPress={goNext}
+        hitSlop={8}
+        style={styles.pagerButton}
+      >
+        <Text style={[styles.pagerLabel, !canGoNext && styles.pagerLabelDisabled]}>Next ›</Text>
+      </Pressable>
+    </View>
+  );
+
+  if (friendUserIds.length === 0 || !currentFriendId) {
+    return (
+      <View style={layout.screen}>
+        <Topbar title="Friends" />
+        <View style={[styles.center, styles.messageBody]}>
+          <Text style={styles.messageTitle}>No friends to browse</Text>
+          <Text style={styles.messageBodyText}>Add a friend from the Friends list to see their pet here.</Text>
+        </View>
+      </View>
+    );
+  }
+
   if (state === 'loading') {
     return (
       <View style={layout.screen}>
         <Topbar title="Loading..." />
+        <Pager />
         <View style={[layout.screen, styles.center]}>
           <ActivityIndicator color={colors.coral} />
         </View>
@@ -82,6 +158,7 @@ export function FriendPetScreen({ friendUserId, onClose }: Props) {
     return (
       <View style={layout.screen}>
         <Topbar title="Friend" />
+        <Pager />
         <View style={[styles.center, styles.messageBody]}>
           <Text style={styles.messageTitle}>Could not load this pet</Text>
           <Text style={styles.messageBodyText}>{error}</Text>
@@ -98,6 +175,7 @@ export function FriendPetScreen({ friendUserId, onClose }: Props) {
     return (
       <View style={layout.screen}>
         <Topbar title="Friend" />
+        <Pager />
         <View style={[styles.center, styles.messageBody]}>
           <Text style={styles.messageTitle}>You're not connected anymore</Text>
           <Text style={styles.messageBodyText}>
@@ -112,6 +190,7 @@ export function FriendPetScreen({ friendUserId, onClose }: Props) {
     return (
       <View style={layout.screen}>
         <Topbar title={displayName(profile)} />
+        <Pager />
         <View style={[styles.center, styles.messageBody]}>
           <Text style={styles.messageTitle}>No pet yet</Text>
           <Text style={styles.messageBodyText}>{displayName(profile)} hasn't adopted a pet yet.</Text>
@@ -123,16 +202,11 @@ export function FriendPetScreen({ friendUserId, onClose }: Props) {
   return (
     <View style={layout.screen}>
       <Topbar title={displayName(profile)} />
-      <PetAvatar
-        pet={pet}
-        isAnalyzingMeal={false}
-        isEating={false}
-        feedingImage={null}
-        feedingGrade={null}
-        isCelebrating={false}
-        isWorkingOut={false}
-        isExploring={false}
-      />
+      <Pager />
+      {/* `status` is always set by the time we reach here: it's only left
+          `null` while `state === 'loading'`, or when `pet` is null (handled
+          above). */}
+      {status ? <FriendPetCard profile={profile} pet={pet} status={status} /> : null}
     </View>
   );
 }
@@ -153,6 +227,19 @@ const styles = StyleSheet.create({
   backMark: { fontSize: 18, color: colors.coral },
   backLabel: { fontFamily: fonts.mono, fontSize: 12, color: colors.muted },
   topTitle: { ...text.heading, fontSize: 16 },
+  pager: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  pagerButton: { paddingVertical: 4, paddingHorizontal: 6 },
+  pagerLabel: { fontFamily: fonts.mono, fontSize: 12, color: colors.coral, letterSpacing: 0.4 },
+  pagerLabelDisabled: { color: colors.faint },
+  pagerCount: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
   messageBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
   messageTitle: { ...text.title, fontSize: 20, textAlign: 'center' },
   messageBodyText: { ...text.body, textAlign: 'center' },

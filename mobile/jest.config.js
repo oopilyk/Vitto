@@ -11,5 +11,12 @@ module.exports = {
   setupFiles: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
     '^@babel/runtime/(.*)$': `${babelRuntime}/$1`,
+    // In a git worktree checkout, node_modules is shared with (symlinked to)
+    // the main repo checkout, so npm's own `@vitto/core` workspace symlink
+    // always resolves to the *main repo's* packages/core, not this worktree's
+    // -- forcing the resolution to `../packages/core/src` (relative to this
+    // worktree's own mobile/) keeps tests exercising the code actually being
+    // worked on here.
+    '^@vitto/core$': `${path.resolve(__dirname, '../packages/core/src/index.ts')}`,
   },
 };

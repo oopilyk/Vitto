@@ -29,6 +29,7 @@ jest.mock('../services/friendsService', () => ({
     setMyUsername: jest.fn(),
     loadFriendProfile: jest.fn(),
     loadFriendPet: jest.fn(),
+    loadFriendRecentActivity: jest.fn(),
     searchUsersByUsername: jest.fn(),
     sendFriendRequest: jest.fn(),
     acceptFriendRequest: jest.fn(),
@@ -1564,14 +1565,14 @@ describe('friends screen', () => {
       displayName: 'Friend Two',
     });
 
-    const opened: string[] = [];
+    const opened: Array<[string, string[]]> = [];
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
         <FriendsScreen
           currentUserId="user-1"
           onClose={() => {}}
-          onOpenFriendPet={(id: string) => opened.push(id)}
+          onOpenFriendPet={(id: string, ids: string[]) => opened.push([id, ids])}
         />,
       );
     });
@@ -1584,7 +1585,9 @@ describe('friends screen', () => {
       .find((node: any) => node.findAllByType(RNText).some((t: any) => t.props.children === 'View pet'));
     expect(viewPet).toBeTruthy();
     act(() => viewPet!.props.onPress());
-    expect(opened).toEqual(['user-2']);
+    // Hands over the full ordered accepted-friends list, not just the one tapped,
+    // so `FriendPetScreen` can browse sequentially without another round trip.
+    expect(opened).toEqual([['user-2', ['user-2']]]);
     tree.unmount();
   });
 
@@ -1718,50 +1721,31 @@ describe('friends screen', () => {
 describe('friend pet screen', () => {
   const { FriendPetScreen } = require('../screens/FriendPetScreen');
   const { friendsService } = require('../services/friendsService');
+  const { PetAvatar } = require('../components/PetAvatar');
+
+  const friendTwoProfile = { id: 'user-2', username: 'friend_two', displayName: 'Friend Two' };
+  const friendThreeProfile = { id: 'user-3', username: 'friend_three', displayName: 'Friend Three' };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
+  const findByAccessibilityLabel = (tree: renderer.ReactTestRenderer, label: string) =>
+    tree.root.findAll((node: any) => node.props.accessibilityLabel === label)[0];
+
   it("shows a friendly message when the friend hasn't adopted a pet yet", async () => {
     friendsService.loadFriendPet.mockResolvedValue(null);
-    friendsService.loadFriendProfile.mockResolvedValue({
-      id: 'user-2',
-      username: 'friend_two',
-      displayName: 'Friend Two',
-    });
+    friendsService.loadFriendProfile.mockResolvedValue(friendTwoProfile);
 
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
-      tree = renderer.create(<FriendPetScreen friendUserId="user-2" onClose={() => {}} />);
+      tree = renderer.create(
+        <FriendPetScreen friendUserIds={['user-2']} initialFriendUserId="user-2" onClose={() => {}} />,
+      );
     });
 
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).toContain("hasn't adopted a pet yet");
-    tree.unmount();
-  });
-
-  it('renders the pet, read-only, via PetAvatar when one exists', async () => {
-    friendsService.loadFriendPet.mockResolvedValue(pet);
-    friendsService.loadFriendProfile.mockResolvedValue({
-      id: 'user-2',
-      username: 'friend_two',
-      displayName: 'Friend Two',
-    });
-
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<FriendPetScreen friendUserId="user-2" onClose={() => {}} />);
-    });
-
-    const { PetAvatar } = require('../components/PetAvatar');
-    const avatar = tree.root.findByType(PetAvatar);
-    expect(avatar.props.pet).toBe(pet);
-    // Never any children -- that is what keeps this view genuinely read-only,
-    // since every feed/train affordance on the dashboard is passed as PetAvatar's
-    // `children` rather than living inside the component.
-    expect(avatar.props.children).toBeUndefined();
-    expect(JSON.stringify(tree.toJSON())).toContain('Miso');
     tree.unmount();
   });
 
@@ -1771,10 +1755,160 @@ describe('friend pet screen', () => {
 
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
-      tree = renderer.create(<FriendPetScreen friendUserId="user-2" onClose={() => {}} />);
+      tree = renderer.create(
+        <FriendPetScreen friendUserIds={['user-2']} initialFriendUserId="user-2" onClose={() => {}} />,
+      );
     });
 
     expect(JSON.stringify(tree.toJSON())).toContain("not connected anymore");
+    tree.unmount();
+  });
+
+  it('lights up the matching PetAvatar pose for a live activity signal', async () => {
+    friendsService.loadFriendPet.mockResolvedValue(pet);
+    friendsService.loadFriendProfile.mockResolvedValue(friendTwoProfile);
+    friendsService.loadFriendRecentActivity.mockResolvedValue([
+      { type: 'WORKOUT', occurredAt: new Date().toISOString() },
+    ]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendPetScreen friendUserIds={['user-2']} initialFriendUserId="user-2" onClose={() => {}} />,
+      );
+    });
+
+    const avatar = tree.root.findByType(PetAvatar);
+    expect(avatar.props.pet).toBe(pet);
+    expect(avatar.props.isWorkingOut).toBe(true);
+    expect(avatar.props.isEating).toBe(false);
+    expect(avatar.props.isExploring).toBe(false);
+    // Never any children -- that is what keeps this view genuinely read-only,
+    // since every feed/train affordance on the dashboard is passed as PetAvatar's
+    // `children` rather than living inside the component.
+    expect(avatar.props.children).toBeUndefined();
+    expect(JSON.stringify(tree.toJSON())).toContain('Working out');
+    tree.unmount();
+  });
+
+  it('never poses a recent-but-not-live activity as if it were happening right now', async () => {
+    friendsService.loadFriendPet.mockResolvedValue(pet);
+    friendsService.loadFriendProfile.mockResolvedValue(friendTwoProfile);
+    friendsService.loadFriendRecentActivity.mockResolvedValue([
+      { type: 'WORKOUT', occurredAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() },
+    ]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendPetScreen friendUserIds={['user-2']} initialFriendUserId="user-2" onClose={() => {}} />,
+      );
+    });
+
+    const avatar = tree.root.findByType(PetAvatar);
+    // A three-hour-old signal is "recently active" but never live -- none of
+    // the pose flags may be set from it.
+    expect(avatar.props.isWorkingOut).toBe(false);
+    expect(avatar.props.isEating).toBe(false);
+    expect(avatar.props.isExploring).toBe(false);
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Worked out earlier');
+    expect(rendered).toContain('3h ago');
+    tree.unmount();
+  });
+
+  it('still renders the pet when the recent-activity fetch fails, falling back to no signals', async () => {
+    friendsService.loadFriendPet.mockResolvedValue(pet);
+    friendsService.loadFriendProfile.mockResolvedValue(friendTwoProfile);
+    friendsService.loadFriendRecentActivity.mockRejectedValue(new Error('RPC unavailable'));
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendPetScreen friendUserIds={['user-2']} initialFriendUserId="user-2" onClose={() => {}} />,
+      );
+    });
+
+    // The pet still renders, read-only, exactly as if there were simply no
+    // recent activity -- one flaky RPC must never take the whole card down.
+    const avatar = tree.root.findByType(PetAvatar);
+    expect(avatar.props.pet).toBe(pet);
+    expect(avatar.props.isWorkingOut).toBe(false);
+    expect(avatar.props.isEating).toBe(false);
+    expect(avatar.props.isExploring).toBe(false);
+    expect(JSON.stringify(tree.toJSON())).toContain('Quiet lately');
+    tree.unmount();
+  });
+
+  it('moves between friends with Next/Prev, re-fetching each one, and disables at the ends', async () => {
+    friendsService.loadFriendPet.mockImplementation((id: string) =>
+      Promise.resolve(id === 'user-2' ? pet : { ...pet, name: 'Riko' }),
+    );
+    friendsService.loadFriendProfile.mockImplementation((id: string) =>
+      Promise.resolve(id === 'user-2' ? friendTwoProfile : friendThreeProfile),
+    );
+    friendsService.loadFriendRecentActivity.mockResolvedValue([]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendPetScreen
+          friendUserIds={['user-2', 'user-3']}
+          initialFriendUserId="user-2"
+          onClose={() => {}}
+        />,
+      );
+    });
+
+    expect(JSON.stringify(tree.toJSON())).toContain('Friend Two');
+    expect(friendsService.loadFriendPet).toHaveBeenCalledWith('user-2');
+
+    // Prev is disabled/hidden at the first friend.
+    const prev = findByAccessibilityLabel(tree, 'Previous friend');
+    expect(prev.props.disabled).toBe(true);
+    const next = findByAccessibilityLabel(tree, 'Next friend');
+    expect(next.props.disabled).toBe(false);
+
+    await act(async () => {
+      next.props.onPress();
+      // `onPress` itself is synchronous; flush the microtasks the resulting
+      // effect's promise chain (loadFriendPet/loadFriendProfile/loadFriendRecentActivity)
+      // schedules, same technique the debounced-search test above uses.
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(friendsService.loadFriendPet).toHaveBeenCalledWith('user-3');
+    expect(JSON.stringify(tree.toJSON())).toContain('Friend Three');
+
+    // Next is disabled/hidden at the last friend; Prev is now enabled.
+    const prevAfter = findByAccessibilityLabel(tree, 'Previous friend');
+    const nextAfter = findByAccessibilityLabel(tree, 'Next friend');
+    expect(prevAfter.props.disabled).toBe(false);
+    expect(nextAfter.props.disabled).toBe(true);
+
+    await act(async () => {
+      prevAfter.props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(JSON.stringify(tree.toJSON())).toContain('Friend Two');
+    tree.unmount();
+  });
+
+  it('shows a sensible message instead of crashing for an empty friend list', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendPetScreen friendUserIds={[]} initialFriendUserId="user-2" onClose={() => {}} />,
+      );
+    });
+
+    expect(JSON.stringify(tree.toJSON())).toContain('No friends to browse');
+    expect(friendsService.loadFriendPet).not.toHaveBeenCalled();
     tree.unmount();
   });
 });

@@ -4,6 +4,14 @@
     "strict": true,
     "types": [
       "jest"
-    ]
+    ],
+    // Same worktree-vs-shared-node_modules issue as jest.config.js: the
+    // `@vitto/core` workspace symlink resolves to the main repo checkout's
+    // packages/core, not this worktree's own, so point tsc at the real
+    // relative sources directly. (No `baseUrl` -- deprecated in TS 6; `paths`
+    // resolves relative to this file without it.)
+    "paths": {
+      "@vitto/core": ["../packages/core/src/index.ts"]
+    }
   }
 }

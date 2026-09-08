@@ -61,7 +61,9 @@ type RootStackParamList = {
   PetStats: undefined;
   // Reached from Profile, same as Profile itself is reached from the dashboard.
   Friends: undefined;
-  FriendPet: { friendUserId: string };
+  // The full ordered accepted-friends list, so the sequential browser can move
+  // between friends without going back to `FriendsScreen`.
+  FriendPet: { friendUserId: string; friendUserIds: string[] };
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -1083,13 +1085,19 @@ export default function App() {
             <FriendsScreen
               currentUserId={userId}
               onClose={() => navigation.goBack()}
-              onOpenFriendPet={(friendUserId) => navigation.navigate('FriendPet', { friendUserId })}
+              onOpenFriendPet={(friendUserId, friendUserIds) =>
+                navigation.navigate('FriendPet', { friendUserId, friendUserIds })
+              }
             />
           )}
         </RootStack.Screen>
         <RootStack.Screen name="FriendPet">
           {({ navigation, route }) => (
-            <FriendPetScreen friendUserId={route.params.friendUserId} onClose={() => navigation.goBack()} />
+            <FriendPetScreen
+              friendUserIds={route.params.friendUserIds}
+              initialFriendUserId={route.params.friendUserId}
+              onClose={() => navigation.goBack()}
+            />
           )}
         </RootStack.Screen>
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>
