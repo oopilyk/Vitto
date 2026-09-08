@@ -22,6 +22,7 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
+import { TodayScreen } from './src/screens/TodayScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
@@ -57,6 +58,9 @@ type RootStackParamList = {
   Profile: undefined;
   // A drill-down off the dashboard, so it pushes rather than presenting as a modal.
   PetStats: undefined;
+  // The day's detail — nutrition, care, movement, mind — which used to sit under
+  // the pet. Pushed like PetStats, so the dashboard stays the pet and nothing else.
+  Today: undefined;
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -177,10 +181,6 @@ export default function App() {
   const [petLoadFailed, setPetLoadFailed] = useState(false);
   // Bumped by the retry button to re-run the loading effect.
   const [reloadToken, setReloadToken] = useState(0);
-  // Bumped by every logged care moment. The dashboard watches it and scrolls back
-  // to the pet, so the reaction and stat movement are never off-screen below
-  // wherever the user happened to be reading.
-  const [petFocusToken, setPetFocusToken] = useState(0);
   const [events, setEvents] = useState<HealthEvent[]>([]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
@@ -467,7 +467,6 @@ export default function App() {
     lastSeenCareLogAt.current = outcome.lastSeenCareLogAt;
     if (!outcome.announcement) return;
     showReaction({ message: outcome.announcement, eventLabel: 'Care partner', delta: {} });
-    setPetFocusToken((token) => token + 1);
   };
 
   /** Ends a pet write: lets refreshes through again, and runs the one that was deferred, if any. */
@@ -497,7 +496,6 @@ export default function App() {
 
   const recordEvent = async (event: HealthEvent<unknown>) => {
     if (!pet) return;
-    setPetFocusToken((token) => token + 1);
     careMomentInFlight.current = true;
     try {
       const remote = isSupabaseConfigured && session ? remoteRepository : undefined;
@@ -976,22 +974,15 @@ export default function App() {
             <DashboardScreen
               pet={livePet}
               events={events}
-              profile={profile}
               reaction={reaction}
-              stepGoal={stepGoal}
-              onStepGoalChange={setStepGoal}
               onLogMeal={() => navigation.navigate('MealCapture')}
               onLogWorkout={() => navigation.navigate('Workout')}
               onSyncSteps={() => void syncSteps()}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenStats={() => navigation.navigate('PetStats')}
-              petFocusToken={petFocusToken}
+              onOpenToday={() => navigation.navigate('Today')}
               accountInitial={session?.user.email?.charAt(0)}
-              forcedAilment={isDev ? forcedAilment : undefined}
-              onForceAilment={isDev ? setForcedAilment : undefined}
-              forcedForm={isDev ? forcedForm : undefined}
-              onForceForm={isDev ? setForcedForm : undefined}
               pets={pets.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
               activePetId={pet.id}
               onSelectPet={(petId) => {
@@ -1000,9 +991,6 @@ export default function App() {
                 // refetched for whichever is now on screen.
                 if (isSupabaseConfigured && session) void refreshShared();
               }}
-              onSeedTestData={isDev ? () => void seedTestData() : undefined}
-              onClearSeededData={isDev ? () => void clearSeededData() : undefined}
-              isSeeding={isSeeding}
               isAnalyzingMeal={isAnalyzingMeal}
               isEating={isEating}
               feedingImage={feedingImage}
@@ -1010,9 +998,7 @@ export default function App() {
               isCelebrating={isCelebrating}
               isWorkingOut={isWorkingOut}
               isExploring={isExploring}
-              careDiary={careDiary}
               partnerName={shared ? partnerName : undefined}
-              onRefresh={isOnline && shared ? refreshShared : undefined}
             />
           )}
         </RootStack.Screen>
@@ -1068,6 +1054,30 @@ export default function App() {
         <RootStack.Screen name="PetStats">
           {({ navigation }) => (
             <PetStatsScreen pet={livePet} events={events} onClose={() => navigation.goBack()} />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Today">
+          {({ navigation }) => (
+            <TodayScreen
+              pet={livePet}
+              events={events}
+              profile={profile}
+              stepGoal={stepGoal}
+              onStepGoalChange={setStepGoal}
+              onTrainMind={() => navigation.navigate('MindGym')}
+              onOpenWordPuzzle={() => navigation.navigate('WordPuzzle')}
+              onOpenProfile={() => navigation.navigate('Profile')}
+              onClose={() => navigation.goBack()}
+              careDiary={careDiary}
+              onRefresh={isOnline && shared ? refreshShared : undefined}
+              forcedAilment={isDev ? forcedAilment : undefined}
+              onForceAilment={isDev ? setForcedAilment : undefined}
+              forcedForm={isDev ? forcedForm : undefined}
+              onForceForm={isDev ? setForcedForm : undefined}
+              onSeedTestData={isDev ? () => void seedTestData() : undefined}
+              onClearSeededData={isDev ? () => void clearSeededData() : undefined}
+              isSeeding={isSeeding}
+            />
           )}
         </RootStack.Screen>
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>

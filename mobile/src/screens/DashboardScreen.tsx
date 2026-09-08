@@ -1,59 +1,25 @@
-import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  useWindowDimensions,
-  View,
-} from 'react-native';
-import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, type BodyProfile, type BrainTrainingMetadata, type CareDiaryEntry, FOCUS_AREAS, PET_BUILD_LABEL, type HealthEvent, type MealAnalysis, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, assessCondition, calculateInsights, calculateMacroTargets, calculateStreaks, daysWithPet, estimateCaloriesBurned, findWordPuzzleEventForDate, getEventsForDay, getPetBuild, hasEvolved, getMealsForDay, isSameDay, mindScoreLabel, statValue, sumMealMacros, toDateKey, getStatusEffects} from '@vitto/core';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AILMENT_MESSAGE, PET_BUILD_LABEL, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, assessCondition, calculateStreaks, daysWithPet, getPetBuild, hasEvolved, statValue, getStatusEffects } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
-import { NutrientRing } from '../components/NutrientRing';
-import { MealDiaryRow } from '../components/MealDiaryRow';
-import { ChoiceRow, Kicker, TextButton } from '../components/ui';
-import { findScreenTimeForDate } from '../services/screenTimeMapping';
+import { Kicker } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
   pet: PetState;
   events: HealthEvent[];
-  profile: BodyProfile;
   reaction: PetReaction | null;
-  stepGoal: number;
-  onStepGoalChange: (goal: number) => void;
   onLogMeal: () => void;
   onLogWorkout: () => void;
   onSyncSteps: () => void;
   onTrainMind: () => void;
-  /**
-   * Opens today's word puzzle board. Optional: the mind card hides the action until the
-   * navigation is wired, so this screen stays renderable without it.
-   */
-  onOpenWordPuzzle?: () => void;
   onOpenProfile: () => void;
   /** Opens the full stat sheet — the HUD on the pet is the way in. */
   onOpenStats: () => void;
+  /** Opens the day's detail (nutrition, care, movement, mind), which used to sit under the pet. */
+  onOpenToday: () => void;
   /** Letter shown in the account button — the signed-in email's initial. */
   accountInitial?: string;
-  /**
-   * Changes each time a care moment is logged. The value itself means nothing —
-   * only that it moved, which scrolls the pet back into view so the reaction and
-   * the stat bars are visible wherever the user had scrolled to.
-   */
-  petFocusToken: number;
-  /**
-   * Dev tool: which ailment the pet is being forced into, and the setter.
-   * Both absent for normal accounts, which is what hides the control entirely.
-   */
-  forcedAilment?: ForcedPetStatus | null;
-  onForceAilment?: (status: ForcedPetStatus | null) => void;
-  /** Dev tool, display only, alongside `forcedAilment` — see `applyForcedForm`. */
-  forcedForm?: ForcedPetForm | null;
-  onForceForm?: (form: ForcedPetForm | null) => void;
   /**
    * Every pet the user cares for, and which one is on screen. Absent or single
    * for most accounts, which is what hides the switcher. Care moments feed all
@@ -62,10 +28,6 @@ interface Props {
   pets?: { id: string; name: string }[];
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
-  /** Dev only: fills the event log with synthetic history so insights have data. */
-  onSeedTestData?: () => void;
-  onClearSeededData?: () => void;
-  isSeeding?: boolean;
   isAnalyzingMeal: boolean;
   isEating: boolean;
   feedingImage: string | null;
@@ -73,17 +35,8 @@ interface Props {
   isCelebrating: boolean;
   isWorkingOut: boolean;
   isExploring: boolean;
-  /**
-   * Care partners. All three are absent for a solo pet, and the screen then
-   * renders exactly as it always has. `careDiary` is the user's own events
-   * merged with the partner's care-log shadows; when present it is what
-   * "Today's care" lists, so the partner's moments show up beside the user's own.
-   */
-  careDiary?: CareDiaryEntry[];
-  /** Named under the kicker: "Raised with Alex". */
+  /** Named under the kicker: "Raised with Alex". Absent for a solo pet. */
   partnerName?: string;
-  /** Pull-to-refresh, wired only for a shared pet — the partner may have cared since the app was opened. */
-  onRefresh?: () => Promise<void>;
 }
 
 interface QuickAction {
@@ -104,104 +57,23 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 // Clears the home indicator on modern iPhones without pulling in a safe-area
 // package, which drags a second copy of React into the workspace.
-type DevAilmentChoice = ForcedPetStatus | 'live';
-
-/**
- * Built from the precedence list so a new ailment shows up here for free.
- *
- * 'Live' and 'Healthy' are not the same thing and both are needed: 'Live' drops
- * the override and shows the pet's true stats, which on a compressed decay clock
- * is usually an ailing pet, while 'Healthy' forces the well state.
- */
-const DEV_AILMENT_OPTIONS: { value: DevAilmentChoice; label: string; detail?: string }[] = [
-  { value: 'live', label: 'Live', detail: 'real stats' },
-  { value: 'healthy', label: 'Healthy' },
-  ...AILMENT_PRECEDENCE.map((ailment) => ({
-    value: ailment as DevAilmentChoice,
-    label: ailment.charAt(0).toUpperCase() + ailment.slice(1),
-  })),
-];
-
-type DevFormChoice = ForcedPetForm | 'live';
-
-/**
- * Forms to preview. An evolution is weeks of real training away, so without this
- * the only way to see one is to earn it.
- */
-const DEV_FORM_OPTIONS: { value: DevFormChoice; label: string; detail?: string }[] = [
-  { value: 'live', label: 'Live', detail: 'real form' },
-  { value: 'base', label: 'Base', detail: 'unevolved' },
-  { value: 'runner', label: 'Runner', detail: 'evolved' },
-  { value: 'lifter', label: 'Lifter', detail: 'evolved · strength' },
-  { value: 'scholar', label: 'Scholar', detail: 'evolved · mind' },
-];
-
-/** The dashboard shows a preview; the profile has the full record. */
-const CARE_PREVIEW_LIMIT = 5;
-
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
-
-/** "2h 05m" for the screen-time panel. */
-const formatScreenMinutes = (minutes: number): string => {
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours === 0) return `${rest}m`;
-  return rest === 0 ? `${hours}h` : `${hours}h ${String(rest).padStart(2, '0')}m`;
-};
-
-const CARE_EVENT_LABEL: Partial<Record<HealthEvent['type'], string>> = {
-  WORKOUT: 'Trained together',
-  STEP_ACTIVITY: 'Went exploring',
-  BRAIN_TRAINING: 'Trained your mind',
-  SLEEP: 'Rested up',
-  SCREEN_TIME: 'Screen check-in',
-};
-
-/**
- * Which brain sessions count toward a given day. The timed games are stamped the
- * moment they finish, so their completion time is their day. WordPuzzle fixes its day
- * when the board opens, so it is keyed on `puzzleDate` instead — a puzzle carried
- * past midnight still belongs to the day it was set for, and the count agrees with
- * the WordPuzzle action beside it.
- */
-const mindEventsForDay = (
-  events: HealthEvent[],
-  day: Date,
-): HealthEvent<BrainTrainingMetadata>[] => {
-  const dayKey = toDateKey(day);
-  return events.filter((event): event is HealthEvent<BrainTrainingMetadata> => {
-    if (event.type !== 'BRAIN_TRAINING') return false;
-    const { puzzleDate } = event.metadata as BrainTrainingMetadata;
-    return puzzleDate ? puzzleDate === dayKey : isSameDay(event.occurredAt, day);
-  });
-};
 
 export function DashboardScreen({
   pet,
   events,
-  profile,
   reaction,
-  stepGoal,
-  onStepGoalChange,
   onLogMeal,
   onLogWorkout,
   onSyncSteps,
   onTrainMind,
-  onOpenWordPuzzle,
   onOpenProfile,
   onOpenStats,
+  onOpenToday,
   accountInitial,
-  petFocusToken,
-  forcedAilment,
-  onForceAilment,
-  forcedForm,
-  onForceForm,
   pets,
   activePetId,
   onSelectPet,
-  onSeedTestData,
-  onClearSeededData,
-  isSeeding,
   isAnalyzingMeal,
   isEating,
   feedingImage,
@@ -209,272 +81,35 @@ export function DashboardScreen({
   isCelebrating,
   isWorkingOut,
   isExploring,
-  careDiary,
   partnerName,
-  onRefresh,
 }: Props) {
-  const { width } = useWindowDimensions();
-  const scrollRef = useRef<ScrollView>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const refresh = async () => {
-    if (!onRefresh) return;
-    setRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-  // Skips the first run: mounting the dashboard is not a care moment, and an
-  // animated scroll to a position it is already at would be a visible twitch.
-  const seenFocusToken = useRef(petFocusToken);
-  useEffect(() => {
-    if (seenFocusToken.current === petFocusToken) return;
-    seenFocusToken.current = petFocusToken;
-    scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, [petFocusToken]);
-  // Three rings, two 10px gaps, inside 22px page padding: never wider than that.
-  const ringSize = Math.max(76, Math.min(104, Math.floor((width - 44 - 20) / 3)));
+  /**
+   * The pet is given whatever is left of the screen once the top bar and the log
+   * buttons have taken theirs — measured rather than guessed, since both grow
+   * with the device's safe-area insets. Nothing scrolls here: the day's detail
+   * lives on its own screen, so this one is the companion and nothing else.
+   */
+  const [screenHeight, setScreenHeight] = useState(0);
+  const [topbarHeight, setTopbarHeight] = useState(0);
+  const [actionBarHeight, setActionBarHeight] = useState(0);
+  const petPageHeight =
+    screenHeight && topbarHeight && actionBarHeight
+      ? Math.max(320, screenHeight - topbarHeight - actionBarHeight)
+      : undefined;
   const today = new Date();
-  const todayKey = toDateKey(today);
-  const screenTimeToday = findScreenTimeForDate(events, today);
-  // Folds every event into daily rows, so it is keyed on the day rather than on the
-  // fresh `today` Date each render hands out. Only the first finding is shown.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
-  const topInsight = useMemo(() => calculateInsights(events, today)[0] ?? null, [events, todayKey]);
   // Read off the same projected pet the sprite uses, so the chips agree with what
   // is on screen — including while a dev force-status is applied.
   const statusEffects = getStatusEffects(pet);
-  const todaysEvents = getEventsForDay(events, today);
-  const todaysMeals = getMealsForDay(events, today);
-  const todaysOther = todaysEvents.filter((event) => event.type !== 'MEAL');
-  // What "Today's care" lists. Solo: the user's own non-meal events, as ever.
-  // Shared: the merged diary — the user's own meals still belong to the diary
-  // block above, but a partner's "Shared a meal" is a care moment to show here.
-  const todaysCare: CareDiaryEntry[] = careDiary
-    ? careDiary.filter(
-        (entry) => isSameDay(entry.occurredAt, today) && (entry.actorName !== null || entry.type !== 'MEAL'),
-      )
-    : todaysOther.map((event) => ({
-        id: event.id,
-        occurredAt: event.occurredAt,
-        type: event.type,
-        label: CARE_EVENT_LABEL[event.type] ?? 'A healthy moment',
-        actorUserId: event.userId,
-        actorName: null,
-      }));
-  const shownCare = todaysCare.slice(0, CARE_PREVIEW_LIMIT);
-  // The "more" link opens Profile, whose history is the user's OWN events only,
-  // so it counts what Profile will actually show: own moments not previewed here.
-  const moreCareCount = careDiary
-    ? todaysOther.filter((event) => !shownCare.some((entry) => entry.id === event.id)).length
-    : todaysCare.length - shownCare.length;
-  const todaysMind = mindEventsForDay(events, today);
-  const bestMindScore = todaysMind.reduce((best, event) => Math.max(best, event.metadata.score), 0);
-  const todaysWordPuzzle = findWordPuzzleEventForDate(events, toDateKey(today));
-
-  const todaySteps = todaysEvents.find((event) => event.type === 'STEP_ACTIVITY');
-  const steps = todaySteps ? (todaySteps.metadata as { steps: number }).steps : 0;
-
-  const targets = calculateMacroTargets(profile);
-  const consumed = sumMealMacros(todaysMeals);
-  const burned = estimateCaloriesBurned(todaysEvents);
-  const remaining = targets.calories - consumed.calories + burned;
   const streaks = calculateStreaks(events, today);
   // The kicker is where an evolution is announced — the sprite changing is easy
   // to miss if you were not watching for it. Before then there is no form to name,
-  // so it shows the level instead of the old stage word.
+  // so it shows the level instead.
   const formLabel = hasEvolved(pet)
     ? PET_BUILD_LABEL[getPetBuild(pet)]
     : `Level ${pet.level}`;
   // `pet` arrives already projected forward by App, so this reads the stats the
   // user is looking at rather than the stored ones.
   const condition = assessCondition(pet);
-
-  const sections: Record<string, ReactNode> = {
-    nutrition: (
-      <Fragment key="nutrition">
-        <View style={styles.rings}>
-          <NutrientRing
-            value={consumed.calories}
-            percent={(consumed.calories / targets.calories) * 100}
-            size={ringSize}
-            label="Consumed"
-            color={colors.coral}
-          />
-          <NutrientRing
-            value={burned}
-            percent={(burned / targets.calories) * 100}
-            size={ringSize}
-            label="Burned"
-            color="#78a598"
-          />
-          <NutrientRing
-            value={remaining}
-            percent={(Math.abs(remaining) / targets.calories) * 100}
-            size={ringSize}
-            label={remaining < 0 ? 'Over' : 'Remaining'}
-            color={remaining < 0 ? colors.danger : '#9c8dba'}
-            emphasis={remaining < 0}
-          />
-        </View>
-
-        <View style={styles.macros}>
-          {[
-            ['Protein', consumed.proteinGrams, targets.proteinGrams],
-            ['Carbs', consumed.carbsGrams, targets.carbsGrams],
-            ['Fat', consumed.fatGrams, targets.fatGrams],
-          ].map(([label, value, target]) => (
-            <View key={String(label)} style={styles.macroRow}>
-              <Text style={styles.macroLabel}>{label}</Text>
-              <View style={styles.macroTrack}>
-                <View
-                  style={[
-                    styles.macroFill,
-                    { width: `${Math.min(100, (Number(value) / Number(target)) * 100)}%` },
-                  ]}
-                />
-              </View>
-              <Text style={styles.macroValue}>
-                {value}g <Text style={styles.macroTarget}>/ {target}g</Text>
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.block}>
-          <Text style={styles.blockTitle}>Today's diary</Text>
-          {todaysMeals.length === 0 ? (
-            <Text style={styles.empty}>Nothing logged yet today — add a meal to get started.</Text>
-          ) : (
-            todaysMeals.map((event) => <MealDiaryRow key={event.id} event={event} />)
-          )}
-        </View>
-      </Fragment>
-    ),
-    training: (
-      <Fragment key="training">
-        <View style={styles.block}>
-          <View style={layout.between}>
-            <Text style={styles.blockTitle}>Today's care</Text>
-            <Pressable onPress={onOpenProfile} hitSlop={8}>
-              <Text style={styles.link}>Full history →</Text>
-            </Pressable>
-          </View>
-          {todaysCare.length === 0 ? (
-            <Text style={styles.empty}>Log a workout, sync steps, or train your mind to see it here.</Text>
-          ) : (
-            shownCare.map((entry) => (
-              <View key={entry.id} style={styles.eventRow}>
-                <View style={[styles.dot, entry.actorName !== null && styles.partnerDot]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.eventName}>
-                    {/* Own entries keep the solo wording (CARE_EVENT_LABEL); a partner's
-                        carries the type-only label the care log allows, prefixed by who. */}
-                    {entry.actorName === null
-                      ? (CARE_EVENT_LABEL[entry.type] ?? 'A healthy moment')
-                      : `${entry.actorName} · ${entry.label}`}
-                  </Text>
-                  <Text style={styles.eventTime}>
-                    {new Date(entry.occurredAt).toLocaleTimeString([], {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-                <Text style={styles.eventXp}>+ XP</Text>
-              </View>
-            ))
-          )}
-          {moreCareCount > 0 ? (
-            <Pressable onPress={onOpenProfile} hitSlop={6}>
-              <Text style={styles.moreLink}>
-                {moreCareCount} more today →
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </Fragment>
-    ),
-    movement: (
-      <Fragment key="movement">
-        <View style={styles.panel}>
-          <View style={{ flex: 1 }}>
-            <Kicker>Today's exploring</Kicker>
-            <Text style={styles.panelValue}>
-              {steps.toLocaleString()}{' '}
-              <Text style={styles.panelUnit}>/ {stepGoal.toLocaleString()} steps</Text>
-            </Text>
-            <Text style={styles.panelHint}>
-              {pet.name} {steps ? 'explored with you today.' : "is waiting for today's adventure."}
-            </Text>
-          </View>
-          <View>
-            <Text style={styles.fieldLabel}>Daily goal</Text>
-            <TextInput
-              style={[layout.input, styles.goalInput]}
-              keyboardType="number-pad"
-              value={String(stepGoal)}
-              onChangeText={(value) => onStepGoalChange(Number(value.replace(/[^0-9]/g, '')) || 1000)}
-            />
-          </View>
-        </View>
-      </Fragment>
-    ),
-    mind: (
-      <Fragment key="mind">
-        <View style={styles.panel}>
-          <View style={{ flex: 1 }}>
-            <Kicker>Today's thinking</Kicker>
-            <Text style={styles.panelValue}>
-              {bestMindScore || '—'}{' '}
-              <Text style={styles.panelUnit}>
-                best mind score
-                {todaysMind.length ? ` · ${todaysMind.length} session${todaysMind.length > 1 ? 's' : ''}` : ''}
-              </Text>
-            </Text>
-            <Text style={styles.panelHint}>
-              {todaysMind.length
-                ? `${mindScoreLabel(bestMindScore)} — ${pet.name} felt you thinking.`
-                : `${pet.name} is up for a puzzle whenever you are.`}
-            </Text>
-            <View style={styles.mindStat}>
-              <Text style={styles.mindStatLabel}>Mind</Text>
-              <View style={styles.mindTrack}>
-                <View style={[styles.mindFill, { width: `${pet.mind}%` }]} />
-              </View>
-              <Text style={styles.mindStatValue}>{pet.mind}/100</Text>
-            </View>
-          </View>
-          <View style={styles.mindActions}>
-            <Pressable onPress={onTrainMind} hitSlop={8}>
-              <Text style={styles.mindLink}>Train →</Text>
-            </Pressable>
-            {onOpenWordPuzzle ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  todaysWordPuzzle ? "Review today's word puzzle" : "Play today's word puzzle"
-                }
-                onPress={onOpenWordPuzzle}
-                hitSlop={8}
-              >
-                <Text style={styles.mindLink}>Today's word puzzle →</Text>
-                <Text style={[styles.mindNote, todaysWordPuzzle && styles.mindNoteDone]}>
-                  {todaysWordPuzzle ? `done · ${todaysWordPuzzle.metadata.score}` : 'not played yet'}
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-      </Fragment>
-    ),
-  };
-
-  const orderedFocus = [
-    ...profile.focusAreas,
-    ...FOCUS_AREAS.filter((area) => !profile.focusAreas.includes(area)),
-  ];
 
   const onQuickAction = (key: string) => {
     if (key === 'meal') return onLogMeal();
@@ -484,8 +119,14 @@ export function DashboardScreen({
   };
 
   return (
-    <View style={layout.screen}>
-      <View style={styles.topbar}>
+    <View
+      style={layout.screen}
+      onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}
+    >
+      <View
+        style={styles.topbar}
+        onLayout={(event) => setTopbarHeight(event.nativeEvent.layout.height)}
+      >
         <View style={styles.brand}>
           <View style={styles.brandMark}>
             <Text style={styles.brandMarkLetter}>v</Text>
@@ -505,16 +146,7 @@ export function DashboardScreen({
         </Pressable>
       </View>
 
-      <ScrollView
-        ref={scrollRef}
-        style={layout.screen}
-        contentContainerStyle={[styles.body, { paddingBottom: 96 + HOME_INDICATOR_INSET }]}
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.coral} />
-          ) : undefined
-        }
-      >
+      <View style={[styles.petPage, petPageHeight ? { height: petPageHeight } : null]}>
       <View style={styles.hero}>
         {pets && pets.length > 1 && onSelectPet ? (
           <View style={styles.petSwitcher}>
@@ -562,10 +194,19 @@ export function DashboardScreen({
               🔥 {streaks.currentStreak} day streak · best {streaks.longestStreak}
             </Text>
           ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open today's detail"
+            onPress={onOpenToday}
+            hitSlop={8}
+          >
+            <Text style={styles.todayLink}>Today's detail →</Text>
+          </Pressable>
         </View>
       </View>
 
       <PetAvatar
+        stageStyle={styles.stageFill}
         pet={pet}
         isAnalyzingMeal={isAnalyzingMeal}
         isEating={isEating}
@@ -621,108 +262,12 @@ export function DashboardScreen({
           </View>
         ) : null}
       </PetAvatar>
-
-      <View style={styles.dashboard}>
-        {/* Dev accounts only — `onForceAilment` is simply not passed otherwise.
-            Sits directly under the pet so the sprite is in view while cycling. */}
-        {onForceAilment ? (
-          <View style={styles.devPanel}>
-            <Kicker>Dev · force status</Kicker>
-            <View style={styles.devChoices}>
-              <ChoiceRow
-                options={DEV_AILMENT_OPTIONS}
-                value={forcedAilment ?? 'live'}
-                onChange={(next) => onForceAilment(next === 'live' ? null : next)}
-              />
-            </View>
-            <Text style={styles.devHint}>
-              Rewrites the stats shown on screen. Nothing here is saved, and logging real care
-              clears it back to whatever {pet.name} actually is.
-            </Text>
-          </View>
-        ) : null}
-
-        {onForceForm ? (
-          <View style={styles.devPanel}>
-            <Kicker>Dev · force form</Kicker>
-            <View style={styles.devChoices}>
-              <ChoiceRow
-                options={DEV_FORM_OPTIONS}
-                value={forcedForm ?? 'live'}
-                onChange={(next) => onForceForm(next === 'live' ? null : next)}
-              />
-            </View>
-            <Text style={styles.devHint}>
-              Moves level, endurance and strength, so the sprite, the stage copy and the stat
-              bars all agree. Runner needs Teen or Adult — a baby has not grown into a build yet.
-            </Text>
-          </View>
-        ) : null}
-
-        {onSeedTestData ? (
-          <View style={styles.devPanel}>
-            <Kicker>Dev · test data</Kicker>
-            <View style={styles.devChoices}>
-              <TextButton
-                label={isSeeding ? 'Working…' : 'Seed 90 days'}
-                onPress={onSeedTestData}
-                disabled={isSeeding}
-              />
-              <TextButton
-                label="Clear seeded"
-                onPress={() => onClearSeededData?.()}
-                disabled={isSeeding}
-              />
-            </View>
-            <Text style={styles.devHint}>
-              Writes ~90 days of synthetic events so the insight thresholds have enough to
-              compare — a real account stays silent for weeks. It fills the event log only:
-              {pet.name}'s own stats and decay anchor are left alone. Use a throwaway account,
-              since this lands in the diary and the streak alongside real history.
-            </Text>
-          </View>
-        ) : null}
-
-        {orderedFocus.map((area) => sections[area])}
-
-        {/* Nothing at all until the data can carry a finding -- an empty "keep logging"
-            card would be a nag, and the thresholds live in `calculateInsights`. */}
-        {topInsight ? (
-          <View style={styles.panel}>
-            <View style={{ flex: 1 }}>
-              <Kicker>{`${pet.name} noticed`}</Kicker>
-              <Text style={styles.insightHeadline}>{topInsight.headline}</Text>
-              <Text style={styles.panelHint}>{topInsight.detail}</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Only once today is logged (Profile → Screen time); an empty card would be a nag. */}
-        {screenTimeToday ? (
-          <View style={styles.panel}>
-            <View style={{ flex: 1 }}>
-              <Kicker>Today's screen time</Kicker>
-              <Text style={styles.panelValue}>
-                {formatScreenMinutes(screenTimeToday.metadata.minutes)}
-                {screenTimeToday.metadata.budgetMinutes !== undefined ? (
-                  <Text style={styles.panelUnit}> / {formatScreenMinutes(screenTimeToday.metadata.budgetMinutes)} budget</Text>
-                ) : null}
-              </Text>
-              <Text style={styles.panelHint}>
-                {screenTimeToday.metadata.withinBudget === undefined
-                  ? `Logged. Set a budget in Profile and ${pet.name} will notice the quiet days.`
-                  : screenTimeToday.metadata.withinBudget
-                    ? `Under budget — ${pet.name} feels clearer for it.`
-                    : 'Over budget today. Tomorrow is a fresh screen.'}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
       </View>
-      </ScrollView>
 
-      <View style={styles.actionBar}>
+      <View
+        style={styles.actionBar}
+        onLayout={(event) => setActionBarHeight(event.nativeEvent.layout.height)}
+      >
         {QUICK_ACTIONS.map((action) => (
           <Pressable
             key={action.key}
@@ -743,7 +288,6 @@ export function DashboardScreen({
 }
 
 const styles = StyleSheet.create({
-  body: { paddingBottom: 60 },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -781,9 +325,16 @@ const styles = StyleSheet.create({
   mood: { ...text.body, marginTop: 10 },
   heroMeta: { marginTop: 20 },
   heroLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint },
-  xpTrack: { height: 4, borderRadius: 2, backgroundColor: '#deded7', marginTop: 8, overflow: 'hidden' },
+  xpTrack: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.55)', marginTop: 8, overflow: 'hidden' },
   xpFill: { height: '100%', backgroundColor: colors.coral, borderRadius: 2 },
   streak: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 10 },
+  todayLink: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, marginTop: 12 },
+  partnerLine: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 6, letterSpacing: 0.5 },
+  // One continuous stage from the top bar to the log buttons. The hero sits on
+  // the same sage as the pet rather than on a paper band above it, so the pet
+  // owns the whole screen instead of the top third looking like a header.
+  petPage: { justifyContent: 'flex-start', backgroundColor: colors.sage },
+  stageFill: { flex: 1 },
   petSwitcher: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   petTab: {
     paddingHorizontal: 12,
@@ -814,64 +365,6 @@ const styles = StyleSheet.create({
   hudLabel: { fontFamily: fonts.mono, fontSize: 8, color: '#55705d', marginBottom: 3 },
   hudTrack: { height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.5)', overflow: 'hidden' },
   hudFill: { height: '100%', backgroundColor: '#55705d' },
-  dashboard: { paddingHorizontal: 22, paddingTop: 28 },
-  rings: { flexDirection: 'row', gap: 10, marginBottom: 22 },
-  macros: { gap: 12, marginBottom: 8 },
-  macroRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  macroLabel: { width: 56, fontFamily: fonts.mono, fontSize: 10, color: colors.muted },
-  macroTrack: { flex: 1, minWidth: 0, height: 4, borderRadius: 2, backgroundColor: '#deded7', overflow: 'hidden' },
-  macroFill: { height: '100%', backgroundColor: colors.coral },
-  macroValue: { fontSize: 13, fontWeight: '600', color: colors.ink, minWidth: 78, textAlign: 'right' },
-  macroTarget: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, fontWeight: '400' },
-  block: { marginTop: 26 },
-  blockTitle: { fontSize: 15, fontWeight: '600', color: colors.ink, marginBottom: 6 },
-  empty: { fontSize: 13, color: colors.faint, paddingVertical: 14 },
-  link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral },
-  eventRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e2db',
-  },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral },
-  partnerDot: { backgroundColor: colors.mintDeep },
-  partnerLine: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 6, letterSpacing: 0.5 },
-  eventName: { fontSize: 13, fontWeight: '500', color: colors.ink },
-  eventTime: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
-  eventXp: { fontFamily: fonts.mono, fontSize: 10, color: '#879187' },
-  moreLink: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
-  panel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
-  },
-  panelValue: { fontSize: 24, fontWeight: '600', color: colors.ink, marginTop: 6 },
-  panelUnit: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint, fontWeight: '400' },
-  panelHint: { fontSize: 13, color: colors.muted, marginTop: 6, lineHeight: 19 },
-  devPanel: {
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
-  },
-  devChoices: { marginTop: 12 },
-  devHint: { fontSize: 12, color: colors.faint, marginTop: 10, lineHeight: 17 },
-  fieldLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginBottom: 6 },
-  goalInput: { width: 96, textAlign: 'center' },
-  mindStat: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 12 },
-  mindStatLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted },
-  mindTrack: { width: 110, height: 4, borderRadius: 2, backgroundColor: '#deded7', overflow: 'hidden' },
-  mindFill: { height: '100%', backgroundColor: colors.lilacDeep },
-  mindStatValue: { fontFamily: fonts.mono, fontSize: 10, color: colors.ink },
-  mindLink: { fontFamily: fonts.mono, fontSize: 11, color: colors.lilacDeep },
-  mindActions: { alignItems: 'flex-end', gap: 14 },
-  mindNote: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 4, textAlign: 'right' },
-  mindNoteDone: { color: colors.mintDeep },
-  insightHeadline: { fontSize: 16, fontWeight: '600', color: colors.ink, marginTop: 6, lineHeight: 22 },
   actionBar: {
     position: 'absolute',
     left: 0,

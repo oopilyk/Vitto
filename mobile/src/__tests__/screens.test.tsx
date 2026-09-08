@@ -1,6 +1,7 @@
 import renderer, { act } from 'react-test-renderer';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
+import { TodayScreen } from '../screens/TodayScreen';
 import { MindGymScreen } from '../screens/MindGymScreen';
 import {
   type BodyProfile,
@@ -130,27 +131,15 @@ describe('screens render', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-      <DashboardScreen
-        petFocusToken={0}
+      <TodayScreen
         pet={pet}
         events={[mealEvent]}
         profile={profile}
-        reaction={null}
         stepGoal={10000}
         onStepGoalChange={() => {}}
-        onLogMeal={() => {}}
-        onLogWorkout={() => {}}
-        onSyncSteps={() => {}}
         onTrainMind={() => {}}
         onOpenProfile={() => {}}
-        onOpenStats={() => {}}
-        isAnalyzingMeal={false}
-        isEating={false}
-        feedingImage={null}
-        feedingGrade={null}
-        isCelebrating={false}
-        isWorkingOut={false}
-        isExploring={false}
+        onClose={() => {}}
       />,
       );
     });
@@ -169,18 +158,15 @@ describe('screens render', () => {
       tree = renderer.create(
         <DashboardScreen
           pet={{ ...pet, nutrition: 8, happiness: 8, mind: 4, energy: 80, health: 60 }}
-          petFocusToken={0}
           events={[]}
-          profile={profile}
           reaction={null}
-          stepGoal={10000}
-          onStepGoalChange={() => {}}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
           onSyncSteps={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
+          onOpenToday={() => {}}
           isAnalyzingMeal={false}
           isEating={false}
           feedingImage={null}
@@ -204,18 +190,15 @@ describe('screens render', () => {
       tree = renderer.create(
         <DashboardScreen
           pet={{ ...pet, nutrition: 45, happiness: 45, mind: 45, energy: 45, health: 60 }}
-          petFocusToken={0}
           events={[]}
-          profile={profile}
           reaction={null}
-          stepGoal={10000}
-          onStepGoalChange={() => {}}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
           onSyncSteps={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
+          onOpenToday={() => {}}
           isAnalyzingMeal={false}
           isEating={false}
           feedingImage={null}
@@ -237,27 +220,15 @@ describe('screens render', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-      <DashboardScreen
-        petFocusToken={0}
+      <TodayScreen
         pet={pet}
         events={[]}
         profile={profile}
-        reaction={null}
         stepGoal={10000}
         onStepGoalChange={() => {}}
-        onLogMeal={() => {}}
-        onLogWorkout={() => {}}
-        onSyncSteps={() => {}}
         onTrainMind={() => {}}
         onOpenProfile={() => {}}
-        onOpenStats={() => {}}
-        isAnalyzingMeal={false}
-        isEating={false}
-        feedingImage={null}
-        feedingGrade={null}
-        isCelebrating={false}
-        isWorkingOut={false}
-        isExploring={false}
+        onClose={() => {}}
       />,
       );
     });
@@ -269,27 +240,15 @@ describe('screens render', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-      <DashboardScreen
-        petFocusToken={0}
+      <TodayScreen
         pet={pet}
         events={sleepMindEvents()}
         profile={profile}
-        reaction={null}
         stepGoal={10000}
         onStepGoalChange={() => {}}
-        onLogMeal={() => {}}
-        onLogWorkout={() => {}}
-        onSyncSteps={() => {}}
         onTrainMind={() => {}}
         onOpenProfile={() => {}}
-        onOpenStats={() => {}}
-        isAnalyzingMeal={false}
-        isEating={false}
-        feedingImage={null}
-        feedingGrade={null}
-        isCelebrating={false}
-        isWorkingOut={false}
-        isExploring={false}
+        onClose={() => {}}
       />,
       );
     });
@@ -314,29 +273,17 @@ describe('screens render', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <DashboardScreen
-          petFocusToken={0}
+        <TodayScreen
           pet={pet}
           events={stepEvents}
           profile={profile}
-          reaction={null}
           stepGoal={10000}
           onStepGoalChange={() => {}}
-          onLogMeal={() => {}}
-          onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {
             opened += 1;
           }}
-          onOpenStats={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          onClose={() => {}}
         />,
       );
     });
@@ -368,13 +315,9 @@ describe('screens render', () => {
     act(() => {
       tree = renderer.create(
         <DashboardScreen
-          petFocusToken={0}
           pet={pet}
           events={[]}
-          profile={profile}
           reaction={null}
-          stepGoal={10000}
-          onStepGoalChange={() => {}}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
           onSyncSteps={() => {}}
@@ -383,6 +326,7 @@ describe('screens render', () => {
             opened += 1;
           }}
           onOpenStats={() => {}}
+          onOpenToday={() => {}}
           accountInitial="k"
           isAnalyzingMeal={false}
           isEating={false}
@@ -412,13 +356,9 @@ describe('screens render', () => {
     act(() => {
       tree = renderer.create(
         <DashboardScreen
-          petFocusToken={0}
           pet={pet}
           events={[]}
-          profile={profile}
           reaction={null}
-          stepGoal={10000}
-          onStepGoalChange={() => {}}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
           onSyncSteps={() => {}}
@@ -427,6 +367,7 @@ describe('screens render', () => {
           onOpenStats={() => {
             opened += 1;
           }}
+          onOpenToday={() => {}}
           isAnalyzingMeal={false}
           isEating={false}
           feedingImage={null}
@@ -453,19 +394,16 @@ describe('screens render', () => {
     act(() => {
       tree = renderer.create(
         <DashboardScreen
-          petFocusToken={0}
           pet={pet}
           events={[]}
-          profile={profile}
           reaction={null}
-          stepGoal={10000}
-          onStepGoalChange={() => {}}
           onLogMeal={() => pressed.push('meal')}
           onLogWorkout={() => pressed.push('workout')}
           onSyncSteps={() => pressed.push('steps')}
           onTrainMind={() => pressed.push('mind')}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
+          onOpenToday={() => {}}
           isAnalyzingMeal={false}
           isEating={false}
           feedingImage={null}
@@ -487,11 +425,11 @@ describe('screens render', () => {
     }
     expect([...buttons.keys()]).toEqual(['Log meal', 'Log workout', 'Log steps', 'Log mind']);
 
-    // The bar lives outside the ScrollView, so nothing has to be scrolled to reach it.
+    // Nothing on the dashboard scrolls: the pet, the log buttons and the profile
+    // are the whole screen, and the day's detail lives on its own page.
     const { ScrollView } = require('react-native');
-    const scroller = tree.root.findByType(ScrollView);
+    expect(tree.root.findAllByType(ScrollView)).toHaveLength(0);
     for (const [, button] of buttons) {
-      expect(scroller.findAll((node: any) => node === button)).toHaveLength(0);
       act(() => button.props.onPress());
     }
     expect(pressed).toEqual(['meal', 'workout', 'steps', 'mind']);
@@ -1310,30 +1248,17 @@ describe('care partners', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <DashboardScreen
-          petFocusToken={0}
+        <TodayScreen
           pet={pet}
           events={[]}
           profile={profile}
-          reaction={null}
           stepGoal={10000}
           onStepGoalChange={() => {}}
-          onLogMeal={() => {}}
-          onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
-          onOpenStats={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
           careDiary={careDiary}
-          partnerName="Alex"
           onRefresh={async () => {}}
+          onClose={() => {}}
         />,
       );
     });
@@ -1352,7 +1277,6 @@ describe('care partners', () => {
     // The link opens Profile, which lists own events only, so partner rows
     // beyond the preview are not counted as "more".
     expect(texts.some((children) => children.includes('more today'))).toBe(false);
-    expect(texts).toContain('Raised with Alex');
     tree.unmount();
   });
 
@@ -1388,28 +1312,16 @@ describe('care partners', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <DashboardScreen
-          petFocusToken={0}
+        <TodayScreen
           pet={pet}
           events={ownSteps}
           profile={profile}
-          reaction={null}
           stepGoal={10000}
           onStepGoalChange={() => {}}
-          onLogMeal={() => {}}
-          onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
-          onOpenStats={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
           careDiary={careDiary}
+          onClose={() => {}}
         />,
       );
     });
@@ -1424,24 +1336,92 @@ describe('care partners', () => {
     tree.unmount();
   });
 
-  it('keeps the solo dashboard free of any partner line', () => {
+  it('names the partner under the kicker on a shared dashboard', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <DashboardScreen
-          petFocusToken={0}
           pet={pet}
           events={[]}
-          profile={profile}
           reaction={null}
-          stepGoal={10000}
-          onStepGoalChange={() => {}}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
           onSyncSteps={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+          partnerName="Alex"
+        />,
+      );
+    });
+    const { Text: RNText } = require('react-native');
+    const texts = tree.root.findAllByType(RNText).map((node: any) =>
+      [node.props.children]
+        .flat()
+        .filter((child: unknown) => typeof child === 'string' || typeof child === 'number')
+        .join(''),
+    );
+    expect(texts).toContain('Raised with Alex');
+    tree.unmount();
+  });
+
+  it('opens the day\'s detail from the link under the pet', () => {
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {
+            opened += 1;
+          }}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+    const link = tree.root.findAllByProps({ accessibilityLabel: "Open today's detail" })[0];
+    act(() => link.props.onPress());
+    expect(opened).toBe(1);
+    tree.unmount();
+  });
+
+  it('keeps the solo dashboard free of any partner line', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
           isAnalyzingMeal={false}
           isEating={false}
           feedingImage={null}
