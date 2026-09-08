@@ -55,6 +55,8 @@ interface Props {
   onSave: (profile: BodyProfile) => Promise<void>;
   onClose: () => void;
   onSignOut?: () => void;
+  /** Omitted for a signed-out/local-only session -- friends require an account. */
+  onOpenFriends?: () => void;
   /** Omitted entirely on platforms with no HealthKit provider (Android, web). */
   appleHealthStatus?: 'disconnected' | 'connected';
   onConnectAppleHealth?: () => void;
@@ -185,6 +187,7 @@ export function ProfileScreen({
   onSave,
   onClose,
   onSignOut,
+  onOpenFriends,
   appleHealthStatus,
   onConnectAppleHealth,
   onSyncAppleHealth,
@@ -862,6 +865,14 @@ export function ProfileScreen({
           </View>
         ) : null}
 
+        {onOpenFriends ? (
+          <View style={styles.friends}>
+            <Kicker>Friends</Kicker>
+            <Text style={text.body}>Add friends by username and see how their pets are doing.</Text>
+            <TextButton label="Open friends" onPress={onOpenFriends} />
+          </View>
+        ) : null}
+
         {onSignOut ? (
           <View style={styles.signOut}>
             <TextButton label="Log out" onPress={onSignOut} />
@@ -982,6 +993,7 @@ const styles = StyleSheet.create({
   partnerError: { ...text.error, fontSize: 12, marginTop: 12 },
   screenLogged: { marginTop: 14 },
   screenActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, marginTop: 14 },
+  friends: { gap: 8, paddingVertical: 14, ...layout.hairline },
   signOut: { alignItems: 'center', paddingVertical: 10 },
   saveBar: {
     position: 'absolute',

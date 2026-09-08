@@ -22,6 +22,21 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Success: 'success' },
 }));
 
+jest.mock('../services/friendsService', () => ({
+  friendsService: {
+    loadMyFriendRequests: jest.fn(),
+    getMyUsername: jest.fn(),
+    setMyUsername: jest.fn(),
+    loadFriendProfile: jest.fn(),
+    loadFriendPet: jest.fn(),
+    searchUsersByUsername: jest.fn(),
+    sendFriendRequest: jest.fn(),
+    acceptFriendRequest: jest.fn(),
+    declineFriendRequest: jest.fn(),
+    cancelOrUnfriend: jest.fn(),
+  },
+}));
+
 const profile: BodyProfile = {
   age: 30,
   sex: 'other',
@@ -1502,5 +1517,264 @@ describe('care partners', () => {
     const offline = renderOnboardingLastStep();
     expect(findButton(offline, "Got an invite code? Join a partner's pet instead")).toBeUndefined();
     offline.unmount();
+  });
+});
+
+describe('friends screen', () => {
+  const { FriendsScreen } = require('../screens/FriendsScreen');
+  const { friendsService } = require('../services/friendsService');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('shows the empty state and the username gate for a user with no username yet', async () => {
+    friendsService.loadMyFriendRequests.mockResolvedValue([]);
+    friendsService.getMyUsername.mockResolvedValue(null);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('No friends yet');
+    expect(rendered).toContain('Save username');
+    // Search is gated behind choosing a username first.
+    expect(rendered).not.toContain('Search a username');
+    tree.unmount();
+  });
+
+  it("lists an accepted friend by name, with a working 'View pet' action", async () => {
+    friendsService.loadMyFriendRequests.mockResolvedValue([
+      {
+        id: 'r1',
+        requesterId: 'user-1',
+        addresseeId: 'user-2',
+        status: 'accepted',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+    friendsService.getMyUsername.mockResolvedValue('me');
+    friendsService.loadFriendProfile.mockResolvedValue({
+      id: 'user-2',
+      username: 'friend_two',
+      displayName: 'Friend Two',
+    });
+
+    const opened: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen
+          currentUserId="user-1"
+          onClose={() => {}}
+          onOpenFriendPet={(id: string) => opened.push(id)}
+        />,
+      );
+    });
+
+    expect(JSON.stringify(tree.toJSON())).toContain('Friend Two');
+
+    const { Text: RNText } = require('react-native');
+    const viewPet = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) => node.findAllByType(RNText).some((t: any) => t.props.children === 'View pet'));
+    expect(viewPet).toBeTruthy();
+    act(() => viewPet!.props.onPress());
+    expect(opened).toEqual(['user-2']);
+    tree.unmount();
+  });
+
+  it('shows an incoming request with accept/decline actions', async () => {
+    friendsService.loadMyFriendRequests.mockResolvedValue([
+      {
+        id: 'r1',
+        requesterId: 'user-2',
+        addresseeId: 'user-1',
+        status: 'pending',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+    friendsService.getMyUsername.mockResolvedValue('me');
+    friendsService.loadFriendProfile.mockResolvedValue({
+      id: 'user-2',
+      username: 'friend_two',
+      displayName: null,
+    });
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Requests for you');
+    // No display name set, so it falls back to the @username.
+    expect(rendered).toContain('@friend_two');
+    expect(rendered).toContain('Accept');
+    expect(rendered).toContain('Decline');
+    tree.unmount();
+  });
+
+  it('shows "no one found" for a search with no results', async () => {
+    friendsService.loadMyFriendRequests.mockResolvedValue([]);
+    friendsService.getMyUsername.mockResolvedValue('me');
+    friendsService.searchUsersByUsername.mockResolvedValue([]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+
+    const { TextInput } = require('react-native');
+    const searchInput = tree.root
+      .findAllByType(TextInput)
+      .find((node: any) => node.props.placeholder === 'Search a username');
+    expect(searchInput).toBeTruthy();
+
+    jest.useFakeTimers();
+    act(() => {
+      searchInput!.props.onChangeText('nobody');
+    });
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+    jest.useRealTimers();
+    // Flush the resolved searchUsersByUsername() promise.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(friendsService.searchUsersByUsername).toHaveBeenCalledWith('nobody');
+    expect(JSON.stringify(tree.toJSON())).toContain('No one found with that username.');
+    tree.unmount();
+  });
+
+  it('does not show "Add" for a search result who is already a friend or has a pending request', async () => {
+    friendsService.loadMyFriendRequests.mockResolvedValue([
+      {
+        id: 'r1',
+        requesterId: 'user-1',
+        addresseeId: 'user-2',
+        status: 'accepted',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+    friendsService.getMyUsername.mockResolvedValue('me');
+    friendsService.loadFriendProfile.mockResolvedValue({
+      id: 'user-2',
+      username: 'friend_two',
+      displayName: 'Friend Two',
+    });
+    friendsService.searchUsersByUsername.mockResolvedValue([
+      { id: 'user-2', username: 'friend_two', displayName: 'Friend Two' },
+    ]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+
+    const { TextInput } = require('react-native');
+    const searchInput = tree.root
+      .findAllByType(TextInput)
+      .find((node: any) => node.props.placeholder === 'Search a username');
+
+    jest.useFakeTimers();
+    act(() => {
+      searchInput!.props.onChangeText('friend');
+    });
+    act(() => {
+      jest.advanceTimersByTime(400);
+    });
+    jest.useRealTimers();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const { Text: RNText } = require('react-native');
+    const addButtons = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .filter((node: any) => node.findAllByType(RNText).some((t: any) => t.props.children === 'Add'));
+    // Already an accepted friend -- the search result must show status text
+    // ("Friends"), never an actionable "Add" button.
+    expect(addButtons.length).toBe(0);
+    expect(JSON.stringify(tree.toJSON())).toContain('Friends');
+    tree.unmount();
+  });
+});
+
+describe('friend pet screen', () => {
+  const { FriendPetScreen } = require('../screens/FriendPetScreen');
+  const { friendsService } = require('../services/friendsService');
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("shows a friendly message when the friend hasn't adopted a pet yet", async () => {
+    friendsService.loadFriendPet.mockResolvedValue(null);
+    friendsService.loadFriendProfile.mockResolvedValue({
+      id: 'user-2',
+      username: 'friend_two',
+      displayName: 'Friend Two',
+    });
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<FriendPetScreen friendUserId="user-2" onClose={() => {}} />);
+    });
+
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain("hasn't adopted a pet yet");
+    tree.unmount();
+  });
+
+  it('renders the pet, read-only, via PetAvatar when one exists', async () => {
+    friendsService.loadFriendPet.mockResolvedValue(pet);
+    friendsService.loadFriendProfile.mockResolvedValue({
+      id: 'user-2',
+      username: 'friend_two',
+      displayName: 'Friend Two',
+    });
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<FriendPetScreen friendUserId="user-2" onClose={() => {}} />);
+    });
+
+    const { PetAvatar } = require('../components/PetAvatar');
+    const avatar = tree.root.findByType(PetAvatar);
+    expect(avatar.props.pet).toBe(pet);
+    // Never any children -- that is what keeps this view genuinely read-only,
+    // since every feed/train affordance on the dashboard is passed as PetAvatar's
+    // `children` rather than living inside the component.
+    expect(avatar.props.children).toBeUndefined();
+    expect(JSON.stringify(tree.toJSON())).toContain('Miso');
+    tree.unmount();
+  });
+
+  it('treats a friendship that has just been revoked as "not connected", not an error', async () => {
+    friendsService.loadFriendPet.mockResolvedValue(null);
+    friendsService.loadFriendProfile.mockResolvedValue(null);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<FriendPetScreen friendUserId="user-2" onClose={() => {}} />);
+    });
+
+    expect(JSON.stringify(tree.toJSON())).toContain("not connected anymore");
+    tree.unmount();
   });
 });
