@@ -11,13 +11,10 @@ import {
   View,
 } from 'react-native';
 import {
-  AILMENT_PRECEDENCE,
   type BodyProfile,
   type BrainTrainingMetadata,
   type CareDiaryEntry,
   FOCUS_AREAS,
-  type ForcedPetForm,
-  type ForcedPetStatus,
   type HealthEvent,
   type PetState,
   calculateInsights,
@@ -33,15 +30,16 @@ import {
 } from '@vitto/core';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
-import { ChoiceRow, Kicker, TextButton } from '../components/ui';
+import { Kicker } from '../components/ui';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { colors, fonts, layout, text } from '../theme';
 
 /**
- * The day's detail: nutrition, care, movement, mind, whatever the pet noticed,
- * and the dev tools. This used to sit under the pet on the dashboard; it moved
- * here so the dashboard is the pet and nothing else — no scrolling, just the
- * companion, the log buttons and the way to your profile.
+ * The day's detail: nutrition, care, movement, mind, and whatever the pet
+ * noticed. This used to sit under the pet on the dashboard; it moved here so the
+ * dashboard is the pet and nothing else — no scrolling, just the companion, the
+ * log buttons and the way to your profile. (The dev tools stayed with the pet,
+ * since forcing a status is only useful while the sprite is in view.)
  *
  * Everything on this screen is derived from the same props the dashboard held,
  * so nothing was re-modelled in the move — only relocated.
@@ -66,42 +64,7 @@ interface Props {
   careDiary?: CareDiaryEntry[];
   /** Pull-to-refresh, wired only for a shared pet. */
   onRefresh?: () => Promise<void>;
-  /** Dev tools. All absent for normal accounts, which hides every panel. */
-  forcedAilment?: ForcedPetStatus | null;
-  onForceAilment?: (status: ForcedPetStatus | null) => void;
-  forcedForm?: ForcedPetForm | null;
-  onForceForm?: (form: ForcedPetForm | null) => void;
-  onSeedTestData?: () => void;
-  onClearSeededData?: () => void;
-  isSeeding?: boolean;
 }
-
-type DevAilmentChoice = ForcedPetStatus | 'live';
-
-/**
- * Built from the precedence list so a new ailment shows up here for free.
- * 'Live' drops the override; 'Healthy' forces the well state. Both are needed:
- * on a compressed decay clock "live" is usually an ailing pet.
- */
-const DEV_AILMENT_OPTIONS: { value: DevAilmentChoice; label: string; detail?: string }[] = [
-  { value: 'live', label: 'Live', detail: 'real stats' },
-  { value: 'healthy', label: 'Healthy' },
-  ...AILMENT_PRECEDENCE.map((ailment) => ({
-    value: ailment as DevAilmentChoice,
-    label: ailment.charAt(0).toUpperCase() + ailment.slice(1),
-  })),
-];
-
-type DevFormChoice = ForcedPetForm | 'live';
-
-/** Forms to preview. An evolution is weeks of real training away otherwise. */
-const DEV_FORM_OPTIONS: { value: DevFormChoice; label: string; detail?: string }[] = [
-  { value: 'live', label: 'Live', detail: 'real form' },
-  { value: 'base', label: 'Base', detail: 'unevolved' },
-  { value: 'runner', label: 'Runner', detail: 'evolved' },
-  { value: 'lifter', label: 'Lifter', detail: 'evolved · strength' },
-  { value: 'scholar', label: 'Scholar', detail: 'evolved · mind' },
-];
 
 /** This screen shows a preview; the profile has the full record. */
 const CARE_PREVIEW_LIMIT = 5;
@@ -153,13 +116,6 @@ export function TodayScreen({
   onClose,
   careDiary,
   onRefresh,
-  forcedAilment,
-  onForceAilment,
-  forcedForm,
-  onForceForm,
-  onSeedTestData,
-  onClearSeededData,
-  isSeeding,
 }: Props) {
   const { width } = useWindowDimensions();
   const [refreshing, setRefreshing] = useState(false);
@@ -463,65 +419,6 @@ export function TodayScreen({
           </View>
         ) : null}
 
-        {/* Dev accounts only — the setters are simply not passed otherwise. Last,
-            so the day's own readings come first. */}
-        {onForceAilment ? (
-          <View style={styles.devPanel}>
-            <Kicker>Dev · force status</Kicker>
-            <View style={styles.devChoices}>
-              <ChoiceRow
-                options={DEV_AILMENT_OPTIONS}
-                value={forcedAilment ?? 'live'}
-                onChange={(next) => onForceAilment(next === 'live' ? null : next)}
-              />
-            </View>
-            <Text style={styles.devHint}>
-              Rewrites the stats shown on the pet. Nothing here is saved, and logging real care
-              clears it back to whatever {pet.name} actually is.
-            </Text>
-          </View>
-        ) : null}
-
-        {onForceForm ? (
-          <View style={styles.devPanel}>
-            <Kicker>Dev · force form</Kicker>
-            <View style={styles.devChoices}>
-              <ChoiceRow
-                options={DEV_FORM_OPTIONS}
-                value={forcedForm ?? 'live'}
-                onChange={(next) => onForceForm(next === 'live' ? null : next)}
-              />
-            </View>
-            <Text style={styles.devHint}>
-              Moves level, endurance, strength and mind, so the sprite, the kicker and the
-              stat bars all agree. A specialism needs the evolution level — base stays under it.
-            </Text>
-          </View>
-        ) : null}
-
-        {onSeedTestData ? (
-          <View style={styles.devPanel}>
-            <Kicker>Dev · test data</Kicker>
-            <View style={styles.devChoices}>
-              <TextButton
-                label={isSeeding ? 'Working…' : 'Seed 90 days'}
-                onPress={onSeedTestData}
-                disabled={isSeeding}
-              />
-              <TextButton
-                label="Clear seeded"
-                onPress={() => onClearSeededData?.()}
-                disabled={isSeeding}
-              />
-            </View>
-            <Text style={styles.devHint}>
-              Writes ~90 days of synthetic events so the insight thresholds have enough to
-              compare — a real account stays silent for weeks. It fills the event log only:
-              {pet.name}'s own stats and decay anchor are left alone. Use a throwaway account,
-              since this lands in the diary and the streak alongside real history.
-            </Text>
-          </View>
-        ) : null}
       </ScrollView>
     </View>
   );
@@ -581,13 +478,6 @@ const styles = StyleSheet.create({
   panelUnit: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint, fontWeight: '400' },
   panelHint: { fontSize: 13, color: colors.muted, marginTop: 6, lineHeight: 19 },
   insightHeadline: { fontSize: 16, fontWeight: '600', color: colors.ink, marginTop: 6, lineHeight: 22 },
-  devPanel: {
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
-  },
-  devChoices: { marginTop: 12 },
-  devHint: { fontSize: 12, color: colors.faint, marginTop: 10, lineHeight: 17 },
   fieldLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginBottom: 6 },
   goalInput: { width: 96, textAlign: 'center' },
   mindStat: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 12 },

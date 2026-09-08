@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { AILMENT_MESSAGE, PET_BUILD_LABEL, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, assessCondition, calculateStreaks, daysWithPet, getPetBuild, hasEvolved, statValue, getStatusEffects } from '@vitto/core';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AILMENT_MESSAGE, AILMENT_PRECEDENCE, PET_BUILD_LABEL, type ForcedPetForm, type ForcedPetStatus, type HealthEvent, type MealAnalysis, type PetReaction, type PetState, assessCondition, calculateStreaks, daysWithPet, getPetBuild, hasEvolved, statValue, getStatusEffects } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
-import { Kicker } from '../components/ui';
+import { ChoiceRow, Kicker, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
@@ -37,6 +37,28 @@ interface Props {
   isExploring: boolean;
   /** Named under the kicker: "Raised with Alex". Absent for a solo pet. */
   partnerName?: string;
+  /**
+   * Dev tools. All absent for normal accounts, which hides the strip entirely.
+   * They live here rather than on the Today screen because forcing a status is
+   * only useful while the sprite is in view.
+   */
+  forcedAilment?: ForcedPetStatus | null;
+  onForceAilment?: (status: ForcedPetStatus | null) => void;
+  forcedForm?: ForcedPetForm | null;
+  onForceForm?: (form: ForcedPetForm | null) => void;
+  onSeedTestData?: () => void;
+  onClearSeededData?: () => void;
+  isSeeding?: boolean;
+  /**
+   * Ambient signals, live and foreground-only (see mobile/AMBIENT.md). Walking
+   * folds into `isExploring` so the pet walks alongside; the gym parks a
+   * dumbbell beside it. Both optional, both false everywhere they cannot be read.
+   */
+  isWalking?: boolean;
+  atGym?: boolean;
+  /** Dev tool: pretend to be walking or at the gym, so both cues can be seen at a desk. */
+  forcedAmbient?: ForcedAmbient | null;
+  onForceAmbient?: (state: ForcedAmbient | null) => void;
 }
 
 interface QuickAction {
@@ -58,6 +80,42 @@ const QUICK_ACTIONS: QuickAction[] = [
 // Clears the home indicator on modern iPhones without pulling in a safe-area
 // package, which drags a second copy of React into the workspace.
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
+
+type DevAilmentChoice = ForcedPetStatus | 'live';
+
+/**
+ * Built from the precedence list so a new ailment shows up here for free.
+ * 'Live' drops the override; 'Healthy' forces the well state. Both are needed:
+ * on a compressed decay clock "live" is usually an ailing pet.
+ */
+const DEV_AILMENT_OPTIONS: { value: DevAilmentChoice; label: string; detail?: string }[] = [
+  { value: 'live', label: 'Live', detail: 'real stats' },
+  { value: 'healthy', label: 'Healthy' },
+  ...AILMENT_PRECEDENCE.map((ailment) => ({
+    value: ailment as DevAilmentChoice,
+    label: ailment.charAt(0).toUpperCase() + ailment.slice(1),
+  })),
+];
+
+export type ForcedAmbient = 'walking' | 'gym';
+type DevAmbientChoice = ForcedAmbient | 'live';
+
+const DEV_AMBIENT_OPTIONS: { value: DevAmbientChoice; label: string; detail?: string }[] = [
+  { value: 'live', label: 'Live', detail: 'real sensors' },
+  { value: 'walking', label: 'Walking' },
+  { value: 'gym', label: 'At gym' },
+];
+
+type DevFormChoice = ForcedPetForm | 'live';
+
+/** Forms to preview. An evolution is weeks of real training away otherwise. */
+const DEV_FORM_OPTIONS: { value: DevFormChoice; label: string; detail?: string }[] = [
+  { value: 'live', label: 'Live', detail: 'real form' },
+  { value: 'base', label: 'Base', detail: 'unevolved' },
+  { value: 'runner', label: 'Runner', detail: 'evolved' },
+  { value: 'lifter', label: 'Lifter', detail: 'evolved · strength' },
+  { value: 'scholar', label: 'Scholar', detail: 'evolved · mind' },
+];
 
 export function DashboardScreen({
   pet,
@@ -82,6 +140,17 @@ export function DashboardScreen({
   isWorkingOut,
   isExploring,
   partnerName,
+  forcedAilment,
+  onForceAilment,
+  forcedForm,
+  onForceForm,
+  onSeedTestData,
+  onClearSeededData,
+  isSeeding,
+  isWalking,
+  atGym,
+  forcedAmbient,
+  onForceAmbient,
 }: Props) {
   /**
    * The pet is given whatever is left of the screen once the top bar and the log
@@ -96,6 +165,10 @@ export function DashboardScreen({
     screenHeight && topbarHeight && actionBarHeight
       ? Math.max(320, screenHeight - topbarHeight - actionBarHeight)
       : undefined;
+  // Dev tools live in a sheet over the bottom of the stage, closed by default.
+  // Laid out in flow they wrapped to eight rows and crushed the pet to a sliver.
+  const hasDevTools = Boolean(onForceAilment || onForceForm || onForceAmbient || onSeedTestData);
+  const [devOpen, setDevOpen] = useState(false);
   const today = new Date();
   // Read off the same projected pet the sprite uses, so the chips agree with what
   // is on screen — including while a dev force-status is applied.
@@ -110,6 +183,10 @@ export function DashboardScreen({
   // `pet` arrives already projected forward by App, so this reads the stats the
   // user is looking at rather than the stored ones.
   const condition = assessCondition(pet);
+
+  // A forced cue wins over the sensors, the same way a forced status does.
+  const walkingNow = forcedAmbient ? forcedAmbient === 'walking' : Boolean(isWalking);
+  const atGymNow = forcedAmbient ? forcedAmbient === 'gym' : Boolean(atGym);
 
   const onQuickAction = (key: string) => {
     if (key === 'meal') return onLogMeal();
@@ -214,7 +291,8 @@ export function DashboardScreen({
         feedingGrade={feedingGrade}
         isCelebrating={isCelebrating}
         isWorkingOut={isWorkingOut}
-        isExploring={isExploring}
+        isExploring={isExploring || walkingNow}
+        atGym={atGymNow}
       >
         <Pressable
           accessibilityRole="button"
@@ -245,6 +323,68 @@ export function DashboardScreen({
             <Text style={styles.hudMore}>All stats →</Text>
           </View>
         </Pressable>
+        {hasDevTools ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={devOpen ? 'Hide dev tools' : 'Show dev tools'}
+            onPress={() => setDevOpen((open) => !open)}
+            hitSlop={8}
+            style={styles.devPill}
+          >
+            <Text style={styles.devPillLabel}>{devOpen ? 'DEV ▾' : 'DEV ▸'}</Text>
+          </Pressable>
+        ) : null}
+        {hasDevTools && devOpen ? (
+          <View style={styles.devSheet}>
+            <ScrollView style={styles.devSheetScroll} contentContainerStyle={styles.devStrip}>
+              {onForceAilment ? (
+                <View style={styles.devRow}>
+                  <Text style={styles.devLabel}>STATUS</Text>
+                  <ChoiceRow
+                    options={DEV_AILMENT_OPTIONS}
+                    value={forcedAilment ?? 'live'}
+                    onChange={(next) => onForceAilment(next === 'live' ? null : next)}
+                  />
+                </View>
+              ) : null}
+              {onForceForm ? (
+                <View style={styles.devRow}>
+                  <Text style={styles.devLabel}>FORM</Text>
+                  <ChoiceRow
+                    options={DEV_FORM_OPTIONS}
+                    value={forcedForm ?? 'live'}
+                    onChange={(next) => onForceForm(next === 'live' ? null : next)}
+                  />
+                </View>
+              ) : null}
+              {onForceAmbient ? (
+                <View style={styles.devRow}>
+                  <Text style={styles.devLabel}>AMBIENT</Text>
+                  <ChoiceRow
+                    options={DEV_AMBIENT_OPTIONS}
+                    value={forcedAmbient ?? 'live'}
+                    onChange={(next) => onForceAmbient(next === 'live' ? null : next)}
+                  />
+                </View>
+              ) : null}
+              {onSeedTestData ? (
+                <View style={styles.devSeed}>
+                  <Text style={styles.devLabel}>DATA</Text>
+                  <TextButton
+                    label={isSeeding ? 'Working…' : 'Seed 90 days'}
+                    onPress={onSeedTestData}
+                    disabled={isSeeding}
+                  />
+                  <TextButton
+                    label="Clear seeded"
+                    onPress={() => onClearSeededData?.()}
+                    disabled={isSeeding}
+                  />
+                </View>
+              ) : null}
+                    </ScrollView>
+          </View>
+        ) : null}
         {statusEffects.length ? (
           <View style={styles.statusTray} pointerEvents="none">
             {statusEffects.map((effect) => (
@@ -335,6 +475,37 @@ const styles = StyleSheet.create({
   // owns the whole screen instead of the top third looking like a header.
   petPage: { justifyContent: 'flex-start', backgroundColor: colors.sage },
   stageFill: { flex: 1 },
+  // Dev only. Kept tight — no hint copy — because nothing on this screen scrolls
+  // and every pixel here comes straight out of the pet's stage.
+  devPill: {
+    position: 'absolute',
+    bottom: 14,
+    left: 16,
+    zIndex: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  devPillLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: '#5f7167' },
+  // Over the stage, not in it: the pet keeps its full height and stays in view
+  // above the sheet while a status or form is being forced.
+  devSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    maxHeight: 236,
+    zIndex: 4,
+    backgroundColor: 'rgba(245,242,235,0.94)',
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+  },
+  devSheetScroll: { maxHeight: 236 },
+  devStrip: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 40, gap: 6 },
+  devRow: { gap: 4 },
+  devLabel: { fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1, color: '#5f7167' },
+  devSeed: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   petSwitcher: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   petTab: {
     paddingHorizontal: 12,

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -19,7 +19,8 @@ import { playCelebrationSound, playMealSound, playMunchSound } from './src/servi
 import { PrimaryButton, TextButton } from './src/components/ui';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
-import { DashboardScreen } from './src/screens/DashboardScreen';
+import { DashboardScreen, type ForcedAmbient } from './src/screens/DashboardScreen';
+import { readCurrentLocation, useAtGym, useWalking } from './src/services/ambient';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { TodayScreen } from './src/screens/TodayScreen';
@@ -145,6 +146,21 @@ export default function App() {
   const [forcedAilment, setForcedAilment] = useState<ForcedPetStatus | null>(null);
   // Same deal for which form is drawn — display only, never persisted.
   const [forcedForm, setForcedForm] = useState<ForcedPetForm | null>(null);
+  const [forcedAmbient, setForcedAmbient] = useState<ForcedAmbient | null>(null);
+  /**
+   * Ambient cues (mobile/AMBIENT.md). The saved gym is one coordinate held on
+   * this device; the two hooks read live sensors while the app is open and keep
+   * nothing. Both resolve false anywhere they cannot run, so they are wired
+   * unconditionally.
+   */
+  const [gym, setGym] = useState<GeoPoint | null>(null);
+  const [gymBusy, setGymBusy] = useState(false);
+  const [gymError, setGymError] = useState<string | null>(null);
+  const isWalking = useWalking();
+  const atGym = useAtGym(gym);
+  useEffect(() => {
+    void repository.loadGymLocation().then(setGym).catch(() => setGym(null));
+  }, []);
   const [isSeeding, setIsSeeding] = useState(false);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [dataReady, setDataReady] = useState(false);
@@ -842,6 +858,26 @@ export default function App() {
     }
   };
 
+  const setGymHere = async () => {
+    setGymBusy(true);
+    setGymError(null);
+    try {
+      const here = await readCurrentLocation();
+      await repository.saveGymLocation(here);
+      setGym(here);
+    } catch (cause) {
+      setGymError(errorMessage(cause, 'Could not read your location.'));
+    } finally {
+      setGymBusy(false);
+    }
+  };
+
+  const clearGym = async () => {
+    await repository.clearGymLocation();
+    setGym(null);
+    setGymError(null);
+  };
+
   const syncAppleHealth = async () => {
     if (!pet) return;
     setIsSyncingAppleHealth(true);
@@ -982,6 +1018,17 @@ export default function App() {
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
+              forcedAilment={isDev ? forcedAilment : undefined}
+              onForceAilment={isDev ? setForcedAilment : undefined}
+              forcedForm={isDev ? forcedForm : undefined}
+              onForceForm={isDev ? setForcedForm : undefined}
+              onSeedTestData={isDev ? () => void seedTestData() : undefined}
+              onClearSeededData={isDev ? () => void clearSeededData() : undefined}
+              isSeeding={isSeeding}
+              isWalking={isWalking}
+              atGym={atGym}
+              forcedAmbient={isDev ? forcedAmbient : undefined}
+              onForceAmbient={isDev ? setForcedAmbient : undefined}
               accountInitial={session?.user.email?.charAt(0)}
               pets={pets.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
               activePetId={pet.id}
@@ -1033,6 +1080,17 @@ export default function App() {
                     }
                   : undefined
               }
+              gym={
+                Platform.OS === 'web'
+                  ? undefined
+                  : {
+                      saved: gym !== null,
+                      busy: gymBusy,
+                      error: gymError,
+                      onSetHere: () => void setGymHere(),
+                      onClear: () => void clearGym(),
+                    }
+              }
               carePartner={
                 isOnline
                   ? {
@@ -1070,13 +1128,6 @@ export default function App() {
               onClose={() => navigation.goBack()}
               careDiary={careDiary}
               onRefresh={isOnline && shared ? refreshShared : undefined}
-              forcedAilment={isDev ? forcedAilment : undefined}
-              onForceAilment={isDev ? setForcedAilment : undefined}
-              forcedForm={isDev ? forcedForm : undefined}
-              onForceForm={isDev ? setForcedForm : undefined}
-              onSeedTestData={isDev ? () => void seedTestData() : undefined}
-              onClearSeededData={isDev ? () => void clearSeededData() : undefined}
-              isSeeding={isSeeding}
             />
           )}
         </RootStack.Screen>
