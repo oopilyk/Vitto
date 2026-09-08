@@ -1,4 +1,4 @@
-import { type HealthEvent, type MealMetadata, newId, type SleepMetadata, type StepMetadata, type WorkoutMetadata } from '@vitto/core';
+import { type HealthEvent, type MealMetadata, newId, type ScreenTimeMetadata, type SleepMetadata, type StepMetadata, type WorkoutMetadata } from '@vitto/core';
 
 /**
  * A source of real-world activity data — steps, workouts, meals — that can feed
@@ -40,6 +40,19 @@ export interface HealthDataProvider {
     since: Date,
     knownExternalIds: ReadonlySet<string>,
   ): Promise<HealthEvent<SleepMetadata>[]>;
+  /**
+   * Today's total screen time as one SCREEN_TIME event, or `null` when the
+   * platform cannot say. Only Android can (UsageStatsManager); iOS never
+   * exposes the figure to apps, so the HealthKit provider always returns null
+   * and the user types the number in instead. `budgetMinutes` is the user's
+   * own budget, copied into the event so it scores against the budget they had
+   * at the time. Callers still need to enforce one log per day — see
+   * `findScreenTimeForDate` in screenTimeMapping.ts.
+   */
+  getTodayScreenTime(
+    userId: string,
+    budgetMinutes?: number,
+  ): Promise<HealthEvent<ScreenTimeMetadata> | null>;
 }
 
 /**
@@ -77,5 +90,11 @@ export class MockHealthDataProvider implements HealthDataProvider {
 
   async getNewSleep(): Promise<HealthEvent<SleepMetadata>[]> {
     return [];
+  }
+
+  // Full signature, unlike the list methods above, so a platform provider can
+  // extend this class and override it with the real parameters.
+  async getTodayScreenTime(_userId: string, _budgetMinutes?: number): Promise<HealthEvent<ScreenTimeMetadata> | null> {
+    return null;
   }
 }

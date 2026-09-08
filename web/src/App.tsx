@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
-import { type BodyProfile, type BrainTrainingMetadata, EVOLUTION_STAGE_LABEL, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateMacroTargets, calculateStreaks, createPet, errorMessage, estimateCaloriesBurned, getEventsForDay, getEvolutionStage, getMealsForDay, getSession, mindScoreLabel, onAuthStateChange, signInWithEmail, signOut, signUpWithEmail, sumMealMacros, withSurveyDefaults } from '@vitto/core';
+import { type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateMacroTargets, calculateStreaks, createPet, errorMessage, estimateCaloriesBurned, getEventsForDay, getMealsForDay, getSession, mindScoreLabel, onAuthStateChange, signInWithEmail, signOut, signUpWithEmail, sumMealMacros, withSurveyDefaults } from '@vitto/core';
 import { MockHealthDataProvider } from "./services/healthDataProvider";
 import { LocalRepository } from "./services/localRepository";
 import { MealCapture } from "./components/MealCapture";
@@ -25,6 +25,7 @@ const CARE_EVENT_LABEL: Partial<Record<HealthEvent["type"], string>> = {
   WORKOUT: "Trained together",
   STEP_ACTIVITY: "Went exploring",
   BRAIN_TRAINING: "Trained your mind",
+  SCREEN_TIME: "Screen check-in",
 };
 const withTimeout = <T,>(promise: Promise<T>, message: string) => Promise.race([
   promise,
@@ -629,9 +630,6 @@ function App() {
             <h1>
               {livePet.name}
               <span className="level">LVL {livePet.level}</span>
-              <span className="stage-pill">
-                {EVOLUTION_STAGE_LABEL[getEvolutionStage(livePet.level)]}
-              </span>
             </h1>
             <p className="mood">
               {reaction?.message || `${livePet.name} is feeling ready for the day.`}

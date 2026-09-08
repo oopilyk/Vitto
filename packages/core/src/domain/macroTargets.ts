@@ -19,9 +19,26 @@ export interface BodyProfile {
   trainingDaysPerWeek: number;
   trainingStyle: TrainingStyle;
   focusAreas: FocusArea[];
+  /**
+   * The user's own daily screen-time budget, in minutes. Deliberately optional
+   * with no default anywhere: a budget the app imposes is wrong for most people
+   * (a courier and a programmer have nothing in common here), and without one
+   * the engine treats a screen-time log as neutral rather than judging it.
+   */
+  screenTimeBudgetMinutes?: number;
+  /**
+   * What a care partner sees this user as. Optional and undefaulted: the
+   * server-side fallback (`profiles.display_name`) is the sign-up email, which
+   * must never be shown to the partner, so "unset" has to stay distinguishable.
+   */
+  displayName?: string;
 }
 
-/** Applied to anything loaded from before the survey existed. */
+/**
+ * Applied to anything loaded from before the survey existed. Optional fields
+ * such as `screenTimeBudgetMinutes` are intentionally absent — undefined means
+ * "not set", which is a real state, not a missing default.
+ */
 export const PROFILE_SURVEY_DEFAULTS = {
   goalPace: 'steady' as GoalPace,
   trainingDaysPerWeek: 3,

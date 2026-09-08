@@ -1,4 +1,5 @@
-import type { BrainTrainingMetadata, HealthEvent, MealMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
+import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
+import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
 import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { workoutStrengthDelta } from './strengthProgression';
 
@@ -19,8 +20,8 @@ export interface PetHealthContext {
   bodyWeightKg?: number;
 }
 
-const HUNGRY_NUTRITION_THRESHOLD = 35;
-const SLEEPY_ENERGY_THRESHOLD = 40;
+export const HUNGRY_NUTRITION_THRESHOLD = 35;
+export const SLEEPY_ENERGY_THRESHOLD = 40;
 const BRIGHT_ENERGY_THRESHOLD = 65;
 const BRIGHT_HAPPINESS_THRESHOLD = 65;
 const SHARP_SESSION_ACCURACY = 0.8;
@@ -51,6 +52,21 @@ export const determineMood = (energy: number, nutrition: number, happiness: numb
   return 'content';
 };
 
+/**
+ * The decay anchor only ever moves forward. With a care partner, an event can
+ * legitimately be older than the pet's last care (a HealthKit import that
+ * predates the partner's last log); it still applies its delta, but rewinding
+ * the anchor would make the next decay pass charge for a window that has already
+ * been settled. Solo behaviour is unchanged: solo events are never older than
+ * the anchor. An unparsable stored anchor loses to the event's time.
+ */
+const laterOf = (anchor: string | undefined, occurredAt: string): string => {
+  if (anchor === undefined) return occurredAt;
+  const anchorTime = Date.parse(anchor);
+  const eventTime = Date.parse(occurredAt);
+  return Number.isFinite(anchorTime) && Number.isFinite(eventTime) && anchorTime > eventTime ? anchor : occurredAt;
+};
+
 export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): PetState => {
   const nextXp = pet.xp + (delta.xp ?? 0);
   const nextLevel = pet.level + Math.floor(nextXp / 100);
@@ -73,7 +89,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
     recovery: clamp(pet.recovery + (delta.recovery ?? 0)),
     mind: clamp(pet.mind + (delta.mind ?? 0)),
     mood: determineMood(nextEnergy, nextNutrition, nextHappiness),
-    lastEventAt: occurredAt,
+    lastEventAt: laterOf(pet.lastEventAt, occurredAt),
   };
 };
 
@@ -88,6 +104,41 @@ const CARDIO_STRENGTH_GAIN = 1;
  */
 const SLEEP_FULL_MINUTES = 7 * 60;
 const SLEEP_SHORT_MINUTES = 5.5 * 60;
+
+/**
+ * Screen time follows the sleep principle: the good outcome is rewarded and the
+ * bad one is never punished. Graded in bands (`screenTime.ts`) rather than
+ * against one budget line, so nine hours reads differently from five instead of
+ * both being "over".
+ *
+ * The reward tapers to a floor and never goes negative. Even the heaviest day
+ * earns a little xp, because the habit being built is *checking in honestly* and
+ * a log that earns nothing on a bad day teaches people to stop logging bad days.
+ * A light day restores `mind` — an evening off the screen is real rest for the
+ * head, though not exercise for it — and `recovery` at the same rate a scrappy
+ * mind session gives.
+ *
+ * A personal budget is still honoured, as a bonus on top of the band rather than
+ * the thing being measured: the bands are the shared scale, the budget is the
+ * user's own target.
+ */
+const SCREEN_TIME_BAND_DELTA: Record<ScreenTimeBandId, PetDelta> = {
+  light: { mind: 5, happiness: 3, recovery: 2, xp: 14 },
+  moderate: { mind: 3, happiness: 1, xp: 11 },
+  heavy: { xp: 8 },
+  excessive: { xp: 5 },
+};
+/** Paid on top of the band when the user set a budget and came in under it. */
+const SCREEN_TIME_BUDGET_BONUS_XP = 3;
+const SCREEN_TIME_NO_BUDGET_XP = 6;
+
+/** "2h 05m" style, for the pet's screen-time messages. */
+const formatMinutes = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest}m`;
+  return rest === 0 ? `${hours}h` : `${hours}h ${String(rest).padStart(2, '0')}m`;
+};
 
 export class PetHealthEngine {
   apply(pet: PetState, event: HealthEvent, context: PetHealthContext = {}): EngineResult {
@@ -168,6 +219,25 @@ export class PetHealthEngine {
           message = `${pet.name} only managed ${hours}h. A longer night would help.`;
         }
         eventLabel = 'Rested up';
+        break;
+      }
+      case 'SCREEN_TIME': {
+        const metadata = event.metadata as unknown as ScreenTimeMetadata;
+        // NaN is not a total: it would read "NaNh" and fail every comparison.
+        const minutes = Number.isFinite(metadata.minutes) ? Math.max(0, Math.round(metadata.minutes)) : 0;
+        const band = getScreenTimeBand(minutes);
+        const budget = metadata.budgetMinutes;
+        const hasBudget = budget !== undefined && Number.isFinite(budget) && budget > 0;
+        const underBudget = hasBudget && (metadata.withinBudget ?? minutes <= (budget as number));
+        delta = { ...SCREEN_TIME_BAND_DELTA[band.id] };
+        if (underBudget) delta = { ...delta, xp: (delta.xp ?? 0) + SCREEN_TIME_BUDGET_BONUS_XP };
+        else if (!hasBudget) delta = { ...delta, xp: Math.max(delta.xp ?? 0, SCREEN_TIME_NO_BUDGET_XP) };
+
+        const spent = `${formatMinutes(minutes)} on the screen — ${band.verdict}`;
+        message = underBudget
+          ? `${pet.name} liked that: ${spent}, and under your ${formatMinutes(budget as number)} budget.`
+          : `${pet.name} saw you check in: ${spent}.`;
+        eventLabel = band.id === 'light' ? 'Unplugged' : 'Screen check-in';
         break;
       }
       default:

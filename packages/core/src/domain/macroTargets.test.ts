@@ -124,6 +124,11 @@ describe('withSurveyDefaults', () => {
     expect(answered.goalPace).toBe('focused');
     expect(answered.focusAreas).toEqual(['mind']);
   });
+
+  it('never invents a screen-time budget, but keeps one the user set', () => {
+    expect(withSurveyDefaults({ age: 30 }).screenTimeBudgetMinutes).toBeUndefined();
+    expect(withSurveyDefaults({ screenTimeBudgetMinutes: 150 }).screenTimeBudgetMinutes).toBe(150);
+  });
 });
 
 describe('planForGoal', () => {

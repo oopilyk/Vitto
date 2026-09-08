@@ -12,6 +12,7 @@ import {
   applyTimeDecay,
   assessCondition,
   createPet,
+  toDateKey,
 } from '@vitto/core';
 
 jest.mock('expo-haptics', () => ({
@@ -51,6 +52,39 @@ const profile: BodyProfile = {
 };
 
 const pet = createPet('user-1', 'Miso');
+
+/**
+ * Fourteen days of sleep and brain sessions ending yesterday: six short nights with
+ * 60% accuracy, eight full nights with 80%, which is a clear signal for `calculateInsights`.
+ */
+const sleepMindEvents = (): HealthEvent[] => {
+  const events: HealthEvent[] = [];
+  for (let daysAgo = 14; daysAgo >= 1; daysAgo -= 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    const key = toDateKey(date);
+    const isShort = daysAgo > 8;
+    events.push(
+      {
+        id: `sleep-${key}`,
+        userId: 'user-1',
+        occurredAt: `${key}T07:00:00`,
+        type: 'SLEEP',
+        source: 'healthkit',
+        metadata: { asleepMinutes: isShort ? 300 : 480, night: key },
+      },
+      {
+        id: `mind-${key}`,
+        userId: 'user-1',
+        occurredAt: `${key}T12:00:00`,
+        type: 'BRAIN_TRAINING',
+        source: 'manual',
+        metadata: { game: 'math', correct: isShort ? 12 : 16, total: 20, durationSeconds: 60, score: 50 },
+      },
+    );
+  }
+  return events;
+};
 
 const mealEvent: HealthEvent<MealMetadata> = {
   id: 'meal-1',
@@ -139,6 +173,145 @@ describe('screens render', () => {
     // 38*4 + 55*4 + 10*9 = 462, the fallback for an analysis with no calories.
     expect(rendered).toContain('462');
     expect(rendered).toContain('Miso');
+    tree.unmount();
+  });
+
+  it('shows a status chip for every active ailment, not just the worst', () => {
+    // The sprite and headline only ever show the highest-precedence ailment, so
+    // this tray is the only place a second problem is visible at all.
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={{ ...pet, nutrition: 8, happiness: 8, mind: 4, energy: 80, health: 60 }}
+          petFocusToken={0}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Starving');
+    expect(rendered).toContain('Lonely');
+    expect(rendered).toContain('Foggy');
+    tree.unmount();
+  });
+
+  it('shows no status chips for a pet that is neither ailing nor thriving', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={{ ...pet, nutrition: 45, happiness: 45, mind: 45, energy: 45, health: 60 }}
+          petFocusToken={0}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).not.toContain('Starving');
+    expect(rendered).not.toContain('Thriving');
+    expect(rendered).not.toContain('Sleepy');
+    tree.unmount();
+  });
+
+  it('renders the dashboard without an insight card when there is nothing to say', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+      <DashboardScreen
+        petFocusToken={0}
+        pet={pet}
+        events={[]}
+        profile={profile}
+        reaction={null}
+        stepGoal={10000}
+        onStepGoalChange={() => {}}
+        onLogMeal={() => {}}
+        onLogWorkout={() => {}}
+        onSyncSteps={() => {}}
+        onTrainMind={() => {}}
+        onOpenProfile={() => {}}
+        onOpenStats={() => {}}
+        isAnalyzingMeal={false}
+        isEating={false}
+        feedingImage={null}
+        feedingGrade={null}
+        isCelebrating={false}
+        isWorkingOut={false}
+        isExploring={false}
+      />,
+      );
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Miso noticed');
+    tree.unmount();
+  });
+
+  it('shows what the pet noticed once the data can carry a finding', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+      <DashboardScreen
+        petFocusToken={0}
+        pet={pet}
+        events={sleepMindEvents()}
+        profile={profile}
+        reaction={null}
+        stepGoal={10000}
+        onStepGoalChange={() => {}}
+        onLogMeal={() => {}}
+        onLogWorkout={() => {}}
+        onSyncSteps={() => {}}
+        onTrainMind={() => {}}
+        onOpenProfile={() => {}}
+        onOpenStats={() => {}}
+        isAnalyzingMeal={false}
+        isEating={false}
+        feedingImage={null}
+        feedingGrade={null}
+        isCelebrating={false}
+        isWorkingOut={false}
+        isExploring={false}
+      />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Miso noticed');
+    expect(rendered).toContain('Your sharper puzzle days seem to follow your longer nights.');
+    expect(rendered).toContain('your mind accuracy averaged 25% lower (14 days: 6 short nights, 8 fuller)');
     tree.unmount();
   });
 
@@ -838,6 +1011,71 @@ describe('pet sprite', () => {
     expect(runner.animations).not.toBe(base.animations);
   });
 
+  it('evolves a grown, strength-built cat onto the lifter sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const lifter = { id: 'p', breed: 'orangeCat', level: 12, strength: 80, endurance: 10, mind: 10 };
+    expect(sheetForPet(lifter).label).toBe('Orange Cat · Lifter');
+  });
+
+  it('evolves a grown, mind-built otter onto the scholar sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const scholar = { id: 'p', breed: 'otter', level: 12, mind: 80, endurance: 10, strength: 10 };
+    expect(sheetForPet(scholar).label).toBe('Otter · Scholar');
+  });
+
+  it('evolves a grown, mind-built shiba onto the scholar sheet', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const scholar = { id: 'p', breed: 'shiba', level: 12, mind: 80, endurance: 10, strength: 10 };
+    expect(sheetForPet(scholar).label).toBe('Shiba · Scholar');
+  });
+
+  it('keeps a baby lifter on its base sheet however it has been trained', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const baby = { id: 'p', breed: 'bichon', level: 5, strength: 80, endurance: 10, mind: 10 };
+    expect(sheetForPet(baby).label).toBe('Bichon');
+  });
+
+  it('gives every breed a lifter and a scholar form', () => {
+    for (const sheet of PET_SHEETS as any[]) {
+      expect(sheet.evolutions?.lifter?.label).toBe(`${sheet.label} · Lifter`);
+      expect(sheet.evolutions?.scholar?.label).toBe(`${sheet.label} · Scholar`);
+      expect(sheet.evolutions.lifter.name).toBe(sheet.name);
+      expect(sheet.evolutions.scholar.name).toBe(sheet.name);
+    }
+  });
+
+  it('derives the lifter and scholar sheets from the base art and frame map', () => {
+    // These sheets are generated from the base art cell for cell, so their frame
+    // maps must match the base's exactly — but as a copy, not the same object, so
+    // a derived form can still be given a map of its own later.
+    const { sheetForPet } = require('../components/petSprites');
+    const base = sheetForPet({ id: 'p', breed: 'bichon', level: 5 });
+    const lifter = sheetForPet({ id: 'p', breed: 'bichon', level: 12, strength: 80, endurance: 10, mind: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'bichon', level: 12, mind: 80, endurance: 10, strength: 10 });
+    for (const derived of [lifter, scholar]) {
+      expect(derived.source).not.toBe(base.source);
+      expect(derived.animations).not.toBe(base.animations);
+      expect(derived.animations).toEqual(base.animations);
+    }
+    expect(lifter.source).not.toBe(scholar.source);
+  });
+
+  it('keeps the otter grid shape and timings on its derived sheets', () => {
+    // A 6x10 sheet read with the default 4x11 grid slices every cell wrong, so
+    // the derived otters have to carry the base's shape, not just its frames.
+    const { sheetForPet } = require('../components/petSprites');
+    const base = sheetForPet({ id: 'p', breed: 'otter', level: 5 });
+    const lifter = sheetForPet({ id: 'p', breed: 'otter', level: 12, strength: 80, endurance: 10, mind: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'otter', level: 12, mind: 80, endurance: 10, strength: 10 });
+    for (const derived of [lifter, scholar]) {
+      expect(derived.columns).toBe(6);
+      expect(derived.rows).toBe(10);
+      expect(derived.selfDrawn).toEqual(base.selfDrawn);
+      expect(derived.frameMs).toEqual(base.frameMs);
+      expect(derived.animations).toEqual(base.animations);
+    }
+  });
+
   it('defines every animation on every sheet, evolutions included', () => {
     // Now that each sheet carries its own map, a form can lose an animation
     // without anything else noticing until the pet renders nothing in that state.
@@ -854,10 +1092,12 @@ describe('pet sprite', () => {
     }
   });
 
-  it('has no evolution for breeds without evolved art, however trained', () => {
+  it('keeps a build with no evolved art on the base sheet, however trained', () => {
+    // The shiba has lifter and scholar art but no runner, so an endurance build
+    // grows up and stays exactly where it was.
     const { sheetForPet } = require('../components/petSprites');
-    const shiba = { id: 'p', breed: 'shiba', level: 40, endurance: 90, strength: 10 };
-    expect(sheetForPet(shiba).name).toBe('shiba');
+    const shiba = { id: 'p', breed: 'shiba', level: 40, endurance: 90, strength: 10, mind: 10 };
+    expect(sheetForPet(shiba).label).toBe('Shiba');
   });
 
   it('only references frames that exist on the sheet', () => {
@@ -1140,5 +1380,401 @@ describe('friend pet screen', () => {
 
     expect(JSON.stringify(tree.toJSON())).toContain("not connected anymore");
     tree.unmount();
+  });
+});
+
+describe('care partners', () => {
+  const { ProfileScreen } = require('../screens/ProfileScreen');
+  const { Text: RNText, TextInput: RNTextInput } = require('react-native');
+  const { CARE_LOG_LABEL, inviteExpiresAt } = require('@vitto/core');
+
+  const owner = { userId: 'user-1', role: 'owner' as const, joinedAt: '2026-09-01T00:00:00Z', displayName: 'Kyle' };
+  const alex = { userId: 'user-2', role: 'partner' as const, joinedAt: '2026-09-02T00:00:00Z', displayName: 'Alex' };
+  const openInvite = {
+    id: 'inv-1',
+    petId: pet.id,
+    code: 'ABCDEF',
+    createdAt: new Date().toISOString(),
+    expiresAt: inviteExpiresAt(new Date()),
+  };
+
+  const findButton = (tree: renderer.ReactTestRenderer, label: string) =>
+    tree.root
+      .findAll((node) => typeof node.props.onPress === 'function')
+      .find((node) => node.findAllByType(RNText).some((t: any) => t.props.children === label));
+
+  const renderProfile = (carePartner?: Record<string, unknown>) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async () => {}}
+          onClose={() => {}}
+          carePartner={carePartner}
+        />,
+      );
+    });
+    return tree;
+  };
+
+  const partnerProps = (overrides: Record<string, unknown> = {}) => ({
+    petName: 'Miso',
+    selfUserId: 'user-1',
+    members: [owner],
+    invite: null,
+    busy: false,
+    onCreateInvite: async () => {},
+    onRevokeInvite: async () => {},
+    onRedeemInvite: async () => true,
+    onLeave: async () => {},
+    ...overrides,
+  });
+
+  it('shows no care partner card at all without the prop (local mode)', () => {
+    const tree = renderProfile();
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).not.toContain('Care partner');
+    expect(rendered).not.toContain('Have a code?');
+    tree.unmount();
+  });
+
+  it('shows the open invite code, formatted, with a way to cancel it', () => {
+    const tree = renderProfile(partnerProps({ invite: openInvite }));
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('ABC-DEF');
+    expect(findButton(tree, 'Cancel code')).toBeTruthy();
+    expect(findButton(tree, 'New code')).toBeTruthy();
+    // One live code at a time: no "invite" button while one is open.
+    expect(findButton(tree, 'Invite a care partner')).toBeUndefined();
+    tree.unmount();
+  });
+
+  it('offers a code when there is none, and hides the code UI once shared', () => {
+    const solo = renderProfile(partnerProps());
+    expect(findButton(solo, 'Invite a care partner')).toBeTruthy();
+    solo.unmount();
+
+    const shared = renderProfile(partnerProps({ members: [owner, alex] }));
+    expect(findButton(shared, 'Invite a care partner')).toBeUndefined();
+    expect(findButton(shared, 'Have a code?')).toBeUndefined();
+    shared.unmount();
+  });
+
+  it('normalises a typed code and hands it to onRedeemInvite', async () => {
+    const redeemed: string[] = [];
+    const tree = renderProfile(
+      partnerProps({
+        onRedeemInvite: async (code: string) => {
+          redeemed.push(code);
+          return true;
+        },
+      }),
+    );
+
+    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    expect(input).toBeTruthy();
+    act(() => input!.props.onChangeText('abc-def'));
+    await act(async () => {
+      await findButton(tree, 'Join')!.props.onPress();
+    });
+    expect(redeemed).toEqual(['ABCDEF']);
+    // Joined: the field is cleared.
+    expect(input!.props.value).toBe('');
+    tree.unmount();
+  });
+
+  it('keeps the typed code when the join confirm is cancelled', async () => {
+    const tree = renderProfile(partnerProps({ onRedeemInvite: async () => false }));
+    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    act(() => input!.props.onChangeText('ABC-DEF'));
+    await act(async () => {
+      await findButton(tree, 'Join')!.props.onPress();
+    });
+    expect(input!.props.value).toBe('ABC-DEF');
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Could not join');
+    tree.unmount();
+  });
+
+  it('shows a rejected join inline, beside the code field', async () => {
+    const tree = renderProfile(
+      partnerProps({
+        onRedeemInvite: async () => {
+          throw new Error('That code has already been used.');
+        },
+      }),
+    );
+    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    act(() => input!.props.onChangeText('ABCDEF'));
+    await act(async () => {
+      await findButton(tree, 'Join')!.props.onPress();
+    });
+    expect(JSON.stringify(tree.toJSON())).toContain('That code has already been used.');
+    tree.unmount();
+  });
+
+  it('lists both carers on a shared pet and offers to leave it', async () => {
+    let left = 0;
+    const tree = renderProfile(
+      partnerProps({
+        members: [owner, alex],
+        onLeave: async () => {
+          left += 1;
+        },
+      }),
+    );
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('You');
+    expect(rendered).toContain('Alex');
+    expect(rendered).toContain('partner');
+    const leave = findButton(tree, 'Leave Miso');
+    expect(leave).toBeTruthy();
+    await act(async () => {
+      await leave!.props.onPress();
+    });
+    expect(left).toBe(1);
+    tree.unmount();
+  });
+
+  it('has a display-name field that rides the ordinary save bar', async () => {
+    const saved: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async (next: unknown) => {
+            saved.push(next);
+          }}
+          onClose={() => {}}
+        />,
+      );
+    });
+    expect(findButton(tree, 'Save changes')).toBeUndefined();
+    const nameInput = tree.root
+      .findAllByType(RNTextInput)
+      .find((node: any) => node.props.maxLength === 40);
+    expect(nameInput).toBeTruthy();
+    act(() => nameInput!.props.onChangeText('Kyle'));
+    await act(async () => {
+      await findButton(tree, 'Save changes')!.props.onPress();
+    });
+    expect(saved[0].displayName).toBe('Kyle');
+    tree.unmount();
+  });
+
+  it("lists the partner's moments in today's care, named, and still capped at five", () => {
+    const careDiary = Array.from({ length: 7 }, (_, index) => ({
+      id: `log-${index}`,
+      occurredAt: new Date().toISOString(),
+      type: 'WORKOUT' as const,
+      label: CARE_LOG_LABEL.WORKOUT,
+      actorUserId: 'user-2',
+      actorName: 'Alex',
+    }));
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          petFocusToken={0}
+          pet={pet}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+          careDiary={careDiary}
+          partnerName="Alex"
+          onRefresh={async () => {}}
+        />,
+      );
+    });
+    const rows = tree.root
+      .findAllByType(RNText)
+      .filter((node: any) => node.props.children === 'Alex · Trained together');
+    expect(rows).toHaveLength(5);
+    // The refresh control puts a React element in the tree's props, so match on
+    // the Text nodes rather than serialising the whole render.
+    const texts = tree.root.findAllByType(RNText).map((node: any) =>
+      [node.props.children]
+        .flat()
+        .filter((child: unknown) => typeof child === 'string' || typeof child === 'number')
+        .join(''),
+    );
+    // The link opens Profile, which lists own events only, so partner rows
+    // beyond the preview are not counted as "more".
+    expect(texts.some((children) => children.includes('more today'))).toBe(false);
+    expect(texts).toContain('Raised with Alex');
+    tree.unmount();
+  });
+
+  it('counts only own moments behind the "more" link on a shared dashboard', () => {
+    const now = new Date().toISOString();
+    const ownSteps: HealthEvent[] = Array.from({ length: 2 }, (_, index) => ({
+      id: `own-${index}`,
+      userId: 'user-1',
+      occurredAt: now,
+      type: 'STEP_ACTIVITY',
+      source: 'mock',
+      metadata: { steps: 100 },
+    })) as unknown as HealthEvent[];
+    // Partner rows first, so both own rows fall past the five-row preview.
+    const careDiary = [
+      ...Array.from({ length: 5 }, (_, index) => ({
+        id: `log-${index}`,
+        occurredAt: new Date(Date.now() + 1000).toISOString(),
+        type: 'WORKOUT' as const,
+        label: CARE_LOG_LABEL.WORKOUT,
+        actorUserId: 'user-2',
+        actorName: 'Alex',
+      })),
+      ...ownSteps.map((event) => ({
+        id: event.id,
+        occurredAt: event.occurredAt,
+        type: event.type,
+        label: CARE_LOG_LABEL[event.type],
+        actorUserId: 'user-1',
+        actorName: null,
+      })),
+    ];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          petFocusToken={0}
+          pet={pet}
+          events={ownSteps}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+          careDiary={careDiary}
+        />,
+      );
+    });
+    const texts = tree.root.findAllByType(RNText).map((node: any) =>
+      [node.props.children]
+        .flat()
+        .filter((child: unknown) => typeof child === 'string' || typeof child === 'number')
+        .join(''),
+    );
+    // Two own rows are hidden behind the preview and are exactly what Profile lists.
+    expect(texts).toContain('2 more today →');
+    tree.unmount();
+  });
+
+  it('keeps the solo dashboard free of any partner line', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          petFocusToken={0}
+          pet={pet}
+          events={[]}
+          profile={profile}
+          reaction={null}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          isAnalyzingMeal={false}
+          isEating={false}
+          feedingImage={null}
+          feedingGrade={null}
+          isCelebrating={false}
+          isWorkingOut={false}
+          isExploring={false}
+        />,
+      );
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Raised with');
+    tree.unmount();
+  });
+
+  const renderOnboardingLastStep = (onRedeemInvite?: (code: string) => Promise<boolean>) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <OnboardingScreen
+          name="Miso"
+          onNameChange={() => {}}
+          profile={profile}
+          onUpdate={() => {}}
+          onAdopt={() => {}}
+          breed="shiba"
+          onBreedChange={() => {}}
+          error={null}
+          onRedeemInvite={onRedeemInvite}
+        />,
+      );
+    });
+    // Three "Continue"s reach the last step; the test profile passes every check.
+    for (let step = 0; step < 3; step += 1) {
+      act(() => findButton(tree, 'Continue')!.props.onPress());
+    }
+    expect(findButton(tree, 'Adopt Miso')).toBeTruthy();
+    return tree;
+  };
+
+  it('offers to join a partner instead of adopting, only when signed in online', async () => {
+    const redeemed: string[] = [];
+    const tree = renderOnboardingLastStep(async (code) => {
+      redeemed.push(code);
+      return true;
+    });
+    const reveal = findButton(tree, "Got an invite code? Join a partner's pet instead");
+    expect(reveal).toBeTruthy();
+    act(() => reveal!.props.onPress());
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    expect(input).toBeTruthy();
+    act(() => input!.props.onChangeText('abc def'));
+    await act(async () => {
+      await findButton(tree, 'Join')!.props.onPress();
+    });
+    expect(redeemed).toEqual(['ABCDEF']);
+    tree.unmount();
+
+    const offline = renderOnboardingLastStep();
+    expect(findButton(offline, "Got an invite code? Join a partner's pet instead")).toBeUndefined();
+    offline.unmount();
   });
 });

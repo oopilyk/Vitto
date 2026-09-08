@@ -7,7 +7,7 @@ import {
   requestAuthorization,
   WorkoutActivityType,
 } from '@kingstinct/react-native-healthkit';
-import type { HealthEvent, MealMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from '@vitto/core';
+import type { HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from '@vitto/core';
 import type { HealthDataProvider } from './healthDataProvider';
 import {
   excludeKnownExternalIds,
@@ -177,5 +177,18 @@ export class HealthKitProvider implements HealthDataProvider {
     return excludeKnownExternalIds(nights, knownExternalIds)
       .map((night) => mapSleepNight(userId, night))
       .sort(byOccurredAtAscending);
+  }
+
+  /**
+   * Always null on iOS, and not because of a missing library. Apple's Screen
+   * Time stack (FamilyControls / DeviceActivity / ManagedSettings) is designed
+   * so the host app never sees the numbers: usage only renders inside a
+   * sandboxed DeviceActivityReport extension, and even that needs the
+   * request-and-approve `com.apple.developer.family-controls` entitlement.
+   * HealthKit itself has no screen-time type. The user reads the total off
+   * Settings → Screen Time and types it in instead; see mobile/SCREENTIME.md.
+   */
+  async getTodayScreenTime(): Promise<HealthEvent<ScreenTimeMetadata> | null> {
+    return null;
   }
 }

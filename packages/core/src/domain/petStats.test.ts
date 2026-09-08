@@ -6,7 +6,8 @@ import {
   statValue,
   type PetStatKey,
 } from './petStats';
-import { applyForcedForm, getEvolutionStage, getPetBuild, hasEvolved } from './pet';
+import { applyForcedForm, EVOLUTION_LEVEL, getPetBuild, hasEvolved } from './pet';
+import { assessCondition } from './petCondition';
 import { DECAY_PER_DAY } from './decay';
 import type { HealthEvent, HealthEventType } from './health';
 import { createPet, type PetState } from './pet';
@@ -183,18 +184,50 @@ describe('getPetBuild', () => {
   it('needs a clear lead, so even training stays balanced', () => {
     expect(getPetBuild({ ...base, endurance: 60, strength: 55 })).toBe('balanced');
   });
+
+  it('calls a pet a lifter once strength is high and clearly ahead of the rest', () => {
+    expect(getPetBuild({ ...base, strength: 60, endurance: 20, mind: 20 })).toBe('lifter');
+  });
+
+  it('calls a pet a scholar once mind is high and clearly ahead of the rest', () => {
+    expect(getPetBuild({ ...base, mind: 60, endurance: 20, strength: 20 })).toBe('scholar');
+  });
+
+  it('needs strength or mind to be substantial, not merely ahead', () => {
+    expect(getPetBuild({ ...base, strength: 30, endurance: 2, mind: 2 })).toBe('balanced');
+    expect(getPetBuild({ ...base, mind: 30, endurance: 2, strength: 2 })).toBe('balanced');
+  });
+
+  it('stays balanced when two stats are high but close together', () => {
+    expect(getPetBuild({ ...base, strength: 60, mind: 55, endurance: 10 })).toBe('balanced');
+    expect(getPetBuild({ ...base, mind: 60, endurance: 55, strength: 10 })).toBe('balanced');
+  });
+
+  it('needs a lead over BOTH rivals, not just one of them', () => {
+    // Endurance is far ahead of strength, but mind is right behind it.
+    expect(getPetBuild({ ...base, endurance: 60, strength: 10, mind: 52 })).toBe('balanced');
+  });
 });
 
 describe('hasEvolved', () => {
-  const runner = { level: 1, endurance: 60, strength: 20 };
+  const runner = { level: 1, endurance: 60, strength: 20, mind: 20 };
+  const lifter = { level: 1, strength: 60, endurance: 20, mind: 20 };
+  const scholar = { level: 1, mind: 60, endurance: 20, strength: 20 };
 
   it('holds the evolution back until the pet is past baby', () => {
     expect(hasEvolved(runner)).toBe(false);
     expect(hasEvolved({ ...runner, level: 11 })).toBe(true);
   });
 
+  it('treats a lifter and a scholar the same way', () => {
+    expect(hasEvolved(lifter)).toBe(false);
+    expect(hasEvolved({ ...lifter, level: 11 })).toBe(true);
+    expect(hasEvolved(scholar)).toBe(false);
+    expect(hasEvolved({ ...scholar, level: 11 })).toBe(true);
+  });
+
   it('stays false for a grown pet with no specialism', () => {
-    expect(hasEvolved({ level: 40, endurance: 20, strength: 20 })).toBe(false);
+    expect(hasEvolved({ level: 40, endurance: 20, strength: 20, mind: 20 })).toBe(false);
   });
 });
 
@@ -211,14 +244,58 @@ describe('applyForcedForm', () => {
     expect(hasEvolved(forced)).toBe(true);
   });
 
-  it('previews a real runner as unevolved when a balanced form is asked for', () => {
-    const realRunner = { ...pet, level: 40, endurance: 90, strength: 5 };
-    expect(hasEvolved(applyForcedForm(realRunner, 'adult'))).toBe(false);
+  it('forces a lifter that reads as evolved', () => {
+    const forced = applyForcedForm(pet, 'lifter');
+    expect(getPetBuild(forced)).toBe('lifter');
+    expect(hasEvolved(forced)).toBe(true);
   });
 
-  it('maps each stage to a level that lands in it', () => {
-    expect(getEvolutionStage(applyForcedForm(pet, 'baby').level)).toBe('baby');
-    expect(getEvolutionStage(applyForcedForm(pet, 'teen').level)).toBe('teen');
-    expect(getEvolutionStage(applyForcedForm(pet, 'adult').level)).toBe('adult');
+  it('forces a scholar that reads as evolved', () => {
+    const forced = applyForcedForm(pet, 'scholar');
+    expect(getPetBuild(forced)).toBe('scholar');
+    expect(hasEvolved(forced)).toBe(true);
+  });
+
+  it('previews a real runner as unevolved when the base form is asked for', () => {
+    const realRunner = { ...pet, level: 40, endurance: 90, strength: 5, mind: 5 };
+    expect(hasEvolved(applyForcedForm(realRunner, 'base'))).toBe(false);
+  });
+
+  it('previews a real lifter or scholar as unevolved when the base form is asked for', () => {
+    const realLifter = { ...pet, level: 40, strength: 90, endurance: 5, mind: 5 };
+    const realScholar = { ...pet, level: 40, mind: 90, endurance: 5, strength: 5 };
+    expect(hasEvolved(applyForcedForm(realLifter, 'base'))).toBe(false);
+    expect(hasEvolved(applyForcedForm(realScholar, 'base'))).toBe(false);
+  });
+
+  it('never leaves a forced form ailing, whatever it holds the other stats at', () => {
+    // Regression: the non-dominant stats were pinned to 10, which is exactly the
+    // `foggy` line, so forcing Runner or Lifter came back dizzy — and because the
+    // form is applied after the forced status, it overrode "Healthy" too.
+    for (const form of ['base', 'runner', 'lifter', 'scholar'] as const) {
+      expect(assessCondition(applyForcedForm(pet, form)).ailments).toEqual([]);
+    }
+  });
+
+  it('lets a forced specialism override whichever build the pet really has', () => {
+    const realScholar = { ...pet, level: 40, mind: 90, endurance: 5, strength: 5 };
+    expect(getPetBuild(applyForcedForm(realScholar, 'lifter'))).toBe('lifter');
+    expect(getPetBuild(applyForcedForm(realScholar, 'runner'))).toBe('runner');
+  });
+
+  it('puts a forced specialism over the evolution line and the base form under it', () => {
+    expect(applyForcedForm(pet, 'base').level).toBeLessThan(EVOLUTION_LEVEL);
+    for (const form of ['runner', 'lifter', 'scholar'] as const) {
+      expect(applyForcedForm(pet, form).level).toBeGreaterThanOrEqual(EVOLUTION_LEVEL);
+    }
+  });
+
+  it('holds a specialism back until the pet is old enough for it to mean anything', () => {
+    // The level gate is what is left of the old baby/teen/adult ladder: how a pet
+    // was raised only says something once it has been raised for a while.
+    const youngRunner = { ...pet, level: EVOLUTION_LEVEL - 1, endurance: 90, strength: 5, mind: 5 };
+    expect(getPetBuild(youngRunner)).toBe('runner');
+    expect(hasEvolved(youngRunner)).toBe(false);
+    expect(hasEvolved({ ...youngRunner, level: EVOLUTION_LEVEL })).toBe(true);
   });
 });

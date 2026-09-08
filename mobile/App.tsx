@@ -1,14 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetReaction, type PetState, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, applyDelta, applyForcedAilment, applyForcedForm, applyTimeDecay, assessCondition, calculateStreaks, createPet, errorMessage, getEventsForDay, getSession, isDevAccount, newId, onAuthStateChange, setIdGenerator, signOut, toDateKey, withSurveyDefaults } from '@vitto/core';
+import { type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
+import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
+import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/healthKitProvider';
 import { getKnownHealthKitExternalIds } from './src/services/healthKitMapping';
+import { AndroidUsageStatsProvider } from './src/services/androidUsageStatsProvider';
+import { findScreenTimeForDate, mapManualScreenTime } from './src/services/screenTimeMapping';
+import { hasUsageAccess, isScreenTimeModuleAvailable, openUsageAccessSettings } from './modules/screen-time';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
 import { PrimaryButton, TextButton } from './src/components/ui';
@@ -33,11 +38,16 @@ if (hasNativeUUID()) setIdGenerator(randomUUID);
 const repository = new LocalRepository();
 const remoteRepository = new SupabaseRepository();
 const engine = new PetHealthEngine();
-// iOS gets the real HealthKit-backed provider; every other platform (Android,
-// web-via-react-native-web) falls back to the mock until a Health Connect
-// provider exists. See mobile/HEALTHKIT.md.
+// iOS gets the real HealthKit-backed provider. Android gets the mock for
+// everything except screen time, which it can actually read (see
+// mobile/SCREENTIME.md); web-via-react-native-web stays on the mock until a
+// Health Connect provider exists. See mobile/HEALTHKIT.md.
 const stepsProvider: HealthDataProvider =
-  Platform.OS === 'ios' ? new HealthKitProvider() : new MockHealthDataProvider();
+  Platform.OS === 'ios'
+    ? new HealthKitProvider()
+    : Platform.OS === 'android'
+      ? new AndroidUsageStatsProvider()
+      : new MockHealthDataProvider();
 
 // The main app's screens, once a session exists and a pet has been adopted.
 // Auth and Onboarding stay outside this tree — they're single-screen states
@@ -80,20 +90,13 @@ const WORKOUT_ANIMATION_MS = 1100;
  */
 const SHEET_DISMISS_MS = Platform.OS === 'ios' ? 480 : 320;
 const EXPLORE_ANIMATION_MS = 1100;
-const STREAK_MILESTONES = [3, 7, 14, 30, 60, 100, 200, 365];
-const STREAK_MILESTONE_BONUS_XP = 25;
 /**
  * How long a care moment's message stays up. It has to clear on its own: the
  * dashboard shows an ailment on the same line, so a reaction that never expires
  * would permanently hide "Miso is starving".
  */
 const REACTION_VISIBLE_MS = 6000;
-/**
- * One care moment has to visibly pull a pet back from `dying`, or the only thing
- * a returning user can do is watch it stay collapsed. Paid once, on the event
- * that finds the pet dying.
- */
-const REVIVAL_BONUS = { health: 35, nutrition: 25, energy: 20, happiness: 20 } as const;
+const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
 
 const DEFAULT_PROFILE: BodyProfile = {
   age: 30,
@@ -122,6 +125,20 @@ const withTimeout = <T,>(promise: Promise<T>, message: string) =>
     new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), 10000)),
   ]);
 
+/** A yes/no system dialog as a promise, so a confirmed action can still reject to its caller. */
+const confirmDialog = (title: string, message: string, confirmLabel: string) =>
+  new Promise<boolean>((resolve) => {
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: confirmLabel, style: 'destructive', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   // Dev tool, display only — see `applyForcedAilment`. Never persisted, and reset
@@ -129,9 +146,34 @@ export default function App() {
   const [forcedAilment, setForcedAilment] = useState<ForcedPetStatus | null>(null);
   // Same deal for which form is drawn — display only, never persisted.
   const [forcedForm, setForcedForm] = useState<ForcedPetForm | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
   const [dataReady, setDataReady] = useState(false);
-  const [pet, setPet] = useState<PetState | null>(null);
+  /**
+   * Every pet the user cares for: the one they adopted, and one shared with a
+   * partner. `pet` below is the one on screen — derived rather than stored, so
+   * there is no second copy to drift out of step with this list.
+   */
+  const [pets, setPets] = useState<PetState[]>([]);
+  const [activePetId, setActivePetId] = useState<string | null>(null);
+  const pet = useMemo(
+    () => pets.find((candidate) => candidate.id === activePetId) ?? pets[0] ?? null,
+    [pets, activePetId],
+  );
+  /**
+   * Replaces one pet in the list, keeping the call sites that predate two pets
+   * working unchanged. `null` clears everything, which is what signing out means.
+   */
+  const setPet = useCallback((next: PetState | null) => {
+    setPets((current) => {
+      if (!next) return [];
+      const index = current.findIndex((candidate) => candidate.id === next.id);
+      if (index === -1) return [...current, next];
+      const updated = [...current];
+      updated[index] = next;
+      return updated;
+    });
+  }, []);
   // Distinguishes "this account has no pet yet" from "the pet could not be
   // loaded". Both leave `pet` null, but only the first one means onboarding:
   // offering adoption after a failed load asks an existing owner to replace a
@@ -147,6 +189,23 @@ export default function App() {
   const [events, setEvents] = useState<HealthEvent[]>([]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
+  // Care partners. All empty for a solo pet and in local mode; loaded once
+  // after the pet, and refreshed only while there is a partner (or an open
+  // invite one could be arriving through) — see `refreshShared`.
+  const [members, setMembers] = useState<PetMember[]>([]);
+  const [careLog, setCareLog] = useState<CareLogEntry[]>([]);
+  const [invite, setInvite] = useState<PetInvite | null>(null);
+  const [isPartnerBusy, setIsPartnerBusy] = useState(false);
+  // The newest partner care-log row already shown, so a foreground refresh can
+  // announce only what happened since. Null until the log has been read once.
+  const lastSeenCareLogAt = useRef<string | null>(null);
+  // A foreground refresh and a pet write (care moment, breed change) can both
+  // `setPet`; the refresh yields while a write is pending and re-runs after it.
+  const careMomentInFlight = useRef(false);
+  const refreshPending = useRef(false);
+  // Who is signed in right now, readable after an await: a refresh that started
+  // for one user must not land its results on a signed-out (or different) app.
+  const sessionUserRef = useRef<string | null>(null);
   const [name, setName] = useState('Miso');
   // Chosen at adoption; changeable later from the profile.
   const [breed, setBreed] = useState<PetBreed>('bichon');
@@ -163,18 +222,34 @@ export default function App() {
   const [isExploring, setIsExploring] = useState(false);
   const [isAppleHealthConnected, setIsAppleHealthConnected] = useState(false);
   const [isSyncingAppleHealth, setIsSyncingAppleHealth] = useState(false);
+  // Android only: whether Settings → Usage access has been granted. Re-read on
+  // every return to the foreground, since granting it happens in Settings.
+  const [hasScreenTimeAccess, setHasScreenTimeAccess] = useState(() => hasUsageAccess());
+  const [isSyncingScreenTime, setIsSyncingScreenTime] = useState(false);
   // The clock the decay projection is read against. Stored state, not `new Date()`
   // inline, so a tick is what re-renders the pet rather than an unrelated update.
   const [now, setNow] = useState(() => new Date());
 
   const userId = session?.user.id ?? 'demo-user';
+  sessionUserRef.current = session?.user.id ?? null;
+  const shared = isSharedPet(members);
+  const partner = activeMembers(members).find((member) => member.userId !== userId);
+  const partnerName = partner ? memberDisplayName(members, partner.userId) : undefined;
+
+  // The foreground listener is subscribed once; this ref carries whatever
+  // refresh is appropriate for the current state (none, for a solo pet).
+  const refreshOnForeground = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), DECAY_TICK_MS);
     // RN throttles timers in the background, so an app resumed after a night away
     // would otherwise paint yesterday's stats until the next tick landed.
     const foreground = AppState.addEventListener('change', (state) => {
-      if (state === 'active') setNow(new Date());
+      if (state === 'active') {
+        setNow(new Date());
+        setHasScreenTimeAccess(hasUsageAccess());
+        refreshOnForeground.current?.();
+      }
     });
     return () => {
       clearInterval(tick);
@@ -234,7 +309,7 @@ export default function App() {
 
       if (isSupabaseConfigured && session) {
         const [petResult, eventsResult, profileResult] = await Promise.allSettled([
-          remoteRepository.loadPet(),
+          remoteRepository.loadPets(),
           remoteRepository.loadEvents(),
           remoteRepository.loadProfile(),
         ]);
@@ -242,10 +317,10 @@ export default function App() {
 
         setPetLoadFailed(petResult.status === 'rejected');
         if (petResult.status === 'fulfilled') {
-          // The STORED pet, never the decayed projection: `applyTimeDecay` leaves
+          // The STORED pets, never the decayed projection: `applyTimeDecay` leaves
           // `lastEventAt` where it was, so holding its output in state makes the
           // next care moment replay the same elapsed window a second time.
-          setPet(petResult.value);
+          setPets(petResult.value);
         }
         if (eventsResult.status === 'fulfilled') setEvents(eventsResult.value);
         if (profileResult.status === 'fulfilled' && profileResult.value) {
@@ -261,6 +336,36 @@ export default function App() {
             : null,
         );
         setDataReady(true);
+
+        // Partner state, after the pet is on screen so it never delays it. A
+        // failure here is not a failed pet load: a broken partner lookup must
+        // not send an owner to the "could not reach your pet" screen, so it
+        // only leaves the pet looking solo until the next refresh.
+        // Sharing state (members, care log, invite) belongs to one pet, so it is
+        // loaded for whichever is on screen. Switching pets refreshes it.
+        const loadedPets = petResult.status === 'fulfilled' ? petResult.value : [];
+        const loadedPet =
+          loadedPets.find((candidate) => candidate.id === activePetId) ?? loadedPets[0] ?? null;
+        if (!loadedPet) {
+          setMembers([]);
+          setCareLog([]);
+          setInvite(null);
+          lastSeenCareLogAt.current = null;
+          return;
+        }
+        const [membersResult, careLogResult, inviteResult] = await Promise.allSettled([
+          remoteRepository.loadPetMembers(loadedPet.id),
+          remoteRepository.loadCareLog(loadedPet.id),
+          remoteRepository.loadOpenInvite(loadedPet.id),
+        ]);
+        if (cancelled) return;
+        const loadedLog = careLogResult.status === 'fulfilled' ? careLogResult.value : [];
+        setMembers(membersResult.status === 'fulfilled' ? membersResult.value : []);
+        setCareLog(loadedLog);
+        setInvite(inviteResult.status === 'fulfilled' ? inviteResult.value : null);
+        // Everything already in the log has been "seen": only rows that arrive
+        // after this point are announced as partner activity.
+        lastSeenCareLogAt.current = newestOccurredAt(partnerEntriesSince(loadedLog, null, session.user.id));
         return;
       }
 
@@ -270,10 +375,15 @@ export default function App() {
         repository.loadProfile<Partial<BodyProfile>>(),
       ]);
       if (cancelled) return;
-      // Raw, for the same reason as the remote branch above.
-      setPet(storedPet);
+      // Raw, for the same reason as the remote branch above. Local mode has no
+      // sharing, so there is only ever the one pet.
+      setPets(storedPet ? [storedPet] : []);
       setEvents(storedEvents);
       if (storedProfile) setProfile(withSurveyDefaults({ ...DEFAULT_PROFILE, ...storedProfile }));
+      setMembers([]);
+      setCareLog([]);
+      setInvite(null);
+      lastSeenCareLogAt.current = null;
       setDataReady(true);
     })();
 
@@ -303,59 +413,136 @@ export default function App() {
     });
   };
 
+  /**
+   * Re-reads the shared pet after time away: the partner may have cared for it
+   * since this device last looked. Reloads the pet (with its version, so the
+   * next care moment writes against the right base), the members, the log and
+   * the invite, and announces any partner moments not yet seen. Failures are
+   * swallowed — this runs unprompted on foreground, and a flaky refresh is not
+   * worth a banner. Only ever wired for a shared pet or an open invite.
+   */
+  /** Forgets the shared pet entirely; onboarding renders next, since `pet` is null and the load did not fail. */
+  const clearPetState = () => {
+    setPet(null);
+    setMembers([]);
+    setCareLog([]);
+    setInvite(null);
+    lastSeenCareLogAt.current = null;
+  };
+
+  const refreshShared = async () => {
+    if (!isSupabaseConfigured || !session || !pet) return;
+    if (careMomentInFlight.current) {
+      refreshPending.current = true;
+      return;
+    }
+    const startedFor = session.user.id;
+    const [petResult, membersResult, careLogResult, inviteResult] = await Promise.allSettled([
+      remoteRepository.loadPet(),
+      remoteRepository.loadPetMembers(pet.id),
+      remoteRepository.loadCareLog(pet.id),
+      remoteRepository.loadOpenInvite(pet.id),
+    ]);
+    // Signed out, or a different account, while these were in flight: the
+    // results belong to nobody on screen now.
+    if (sessionUserRef.current !== startedFor) return;
+    // A pet write that started while this was in flight owns the pet now.
+    if (careMomentInFlight.current) {
+      refreshPending.current = true;
+      return;
+    }
+    const outcome = applySharedRefresh({
+      petResult,
+      membersResult,
+      careLogResult,
+      inviteResult,
+      currentMembers: members,
+      lastSeenCareLogAt: lastSeenCareLogAt.current,
+      selfUserId: startedFor,
+      petName: pet.name,
+    });
+    if (outcome.kind === 'gone') {
+      clearPetState();
+      return;
+    }
+    if (outcome.pet) setPet(outcome.pet);
+    if (outcome.members) setMembers(outcome.members);
+    if (outcome.invite !== undefined) setInvite(outcome.invite);
+    if (outcome.careLog) setCareLog(outcome.careLog);
+    lastSeenCareLogAt.current = outcome.lastSeenCareLogAt;
+    if (!outcome.announcement) return;
+    showReaction({ message: outcome.announcement, eventLabel: 'Care partner', delta: {} });
+    setPetFocusToken((token) => token + 1);
+  };
+
+  /** Ends a pet write: lets refreshes through again, and runs the one that was deferred, if any. */
+  const releasePetWrite = () => {
+    careMomentInFlight.current = false;
+    if (refreshPending.current) {
+      refreshPending.current = false;
+      void refreshShared();
+    }
+  };
+
+  // Solo pets never refresh on foreground: no partner can have changed anything,
+  // so there is nothing to fetch. An open invite counts as "could become shared
+  // any moment", so the owner sees the join without restarting the app.
+  useEffect(() => {
+    refreshOnForeground.current =
+      isSupabaseConfigured && session && (shared || invite) ? () => void refreshShared() : null;
+  });
+
+  // The dashboard's "Today's care" for a shared pet: own events plus the
+  // partner's type-only shadows. Undefined for a solo pet, so the screen keeps
+  // its solo rendering untouched.
+  const careDiary = useMemo(
+    () => (shared ? mergeCareDiary({ ownEvents: events, careLog, members, selfUserId: userId }) : undefined),
+    [shared, events, careLog, members, userId],
+  );
+
   const recordEvent = async (event: HealthEvent<unknown>) => {
     if (!pet) return;
     setPetFocusToken((token) => token + 1);
+    careMomentInFlight.current = true;
     try {
-      const eventDay = new Date(event.occurredAt);
-      const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
-      const decayed = applyTimeDecay(pet, eventDay);
-      // Read before the event lands: the point is whether this care moment is the
-      // one that arrived at the brink, not where it left the pet afterwards.
-      const wasDying = assessCondition(decayed).primary === 'dying';
-      // Strength is scored against recent training, so hand the engine the
-      // history it needs plus body weight for bodyweight-exercise volume.
-      const result = engine.apply(decayed, event, { history: events, bodyWeightKg: profile.weightKg });
-      let nextPet = result.pet;
-      let nextReaction = result.reaction;
+      const remote = isSupabaseConfigured && session ? remoteRepository : undefined;
+      // Decay, engine and bonuses all happen inside; with a remote, the write is
+      // optimistic and re-planned from the fresh row if the partner got in first.
+      // Fans out: one logged moment feeds every pet the user cares for. A person
+      // eats one meal and walks one set of steps, so the moment is a fact about
+      // them, not about a pet — and the shared pet never becomes a second chore.
+      const fanOut = await withTimeout(
+        commitCareMomentForAll({ pets, event, events, profile, engine, remote }),
+        SAVE_TIMEOUT_MESSAGE,
+      );
+      // The reaction shown is the on-screen pet's; the others are fed quietly.
+      const nextPet = fanOut.pets.find((candidate) => candidate.id === pet.id) ?? pet;
+      const nextReaction =
+        fanOut.results.find((result) => result.pet.id === pet.id)?.reaction ??
+        fanOut.results[0]?.reaction;
 
-      if (!wasActiveToday) {
-        const projected = calculateStreaks([...events, event], eventDay).currentStreak;
-        if (STREAK_MILESTONES.includes(projected)) {
-          const bonus = { xp: STREAK_MILESTONE_BONUS_XP, happiness: 10 };
-          nextPet = applyDelta(nextPet, bonus, event.occurredAt);
-          nextReaction = {
-            message: `${pet.name} celebrates your ${projected}-day streak! +${STREAK_MILESTONE_BONUS_XP} bonus XP`,
-            eventLabel: 'Streak milestone',
-            delta: bonus,
-          };
+      if (remote) {
+        await withTimeout(remote.saveEvent(event), SAVE_TIMEOUT_MESSAGE);
+        // The partner's view of this moment: a type and a time, nothing more.
+        // Best effort, and only once there is a partner to see it — the log
+        // starts at pairing, so nobody inherits a history they were not part of.
+        if (isSharedPet(members)) {
+          void remote
+            .appendCareLog({ petId: pet.id, userId, type: event.type, occurredAt: event.occurredAt })
+            .catch(() => undefined);
         }
-      }
-
-      // Last, so its message is the one shown: coming back from the brink outranks
-      // both the event's own reaction and a streak milestone.
-      if (wasDying) {
-        nextPet = applyDelta(nextPet, REVIVAL_BONUS, event.occurredAt);
-        nextReaction = {
-          message: `${pet.name} was fading — that care moment brought them back.`,
-          eventLabel: 'Back from the brink',
-          delta: { ...REVIVAL_BONUS },
-        };
-      }
-
-      if (isSupabaseConfigured && session) {
-        await withTimeout(remoteRepository.savePet(nextPet), 'Saving timed out. Check your connection.');
-        await withTimeout(remoteRepository.saveEvent(event), 'Saving timed out. Check your connection.');
       }
       await repository.savePet(nextPet);
       await repository.saveEvent(event);
-      setPet(nextPet);
-      showReaction(nextReaction);
+      setPets(fanOut.pets);
+      if (nextReaction) showReaction(nextReaction);
       setEvents((current) => [event, ...current]);
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save this care moment.'));
       throw cause;
+    } finally {
+      releasePetWrite();
     }
   };
 
@@ -366,13 +553,106 @@ export default function App() {
     const nextPet = { ...pet, breed: next };
     setPet(nextPet);
     setBreed(next);
+    // Held like a care moment: a foreground refresh landing between the
+    // optimistic setPet above and the versioned save would flash the old breed.
+    careMomentInFlight.current = true;
     try {
-      if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
+      if (isSupabaseConfigured && session) {
+        // Versioned, not upserted: a partner may hold this pet without having
+        // adopted it, and the insert half of an upsert is creator-only. One
+        // retry on conflict, re-applied to the fresh row so the partner's care
+        // in between is kept.
+        let base = pet;
+        let saved = await remoteRepository.savePetIfUnchanged(nextPet, base.version ?? 0);
+        if (saved.status === 'conflict') {
+          const fresh = await remoteRepository.loadPet();
+          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          base = fresh;
+          saved = await remoteRepository.savePetIfUnchanged({ ...fresh, breed: next }, fresh.version ?? 0);
+          if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
+        }
+        const stored = { ...base, breed: next, version: saved.version };
+        setPet(stored);
+        await repository.savePet(stored);
+        return;
+      }
       await repository.savePet(nextPet);
     } catch (cause) {
       setError(errorMessage(cause, 'Could not change your companion.'));
+    } finally {
+      releasePetWrite();
     }
   };
+
+  // --- Care partner actions ------------------------------------------------
+  // Each rejects with copy from `inviteErrorMessage`, and the screen that
+  // raised it shows the message inline, beside the code field or the button.
+
+  const runPartnerAction = async <T,>(action: () => Promise<T>): Promise<T> => {
+    setIsPartnerBusy(true);
+    try {
+      const result = await action();
+      setError(null);
+      return result;
+    } catch (cause) {
+      throw new Error(inviteErrorMessage(cause));
+    } finally {
+      setIsPartnerBusy(false);
+    }
+  };
+
+  const createInvite = () =>
+    runPartnerAction(async () => {
+      if (!pet) return;
+      setInvite(await remoteRepository.createInvite(pet.id));
+    });
+
+  const revokeInvite = () =>
+    runPartnerAction(async () => {
+      if (!invite) return;
+      await remoteRepository.revokeInvite(invite.id);
+      setInvite(null);
+    });
+
+  /**
+   * Joins a partner's pet. With a pet already, the server refuses unless the
+   * user confirms leaving it (the old pet is kept, never deleted); from
+   * onboarding, the profile is saved first so fuel targets work from day one.
+   * Resolves true once joined (the normal load path then fetches the new pet)
+   * and false when the user cancelled, so the screen keeps the typed code.
+   */
+  const redeemInvite = (code: string): Promise<boolean> =>
+    runPartnerAction(async () => {
+      let confirmLeave = false;
+      if (pet) {
+        const confirmed = await confirmDialog(
+          "Join your partner's pet?",
+          `${pet.name} stays as they are, but you'll stop caring for them.`,
+          'Join',
+        );
+        if (!confirmed) return false;
+        confirmLeave = true;
+      } else {
+        await persistProfile(profile);
+      }
+      await remoteRepository.redeemInvite(code, { confirmLeave });
+      setReloadToken((token) => token + 1);
+      return true;
+    });
+
+  /** Leaves the shared pet; the partner keeps it. */
+  const leavePet = () =>
+    runPartnerAction(async () => {
+      if (!pet) return;
+      const confirmed = await confirmDialog(
+        `Leave ${pet.name}?`,
+        `You'll stop caring for ${pet.name}. ${partnerName ?? 'Your partner'} keeps them, and you can adopt a new pet.`,
+        'Leave',
+      );
+      if (!confirmed) return;
+      await remoteRepository.leavePet();
+      clearPetState();
+    });
 
   const adopt = async () => {
     try {
@@ -428,6 +708,61 @@ export default function App() {
     await recordEvent(makeEvent<BrainTrainingMetadata>(userId, 'BRAIN_TRAINING', metadata));
   };
 
+  /**
+   * One screen-time log per day, like one night of sleep per day: a second
+   * total for the same day is refused rather than stacked, so the pet cannot be
+   * fed the same day twice. Refused, not replaced: neither repository has a
+   * delete or update path for events (both only `saveEvent`/insert), so a
+   * mistyped total cannot be corrected yet and the message says so plainly.
+   */
+  const assertTodayScreenTimeNotLogged = () => {
+    const existing = findScreenTimeForDate(events, new Date());
+    if (existing) {
+      throw new Error(
+        `Today's screen time is already logged (${existing.metadata.minutes} min) and can't be changed yet — try again tomorrow.`,
+      );
+    }
+  };
+
+  /**
+   * Manual path (every platform): the number the user read off their phone's
+   * own Screen Time page. The Profile screen owns the error for this path, so
+   * the global banner `recordEvent` sets is cleared before rethrowing — the
+   * same message must not show twice.
+   */
+  const logScreenTime = async (minutes: number, budgetMinutes?: number) => {
+    assertTodayScreenTimeNotLogged();
+    try {
+      await recordEvent(mapManualScreenTime(userId, minutes, budgetMinutes) as HealthEvent<ScreenTimeMetadata>);
+    } catch (cause) {
+      setError(null);
+      throw cause;
+    }
+  };
+
+  /** Android path: read today's total from UsageStatsManager, routing to Settings first if access is missing. */
+  const syncScreenTime = async (budgetMinutes?: number) => {
+    if (!hasUsageAccess()) {
+      if (!openUsageAccessSettings()) setError('Screen time sync is not available in this build.');
+      return;
+    }
+    setIsSyncingScreenTime(true);
+    try {
+      assertTodayScreenTimeNotLogged();
+      const event = await stepsProvider.getTodayScreenTime(userId, budgetMinutes);
+      if (!event) {
+        setError('Could not read screen time from this device.');
+        return;
+      }
+      await recordEvent(event);
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not sync screen time.'));
+    } finally {
+      setIsSyncingScreenTime(false);
+    }
+  };
+
   const saveWordPuzzleProgress = (progress: WordPuzzleProgress) => {
     setWordPuzzleProgress(progress);
     void repository.saveWordPuzzleProgress(progress).catch(() => undefined);
@@ -473,17 +808,62 @@ export default function App() {
     }
   };
 
+  /**
+   * DEV ONLY. Writes ~90 days of synthetic history so the insights layer can be
+   * seen working: its thresholds keep a real account silent for weeks, which
+   * makes a broken insight and an unproven one look identical.
+   *
+   * Seeded events are written straight to the repository rather than through
+   * `recordEvent`, on purpose. `recordEvent` replays each event through the pet
+   * engine and moves `lastEventAt`, so pushing three months of history through it
+   * would rewrite the pet's stats and wreck its decay anchor. The insights layer
+   * reads the event log, not the pet, so the log is all that needs filling.
+   */
+  const seedTestData = async () => {
+    if (!isSupabaseConfigured || !session) return;
+    setIsSeeding(true);
+    try {
+      const seeded = generateSeedEvents(userId);
+      await remoteRepository.saveEvents(seeded);
+      setEvents(await remoteRepository.loadEvents());
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not seed test data.'));
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  /** Sweeps out everything `seedTestData` wrote, keyed on its `mock` source. */
+  const clearSeededData = async () => {
+    if (!isSupabaseConfigured || !session) return;
+    setIsSeeding(true);
+    try {
+      await remoteRepository.deleteEventsBySource(SEED_SOURCE);
+      setEvents(await remoteRepository.loadEvents());
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not clear seeded data.'));
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   const syncAppleHealth = async () => {
     if (!pet) return;
     setIsSyncingAppleHealth(true);
     try {
-      // Never ask for anything older than the pet's current anchor: replaying an
-      // event earlier than `lastEventAt` would rewind it, corrupting future
-      // decay math. The recent-window cap on top of that is a deliberate scope
-      // choice — see RECENT_SYNC_WINDOW_HOURS in healthKitProvider.ts.
+      // Never ask for anything older than this user's own newest event: anything
+      // before it was already imported or deliberately skipped. The user's own
+      // event, not the pet's `lastEventAt` — with a partner, the pet's anchor
+      // moves whenever THEY care, and keying on it would silently skip this
+      // user's workouts from before that. (Solo, the two are the same instant.)
+      // The recent-window cap on top of that is a deliberate scope choice — see
+      // RECENT_SYNC_WINDOW_HOURS in healthKitProvider.ts.
       const windowStart = Date.now() - RECENT_SYNC_WINDOW_HOURS * 60 * 60 * 1000;
-      const lastEventAtMs = pet.lastEventAt ? new Date(pet.lastEventAt).getTime() : windowStart;
-      const since = new Date(Math.max(windowStart, lastEventAtMs));
+      const ownNewest = newestOccurredAt(events);
+      const ownNewestMs = ownNewest ? new Date(ownNewest).getTime() : windowStart;
+      const since = new Date(Math.max(windowStart, ownNewestMs));
       const knownExternalIds = getKnownHealthKitExternalIds(events);
 
       const [workouts, meals, sleep] = await Promise.all([
@@ -512,7 +892,7 @@ export default function App() {
     void signOut()
       .then(async () => {
         setSession(null);
-        setPet(null);
+        clearPetState();
         setEvents([]);
         setWordPuzzleProgress(null);
         setIsAppleHealthConnected(false);
@@ -573,10 +953,13 @@ export default function App() {
           onAdopt={adopt}
           error={error}
           onSignOut={isSupabaseConfigured && session ? logOut : undefined}
+          onRedeemInvite={isSupabaseConfigured && session ? redeemInvite : undefined}
         />
       </View>
     );
   }
+
+  const isOnline = isSupabaseConfigured && Boolean(session);
 
   // What the screens draw: the stored pet projected forward to `now`. Derived on
   // every tick, stored nowhere.
@@ -614,6 +997,17 @@ export default function App() {
               onForceAilment={isDev ? setForcedAilment : undefined}
               forcedForm={isDev ? forcedForm : undefined}
               onForceForm={isDev ? setForcedForm : undefined}
+              pets={pets.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
+              activePetId={pet.id}
+              onSelectPet={(petId) => {
+                setActivePetId(petId);
+                // Members, care log and invite all belong to one pet, so they are
+                // refetched for whichever is now on screen.
+                if (isSupabaseConfigured && session) void refreshShared();
+              }}
+              onSeedTestData={isDev ? () => void seedTestData() : undefined}
+              onClearSeededData={isDev ? () => void clearSeededData() : undefined}
+              isSeeding={isSeeding}
               isAnalyzingMeal={isAnalyzingMeal}
               isEating={isEating}
               feedingImage={feedingImage}
@@ -621,6 +1015,9 @@ export default function App() {
               isCelebrating={isCelebrating}
               isWorkingOut={isWorkingOut}
               isExploring={isExploring}
+              careDiary={careDiary}
+              partnerName={shared ? partnerName : undefined}
+              onRefresh={isOnline && shared ? refreshShared : undefined}
             />
           )}
         </RootStack.Screen>
@@ -647,6 +1044,32 @@ export default function App() {
               onConnectAppleHealth={() => void connectAppleHealth()}
               onSyncAppleHealth={() => void syncAppleHealth()}
               isSyncingAppleHealth={isSyncingAppleHealth}
+              onLogScreenTime={logScreenTime}
+              screenTimeAccess={
+                Platform.OS === 'android' && isScreenTimeModuleAvailable()
+                  ? {
+                      granted: hasScreenTimeAccess,
+                      onOpenSettings: () => void openUsageAccessSettings(),
+                      onSync: (budgetMinutes) => void syncScreenTime(budgetMinutes),
+                      syncing: isSyncingScreenTime,
+                    }
+                  : undefined
+              }
+              carePartner={
+                isOnline
+                  ? {
+                      petName: pet.name,
+                      selfUserId: userId,
+                      members,
+                      invite,
+                      busy: isPartnerBusy,
+                      onCreateInvite: createInvite,
+                      onRevokeInvite: revokeInvite,
+                      onRedeemInvite: redeemInvite,
+                      onLeave: leavePet,
+                    }
+                  : undefined
+              }
             />
           )}
         </RootStack.Screen>

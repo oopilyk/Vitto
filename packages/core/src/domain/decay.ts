@@ -73,15 +73,15 @@ export const MAX_DECAY_DAYS = 14;
 export const MIN_LIVING_HEALTH = 1;
 
 /** Below this a need is starving/exhausted/miserable and starts costing health. */
-const CRITICAL_NEED = 20;
+export const CRITICAL_NEED = 20;
 /** At or above this on every need, the pet is thriving and health regenerates. */
-const THRIVING_NEED = 60;
+export const THRIVING_NEED = 60;
 
-const HEALTH_REGEN_PER_DAY = 3;
-const HEALTH_DRAIN_PER_CRITICAL_NEED_PER_DAY = 4;
+export const HEALTH_REGEN_PER_DAY = 3;
+export const HEALTH_DRAIN_PER_CRITICAL_NEED_PER_DAY = 4;
 
 /** The needs that can kill. `mind` is excluded: a dull mind drives a visual, it does not kill the dog. */
-const VITAL_NEEDS = ['nutrition', 'energy', 'happiness'] as const;
+export const VITAL_NEEDS = ['nutrition', 'energy', 'happiness'] as const;
 
 /**
  * Projects a pet's needs-based stats forward from its last care event to `asOf`,
