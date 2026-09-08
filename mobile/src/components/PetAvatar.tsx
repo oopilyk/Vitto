@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Animated, Easing, Image, StyleSheet, type StyleProp, Text, View, type ViewStyle } from 'react-native';
 import {
   type MealAnalysis,
   type PetAilment,
@@ -34,6 +34,12 @@ interface PetAvatarProps {
   isWorkingOut: boolean;
   isExploring: boolean;
   children?: React.ReactNode;
+  /**
+   * Overrides the stage's fixed height. The dashboard passes `{ flex: 1 }` so the
+   * pet fills everything between the top bar and the log buttons; every other
+   * caller (the picker previews) keeps the default.
+   */
+  stageStyle?: StyleProp<ViewStyle>;
 }
 
 const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
@@ -152,6 +158,7 @@ export function PetAvatar({
   isWorkingOut,
   isExploring,
   children,
+  stageStyle,
 }: PetAvatarProps) {
   const activity: PetActivity = isCelebrating
     ? 'celebrating'
@@ -317,7 +324,7 @@ export function PetAvatar({
       : mixHex(AURA_BY_MOOD[pet.mood], colors.slate, decline.intensity * 0.7);
 
   return (
-    <View style={styles.stage}>
+    <View style={[styles.stage, stageStyle]}>
       {children}
       <PetAura color={baseAura} size={size} />
       {feedingImage ? (

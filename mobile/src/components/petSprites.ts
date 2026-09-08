@@ -385,7 +385,7 @@ const OTTER_ANIMATIONS: PetSheet['animations'] = {
   // so it bounces off the last one rather than cutting straight back.
   cheer: [[2, 3], [2, 4], [2, 5], [2, 4]],
   // The dash band. [4,5] is left out — it is a dizzy sit, not a stride.
-  move: [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4]],
+  move: [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4],[3,3],[3,2]],
   // Curled asleep. Two near-identical tight curls, so the loop is a breath.
   rest: [[7, 0]],
   // Real dizzy art — spiral eyes and its own orbiting stars, so `selfDrawn`
