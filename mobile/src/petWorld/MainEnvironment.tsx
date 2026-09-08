@@ -17,6 +17,13 @@ import { isNightTime } from './timeOfDay';
 const MAIN_DAY = require('../../assets/environments/main-day.png');
 const MAIN_NIGHT = require('../../assets/environments/main-night.png');
 
+// Placeholder button art — one flat-color circle per action, standing in for
+// real destination photos until Gym/Outdoors/Study exist as their own scenes.
+const KITCHEN_BUTTON = require('../../assets/buttons/kitchen.png');
+const GYM_BUTTON = require('../../assets/buttons/gym.png');
+const OUTDOORS_BUTTON = require('../../assets/buttons/outdoors.png');
+const STUDY_BUTTON = require('../../assets/buttons/study.png');
+
 /** Roughly the night art's own dominant tone, so the crossfade/underlay never flashes the day color. */
 const NIGHT_TINT = '#3c3a5e';
 
@@ -42,16 +49,42 @@ function MainEnvironmentControls({
 }: MainEnvironmentControlsProps) {
   return (
     <View style={styles.bottomRow}>
-      <CircleButton label="Meal" icon="✣" tint={colors.yellow} ink={colors.yellowDeep} onPress={onFeedTap} />
       <CircleButton
-        label="Workout"
+        label="Kitchen"
+        accessibilityLabel="Log meal"
+        icon="✣"
+        tint={colors.yellow}
+        ink={colors.yellowDeep}
+        backgroundImage={KITCHEN_BUTTON}
+        onPress={onFeedTap}
+      />
+      <CircleButton
+        label="Gym"
+        accessibilityLabel="Log workout"
         icon="↗"
         tint={colors.coralWash}
         ink={colors.coralDeep}
+        backgroundImage={GYM_BUTTON}
         onPress={onLogWorkout}
       />
-      <CircleButton label="Steps" icon="⁁" tint={colors.mint} ink={colors.mintDeep} onPress={onSyncSteps} />
-      <CircleButton label="Mind" icon="✻" tint={colors.lilac} ink={colors.lilacDeep} onPress={onTrainMind} />
+      <CircleButton
+        label="Outdoors"
+        accessibilityLabel="Log steps"
+        icon="⁁"
+        tint={colors.mint}
+        ink={colors.mintDeep}
+        backgroundImage={OUTDOORS_BUTTON}
+        onPress={onSyncSteps}
+      />
+      <CircleButton
+        label="Study"
+        accessibilityLabel="Log mind"
+        icon="✻"
+        tint={colors.lilac}
+        ink={colors.lilacDeep}
+        backgroundImage={STUDY_BUTTON}
+        onPress={onTrainMind}
+      />
     </View>
   );
 }

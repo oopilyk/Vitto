@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, type ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 
 /**
@@ -16,6 +16,7 @@ export function CircleButton({
   size = 56,
   onPress,
   accessibilityLabel,
+  backgroundImage,
 }: {
   label: string;
   icon: string;
@@ -27,6 +28,12 @@ export function CircleButton({
    * accessible name. Kitchen's single CTA passes its own, since "Log choose
    * food" doesn't read as a sentence. */
   accessibilityLabel?: string;
+  /**
+   * A photo filling the circle behind the glyph, clipped to it. Optional and
+   * backward-compatible — omitting it keeps the original flat-tinted circle
+   * (e.g. Kitchen's "Choose food" button, which has no art of its own yet).
+   */
+  backgroundImage?: ImageSourcePropType;
 }) {
   return (
     <Pressable
@@ -41,7 +48,12 @@ export function CircleButton({
           { width: size, height: size, borderRadius: size / 2, backgroundColor: tint },
         ]}
       >
-        <Text style={{ color: ink, fontSize: size * 0.36 }}>{icon}</Text>
+        {backgroundImage ? (
+          <Image source={backgroundImage} style={styles.circleImage} resizeMode="cover" />
+        ) : null}
+        <Text style={[{ color: ink, fontSize: size * 0.36 }, !!backgroundImage && styles.glyphOnImage]}>
+          {icon}
+        </Text>
       </View>
       <Text style={styles.label}>{label}</Text>
     </Pressable>
@@ -54,11 +66,20 @@ const styles = StyleSheet.create({
   circle: {
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: '#26312d',
     shadowOpacity: 0.1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
+  },
+  circleImage: { ...StyleSheet.absoluteFill },
+  // A soft shadow under the glyph keeps it legible sitting on top of a photo,
+  // rather than needing its own solid-chip backing.
+  glyphOnImage: {
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 1 },
   },
   label: {
     fontFamily: fonts.mono,

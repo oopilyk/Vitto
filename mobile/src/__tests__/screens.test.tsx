@@ -444,6 +444,53 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('stays in the Kitchen after a feed-to-celebration cycle finishes, instead of auto-returning to the bedroom', () => {
+    let tree!: renderer.ReactTestRenderer;
+    const render = (interaction: UsePetInteractionResult) => {
+      const element = (
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={interaction}
+        />
+      );
+      if (tree) {
+        act(() => tree.update(element));
+      } else {
+        act(() => {
+          tree = renderer.create(element);
+        });
+      }
+    };
+
+    render(idleInteraction);
+    const findButton = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+
+    // Walk into the Kitchen the same way a real feed tap does.
+    act(() => findButton('Log meal')!.props.onPress());
+    expect(findButton('Choose food')).toBeTruthy();
+
+    // Drive the interaction prop through celebrating -> idle, the same
+    // transition that used to bounce the screen back to Main (see the
+    // deleted `previousKind` effect in `DashboardScreen`).
+    render({ ...idleInteraction, state: { kind: 'celebrating', grade: 'A' } });
+    render({ ...idleInteraction, state: { kind: 'idle' } });
+
+    expect(findButton('Choose food')).toBeTruthy();
+    tree.unmount();
+  });
+
   it('runs a maths round in the mind gym', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

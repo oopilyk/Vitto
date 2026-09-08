@@ -79,18 +79,6 @@ export function DashboardScreen({
     // renders (see `usePetInteraction`), so this isn't re-run by its identity.
   }, [interaction]);
 
-  // Once the celebration finishes, the meal is done and the Kitchen's job is
-  // over — back to the bedroom. Edge-triggered off the celebrating->idle
-  // transition specifically, not "idle while in the kitchen", so arriving in
-  // the kitchen (still idle, food not chosen yet) never bounces straight back.
-  const previousKind = useRef(interaction.state.kind);
-  useEffect(() => {
-    if (previousKind.current === 'celebrating' && interaction.state.kind === 'idle') {
-      setEnvironment('main');
-    }
-    previousKind.current = interaction.state.kind;
-  }, [interaction.state.kind]);
-
   const formLabel = hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : `Level ${pet.level}`;
 
   const enterKitchen = () => {
