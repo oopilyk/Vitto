@@ -105,7 +105,7 @@ export function EnvironmentStage({
         accessibilityLabel={onPetTap ? `Say hi to ${pet.name}` : undefined}
       >
         <Animated.View style={[styles.petStage, { transform: [{ scale: pulse }] }]}>
-          <PetAvatar pet={pet} {...activityProps} stageStyle={styles.petStage}>
+          <PetAvatar pet={pet} {...activityProps} stageStyle={styles.petStage} hideStatusCaption>
             {null}
           </PetAvatar>
         </Animated.View>

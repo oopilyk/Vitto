@@ -40,6 +40,12 @@ interface PetAvatarProps {
    * caller (the picker previews) keeps the default.
    */
   stageStyle?: StyleProp<ViewStyle>;
+  /**
+   * Hides the "<name> is here"-style caption under the pet. The status stays on
+   * the accessibility label either way. Callers that already show their own
+   * status copy nearby (petWorld's HUD) set this so the message isn't doubled.
+   */
+  hideStatusCaption?: boolean;
 }
 
 const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
@@ -159,6 +165,7 @@ export function PetAvatar({
   isExploring,
   children,
   stageStyle,
+  hideStatusCaption,
 }: PetAvatarProps) {
   const activity: PetActivity = isCelebrating
     ? 'celebrating'
@@ -378,9 +385,11 @@ export function PetAvatar({
       <Confetti active={isCelebrating} headOffset={headOffset} />
       <HeartStream active={showHearts} headOffset={headOffset} />
 
-      <Text style={styles.status}>
-        {STATUS_TEXT[activity](pet.name)} <Text style={{ color: colors.coral }}>♥</Text>
-      </Text>
+      {hideStatusCaption ? null : (
+        <Text style={styles.status}>
+          {STATUS_TEXT[activity](pet.name)} <Text style={{ color: colors.coral }}>♥</Text>
+        </Text>
+      )}
     </View>
   );
 }

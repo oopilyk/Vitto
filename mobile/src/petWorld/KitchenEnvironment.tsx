@@ -1,16 +1,21 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import { CircleButton } from './CircleButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
+import { isNightTime } from './timeOfDay';
 
 /**
  * The Kitchen: reached by tapping Meal, it presents the "choose food" control
  * that opens the existing `MealCaptureScreen` modal — no rebuilt camera/search
  * UI, no shop, just the entry point into the flow that already exists,
- * dressed as a distinct scene rather than a form. Illustrated with plain RN
- * shapes in Vitto's own palette (per the product owner's note: no photographic
- * assets, no bright cartoon icon crowding), not a new asset.
+ * dressed as a distinct scene rather than a form. Dressed with the product
+ * owner's own day/night kitchen art, picked by `isNightTime` the same way
+ * `MainEnvironment` does.
  */
+
+const KITCHEN_DAY = require('../../assets/environments/kitchen-day.png');
+const KITCHEN_NIGHT = require('../../assets/environments/kitchen-night.png');
+const NIGHT_TINT = '#3d3a63';
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
@@ -46,44 +51,19 @@ function KitchenEnvironmentControls({ petName, onChooseFood, onBack }: KitchenEn
   );
 }
 
-function KitchenBackground() {
-  return (
-    <View style={styles.scenery} pointerEvents="none">
-      <View style={styles.counter} />
-      <View style={styles.bowl} />
-    </View>
-  );
-}
-
 export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): EnvironmentDressing {
+  const night = isNightTime();
   return {
-    background: <KitchenBackground />,
-    backgroundColor: colors.yellow,
+    background: (
+      <Image source={night ? KITCHEN_NIGHT : KITCHEN_DAY} style={styles.backdrop} resizeMode="cover" />
+    ),
+    backgroundColor: night ? NIGHT_TINT : colors.yellow,
     controls: <KitchenEnvironmentControls {...props} />,
   };
 }
 
 const styles = StyleSheet.create({
-  scenery: { flex: 1, justifyContent: 'flex-end' },
-  // A plain counter line and a bowl — just enough dressing to read as a
-  // kitchen without drawing anything representational.
-  counter: {
-    height: 64,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(154,123,40,0.25)',
-  },
-  bowl: {
-    position: 'absolute',
-    bottom: 40,
-    alignSelf: 'center',
-    width: 84,
-    height: 28,
-    borderRadius: 42,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    borderWidth: 1,
-    borderColor: 'rgba(154,123,40,0.25)',
-  },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   bottomRow: {
     position: 'absolute',
     left: 0,
