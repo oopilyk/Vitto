@@ -12,6 +12,18 @@ The arithmetic — a rolling step-cadence window and a haversine radius check �
 is pure and lives in `packages/core/src/domain/ambient.ts`, unit-tested without
 a device. The platform edges are the two hooks in `mobile/src/services/ambient.ts`.
 
+Both surface through the pet's own interaction state machine rather than
+bypassing it: `App.tsx` resolves the live hooks (or a dev override) into
+`isWalking`/`atGym` and hands them to `DashboardScreen`, which feeds `isWalking`
+into `usePetInteraction`'s new `setAmbientWalking` input (see
+`mobile/src/petWorld/petInteractionReducer.ts`'s `ambientWalking` state — a
+live, un-timed sibling of the tap-triggered `exploring` state, both mapped to
+the same walk/run sprite band) so it shows in the Main environment without the
+Outdoors button being tapped. `atGym` stays a plain prop straight through
+`EnvironmentStage` to `PetAvatar` (it says where the user is, not what the pet
+is doing, so it must not change the animation band) — it parks a dumbbell
+beside the pet in whichever environment is on screen.
+
 ## Privacy rule
 
 **Nothing is stored.** Walking is a few seconds of step deltas held in memory
@@ -43,8 +55,9 @@ it stays quiet rather than nagging on every launch.
 
 Both cues need a dev build (`npx expo prebuild` after the `app.json` change,
 then `expo run:ios` / `run:android`) — Expo Go cannot load the native modules.
-The dashboard's dev strip has an **AMBIENT** row (`Live · Walking · At gym`)
-that forces either cue, so the animation and the prop can be checked at a desk.
+The **Today** screen's dev panels (dev accounts only) have a "Dev · force
+ambient" row (`Live · Walking · At gym`) that forces either cue on the
+dashboard's pet, so the animation and the prop can be checked at a desk.
 
 ## Not verified on-device
 

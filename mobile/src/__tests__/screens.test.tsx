@@ -1,6 +1,8 @@
 import renderer, { act } from 'react-test-renderer';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
+import { IDLE_STATE } from '../petWorld/types';
+import type { UsePetInteractionResult } from '../petWorld/usePetInteraction';
 import { TodayScreen } from '../screens/TodayScreen';
 import { MindGymScreen } from '../screens/MindGymScreen';
 import {
@@ -54,6 +56,19 @@ const profile: BodyProfile = {
 };
 
 const pet = createPet('user-1', 'Miso');
+
+/** A `DashboardScreen` in front of a pet doing nothing in particular. */
+const idleInteraction: UsePetInteractionResult = {
+  state: IDLE_STATE,
+  notice: () => {},
+  startAnalyzing: () => {},
+  stopAnalyzing: () => {},
+  startFeeding: () => {},
+  startWorkout: () => {},
+  startExploring: () => {},
+  setAmbientWalking: () => {},
+  reset: () => {},
+};
 
 /**
  * Fourteen days of sleep and brain sessions ending yesterday: six short nights with
@@ -166,9 +181,12 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('shows a status chip for every active ailment, not just the worst', () => {
-    // The sprite and headline only ever show the highest-precedence ailment, so
-    // this tray is the only place a second problem is visible at all.
+  it('shows a status chip for the two worst active ailments, quietly capped rather than listing every one', () => {
+    // The full-bleed redesign keeps this tray to a glance (per the product
+    // owner's "at most one or two" chip note) — the sprite/headline still show
+    // only the single highest-precedence ailment, and the complete list is a
+    // stat-sheet tap away via the level ring, so a third simultaneous ailment
+    // (Foggy here) is deliberately not also crowded into the chip row.
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -183,20 +201,14 @@ describe('screens render', () => {
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
           onOpenToday={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          interaction={idleInteraction}
         />,
       );
     });
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).toContain('Starving');
     expect(rendered).toContain('Lonely');
-    expect(rendered).toContain('Foggy');
+    expect(rendered).not.toContain('Foggy');
     tree.unmount();
   });
 
@@ -215,13 +227,7 @@ describe('screens render', () => {
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
           onOpenToday={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          interaction={idleInteraction}
         />,
       );
     });
@@ -344,13 +350,7 @@ describe('screens render', () => {
           onOpenStats={() => {}}
           onOpenToday={() => {}}
           accountInitial="k"
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          interaction={idleInteraction}
         />,
       );
     });
@@ -384,13 +384,7 @@ describe('screens render', () => {
             opened += 1;
           }}
           onOpenToday={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          interaction={idleInteraction}
         />,
       );
     });
@@ -420,35 +414,82 @@ describe('screens render', () => {
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
           onOpenToday={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          interaction={idleInteraction}
         />,
       );
     });
 
-    // Each Pressable matches as both composite and host node, so key by label.
-    const buttons = new Map<string, any>();
-    for (const node of tree.root.findAllByProps({ accessibilityRole: 'button' })) {
-      const label = node.props.accessibilityLabel;
-      if (typeof label === 'string' && label.startsWith('Log ') && !buttons.has(label)) {
-        buttons.set(label, node);
-      }
-    }
-    expect([...buttons.keys()]).toEqual(['Log meal', 'Log workout', 'Log steps', 'Log mind']);
+    const findButton = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
 
-    // Nothing on the dashboard scrolls: the pet, the log buttons and the profile
-    // are the whole screen, and the day's detail lives on its own page.
+    // Nothing on the dashboard scrolls: a full-bleed environment with no boxed
+    // panels, and the day's detail lives on its own page.
     const { ScrollView } = require('react-native');
     expect(tree.root.findAllByType(ScrollView)).toHaveLength(0);
-    for (const [, button] of buttons) {
-      act(() => button.props.onPress());
-    }
-    expect(pressed).toEqual(['meal', 'workout', 'steps', 'mind']);
+
+    act(() => findButton('Log workout')!.props.onPress());
+    act(() => findButton('Log steps')!.props.onPress());
+    act(() => findButton('Log mind')!.props.onPress());
+    expect(pressed).toEqual(['workout', 'steps', 'mind']);
+
+    // Feed doesn't call `onLogMeal` directly any more -- it walks the pet into
+    // the Kitchen first, which shows the same action row (including its own
+    // "Log meal" button, reused for "choose food") rather than a page.
+    act(() => findButton('Log meal')!.props.onPress());
+    expect(pressed).toEqual(['workout', 'steps', 'mind']);
+    expect(findButton('Log meal')).toBeTruthy();
+
+    act(() => findButton('Log meal')!.props.onPress());
+    expect(pressed).toEqual(['workout', 'steps', 'mind', 'meal']);
+    tree.unmount();
+  });
+
+  it('stays in the Kitchen after a feed-to-celebration cycle finishes, instead of auto-returning to the bedroom', () => {
+    let tree!: renderer.ReactTestRenderer;
+    const render = (interaction: UsePetInteractionResult) => {
+      const element = (
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={interaction}
+        />
+      );
+      if (tree) {
+        act(() => tree.update(element));
+      } else {
+        act(() => {
+          tree = renderer.create(element);
+        });
+      }
+    };
+
+    render(idleInteraction);
+    const findButton = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+
+    // Walk into the Kitchen the same way a real feed tap does.
+    act(() => findButton('Log meal')!.props.onPress());
+    expect(findButton('Log meal')).toBeTruthy();
+
+    // Drive the interaction prop through celebrating -> idle, the same
+    // transition that used to bounce the screen back to Main (see the
+    // deleted `previousKind` effect in `DashboardScreen`).
+    render({ ...idleInteraction, state: { kind: 'celebrating', grade: 'A' } });
+    render({ ...idleInteraction, state: { kind: 'idle' } });
+
+    expect(findButton('Log meal')).toBeTruthy();
     tree.unmount();
   });
 
@@ -1367,13 +1408,7 @@ describe('care partners', () => {
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
           onOpenToday={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          interaction={idleInteraction}
           partnerName="Alex"
         />,
       );
@@ -1407,13 +1442,7 @@ describe('care partners', () => {
           onOpenToday={() => {
             opened += 1;
           }}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          interaction={idleInteraction}
         />,
       );
     });
@@ -1438,13 +1467,7 @@ describe('care partners', () => {
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
           onOpenToday={() => {}}
-          isAnalyzingMeal={false}
-          isEating={false}
-          feedingImage={null}
-          feedingGrade={null}
-          isCelebrating={false}
-          isWorkingOut={false}
-          isExploring={false}
+          interaction={idleInteraction}
         />,
       );
     });

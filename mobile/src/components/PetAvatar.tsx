@@ -47,6 +47,20 @@ interface PetAvatarProps {
    * caller (the picker previews) keeps the default.
    */
   stageStyle?: StyleProp<ViewStyle>;
+  /**
+   * Hides the "<name> is here"-style caption under the pet. The status stays on
+   * the accessibility label either way. Callers that already show their own
+   * status copy nearby (petWorld's HUD) set this so the message isn't doubled.
+   */
+  hideStatusCaption?: boolean;
+  /**
+   * Overrides `PET_SIZE`. Most callers (the breed pickers, `FriendPetCard`,
+   * older dashboard paths, tests) rely on the default — the sprite art was
+   * drawn and framed against that one size. `petWorld`'s `EnvironmentStage`
+   * passes a larger value so the pet reads as the main object of its own
+   * full-bleed scene, without resizing it anywhere else it's used.
+   */
+  size?: number;
 }
 
 const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
@@ -167,6 +181,8 @@ export function PetAvatar({
   atGym,
   children,
   stageStyle,
+  hideStatusCaption,
+  size: sizeOverride,
 }: PetAvatarProps) {
   const activity: PetActivity = isCelebrating
     ? 'celebrating'
@@ -187,7 +203,7 @@ export function PetAvatar({
   const sleeping = isSleeping(pet.energy, condition, activity);
   const animation = sleeping ? 'rest' : animationFor(activity, pet.mood, condition);
   const frames = sheet.animations[animation];
-  const size = PET_SIZE;
+  const size = sizeOverride ?? PET_SIZE;
 
   // Step through the band's cells; each animation restarts from its first frame.
   const [frameIndex, setFrameIndex] = useState(0);
@@ -387,9 +403,11 @@ export function PetAvatar({
       <Dumbbell active={Boolean(atGym)} size={size} />
       <HeartStream active={showHearts} headOffset={headOffset} />
 
-      <Text style={styles.status}>
-        {STATUS_TEXT[activity](pet.name)} <Text style={{ color: colors.coral }}>♥</Text>
-      </Text>
+      {hideStatusCaption ? null : (
+        <Text style={styles.status}>
+          {STATUS_TEXT[activity](pet.name)} <Text style={{ color: colors.coral }}>♥</Text>
+        </Text>
+      )}
     </View>
   );
 }

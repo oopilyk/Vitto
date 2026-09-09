@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PetHealthEngine, applyDelta } from './petHealthEngine';
-import { createPet } from './pet';
+import { clamp, createPet } from './pet';
 import type { HealthEvent, WorkoutStats } from './health';
 
 const event = { id: 'event-1', userId: 'user-1', occurredAt: '2026-08-28T12:00:00Z', type: 'WORKOUT' as const, source: 'manual' as const, metadata: { workoutType: 'strength', durationMinutes: 30, intensity: 'moderate' as const } };
@@ -140,6 +140,128 @@ describe('PetHealthEngine', () => {
     expect(Number.isFinite(result.pet.xp)).toBe(true);
     expect(result.pet.mind).toBeGreaterThanOrEqual(pet.mind);
     expect(result.reaction.eventLabel).toBe('Read and recall');
+  });
+});
+
+describe('MEAL', () => {
+  const mealEvent = (metadata: {
+    protein?: boolean;
+    vegetables?: boolean;
+    fruit?: boolean;
+    wholeGrains?: boolean;
+    fiber?: boolean;
+    treats?: boolean;
+  }): HealthEvent => ({
+    id: 'meal-1',
+    userId: 'user-1',
+    occurredAt: '2026-08-28T12:00:00Z',
+    type: 'MEAL',
+    source: 'manual',
+    metadata: {
+      protein: false,
+      vegetables: false,
+      fruit: false,
+      wholeGrains: false,
+      fiber: false,
+      treats: false,
+      ...metadata,
+    },
+  });
+
+  it('scales nutrition by the count of nourishing signals present', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(
+      pet,
+      mealEvent({ protein: true, vegetables: true, fruit: true, wholeGrains: true, fiber: true }),
+    );
+
+    expect(result.pet.nutrition).toBe(clamp(pet.nutrition + 15));
+  });
+
+  it('gives no nutrition at all when every nourishing signal is absent', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(pet, mealEvent({}));
+
+    expect(result.pet.nutrition).toBe(pet.nutrition);
+  });
+
+  it('pays the health and energy bonus once three or more nourishing signals are hit', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(
+      pet,
+      mealEvent({ protein: true, vegetables: true, fruit: true }),
+    );
+
+    expect(result.pet.health).toBe(clamp(pet.health + 2));
+    expect(result.pet.energy).toBe(clamp(pet.energy + 3));
+  });
+
+  it('withholds the health and energy bonus below the three-signal threshold', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(pet, mealEvent({ protein: true, vegetables: true }));
+
+    expect(result.pet.health).toBe(pet.health);
+    expect(result.pet.energy).toBe(pet.energy);
+  });
+
+  it('rewards a treat-only meal with the higher happiness bonus, not the plain one', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(pet, mealEvent({ treats: true }));
+
+    expect(result.pet.happiness).toBe(clamp(pet.happiness + 4));
+  });
+
+  it('gives the lower happiness bonus to a meal logged without treats', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(pet, mealEvent({ protein: true }));
+
+    expect(result.pet.happiness).toBe(clamp(pet.happiness + 2));
+  });
+
+  it('awards a flat 10 xp regardless of how nourishing or indulgent the meal was', () => {
+    const pet = createPet('user-1', 'Miso');
+    const junkResult = new PetHealthEngine().apply(pet, mealEvent({ treats: true }));
+    const balancedResult = new PetHealthEngine().apply(
+      pet,
+      mealEvent({ protein: true, vegetables: true, fruit: true, wholeGrains: true, fiber: true }),
+    );
+
+    expect(junkResult.reaction.delta.xp).toBe(10);
+    expect(balancedResult.reaction.delta.xp).toBe(10);
+  });
+
+  it('leads with the treat message even when the meal is otherwise fully nourishing', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(
+      pet,
+      mealEvent({ protein: true, vegetables: true, fruit: true, wholeGrains: true, fiber: true, treats: true }),
+    );
+
+    expect(result.reaction.message).toContain('savored the treat');
+  });
+
+  it('falls back to the variety message for a treat-free meal', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(pet, mealEvent({ protein: true, vegetables: true, fruit: true }));
+
+    expect(result.reaction.message).toContain('loved the variety');
+  });
+
+  it('labels every meal event the same way regardless of its contents', () => {
+    const pet = createPet('user-1', 'Miso');
+    const result = new PetHealthEngine().apply(pet, mealEvent({ treats: true }));
+
+    expect(result.reaction.eventLabel).toBe('Shared a meal');
+  });
+
+  it('never lets a maxed-out pet exceed the 100 cap on nutrition', () => {
+    const pet = { ...createPet('user-1', 'Miso'), nutrition: 95 };
+    const result = new PetHealthEngine().apply(
+      pet,
+      mealEvent({ protein: true, vegetables: true, fruit: true, wholeGrains: true, fiber: true }),
+    );
+
+    expect(result.pet.nutrition).toBe(100);
   });
 });
 
