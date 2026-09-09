@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
   },
-  circleImage: { ...StyleSheet.absoluteFill },
+  circleImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   // A soft shadow under the glyph keeps it legible sitting on top of a photo,
   // rather than needing its own solid-chip backing.
   glyphOnImage: {

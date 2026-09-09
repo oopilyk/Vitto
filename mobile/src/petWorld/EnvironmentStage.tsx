@@ -7,25 +7,25 @@ import type { EnvironmentId, PetAvatarActivityProps } from './types';
 
 /**
  * Bigger than `PetAvatar`'s own default (148) so the pet reads as the main
- * object of the full-bleed scene it now stands in, without resizing it in any
- * of `PetAvatar`'s other callers (breed pickers, `FriendPetCard`), which don't
- * pass this override and keep the size their art was tuned against.
+ * object of the full-bleed scene it now stands in -- the product owner's
+ * explicit "main concentration" of the screen -- without resizing it in any
+ * of `PetAvatar`'s other callers (breed pickers, `FriendPetCard`), which
+ * don't pass this override and keep the size their art was tuned against.
  */
-const PET_STAGE_SIZE = 216;
+const PET_STAGE_SIZE = 280;
 
 /**
- * Clears both environments' bottom control rows (now identical -- the same
- * `EnvironmentActionRow` renders in both) with the enlarged pet above, while
- * sitting the pet noticeably lower/closer to the ground per the product
- * owner's note than an earlier, more conservative estimate here used.
- * Kitchen is the taller of the two: home-indicator inset (~28) + row gap
- * (10) + "Not right now" link (~14) + the action row itself (default 56px
- * `CircleButton` circle + 6px internal gap + ~12px label text, ~74px total)
- * comes to roughly 126px from the very bottom of the screen to the top of
- * that stack. This value clears that with a modest buffer; verify on-device
- * if either row's content ever grows.
+ * Just enough to clear both environments' bottom control rows (now
+ * identical -- the same `EnvironmentActionRow` renders in both) with the
+ * enlarged pet above, so its feet read as standing on the room's own floor
+ * rather than floating with a visible gap above the buttons. Kitchen is the
+ * taller of the two: home-indicator inset (~28) + row gap (10) + "Not right
+ * now" link (~14) + the action row itself (default 56px `CircleButton`
+ * circle + 6px internal gap + ~12px label text, ~74px total) comes to
+ * roughly 126px from the very bottom of the screen to the top of that
+ * stack; verify on-device if either row's content ever grows.
  */
-const PET_STAGE_BOTTOM_PADDING = 140;
+const PET_STAGE_BOTTOM_PADDING = 105;
 
 /** What one environment dresses the persistent pet in. */
 export interface EnvironmentDressing {
