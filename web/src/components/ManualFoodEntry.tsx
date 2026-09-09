@@ -22,7 +22,9 @@ export function ManualFoodEntry({ onComplete, onFeedStart, onAnalyzingChange, on
 
   const runSearch = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!query.trim()) return;
+    // See the note in MealCaptureScreen: the food APIs are rate limited per IP,
+    // so a second tap while one search is in flight just spends quota.
+    if (!query.trim() || isSearching) return;
     setIsSearching(true);
     onAnalyzingChange(true);
     setError(null);

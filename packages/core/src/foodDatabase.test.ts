@@ -20,6 +20,106 @@ const energyRows = (kcal: number, kilojoules: number) => [
   { nutrientName: 'Energy', unitName: 'kJ', value: kilojoules },
 ];
 
+/** Routes by URL so a test can make USDA fail while OpenFoodFacts answers. */
+const mockFetchByHost = (handlers: {
+  usda?: () => { ok: boolean; status?: number; body?: unknown };
+  off?: () => { ok: boolean; status?: number; body?: unknown };
+}): ReturnType<typeof vi.fn> => {
+  const calls = vi.fn(async (input: unknown) => {
+    const url = String(input);
+    const handler = url.includes('api.nal.usda.gov') ? handlers.usda : handlers.off;
+    if (!handler) throw new Error(`unexpected request to ${url}`);
+    const { ok, status = ok ? 200 : 500, body } = handler();
+    return { ok, status, json: async () => body };
+  });
+  vi.stubGlobal('fetch', calls as unknown as typeof fetch);
+  return calls;
+};
+
+const offProduct = (name: string, kcal: number) => ({
+  code: `off-${name}`,
+  product_name: name,
+  brands: 'Acme',
+  nutriments: { 'energy-kcal_100g': kcal, proteins_100g: 9 },
+});
+
+describe('searchFoodsByName — falling back to OpenFoodFacts', () => {
+  it('answers from OpenFoodFacts when the USDA key is rate limited', async () => {
+    // The reported bug: with no key configured the app uses USDA's shared
+    // DEMO_KEY, whose hourly quota is usually already spent, so every search
+    // 429d and the feature looked broken.
+    mockFetchByHost({
+      usda: () => ({ ok: false, status: 429 }),
+      off: () => ({ ok: true, body: { products: [offProduct('Pizza', 266)] } }),
+    });
+
+    const results = await searchFoodsByName('pizza');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].name).toBe('Pizza');
+    expect(results[0].macros.calories).toBe(266);
+  });
+
+  it('falls back when USDA simply has no match, not only when it errors', async () => {
+    mockFetchByHost({
+      usda: () => ({ ok: true, body: { foods: [] } }),
+      off: () => ({ ok: true, body: { products: [offProduct('Obscure Snack', 410)] } }),
+    });
+
+    const results = await searchFoodsByName('obscure snack');
+
+    expect(results.map((r) => r.name)).toEqual(['Obscure Snack']);
+  });
+
+  it('does not call OpenFoodFacts when USDA answers', async () => {
+    const calls = mockFetchByHost({
+      usda: () => ({
+        ok: true,
+        body: {
+          foods: [
+            { fdcId: 1, description: 'Banana, raw', foodNutrients: [...energyRows(89, 372)] },
+          ],
+        },
+      }),
+    });
+
+    const results = await searchFoodsByName('banana');
+
+    expect(results[0].name).toBe('Banana, raw');
+    expect(calls).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops OpenFoodFacts products with no usable macros', async () => {
+    mockFetchByHost({
+      usda: () => ({ ok: false, status: 429 }),
+      off: () => ({
+        ok: true,
+        body: {
+          products: [
+            { code: '1', product_name: 'Empty record', nutriments: {} },
+            offProduct('Real Food', 120),
+          ],
+        },
+      }),
+    });
+
+    const results = await searchFoodsByName('thing');
+
+    expect(results.map((r) => r.name)).toEqual(['Real Food']);
+  });
+
+  it('reports the USDA problem, not the fallback\'s, when both fail', async () => {
+    mockFetchByHost({
+      usda: () => ({ ok: false, status: 429 }),
+      off: () => ({ ok: false, status: 500 }),
+    });
+
+    // The rate-limit message names the actual fix; "OpenFoodFacts is down" would
+    // send someone looking in the wrong place.
+    await expect(searchFoodsByName('pizza')).rejects.toThrow(/out of requests/i);
+  });
+});
+
 describe('searchFoodsByName — Energy unit selection', () => {
   it('reads the kcal Energy row and ignores the kJ row', async () => {
     mockFetchOnce({

@@ -138,21 +138,72 @@ const dedupeResults = (results: FoodSearchResult[]): FoodSearchResult[] => {
   });
 };
 
-export const searchFoodsByName = async (query: string): Promise<FoodSearchResult[]> => {
-  const trimmed = query.trim();
-  if (!trimmed) return [];
+/**
+ * USDA's shared demo key. It works without signing up, which is why it is the
+ * default, but it is capped at roughly 30 requests an hour PER IP across every
+ * app on the internet using it — so it is usually already exhausted, and a user
+ * who has never searched before still gets a 429.
+ */
+const DEMO_KEY = 'DEMO_KEY';
 
+const searchFdc = async (query: string): Promise<FoodSearchResult[]> => {
   const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
-  url.searchParams.set('api_key', getFdcApiKey());
-  url.searchParams.set('query', trimmed);
+  const key = getFdcApiKey();
+  url.searchParams.set('api_key', key);
+  url.searchParams.set('query', query);
   url.searchParams.set('pageSize', FDC_PAGE_SIZE);
   url.searchParams.set('dataType', FDC_DATA_TYPES);
 
   const response = await fetch(url);
+  if (response.status === 429) {
+    throw new Error(
+      key === DEMO_KEY
+        ? 'The shared USDA food key is out of requests for now. Add a free FoodData Central key to search whole foods.'
+        : 'The USDA food database is rate limiting us. Try again in a minute.',
+    );
+  }
   if (!response.ok) throw new Error('Food search failed. Try again in a moment.');
   const data = (await response.json()) as { foods?: FdcFood[] };
 
   return dedupeResults((data.foods ?? []).map(toSearchResult)).slice(0, 10);
+};
+
+/**
+ * Looks a food up by name, USDA first and OpenFoodFacts second.
+ *
+ * The fallback is what makes search work at all out of the box: USDA needs an
+ * API key, and without one the app falls back to `DEMO_KEY`, whose shared hourly
+ * quota is typically already spent — so every search 429s and the feature looks
+ * broken. OpenFoodFacts needs no key and no signup, so it answers whenever USDA
+ * cannot, and also when USDA simply has no match (it carries branded and
+ * supermarket items USDA's whole-food datasets do not).
+ *
+ * USDA stays first because its Foundation and SR Legacy datasets have far better
+ * data for unbranded whole foods — "chicken breast", "banana" — which is most of
+ * what someone types in.
+ */
+export const searchFoodsByName = async (query: string): Promise<FoodSearchResult[]> => {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  let usdaFailure: unknown;
+  try {
+    const results = await searchFdc(trimmed);
+    if (results.length > 0) return results;
+  } catch (cause) {
+    usdaFailure = cause;
+  }
+
+  try {
+    const results = await searchOpenFoodFacts(trimmed);
+    if (results.length > 0) return results;
+  } catch {
+    // Swallowed on purpose: if USDA also failed, its error names the actual
+    // problem (a missing key), which is more useful than "OpenFoodFacts is down".
+  }
+
+  if (usdaFailure) throw usdaFailure;
+  return [];
 };
 
 interface OpenFoodFactsProduct {
@@ -199,13 +250,12 @@ const offMacros = (
   fiberGrams: Math.round(toNumber(nutriments[`fiber${basis}`]) ?? 0),
 });
 
-export const lookupBarcode = async (barcode: string): Promise<FoodSearchResult | null> => {
-  const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
-  if (!response.ok) throw new Error('Barcode lookup failed. Try again.');
-  const data = (await response.json()) as { status: number; product?: OpenFoodFactsProduct };
-  if (data.status !== 1 || !data.product) return null;
-
-  const product = data.product;
+/**
+ * One OpenFoodFacts product as a search result. Shared by the barcode lookup and
+ * the name search, so both report macros on the same basis — a labelled serving
+ * when the product has one, per 100 g otherwise.
+ */
+const offProductToResult = (product: OpenFoodFactsProduct, id: string): FoodSearchResult => {
   const nutriments = product.nutriments ?? {};
   const name = product.product_name || 'Unknown product';
   const brand = product.brands;
@@ -216,7 +266,7 @@ export const lookupBarcode = async (barcode: string): Promise<FoodSearchResult |
 
   if (has100g) {
     return {
-      id: barcode,
+      id,
       name,
       brand,
       servingDescription: 'per 100 g',
@@ -227,7 +277,7 @@ export const lookupBarcode = async (barcode: string): Promise<FoodSearchResult |
   }
 
   return {
-    id: barcode,
+    id,
     name,
     brand,
     servingDescription: product.serving_size || 'per serving',
@@ -235,6 +285,49 @@ export const lookupBarcode = async (barcode: string): Promise<FoodSearchResult |
     isPer100g: false,
     macros: offMacros(nutriments, '_serving'),
   };
+};
+
+/** Products with no usable energy figure at all — they would log as 0 calories. */
+const hasMacros = (result: FoodSearchResult): boolean =>
+  result.macros.calories > 0 || result.macros.proteinGrams > 0 || result.macros.carbsGrams > 0;
+
+/**
+ * OpenFoodFacts full-text search. No key and no signup, which is why this is the
+ * fallback when USDA is unavailable.
+ *
+ * `fields` is set so the response carries only what `offProductToResult` reads:
+ * the default payload is enormous (hundreds of fields per product), and on a
+ * phone that is the difference between a search feeling instant and feeling
+ * broken.
+ */
+const searchOpenFoodFacts = async (query: string): Promise<FoodSearchResult[]> => {
+  const url = new URL('https://world.openfoodfacts.org/cgi/search.pl');
+  url.searchParams.set('search_terms', query);
+  url.searchParams.set('search_simple', '1');
+  url.searchParams.set('action', 'process');
+  url.searchParams.set('json', '1');
+  url.searchParams.set('page_size', '20');
+  url.searchParams.set('fields', 'code,product_name,brands,serving_size,serving_quantity,nutriments');
+
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Food search failed. Try again in a moment.');
+  const data = (await response.json()) as { products?: (OpenFoodFactsProduct & { code?: string })[] };
+
+  const results = (data.products ?? [])
+    .filter((product) => Boolean(product.product_name))
+    .map((product, index) => offProductToResult(product, product.code ?? `off-${index}`))
+    .filter(hasMacros);
+
+  return dedupeResults(results).slice(0, 10);
+};
+
+export const lookupBarcode = async (barcode: string): Promise<FoodSearchResult | null> => {
+  const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+  if (!response.ok) throw new Error('Barcode lookup failed. Try again.');
+  const data = (await response.json()) as { status: number; product?: OpenFoodFactsProduct };
+  if (data.status !== 1 || !data.product) return null;
+
+  return offProductToResult(data.product, barcode);
 };
 
 const VEGETABLE_PATTERN = /vegetable|broccoli|spinach|kale|carrot|pepper|salad|greens|cucumber|tomato/i;

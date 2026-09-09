@@ -96,7 +96,10 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   };
 
   const runSearch = async () => {
-    if (!query.trim()) return;
+    // A search already in flight is not re-fired: the food APIs are rate limited
+    // per IP, so an impatient second tap spends quota that the first request is
+    // already waiting on.
+    if (!query.trim() || busy) return;
     setBusy('searching');
     setError(null);
     setSelected(null);

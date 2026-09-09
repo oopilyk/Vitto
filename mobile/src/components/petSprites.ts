@@ -32,7 +32,7 @@ import { EVOLUTION_LEVEL, getPetBuild, type PetAilment, type PetBreed, type PetB
  *
  *   bunny, fox      a true sleep band (lying, eyes closed) and NO collapse
  *   tabbyCat, dino  a collapse ending in X eyes and NO sleep
- *   koala           neither a walk nor a run band -- it only ever sits
+ *   koala           a walk but no run, and no sleep
  *   bear            a fade-to-nothing collapse, like the shiba's
  *   axolotl         its own distressed band, so `unwell` is a real pose
  *
@@ -457,7 +457,7 @@ const FOX_LAYOUT: SheetLayout = {
   animations: {
     idle: [[0, 0], [0, 1], [0, 2]],
     // Eyes shut and clearly pleased — the closest this sheet has to celebrating.
-    cheer: [[1, 0], [1, 1], [1, 2], [1, 3], [2, 0]],
+    cheer: [[3, 0], [3, 1], [3, 2], [3, 3]],
     move: [[3, 0], [3, 1], [3, 2], [3, 3]],
     rest: [[7, 0], [7, 1], [7, 2], [7, 3]],
     unwell: [[4, 0], [4, 1], [4, 2], [4, 3]],
@@ -475,22 +475,27 @@ const FOX: PetSheet = {
 };
 
 /**
- * Koala, 4x10. The one sheet in the pack with no locomotion band at all — it is
- * drawn sitting in every frame it owns, so `move` borrows its second sitting
- * band. A koala that does not run is in character, but it does mean the walk cue
- * is carried by the scene rather than the sprite.
+ * Koala, 4x10.
  *
  *   rows 0-1  sitting idle (5)        rows 6-7  sitting, downcast (6)
- *   rows 2-3  sitting, shifting (6)   row  8    slumps down (4)
- *   rows 4-5  arms up, delighted (5)  row  9    down, orbiting stars (3)
+ *   rows 2-3  sitting → open-mouthed  row  8    slumps down (4)
+ *             delight (6)             row  9    down, orbiting stars (3)
+ *   rows 4-5  walking (5)
+ *
+ * Rows 4-5 read as "arms up, delighted" at thumbnail size, which is how they
+ * were first mapped; at full size the limbs are plainly alternating and the body
+ * leans into each step. It is the walk, and the sitting band above it is the
+ * celebration.
  */
 const KOALA_LAYOUT: SheetLayout = {
   name: 'koala',
   rows: 10,
   animations: {
     idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0]],
-    cheer: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0]],
-    move: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1]],
+    // Ends on the two open-mouthed frames, which is where the delight lands.
+    cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1]],
+    move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0]],
+    // No sleep art, so `rest` borrows the calmest sit the sheet owns.
     rest: [[2, 0]],
     unwell: [[6, 0], [6, 1], [6, 2], [6, 3]],
     sad: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1]],
@@ -522,7 +527,7 @@ const BEAR_LAYOUT: SheetLayout = {
   animations: {
     idle: [[0, 0], [0, 1], [0, 2], [0, 3]],
     // Face in the honey pot: this sheet's happiest frames by a distance.
-    cheer: [[1, 0], [1, 1], [1, 2], [1, 3], [2, 0]],
+    cheer: [[1, 0], [1,0], [1, 1], [1,1], [1, 2], [1,2], [1, 3], [1,3], [2, 0]],
     move: [[3, 0], [3, 1], [3, 2], [3, 3]],
     rest: [[4, 0]],
     unwell: [[4, 0], [4, 1], [4, 2], [4, 3]],
