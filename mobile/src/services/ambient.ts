@@ -6,8 +6,10 @@ import {
   type GeoPoint,
   type StepSample,
   WALKING_WINDOW_MS,
+  distanceMeters,
   isAtPlace,
   isWalking,
+  stepsInWindow,
   trimStepSamples,
 } from '@vitto/core';
 
@@ -20,6 +22,28 @@ import {
  * no history to sync, no background task, and nothing that outlives the screen
  * the pet is on — which is also why neither asks for "always" permissions.
  */
+
+/**
+ * Why a cue is off. Both hooks swallow failures so the pet degrades quietly, but
+ * that makes "denied", "unsupported" and "you are standing still" identical from
+ * the outside — which is unusable when testing on a device. The dev readout
+ * shows this.
+ */
+export type SensorPermission = 'unknown' | 'granted' | 'denied' | 'unavailable';
+
+export interface WalkingState {
+  walking: boolean;
+  permission: SensorPermission;
+  /** Steps inside the cadence window right now. */
+  steps: number;
+}
+
+export interface GymState {
+  atGym: boolean;
+  permission: SensorPermission;
+  /** Metres from the saved gym at the last fix; null until one lands. */
+  distance: number | null;
+}
 
 /** Re-evaluate the cadence this often; a pedometer can go quiet mid-window. */
 const WALKING_TICK_MS = 2_000;
@@ -34,8 +58,8 @@ const GYM_POLL_MS = 60_000;
  * false everywhere the pedometer is unavailable (web, simulator, Expo Go without
  * motion permission), so callers can spread it into `isExploring` unguarded.
  */
-export const useWalking = (): boolean => {
-  const [walking, setWalking] = useState(false);
+export const useWalking = (): WalkingState => {
+  const [state, setState] = useState<WalkingState>({ walking: false, permission: 'unknown', steps: 0 });
   const samples = useRef<StepSample[]>([]);
 
   useEffect(() => {
@@ -49,29 +73,46 @@ export const useWalking = (): boolean => {
       if (tick) clearInterval(tick);
       tick = null;
       samples.current = [];
-      setWalking(false);
+      setState((current) => ({ ...current, walking: false, steps: 0 }));
     };
 
     const start = async () => {
       if (subscription) return;
       try {
-        if (!(await Pedometer.isAvailableAsync())) return;
+        if (!(await Pedometer.isAvailableAsync())) {
+          setState((current) => ({ ...current, permission: 'unavailable' }));
+          return;
+        }
         const permission = await Pedometer.requestPermissionsAsync();
-        if (cancelled || !permission.granted) return;
+        if (cancelled) return;
+        if (!permission.granted) {
+          setState((current) => ({ ...current, permission: 'denied' }));
+          return;
+        }
+        setState((current) => ({ ...current, permission: 'granted' }));
         subscription = Pedometer.watchStepCount(({ steps }) => {
           const now = Date.now();
           samples.current = trimStepSamples([...samples.current, { at: now, steps }], now, WALKING_WINDOW_MS * 2);
-          setWalking(isWalking(samples.current, now));
+          setState((current) => ({
+            ...current,
+            walking: isWalking(samples.current, now),
+            steps: stepsInWindow(samples.current, now),
+          }));
         });
         // The pedometer only speaks on a step, so standing still would leave the
         // last verdict frozen at "walking". This ages it out.
         tick = setInterval(() => {
           const now = Date.now();
           samples.current = trimStepSamples(samples.current, now, WALKING_WINDOW_MS * 2);
-          setWalking(isWalking(samples.current, now));
+          setState((current) => ({
+            ...current,
+            walking: isWalking(samples.current, now),
+            steps: stepsInWindow(samples.current, now),
+          }));
         }, WALKING_TICK_MS);
       } catch {
-        // Missing native module, denied permission, unsupported device: no cue.
+        // Missing native module or a sensor that refuses to start: no cue.
+        setState((current) => ({ ...current, permission: 'unavailable' }));
       }
     };
 
@@ -87,7 +128,7 @@ export const useWalking = (): boolean => {
     };
   }, []);
 
-  return walking;
+  return state;
 };
 
 /** One foreground fix, for "set my gym to here". Throws a readable error if it cannot. */
@@ -107,12 +148,12 @@ export const readCurrentLocation = async (): Promise<GeoPoint> => {
  * the moment the user saves a gym (`readCurrentLocation`), and if it was
  * refused this simply stays false rather than nagging on every launch.
  */
-export const useAtGym = (gym: GeoPoint | null): boolean => {
-  const [atGym, setAtGym] = useState(false);
+export const useAtGym = (gym: GeoPoint | null): GymState => {
+  const [state, setState] = useState<GymState>({ atGym: false, permission: 'unknown', distance: null });
 
   useEffect(() => {
     if (!gym) {
-      setAtGym(false);
+      setState({ atGym: false, permission: 'unknown', distance: null });
       return;
     }
     let poll: ReturnType<typeof setInterval> | null = null;
@@ -121,10 +162,19 @@ export const useAtGym = (gym: GeoPoint | null): boolean => {
     const check = async () => {
       try {
         const permission = await Location.getForegroundPermissionsAsync();
-        if (cancelled || !permission.granted) return;
+        if (cancelled) return;
+        if (!permission.granted) {
+          setState((current) => ({ ...current, permission: 'denied' }));
+          return;
+        }
         const fix = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         if (cancelled) return;
-        setAtGym(isAtPlace({ latitude: fix.coords.latitude, longitude: fix.coords.longitude }, gym));
+        const here = { latitude: fix.coords.latitude, longitude: fix.coords.longitude };
+        setState({
+          atGym: isAtPlace(here, gym),
+          permission: 'granted',
+          distance: Math.round(distanceMeters(here, gym)),
+        });
       } catch {
         // No fix right now: keep the last answer rather than flickering the prop.
       }
@@ -151,5 +201,5 @@ export const useAtGym = (gym: GeoPoint | null): boolean => {
     };
   }, [gym]);
 
-  return atGym;
+  return state;
 };

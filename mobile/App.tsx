@@ -163,8 +163,8 @@ export default function App() {
   const [gym, setGym] = useState<GeoPoint | null>(null);
   const [gymBusy, setGymBusy] = useState(false);
   const [gymError, setGymError] = useState<string | null>(null);
-  const isWalking = useWalking();
-  const atGym = useAtGym(gym);
+  const walkingState = useWalking();
+  const gymState = useAtGym(gym);
   useEffect(() => {
     void repository.loadGymLocation().then(setGym).catch(() => setGym(null));
   }, []);
@@ -1032,10 +1032,21 @@ export default function App() {
               onSeedTestData={isDev ? () => void seedTestData() : undefined}
               onClearSeededData={isDev ? () => void clearSeededData() : undefined}
               isSeeding={isSeeding}
-              isWalking={isWalking}
-              atGym={atGym}
+              isWalking={walkingState.walking}
+              atGym={gymState.atGym}
               forcedAmbient={isDev ? forcedAmbient : undefined}
               onForceAmbient={isDev ? setForcedAmbient : undefined}
+              ambientDebug={
+                isDev
+                  ? {
+                      walkingPermission: walkingState.permission,
+                      steps: walkingState.steps,
+                      gymPermission: gymState.permission,
+                      gymSaved: gym !== null,
+                      distance: gymState.distance,
+                    }
+                  : undefined
+              }
               accountInitial={session?.user.email?.charAt(0)}
               pets={pets.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
               activePetId={pet.id}

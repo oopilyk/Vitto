@@ -59,6 +59,18 @@ interface Props {
   /** Dev tool: pretend to be walking or at the gym, so both cues can be seen at a desk. */
   forcedAmbient?: ForcedAmbient | null;
   onForceAmbient?: (state: ForcedAmbient | null) => void;
+  /**
+   * Dev readout of what the sensors are actually saying. Both hooks fail quietly
+   * by design, so on a device "permission denied", "no such sensor" and "you are
+   * standing still" all look the same — this is how you tell them apart.
+   */
+  ambientDebug?: {
+    walkingPermission: string;
+    steps: number;
+    gymPermission: string;
+    gymSaved: boolean;
+    distance: number | null;
+  };
 }
 
 interface QuickAction {
@@ -151,6 +163,7 @@ export function DashboardScreen({
   atGym,
   forcedAmbient,
   onForceAmbient,
+  ambientDebug,
 }: Props) {
   /**
    * The pet is given whatever is left of the screen once the top bar and the log
@@ -167,7 +180,7 @@ export function DashboardScreen({
       : undefined;
   // Dev tools live in a sheet over the bottom of the stage, closed by default.
   // Laid out in flow they wrapped to eight rows and crushed the pet to a sliver.
-  const hasDevTools = Boolean(onForceAilment || onForceForm || onForceAmbient || onSeedTestData);
+  const hasDevTools = Boolean(onForceAilment || onForceForm || onForceAmbient || onSeedTestData || ambientDebug);
   const [devOpen, setDevOpen] = useState(false);
   const today = new Date();
   // Read off the same projected pet the sprite uses, so the chips agree with what
@@ -367,6 +380,22 @@ export function DashboardScreen({
                   />
                 </View>
               ) : null}
+              {ambientDebug ? (
+                <View style={styles.devRow}>
+                  <Text style={styles.devLabel}>SENSORS</Text>
+                  <Text style={styles.devReadout}>
+                    walk {ambientDebug.walkingPermission} · {ambientDebug.steps} steps in window
+                  </Text>
+                  <Text style={styles.devReadout}>
+                    gym {ambientDebug.gymPermission} ·{' '}
+                    {ambientDebug.gymSaved
+                      ? ambientDebug.distance === null
+                        ? 'saved, no fix yet'
+                        : `${ambientDebug.distance}m away`
+                      : 'not set'}
+                  </Text>
+                </View>
+              ) : null}
               {onSeedTestData ? (
                 <View style={styles.devSeed}>
                   <Text style={styles.devLabel}>DATA</Text>
@@ -505,6 +534,7 @@ const styles = StyleSheet.create({
   devStrip: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 40, gap: 6 },
   devRow: { gap: 4 },
   devLabel: { fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1, color: '#5f7167' },
+  devReadout: { fontFamily: fonts.mono, fontSize: 10, color: colors.ink },
   devSeed: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   petSwitcher: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   petTab: {

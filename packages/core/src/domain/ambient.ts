@@ -29,25 +29,28 @@ export const WALKING_WINDOW_MS = 12_000;
 export const WALKING_MIN_STEPS = 10;
 
 /**
- * Whether the user is walking, from a rolling window of cumulative step counts.
+ * Steps taken inside the cadence window.
  *
- * Reads the step delta across the window rather than "did a step arrive": the
+ * Reads the delta across the window rather than "did a step arrive": the
  * pedometer emits on every step, so any single event says nothing about pace,
  * and a sustained delta is what separates walking from shuffling to the kettle.
  * Pass `now` explicitly — it is compared against `sample.at`, and a hidden
  * `Date.now()` would make this untestable.
+ *
+ * Exported in its own right so the dev readout can show the raw number: "0 steps
+ * in the window" and "permission denied" look identical from the outside
+ * otherwise.
  */
-export const isWalking = (
+export const stepsInWindow = (
   samples: readonly StepSample[],
   now: number,
   windowMs: number = WALKING_WINDOW_MS,
-  minSteps: number = WALKING_MIN_STEPS,
-): boolean => {
-  if (samples.length === 0) return false;
+): number => {
+  if (samples.length === 0) return 0;
   const cutoff = now - windowMs;
   const latest = samples[samples.length - 1];
   // Stale subscription: the last step was before the window opened.
-  if (latest.at < cutoff) return false;
+  if (latest.at < cutoff) return 0;
   // The count as it stood when the window opened: the newest sample at or
   // before the cutoff, or the oldest sample if the subscription is younger
   // than the window.
@@ -56,8 +59,16 @@ export const isWalking = (
     if (sample.at <= cutoff) baseline = sample;
     else break;
   }
-  return latest.steps - baseline.steps >= minSteps;
+  return latest.steps - baseline.steps;
 };
+
+/** Whether that delta clears the walking floor. */
+export const isWalking = (
+  samples: readonly StepSample[],
+  now: number,
+  windowMs: number = WALKING_WINDOW_MS,
+  minSteps: number = WALKING_MIN_STEPS,
+): boolean => stepsInWindow(samples, now, windowMs) >= minSteps;
 
 /** Drops samples older than the window, keeping one earlier sample as the baseline. */
 export const trimStepSamples = (

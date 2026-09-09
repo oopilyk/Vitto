@@ -6,6 +6,7 @@ import {
   distanceMeters,
   isAtPlace,
   isWalking,
+  stepsInWindow,
   trimStepSamples,
 } from './ambient';
 
@@ -58,6 +59,19 @@ describe('isWalking', () => {
       { at: T - 500, steps: WALKING_MIN_STEPS },
     ];
     expect(isWalking(samples, T)).toBe(true);
+  });
+});
+
+describe('stepsInWindow', () => {
+  it('reports the raw delta, so a quiet sensor is distinguishable from a denied one', () => {
+    expect(stepsInWindow([], T)).toBe(0);
+    expect(
+      stepsInWindow([{ at: T - 11_000, steps: 188 }, { at: T - 2_000, steps: 200 }], T),
+    ).toBe(12);
+  });
+
+  it('is zero once the newest step falls out of the window', () => {
+    expect(stepsInWindow([{ at: T - WALKING_WINDOW_MS - 1, steps: 60 }], T)).toBe(0);
   });
 });
 
