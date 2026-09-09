@@ -17,6 +17,7 @@ export function CircleButton({
   onPress,
   accessibilityLabel,
   backgroundImage,
+  night,
 }: {
   label: string;
   icon: string;
@@ -34,6 +35,12 @@ export function CircleButton({
    * (e.g. Kitchen's "Choose food" button, which has no art of its own yet).
    */
   backgroundImage?: ImageSourcePropType;
+  /**
+   * The label sits directly on the environment photo, not on any panel, so it
+   * needs its own day/night treatment: dark ink reads fine on the day scenes
+   * but disappears against the night ones. Defaults to the day (dark) look.
+   */
+  night?: boolean;
 }) {
   return (
     <Pressable
@@ -55,7 +62,7 @@ export function CircleButton({
           {icon}
         </Text>
       </View>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, night && styles.labelNight]}>{label}</Text>
     </Pressable>
   );
 }
@@ -88,5 +95,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textShadowColor: 'rgba(255,255,255,0.6)',
     textShadowRadius: 3,
+  },
+  labelNight: {
+    color: '#f7f5ff',
+    textShadowColor: 'rgba(0,0,0,0.55)',
   },
 });

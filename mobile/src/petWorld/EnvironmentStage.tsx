@@ -14,19 +14,18 @@ import type { EnvironmentId, PetAvatarActivityProps } from './types';
 const PET_STAGE_SIZE = 216;
 
 /**
- * Clears both environments' bottom control rows with the enlarged pet above.
- * Kitchen is the taller of the two: home-indicator inset (~28) + "Not right
- * now" link (~17, incl. its own marginTop) + row gap (12) + the choose-food
- * `CircleButton` itself (its 64px circle + 6px internal gap + ~12px label
- * text, per `CircleButton.tsx`'s `item`/`label` styles, ~82px total) + row
- * gap (12) + the "What should ... eat?" prompt line (~14) comes to roughly
- * 165px from the very bottom of the screen to the top of that stack — an
- * earlier estimate here missed the `CircleButton`'s own label line and
- * undercounted this. This value adds real headroom on top of that so the
- * pet's feet land clearly above the prompt text rather than at/inside it;
- * verify on-device if either row's content ever grows.
+ * Clears both environments' bottom control rows (now identical -- the same
+ * `EnvironmentActionRow` renders in both) with the enlarged pet above, while
+ * sitting the pet noticeably lower/closer to the ground per the product
+ * owner's note than an earlier, more conservative estimate here used.
+ * Kitchen is the taller of the two: home-indicator inset (~28) + row gap
+ * (10) + "Not right now" link (~14) + the action row itself (default 56px
+ * `CircleButton` circle + 6px internal gap + ~12px label text, ~74px total)
+ * comes to roughly 126px from the very bottom of the screen to the top of
+ * that stack. This value clears that with a modest buffer; verify on-device
+ * if either row's content ever grows.
  */
-const PET_STAGE_BOTTOM_PADDING = 190;
+const PET_STAGE_BOTTOM_PADDING = 140;
 
 /** What one environment dresses the persistent pet in. */
 export interface EnvironmentDressing {
@@ -123,7 +122,7 @@ export function EnvironmentStage({
       <Pressable
         onPress={onPetTap}
         disabled={!onPetTap}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, styles.petLayer]}
         accessibilityRole={onPetTap ? 'button' : undefined}
         accessibilityLabel={onPetTap ? `Say hi to ${pet.name}` : undefined}
       >
@@ -140,17 +139,17 @@ export function EnvironmentStage({
         </Animated.View>
       </Pressable>
 
-      {hudOverlay ? (
-        <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-          {hudOverlay}
-        </Animated.View>
-      ) : null}
-
       <FadeSwap swapKey={environment}>
-        <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.controlsLayer]}>
           {regions.controls}
         </Animated.View>
       </FadeSwap>
+
+      {hudOverlay ? (
+        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.hudLayer]}>
+          {hudOverlay}
+        </Animated.View>
+      ) : null}
     </Animated.View>
   );
 }
@@ -181,6 +180,14 @@ function FadeSwap({ swapKey, children }: { swapKey: string; children: ReactNode 
 
 const styles = StyleSheet.create({
   stage: { flex: 1 },
+  // Explicit stacking order (rather than relying on JSX sibling order alone,
+  // which React Native Web can get wrong across nested Animated.View/transform
+  // stacking contexts): pet lowest, environment controls above it, HUD always
+  // on top so its profile/today buttons can never end up under something else
+  // and silently stop responding to taps.
+  petLayer: { zIndex: 1 },
+  controlsLayer: { zIndex: 2 },
+  hudLayer: { zIndex: 3 },
   petStage: {
     flex: 1,
     backgroundColor: 'transparent',

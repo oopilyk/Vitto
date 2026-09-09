@@ -33,6 +33,9 @@ interface PetWorldHudProps {
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
   partnerName?: string;
+  /** Switches the caption panel and icon chrome to a dark-glass/bright-text
+   * treatment so they stay legible over the night backgrounds. */
+  night?: boolean;
 }
 
 export function PetWorldHud({
@@ -48,6 +51,7 @@ export function PetWorldHud({
   activePetId,
   onSelectPet,
   partnerName,
+  night,
 }: PetWorldHudProps) {
   const today = new Date();
   const streaks = calculateStreaks(events, today);
@@ -65,11 +69,17 @@ export function PetWorldHud({
           {chips.map((effect) => (
             <View
               key={effect.id}
-              style={[styles.chip, effect.kind === 'buff' && styles.chipBuff]}
+              style={[styles.chip, effect.kind === 'buff' && styles.chipBuff, night && styles.chipNight]}
               accessible
               accessibilityLabel={`${effect.label}. ${effect.detail}`}
             >
-              <Text style={[styles.chipLabel, effect.kind === 'buff' && styles.chipLabelBuff]}>
+              <Text
+                style={[
+                  styles.chipLabel,
+                  effect.kind === 'buff' && styles.chipLabelBuff,
+                  night && styles.chipLabelNight,
+                ]}
+              >
                 {effect.label}
               </Text>
             </View>
@@ -82,18 +92,24 @@ export function PetWorldHud({
             accessibilityLabel="Open your profile"
             onPress={onOpenProfile}
             hitSlop={8}
-            style={({ pressed }) => [styles.avatar, pressed && styles.iconPressed]}
+            style={({ pressed }) => [styles.avatar, night && styles.avatarNight, pressed && styles.iconPressed]}
           >
-            <Text style={styles.avatarLetter}>{(accountInitial ?? pet.name.charAt(0)).toUpperCase()}</Text>
+            <Text style={[styles.avatarLetter, night && styles.avatarLetterNight]}>
+              {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
+            </Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open today's detail"
             onPress={onOpenToday}
             hitSlop={8}
-            style={({ pressed }) => [styles.todayIcon, pressed && styles.iconPressed]}
+            style={({ pressed }) => [
+              styles.todayIcon,
+              night && styles.todayIconNight,
+              pressed && styles.iconPressed,
+            ]}
           >
-            <Text style={styles.todayIconMark}>›</Text>
+            <Text style={[styles.todayIconMark, night && styles.todayIconMarkNight]}>›</Text>
           </Pressable>
         </View>
       </View>
@@ -118,21 +134,23 @@ export function PetWorldHud({
         </View>
       ) : null}
 
-      <View style={styles.caption} pointerEvents="none">
-        <Text style={styles.kicker}>
+      <View style={[styles.caption, night && styles.captionNight]} pointerEvents="none">
+        <Text style={[styles.kicker, night && styles.kickerNight]}>
           {formLabel.toUpperCase()} · DAY {daysWithPet(pet, today)}
         </Text>
-        <Text style={styles.petName}>{pet.name}</Text>
+        <Text style={[styles.petName, night && styles.petNameNight]}>{pet.name}</Text>
         {/* An ailment outranks the reaction: a message about the meal just
             logged must not sit on top of "Miso is fading". */}
-        <Text style={styles.mood}>
+        <Text style={[styles.mood, night && styles.moodNight]}>
           {condition.primary
             ? AILMENT_MESSAGE[condition.primary](pet.name)
             : (reaction?.message ?? `${pet.name} is feeling ${pet.mood}.`)}
         </Text>
-        {partnerName ? <Text style={styles.partnerLine}>Raised with {partnerName}</Text> : null}
+        {partnerName ? (
+          <Text style={[styles.partnerLine, night && styles.partnerLineNight]}>Raised with {partnerName}</Text>
+        ) : null}
         {streaks.currentStreak > 0 ? (
-          <Text style={styles.streak}>
+          <Text style={[styles.streak, night && styles.streakNight]}>
             🔥 {streaks.currentStreak} day streak · best {streaks.longestStreak}
           </Text>
         ) : null}
@@ -162,8 +180,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.55)',
   },
   chipBuff: { backgroundColor: 'rgba(255,255,255,0.4)' },
+  chipNight: { backgroundColor: 'rgba(20,18,38,0.55)' },
   chipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3, color: '#8c4433' },
   chipLabelBuff: { color: '#55705d' },
+  chipLabelNight: { color: '#f7f5ff' },
   iconStack: { alignItems: 'center', gap: 10 },
   avatar: {
     width: 34,
@@ -173,7 +193,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarNight: { backgroundColor: 'rgba(20,18,38,0.55)' },
   avatarLetter: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  avatarLetterNight: { color: '#f7f5ff' },
   todayIcon: {
     width: 26,
     height: 26,
@@ -182,7 +204,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  todayIconNight: { backgroundColor: 'rgba(20,18,38,0.45)' },
   todayIconMark: { fontSize: 15, color: colors.inkSoft, fontFamily: fonts.mono },
+  todayIconMarkNight: { color: '#f7f5ff' },
   iconPressed: { opacity: 0.7 },
   petSwitcher: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginTop: 10 },
   petTab: {
@@ -203,6 +227,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.72)',
   },
+  captionNight: { backgroundColor: 'rgba(20,18,38,0.58)' },
   kicker: {
     fontFamily: fonts.mono,
     fontSize: 10,
@@ -211,6 +236,7 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255,255,255,0.5)',
     textShadowRadius: 3,
   },
+  kickerNight: { color: '#e4e0ff', textShadowColor: 'transparent' },
   petName: {
     fontFamily: fonts.display,
     fontSize: 26,
@@ -220,6 +246,7 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255,255,255,0.5)',
     textShadowRadius: 4,
   },
+  petNameNight: { color: '#ffffff', textShadowColor: 'transparent' },
   mood: {
     fontSize: 13,
     color: colors.inkSoft,
@@ -227,6 +254,9 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255,255,255,0.5)',
     textShadowRadius: 3,
   },
+  moodNight: { color: '#e4e0ff', textShadowColor: 'transparent' },
   partnerLine: { fontFamily: fonts.mono, fontSize: 10, color: colors.inkSoft, marginTop: 4, letterSpacing: 0.5 },
+  partnerLineNight: { color: '#e4e0ff' },
   streak: { fontFamily: fonts.mono, fontSize: 10, color: colors.inkSoft, marginTop: 6 },
+  streakNight: { color: '#e4e0ff' },
 });

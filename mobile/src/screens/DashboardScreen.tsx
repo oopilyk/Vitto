@@ -12,6 +12,7 @@ import { PetWorldHud } from '../petWorld/PetWorldHud';
 import { mainEnvironment } from '../petWorld/MainEnvironment';
 import { kitchenEnvironment } from '../petWorld/KitchenEnvironment';
 import { toPetAvatarActivityProps } from '../petWorld/toPetAvatarActivityProps';
+import { isNightTime } from '../petWorld/timeOfDay';
 import type { EnvironmentId } from '../petWorld/types';
 import type { UsePetInteractionResult } from '../petWorld/usePetInteraction';
 
@@ -86,6 +87,8 @@ export function DashboardScreen({
     setEnvironment('kitchen');
   };
 
+  const night = isNightTime();
+
   return (
     <EnvironmentStage
       environment={environment}
@@ -106,6 +109,7 @@ export function DashboardScreen({
           activePetId={activePetId}
           onSelectPet={onSelectPet}
           partnerName={partnerName}
+          night={night}
         />
       }
       main={mainEnvironment({
@@ -115,8 +119,10 @@ export function DashboardScreen({
         onTrainMind,
       })}
       kitchen={kitchenEnvironment({
-        petName: pet.name,
         onChooseFood: onLogMeal,
+        onLogWorkout,
+        onSyncSteps,
+        onTrainMind,
         onBack: () => setEnvironment('main'),
       })}
     />

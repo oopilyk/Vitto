@@ -434,12 +434,13 @@ describe('screens render', () => {
     expect(pressed).toEqual(['workout', 'steps', 'mind']);
 
     // Feed doesn't call `onLogMeal` directly any more -- it walks the pet into
-    // the Kitchen first, which is what actually offers the "choose food" control.
+    // the Kitchen first, which shows the same action row (including its own
+    // "Log meal" button, reused for "choose food") rather than a page.
     act(() => findButton('Log meal')!.props.onPress());
     expect(pressed).toEqual(['workout', 'steps', 'mind']);
-    expect(findButton('Choose food')).toBeTruthy();
+    expect(findButton('Log meal')).toBeTruthy();
 
-    act(() => findButton('Choose food')!.props.onPress());
+    act(() => findButton('Log meal')!.props.onPress());
     expect(pressed).toEqual(['workout', 'steps', 'mind', 'meal']);
     tree.unmount();
   });
@@ -479,7 +480,7 @@ describe('screens render', () => {
 
     // Walk into the Kitchen the same way a real feed tap does.
     act(() => findButton('Log meal')!.props.onPress());
-    expect(findButton('Choose food')).toBeTruthy();
+    expect(findButton('Log meal')).toBeTruthy();
 
     // Drive the interaction prop through celebrating -> idle, the same
     // transition that used to bounce the screen back to Main (see the
@@ -487,7 +488,7 @@ describe('screens render', () => {
     render({ ...idleInteraction, state: { kind: 'celebrating', grade: 'A' } });
     render({ ...idleInteraction, state: { kind: 'idle' } });
 
-    expect(findButton('Choose food')).toBeTruthy();
+    expect(findButton('Log meal')).toBeTruthy();
     tree.unmount();
   });
 
