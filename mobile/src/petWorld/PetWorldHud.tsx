@@ -13,6 +13,7 @@ import {
 import { colors, fonts } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
 import { LevelRing } from './LevelRing';
+import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
 
 /**
  * The chrome that isn't either scene: level ring top-left, at most two status
@@ -32,6 +33,8 @@ interface PetWorldHudProps {
    * acknowledgement at all whenever the pet happened to be unwell.
    */
   careToast?: CareToast | null;
+  /** Which scene is on screen, named on the kicker line. */
+  environment: EnvironmentId;
   formLabel: string;
   accountInitial?: string;
   onOpenProfile: () => void;
@@ -51,6 +54,7 @@ export function PetWorldHud({
   events,
   reaction,
   careToast,
+  environment,
   formLabel,
   accountInitial,
   onOpenProfile,
@@ -131,8 +135,12 @@ export function PetWorldHud({
       ) : null}
 
       <View style={[styles.caption, night && styles.captionNight]} pointerEvents="none">
+        {/* The place goes on the kicker rather than in new chrome of its own:
+            it belongs with the other at-a-glance facts, and the top of the
+            screen has no room left for another element. */}
         <Text style={[styles.kicker, night && styles.kickerNight]}>
-          {formLabel.toUpperCase()} · DAY {daysWithPet(pet, today)}
+          {formLabel.toUpperCase()} · DAY {daysWithPet(pet, today)} ·{' '}
+          {ENVIRONMENT_LABEL[environment].toUpperCase()}
         </Text>
         <Text style={[styles.petName, night && styles.petNameNight]}>{pet.name}</Text>
         {/* An ailment outranks the reaction: a message about the meal just

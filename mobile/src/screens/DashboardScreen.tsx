@@ -154,6 +154,7 @@ export function DashboardScreen({
           events={events}
           reaction={reaction}
           careToast={careToast}
+          environment={environment}
           formLabel={formLabel}
           accountInitial={accountInitial}
           onOpenProfile={onOpenProfile}

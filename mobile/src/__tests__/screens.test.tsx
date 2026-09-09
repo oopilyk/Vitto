@@ -273,6 +273,46 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('names the room the pet is standing in, and renames it on the way through', () => {
+    const pressed: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          onLogMeal={() => pressed.push('meal')}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    const findButton = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+
+    expect(JSON.stringify(tree.toJSON())).toContain('LIVING ROOM');
+
+    act(() => findButton('Go to the kitchen')!.props.onPress());
+    expect(JSON.stringify(tree.toJSON())).toContain('KITCHEN');
+
+    act(() => findButton('Go to the study')!.props.onPress());
+    const inStudy = JSON.stringify(tree.toJSON());
+    expect(inStudy).toContain('STUDY');
+    expect(inStudy).not.toContain('KITCHEN');
+
+    act(() => findButton('Go outdoors')!.props.onPress());
+    expect(JSON.stringify(tree.toJSON())).toContain('OUTDOORS');
+    tree.unmount();
+  });
+
   it('shows nothing where the toast goes until something is logged', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

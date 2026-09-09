@@ -8,6 +8,22 @@ import type { MealAnalysis } from '@vitto/core';
 export type EnvironmentId = 'main' | 'kitchen' | 'gym' | 'outside' | 'study';
 
 /**
+ * Where the pet is, in the words the buttons that take you there already use --
+ * "Living room" and "Outdoors" are what the action row calls those two, so the
+ * readout and the control agree.
+ *
+ * Keyed on the whole union, so a new scene has to be named here or the build
+ * fails rather than the HUD quietly saying nothing about where the pet went.
+ */
+export const ENVIRONMENT_LABEL: Record<EnvironmentId, string> = {
+  main: 'Living room',
+  kitchen: 'Kitchen',
+  gym: 'Gym',
+  outside: 'Outdoors',
+  study: 'Study',
+};
+
+/**
  * What the pet is doing, independent of which environment is on screen. This is
  * the thing `App.tsx` used to represent as seven loose booleans
  * (`isAnalyzingMeal`, `isEating`, ...) threaded straight into `PetAvatar`. A
