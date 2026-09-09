@@ -1269,11 +1269,20 @@ describe('pet sprite', () => {
   });
 
   it('keeps a build with no evolved art on the base sheet, however trained', () => {
-    // The shiba has lifter and scholar art but no runner, so an endurance build
-    // grows up and stays exactly where it was.
+    // The otter has lifter and scholar art but no runner, so an endurance build
+    // grows up and stays exactly where it was. (This used to be the shiba's
+    // case, until the shiba got runner art of its own.)
+    const { sheetForPet } = require('../components/petSprites');
+    const otter = { id: 'p', breed: 'otter', level: 40, endurance: 90, strength: 10, mind: 10 };
+    expect(sheetForPet(otter).label).toBe('Otter');
+  });
+
+  it('sends a well-run shiba to its runner sheet', () => {
     const { sheetForPet } = require('../components/petSprites');
     const shiba = { id: 'p', breed: 'shiba', level: 40, endurance: 90, strength: 10, mind: 10 };
-    expect(sheetForPet(shiba).label).toBe('Shiba');
+    expect(sheetForPet(shiba).label).toBe('Shiba · Runner');
+    // Below the evolution level it is still just a shiba.
+    expect(sheetForPet({ ...shiba, level: 2 }).label).toBe('Shiba');
   });
 
   it('only references frames that exist on the sheet', () => {

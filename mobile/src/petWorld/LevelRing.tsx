@@ -26,6 +26,13 @@ export function LevelRing({
 }) {
   const pct = Math.max(0, Math.min(100, xpPct));
   const quarters = [pct >= 25, pct >= 50, pct >= 75, pct >= 100];
+  /**
+   * The unearned part of the ring. It needs its own colour per theme now that
+   * the disc behind it is opaque: the old translucent white read against the
+   * artwork, but against a near-white fill it would vanish, taking the sense of
+   * "this much to go" with it.
+   */
+  const track = night ? 'rgba(255,255,255,0.26)' : colors.hairline;
 
   return (
     <Pressable
@@ -38,11 +45,12 @@ export function LevelRing({
       <View
         style={[
           styles.ring,
+          night && styles.ringNight,
           {
-            borderTopColor: quarters[0] ? colors.coral : styles.ring.borderColor,
-            borderRightColor: quarters[1] ? colors.coral : styles.ring.borderColor,
-            borderBottomColor: quarters[2] ? colors.coral : styles.ring.borderColor,
-            borderLeftColor: quarters[3] ? colors.coral : styles.ring.borderColor,
+            borderTopColor: quarters[0] ? colors.coral : track,
+            borderRightColor: quarters[1] ? colors.coral : track,
+            borderBottomColor: quarters[2] ? colors.coral : track,
+            borderLeftColor: quarters[3] ? colors.coral : track,
           },
         ]}
       />
@@ -63,9 +71,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     borderRadius: SIZE / 2,
     borderWidth: STROKE,
-    borderColor: 'rgba(255,255,255,0.55)',
+    // Opaque, not a wash: the level sat directly on the scene, so a pale wall or
+    // a lit window decided how readable the number was. The disc is the same
+    // colour in every room.
+    backgroundColor: colors.card,
     transform: [{ rotate: '-45deg' }],
   },
+  // The night chrome's own tone (the caption card's, at full opacity).
+  ringNight: { backgroundColor: '#141226' },
   level: {
     fontFamily: fonts.mono,
     fontSize: 15,

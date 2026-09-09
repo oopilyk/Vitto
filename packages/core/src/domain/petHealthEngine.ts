@@ -94,6 +94,9 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
   };
 };
 
+/** A cleared mind. `clamp`'s own ceiling, named where the engine leans on it. */
+const MIND_FULL = 100;
+
 const CARDIO_STRENGTH_GAIN = 1;
 
 /**
@@ -180,7 +183,13 @@ export class PetHealthEngine {
           happiness: sharp ? 5 : 3,
           recovery: sharp ? 4 : 2,
           energy: 1,
-          mind: Math.max(2, Math.round(accuracy * (metadata.game === 'math' ? 6 : 8))),
+          // A session restores mind in full, whatever the score. Mind used to
+          // creep back 2-8 points a time, so a foggy pet needed a week of
+          // sessions to clear -- the stat drifted down faster than sitting down
+          // to think could lift it, which made the Study read as pointless.
+          // Sitting down and doing the work is the behaviour worth rewarding;
+          // how well it went still separates the XP and the mood below.
+          mind: Math.max(0, MIND_FULL - pet.mind),
           xp: Math.min(24, 8 + Math.round(accuracy * 12) + (metadata.game === 'reading' ? 2 : 0)),
         };
         message = sharp

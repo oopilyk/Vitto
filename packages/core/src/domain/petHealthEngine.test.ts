@@ -106,8 +106,10 @@ describe('PetHealthEngine', () => {
     expect(sharp.pet.xp).toBeGreaterThan(scrappy.pet.xp);
     expect(sharp.pet.happiness).toBeGreaterThan(scrappy.pet.happiness);
     expect(sharp.reaction.eventLabel).toBe('Quick maths');
-    expect(sharp.pet.mind).toBeGreaterThan(scrappy.pet.mind);
-    expect(sharp.pet.mind).toBeGreaterThan(pet.mind);
+    // Mind is no longer where the score shows up -- sitting down to think
+    // clears it either way, and how it went separates the XP and mood above.
+    expect(sharp.pet.mind).toBe(100);
+    expect(scrappy.pet.mind).toBe(100);
     expect(sharp.pet.recovery).toBeLessThanOrEqual(100);
   });
 
@@ -140,6 +142,40 @@ describe('PetHealthEngine', () => {
     expect(Number.isFinite(result.pet.xp)).toBe(true);
     expect(result.pet.mind).toBeGreaterThanOrEqual(pet.mind);
     expect(result.reaction.eventLabel).toBe('Read and recall');
+  });
+
+  it('clears a foggy mind in one session, and reports the real distance travelled', () => {
+    const foggy = { ...createPet('user-1', 'Miso'), mind: 6 };
+    const result = new PetHealthEngine().apply(foggy, {
+      id: 'event-5',
+      userId: 'user-1',
+      occurredAt: '2026-08-28T12:00:00Z',
+      type: 'BRAIN_TRAINING' as const,
+      source: 'manual' as const,
+      metadata: { game: 'reading' as const, correct: 5, total: 10, durationSeconds: 90, score: 50 },
+    });
+
+    expect(result.pet.mind).toBe(100);
+    // The toast reads "+94 mind", not a flat number that would overstate a
+    // session done by a pet who was already thinking clearly.
+    expect(result.reaction.delta.mind).toBe(94);
+  });
+
+  it('asks for nothing when the mind is already clear', () => {
+    const sharpPet = { ...createPet('user-1', 'Miso'), mind: 100 };
+    const result = new PetHealthEngine().apply(sharpPet, {
+      id: 'event-6',
+      userId: 'user-1',
+      occurredAt: '2026-08-28T12:00:00Z',
+      type: 'BRAIN_TRAINING' as const,
+      source: 'manual' as const,
+      metadata: { game: 'math' as const, correct: 10, total: 10, durationSeconds: 60, score: 100 },
+    });
+
+    expect(result.pet.mind).toBe(100);
+    expect(result.reaction.delta.mind).toBe(0);
+    // The session still counts for everything else.
+    expect(result.reaction.delta.xp).toBeGreaterThan(0);
   });
 });
 

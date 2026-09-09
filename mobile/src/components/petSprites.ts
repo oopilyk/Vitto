@@ -222,9 +222,56 @@ const BICHON: PetSheet = {
 };
 
 // ---------------------------------------------------------------------------
-// Shiba — no runner art, so an endurance build stays on the base sheet. Its
-// lifter and scholar are derived from the base like everyone else's.
+// Shiba
 // ---------------------------------------------------------------------------
+
+/**
+ * The shiba's runner evolution: a leaner, sharper-faced shiba with the base's
+ * red bandana dropped. Unlike the bichon's and the cat's runners, this sheet was
+ * NOT drawn to the base sheet's layout, so it gets its own frame map.
+ *
+ * It also did not arrive on a grid. The source was 756x2079 -- nominally eleven
+ * 189px rows -- but the drawn rows were spaced 183 to 206px apart, so the drift
+ * accumulated until row 5's sprite touched the bottom of its cell and row 6's
+ * bled into the one above; sliced on the nominal grid it clipped heads and feet.
+ * `mobile/scripts/normalizeSpriteSheet.mjs` re-laid it onto a true 4x11 grid,
+ * feet-anchored on one baseline, at a 279px cell chosen so the art fills the same
+ * share of its cell as the base shiba does (no pixel was resampled -- the cell
+ * was sized to the art, not the art to the cell). Every frame now sits 55px off
+ * its cell floor with its feet centred within half a pixel, so the pet neither
+ * bobs nor slides between frames.
+ *
+ * What the sheet actually contains, verified band by band: rows 0-1 and 5 are
+ * standing, rows 2-4 mix standing with the only five running poses on the sheet,
+ * rows 6-7, 9 and 10 are all sitting, and row 8 is lying down. There is no dizzy
+ * art, no crying and no collapse -- the same gaps the base shiba has, handled the
+ * same way, so `selfDrawn` stays unset and DizzyOrbit keeps carrying `foggy`.
+ */
+const SHIBA_RUNNER: PetSheet = {
+  name: 'shiba',
+  label: 'Shiba · Runner',
+  source: require('../../assets/pet/shibaRunner.png'),
+  animations: {
+    // Row 0 only. Its four standing frames are near-redraws of one pose, which
+    // reads as a dog shifting its weight; row 1 and row 5 are separate standing
+    // draws that differ enough (40-60% of pixels) to look like a jump cut.
+    idle: [[0, 3], [0, 3], [0, 2], [0, 3]],
+    cheer: [[2, 0], [2, 1], [2, 2], [2, 3]],
+    // Every running pose the sheet has, in sheet order. They are scattered
+    // across three rows rather than laid out as one band, so this is a gathered
+    // cycle rather than the artist's -- the one band worth re-checking on-device.
+    move: [[2, 2], [2, 3], [3, 2], [3, 3], [4, 2]],
+    // Lying down, eyes open: a dog resting, distinct from the eyes-closed frame
+    // that ends `faint`, so exhausted and out-cold do not look identical.
+    rest: [[8, 0]],
+    // No dizzy band, so the sitting row stands in and DizzyOrbit carries it.
+    unwell: [[7, 0], [7, 1], [7, 2], [7, 3]],
+    sad: [[6, 0], [6, 1], [6, 2], [6, 3]],
+    // Sits, goes down, and stays down: row 8's last frame has the eyes shut,
+    // which is the frame HOLDS_LAST_FRAME parks on.
+    faint: [[7, 0], [8, 1], [8, 2], [8, 3]],
+  },
+};
 
 const SHIBA_ANIMATIONS: PetSheet['animations'] = {
   idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
@@ -248,7 +295,7 @@ const SHIBA_SCHOLAR = sheetFrom(SHIBA_LAYOUT, 'Shiba · Scholar', require('../..
 
 const SHIBA: PetSheet = {
   ...sheetFrom(SHIBA_LAYOUT, 'Shiba', require('../../assets/pet/shiba.png')),
-  evolutions: { lifter: SHIBA_LIFTER, scholar: SHIBA_SCHOLAR },
+  evolutions: { runner: SHIBA_RUNNER, lifter: SHIBA_LIFTER, scholar: SHIBA_SCHOLAR },
 };
 
 // ---------------------------------------------------------------------------
