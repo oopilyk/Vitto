@@ -30,7 +30,9 @@ const ANIMATION_BY_AILMENT: Record<PetAilment, PetAnimation> = {
  * pet yet, so the ailment stays visible under a thought bubble.
  *
  * `walkingToFood` reuses `move` (no dedicated walking pose exists — see
- * `toPetAvatarActivityProps`'s note on the same gap).
+ * `toPetAvatarActivityProps`'s note on the same gap). `ambientWalking` reuses it
+ * too, for the same reason `toPetAvatarActivityProps` folds it into
+ * `isExploring` — see that state's own doc comment in `types.ts`.
  */
 export function animationForInteraction(
   state: PetInteractionState,
@@ -38,7 +40,12 @@ export function animationForInteraction(
   condition: PetCondition,
 ): PetAnimation {
   if (state.kind === 'celebrating' || state.kind === 'eating') return 'cheer';
-  if (state.kind === 'workingOut' || state.kind === 'exploring' || state.kind === 'walkingToFood') {
+  if (
+    state.kind === 'workingOut' ||
+    state.kind === 'exploring' ||
+    state.kind === 'walkingToFood' ||
+    state.kind === 'ambientWalking'
+  ) {
     return 'move';
   }
   if (condition.primary) return ANIMATION_BY_AILMENT[condition.primary];

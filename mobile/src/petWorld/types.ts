@@ -33,6 +33,18 @@ export type PetInteractionState =
   | { kind: 'celebrating'; grade: MealAnalysis['grade'] | null }
   | { kind: 'workingOut' }
   | { kind: 'exploring' }
+  /**
+   * Live "the user is walking right now" cue (see mobile/AMBIENT.md), distinct
+   * from the button-triggered `exploring` above: that one is a one-shot,
+   * timed celebration (`startExploring`'s `EXPLORE_DURATION_MS`) fired when
+   * steps are synced; this one tracks a continuous foreground sensor reading
+   * with no timer of its own — it starts and stops exactly when
+   * `setAmbientWalking` says so. Both map to the same `move` sprite band (see
+   * `toPetAvatarActivityProps`), so on screen they look identical; kept as
+   * separate reducer states so the tap-triggered timeout and the live signal
+   * can never race each other's finish.
+   */
+  | { kind: 'ambientWalking' }
   /** Distinct from `idle`: a true sleep read, driven by energy rather than an action. */
   | { kind: 'sleeping' };
 
@@ -68,6 +80,8 @@ export type PetInteractionEvent =
   | { type: 'WORKOUT_FINISHED' }
   | { type: 'EXPLORE_STARTED' }
   | { type: 'EXPLORE_FINISHED' }
+  | { type: 'AMBIENT_WALKING_STARTED' }
+  | { type: 'AMBIENT_WALKING_STOPPED' }
   | { type: 'SLEEP_STARTED' }
   | { type: 'SLEEP_ENDED' }
   | { type: 'RESET' };

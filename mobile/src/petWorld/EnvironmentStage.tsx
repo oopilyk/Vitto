@@ -50,6 +50,13 @@ interface EnvironmentStageProps {
   pet: PetState;
   activityProps: PetAvatarActivityProps;
   /**
+   * Live "the user is at their saved gym" cue (see mobile/AMBIENT.md). A prop
+   * rather than part of `activityProps`/`PetInteractionState`: being at the gym
+   * says where the user is, not what the pet is doing, so it must not change
+   * the animation band — it only parks a dumbbell beside the pet.
+   */
+  atGym?: boolean;
+  /**
    * Chrome that doesn't belong to either scene — the level ring, status chips,
    * profile/today icons. Shown over the pet in both environments, same as the
    * pet itself is persistent across them.
@@ -75,6 +82,7 @@ export function EnvironmentStage({
   environment,
   pet,
   activityProps,
+  atGym,
   hudOverlay,
   main,
   kitchen,
@@ -130,6 +138,7 @@ export function EnvironmentStage({
           <PetAvatar
             pet={pet}
             {...activityProps}
+            atGym={atGym}
             stageStyle={styles.petStage}
             hideStatusCaption
             size={PET_STAGE_SIZE}

@@ -48,6 +48,21 @@ interface Props {
   interaction: UsePetInteractionResult;
   /** Named under the kicker: "Raised with Alex". Absent for a solo pet. */
   partnerName?: string;
+  /**
+   * Ambient signals, live and foreground-only (see mobile/AMBIENT.md). Already
+   * resolved by `App.tsx` — a dev override (see `TodayScreen`'s "Dev · force
+   * ambient" panel) wins over the live sensors before either prop reaches here,
+   * the same way `pet` arrives with `forcedAilment`/`forcedForm` already baked
+   * in rather than threaded down as separate override props.
+   *
+   * `isWalking` feeds `usePetInteraction`'s state machine as a new input (see
+   * `setAmbientWalking`) so it folds into the same `exploring` sprite band a
+   * button-triggered explore uses. `atGym` stays a passive prop straight
+   * through to `PetAvatar` — being at the gym says where the user is, not what
+   * the pet is doing, so it must not change the animation band.
+   */
+  isWalking?: boolean;
+  atGym?: boolean;
 }
 
 export function DashboardScreen({
@@ -67,6 +82,8 @@ export function DashboardScreen({
   onSelectPet,
   interaction,
   partnerName,
+  isWalking,
+  atGym,
 }: Props) {
   const [environment, setEnvironment] = useState<EnvironmentId>('main');
 
@@ -79,6 +96,19 @@ export function DashboardScreen({
     // Only ever fires once per mount — `interaction.notice` is stable across
     // renders (see `usePetInteraction`), so this isn't re-run by its identity.
   }, [interaction]);
+
+  // The live "is the user walking right now" cue, re-asserted on every render
+  // where it or the interaction state changes — see `setAmbientWalking` for why
+  // this needs to run again once a higher-priority activity (feeding, workout)
+  // finishes and hands the state back to idle while the user is still walking.
+  useEffect(() => {
+    interaction.setAmbientWalking(Boolean(isWalking));
+    // `interaction.setAmbientWalking` is stable (see `usePetInteraction`);
+    // `interaction.state.kind` is the real second dependency, so this fires
+    // again once a higher-priority activity hands control back to idle while
+    // the user is still walking, rather than only on `isWalking` itself
+    // changing — see the doc comment on `setAmbientWalking`.
+  }, [isWalking, interaction.state.kind, interaction.setAmbientWalking]);
 
   const formLabel = hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : `Level ${pet.level}`;
 
@@ -94,6 +124,7 @@ export function DashboardScreen({
       environment={environment}
       pet={pet}
       activityProps={toPetAvatarActivityProps(interaction.state)}
+      atGym={atGym}
       onPetTap={interaction.notice}
       hudOverlay={
         <PetWorldHud

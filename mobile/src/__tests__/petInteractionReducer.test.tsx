@@ -92,6 +92,38 @@ describe('petInteractionReducer', () => {
     expect(petInteractionReducer(exploring, { type: 'EXPLORE_FINISHED' })).toEqual(IDLE_STATE);
   });
 
+  it('starts and stops ambient walking from idle or noticing, but not over anything more specific', () => {
+    const walking = petInteractionReducer(IDLE_STATE, { type: 'AMBIENT_WALKING_STARTED' });
+    expect(walking).toEqual({ kind: 'ambientWalking' });
+    expect(petInteractionReducer(walking, { type: 'AMBIENT_WALKING_STOPPED' })).toEqual(IDLE_STATE);
+
+    const noticing = petInteractionReducer(IDLE_STATE, { type: 'PET_NOTICED' });
+    expect(petInteractionReducer(noticing, { type: 'AMBIENT_WALKING_STARTED' })).toEqual({
+      kind: 'ambientWalking',
+    });
+
+    // A live ambient cue must not cut a meal, workout or tap-triggered explore
+    // short -- it only takes over idle/noticing, the same guard `PET_NOTICED` uses.
+    const eating: PetInteractionState = { kind: 'eating', feedingImage: null, grade: 'A' };
+    const workingOut: PetInteractionState = { kind: 'workingOut' };
+    const exploring: PetInteractionState = { kind: 'exploring' };
+    expect(petInteractionReducer(eating, { type: 'AMBIENT_WALKING_STARTED' })).toEqual(eating);
+    expect(petInteractionReducer(workingOut, { type: 'AMBIENT_WALKING_STARTED' })).toEqual(workingOut);
+    expect(petInteractionReducer(exploring, { type: 'AMBIENT_WALKING_STARTED' })).toEqual(exploring);
+
+    // Re-dispatching while already ambient-walking is a no-op -- this is what
+    // makes `usePetInteraction`'s re-assert-on-every-render safe.
+    expect(petInteractionReducer(walking, { type: 'AMBIENT_WALKING_STARTED' })).toEqual(walking);
+    // Stopping anything other than ambient walking is ignored.
+    expect(petInteractionReducer(exploring, { type: 'AMBIENT_WALKING_STOPPED' })).toEqual(exploring);
+  });
+
+  it('lets a tap-triggered explore win over an ambient walking cue already in progress', () => {
+    const ambientWalking = petInteractionReducer(IDLE_STATE, { type: 'AMBIENT_WALKING_STARTED' });
+    const explored = petInteractionReducer(ambientWalking, { type: 'EXPLORE_STARTED' });
+    expect(explored).toEqual({ kind: 'exploring' });
+  });
+
   it('only sleeps from idle, and only wakes from sleeping', () => {
     const sleeping = petInteractionReducer(IDLE_STATE, { type: 'SLEEP_STARTED' });
     expect(sleeping).toEqual({ kind: 'sleeping' });

@@ -75,6 +75,18 @@ interface Props {
     syncing?: boolean;
   };
   /**
+   * "My gym": one coordinate, kept on this device, that parks a dumbbell beside
+   * the pet whenever the app is open nearby. Absent where location cannot be
+   * read (web), which hides the card. See mobile/AMBIENT.md.
+   */
+  gym?: {
+    saved: boolean;
+    busy: boolean;
+    error: string | null;
+    onSetHere: () => void;
+    onClear: () => void;
+  };
+  /**
    * Care partners: two accounts raising one pet. Absent entirely in local mode
    * and when signed out, which is what hides the card. Every action rejects
    * with a readable message, shown inline under the control that raised it.
@@ -194,6 +206,7 @@ export function ProfileScreen({
   isSyncingAppleHealth,
   onLogScreenTime,
   screenTimeAccess,
+  gym,
   carePartner,
 }: Props) {
   const [profile, setProfile] = useState(initial);
@@ -805,6 +818,29 @@ export function ProfileScreen({
             </Group>
           )}
         </Card>
+
+        {gym ? (
+          <Card
+            title="My gym"
+            hint="Save where you train and your pet picks up a dumbbell whenever you open Vitto there."
+          >
+            <Text style={text.body}>
+              {gym.saved
+                ? 'Saved. Vitto checks whether you are nearby while the app is open — nothing is recorded.'
+                : 'Not set. Stand at your gym and save it; only that one spot is kept, on this phone.'}
+            </Text>
+            {gym.error ? <Text style={styles.saveError}>{gym.error}</Text> : null}
+            <View style={styles.screenActions}>
+              <TextButton
+                label={gym.busy ? 'Finding you...' : gym.saved ? 'Move my gym to here' : 'Set my gym to here'}
+                tone="coral"
+                onPress={gym.onSetHere}
+                disabled={gym.busy}
+              />
+              {gym.saved ? <TextButton label="Forget my gym" onPress={gym.onClear} disabled={gym.busy} /> : null}
+            </View>
+          </Card>
+        ) : null}
 
         <Card title="Activity history" hint="Your full record">
           {events.length === 0 ? (

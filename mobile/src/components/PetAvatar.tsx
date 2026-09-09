@@ -13,6 +13,7 @@ import { SpriteFrame } from './SpriteFrame';
 import {
   Confetti,
   DizzyOrbit,
+  Dumbbell,
   Fading,
   HeartStream,
   HungerPangs,
@@ -33,6 +34,12 @@ interface PetAvatarProps {
   isCelebrating: boolean;
   isWorkingOut: boolean;
   isExploring: boolean;
+  /**
+   * Live "the user is at their gym" signal. Parks a dumbbell beside the pet. It
+   * is a prop rather than an activity: being at the gym says where the user is,
+   * not what the pet is doing, so it must not change the sprite band.
+   */
+  atGym?: boolean;
   children?: React.ReactNode;
   /**
    * Overrides the stage's fixed height. The dashboard passes `{ flex: 1 }` so the
@@ -171,6 +178,7 @@ export function PetAvatar({
   isCelebrating,
   isWorkingOut,
   isExploring,
+  atGym,
   children,
   stageStyle,
   hideStatusCaption,
@@ -392,6 +400,7 @@ export function PetAvatar({
       <DizzyOrbit active={overlays.has('foggy')} headOffset={headOffset} />
 
       <Confetti active={isCelebrating} headOffset={headOffset} />
+      <Dumbbell active={Boolean(atGym)} size={size} />
       <HeartStream active={showHearts} headOffset={headOffset} />
 
       {hideStatusCaption ? null : (

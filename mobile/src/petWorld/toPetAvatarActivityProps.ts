@@ -45,6 +45,11 @@ export function toPetAvatarActivityProps(state: PetInteractionState): PetAvatarA
     case 'workingOut':
       return { ...IDLE_ACTIVITY, isWorkingOut: true };
     case 'exploring':
+    // Ambient walking reuses the same `move` sprite band as a tap-triggered
+    // explore — see the `ambientWalking` state's own doc comment in `types.ts`
+    // for why it is still a separate reducer state despite mapping identically
+    // here.
+    case 'ambientWalking':
       return { ...IDLE_ACTIVITY, isExploring: true };
     case 'idle':
     case 'noticing':

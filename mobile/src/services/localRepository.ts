@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   type CareLogEntry,
+  type GeoPoint,
   type HealthEvent,
   type PetInvite,
   type PetMember,
@@ -12,6 +13,12 @@ import {
 const petKey = 'vitto.pet';
 const eventKey = 'vitto.events';
 const wordPuzzleKey = 'vitto.wordpuzzle.progress';
+/**
+ * One coordinate, on this device only. The gym check compares live position
+ * against this and stores nothing else — no fixes, no trail. Kept local rather
+ * than in the profile row so "where you train" never leaves the phone.
+ */
+const gymKey = 'vitto.gym';
 const MAX_STORED_EVENTS = 2000;
 const CARE_PARTNERS_OFFLINE_MESSAGE = 'Care partners need an online account.';
 
@@ -92,7 +99,24 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, 'vitto.profile']);
+  }
+
+  async loadGymLocation(): Promise<GeoPoint | null> {
+    const value = await AsyncStorage.getItem(gymKey);
+    if (!value) return null;
+    const parsed = JSON.parse(value) as Partial<GeoPoint>;
+    return typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number'
+      ? { latitude: parsed.latitude, longitude: parsed.longitude }
+      : null;
+  }
+
+  async saveGymLocation(point: GeoPoint): Promise<void> {
+    await AsyncStorage.setItem(gymKey, JSON.stringify({ latitude: point.latitude, longitude: point.longitude }));
+  }
+
+  async clearGymLocation(): Promise<void> {
+    await AsyncStorage.removeItem(gymKey);
   }
 
   // --- Care partners -------------------------------------------------------

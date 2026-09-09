@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Defs, Ellipse, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { SpriteFrame } from './SpriteFrame';
 import type { PetSheet } from './petSprites';
 import { colors } from '../theme';
@@ -467,6 +467,47 @@ interface PetAuraProps {
  * Aura colours must stay pale. This is additive-feeling light over the sage
  * panel, so a dark tone reads as a bruise rather than a glow.
  */
+/**
+ * Where a side prop sits, as fractions of the pet's size: just past the sprite's
+ * right edge, down at paw height.
+ */
+const PROP_SIDE_OFFSET = 0.62;
+const PROP_BASELINE_OFFSET = 0.18;
+
+interface SidePropProps {
+  active: boolean;
+  /** The pet's rendered size, so the prop lands beside it whatever the stage. */
+  size: number;
+}
+
+/**
+ * A dumbbell parked beside the pet while the user is at the gym.
+ *
+ * Deliberately still. The other overlays animate because they describe a
+ * feeling the pet is having; this one describes where the user is, and a prop
+ * that bobbed or spun would read as the pet doing something, which it is not.
+ */
+export function Dumbbell({ active, size }: SidePropProps) {
+  if (!active) return null;
+  return (
+    <View
+      style={[
+        styles.sideProp,
+        { marginLeft: size * PROP_SIDE_OFFSET * 2, marginTop: size * PROP_BASELINE_OFFSET },
+      ]}
+      pointerEvents="none"
+    >
+      <Svg width={34} height={16} viewBox="0 0 34 16">
+        <Rect x={2} y={1} width={6} height={14} rx={1.5} fill={colors.slateDeep} />
+        <Rect x={26} y={1} width={6} height={14} rx={1.5} fill={colors.slateDeep} />
+        <Rect x={0} y={4} width={3} height={8} rx={1} fill={colors.slateDeep} fillOpacity={0.7} />
+        <Rect x={31} y={4} width={3} height={8} rx={1} fill={colors.slateDeep} fillOpacity={0.7} />
+        <Rect x={8} y={6} width={18} height={4} rx={2} fill={colors.slateDeep} fillOpacity={0.85} />
+      </Svg>
+    </View>
+  );
+}
+
 export function PetAura({ color, size }: PetAuraProps) {
   // react-native-svg resolves gradient ids globally, so two auras mounted at
   // once (a picker beside the stage) would otherwise share whichever painted last.
@@ -507,6 +548,7 @@ const styles = StyleSheet.create({
   piece: { position: 'absolute', borderRadius: 2 },
   glyph: { position: 'absolute', fontSize: 20 },
   cloud: { width: 54, height: 56, alignItems: 'center' },
+  sideProp: { position: 'absolute', zIndex: 3 },
   drop: {
     position: 'absolute',
     top: 24,

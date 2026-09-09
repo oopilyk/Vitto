@@ -74,7 +74,20 @@ interface Props {
   onSeedTestData?: () => void;
   onClearSeededData?: () => void;
   isSeeding?: boolean;
+  /** Dev tool: pretend to be walking or at the gym, so both ambient cues (see
+   * mobile/AMBIENT.md) can be checked at a desk without real sensors. */
+  forcedAmbient?: ForcedAmbient | null;
+  onForceAmbient?: (state: ForcedAmbient | null) => void;
 }
+
+export type ForcedAmbient = 'walking' | 'gym';
+type DevAmbientChoice = ForcedAmbient | 'live';
+
+const DEV_AMBIENT_OPTIONS: { value: DevAmbientChoice; label: string; detail?: string }[] = [
+  { value: 'live', label: 'Live', detail: 'real sensors' },
+  { value: 'walking', label: 'Walking' },
+  { value: 'gym', label: 'At gym' },
+];
 
 type DevAilmentChoice = ForcedPetStatus | 'live';
 
@@ -160,6 +173,8 @@ export function TodayScreen({
   onSeedTestData,
   onClearSeededData,
   isSeeding,
+  forcedAmbient,
+  onForceAmbient,
 }: Props) {
   const { width } = useWindowDimensions();
   const [refreshing, setRefreshing] = useState(false);
@@ -495,6 +510,23 @@ export function TodayScreen({
             <Text style={styles.devHint}>
               Moves level, endurance, strength and mind, so the sprite, the kicker and the
               stat bars all agree. A specialism needs the evolution level — base stays under it.
+            </Text>
+          </View>
+        ) : null}
+
+        {onForceAmbient ? (
+          <View style={styles.devPanel}>
+            <Kicker>Dev · force ambient</Kicker>
+            <View style={styles.devChoices}>
+              <ChoiceRow
+                options={DEV_AMBIENT_OPTIONS}
+                value={forcedAmbient ?? 'live'}
+                onChange={(next) => onForceAmbient(next === 'live' ? null : next)}
+              />
+            </View>
+            <Text style={styles.devHint}>
+              Pretends the user is walking or at the gym (see mobile/AMBIENT.md), so both
+              cues can be checked here without real sensors. Nothing here is saved.
             </Text>
           </View>
         ) : null}

@@ -43,6 +43,14 @@ export interface UsePetInteractionResult {
   startFeeding: (imageUri: string | null, grade: MealAnalysis['grade']) => void;
   startWorkout: () => void;
   startExploring: () => void;
+  /**
+   * Live ambient walking cue (see mobile/AMBIENT.md), not a timed one-shot like
+   * `startExploring`: the caller re-asserts this on every render with the
+   * current live value (`useEffect` keyed on the signal and on `state.kind` —
+   * see `DashboardScreen`), so it starts, stops, and resumes exactly in step
+   * with the sensor rather than on any timer of its own.
+   */
+  setAmbientWalking: (walking: boolean) => void;
   reset: () => void;
 }
 
@@ -117,7 +125,23 @@ export function usePetInteraction(callbacks: PetInteractionCallbacks = {}): UseP
     after(EXPLORE_DURATION_MS, () => dispatch({ type: 'EXPLORE_FINISHED' }));
   }, [after]);
 
+  const setAmbientWalking = useCallback(
+    (walking: boolean) =>
+      dispatch({ type: walking ? 'AMBIENT_WALKING_STARTED' : 'AMBIENT_WALKING_STOPPED' }),
+    [],
+  );
+
   const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
 
-  return { state, notice, startAnalyzing, stopAnalyzing, startFeeding, startWorkout, startExploring, reset };
+  return {
+    state,
+    notice,
+    startAnalyzing,
+    stopAnalyzing,
+    startFeeding,
+    startWorkout,
+    startExploring,
+    setAmbientWalking,
+    reset,
+  };
 }
