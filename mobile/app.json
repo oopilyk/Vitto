@@ -71,7 +71,8 @@
           "locationWhenInUsePermission": "Vitto checks whether you're at the gym you saved so your pet can join you. Your location is never stored or sent anywhere.",
           "isAndroidBackgroundLocationEnabled": false
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "scheme": "vitto",
     "backgroundColor": "#f5f2eb"

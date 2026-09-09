@@ -69,8 +69,12 @@ interface EnvironmentStageProps {
    * pet itself is persistent across them.
    */
   hudOverlay?: ReactNode;
-  main: EnvironmentDressing;
-  kitchen: EnvironmentDressing;
+  /**
+   * Every scene's dressing, keyed by id. A record rather than one prop per
+   * scene: with two it was `main`/`kitchen` and a single 0..1 blend between
+   * them, which does not survive a third.
+   */
+  environments: Record<EnvironmentId, EnvironmentDressing>;
   /** A tap anywhere on the pet itself — used to fire a "noticing" reaction. */
   onPetTap?: () => void;
 }
@@ -79,11 +83,9 @@ interface EnvironmentStageProps {
  * The reusable half of the "environment" system: keeps exactly one `PetAvatar`
  * mounted regardless of which scene is showing (so its sprite frame, bob loop
  * and flight animation never reset mid-transition), full-bleed behind whatever
- * global chrome and environment controls are layered over it. Adding a third
- * environment later is one more `EnvironmentDressing` value plus one more
- * `EnvironmentId` member — nothing about this component's shape changes, which
- * is the point of keeping it a plain union/switch rather than a registry built
- * for scenes that don't exist yet.
+ * global chrome and environment controls are layered over it. Adding a scene is
+ * one more `EnvironmentDressing` in the `environments` record plus one more
+ * `EnvironmentId` member — nothing about this component's shape changes.
  */
 export function EnvironmentStage({
   environment,
@@ -91,28 +93,36 @@ export function EnvironmentStage({
   activityProps,
   atGym,
   hudOverlay,
-  main,
-  kitchen,
+  environments,
   onPetTap,
 }: EnvironmentStageProps) {
-  const regions = environment === 'main' ? main : kitchen;
+  const regions = environments[environment];
 
-  // 0 = fully Main, 1 = fully Kitchen — drives the background blend and a small
-  // settle-pulse on the pet, so the pet visibly "carries through" the change
-  // rather than the whole screen just swapping.
-  const progress = useRef(new Animated.Value(environment === 'kitchen' ? 1 : 0)).current;
+  // 0 = the scene being left, 1 = the one being entered. Drives the background
+  // blend and a small settle-pulse on the pet, so the pet visibly "carries
+  // through" the change rather than the whole screen just swapping.
+  const progress = useRef(new Animated.Value(1)).current;
+  // The colour to blend *from*. Recorded on the way out rather than the way in:
+  // set during the effect that starts the animation, a re-render mid-transition
+  // would interpolate from the destination colour to itself and the blend would
+  // vanish halfway through.
+  const leavingColor = useRef(regions.backgroundColor);
   useEffect(() => {
+    progress.setValue(0);
     Animated.timing(progress, {
-      toValue: environment === 'kitchen' ? 1 : 0,
+      toValue: 1,
       duration: ENVIRONMENT_TRANSITION_MS,
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: false, // backgroundColor cannot use the native driver.
     }).start();
-  }, [environment, progress]);
+    return () => {
+      leavingColor.current = regions.backgroundColor;
+    };
+  }, [environment, progress, regions.backgroundColor]);
 
   const backgroundColor = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [main.backgroundColor, kitchen.backgroundColor],
+    outputRange: [leavingColor.current, regions.backgroundColor],
   });
 
   const pulse = useRef(new Animated.Value(1)).current;
@@ -172,9 +182,9 @@ export function EnvironmentStage({
 
 /**
  * Fades its child in whenever `swapKey` changes. Deliberately a fade-in-only
- * swap rather than a true crossfade of both old and new content: Main and
- * Kitchen's scenery/controls differ enough in shape that keeping both mounted
- * to blend between them would need them to also agree on layout space. The
+ * swap rather than a true crossfade of both old and new content: the scenes'
+ * scenery/controls differ enough in shape that keeping both mounted to blend
+ * between them would need them to also agree on layout space. The
  * background colour above already carries the continuous blend; this just
  * keeps the content swap from being an instant jump-cut.
  */

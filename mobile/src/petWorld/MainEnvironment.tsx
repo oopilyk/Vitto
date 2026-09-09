@@ -1,7 +1,8 @@
-import { Image, Platform, StyleSheet, View } from 'react-native';
-import { colors, layout } from '../theme';
+import { Platform, StyleSheet, View } from 'react-native';
+
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
+import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
 
 /**
@@ -18,8 +19,13 @@ const MAIN_DAY = require('../../assets/environments/main-day.png');
 const MAIN_NIGHT = require('../../assets/environments/main-night.png');
 const KITCHEN_BUTTON = require('../../assets/buttons/kitchen.png');
 
-/** Roughly the night art's own dominant tone, so the crossfade/underlay never flashes the day color. */
-export const NIGHT_TINT = '#3c3a5e';
+/**
+ * The art's own top-edge tone. Doubles as the crossfade underlay and as the band
+ * above the art, which is fitted to full width rather than cropped —
+ * see `EnvironmentBackdrop`.
+ */
+const DAY_TINT = '#c1a693';
+export const NIGHT_TINT = '#434280';
 
 // Clears the home indicator on modern iPhones without pulling in a safe-area
 // package, which drags a second copy of React into the workspace.
@@ -28,23 +34,27 @@ const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 interface MainControlsProps {
   /** Walks the pet into the Kitchen scene. */
   onFeedTap: () => void;
+  /** Walks the pet into the Gym scene. */
+  onEnterGym: () => void;
   onLogWorkout: () => void;
+  /** Walks the pet outdoors. */
+  onEnterOutside: () => void;
   onSyncSteps: () => void;
   onTrainMind: () => void;
 }
 
 export function mainEnvironment({
   onFeedTap,
+  onEnterGym,
   onLogWorkout,
+  onEnterOutside,
   onSyncSteps,
   onTrainMind,
 }: MainControlsProps): EnvironmentDressing {
   const night = isNightTime();
   return {
-    background: (
-      <Image source={night ? MAIN_NIGHT : MAIN_DAY} style={layout.fillImage} resizeMode="cover" />
-    ),
-    backgroundColor: night ? NIGHT_TINT : colors.sage,
+    background: <EnvironmentBackdrop source={night ? MAIN_NIGHT : MAIN_DAY} />,
+    backgroundColor: night ? NIGHT_TINT : DAY_TINT,
     controls: (
       <View style={styles.bottomRow}>
         <EnvironmentActionRow
@@ -54,7 +64,9 @@ export function mainEnvironment({
             source: KITCHEN_BUTTON,
             onPress: onFeedTap,
           }}
+          onEnterGym={onEnterGym}
           onLogWorkout={onLogWorkout}
+          onEnterOutside={onEnterOutside}
           onSyncSteps={onSyncSteps}
           onTrainMind={onTrainMind}
           night={night}

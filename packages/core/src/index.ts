@@ -14,6 +14,7 @@ export * from './domain/petStatusEffects';
 export * from './domain/socialPetStatus';
 export * from './domain/screenTime';
 export * from './domain/ambient';
+export * from './domain/reminders';
 export * from './domain/streaks';
 export * from './domain/insights';
 export * from './dev/seedEvents';

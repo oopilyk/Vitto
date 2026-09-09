@@ -429,16 +429,30 @@ describe('screens render', () => {
     const { ScrollView } = require('react-native');
     expect(tree.root.findAllByType(ScrollView)).toHaveLength(0);
 
-    act(() => findButton('Log workout')!.props.onPress());
-    act(() => findButton('Log steps')!.props.onPress());
+    // Study is still a direct action from the living room; Gym and Outdoors are
+    // destinations now, the same way the Kitchen already was.
     act(() => findButton('Log mind')!.props.onPress());
-    expect(pressed).toEqual(['workout', 'steps', 'mind']);
+    expect(pressed).toEqual(['mind']);
+
+    // Gym: walks the pet there, and the scene carries its own "Log workout".
+    act(() => findButton('Go to the gym')!.props.onPress());
+    expect(pressed).toEqual(['mind']);
+    act(() => findButton('Log workout')!.props.onPress());
+    expect(pressed).toEqual(['mind', 'workout']);
+    act(() => findButton('Back to the living room')!.props.onPress());
+
+    // Outdoors: same shape, with "Log steps" as its call to action.
+    act(() => findButton('Go outdoors')!.props.onPress());
+    expect(pressed).toEqual(['mind', 'workout']);
+    act(() => findButton('Log steps')!.props.onPress());
+    expect(pressed).toEqual(['mind', 'workout', 'steps']);
+    act(() => findButton('Back to the living room')!.props.onPress());
 
     // Feed doesn't call `onLogMeal` directly any more -- the Kitchen button
     // walks the pet into the Kitchen scene, which has its own dedicated
     // "Log meal" button above the pet.
     act(() => findButton('Go to the kitchen')!.props.onPress());
-    expect(pressed).toEqual(['workout', 'steps', 'mind']);
+    expect(pressed).toEqual(['mind', 'workout', 'steps']);
     expect(findButton('Log meal')).toBeTruthy();
     // The Kitchen's leading button is now "Living room" (back to the bedroom),
     // and the old "Not right now" text link is gone.
@@ -446,7 +460,7 @@ describe('screens render', () => {
     expect(JSON.stringify(tree.toJSON())).not.toContain('Not right now');
 
     act(() => findButton('Log meal')!.props.onPress());
-    expect(pressed).toEqual(['workout', 'steps', 'mind', 'meal']);
+    expect(pressed).toEqual(['mind', 'workout', 'steps', 'meal']);
 
     // "Living room" returns to the bedroom, where the leading button is Kitchen again.
     act(() => findButton('Back to the living room')!.props.onPress());
@@ -483,7 +497,7 @@ describe('screens render', () => {
     const petZ = zIndexOf(petLayer.props.style);
 
     let node: any = tree.root
-      .findAllByProps({ accessibilityLabel: 'Log workout' })
+      .findAllByProps({ accessibilityLabel: 'Log mind' })
       .find((n: any) => typeof n.props.onPress === 'function');
     let controlsZ = 0;
     while (node) {
@@ -1314,6 +1328,92 @@ describe('care partners', () => {
       await leave!.props.onPress();
     });
     expect(left).toBe(1);
+    tree.unmount();
+  });
+
+  const renderReminders = (overrides: Record<string, unknown> = {}) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async () => {}}
+          onClose={() => {}}
+          reminders={{
+            items: [],
+            permission: 'granted',
+            onAdd: async () => {},
+            onToggle: () => {},
+            onRemove: () => {},
+            ...overrides,
+          }}
+        />,
+      );
+    });
+    return tree;
+  };
+
+  it('adds a reminder with the typed label and time', async () => {
+    const added: any[] = [];
+    const tree = renderReminders({
+      onAdd: async (draft: unknown) => {
+        added.push(draft);
+      },
+    });
+    const label = tree.root
+      .findAllByType(RNTextInput)
+      .find((node: any) => node.props.placeholder === 'Take creatine');
+    act(() => label!.props.onChangeText('Take creatine'));
+    await act(async () => {
+      await findButton(tree, 'Add reminder')!.props.onPress();
+    });
+    expect(added).toEqual([{ label: 'Take creatine', hour: 8, minute: 0, days: [] }]);
+    tree.unmount();
+  });
+
+  it('refuses an empty label instead of calling onAdd', async () => {
+    let calls = 0;
+    const tree = renderReminders({
+      onAdd: async () => {
+        calls += 1;
+      },
+    });
+    await act(async () => {
+      await findButton(tree, 'Add reminder')!.props.onPress();
+    });
+    expect(calls).toBe(0);
+    expect(JSON.stringify(tree.toJSON())).toContain('Give the reminder a name');
+    tree.unmount();
+  });
+
+  it('shows a saved reminder with its time and days, and can pause it', () => {
+    let toggled = '';
+    const tree = renderReminders({
+      items: [
+        { id: 'r-1', label: 'Take creatine', hour: 8, minute: 5, days: [], enabled: true },
+        { id: 'r-2', label: 'Stretch', hour: 19, minute: 0, days: [2, 4, 6], enabled: false },
+      ],
+      onToggle: (id: string) => {
+        toggled = id;
+      },
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('8:05 am');
+    expect(rendered).toContain('Every day');
+    expect(rendered).toContain('7:00 pm');
+    expect(rendered).toContain('Mon, Wed, Fri');
+    expect(rendered).toContain('paused');
+    act(() => findButton(tree, 'Pause')!.props.onPress());
+    expect(toggled).toBe('r-1');
+    tree.unmount();
+  });
+
+  it('says reminders will stay silent when notifications are denied', () => {
+    const tree = renderReminders({ permission: 'denied' });
+    expect(JSON.stringify(tree.toJSON())).toContain('Notifications are turned off');
     tree.unmount();
   });
 

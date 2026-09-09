@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -22,6 +22,12 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { readCurrentLocation, useAtGym, useWalking } from './src/services/ambient';
+import {
+  type NotificationPermission,
+  reminderPermissionStatus,
+  requestReminderPermission,
+  syncScheduledReminders,
+} from './src/services/reminders';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
@@ -166,8 +172,27 @@ export default function App() {
   const [gymError, setGymError] = useState<string | null>(null);
   const walkingState = useWalking();
   const gymState = useAtGym(gym);
+
+  /**
+   * Personal reminders ("take creatine at 8am"). Device-local like the gym
+   * coordinate: the list lives in AsyncStorage and the OS owns the alarms, so
+   * nothing about them reaches the server.
+   */
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [reminderPermission, setReminderPermission] = useState<NotificationPermission>('unknown');
   useEffect(() => {
     void repository.loadGymLocation().then(setGym).catch(() => setGym(null));
+    void repository
+      .loadReminders()
+      .then((saved) => {
+        setReminders(saved);
+        // The OS forgets nothing, but a reinstall or a revoked permission can
+        // leave the schedule out of step with the list. Resyncing on launch is
+        // cheap and makes the saved list the single source of truth.
+        void syncScheduledReminders(saved);
+      })
+      .catch(() => setReminders([]));
+    void reminderPermissionStatus().then(setReminderPermission);
   }, []);
   const [isSeeding, setIsSeeding] = useState(false);
   const [authReady, setAuthReady] = useState(!isSupabaseConfigured);
@@ -864,6 +889,46 @@ export default function App() {
     setGymError(null);
   };
 
+  /** Saves the list, then makes the OS schedule match it. */
+  const commitReminders = async (next: Reminder[]) => {
+    setReminders(next);
+    await repository.saveReminders(next);
+    await syncScheduledReminders(next);
+  };
+
+  const addReminder = async (draft: {
+    label: string;
+    hour: number;
+    minute: number;
+    days: Weekday[];
+  }) => {
+    // Ask the first time someone actually wants an alert, not at launch.
+    if (reminderPermission !== 'granted') {
+      setReminderPermission(await requestReminderPermission());
+    }
+    await commitReminders([
+      ...reminders,
+      {
+        id: newId(),
+        label: normalizeReminderLabel(draft.label),
+        hour: draft.hour,
+        minute: draft.minute,
+        days: draft.days,
+        enabled: true,
+      },
+    ]);
+  };
+
+  const toggleReminder = (id: string) => {
+    void commitReminders(
+      reminders.map((item) => (item.id === id ? { ...item, enabled: !item.enabled } : item)),
+    );
+  };
+
+  const removeReminder = (id: string) => {
+    void commitReminders(reminders.filter((item) => item.id !== id));
+  };
+
   const syncAppleHealth = async () => {
     if (!pet) return;
     setIsSyncingAppleHealth(true);
@@ -1059,6 +1124,13 @@ export default function App() {
                     }
                   : undefined
               }
+              reminders={{
+                items: reminders,
+                permission: reminderPermission,
+                onAdd: addReminder,
+                onToggle: toggleReminder,
+                onRemove: removeReminder,
+              }}
               gym={
                 Platform.OS === 'web'
                   ? undefined

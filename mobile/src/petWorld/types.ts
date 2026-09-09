@@ -2,11 +2,10 @@ import type { MealAnalysis } from '@vitto/core';
 
 /**
  * Which scene the pet's world is showing right now. Deliberately a flat union
- * rather than a registry/plugin system — with two environments a switch is the
- * whole "system"; a third (`'gym'` etc.) is one more union member and one more
- * switch arm, not a new abstraction.
+ * rather than a registry/plugin system — a scene is one more union member and
+ * one more entry in the record `EnvironmentStage` takes, not a new abstraction.
  */
-export type EnvironmentId = 'main' | 'kitchen';
+export type EnvironmentId = 'main' | 'kitchen' | 'gym' | 'outside';
 
 /**
  * What the pet is doing, independent of which environment is on screen. This is

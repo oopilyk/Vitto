@@ -38,7 +38,15 @@ import {
   normalizeInviteCode,
   planForGoal,
   sumMealMacros,
-} from '@vitto/core';
+  type Reminder,
+  type Weekday,
+  WEEKDAYS,
+  WEEKDAY_LABEL,
+  describeReminderDays,
+  formatReminderTime,
+  reminderError,
+  normalizeReminderLabel,
+  errorMessage} from '@vitto/core';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';
@@ -73,6 +81,17 @@ interface Props {
     onOpenSettings: () => void;
     onSync: (budgetMinutes?: number) => void;
     syncing?: boolean;
+  };
+  /**
+   * The user's own reminders — "take my creatine at 8am". Absent where local
+   * notifications cannot be scheduled, which hides the card.
+   */
+  reminders?: {
+    items: Reminder[];
+    permission: string;
+    onAdd: (draft: { label: string; hour: number; minute: number; days: Weekday[] }) => Promise<void>;
+    onToggle: (id: string) => void;
+    onRemove: (id: string) => void;
   };
   /**
    * "My gym": one coordinate, kept on this device, that parks a dumbbell beside
@@ -206,6 +225,7 @@ export function ProfileScreen({
   isSyncingAppleHealth,
   onLogScreenTime,
   screenTimeAccess,
+  reminders,
   gym,
   carePartner,
 }: Props) {
@@ -225,6 +245,14 @@ export function ProfileScreen({
   const [screenHours, setScreenHours] = useState<number | undefined>(undefined);
   const [screenMinutes, setScreenMinutes] = useState<number | undefined>(undefined);
   const [screenTimeError, setScreenTimeError] = useState<string | null>(null);
+  // The reminder being composed. Kept as text so a half-typed time does not
+  // fight the field the way a number would.
+  const [reminderLabel, setReminderLabel] = useState('');
+  const [reminderHour, setReminderHour] = useState<number | undefined>(8);
+  const [reminderMinute, setReminderMinute] = useState<number | undefined>(0);
+  const [reminderDays, setReminderDays] = useState<Weekday[]>([]);
+  const [reminderBusy, setReminderBusy] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const [loggingScreenTime, setLoggingScreenTime] = useState(false);
 
   // Drives the save bar: it only appears once something actually differs.
@@ -265,6 +293,32 @@ export function ProfileScreen({
     [events.filter((event) => event.type === 'BRAIN_TRAINING').length, 'mind sessions'],
     [events.length, 'care moments'],
   ] as const;
+
+  const addReminder = async () => {
+    if (!reminders) return;
+    const draft = {
+      label: reminderLabel,
+      hour: reminderHour ?? -1,
+      minute: reminderMinute ?? 0,
+      days: reminderDays,
+    };
+    const problem = reminderError(draft, reminders.items.length);
+    if (problem) {
+      setReminderMessage(problem);
+      return;
+    }
+    setReminderBusy(true);
+    try {
+      await reminders.onAdd(draft);
+      setReminderLabel('');
+      setReminderDays([]);
+      setReminderMessage(null);
+    } catch (cause) {
+      setReminderMessage(errorMessage(cause, 'Could not save that reminder.'));
+    } finally {
+      setReminderBusy(false);
+    }
+  };
 
   const screenTimeToday = findScreenTimeForDate(events, today);
   const screenTimeEntry = joinMinutes(screenHours, screenMinutes);
@@ -819,6 +873,84 @@ export function ProfileScreen({
           )}
         </Card>
 
+        {reminders ? (
+          <Card
+            title="Reminders"
+            hint="Your own notes to yourself — Vitto sends them even when it is closed."
+          >
+            {reminders.items.length === 0 ? (
+              <Text style={styles.empty}>
+                Nothing yet. Add one below, like &quot;Take creatine&quot; at 8:00 am.
+              </Text>
+            ) : (
+              reminders.items.map((item) => (
+                <View key={item.id} style={styles.reminderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.reminderLabel, !item.enabled && styles.reminderOff]}>
+                      {item.label}
+                    </Text>
+                    <Text style={styles.reminderMeta}>
+                      {formatReminderTime(item.hour, item.minute)} · {describeReminderDays(item.days)}
+                      {item.enabled ? '' : ' · paused'}
+                    </Text>
+                  </View>
+                  <TextButton
+                    label={item.enabled ? 'Pause' : 'Resume'}
+                    onPress={() => reminders.onToggle(item.id)}
+                  />
+                  <TextButton label="Delete" tone="coral" onPress={() => reminders.onRemove(item.id)} />
+                </View>
+              ))
+            )}
+
+            <Group label="New reminder">
+              <Field label="What should Vitto say?">
+                <TextInput
+                  style={layout.input}
+                  placeholder="Take creatine"
+                  placeholderTextColor={colors.faint}
+                  value={reminderLabel}
+                  onChangeText={setReminderLabel}
+                  maxLength={60}
+                />
+              </Field>
+              <View style={styles.grid}>
+                <NumberField label="Hour (0-23)" placeholder="8" value={reminderHour} onChange={setReminderHour} />
+                <NumberField label="Minute" placeholder="00" value={reminderMinute} onChange={setReminderMinute} />
+              </View>
+              {/* No days chosen means every day -- see `isEveryDay`. */}
+              <Text style={styles.fieldHint}>
+                {reminderDays.length === 0 ? 'Every day' : describeReminderDays(reminderDays)}
+              </Text>
+              <ChoiceRow
+                options={WEEKDAYS.map((day) => ({ value: String(day), label: WEEKDAY_LABEL[day] }))}
+                value={reminderDays.map(String)}
+                onChange={(value) => {
+                  const day = Number(value) as Weekday;
+                  setReminderDays((current) =>
+                    current.includes(day) ? current.filter((item) => item !== day) : [...current, day],
+                  );
+                }}
+              />
+              {reminderMessage ? <Text style={styles.saveError}>{reminderMessage}</Text> : null}
+              {reminders.permission === 'denied' ? (
+                <Text style={styles.cardHint}>
+                  Notifications are turned off for Vitto, so these will not appear until you allow them
+                  in Settings. They are still saved.
+                </Text>
+              ) : null}
+              <View style={styles.screenActions}>
+                <TextButton
+                  label={reminderBusy ? 'Saving...' : 'Add reminder'}
+                  tone="coral"
+                  onPress={() => void addReminder()}
+                  disabled={reminderBusy}
+                />
+              </View>
+            </Group>
+          </Card>
+        ) : null}
+
         {gym ? (
           <Card
             title="My gym"
@@ -958,6 +1090,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
   },
+  reminderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  reminderLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  reminderOff: { color: colors.faint },
+  reminderMeta: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 3 },
+  fieldHint: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 10, marginBottom: 6 },
   cardHint: { fontSize: 12, color: colors.faint, marginTop: 6, lineHeight: 17 },
   cardBody: { marginTop: 4 },
   group: { marginTop: 16 },

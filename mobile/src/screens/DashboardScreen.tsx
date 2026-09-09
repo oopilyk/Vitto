@@ -11,6 +11,8 @@ import { EnvironmentStage } from '../petWorld/EnvironmentStage';
 import { PetWorldHud } from '../petWorld/PetWorldHud';
 import { mainEnvironment } from '../petWorld/MainEnvironment';
 import { kitchenEnvironment } from '../petWorld/KitchenEnvironment';
+import { gymEnvironment } from '../petWorld/GymEnvironment';
+import { outsideEnvironment } from '../petWorld/OutsideEnvironment';
 import { toPetAvatarActivityProps } from '../petWorld/toPetAvatarActivityProps';
 import { isNightTime } from '../petWorld/timeOfDay';
 import type { EnvironmentId } from '../petWorld/types';
@@ -117,6 +119,16 @@ export function DashboardScreen({
     setEnvironment('kitchen');
   };
 
+  const enterGym = () => {
+    interaction.notice();
+    setEnvironment('gym');
+  };
+
+  const enterOutside = () => {
+    interaction.notice();
+    setEnvironment('outside');
+  };
+
   const night = isNightTime();
 
   return (
@@ -143,19 +155,39 @@ export function DashboardScreen({
           night={night}
         />
       }
-      main={mainEnvironment({
-        onFeedTap: enterKitchen,
-        onLogWorkout,
-        onSyncSteps,
-        onTrainMind,
-      })}
-      kitchen={kitchenEnvironment({
-        onChooseFood: onLogMeal,
-        onLogWorkout,
-        onSyncSteps,
-        onTrainMind,
-        onBack: () => setEnvironment('main'),
-      })}
+      environments={{
+        main: mainEnvironment({
+          onFeedTap: enterKitchen,
+          onEnterGym: enterGym,
+          onEnterOutside: enterOutside,
+          onLogWorkout,
+          onSyncSteps,
+          onTrainMind,
+        }),
+        kitchen: kitchenEnvironment({
+          onChooseFood: onLogMeal,
+          onEnterGym: enterGym,
+          onEnterOutside: enterOutside,
+          onLogWorkout,
+          onSyncSteps,
+          onTrainMind,
+          onBack: () => setEnvironment('main'),
+        }),
+        gym: gymEnvironment({
+          onStartWorkout: onLogWorkout,
+          onEnterOutside: enterOutside,
+          onSyncSteps,
+          onTrainMind,
+          onBack: () => setEnvironment('main'),
+        }),
+        outside: outsideEnvironment({
+          onSyncSteps,
+          onEnterGym: enterGym,
+          onLogWorkout,
+          onTrainMind,
+          onBack: () => setEnvironment('main'),
+        }),
+      }}
     />
   );
 }

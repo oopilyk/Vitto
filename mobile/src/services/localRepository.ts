@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   type CareLogEntry,
   type GeoPoint,
+  type Reminder,
   type HealthEvent,
   type PetInvite,
   type PetMember,
@@ -19,6 +20,12 @@ const wordPuzzleKey = 'vitto.wordpuzzle.progress';
  * than in the profile row so "where you train" never leaves the phone.
  */
 const gymKey = 'vitto.gym';
+/**
+ * The user's own reminders. Local rather than in the profile row: they schedule
+ * OS notifications on this device, so a copy on another phone would either fire
+ * nothing or fire twice. Losing them on reinstall is the accepted trade.
+ */
+const remindersKey = 'vitto.reminders';
 const MAX_STORED_EVENTS = 2000;
 const CARE_PARTNERS_OFFLINE_MESSAGE = 'Care partners need an online account.';
 
@@ -99,7 +106,18 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, 'vitto.profile']);
+  }
+
+  async loadReminders(): Promise<Reminder[]> {
+    const value = await AsyncStorage.getItem(remindersKey);
+    if (!value) return [];
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? (parsed as Reminder[]) : [];
+  }
+
+  async saveReminders(reminders: Reminder[]): Promise<void> {
+    await AsyncStorage.setItem(remindersKey, JSON.stringify(reminders));
   }
 
   async loadGymLocation(): Promise<GeoPoint | null> {

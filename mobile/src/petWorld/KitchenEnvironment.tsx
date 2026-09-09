@@ -1,7 +1,8 @@
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, layout } from '../theme';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, fonts } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
+import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
 
 /**
@@ -20,14 +21,20 @@ import { isNightTime } from './timeOfDay';
 const KITCHEN_DAY = require('../../assets/environments/kitchen-day.png');
 const KITCHEN_NIGHT = require('../../assets/environments/kitchen-night.png');
 const LIVING_ROOM_BUTTON = require('../../assets/buttons/living_room.png');
-const NIGHT_TINT = '#3d3a63';
+/** The art's own top-edge tone -- see `EnvironmentBackdrop`. */
+const DAY_TINT = '#b2978d';
+const NIGHT_TINT = '#38346f';
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface KitchenEnvironmentControlsProps {
   onChooseFood: () => void;
   onBack: () => void;
+  /** Walks the pet into the Gym scene. */
+  onEnterGym: () => void;
   onLogWorkout: () => void;
+  /** Walks the pet outdoors. */
+  onEnterOutside: () => void;
   onSyncSteps: () => void;
   onTrainMind: () => void;
 }
@@ -52,7 +59,9 @@ function LogMealButton({ onPress }: { onPress: () => void }) {
 function KitchenEnvironmentControls({
   onChooseFood,
   onBack,
+  onEnterGym,
   onLogWorkout,
+  onEnterOutside,
   onSyncSteps,
   onTrainMind,
   night,
@@ -68,7 +77,9 @@ function KitchenEnvironmentControls({
             source: LIVING_ROOM_BUTTON,
             onPress: onBack,
           }}
+          onEnterGym={onEnterGym}
           onLogWorkout={onLogWorkout}
+          onEnterOutside={onEnterOutside}
           onSyncSteps={onSyncSteps}
           onTrainMind={onTrainMind}
           night={night}
@@ -81,10 +92,8 @@ function KitchenEnvironmentControls({
 export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): EnvironmentDressing {
   const night = isNightTime();
   return {
-    background: (
-      <Image source={night ? KITCHEN_NIGHT : KITCHEN_DAY} style={layout.fillImage} resizeMode="cover" />
-    ),
-    backgroundColor: night ? NIGHT_TINT : colors.yellow,
+    background: <EnvironmentBackdrop source={night ? KITCHEN_NIGHT : KITCHEN_DAY} />,
+    backgroundColor: night ? NIGHT_TINT : DAY_TINT,
     controls: <KitchenEnvironmentControls {...props} night={night} />,
   };
 }
