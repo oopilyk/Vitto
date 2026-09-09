@@ -4,6 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
+import type { EnvironmentId } from './types';
 
 /**
  * The Kitchen: reached by tapping Kitchen in the living room, it opens the
@@ -20,7 +21,6 @@ import { isNightTime } from './timeOfDay';
 
 const KITCHEN_DAY = require('../../assets/environments/kitchen-day.png');
 const KITCHEN_NIGHT = require('../../assets/environments/kitchen-night.png');
-const LIVING_ROOM_BUTTON = require('../../assets/buttons/living_room.png');
 /** The art's own top-edge tone -- see `EnvironmentBackdrop`. */
 const DAY_TINT = '#b2978d';
 const NIGHT_TINT = '#38346f';
@@ -40,17 +40,9 @@ const NIGHT_FLOOR = '#523961';
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface KitchenEnvironmentControlsProps {
-  /** Walks the pet into the Study scene. */
-  onEnterStudy: () => void;
   onChooseFood: () => void;
-  onBack: () => void;
-  /** Walks the pet into the Gym scene. */
-  onEnterGym: () => void;
-  onLogWorkout: () => void;
-  /** Walks the pet outdoors. */
-  onEnterOutside: () => void;
-  onSyncSteps: () => void;
-  onTrainMind: () => void;
+  /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
+  onNavigate: (id: EnvironmentId) => void;
 }
 
 /** The Kitchen's dedicated call to action, floating between the name card and
@@ -72,34 +64,14 @@ function LogMealButton({ onPress }: { onPress: () => void }) {
 
 function KitchenEnvironmentControls({
   onChooseFood,
-  onBack,
-  onEnterGym,
-  onLogWorkout,
-  onEnterOutside,
-  onSyncSteps,
-  onEnterStudy,
-  onTrainMind,
+  onNavigate,
   night,
 }: KitchenEnvironmentControlsProps & { night: boolean }) {
   return (
     <>
       <LogMealButton onPress={onChooseFood} />
       <View style={styles.bottomRow}>
-        <EnvironmentActionRow
-          primary={{
-            label: 'Living room',
-            accessibilityLabel: 'Back to the living room',
-            source: LIVING_ROOM_BUTTON,
-            onPress: onBack,
-          }}
-          onEnterGym={onEnterGym}
-          onLogWorkout={onLogWorkout}
-          onEnterOutside={onEnterOutside}
-          onSyncSteps={onSyncSteps}
-          onEnterStudy={onEnterStudy}
-          onTrainMind={onTrainMind}
-          night={night}
-        />
+        <EnvironmentActionRow current="kitchen" onNavigate={onNavigate} night={night} />
       </View>
     </>
   );

@@ -4,6 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
+import type { EnvironmentId } from './types';
 
 /**
  * The Study: reached by tapping Study from any other scene, it opens the
@@ -19,7 +20,6 @@ import { isNightTime } from './timeOfDay';
 
 const STUDY_DAY = require('../../assets/environments/study-day.png');
 const STUDY_NIGHT = require('../../assets/environments/study-night.png');
-const LIVING_ROOM_BUTTON = require('../../assets/buttons/living_room.png');
 
 /** The art's own top-edge tone -- see `EnvironmentBackdrop`. */
 const DAY_TINT = '#8b6f56';
@@ -39,11 +39,8 @@ const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface StudyEnvironmentControlsProps {
   onTrainMind: () => void;
-  onBack: () => void;
-  onEnterGym: () => void;
-  onLogWorkout: () => void;
-  onEnterOutside: () => void;
-  onSyncSteps: () => void;
+  /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
+  onNavigate: (id: EnvironmentId) => void;
 }
 
 /** The Study's call to action, in the same slot as the Gym's "Log workout". */
@@ -64,32 +61,16 @@ function TrainMindButton({ onPress }: { onPress: () => void }) {
 
 function StudyEnvironmentControls({
   onTrainMind,
-  onBack,
-  onEnterGym,
-  onLogWorkout,
-  onEnterOutside,
-  onSyncSteps,
+  onNavigate,
   night,
 }: StudyEnvironmentControlsProps & { night: boolean }) {
   return (
     <>
       <TrainMindButton onPress={onTrainMind} />
       <View style={styles.bottomRow}>
-        <EnvironmentActionRow
-          primary={{
-            label: 'Living room',
-            accessibilityLabel: 'Back to the living room',
-            source: LIVING_ROOM_BUTTON,
-            onPress: onBack,
-          }}
-          onEnterGym={onEnterGym}
-          onLogWorkout={onLogWorkout}
-          onEnterOutside={onEnterOutside}
-          onSyncSteps={onSyncSteps}
-          // No `onEnterStudy`: already here, so the button trains instead.
-          onTrainMind={onTrainMind}
-          night={night}
-        />
+        {/* No Study button here -- already in the Study. "Train mind" above is
+            the scene's own action. */}
+        <EnvironmentActionRow current="study" onNavigate={onNavigate} night={night} />
       </View>
     </>
   );

@@ -119,24 +119,11 @@ export function DashboardScreen({
 
   const formLabel = hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : `Level ${pet.level}`;
 
-  const enterKitchen = () => {
+  // One move for every scene change — a row button, or "Living room" back out of
+  // a scene. The pet notices the walk the same way it notices a tap.
+  const navigate = (id: EnvironmentId) => {
     interaction.notice();
-    setEnvironment('kitchen');
-  };
-
-  const enterGym = () => {
-    interaction.notice();
-    setEnvironment('gym');
-  };
-
-  const enterOutside = () => {
-    interaction.notice();
-    setEnvironment('outside');
-  };
-
-  const enterStudy = () => {
-    interaction.notice();
-    setEnvironment('study');
+    setEnvironment(id);
   };
 
   const night = isNightTime();
@@ -168,49 +155,11 @@ export function DashboardScreen({
         />
       }
       environments={{
-        main: mainEnvironment({
-          onFeedTap: enterKitchen,
-          onEnterGym: enterGym,
-          onEnterOutside: enterOutside,
-          onEnterStudy: enterStudy,
-          onLogWorkout,
-          onSyncSteps,
-          onTrainMind,
-        }),
-        kitchen: kitchenEnvironment({
-          onChooseFood: onLogMeal,
-          onEnterGym: enterGym,
-          onEnterOutside: enterOutside,
-          onEnterStudy: enterStudy,
-          onLogWorkout,
-          onSyncSteps,
-          onTrainMind,
-          onBack: () => setEnvironment('main'),
-        }),
-        gym: gymEnvironment({
-          onStartWorkout: onLogWorkout,
-          onEnterOutside: enterOutside,
-          onEnterStudy: enterStudy,
-          onSyncSteps,
-          onTrainMind,
-          onBack: () => setEnvironment('main'),
-        }),
-        study: studyEnvironment({
-          onTrainMind,
-          onEnterGym: enterGym,
-          onLogWorkout,
-          onEnterOutside: enterOutside,
-          onSyncSteps,
-          onBack: () => setEnvironment('main'),
-        }),
-        outside: outsideEnvironment({
-          onSyncSteps,
-          onEnterGym: enterGym,
-          onEnterStudy: enterStudy,
-          onLogWorkout,
-          onTrainMind,
-          onBack: () => setEnvironment('main'),
-        }),
+        main: mainEnvironment({ onNavigate: navigate }),
+        kitchen: kitchenEnvironment({ onChooseFood: onLogMeal, onNavigate: navigate }),
+        gym: gymEnvironment({ onStartWorkout: onLogWorkout, onNavigate: navigate }),
+        study: studyEnvironment({ onTrainMind, onNavigate: navigate }),
+        outside: outsideEnvironment({ onSyncSteps, onNavigate: navigate }),
       }}
     />
   );

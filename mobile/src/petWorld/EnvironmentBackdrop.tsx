@@ -19,8 +19,9 @@ import { Image, StyleSheet, View, type ImageSourcePropType, type LayoutChangeEve
  * `fill` opts out of that trade for a scene whose art survives the crop (see the
  * prop), covering the stage edge to edge with no band at all.
  *
- * `lift` moves the art up when its floor line does not fall where the pet's feet
- * do, and paints the strip that uncovers with `floorColor`.
+ * `lift` moves the art up (or, when negative, down) when its floor line does not
+ * fall where the pet's feet do; a positive lift paints the strip it uncovers
+ * along the bottom with `floorColor`.
  *
  * The height is computed from a measured container width rather than left to a
  * style `aspectRatio`: react-native-web does not constrain the box that way, so
@@ -47,11 +48,13 @@ const FALLBACK_ASPECT = 3 / 4;
 const WIDTH_SCALE = 1.2;
 
 /**
- * Ceiling on `lift`, as a fraction of the art's own height.
+ * Bound on `lift` magnitude, as a fraction of the art's own height — applied in
+ * both directions.
  *
- * A lift is an alignment nudge, not a way to reframe a scene: past this the
- * `floorColor` strip stops reading as more floor and starts reading as the
- * bottom of the screen having been painted over, which is worse than the
+ * A lift is an alignment nudge, not a way to reframe a scene: raised past this
+ * the `floorColor` strip stops reading as more floor and starts reading as the
+ * bottom of the screen having been painted over; lowered past it, too much of
+ * the art's own floor slides off the bottom. Either way that is worse than the
  * misalignment it was correcting.
  */
 const MAX_LIFT = 0.15;
@@ -100,7 +103,9 @@ export const backdropSize = (
   const covering = options?.fill ? (options.containerHeight ?? 0) * aspectRatio : 0;
   const width = Math.max(fitted, covering);
   const height = width / aspectRatio;
-  const lift = Number.isFinite(options?.lift) ? Math.min(Math.max(options?.lift ?? 0, 0), MAX_LIFT) : 0;
+  const lift = Number.isFinite(options?.lift)
+    ? Math.min(Math.max(options?.lift ?? 0, -MAX_LIFT), MAX_LIFT)
+    : 0;
   return { width, height, left: (containerWidth - width) / 2, bottom: height * lift };
 };
 
@@ -122,8 +127,8 @@ export function EnvironmentBackdrop({
    */
   fill?: boolean;
   /**
-   * Raise the art by this fraction of its own height, to put the floor line
-   * where the pet's feet actually land.
+   * Shift the art by this fraction of its own height to put the floor line where
+   * the pet's feet actually land — positive raises it, negative lowers it.
    *
    * The pet stands a fixed distance up from the bottom of the stage, so a scene
    * whose floor begins higher or lower than that in its own art leaves the pet

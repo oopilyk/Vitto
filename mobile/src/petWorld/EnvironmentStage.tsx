@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
+import { playPokeFeedback } from '../services/mealFeedback';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
 import type { EnvironmentId, PetAvatarActivityProps } from './types';
 
@@ -22,17 +23,13 @@ import type { EnvironmentId, PetAvatarActivityProps } from './types';
 const PET_STAGE_SIZE = 280;
 
 /**
- * Just enough to clear both environments' bottom control rows (now
- * identical -- the same `EnvironmentActionRow` renders in both) with the
- * enlarged pet above, so its feet read as standing on the room's own floor
- * rather than floating with a visible gap above the buttons. Kitchen is the
- * taller of the two: home-indicator inset (~28) + row gap (10) + "Not right
- * now" link (~14) + the action row itself (`EnvironmentButton`'s 60px art +
- * 6px internal gap + ~12px label text, ~78px total) comes to roughly 130px
- * from the very bottom of the screen to the top of that stack; verify
- * on-device if either row's content ever grows.
+ * How far the pet's feet sit above the very bottom of the screen. Only needs to
+ * clear the action row -- home-indicator inset (~28) + the row itself
+ * (`EnvironmentButton`'s 60px art + 6px gap + ~12px label, ~78px) -- so the pet
+ * stands just above the buttons, on the room's own floor, rather than floating
+ * in the middle of it. Verify on-device if the row's content ever grows.
  */
-const PET_STAGE_BOTTOM_PADDING = 105;
+const PET_STAGE_BOTTOM_PADDING = 64;
 
 /** What one environment dresses the persistent pet in. */
 export interface EnvironmentDressing {
@@ -136,6 +133,35 @@ export function EnvironmentStage({
     }).start();
   }, [environment, pulse]);
 
+  // A quick squash-and-hop whenever the pet itself is tapped, so a poke reads as
+  // the pet reacting to the touch and not just as opening something. Kept apart
+  // from `pulse` (the scene-change settle) so the two can play over each other.
+  const poke = useRef(new Animated.Value(0)).current;
+  const handlePetPress = useCallback(() => {
+    if (!onPetTap) return;
+    poke.stopAnimation();
+    poke.setValue(0);
+    Animated.sequence([
+      Animated.timing(poke, {
+        toValue: 1,
+        duration: 120,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.spring(poke, {
+        toValue: 0,
+        friction: 3.5,
+        tension: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    playPokeFeedback();
+    onPetTap();
+  }, [onPetTap, poke]);
+
+  const pokeScale = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 1.09] });
+  const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
+
   return (
     <Animated.View style={[styles.stage, { backgroundColor }]}>
       <FadeSwap swapKey={environment}>
@@ -145,13 +171,23 @@ export function EnvironmentStage({
       </FadeSwap>
 
       <Pressable
-        onPress={onPetTap}
+        onPress={handlePetPress}
         disabled={!onPetTap}
         style={[StyleSheet.absoluteFill, styles.petLayer]}
         accessibilityRole={onPetTap ? 'button' : undefined}
         accessibilityLabel={onPetTap ? `Say hi to ${pet.name}` : undefined}
       >
-        <Animated.View style={[styles.petStage, { transform: [{ scale: pulse }] }]}>
+        <Animated.View
+          style={[
+            styles.petStage,
+            {
+              transform: [
+                { translateY: pokeHop },
+                { scale: Animated.multiply(pulse, pokeScale) },
+              ],
+            },
+          ]}
+        >
           <PetAvatar
             pet={pet}
             {...activityProps}

@@ -13,6 +13,10 @@ export const playMealSound = () => tap(Haptics.ImpactFeedbackStyle.Medium);
 
 export const playMunchSound = () => tap(Haptics.ImpactFeedbackStyle.Light);
 
+/** A light tap the instant the pet itself is poked -- the haptic half of the
+ *  on-screen bounce `EnvironmentStage` plays on the same touch. */
+export const playPokeFeedback = () => tap(Haptics.ImpactFeedbackStyle.Light);
+
 export const playCelebrationSound = () => {
   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
 };

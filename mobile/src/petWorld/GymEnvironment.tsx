@@ -4,6 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
+import type { EnvironmentId } from './types';
 
 /**
  * The Gym: reached by tapping Gym from any other scene, it opens the existing
@@ -20,7 +21,6 @@ import { isNightTime } from './timeOfDay';
 
 const GYM_DAY = require('../../assets/environments/gym-day.png');
 const GYM_NIGHT = require('../../assets/environments/gym-night.png');
-const LIVING_ROOM_BUTTON = require('../../assets/buttons/living_room.png');
 
 /** The art's own top-edge tone -- see `EnvironmentBackdrop`. */
 const DAY_TINT = '#8f7f6d';
@@ -29,14 +29,9 @@ const NIGHT_TINT = '#433558';
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface GymEnvironmentControlsProps {
-  /** Walks the pet into the Study scene. */
-  onEnterStudy: () => void;
   onStartWorkout: () => void;
-  onBack: () => void;
-  /** Walks the pet outdoors. */
-  onEnterOutside: () => void;
-  onSyncSteps: () => void;
-  onTrainMind: () => void;
+  /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
+  onNavigate: (id: EnvironmentId) => void;
 }
 
 /** The Gym's dedicated call to action, in the same slot as Kitchen's "Log meal". */
@@ -57,33 +52,17 @@ function LogWorkoutButton({ onPress }: { onPress: () => void }) {
 
 function GymEnvironmentControls({
   onStartWorkout,
-  onBack,
-  onEnterOutside,
-  onSyncSteps,
-  onEnterStudy,
-  onTrainMind,
+  onNavigate,
   night,
 }: GymEnvironmentControlsProps & { night: boolean }) {
   return (
     <>
       <LogWorkoutButton onPress={onStartWorkout} />
       <View style={styles.bottomRow}>
-        <EnvironmentActionRow
-          primary={{
-            label: 'Living room',
-            accessibilityLabel: 'Back to the living room',
-            source: LIVING_ROOM_BUTTON,
-            onPress: onBack,
-          }}
-          // No `onEnterGym`: the pet is already here, so the row's Gym button
-          // falls back to logging the workout rather than re-entering the scene.
-          onLogWorkout={onStartWorkout}
-          onEnterOutside={onEnterOutside}
-          onSyncSteps={onSyncSteps}
-          onEnterStudy={onEnterStudy}
-          onTrainMind={onTrainMind}
-          night={night}
-        />
+        {/* No Gym button here -- the pet is already in the Gym, so that slot
+            becomes the Kitchen instead. "Log workout" above is the scene's own
+            action. */}
+        <EnvironmentActionRow current="gym" onNavigate={onNavigate} night={night} />
       </View>
     </>
   );

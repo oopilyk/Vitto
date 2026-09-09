@@ -110,10 +110,15 @@ describe('backdropSize', () => {
     expect(capped.bottom).toBeCloseTo(capped.height * 0.15, 5);
   });
 
-  it('treats a missing, negative or unusable lift as no lift', () => {
-    const plain = backdropSize(393, 0.75);
-    expect(plain.bottom).toBe(0);
-    expect(backdropSize(393, 0.75, { lift: -0.2 }).bottom).toBe(0);
+  it('lowers the art on a negative lift, capped the same distance as a positive one', () => {
+    const dropped = backdropSize(393, 0.75, { lift: -0.05 });
+    expect(dropped.bottom).toBeCloseTo(dropped.height * -0.05, 5);
+    const cappedDown = backdropSize(393, 0.75, { lift: -0.9 });
+    expect(cappedDown.bottom).toBeCloseTo(cappedDown.height * -0.15, 5);
+  });
+
+  it('treats a missing or unusable lift as no lift', () => {
+    expect(backdropSize(393, 0.75).bottom).toBe(0);
     expect(backdropSize(393, 0.75, { lift: Number.NaN }).bottom).toBe(0);
   });
 

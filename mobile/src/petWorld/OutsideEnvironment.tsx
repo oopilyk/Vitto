@@ -4,6 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
+import type { EnvironmentId } from './types';
 
 /**
  * Outdoors: reached by tapping Outdoors from any other scene. Syncing steps is
@@ -17,7 +18,6 @@ import { isNightTime } from './timeOfDay';
 
 const OUTSIDE_DAY = require('../../assets/environments/outside-day.png');
 const OUTSIDE_NIGHT = require('../../assets/environments/outside-night.png');
-const LIVING_ROOM_BUTTON = require('../../assets/buttons/living_room.png');
 
 /**
  * Kept as the stage's colour even though `fill` leaves no band to paint: the
@@ -30,13 +30,9 @@ const NIGHT_SKY = '#252c4f';
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface OutsideEnvironmentControlsProps {
-  /** Walks the pet into the Study scene. */
-  onEnterStudy: () => void;
   onSyncSteps: () => void;
-  onBack: () => void;
-  onEnterGym: () => void;
-  onLogWorkout: () => void;
-  onTrainMind: () => void;
+  /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
+  onNavigate: (id: EnvironmentId) => void;
 }
 
 function LogStepsButton({ onPress }: { onPress: () => void }) {
@@ -56,32 +52,16 @@ function LogStepsButton({ onPress }: { onPress: () => void }) {
 
 function OutsideEnvironmentControls({
   onSyncSteps,
-  onBack,
-  onEnterGym,
-  onLogWorkout,
-  onEnterStudy,
-  onTrainMind,
+  onNavigate,
   night,
 }: OutsideEnvironmentControlsProps & { night: boolean }) {
   return (
     <>
       <LogStepsButton onPress={onSyncSteps} />
       <View style={styles.bottomRow}>
-        <EnvironmentActionRow
-          primary={{
-            label: 'Living room',
-            accessibilityLabel: 'Back to the living room',
-            source: LIVING_ROOM_BUTTON,
-            onPress: onBack,
-          }}
-          onEnterGym={onEnterGym}
-          onLogWorkout={onLogWorkout}
-          // No `onEnterOutside`: already here, so the button logs steps instead.
-          onSyncSteps={onSyncSteps}
-          onEnterStudy={onEnterStudy}
-          onTrainMind={onTrainMind}
-          night={night}
-        />
+        {/* No Outdoors button here -- already outside. "Log steps" above is the
+            scene's own action. */}
+        <EnvironmentActionRow current="outside" onNavigate={onNavigate} night={night} />
       </View>
     </>
   );

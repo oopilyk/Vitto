@@ -4,6 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
+import type { EnvironmentId } from './types';
 
 /**
  * The default/"bedroom" environment. Idle, tired and asleep are already
@@ -17,7 +18,6 @@ import { isNightTime } from './timeOfDay';
 
 const MAIN_DAY = require('../../assets/environments/main-day.png');
 const MAIN_NIGHT = require('../../assets/environments/main-night.png');
-const KITCHEN_BUTTON = require('../../assets/buttons/kitchen.png');
 
 /**
  * The art's own top-edge tone. Doubles as the crossfade underlay and as the band
@@ -27,54 +27,30 @@ const KITCHEN_BUTTON = require('../../assets/buttons/kitchen.png');
 const DAY_TINT = '#c1a693';
 export const NIGHT_TINT = '#434280';
 
+/**
+ * The living-room art's round rug sits a touch higher than the pet stands on the
+ * stage, so the pet read as standing just in front of it. A small negative lift
+ * (see `EnvironmentBackdrop`) lowers the art until the rug meets the pet's feet.
+ */
+const MAIN_LIFT = -0.04;
+
 // Clears the home indicator on modern iPhones without pulling in a safe-area
 // package, which drags a second copy of React into the workspace.
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface MainControlsProps {
-  /** Walks the pet into the Study scene. */
-  onEnterStudy: () => void;
-  /** Walks the pet into the Kitchen scene. */
-  onFeedTap: () => void;
-  /** Walks the pet into the Gym scene. */
-  onEnterGym: () => void;
-  onLogWorkout: () => void;
-  /** Walks the pet outdoors. */
-  onEnterOutside: () => void;
-  onSyncSteps: () => void;
-  onTrainMind: () => void;
+  /** Walks the pet into the tapped scene. */
+  onNavigate: (id: EnvironmentId) => void;
 }
 
-export function mainEnvironment({
-  onFeedTap,
-  onEnterGym,
-  onLogWorkout,
-  onEnterOutside,
-  onSyncSteps,
-  onEnterStudy,
-  onTrainMind,
-}: MainControlsProps): EnvironmentDressing {
+export function mainEnvironment({ onNavigate }: MainControlsProps): EnvironmentDressing {
   const night = isNightTime();
   return {
-    background: <EnvironmentBackdrop source={night ? MAIN_NIGHT : MAIN_DAY} />,
+    background: <EnvironmentBackdrop source={night ? MAIN_NIGHT : MAIN_DAY} lift={MAIN_LIFT} />,
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
     controls: (
       <View style={styles.bottomRow}>
-        <EnvironmentActionRow
-          primary={{
-            label: 'Kitchen',
-            accessibilityLabel: 'Go to the kitchen',
-            source: KITCHEN_BUTTON,
-            onPress: onFeedTap,
-          }}
-          onEnterGym={onEnterGym}
-          onLogWorkout={onLogWorkout}
-          onEnterOutside={onEnterOutside}
-          onSyncSteps={onSyncSteps}
-          onEnterStudy={onEnterStudy}
-          onTrainMind={onTrainMind}
-          night={night}
-        />
+        <EnvironmentActionRow current="main" onNavigate={onNavigate} night={night} />
       </View>
     ),
   };

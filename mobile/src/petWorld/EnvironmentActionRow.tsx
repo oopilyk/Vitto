@@ -1,83 +1,64 @@
-import { StyleSheet, View } from 'react-native';
-import { EnvironmentButton, type EnvironmentButtonProps } from './EnvironmentButton';
+import { type ImageSourcePropType, StyleSheet, View } from 'react-native';
+import { EnvironmentButton } from './EnvironmentButton';
+import type { EnvironmentId } from './types';
 
+const LIVING_ROOM_BUTTON = require('../../assets/buttons/living_room.png');
+const KITCHEN_BUTTON = require('../../assets/buttons/kitchen.png');
 const GYM_BUTTON = require('../../assets/buttons/gym.png');
 const OUTDOORS_BUTTON = require('../../assets/buttons/outdoors.png');
 const STUDY_BUTTON = require('../../assets/buttons/study.png');
 
-/** The leading button changes per scene (Kitchen in the living room, Living
- *  room in the kitchen); Gym / Outdoors / Study are the same everywhere. */
-export type PrimaryAction = Omit<EnvironmentButtonProps, 'night'>;
+interface SceneButton {
+  id: EnvironmentId;
+  label: string;
+  /** A verb phrase, so a screen reader announces it as somewhere to go. */
+  accessibilityLabel: string;
+  source: ImageSourcePropType;
+}
+
+/**
+ * Every place the row can send the pet, in a fixed left-to-right order. The row
+ * drops whichever one the pet is already standing in, so a scene never shows a
+ * button back into itself -- four buttons, always the four *other* rooms. That
+ * is what turns the Gym slot into the Kitchen slot once the pet is in the Gym,
+ * and the Kitchen slot into "Living room" once it is in the Kitchen.
+ */
+const SCENES: readonly SceneButton[] = [
+  { id: 'main', label: 'Living room', accessibilityLabel: 'Back to the living room', source: LIVING_ROOM_BUTTON },
+  { id: 'kitchen', label: 'Kitchen', accessibilityLabel: 'Go to the kitchen', source: KITCHEN_BUTTON },
+  { id: 'gym', label: 'Gym', accessibilityLabel: 'Go to the gym', source: GYM_BUTTON },
+  { id: 'outside', label: 'Outdoors', accessibilityLabel: 'Go outdoors', source: OUTDOORS_BUTTON },
+  { id: 'study', label: 'Study', accessibilityLabel: 'Go to the study', source: STUDY_BUTTON },
+];
 
 export interface EnvironmentActionRowProps {
-  primary: PrimaryAction;
-  /**
-   * Walks the pet into the Gym scene. Omitted by the Gym itself, where the
-   * button falls back to `onLogWorkout` — re-entering the scene you are already
-   * standing in would be a no-op, and logging the workout is what the button
-   * means once you are there.
-   */
-  onEnterGym?: () => void;
-  onLogWorkout: () => void;
-  /**
-   * Walks the pet outdoors. Omitted by the Outdoors scene itself, where the
-   * button falls back to `onSyncSteps` for the same reason `onEnterGym` is
-   * omitted in the Gym.
-   */
-  onEnterOutside?: () => void;
-  onSyncSteps: () => void;
-  /**
-   * Walks the pet into the Study scene. Omitted by the Study itself, where the
-   * button falls back to `onTrainMind` for the same reason `onEnterGym` is
-   * omitted in the Gym.
-   */
-  onEnterStudy?: () => void;
-  onTrainMind: () => void;
-  /** Brightens the labels so they stay readable over a dark night backdrop. */
+  /** The scene on screen -- its own button is left out of the row. */
+  current: EnvironmentId;
+  /** Walks the pet into the tapped scene. */
+  onNavigate: (id: EnvironmentId) => void;
+  /** Brightens the captions so they stay readable over a dark night backdrop. */
   night: boolean;
 }
 
 /**
- * The four destination buttons across the bottom of every scene. The first slot
- * is the scene-specific jump (into the Kitchen from the living room, back to the
- * living room from the Kitchen); the other three are always Gym / Outdoors /
- * Study, kept one tap away from wherever the pet is. Gym is a destination like
- * the Kitchen — except in the Gym, where it logs the workout instead.
+ * The four destination buttons across the bottom of every scene. They are pure
+ * navigation now -- each scene's own action (log a meal, a workout, steps, a
+ * mind session) lives in that scene's floating call to action above the pet, so
+ * the row never needs a "do the thing here instead" fallback.
  */
-export function EnvironmentActionRow({
-  primary,
-  onEnterGym,
-  onLogWorkout,
-  onEnterOutside,
-  onSyncSteps,
-  onEnterStudy,
-  onTrainMind,
-  night,
-}: EnvironmentActionRowProps) {
+export function EnvironmentActionRow({ current, onNavigate, night }: EnvironmentActionRowProps) {
   return (
     <View style={styles.bottomRow}>
-      <EnvironmentButton {...primary} night={night} />
-      <EnvironmentButton
-        label="Gym"
-        accessibilityLabel={onEnterGym ? 'Go to the gym' : 'Log workout'}
-        source={GYM_BUTTON}
-        night={night}
-        onPress={onEnterGym ?? onLogWorkout}
-      />
-      <EnvironmentButton
-        label="Outdoors"
-        accessibilityLabel={onEnterOutside ? 'Go outdoors' : 'Log steps'}
-        source={OUTDOORS_BUTTON}
-        night={night}
-        onPress={onEnterOutside ?? onSyncSteps}
-      />
-      <EnvironmentButton
-        label="Study"
-        accessibilityLabel={onEnterStudy ? 'Go to the study' : 'Train mind'}
-        source={STUDY_BUTTON}
-        night={night}
-        onPress={onEnterStudy ?? onTrainMind}
-      />
+      {SCENES.filter((scene) => scene.id !== current).map((scene) => (
+        <EnvironmentButton
+          key={scene.id}
+          label={scene.label}
+          accessibilityLabel={scene.accessibilityLabel}
+          source={scene.source}
+          night={night}
+          onPress={() => onNavigate(scene.id)}
+        />
+      ))}
     </View>
   );
 }
