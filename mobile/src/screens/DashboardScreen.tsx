@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   PET_BUILD_LABEL,
+  type CareToast,
   type HealthEvent,
   type PetReaction,
   type PetState,
@@ -13,6 +14,7 @@ import { mainEnvironment } from '../petWorld/MainEnvironment';
 import { kitchenEnvironment } from '../petWorld/KitchenEnvironment';
 import { gymEnvironment } from '../petWorld/GymEnvironment';
 import { outsideEnvironment } from '../petWorld/OutsideEnvironment';
+import { studyEnvironment } from '../petWorld/StudyEnvironment';
 import { toPetAvatarActivityProps } from '../petWorld/toPetAvatarActivityProps';
 import { isNightTime } from '../petWorld/timeOfDay';
 import type { EnvironmentId } from '../petWorld/types';
@@ -22,6 +24,8 @@ interface Props {
   pet: PetState;
   events: HealthEvent[];
   reaction: PetReaction | null;
+  /** Confirmation of the care moment just logged — see `CareToastBanner`. */
+  careToast?: CareToast | null;
   /** Opens the meal-capture modal — now the Kitchen's job to call, once the
    * user has actually chosen to pick food, not the top-level Feed tap. */
   onLogMeal: () => void;
@@ -71,6 +75,7 @@ export function DashboardScreen({
   pet,
   events,
   reaction,
+  careToast,
   onLogMeal,
   onLogWorkout,
   onSyncSteps,
@@ -129,6 +134,11 @@ export function DashboardScreen({
     setEnvironment('outside');
   };
 
+  const enterStudy = () => {
+    interaction.notice();
+    setEnvironment('study');
+  };
+
   const night = isNightTime();
 
   return (
@@ -143,6 +153,7 @@ export function DashboardScreen({
           pet={pet}
           events={events}
           reaction={reaction}
+          careToast={careToast}
           formLabel={formLabel}
           accountInitial={accountInitial}
           onOpenProfile={onOpenProfile}
@@ -160,6 +171,7 @@ export function DashboardScreen({
           onFeedTap: enterKitchen,
           onEnterGym: enterGym,
           onEnterOutside: enterOutside,
+          onEnterStudy: enterStudy,
           onLogWorkout,
           onSyncSteps,
           onTrainMind,
@@ -168,6 +180,7 @@ export function DashboardScreen({
           onChooseFood: onLogMeal,
           onEnterGym: enterGym,
           onEnterOutside: enterOutside,
+          onEnterStudy: enterStudy,
           onLogWorkout,
           onSyncSteps,
           onTrainMind,
@@ -176,13 +189,23 @@ export function DashboardScreen({
         gym: gymEnvironment({
           onStartWorkout: onLogWorkout,
           onEnterOutside: enterOutside,
+          onEnterStudy: enterStudy,
           onSyncSteps,
           onTrainMind,
+          onBack: () => setEnvironment('main'),
+        }),
+        study: studyEnvironment({
+          onTrainMind,
+          onEnterGym: enterGym,
+          onLogWorkout,
+          onEnterOutside: enterOutside,
+          onSyncSteps,
           onBack: () => setEnvironment('main'),
         }),
         outside: outsideEnvironment({
           onSyncSteps,
           onEnterGym: enterGym,
+          onEnterStudy: enterStudy,
           onLogWorkout,
           onTrainMind,
           onBack: () => setEnvironment('main'),

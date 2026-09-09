@@ -5,7 +5,7 @@ import type { MealAnalysis } from '@vitto/core';
  * rather than a registry/plugin system — a scene is one more union member and
  * one more entry in the record `EnvironmentStage` takes, not a new abstraction.
  */
-export type EnvironmentId = 'main' | 'kitchen' | 'gym' | 'outside';
+export type EnvironmentId = 'main' | 'kitchen' | 'gym' | 'outside' | 'study';
 
 /**
  * What the pet is doing, independent of which environment is on screen. This is

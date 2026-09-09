@@ -19,6 +19,9 @@ import { Image, StyleSheet, View, type ImageSourcePropType, type LayoutChangeEve
  * `fill` opts out of that trade for a scene whose art survives the crop (see the
  * prop), covering the stage edge to edge with no band at all.
  *
+ * `lift` moves the art up when its floor line does not fall where the pet's feet
+ * do, and paints the strip that uncovers with `floorColor`.
+ *
  * The height is computed from a measured container width rather than left to a
  * style `aspectRatio`: react-native-web does not constrain the box that way, so
  * the image stretched back to full height and cropped exactly as before — the
@@ -42,6 +45,16 @@ const FALLBACK_ASPECT = 3 / 4;
  * them.
  */
 const WIDTH_SCALE = 1.2;
+
+/**
+ * Ceiling on `lift`, as a fraction of the art's own height.
+ *
+ * A lift is an alignment nudge, not a way to reframe a scene: past this the
+ * `floorColor` strip stops reading as more floor and starts reading as the
+ * bottom of the screen having been painted over, which is worse than the
+ * misalignment it was correcting.
+ */
+const MAX_LIFT = 0.15;
 
 interface Sized {
   width?: number;
@@ -80,18 +93,22 @@ export const backdropAspectRatio = (source: ImageSourcePropType): number => {
 export const backdropSize = (
   containerWidth: number,
   aspectRatio: number,
-  options?: { containerHeight?: number; fill?: boolean },
+  options?: { containerHeight?: number; fill?: boolean; lift?: number },
 ) => {
   const fitted = containerWidth * WIDTH_SCALE;
   // Width the art would need for its height to reach the container's.
   const covering = options?.fill ? (options.containerHeight ?? 0) * aspectRatio : 0;
   const width = Math.max(fitted, covering);
-  return { width, height: width / aspectRatio, left: (containerWidth - width) / 2 };
+  const height = width / aspectRatio;
+  const lift = Number.isFinite(options?.lift) ? Math.min(Math.max(options?.lift ?? 0, 0), MAX_LIFT) : 0;
+  return { width, height, left: (containerWidth - width) / 2, bottom: height * lift };
 };
 
 export function EnvironmentBackdrop({
   source,
   fill,
+  lift,
+  floorColor,
 }: {
   source: ImageSourcePropType;
   /**
@@ -104,6 +121,26 @@ export function EnvironmentBackdrop({
    * furniture lives against the side walls, which is exactly what the crop eats.
    */
   fill?: boolean;
+  /**
+   * Raise the art by this fraction of its own height, to put the floor line
+   * where the pet's feet actually land.
+   *
+   * The pet stands a fixed distance up from the bottom of the stage, so a scene
+   * whose floor begins higher or lower than that in its own art leaves the pet
+   * looking perched or sunk. A fraction of the art's height rather than a pixel
+   * count, because the thing being aligned is a point in the picture — so it
+   * holds on any screen width and survives the art being redrawn at 2x.
+   */
+  lift?: number;
+  /**
+   * What to paint in the strip a `lift` uncovers along the bottom, matched to
+   * the art's own bottom edge so it reads as the floor continuing.
+   *
+   * Required in practice whenever `lift` is set: the action row's buttons are
+   * separate images on transparent backgrounds, so an unpainted strip shows
+   * through beneath them.
+   */
+  floorColor?: string;
 }) {
   const [container, setContainer] = useState({ width: 0, height: 0 });
   const onLayout = (event: LayoutChangeEvent) => {
@@ -112,26 +149,35 @@ export function EnvironmentBackdrop({
       current.width === width && current.height === height ? current : { width, height },
     );
   };
-  const { width, height, left } = backdropSize(container.width, backdropAspectRatio(source), {
+  const { width, height, left, bottom } = backdropSize(container.width, backdropAspectRatio(source), {
     containerHeight: container.height,
     fill,
+    lift,
   });
 
   return (
     <View style={StyleSheet.absoluteFill} onLayout={onLayout}>
       {container.width > 0 ? (
-        <Image
-          source={source}
-          style={[styles.art, { width, height, left }]}
-          // The box is already the image's own ratio, so this only guards against
-          // a rounding pixel; it never crops.
-          resizeMode="cover"
-        />
+        <>
+          {bottom > 0 && floorColor ? (
+            // Behind the art, not merely below it, so a rounding pixel between
+            // the two cannot show as a seam across the floor.
+            <View style={[styles.floor, { height: bottom + 1, backgroundColor: floorColor }]} />
+          ) : null}
+          <Image
+            source={source}
+            style={[styles.art, { width, height, left, bottom }]}
+            // The box is already the image's own ratio, so this only guards against
+            // a rounding pixel; it never crops.
+            resizeMode="cover"
+          />
+        </>
       ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  art: { position: 'absolute', bottom: 0 },
+  art: { position: 'absolute' },
+  floor: { position: 'absolute', left: 0, right: 0, bottom: 0 },
 });

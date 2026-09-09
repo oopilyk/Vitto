@@ -29,6 +29,8 @@ const NIGHT_TINT = '#433558';
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface GymEnvironmentControlsProps {
+  /** Walks the pet into the Study scene. */
+  onEnterStudy: () => void;
   onStartWorkout: () => void;
   onBack: () => void;
   /** Walks the pet outdoors. */
@@ -58,6 +60,7 @@ function GymEnvironmentControls({
   onBack,
   onEnterOutside,
   onSyncSteps,
+  onEnterStudy,
   onTrainMind,
   night,
 }: GymEnvironmentControlsProps & { night: boolean }) {
@@ -77,6 +80,7 @@ function GymEnvironmentControls({
           onLogWorkout={onStartWorkout}
           onEnterOutside={onEnterOutside}
           onSyncSteps={onSyncSteps}
+          onEnterStudy={onEnterStudy}
           onTrainMind={onTrainMind}
           night={night}
         />

@@ -30,6 +30,8 @@ const NIGHT_SKY = '#252c4f';
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface OutsideEnvironmentControlsProps {
+  /** Walks the pet into the Study scene. */
+  onEnterStudy: () => void;
   onSyncSteps: () => void;
   onBack: () => void;
   onEnterGym: () => void;
@@ -57,6 +59,7 @@ function OutsideEnvironmentControls({
   onBack,
   onEnterGym,
   onLogWorkout,
+  onEnterStudy,
   onTrainMind,
   night,
 }: OutsideEnvironmentControlsProps & { night: boolean }) {
@@ -75,6 +78,7 @@ function OutsideEnvironmentControls({
           onLogWorkout={onLogWorkout}
           // No `onEnterOutside`: already here, so the button logs steps instead.
           onSyncSteps={onSyncSteps}
+          onEnterStudy={onEnterStudy}
           onTrainMind={onTrainMind}
           night={night}
         />

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   AILMENT_MESSAGE,
+  type CareToast,
   type HealthEvent,
   type PetReaction,
   type PetState,
@@ -10,6 +11,7 @@ import {
   assessCondition,
 } from '@vitto/core';
 import { colors, fonts } from '../theme';
+import { CareToastBanner } from './CareToastBanner';
 import { LevelRing } from './LevelRing';
 
 /**
@@ -24,6 +26,12 @@ interface PetWorldHudProps {
   pet: PetState;
   events: HealthEvent[];
   reaction: PetReaction | null;
+  /**
+   * Confirmation of the care moment just logged. Separate from `reaction`
+   * because an ailment outranks that line, which left the user with no
+   * acknowledgement at all whenever the pet happened to be unwell.
+   */
+  careToast?: CareToast | null;
   formLabel: string;
   accountInitial?: string;
   onOpenProfile: () => void;
@@ -42,6 +50,7 @@ export function PetWorldHud({
   pet,
   events,
   reaction,
+  careToast,
   formLabel,
   accountInitial,
   onOpenProfile,
@@ -69,27 +78,6 @@ export function PetWorldHud({
       <View style={styles.topRow}>
         <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
 
-        <View style={styles.chips} pointerEvents="none">
-          {chips.map((effect) => (
-            <View
-              key={effect.id}
-              style={[styles.chip, effect.kind === 'buff' && styles.chipBuff, night && styles.chipNight]}
-              accessible
-              accessibilityLabel={`${effect.label}. ${effect.detail}`}
-            >
-              <Text
-                style={[
-                  styles.chipLabel,
-                  effect.kind === 'buff' && styles.chipLabelBuff,
-                  night && styles.chipLabelNight,
-                ]}
-              >
-                {effect.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-
         <View style={styles.iconStack}>
           <Pressable
             accessibilityRole="button"
@@ -102,18 +90,22 @@ export function PetWorldHud({
               {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
             </Text>
           </Pressable>
+          {/* Labelled, not a bare chevron: an arrow alone said only "there is
+              more that way", which is not the same as telling someone the day's
+              nutrition and care detail is behind it. */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open today's detail"
             onPress={onOpenToday}
             hitSlop={8}
             style={({ pressed }) => [
-              styles.todayIcon,
-              night && styles.todayIconNight,
+              styles.todayButton,
+              night && styles.todayButtonNight,
               pressed && styles.iconPressed,
             ]}
           >
-            <Text style={[styles.todayIconMark, night && styles.todayIconMarkNight]}>›</Text>
+            <Text style={[styles.todayLabel, night && styles.todayLabelNight]}>TODAY</Text>
+            <Text style={[styles.todayMark, night && styles.todayMarkNight]}>›</Text>
           </Pressable>
         </View>
       </View>
@@ -159,6 +151,35 @@ export function PetWorldHud({
           </Text>
         ) : null}
       </View>
+
+      {/* Under the name card and hard right, where the product owner put them:
+          the top row is for controls, and a chip tray wedged between the level
+          ring and the profile icons read as a third control rather than as a
+          readout of what is wrong with the pet. */}
+      {chips.length > 0 ? (
+        <View style={styles.chips} pointerEvents="none">
+          {chips.map((effect) => (
+            <View
+              key={effect.id}
+              style={[styles.chip, effect.kind === 'buff' && styles.chipBuff, night && styles.chipNight]}
+              accessible
+              accessibilityLabel={`${effect.label}. ${effect.detail}`}
+            >
+              <Text
+                style={[
+                  styles.chipLabel,
+                  effect.kind === 'buff' && styles.chipLabelBuff,
+                  night && styles.chipLabelNight,
+                ]}
+              >
+                {effect.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <CareToastBanner toast={careToast} night={night} />
     </View>
   );
 }
@@ -176,7 +197,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: TOP_INSET,
   },
-  chips: { flex: 1, alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingTop: 4 },
+  // A wrapping row rather than the old vertical stack: laid out along the card's
+  // bottom edge there is width to spare, and stacking pushed the second chip
+  // down over the pet.
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 6,
+    // Matches `caption`'s horizontal margin, so the chips line up with the right
+    // edge of the card they sit beneath.
+    marginHorizontal: 16,
+    marginTop: 8,
+  },
   chip: {
     paddingHorizontal: 9,
     paddingVertical: 4,
@@ -188,7 +221,9 @@ const styles = StyleSheet.create({
   chipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3, color: '#8c4433' },
   chipLabelBuff: { color: '#55705d' },
   chipLabelNight: { color: '#f7f5ff' },
-  iconStack: { alignItems: 'center', gap: 10 },
+  // Right-aligned, not centred: the Today pill is wider than the avatar above
+  // it, so centring would leave the pair looking hung off a ragged edge.
+  iconStack: { alignItems: 'flex-end', gap: 10 },
   avatar: {
     width: 34,
     height: 34,
@@ -200,17 +235,23 @@ const styles = StyleSheet.create({
   avatarNight: { backgroundColor: 'rgba(20,18,38,0.55)' },
   avatarLetter: { fontSize: 13, fontWeight: '700', color: colors.ink },
   avatarLetterNight: { color: '#f7f5ff' },
-  todayIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+  todayButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+    paddingLeft: 10,
+    paddingRight: 8,
+    paddingVertical: 5,
+    borderRadius: 13,
+    // Denser than the avatar's wash: this one carries text that has to stay
+    // legible over a bright window or a dark night sky.
+    backgroundColor: 'rgba(255,255,255,0.72)',
   },
-  todayIconNight: { backgroundColor: 'rgba(20,18,38,0.45)' },
-  todayIconMark: { fontSize: 15, color: colors.inkSoft, fontFamily: fonts.mono },
-  todayIconMarkNight: { color: '#f7f5ff' },
+  todayButtonNight: { backgroundColor: 'rgba(20,18,38,0.62)' },
+  todayLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1, color: colors.inkSoft },
+  todayLabelNight: { color: '#f7f5ff' },
+  todayMark: { fontSize: 13, color: colors.inkSoft, fontFamily: fonts.mono },
+  todayMarkNight: { color: '#f7f5ff' },
   iconPressed: { opacity: 0.7 },
   petSwitcher: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginTop: 10 },
   petTab: {

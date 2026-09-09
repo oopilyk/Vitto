@@ -1,6 +1,7 @@
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
 import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
+import { formatMinutes } from './careToast';
 import { workoutStrengthDelta } from './strengthProgression';
 
 export interface EngineResult {
@@ -131,14 +132,6 @@ const SCREEN_TIME_BAND_DELTA: Record<ScreenTimeBandId, PetDelta> = {
 /** Paid on top of the band when the user set a budget and came in under it. */
 const SCREEN_TIME_BUDGET_BONUS_XP = 3;
 const SCREEN_TIME_NO_BUDGET_XP = 6;
-
-/** "2h 05m" style, for the pet's screen-time messages. */
-const formatMinutes = (minutes: number): string => {
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours === 0) return `${rest}m`;
-  return rest === 0 ? `${hours}h` : `${hours}h ${String(rest).padStart(2, '0')}m`;
-};
 
 export class PetHealthEngine {
   apply(pet: PetState, event: HealthEvent, context: PetHealthContext = {}): EngineResult {

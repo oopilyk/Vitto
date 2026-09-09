@@ -32,6 +32,8 @@ export const NIGHT_TINT = '#434280';
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface MainControlsProps {
+  /** Walks the pet into the Study scene. */
+  onEnterStudy: () => void;
   /** Walks the pet into the Kitchen scene. */
   onFeedTap: () => void;
   /** Walks the pet into the Gym scene. */
@@ -49,6 +51,7 @@ export function mainEnvironment({
   onLogWorkout,
   onEnterOutside,
   onSyncSteps,
+  onEnterStudy,
   onTrainMind,
 }: MainControlsProps): EnvironmentDressing {
   const night = isNightTime();
@@ -68,6 +71,7 @@ export function mainEnvironment({
           onLogWorkout={onLogWorkout}
           onEnterOutside={onEnterOutside}
           onSyncSteps={onSyncSteps}
+          onEnterStudy={onEnterStudy}
           onTrainMind={onTrainMind}
           night={night}
         />

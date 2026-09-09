@@ -25,9 +25,23 @@ const LIVING_ROOM_BUTTON = require('../../assets/buttons/living_room.png');
 const DAY_TINT = '#b2978d';
 const NIGHT_TINT = '#38346f';
 
+/**
+ * The kitchen's floor line — where the island meets the boards — sits lower in
+ * its art than the pet's feet do on the stage, which left the pet looking
+ * perched on the island rather than standing in front of it. Raising the art by
+ * a fourteenth of its height brings the two together.
+ */
+const KITCHEN_LIFT = 0.07;
+
+/** The art's own bottom-edge floorboards, for the strip the lift uncovers. */
+const DAY_FLOOR = '#b79f84';
+const NIGHT_FLOOR = '#523961';
+
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface KitchenEnvironmentControlsProps {
+  /** Walks the pet into the Study scene. */
+  onEnterStudy: () => void;
   onChooseFood: () => void;
   onBack: () => void;
   /** Walks the pet into the Gym scene. */
@@ -63,6 +77,7 @@ function KitchenEnvironmentControls({
   onLogWorkout,
   onEnterOutside,
   onSyncSteps,
+  onEnterStudy,
   onTrainMind,
   night,
 }: KitchenEnvironmentControlsProps & { night: boolean }) {
@@ -81,6 +96,7 @@ function KitchenEnvironmentControls({
           onLogWorkout={onLogWorkout}
           onEnterOutside={onEnterOutside}
           onSyncSteps={onSyncSteps}
+          onEnterStudy={onEnterStudy}
           onTrainMind={onTrainMind}
           night={night}
         />
@@ -92,7 +108,11 @@ function KitchenEnvironmentControls({
 export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): EnvironmentDressing {
   const night = isNightTime();
   return {
-    background: <EnvironmentBackdrop source={night ? KITCHEN_NIGHT : KITCHEN_DAY} />,
+    background: <EnvironmentBackdrop
+        source={night ? KITCHEN_NIGHT : KITCHEN_DAY}
+        lift={KITCHEN_LIFT}
+        floorColor={night ? NIGHT_FLOOR : DAY_FLOOR}
+      />,
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
     controls: <KitchenEnvironmentControls {...props} night={night} />,
   };

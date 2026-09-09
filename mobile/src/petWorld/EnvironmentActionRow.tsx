@@ -26,6 +26,12 @@ export interface EnvironmentActionRowProps {
    */
   onEnterOutside?: () => void;
   onSyncSteps: () => void;
+  /**
+   * Walks the pet into the Study scene. Omitted by the Study itself, where the
+   * button falls back to `onTrainMind` for the same reason `onEnterGym` is
+   * omitted in the Gym.
+   */
+  onEnterStudy?: () => void;
   onTrainMind: () => void;
   /** Brightens the labels so they stay readable over a dark night backdrop. */
   night: boolean;
@@ -44,6 +50,7 @@ export function EnvironmentActionRow({
   onLogWorkout,
   onEnterOutside,
   onSyncSteps,
+  onEnterStudy,
   onTrainMind,
   night,
 }: EnvironmentActionRowProps) {
@@ -66,10 +73,10 @@ export function EnvironmentActionRow({
       />
       <EnvironmentButton
         label="Study"
-        accessibilityLabel="Log mind"
+        accessibilityLabel={onEnterStudy ? 'Go to the study' : 'Train mind'}
         source={STUDY_BUTTON}
         night={night}
-        onPress={onTrainMind}
+        onPress={onEnterStudy ?? onTrainMind}
       />
     </View>
   );

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -106,6 +106,13 @@ const navigationTheme: NavigationTheme = {
  * would permanently hide "Miso is starving".
  */
 const REACTION_VISIBLE_MS = 6000;
+
+/**
+ * How long the "logged" confirmation stays up. Shorter than the reaction: it
+ * states a fact the user already knows they caused, so it only has to be seen,
+ * and it sits over the scene rather than in a line of its own.
+ */
+const CARE_TOAST_VISIBLE_MS = 3200;
 const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
 
 const DEFAULT_PROFILE: BodyProfile = {
@@ -233,6 +240,7 @@ export default function App() {
   const [events, setEvents] = useState<HealthEvent[]>([]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
+  const [toast, setToast] = useState<CareToast | null>(null);
   // Care partners. All empty for a solo pet and in local mode; loaded once
   // after the pet, and refreshed only while there is a partner (or an open
   // invite one could be arriving through) — see `refreshShared`.
@@ -303,8 +311,10 @@ export default function App() {
 
   // Cleared on a timer, so the handle has to outlive the call that set it.
   const reactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (reactionTimer.current) clearTimeout(reactionTimer.current);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
   }, []);
 
   const showReaction = (next: PetReaction | null) => {
@@ -312,6 +322,17 @@ export default function App() {
     setReaction(next);
     if (!next) return;
     reactionTimer.current = setTimeout(() => setReaction(null), REACTION_VISIBLE_MS);
+  };
+
+  /**
+   * Re-shows from scratch on every log: clearing first means logging twice in a
+   * row replays the animation with the new number, rather than the second toast
+   * silently swapping the text of one already on screen.
+   */
+  const showCareToast = (next: CareToast) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(next);
+    toastTimer.current = setTimeout(() => setToast(null), CARE_TOAST_VISIBLE_MS);
   };
 
   useEffect(() => {
@@ -578,6 +599,9 @@ export default function App() {
       await repository.saveEvent(event);
       setPets(fanOut.pets);
       if (nextReaction) showReaction(nextReaction);
+      // Every logged moment is acknowledged, reaction or not — that is the whole
+      // point of the toast being separate from the pet's own mood line.
+      showCareToast(careToast(event, nextReaction?.delta ?? {}));
       setEvents((current) => [event, ...current]);
       setError(null);
     } catch (cause) {
@@ -1067,6 +1091,7 @@ export default function App() {
               pet={livePet}
               events={events}
               reaction={reaction}
+              careToast={toast}
               onLogMeal={() => navigation.navigate('MealCapture')}
               onLogWorkout={() => navigation.navigate('Workout')}
               onSyncSteps={() => void syncSteps()}

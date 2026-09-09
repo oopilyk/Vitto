@@ -67,7 +67,7 @@ describe('backdropSize', () => {
   });
 
   it('is inert before the container has been measured', () => {
-    expect(backdropSize(0, 0.75)).toEqual({ width: 0, height: 0, left: 0 });
+    expect(backdropSize(0, 0.75)).toEqual({ width: 0, height: 0, left: 0, bottom: 0 });
   });
 
   it('fills the stage top to bottom when asked, cropping the sides instead', () => {
@@ -93,5 +93,33 @@ describe('backdropSize', () => {
 
   it('ignores a missing container height rather than collapsing', () => {
     expect(backdropSize(393, 0.75, { fill: true })).toEqual(backdropSize(393, 0.75));
+  });
+
+  it('raises the art by a share of its own height when lifted', () => {
+    const plain = backdropSize(393, 0.75);
+    const lifted = backdropSize(393, 0.75, { lift: 0.07 });
+    // Same box, just sitting higher: a lift must not resize or re-centre the art.
+    expect(lifted.width).toBe(plain.width);
+    expect(lifted.height).toBe(plain.height);
+    expect(lifted.left).toBe(plain.left);
+    expect(lifted.bottom).toBeCloseTo(plain.height * 0.07, 5);
+  });
+
+  it('caps a lift so a scene cannot be reframed into a band of floor colour', () => {
+    const capped = backdropSize(393, 0.75, { lift: 0.9 });
+    expect(capped.bottom).toBeCloseTo(capped.height * 0.15, 5);
+  });
+
+  it('treats a missing, negative or unusable lift as no lift', () => {
+    const plain = backdropSize(393, 0.75);
+    expect(plain.bottom).toBe(0);
+    expect(backdropSize(393, 0.75, { lift: -0.2 }).bottom).toBe(0);
+    expect(backdropSize(393, 0.75, { lift: Number.NaN }).bottom).toBe(0);
+  });
+
+  it('lifts and fills together, since a filled scene can still be misaligned', () => {
+    const both = backdropSize(393, 0.75, { containerHeight: 852, fill: true, lift: 0.05 });
+    expect(both.height).toBeCloseTo(852, 5);
+    expect(both.bottom).toBeCloseTo(852 * 0.05, 5);
   });
 });

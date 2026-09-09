@@ -209,6 +209,90 @@ describe('screens render', () => {
     expect(rendered).toContain('Starving');
     expect(rendered).toContain('Lonely');
     expect(rendered).not.toContain('Foggy');
+
+    // Right-aligned under the name card, not centred in the top row between the
+    // level ring and the profile icons.
+    const { StyleSheet: RNStyleSheet, Text: RNTextView } = require('react-native');
+    const tray = tree.root.findAll((node: any) => {
+      const style = RNStyleSheet.flatten(node.props.style);
+      return Boolean(style && style.flexWrap === 'wrap' && style.justifyContent === 'flex-end');
+    })[0];
+    expect(tray).toBeTruthy();
+    const trayLabels = tray
+      .findAllByType(RNTextView)
+      .map((node: any) => node.props.children)
+      .join(' ');
+    expect(trayLabels).toContain('Starving');
+    expect(trayLabels).toContain('Lonely');
+    tree.unmount();
+  });
+
+  it('confirms a logged care moment even while an ailment owns the mood line', () => {
+    // The reason the toast exists: `PetWorldHud` gives the ailment precedence
+    // over the reaction, so a starving pet's owner used to get no
+    // acknowledgement whatsoever for logging their steps.
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={{ ...pet, nutrition: 8, happiness: 45, mind: 45, energy: 45, health: 60 }}
+          events={[]}
+          reaction={null}
+          careToast={{ headline: '1,240 steps logged', detail: '+3 energy · +8 XP' }}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('1,240 steps logged');
+    expect(rendered).toContain('+3 energy · +8 XP');
+    // The ailment still owns the line it owned before.
+    expect(rendered).toContain('Starving');
+
+    // Anchored above the action row, not stacked into the top-left column with
+    // the name card and the status chips.
+    const { StyleSheet: RNStyleSheet, Text: RNTextView } = require('react-native');
+    const slot = tree.root.findAll((node: any) => {
+      const style = RNStyleSheet.flatten(node.props.style);
+      return Boolean(
+        style && style.position === 'absolute' && typeof style.bottom === 'number' && style.bottom > 60,
+      );
+    }).find((node: any) =>
+      node
+        .findAllByType(RNTextView)
+        .some((text: any) => text.props.children === '1,240 steps logged'),
+    );
+    expect(slot).toBeTruthy();
+    tree.unmount();
+  });
+
+  it('shows nothing where the toast goes until something is logged', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain('logged');
     tree.unmount();
   });
 
@@ -429,10 +513,14 @@ describe('screens render', () => {
     const { ScrollView } = require('react-native');
     expect(tree.root.findAllByType(ScrollView)).toHaveLength(0);
 
-    // Study is still a direct action from the living room; Gym and Outdoors are
-    // destinations now, the same way the Kitchen already was.
-    act(() => findButton('Log mind')!.props.onPress());
+    // Every one of the four is a destination now, the way the Kitchen always
+    // was: the button walks the pet somewhere and the scene there carries the
+    // action. Study was the last one to still fire straight from the row.
+    act(() => findButton('Go to the study')!.props.onPress());
+    expect(pressed).toEqual([]);
+    act(() => findButton('Train mind')!.props.onPress());
     expect(pressed).toEqual(['mind']);
+    act(() => findButton('Back to the living room')!.props.onPress());
 
     // Gym: walks the pet there, and the scene carries its own "Log workout".
     act(() => findButton('Go to the gym')!.props.onPress());
@@ -497,7 +585,7 @@ describe('screens render', () => {
     const petZ = zIndexOf(petLayer.props.style);
 
     let node: any = tree.root
-      .findAllByProps({ accessibilityLabel: 'Log mind' })
+      .findAllByProps({ accessibilityLabel: 'Go to the study' })
       .find((n: any) => typeof n.props.onPress === 'function');
     let controlsZ = 0;
     while (node) {
