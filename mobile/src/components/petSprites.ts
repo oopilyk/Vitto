@@ -21,25 +21,32 @@ import { EVOLUTION_LEVEL, getPetBuild, type PetAilment, type PetBreed, type PetB
  * has a true sleep pose — an art gap, not a mapping mistake, so their `rest`
  * borrows the calmest frame each one happens to own.
  *
- * The orangeCat sheet uses all 11 rows and is the best supplied of the three: it
- * is the only one with real sleep art (lying, then curled) AND real dizzy art
- * (spiral eyes, orbiting stars), so its `rest` and `unwell` are the poses they
- * claim to be rather than the stand-ins the dogs settle for.
+ * The seven sheets below the otter come from one asset pack and share a shape:
+ * 4 columns of 128px cells, a row count that varies per animal (7 to 10), and
+ * bands that run across rows and pad the last row with empty cells. Every one of
+ * them was verified to sit square on its grid, so unlike the shiba runner none
+ * needed re-laying.
  *
- * Its cells are 189px, not 128. That is fine and needs no rescaling: `SpriteFrame`
- * derives everything from `size / CELL`, so the constant cancels and only the 4x11
- * grid shape matters. Keeping the art at native resolution means the sheet is
- * downscaled slightly to the stage instead of being upscaled from 128.
+ * What they do NOT share is which bands exist. The pack gives each animal a
+ * different set, and the gaps are real art gaps rather than mapping mistakes:
  *
- *   orangeCat rows 0  standing idle (4)       6  crying → collapsed, X eyes (4)
- *                  1  sitting (4, unused)     7  dizzy, spiral eyes (4)
- *                  2  crouch → pounce (4,     8  lying → curled asleep (4)
- *                     unused)                 9  sitting, tearful (4)
- *                  3  leap / play (4)        10  [10,0] is a synthesised blink
- *                                                  frame (see `idle`); the rest
- *                                                  of the row is unused
- *                  4  walk (4)
- *                  5  run (4)
+ *   bunny, fox      a true sleep band (lying, eyes closed) and NO collapse
+ *   tabbyCat, dino  a collapse ending in X eyes and NO sleep
+ *   koala           neither a walk nor a run band -- it only ever sits
+ *   bear            a fade-to-nothing collapse, like the shiba's
+ *   axolotl         its own distressed band, so `unwell` is a real pose
+ *
+ * Where a sheet has no art for a state, its `rest`/`unwell`/`sad` borrow the
+ * calmest or saddest sitting frames it does own -- the same compromise the two
+ * dogs already make -- and DizzyOrbit keeps carrying `foggy` for all of them.
+ *
+ * None was drawn with evolved art, so each one's lifter and scholar are derived
+ * from its base sheet by `mobile/scripts/buildEvolutionSprites.mjs`, the same way
+ * the dogs' and the otter's are. None has a runner: that build stays on the base
+ * sheet, which is the documented fallback in `sheetForPet`, not an oversight.
+ *
+ * Cell size is free: `SpriteFrame` derives everything from `size / CELL`, so the
+ * constant cancels and only the grid shape matters.
  */
 export const CELL = 128;
 export const SHEET_COLUMNS = 4;
@@ -69,8 +76,9 @@ export interface PetSheet {
   /**
    * Grid shape of this sheet, when it is not the 4x11 the dogs and cat use. Only
    * the shape matters — `SpriteFrame` derives every pixel from `size`, so the
-   * cell's actual resolution cancels out (see the note on the orangeCat sheet).
-   * The otter is a 6x10 sheet; everything else omits these and takes the default.
+   * cell's actual resolution cancels out (see the note at the top of this file).
+   * The otter is a 6x10 sheet and the pack sheets set their own row counts;
+   * everything else omits these and takes the default.
    */
   columns?: number;
   rows?: number;
@@ -299,110 +307,6 @@ const SHIBA: PetSheet = {
 };
 
 // ---------------------------------------------------------------------------
-// Orange cat
-// ---------------------------------------------------------------------------
-
-/**
- * The runner's evolved sheet. Same eleven-band layout as the base cat, so the
- * frame mapping carries over unchanged; the art differs (leaner build, scarf,
- * socks) and its cells are 256px rather than 189px. Cell size is free — see the
- * note on the orangeCat sheet — and 256 keeps the art filling the same ~89% of
- * its cell as the base sheet, so evolving does not also jump the pet's scale.
- */
-const ORANGE_CAT_RUNNER: PetSheet = {
-  name: 'orangeCat',
-  label: 'Orange Cat · Runner',
-  source: require('../../assets/pet/orangeCatRunner.png'),
-  animations: {
-    // Eyes open, eyes closed, nothing else moving: [0, 0] is the open-eyed
-    // stance and [0, 3] the same pose with the eyes shut. Weighted rather than
-    // alternated — seven open cells to two closed, which at 200ms is ~1.4s of
-    // stillness and a ~400ms blink. An even two-frame loop blinks five times a
-    // second.
-    idle: [
-      [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
-      [0, 3], [0, 3]
-    ],
-    cheer: [[3, 0], [3, 1], [3, 2], [3, 3]],
-    move: [[5, 0], [5, 1], [5, 2], [5, 3]],
-    // Row 6, the flat-out band, rather than the curled sleep on row 8: `rest` is
-    // what an exhausted pet plays, and this reads as a cat with nothing left
-    // rather than one that has settled down for the night. [6, 0] and [6, 3] are
-    // the closest pair on the row — 12.5% of the silhouette apart, where every
-    // other pairing is 23-36% — so the loop is a breath, not a reposition.
-    rest: [[6, 0], [6, 3]],
-    // Not the first frame: on this sheet the dizzy band opens with eyes that are
-    // still normal, and only the later cells have the spiral eyes that make the
-    // state read as dizzy. (The base cat is the other way round — its first
-    // frames are spiral-eyed and its last is the collapse.)
-    unwell: [[7, 2], [7, 1]],
-    sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
-    // Moved to row 10 now that row 6 is `rest`. It is the better collapse anyway:
-    // upset, stumbling, down, then out cold with X eyes — which is the frame
-    // HOLDS_LAST_FRAME parks on. Row 6 only ever showed a tired lie-down, so
-    // dying and exhausted would otherwise have looked identical.
-    faint: [[10, 0], [10, 2], [10, 3]],
-  },
-  selfDrawn: ['foggy'],
-  frameMs: { idle: 200, unwell: 340 },
-};
-
-const ORANGE_CAT_ANIMATIONS: PetSheet['animations'] = {
-  // A blink, and nothing else. The drawn idle band could not do this: every
-  // cell in it is a different stance, 8-11% of the silhouette apart, with the
-  // body leaning several pixels left and right — cycling it read as fidgeting.
-  //
-  // So [10, 0] is frame [0, 0]'s body with frame [0, 3]'s closed eyes patched
-  // over it. Those two frames draw the head in exactly the same place (both
-  // span x 23-169, y 21-89) and their eyes sit at the same x, so the swap is
-  // seamless. Weighted: seven open cells to one closed, which at 200ms is
-  // ~1.4s of stillness and a 200ms blink.
-  idle: [
-    [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],
-    [10, 0],
-  ],
-  // A leap with an open-mouthed grin — the liveliest band on the sheet.
-  cheer: [[3, 0], [3, 1], [3, 2], [3, 3]],
-  // The run band only. Playing walk and run as one cycle made the cat change
-  // gait twice a second, which read as a glitch rather than as movement. The
-  // walk band (row 4) is the calmer swap if this ever wants toning down.
-  move: [[5, 0], [5, 1], [5, 2], [5, 3]],
-  // One frame: the tightest curl. `rest` is what an exhausted pet plays, and
-  // a pet with nothing left should be still — the bob is all the movement it
-  // needs. [8, 2] is the looser curl if a two-frame breath is ever wanted.
-  rest: [[8, 3]],
-  // Two frames. This sheet has real dizzy art, so unlike the shiba it does not
-  // borrow the sad band or lean on the DizzyOrbit overlay to read as unwell.
-  // [7, 2] and [7, 3] are left out: [7, 3] is the lying-down beat, which made
-  // a dizzy pet look like it kept collapsing and getting back up, and a
-  // two-frame sway is enough to read as dizzy without the third.
-  unwell: [[7, 0], [7, 1]],
-  sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
-  // Upset, going down, out cold. Ends on the X-eyed frame, which is where
-  // HOLDS_LAST_FRAME parks it.
-  faint: [[6, 0], [6, 1], [6, 2], [6, 3]],
-};
-
-const ORANGE_CAT_LAYOUT: SheetLayout = {
-  name: 'orangeCat',
-  animations: ORANGE_CAT_ANIMATIONS,
-  // The dizzy band draws its own spiral eyes and orbiting stars.
-  selfDrawn: ['foggy'],
-  // Slower than the shared table: these bands are 3-4 frames where the dogs'
-  // are 6-10, so the default interval raced through them. `idle` is fast because
-  // it is a blink cycle, not a pose cycle — see the note on that band.
-  frameMs: { idle: 200, unwell: 340 },
-};
-
-const ORANGE_CAT_LIFTER = sheetFrom(ORANGE_CAT_LAYOUT, 'Orange Cat · Lifter', require('../../assets/pet/orangeCatLifter.png'));
-const ORANGE_CAT_SCHOLAR = sheetFrom(ORANGE_CAT_LAYOUT, 'Orange Cat · Scholar', require('../../assets/pet/orangeCatScholar.png'));
-
-const ORANGE_CAT: PetSheet = {
-  ...sheetFrom(ORANGE_CAT_LAYOUT, 'Orange Cat', require('../../assets/pet/orangeCat.png')),
-  evolutions: { runner: ORANGE_CAT_RUNNER, lifter: ORANGE_CAT_LIFTER, scholar: ORANGE_CAT_SCHOLAR },
-};
-
-// ---------------------------------------------------------------------------
 // Otter
 // ---------------------------------------------------------------------------
 
@@ -465,8 +369,254 @@ const OTTER: PetSheet = {
   evolutions: { lifter: OTTER_LIFTER, scholar: OTTER_SCHOLAR },
 };
 
+// ---------------------------------------------------------------------------
+// The pack animals — see the note at the top of this file for what they share
+// and, more importantly, where each one's art runs out.
+// ---------------------------------------------------------------------------
+
+/**
+ * Tabby cat, 4x10. The orange cat's replacement, so it takes the cat slot in the
+ * picker; `20260909120000_pet_breeds_expand.sql` moves anyone already holding an
+ * orange cat onto this one.
+ *
+ *   rows 0-1  sitting idle (5)        rows 5-7  walk, tail up (9)
+ *   rows 2-3  sitting, paw up (7)     row  8    stagger → down, X eyes (4)
+ *   row  4    run, stretched low (4)  row  9    lying, X eyes (4)
+ */
+const TABBY_CAT_LAYOUT: SheetLayout = {
+  name: 'tabbyCat',
+  rows: 10,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0]],
+    cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1], [3, 2]],
+    // The run band, not the nine-frame walk: `move` is what plays while the pet
+    // explores, and the dogs map it to their run bands too.
+    move: [[4, 0], [4, 1], [4, 2], [4, 3]],
+    // No sleep art on this sheet, so `rest` borrows the calmest sit it owns.
+    rest: [[2, 0]],
+    unwell: [[2, 0], [2, 1], [2, 2], [2, 3]],
+    sad: [[3, 0], [3, 1], [3, 2]],
+    // Real collapse art: staggers, goes down, and the X-eyed lying frame is what
+    // HOLDS_LAST_FRAME parks on.
+    faint: [[8, 0], [8, 1], [8, 2], [8, 3], [9, 0]],
+  },
+};
+
+const TABBY_CAT_LIFTER = sheetFrom(TABBY_CAT_LAYOUT, 'Tabby Cat · Lifter', require('../../assets/pet/tabbyCatLifter.png'));
+const TABBY_CAT_SCHOLAR = sheetFrom(TABBY_CAT_LAYOUT, 'Tabby Cat · Scholar', require('../../assets/pet/tabbyCatScholar.png'));
+
+const TABBY_CAT: PetSheet = {
+  ...sheetFrom(TABBY_CAT_LAYOUT, 'Tabby Cat', require('../../assets/pet/tabbyCat.png')),
+  evolutions: { lifter: TABBY_CAT_LIFTER, scholar: TABBY_CAT_SCHOLAR },
+};
+
+/**
+ * Bunny, 4x7. One of the two sheets with a genuine sleep band, so its `rest` is
+ * the pose it claims to be rather than a stand-in.
+ *
+ *   row  0    sitting idle (4)        rows 3-4  up on hind legs, happy (6)
+ *   row  1    sitting, looking (4)    row  5    sit → eyes shut → lie down (4)
+ *   row  2    hopping (4)             row  6    lying asleep (4)
+ */
+const BUNNY_LAYOUT: SheetLayout = {
+  name: 'bunny',
+  rows: 7,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3]],
+    cheer: [[3, 0], [3, 1], [3, 2], [3, 3], [4, 0], [4, 1]],
+    move: [[2, 0], [2, 1], [2, 2], [2, 3]],
+    // Actually asleep — flat, ears down, eyes closed.
+    rest: [[6, 0], [6, 1], [6, 2], [6, 3]],
+    // No dizzy or crying art, so the second sitting band carries both and
+    // DizzyOrbit supplies the `foggy` reading, exactly as it does for the shiba.
+    unwell: [[1, 0], [1, 1], [1, 2], [1, 3]],
+    sad: [[1, 0], [1, 1], [1, 2], [1, 3]],
+    // Settles rather than collapses — this sheet has no knocked-out pose.
+    faint: [[5, 0], [5, 1], [5, 2], [5, 3]],
+  },
+};
+
+const BUNNY_LIFTER = sheetFrom(BUNNY_LAYOUT, 'Bunny · Lifter', require('../../assets/pet/bunnyLifter.png'));
+const BUNNY_SCHOLAR = sheetFrom(BUNNY_LAYOUT, 'Bunny · Scholar', require('../../assets/pet/bunnyScholar.png'));
+
+const BUNNY: PetSheet = {
+  ...sheetFrom(BUNNY_LAYOUT, 'Bunny', require('../../assets/pet/bunny.png')),
+  evolutions: { lifter: BUNNY_LIFTER, scholar: BUNNY_SCHOLAR },
+};
+
+/**
+ * Fox, 4x8. The other sheet with real sleep art.
+ *
+ *   row  0    sitting idle (3)        rows 4-5  sitting alert (5)
+ *   rows 1-2  sitting, eyes shut (5)  row  6    lying down (4)
+ *   row  3    running (4)             row  7    lying asleep (4)
+ */
+const FOX_LAYOUT: SheetLayout = {
+  name: 'fox',
+  rows: 8,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2]],
+    // Eyes shut and clearly pleased — the closest this sheet has to celebrating.
+    cheer: [[1, 0], [1, 1], [1, 2], [1, 3], [2, 0]],
+    move: [[3, 0], [3, 1], [3, 2], [3, 3]],
+    rest: [[7, 0], [7, 1], [7, 2], [7, 3]],
+    unwell: [[4, 0], [4, 1], [4, 2], [4, 3]],
+    sad: [[4, 0], [4, 1], [4, 2], [4, 3]],
+    faint: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0]],
+  },
+};
+
+const FOX_LIFTER = sheetFrom(FOX_LAYOUT, 'Fox · Lifter', require('../../assets/pet/foxLifter.png'));
+const FOX_SCHOLAR = sheetFrom(FOX_LAYOUT, 'Fox · Scholar', require('../../assets/pet/foxScholar.png'));
+
+const FOX: PetSheet = {
+  ...sheetFrom(FOX_LAYOUT, 'Fox', require('../../assets/pet/fox.png')),
+  evolutions: { lifter: FOX_LIFTER, scholar: FOX_SCHOLAR },
+};
+
+/**
+ * Koala, 4x10. The one sheet in the pack with no locomotion band at all — it is
+ * drawn sitting in every frame it owns, so `move` borrows its second sitting
+ * band. A koala that does not run is in character, but it does mean the walk cue
+ * is carried by the scene rather than the sprite.
+ *
+ *   rows 0-1  sitting idle (5)        rows 6-7  sitting, downcast (6)
+ *   rows 2-3  sitting, shifting (6)   row  8    slumps down (4)
+ *   rows 4-5  arms up, delighted (5)  row  9    down, orbiting stars (3)
+ */
+const KOALA_LAYOUT: SheetLayout = {
+  name: 'koala',
+  rows: 10,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0]],
+    cheer: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0]],
+    move: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1]],
+    rest: [[2, 0]],
+    unwell: [[6, 0], [6, 1], [6, 2], [6, 3]],
+    sad: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1]],
+    // The last row draws its own orbiting stars, but only lying down, so it ends
+    // `faint` rather than standing in for `unwell` — `selfDrawn` stays unset.
+    faint: [[8, 0], [8, 1], [8, 2], [8, 3], [9, 0]],
+  },
+};
+
+const KOALA_LIFTER = sheetFrom(KOALA_LAYOUT, 'Koala · Lifter', require('../../assets/pet/koalaLifter.png'));
+const KOALA_SCHOLAR = sheetFrom(KOALA_LAYOUT, 'Koala · Scholar', require('../../assets/pet/koalaScholar.png'));
+
+const KOALA: PetSheet = {
+  ...sheetFrom(KOALA_LAYOUT, 'Koala', require('../../assets/pet/koala.png')),
+  evolutions: { lifter: KOALA_LIFTER, scholar: KOALA_SCHOLAR },
+};
+
+/**
+ * Bear, 4x8. Carries a honey pot through its first two bands and puts it down
+ * for the rest, which is why `idle` and `cheer` come from the pot bands and
+ * everything calmer comes from the standing ones.
+ *
+ *   rows 0-2  sitting with the pot (9)   rows 4-5  standing, no pot (7)
+ *   row  3    carrying the pot (4)       rows 6-7  fades away to nothing (5)
+ */
+const BEAR_LAYOUT: SheetLayout = {
+  name: 'bear',
+  rows: 8,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3]],
+    // Face in the honey pot: this sheet's happiest frames by a distance.
+    cheer: [[1, 0], [1, 1], [1, 2], [1, 3], [2, 0]],
+    move: [[3, 0], [3, 1], [3, 2], [3, 3]],
+    rest: [[4, 0]],
+    unwell: [[4, 0], [4, 1], [4, 2], [4, 3]],
+    sad: [[5, 0], [5, 1], [5, 2]],
+    // Drawn as a fade rather than a collapse -- the last cells are the same bear
+    // at falling alpha, so the order matters and the faintest must come last.
+    faint: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0]],
+  },
+};
+
+const BEAR_LIFTER = sheetFrom(BEAR_LAYOUT, 'Bear · Lifter', require('../../assets/pet/bearLifter.png'));
+const BEAR_SCHOLAR = sheetFrom(BEAR_LAYOUT, 'Bear · Scholar', require('../../assets/pet/bearScholar.png'));
+
+const BEAR: PetSheet = {
+  ...sheetFrom(BEAR_LAYOUT, 'Bear', require('../../assets/pet/bear.png')),
+  evolutions: { lifter: BEAR_LIFTER, scholar: BEAR_SCHOLAR },
+};
+
+/**
+ * Axolotl, 4x9. The best supplied of the pack: it is the only one with a band
+ * drawn specifically as distress, so its `unwell` is a real pose rather than a
+ * borrowed sit.
+ *
+ *   row  0    sitting idle (4)        rows 5-6  sitting, downcast (6)
+ *   rows 1-2  arms up, delighted (7)  row  7    distressed, mouth open (4)
+ *   rows 3-4  swimming forward (5)    row  8    down, X eyes (3)
+ */
+const AXOLOTL_LAYOUT: SheetLayout = {
+  name: 'axolotl',
+  rows: 9,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3],[0,2],[0,1]],
+    cheer: [[1, 0], [1, 1], [1, 2], [1, 3], [2, 0], [2, 1], [2, 2]],
+    move: [[3, 0], [3, 1], [3, 2], [3, 3], [4, 0]],
+    rest: [[5, 0]],
+    unwell: [[7, 0], [7, 1], [7, 2], [7, 3]],
+    sad: [[5, 0], [5, 1], [5, 2], [5, 3], [6, 0], [6, 1]],
+    faint: [[8, 0], [8, 1], [8, 2]],
+  },
+};
+
+const AXOLOTL_LIFTER = sheetFrom(AXOLOTL_LAYOUT, 'Axolotl · Lifter', require('../../assets/pet/axolotlLifter.png'));
+const AXOLOTL_SCHOLAR = sheetFrom(AXOLOTL_LAYOUT, 'Axolotl · Scholar', require('../../assets/pet/axolotlScholar.png'));
+
+const AXOLOTL: PetSheet = {
+  ...sheetFrom(AXOLOTL_LAYOUT, 'Axolotl', require('../../assets/pet/axolotl.png')),
+  evolutions: { lifter: AXOLOTL_LIFTER, scholar: AXOLOTL_SCHOLAR },
+};
+
+/**
+ * Dino, 4x10. A little green dinosaur in a blue cap.
+ *
+ *   row  0    sitting idle (4)        rows 6-7  standing, downcast (5)
+ *   row  1    standing (4)            row  8    sits down, X eyes (4)
+ *   rows 2-3  arms up, delighted (5)  row  9    lying, X eyes (4)
+ *   rows 4-5  running (5)
+ */
+const DINO_LAYOUT: SheetLayout = {
+  name: 'dino',
+  rows: 10,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3]],
+    cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0]],
+    move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0]],
+    // No sleep art -- row 9 looks like one until you zoom in and find X eyes, so
+    // it belongs to `faint`. The standing band stands in here instead.
+    rest: [[1, 0]],
+    unwell: [[6, 0], [6, 1], [6, 2], [6, 3]],
+    sad: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0]],
+    faint: [[8, 0], [8, 1], [8, 2], [8, 3], [9, 0]],
+  },
+};
+
+const DINO_LIFTER = sheetFrom(DINO_LAYOUT, 'Dino · Lifter', require('../../assets/pet/dinoLifter.png'));
+const DINO_SCHOLAR = sheetFrom(DINO_LAYOUT, 'Dino · Scholar', require('../../assets/pet/dinoScholar.png'));
+
+const DINO: PetSheet = {
+  ...sheetFrom(DINO_LAYOUT, 'Dino', require('../../assets/pet/dino.png')),
+  evolutions: { lifter: DINO_LIFTER, scholar: DINO_SCHOLAR },
+};
+
 /** Adoptable companions, in the order the breed picker offers them. */
-export const PET_SHEETS: PetSheet[] = [BICHON, SHIBA, ORANGE_CAT, OTTER];
+export const PET_SHEETS: PetSheet[] = [
+  BICHON,
+  SHIBA,
+  OTTER,
+  TABBY_CAT,
+  BUNNY,
+  FOX,
+  KOALA,
+  BEAR,
+  AXOLOTL,
+  DINO,
+];
 
 export const sheetByBreed = (breed: PetBreed): PetSheet =>
   PET_SHEETS.find((sheet) => sheet.name === breed) ?? PET_SHEETS[0];

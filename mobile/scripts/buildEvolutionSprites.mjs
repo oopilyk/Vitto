@@ -20,7 +20,7 @@
  * Cells whose blob is much wider than tall (collapsed / curled / asleep) only get
  * the body treatment — there is no reliable head to hang an accessory on.
  *
- * Inputs:  mobile/assets/pet/{bichon,shiba,orangeCat,otter}.png
+ * Inputs:  mobile/assets/pet/<breed>.png for every breed in `SHEETS`
  * Outputs: mobile/assets/pet/<breed>Lifter.png, <breed>Scholar.png
  *
  * Re-run from the repo root (deterministic, overwrites in place):
@@ -64,19 +64,22 @@ const SHEETS = [
     preview: [[0, 0], [2, 2], [4, 3], [8, 0], [9, 0], [10, 0]],
   },
   {
-    base: 'orangeCat',
-    columns: 4,
-    rows: 11,
-    cell: 189,
-    preview: [[0, 0], [3, 1], [5, 0], [7, 0], [9, 0], [6, 3], [8, 3]],
-  },
-  {
     base: 'otter',
     columns: 6,
     rows: 10,
     cell: 190,
     preview: [[0, 0], [2, 4], [4, 2], [4, 4], [5, 0], [6, 0], [7, 0], [9, 5]],
   },
+  // The pack animals. All 4 columns of 128px cells; only the row count varies.
+  // Their sheets have empty trailing cells where a band did not fill its last
+  // row, which the per-cell loop already skips.
+  { base: 'tabbyCat', columns: 4, rows: 10, cell: 128, preview: [[0, 0], [2, 0], [4, 0], [5, 0], [9, 0]] },
+  { base: 'bunny', columns: 4, rows: 7, cell: 128, preview: [[0, 0], [2, 0], [3, 0], [6, 0]] },
+  { base: 'fox', columns: 4, rows: 8, cell: 128, preview: [[0, 0], [1, 0], [3, 0], [7, 0]] },
+  { base: 'koala', columns: 4, rows: 10, cell: 128, preview: [[0, 0], [2, 0], [4, 0], [6, 0], [9, 0]] },
+  { base: 'bear', columns: 4, rows: 8, cell: 128, preview: [[0, 0], [1, 0], [3, 0], [4, 0], [6, 2]] },
+  { base: 'axolotl', columns: 4, rows: 9, cell: 128, preview: [[0, 0], [1, 0], [3, 0], [7, 0], [8, 0]] },
+  { base: 'dino', columns: 4, rows: 10, cell: 128, preview: [[0, 0], [2, 0], [4, 0], [6, 0], [9, 0]] },
 ];
 
 // ---------------------------------------------------------------------------

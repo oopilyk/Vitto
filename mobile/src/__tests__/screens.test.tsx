@@ -1054,9 +1054,11 @@ describe('pet sprite', () => {
 
   it('falls back to a stable breed for pets adopted before the picker', () => {
     expect(sheetForPet({ id: 'pet-a' })).toBe(sheetForPet({ id: 'pet-a' }));
-    const breeds = new Set(
-      ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((id) => sheetForPet({ id }).name),
-    );
+    // Enough ids to reach every breed rather than a count tied to how many there
+    // happen to be — the point is that the hash spreads across all of them
+    // instead of piling every unpicked pet onto the first sheet.
+    const ids = Array.from({ length: 60 }, (_, index) => `pet-${index}`);
+    const breeds = new Set(ids.map((id) => sheetForPet({ id }).name));
     expect(breeds.size).toBe(PET_SHEETS.length);
   });
 
@@ -1148,20 +1150,20 @@ describe('pet sprite', () => {
 
   it('keeps a baby on its base sheet however it has been trained', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const runnerStats = { id: 'p', breed: 'orangeCat', level: 5, endurance: 80, strength: 10 };
-    expect(sheetForPet(runnerStats).label).toBe('Orange Cat');
+    const runnerStats = { id: 'p', breed: 'tabbyCat', level: 5, endurance: 80, strength: 10 };
+    expect(sheetForPet(runnerStats).label).toBe('Tabby Cat');
   });
 
-  it('evolves a grown, endurance-built cat onto the runner sheet', () => {
+  it('keeps an endurance-built pack animal on its base sheet — none has runner art', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const runner = { id: 'p', breed: 'orangeCat', level: 12, endurance: 80, strength: 10 };
-    expect(sheetForPet(runner).label).toBe('Orange Cat · Runner');
+    const runner = { id: 'p', breed: 'tabbyCat', level: 12, endurance: 80, strength: 10 };
+    expect(sheetForPet(runner).label).toBe('Tabby Cat');
   });
 
   it('leaves a grown cat with no specialism on its base sheet', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const balanced = { id: 'p', breed: 'orangeCat', level: 40, endurance: 50, strength: 48 };
-    expect(sheetForPet(balanced).label).toBe('Orange Cat');
+    const balanced = { id: 'p', breed: 'tabbyCat', level: 40, endurance: 50, strength: 48 };
+    expect(sheetForPet(balanced).label).toBe('Tabby Cat');
   });
 
   it('evolves a grown, endurance-built bichon onto the runner sheet', () => {
@@ -1189,8 +1191,8 @@ describe('pet sprite', () => {
 
   it('evolves a grown, strength-built cat onto the lifter sheet', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const lifter = { id: 'p', breed: 'orangeCat', level: 12, strength: 80, endurance: 10, mind: 10 };
-    expect(sheetForPet(lifter).label).toBe('Orange Cat · Lifter');
+    const lifter = { id: 'p', breed: 'tabbyCat', level: 12, strength: 80, endurance: 10, mind: 10 };
+    expect(sheetForPet(lifter).label).toBe('Tabby Cat · Lifter');
   });
 
   it('evolves a grown, mind-built otter onto the scholar sheet', () => {

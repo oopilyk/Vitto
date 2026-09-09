@@ -32,8 +32,21 @@ export const MUNCH_INTERVAL_MS = 420;
 /** Formerly `WORKOUT_ANIMATION_MS` in `App.tsx`. */
 export const WORKOUT_DURATION_MS = 1100;
 
-/** Formerly `EXPLORE_ANIMATION_MS` in `App.tsx`. */
-export const EXPLORE_DURATION_MS = 1100;
+/**
+ * How long the pet runs after steps are logged.
+ *
+ * Was 1100ms, inherited from the old `EXPLORE_ANIMATION_MS`. Every sheet's `move`
+ * band is 4 to 8 frames at `FRAME_MS.move` (90ms), so a full stride cycle takes
+ * 360-720ms and the old value gave some pets barely one and a half of them --
+ * long enough to register as a twitch, not as the pet going for a run with you.
+ * Three seconds is at least four cycles on the shortest band, which is what makes
+ * it read as running.
+ *
+ * One number rather than one per sheet on purpose: this is how long the ACTION
+ * lasts, not how fast a particular animal's legs move. Pace belongs in
+ * `FRAME_MS.move`, and per-sheet exceptions belong in that sheet's `frameMs`.
+ */
+export const EXPLORE_DURATION_MS = 3000;
 
 /**
  * New: how long a "noticing" reaction holds before the pet settles back to idle.

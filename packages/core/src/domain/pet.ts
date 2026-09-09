@@ -3,9 +3,39 @@ import { newId } from './ids';
 export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
 
 /** Which drawn companion the pet is. Optional: pets adopted before the picker have none. */
-export type PetBreed = 'bichon' | 'shiba' | 'orangeCat' | 'otter';
+export type PetBreed =
+  | 'bichon'
+  | 'shiba'
+  | 'otter'
+  | 'tabbyCat'
+  | 'bunny'
+  | 'fox'
+  | 'koala'
+  | 'bear'
+  | 'axolotl'
+  | 'dino';
 
-export const PET_BREEDS: PetBreed[] = ['bichon', 'shiba', 'orangeCat', 'otter'];
+/**
+ * Every adoptable companion. Adding one means widening the `pets.breed` CHECK in
+ * a migration too -- `pet.test.ts` reads the latest migration back and fails if
+ * the two drift, because a breed the database has not been told about fails every
+ * write for that pet, not just the adoption.
+ *
+ * `orangeCat` was removed here; `20260909120000_pet_breeds_expand.sql` moves any
+ * pet already adopted as one onto `tabbyCat`, the cat that replaced it.
+ */
+export const PET_BREEDS: PetBreed[] = [
+  'bichon',
+  'shiba',
+  'otter',
+  'tabbyCat',
+  'bunny',
+  'fox',
+  'koala',
+  'bear',
+  'axolotl',
+  'dino',
+];
 
 export interface PetState {
   id: string;
