@@ -66,6 +66,7 @@ const idleInteraction: UsePetInteractionResult = {
   startFeeding: () => {},
   startWorkout: () => {},
   startExploring: () => {},
+  setAmbientWalking: () => {},
   reset: () => {},
 };
 
