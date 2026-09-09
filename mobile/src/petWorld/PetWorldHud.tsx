@@ -63,7 +63,7 @@ export function PetWorldHud({
   return (
     <View style={styles.fill}>
       <View style={styles.topRow}>
-        <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} />
+        <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
 
         <View style={styles.chips} pointerEvents="none">
           {chips.map((effect) => (

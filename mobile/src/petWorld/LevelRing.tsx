@@ -16,10 +16,13 @@ export function LevelRing({
   level,
   xpPct,
   onPress,
+  night,
 }: {
   level: number;
   xpPct: number;
   onPress: () => void;
+  /** Whitens the level number so it stays legible over a dark night backdrop. */
+  night?: boolean;
 }) {
   const pct = Math.max(0, Math.min(100, xpPct));
   const quarters = [pct >= 25, pct >= 50, pct >= 75, pct >= 100];
@@ -43,7 +46,7 @@ export function LevelRing({
           },
         ]}
       />
-      <Text style={styles.level}>{level}</Text>
+      <Text style={[styles.level, night && styles.levelNight]}>{level}</Text>
     </Pressable>
   );
 }
@@ -69,4 +72,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.ink,
   },
+  levelNight: { color: '#ffffff' },
 });
