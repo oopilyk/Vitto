@@ -32,11 +32,16 @@ import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
 import { hasNativeUUID, randomUUID } from './src/services/uuid';
+import { lockWebViewport } from './src/web/lockWebViewport';
 import { colors, fonts, layout } from './src/theme';
 
 // Prefer the platform's crypto-backed ids, but keep the domain's pure fallback if
 // this client has no native crypto module.
 if (hasNativeUUID()) setIdGenerator(randomUUID);
+
+// Pin the web build to a fixed, non-zoomable viewport so it behaves like the
+// mobile app it is rather than a pannable web page. No-op on native.
+lockWebViewport();
 
 const repository = new LocalRepository();
 const remoteRepository = new SupabaseRepository();

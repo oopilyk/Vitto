@@ -61,7 +61,11 @@ export function PetWorldHud({
   const chips = getStatusEffects(pet).slice(0, 2);
 
   return (
-    <View style={styles.fill}>
+    // `box-none`: the HUD layer spans the whole screen and sits on top of the
+    // environment's action row, so without this its empty space swallows every
+    // tap meant for the buttons underneath. Its own controls (level ring,
+    // profile/today icons) stay tappable because they are real press targets.
+    <View style={styles.fill} pointerEvents="box-none">
       <View style={styles.topRow}>
         <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
 

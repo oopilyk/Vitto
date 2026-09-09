@@ -1,14 +1,16 @@
 import { StyleSheet, View } from 'react-native';
-import { colors } from '../theme';
-import { CircleButton } from './CircleButton';
+import { EnvironmentButton, type EnvironmentButtonProps } from './EnvironmentButton';
 
-const KITCHEN_BUTTON = require('../../assets/buttons/kitchen.png');
 const GYM_BUTTON = require('../../assets/buttons/gym.png');
 const OUTDOORS_BUTTON = require('../../assets/buttons/outdoors.png');
 const STUDY_BUTTON = require('../../assets/buttons/study.png');
 
+/** The leading button changes per scene (Kitchen in the living room, Living
+ *  room in the kitchen); Gym / Outdoors / Study are the same everywhere. */
+export type PrimaryAction = Omit<EnvironmentButtonProps, 'night'>;
+
 export interface EnvironmentActionRowProps {
-  onFeedTap: () => void;
+  primary: PrimaryAction;
   onLogWorkout: () => void;
   onSyncSteps: () => void;
   onTrainMind: () => void;
@@ -17,14 +19,13 @@ export interface EnvironmentActionRowProps {
 }
 
 /**
- * The four destination buttons -- Kitchen, Gym, Outdoors, Study -- shown the
- * same way in every environment, not just Main. Reused as-is by
- * `KitchenEnvironment` so every destination is always one tap away rather
- * than routing back through Main first (per the product owner's note that
- * logging food should not force a trip back to the living room).
+ * The four destination buttons across the bottom of every scene. The first slot
+ * is the scene-specific jump (into the Kitchen from the living room, back to the
+ * living room from the Kitchen); the other three are always Gym / Outdoors /
+ * Study, kept one tap away from wherever the pet is.
  */
 export function EnvironmentActionRow({
-  onFeedTap,
+  primary,
   onLogWorkout,
   onSyncSteps,
   onTrainMind,
@@ -32,43 +33,25 @@ export function EnvironmentActionRow({
 }: EnvironmentActionRowProps) {
   return (
     <View style={styles.bottomRow}>
-      <CircleButton
-        label="Kitchen"
-        accessibilityLabel="Log meal"
-        icon="✣"
-        tint={colors.yellow}
-        ink={colors.yellowDeep}
-        backgroundImage={KITCHEN_BUTTON}
-        night={night}
-        onPress={onFeedTap}
-      />
-      <CircleButton
+      <EnvironmentButton {...primary} night={night} />
+      <EnvironmentButton
         label="Gym"
         accessibilityLabel="Log workout"
-        icon="↗"
-        tint={colors.coralWash}
-        ink={colors.coralDeep}
-        backgroundImage={GYM_BUTTON}
+        source={GYM_BUTTON}
         night={night}
         onPress={onLogWorkout}
       />
-      <CircleButton
+      <EnvironmentButton
         label="Outdoors"
         accessibilityLabel="Log steps"
-        icon="⁁"
-        tint={colors.mint}
-        ink={colors.mintDeep}
-        backgroundImage={OUTDOORS_BUTTON}
+        source={OUTDOORS_BUTTON}
         night={night}
         onPress={onSyncSteps}
       />
-      <CircleButton
+      <EnvironmentButton
         label="Study"
         accessibilityLabel="Log mind"
-        icon="✻"
-        tint={colors.lilac}
-        ink={colors.lilacDeep}
-        backgroundImage={STUDY_BUTTON}
+        source={STUDY_BUTTON}
         night={night}
         onPress={onTrainMind}
       />

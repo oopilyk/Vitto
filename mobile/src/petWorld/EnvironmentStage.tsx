@@ -1,5 +1,12 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import { Animated, Easing, Pressable, StyleSheet } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
@@ -20,10 +27,10 @@ const PET_STAGE_SIZE = 280;
  * enlarged pet above, so its feet read as standing on the room's own floor
  * rather than floating with a visible gap above the buttons. Kitchen is the
  * taller of the two: home-indicator inset (~28) + row gap (10) + "Not right
- * now" link (~14) + the action row itself (default 56px `CircleButton`
- * circle + 6px internal gap + ~12px label text, ~74px total) comes to
- * roughly 126px from the very bottom of the screen to the top of that
- * stack; verify on-device if either row's content ever grows.
+ * now" link (~14) + the action row itself (`EnvironmentButton`'s 60px art +
+ * 6px internal gap + ~12px label text, ~78px total) comes to roughly 130px
+ * from the very bottom of the screen to the top of that stack; verify
+ * on-device if either row's content ever grows.
  */
 const PET_STAGE_BOTTOM_PADDING = 105;
 
@@ -148,8 +155,8 @@ export function EnvironmentStage({
         </Animated.View>
       </Pressable>
 
-      <FadeSwap swapKey={environment}>
-        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.controlsLayer]}>
+      <FadeSwap swapKey={environment} style={styles.controlsLayer}>
+        <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
           {regions.controls}
         </Animated.View>
       </FadeSwap>
@@ -171,7 +178,22 @@ export function EnvironmentStage({
  * background colour above already carries the continuous blend; this just
  * keeps the content swap from being an instant jump-cut.
  */
-function FadeSwap({ swapKey, children }: { swapKey: string; children: ReactNode }) {
+function FadeSwap({
+  swapKey,
+  style,
+  children,
+}: {
+  swapKey: string;
+  /**
+   * Applied to the faded wrapper itself, not its child — so a `zIndex` here
+   * lands on the element that is actually a sibling of the stage's other
+   * layers. Setting it one level in (on the child) leaves the wrapper at the
+   * default `zIndex: 0`, which on web let the pet's tap layer (`zIndex: 1`)
+   * sit on top of the controls and swallow every button press.
+   */
+  style?: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     opacity.setValue(0);
@@ -184,7 +206,9 @@ function FadeSwap({ swapKey, children }: { swapKey: string; children: ReactNode 
     // Keyed on `swapKey` rather than `opacity` (which is a stable ref and would
     // only ever fire once): this is what makes the fade replay on every swap.
   }, [swapKey, opacity]);
-  return <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>{children}</Animated.View>;
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, style, { opacity }]}>{children}</Animated.View>
+  );
 }
 
 const styles = StyleSheet.create({

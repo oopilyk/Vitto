@@ -1,23 +1,25 @@
-import { Image, Platform, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { colors, fonts, layout } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { isNightTime } from './timeOfDay';
 
 /**
- * The Kitchen: reached by tapping Kitchen, it opens the existing
- * `MealCaptureScreen` modal — no rebuilt camera/search UI, no shop, just the
- * entry point into the flow that already exists, dressed as a distinct scene
- * rather than a form. Dressed with the product owner's own day/night kitchen
- * art, picked by `isNightTime` the same way `MainEnvironment` does.
+ * The Kitchen: reached by tapping Kitchen in the living room, it opens the
+ * existing `MealCaptureScreen` modal -- no rebuilt camera/search UI, no shop,
+ * just the entry point into the flow that already exists, dressed as a distinct
+ * scene. Same day/night art swap as `MainEnvironment`.
  *
- * Shows the same `EnvironmentActionRow` Main does -- Gym/Outdoors/Study are
- * one tap away without a trip back through Main first, and tapping Kitchen
- * again here just re-opens the food picker (same `onChooseFood` action).
+ * The bottom row is laid out exactly like Main's so the buttons sit in the same
+ * spots; only the leading button differs -- it's "Living room" here (back to the
+ * bedroom) instead of "Kitchen". Logging a meal is the point of the scene, so it
+ * gets its own button between the name card and the pet rather than a slot in
+ * the row.
  */
 
 const KITCHEN_DAY = require('../../assets/environments/kitchen-day.png');
 const KITCHEN_NIGHT = require('../../assets/environments/kitchen-night.png');
+const LIVING_ROOM_BUTTON = require('../../assets/buttons/living_room.png');
 const NIGHT_TINT = '#3d3a63';
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
@@ -30,6 +32,23 @@ interface KitchenEnvironmentControlsProps {
   onTrainMind: () => void;
 }
 
+/** The Kitchen's dedicated call to action, floating between the name card and
+ *  the pet. Coral on white reads on both the day and night kitchen art. */
+function LogMealButton({ onPress }: { onPress: () => void }) {
+  return (
+    <View style={styles.mealSlot} pointerEvents="box-none">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Log meal"
+        onPress={onPress}
+        style={({ pressed }) => [styles.meal, pressed && styles.mealPressed]}
+      >
+        <Text style={styles.mealLabel}>Log meal</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function KitchenEnvironmentControls({
   onChooseFood,
   onBack,
@@ -39,24 +58,23 @@ function KitchenEnvironmentControls({
   night,
 }: KitchenEnvironmentControlsProps & { night: boolean }) {
   return (
-    <View style={styles.bottomRow}>
-      <EnvironmentActionRow
-        onFeedTap={onChooseFood}
-        onLogWorkout={onLogWorkout}
-        onSyncSteps={onSyncSteps}
-        onTrainMind={onTrainMind}
-        night={night}
-      />
-      <Text
-        accessibilityRole="button"
-        accessibilityLabel="Back to the bedroom"
-        onPress={onBack}
-        style={[styles.back, night && styles.backNight]}
-        suppressHighlighting
-      >
-        Not right now
-      </Text>
-    </View>
+    <>
+      <LogMealButton onPress={onChooseFood} />
+      <View style={styles.bottomRow}>
+        <EnvironmentActionRow
+          primary={{
+            label: 'Living room',
+            accessibilityLabel: 'Back to the living room',
+            source: LIVING_ROOM_BUTTON,
+            onPress: onBack,
+          }}
+          onLogWorkout={onLogWorkout}
+          onSyncSteps={onSyncSteps}
+          onTrainMind={onTrainMind}
+          night={night}
+        />
+      </View>
+    </>
   );
 }
 
@@ -64,7 +82,7 @@ export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): Envi
   const night = isNightTime();
   return {
     background: (
-      <Image source={night ? KITCHEN_NIGHT : KITCHEN_DAY} style={styles.backdrop} resizeMode="cover" />
+      <Image source={night ? KITCHEN_NIGHT : KITCHEN_DAY} style={layout.fillImage} resizeMode="cover" />
     ),
     backgroundColor: night ? NIGHT_TINT : colors.yellow,
     controls: <KitchenEnvironmentControls {...props} night={night} />,
@@ -72,15 +90,37 @@ export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): Envi
 }
 
 const styles = StyleSheet.create({
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  // Matches MainEnvironment's `bottomRow` exactly so the buttons land in the
+  // same spots as the living room scene.
   bottomRow: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: HOME_INDICATOR_INSET,
-    alignItems: 'center',
-    gap: 10,
   },
-  back: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkSoft, letterSpacing: 0.3 },
-  backNight: { color: '#f7f5ff' },
+  mealSlot: {
+    position: 'absolute',
+    top: '32%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  meal: {
+    backgroundColor: colors.coral,
+    paddingVertical: 12,
+    paddingHorizontal: 26,
+    borderRadius: 22,
+    shadowColor: '#26312d',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  mealPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
+  mealLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    letterSpacing: 0.8,
+    color: '#fff',
+  },
 });

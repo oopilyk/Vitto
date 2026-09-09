@@ -63,6 +63,22 @@ export const text = StyleSheet.create({
 
 export const layout = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
+  /**
+   * An `<Image>` that should fill its parent box. The explicit `100%` sizing is
+   * load-bearing, not redundant with the insets: react-native-web renders an
+   * inset-only absolute image at the asset's intrinsic pixel size (e.g. a 380px
+   * button glyph, an 834px room photo), which overflows the parent and makes
+   * the whole page scrollable/zoomable. Native clips it anyway; web needs this.
+   */
+  fillImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
   padded: { paddingHorizontal: 22 },
   card: {
     backgroundColor: colors.card,

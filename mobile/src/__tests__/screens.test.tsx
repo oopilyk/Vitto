@@ -434,15 +434,69 @@ describe('screens render', () => {
     act(() => findButton('Log mind')!.props.onPress());
     expect(pressed).toEqual(['workout', 'steps', 'mind']);
 
-    // Feed doesn't call `onLogMeal` directly any more -- it walks the pet into
-    // the Kitchen first, which shows the same action row (including its own
-    // "Log meal" button, reused for "choose food") rather than a page.
-    act(() => findButton('Log meal')!.props.onPress());
+    // Feed doesn't call `onLogMeal` directly any more -- the Kitchen button
+    // walks the pet into the Kitchen scene, which has its own dedicated
+    // "Log meal" button above the pet.
+    act(() => findButton('Go to the kitchen')!.props.onPress());
     expect(pressed).toEqual(['workout', 'steps', 'mind']);
     expect(findButton('Log meal')).toBeTruthy();
+    // The Kitchen's leading button is now "Living room" (back to the bedroom),
+    // and the old "Not right now" text link is gone.
+    expect(findButton('Back to the living room')).toBeTruthy();
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Not right now');
 
     act(() => findButton('Log meal')!.props.onPress());
     expect(pressed).toEqual(['workout', 'steps', 'mind', 'meal']);
+
+    // "Living room" returns to the bedroom, where the leading button is Kitchen again.
+    act(() => findButton('Back to the living room')!.props.onPress());
+    expect(findButton('Go to the kitchen')).toBeTruthy();
+    tree.unmount();
+  });
+
+  it('stacks the action row above the full-screen pet tap layer so taps reach the buttons', () => {
+    // Regression: the pet's "say hi" Pressable covers the whole stage. If the
+    // controls layer does not sit above it, every button press lands on the pet
+    // instead (broke on web when the zIndex was set one node too deep).
+    const { StyleSheet } = require('react-native');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+
+    const zIndexOf = (style: unknown) => (StyleSheet.flatten(style) ?? {}).zIndex ?? 0;
+    const petLayer = tree.root.findByProps({ accessibilityLabel: `Say hi to ${pet.name}` });
+    const petZ = zIndexOf(petLayer.props.style);
+
+    let node: any = tree.root
+      .findAllByProps({ accessibilityLabel: 'Log workout' })
+      .find((n: any) => typeof n.props.onPress === 'function');
+    let controlsZ = 0;
+    while (node) {
+      const z = zIndexOf(node.props.style);
+      if (z > petZ) {
+        controlsZ = z;
+        break;
+      }
+      node = node.parent;
+    }
+
+    expect(petZ).toBeGreaterThan(0);
+    expect(controlsZ).toBeGreaterThan(petZ);
     tree.unmount();
   });
 
@@ -480,7 +534,7 @@ describe('screens render', () => {
         .find((node: any) => typeof node.props.onPress === 'function');
 
     // Walk into the Kitchen the same way a real feed tap does.
-    act(() => findButton('Log meal')!.props.onPress());
+    act(() => findButton('Go to the kitchen')!.props.onPress());
     expect(findButton('Log meal')).toBeTruthy();
 
     // Drive the interaction prop through celebrating -> idle, the same
