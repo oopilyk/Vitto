@@ -26,6 +26,8 @@ const gymKey = 'vitto.gym';
  * nothing or fire twice. Losing them on reinstall is the accepted trade.
  */
 const remindersKey = 'vitto.reminders';
+/** Achievement ids the user has already been shown unlocking — see App's unlock queue. */
+const seenAchievementsKey = 'vitto.achievements.seen';
 const MAX_STORED_EVENTS = 2000;
 const CARE_PARTNERS_OFFLINE_MESSAGE = 'Care partners need an online account.';
 
@@ -106,7 +108,7 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, seenAchievementsKey, 'vitto.profile']);
   }
 
   async loadReminders(): Promise<Reminder[]> {
@@ -118,6 +120,23 @@ export class LocalRepository {
 
   async saveReminders(reminders: Reminder[]): Promise<void> {
     await AsyncStorage.setItem(remindersKey, JSON.stringify(reminders));
+  }
+
+  /**
+   * `null` when nothing has ever been stored — distinct from an empty list. The
+   * first launch on a device with history seeds this silently instead of
+   * announcing a year of milestones at once; that decision needs to know the
+   * difference between "seen nothing" and "never asked".
+   */
+  async loadSeenAchievements(): Promise<string[] | null> {
+    const value = await AsyncStorage.getItem(seenAchievementsKey);
+    if (value === null) return null;
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  }
+
+  async saveSeenAchievements(ids: readonly string[]): Promise<void> {
+    await AsyncStorage.setItem(seenAchievementsKey, JSON.stringify([...ids]));
   }
 
   async loadGymLocation(): Promise<GeoPoint | null> {

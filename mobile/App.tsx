@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -192,7 +192,24 @@ export default function App() {
    */
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [reminderPermission, setReminderPermission] = useState<NotificationPermission>('unknown');
+  /**
+   * Achievement unlocks the user has already been shown. `null` until loaded,
+   * and `seenEverStored` says whether the key existed at all — on a device with
+   * history but no record, the current set is seeded silently rather than
+   * announcing every milestone the account has ever passed in one burst.
+   */
+  const [seenAchievements, setSeenAchievements] = useState<Set<string> | null>(null);
+  const seenEverStored = useRef(false);
+  /** Unlocks waiting to be announced, oldest first; the dashboard shows the head. */
+  const [unlockQueue, setUnlockQueue] = useState<AchievementId[]>([]);
   useEffect(() => {
+    void repository
+      .loadSeenAchievements()
+      .then((stored) => {
+        seenEverStored.current = stored !== null;
+        setSeenAchievements(new Set(stored ?? []));
+      })
+      .catch(() => setSeenAchievements(new Set()));
     void repository.loadGymLocation().then(setGym).catch(() => setGym(null));
     void repository
       .loadReminders()
@@ -1058,6 +1075,9 @@ export default function App() {
         setForcedAilment(null);
         setForcedForm(null);
         setForcedTrophies(null);
+        setUnlockQueue([]);
+        setSeenAchievements(new Set());
+        seenEverStored.current = false;
         await repository.clear();
       })
       .catch(() => setError('Could not sign out.'));
@@ -1079,6 +1099,41 @@ export default function App() {
     if (forced) return [forced];
     return earnedTrophies(events, profile, now);
   }, [session, forcedTrophies, events, profile, now]);
+
+  // Everything earned, badges and trophies, in display order. Above the early
+  // returns for the same reason `trophiesNow` is.
+  const achievementsNow: readonly AchievementId[] = useMemo(
+    () => earnedAchievements({ events, pet, trophies: trophiesNow, today: now }),
+    [events, pet, trophiesNow, now],
+  );
+
+  // Announce what is newly earned. Only once the data is in (otherwise an empty
+  // event list would "seed" nothing and the real history would then pop
+  // everything), and only the additions since the stored set — the stored set
+  // is then extended so each unlock is shown exactly once.
+  useEffect(() => {
+    if (!dataReady || seenAchievements === null) return;
+    const fresh = newlyUnlocked(achievementsNow, seenAchievements);
+    if (fresh.length === 0) return;
+    const next = new Set([...seenAchievements, ...fresh]);
+    setSeenAchievements(next);
+    void repository.saveSeenAchievements([...next]).catch(() => undefined);
+    // First run on a device with history: record, don't announce.
+    if (!seenEverStored.current) {
+      seenEverStored.current = true;
+      return;
+    }
+    setUnlockQueue((queue) => [...queue, ...fresh]);
+    // `repository` is a stable module-level instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataReady, achievementsNow, seenAchievements]);
+
+  /** Dev: forget what has been shown, so every earned unlock pops again. */
+  const replayAchievements = () => {
+    seenEverStored.current = true;
+    setSeenAchievements(new Set());
+    void repository.saveSeenAchievements([]).catch(() => undefined);
+  };
 
   if (!authReady || !dataReady) {
     return (
@@ -1200,6 +1255,12 @@ export default function App() {
               partnerName={shared ? partnerName : undefined}
               celebration={celebration}
               onCelebrationComplete={() => setCelebration(null)}
+              achievementUnlock={
+                unlockQueue.length > 0
+                  ? { id: unlockQueue[0], trainingDaysPerWeek: profile.trainingDaysPerWeek }
+                  : null
+              }
+              onAchievementUnlockComplete={() => setUnlockQueue((queue) => queue.slice(1))}
             />
           )}
         </RootStack.Screen>
@@ -1207,7 +1268,7 @@ export default function App() {
           {({ navigation, route }) => (
             <ProfileScreen
               openJoin={route.params?.join === true}
-              trophies={trophiesNow}
+              achievements={achievementsNow}
               profile={profile}
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}
@@ -1327,6 +1388,7 @@ export default function App() {
               onForceAmbient={isDev ? setForcedAmbient : undefined}
               forcedTrophies={isDev ? forcedTrophies : undefined}
               onForceTrophies={isDev ? setForcedTrophies : undefined}
+              onReplayAchievements={isDev ? replayAchievements : undefined}
               ambientDebug={
                 isDev
                   ? {

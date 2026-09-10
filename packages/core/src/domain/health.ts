@@ -146,10 +146,11 @@ export interface CountryGuessRoundOutcome {
 }
 
 export interface BrainTrainingMetadata {
-  game: 'math' | 'reading' | 'wordPuzzle' | 'spellingBee' | 'countryGuess';
+  /** `spellingBee` is the word garden's former name, kept so old events still read. */
+  game: 'math' | 'reading' | 'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess';
   /**
    * How well it went, 0..`total`. For the question games this is answers right; for
-   * the spelling bee it is points earned towards the "genius" bar, so that
+   * the word garden it is points earned towards the "full bloom" bar, so that
    * `correct / total` reads as progress for every game alike.
    */
   correct: number;
@@ -162,12 +163,15 @@ export interface BrainTrainingMetadata {
   puzzleDate?: string;
   generatorVersion?: number;
   roundOutcomes?: WordPuzzleRoundOutcome[];
-  /** Spelling bee: the six letters played, centre letter first. */
+  /** Word garden: the six letters played, seed letter first. */
   letters?: string;
   wordsFound?: number;
   points?: number;
   maxPoints?: number;
+  /** Word garden: the growth stage reached. */
   rank?: string;
+  /** Word garden: the highest run multiplier hit in the session. */
+  bestMultiplier?: number;
   countryOutcomes?: CountryGuessRoundOutcome[];
 }
 

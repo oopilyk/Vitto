@@ -81,6 +81,8 @@ interface Props {
   onForceAmbient?: (state: ForcedAmbient | null) => void;
   forcedTrophies?: ForcedTrophies | null;
   onForceTrophies?: (state: ForcedTrophies | null) => void;
+  /** Forgets which achievement unlocks have been shown, so every earned one pops again. */
+  onReplayAchievements?: () => void;
   /**
    * What the sensors are actually reporting. Both ambient hooks fail quietly by
    * design, so on a device "permission denied", "no such sensor" and "you are
@@ -210,6 +212,7 @@ export function TodayScreen({
   onForceAmbient,
   forcedTrophies,
   onForceTrophies,
+  onReplayAchievements,
   ambientDebug,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -583,6 +586,11 @@ export function TodayScreen({
               the drumstick is a month of hitting your calorie and protein goals, the book
               is a month of daily mind-gym sessions. Nothing here is saved.
             </Text>
+            {onReplayAchievements ? (
+              <View style={styles.devChoices}>
+                <TextButton label="Replay achievement unlocks" onPress={onReplayAchievements} />
+              </View>
+            ) : null}
           </View>
         ) : null}
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import {
 
+  type AchievementId,
   type TrophyId,  PET_BUILD_LABEL,
   type CareToast,
   type HealthEvent,
@@ -11,6 +12,7 @@ import {
   hasEvolved,
 } from '@vitto/core';
 import { LevelUpCelebration } from '../celebrations/LevelUpCelebration';
+import { AchievementUnlock } from '../celebrations/AchievementUnlock';
 import type { CelebrationEvent } from '../celebrations/types';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
 import { PetWorldHud } from '../petWorld/PetWorldHud';
@@ -87,6 +89,12 @@ interface Props {
   celebration?: CelebrationEvent | null;
   /** Tapped Continue on the celebration — clears it back in `App.tsx`. */
   onCelebrationComplete?: () => void;
+  /**
+   * The achievement to announce right now, if any. App holds the queue; this
+   * shows one at a time and waits behind a level-up, which owns the screen.
+   */
+  achievementUnlock?: { id: AchievementId; trainingDaysPerWeek: number } | null;
+  onAchievementUnlockComplete?: () => void;
 }
 
 export function DashboardScreen({
@@ -114,6 +122,8 @@ export function DashboardScreen({
   trophies,
   celebration,
   onCelebrationComplete,
+  achievementUnlock,
+  onAchievementUnlockComplete,
 }: Props) {
   const [environment, setEnvironment] = useState<EnvironmentId>('main');
 
@@ -215,6 +225,15 @@ export function DashboardScreen({
           level={celebration.level}
           night={night}
           onComplete={() => onCelebrationComplete?.()}
+        />
+      ) : achievementUnlock ? (
+        <AchievementUnlock
+          key={achievementUnlock.id}
+          id={achievementUnlock.id}
+          pet={pet}
+          profile={{ trainingDaysPerWeek: achievementUnlock.trainingDaysPerWeek }}
+          night={night}
+          onComplete={() => onAchievementUnlockComplete?.()}
         />
       ) : null}
     </View>

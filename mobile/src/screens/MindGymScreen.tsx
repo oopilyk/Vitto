@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { type BrainTrainingMetadata, type HealthEvent, MATH_ROUND_SECONDS, type MathProblem, type ReadingPassage, errorMessage, findWordPuzzleEventForDate, generateMathProblem, wordPuzzleStreak, mindScore, mindScoreLabel, pickReadingPassage, toDateKey } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
-import { SpellingBeeGame } from '../components/SpellingBeeGame';
+import { WordGardenGame } from '../components/WordGardenGame';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -14,14 +14,14 @@ interface Props {
   events?: HealthEvent[];
 }
 
-type Stage = 'pick' | 'math' | 'reading' | 'quiz' | 'bee' | 'country' | 'result';
+type Stage = 'pick' | 'math' | 'reading' | 'quiz' | 'garden' | 'country' | 'result';
 
 const STAGE_TITLE: Record<Stage, string> = {
   pick: 'Train your mind',
   math: 'Quick maths',
   reading: 'Read and recall',
   quiz: 'Read and recall',
-  bee: 'Spelling bee',
+  garden: 'Word garden',
   country: 'Guess the country',
   result: 'Train your mind',
 };
@@ -35,8 +35,11 @@ interface SessionResult extends BrainTrainingMetadata {
 /** What the result card says under the score, per game. */
 const resultMeta = (result: SessionResult): string => {
   switch (result.game) {
+    case 'wordGarden':
     case 'spellingBee':
-      return `${result.wordsFound ?? 0} ${result.wordsFound === 1 ? 'word' : 'words'} · ${result.points ?? 0} points · ${result.durationSeconds}s`;
+      return `${result.wordsFound ?? 0} ${result.wordsFound === 1 ? 'word' : 'words'} · ${result.points ?? 0} points${
+        (result.bestMultiplier ?? 1) > 1 ? ` · best run ×${result.bestMultiplier}` : ''
+      } · ${result.durationSeconds}s`;
     case 'countryGuess':
       return `${result.correct} of ${result.total} countries found · ${result.durationSeconds}s`;
     case 'math':
@@ -242,13 +245,13 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = []
                 </View>
                 <Text style={styles.gameArrow}>→</Text>
               </Pressable>
-              <Pressable style={styles.gameCard} onPress={() => setStage('bee')}>
-                <View style={[styles.gameIcon, { backgroundColor: colors.yellow }]}>
-                  <Text style={{ color: colors.yellowDeep, fontSize: 18 }}>⬡</Text>
+              <Pressable style={styles.gameCard} onPress={() => setStage('garden')}>
+                <View style={[styles.gameIcon, { backgroundColor: colors.mint }]}>
+                  <Text style={{ color: colors.mintDeep, fontSize: 18 }}>✿</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.gameName}>Spelling bee</Text>
-                  <Text style={styles.gameHint}>Six letters, as many words as you can · untimed</Text>
+                  <Text style={styles.gameName}>Word garden</Text>
+                  <Text style={styles.gameHint}>Grow words from a seed letter · runs multiply · untimed</Text>
                 </View>
                 <Text style={styles.gameArrow}>→</Text>
               </Pressable>
@@ -265,7 +268,7 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = []
             </>
           ) : null}
 
-          {stage === 'bee' ? <SpellingBeeGame onFinish={finishSession} onCancel={onClose} /> : null}
+          {stage === 'garden' ? <WordGardenGame onFinish={finishSession} onCancel={onClose} /> : null}
 
           {stage === 'country' ? <CountryGuessGame onFinish={finishSession} onCancel={onClose} /> : null}
 

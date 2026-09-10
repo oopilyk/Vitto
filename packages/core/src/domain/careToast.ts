@@ -46,7 +46,8 @@ const BRAIN_GAME_TITLE: Record<BrainTrainingMetadata['game'], string> = {
   math: 'Quick maths',
   reading: 'Read and recall',
   wordPuzzle: 'Word puzzle',
-  spellingBee: 'Spelling bee',
+  wordGarden: 'Word garden',
+  spellingBee: 'Word garden',
   countryGuess: 'Guess the country',
 };
 
@@ -87,7 +88,7 @@ export const describeLoggedEvent = (event: HealthEvent): string => {
         const [round] = roundOutcomes;
         return round!.solved ? `${title}: solved in ${round!.guessesUsed}` : `${title}: not solved today`;
       }
-      if (game === 'spellingBee') {
+      if (game === 'wordGarden' || game === 'spellingBee') {
         const words = Math.max(0, Math.round(wordsFound ?? 0));
         const found = `${words} ${words === 1 ? 'word' : 'words'}`;
         return rank ? `${title}: ${rank} · ${found}` : `${title}: ${found}`;

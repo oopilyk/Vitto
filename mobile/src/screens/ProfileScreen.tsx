@@ -13,10 +13,9 @@ import {
 } from 'react-native';
 import {
 
-  TROPHY_IDS,
-  TROPHY_LABEL,
-  type TrophyId,
-  trophyRule,  type BodyProfile,
+  ACHIEVEMENTS,
+  type AchievementId,
+  type TrophyId,  type BodyProfile,
   type BrainTrainingMetadata,
   FOCUS_AREAS,
   type FocusArea,
@@ -74,11 +73,11 @@ interface Props {
   /** Omitted for a signed-out/local-only session -- friends require an account. */
   onOpenFriends?: () => void;
   /**
-   * Which trophies have been earned. The card below lists ALL of them either
-   * way -- a locked trophy with its rule showing is the only place the goals are
-   * written down, so hiding them would make the shelf unexplained.
+   * Every achievement earned so far, badges and trophies. The card lists ALL
+   * of them either way -- a locked one with its rule showing is the only place
+   * the goals are written down, so hiding them would make the shelf unexplained.
    */
-  trophies?: readonly TrophyId[];
+  achievements?: readonly AchievementId[];
   /** Omitted entirely on platforms with no HealthKit provider (Android, web). */
   appleHealthStatus?: 'disconnected' | 'connected';
   onConnectAppleHealth?: () => void;
@@ -261,7 +260,7 @@ export function ProfileScreen({
   onClose,
   onSignOut,
   onOpenFriends,
-  trophies,
+  achievements,
   appleHealthStatus,
   onConnectAppleHealth,
   onSyncAppleHealth,
@@ -442,7 +441,7 @@ export function ProfileScreen({
       if (await carePartner.onRedeemInvite(code)) setJoinCode('');
     }, 'Could not join that pet.');
 
-  const earnedCount = TROPHY_IDS.filter((id) => (trophies ?? []).includes(id)).length;
+  const earnedCount = ACHIEVEMENTS.filter((achievement) => (achievements ?? []).includes(achievement.id)).length;
   const shared = carePartner ? isSharedPet(carePartner.members) : false;
   const isOwner = carePartner ? memberRole(carePartner.members, carePartner.selfUserId) === 'owner' : false;
   const openInvite =
@@ -523,28 +522,35 @@ export function ProfileScreen({
         </Card>
 
         <Card
-          title="Trophies"
-          hint={`${earnedCount} of ${TROPHY_IDS.length} earned · they appear on your living-room shelf`}
+          title="Achievements"
+          hint={`${earnedCount} of ${ACHIEVEMENTS.length} unlocked · trophies also appear on your living-room shelf`}
         >
-          {TROPHY_IDS.map((id) => {
-            const earned = (trophies ?? []).includes(id);
+          {ACHIEVEMENTS.map((achievement) => {
+            const earned = (achievements ?? []).includes(achievement.id);
+            const art = achievement.kind === 'trophy' ? TROPHY_ART[achievement.id as TrophyId] : null;
             return (
-              <View key={id} style={styles.trophyRow}>
-                <Image
-                  source={TROPHY_ART[id]}
-                  resizeMode="contain"
-                  // A locked trophy is shown as its own silhouette rather than
-                  // hidden: you can see what is coming, but not mistake it for won.
-                  style={[styles.trophyArt, !earned && styles.trophyArtLocked]}
-                />
+              <View key={achievement.id} style={styles.trophyRow}>
+                {art ? (
+                  <Image
+                    source={art}
+                    resizeMode="contain"
+                    // A locked trophy is shown as its own silhouette rather than
+                    // hidden: you can see what is coming, but not mistake it for won.
+                    style={[styles.trophyArt, !earned && styles.trophyArtLocked]}
+                  />
+                ) : (
+                  <View style={[styles.badge, earned && styles.badgeEarned]}>
+                    <Text style={[styles.badgeStar, earned && styles.badgeStarEarned]}>★</Text>
+                  </View>
+                )}
                 <View style={styles.trophyText}>
                   <Text style={[styles.trophyName, !earned && styles.trophyNameLocked]}>
-                    {TROPHY_LABEL[id]}
+                    {achievement.title}
                   </Text>
-                  <Text style={styles.trophyRule}>{trophyRule(id, profile)}</Text>
+                  <Text style={styles.trophyRule}>{achievement.describe(profile)}</Text>
                 </View>
                 <Text style={[styles.trophyState, earned && styles.trophyStateEarned]}>
-                  {earned ? 'EARNED' : 'LOCKED'}
+                  {earned ? 'UNLOCKED' : 'LOCKED'}
                 </Text>
               </View>
             );
@@ -1270,6 +1276,20 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.hairline,
   },
   trophyArt: { width: 40, height: 40 },
+  // Badges have no art of their own: a star on a small retro tile, lit when earned.
+  badge: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.hairline,
+    backgroundColor: colors.cardSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeEarned: { borderColor: colors.ink, backgroundColor: colors.yellow },
+  badgeStar: { fontSize: 20, color: colors.faint },
+  badgeStarEarned: { color: colors.yellowDeep },
   // Flattened to a grey silhouette: the shape still reads, the gold does not.
   trophyArtLocked: { opacity: 0.28, tintColor: colors.faint },
   trophyText: { flex: 1, minWidth: 0 },

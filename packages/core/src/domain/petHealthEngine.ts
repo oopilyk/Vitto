@@ -36,7 +36,8 @@ const SHARP_ACCURACY_BY_GAME: Record<BrainTrainingMetadata['game'], number> = {
   math: SHARP_SESSION_ACCURACY,
   reading: SHARP_SESSION_ACCURACY,
   wordPuzzle: 1,
-  // Points towards the genius bar: halfway there is a genuinely good sitting.
+  // Points towards the full-bloom bar: halfway there is a genuinely good sitting.
+  wordGarden: 0.5,
   spellingBee: 0.5,
   // Three countries a session, so two of three is the honest "good day".
   countryGuess: 0.66,
@@ -47,7 +48,8 @@ const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
   math: 'Quick maths',
   reading: 'Read and recall',
   wordPuzzle: "Daily word puzzle",
-  spellingBee: 'Spelling bee',
+  wordGarden: 'Word garden',
+  spellingBee: 'Word garden',
   countryGuess: 'Guess the country',
 };
 

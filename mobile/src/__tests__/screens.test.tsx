@@ -1697,8 +1697,8 @@ describe('care partners', () => {
     tree.unmount();
   });
 
-  it('lists every trophy, marking the earned ones and explaining the locked ones', () => {
-    const { TROPHY_IDS, TROPHY_LABEL, trophyRule } = require('@vitto/core');
+  it('lists every achievement, marking the unlocked ones and explaining the locked ones', () => {
+    const { ACHIEVEMENTS } = require('@vitto/core');
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -1709,7 +1709,7 @@ describe('care partners', () => {
           events={[]}
           onSave={async () => {}}
           onClose={() => {}}
-          trophies={['shoe']}
+          achievements={['first_care', 'shoe']}
         />,
       );
     });
@@ -1717,13 +1717,72 @@ describe('care partners', () => {
 
     // Locked ones are listed too — the rule text is the only place the goals
     // are written down, so hiding them would leave the shelf unexplained.
-    for (const id of TROPHY_IDS) {
-      expect(rendered).toContain(TROPHY_LABEL[id]);
-      expect(rendered).toContain(trophyRule(id, profile));
+    for (const achievement of ACHIEVEMENTS) {
+      expect(rendered).toContain(achievement.title);
+      expect(rendered).toContain(achievement.describe(profile));
     }
-    expect(rendered).toContain('1 of 4 earned');
-    expect(rendered).toContain('EARNED');
+    expect(rendered).toContain(`2 of ${ACHIEVEMENTS.length} unlocked`);
+    expect(rendered).toContain('UNLOCKED');
     expect(rendered).toContain('LOCKED');
+    tree.unmount();
+  });
+
+  it('announces an unlock with its title and what it was for, and lets a tap dismiss it', async () => {
+    const { AchievementUnlock } = require('../celebrations/AchievementUnlock');
+    // Fake timers: the overlay runs a timeline and a fade-out on timers, and
+    // letting those run on real time raced the test environment's teardown.
+    jest.useFakeTimers();
+    try {
+      let completed = 0;
+      let tree!: renderer.ReactTestRenderer;
+      await act(async () => {
+        tree = renderer.create(
+          <AchievementUnlock
+            id="first_meal"
+            pet={pet}
+            profile={{ trainingDaysPerWeek: 3 }}
+            onComplete={() => {
+              completed += 1;
+            }}
+          />,
+        );
+      });
+      const rendered = JSON.stringify(tree.toJSON());
+      expect(rendered).toContain('ACHIEVEMENT UNLOCKED');
+      expect(rendered).toContain('First bite');
+      expect(rendered).toContain('Log a meal');
+
+      // The composite Pressable carries `onPress`; its host View does not.
+      const button = tree.root
+        .findAllByProps({ accessibilityRole: 'button' })
+        .find((node: any) => typeof node.props.onPress === 'function');
+      expect(button).toBeTruthy();
+      await act(async () => {
+        button!.props.onPress();
+        // Drive the 200ms fade-out to its completion callback.
+        jest.advanceTimersByTime(400);
+      });
+      expect(completed).toBe(1);
+      await act(async () => {
+        tree.unmount();
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('says TROPHY EARNED, with the trophy art, for a shelf trophy', async () => {
+    const { AchievementUnlock } = require('../celebrations/AchievementUnlock');
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <AchievementUnlock id="book" pet={pet} profile={{ trainingDaysPerWeek: 3 }} onComplete={() => {}} />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('TROPHY EARNED');
+    expect(rendered).toContain('Golden book');
+    expect(rendered).toContain('book.png');
     tree.unmount();
   });
 

@@ -2,6 +2,7 @@
 // Supabase client, which each app injects through `configureCore`.
 export * from './domain/careToast';
 export * from './domain/trophies';
+export * from './domain/achievements';
 export * from './domain/health';
 export * from './domain/pet';
 export * from './domain/friends';
@@ -26,7 +27,7 @@ export * from './domain/macroTargets';
 export * from './domain/nutritionSummary';
 export * from './domain/brainGames';
 export * from './domain/wordPuzzle';
-export * from './domain/spellingBee';
+export * from './domain/wordGarden';
 export * from './domain/countryGuess';
 export * from './domain/workout';
 export * from './domain/carePartners';
