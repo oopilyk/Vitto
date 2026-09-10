@@ -37,5 +37,6 @@ export * from './errorMessage';
 export * from './foodDatabase';
 export * from './data/wordPuzzleWords';
 export * from './data/countries';
+export * from './data/cheekyWords';
 export * from './auth';
 export * from './supabaseRepository';

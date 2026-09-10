@@ -16,6 +16,7 @@ import {
   revealAnswer,
   toWordPuzzleMetadata,
 } from './wordPuzzle';
+import { CHEEKY_WORDS, isCheekyWord } from '../data/cheekyWords';
 import { WORD_PUZZLE_WORDS, WORD_PUZZLE_WORD_LENGTHS, type WordPuzzleWordLength } from '../data/wordPuzzleWords';
 import type { BrainTrainingMetadata, HealthEvent, WordPuzzleRoundOutcome } from './health';
 
@@ -111,6 +112,19 @@ const brainEvent = (
 // ---------------------------------------------------------------------------
 // The wordlist data itself.
 // ---------------------------------------------------------------------------
+
+describe('the cheeky list', () => {
+  it('is lowercase, four to six letters, and free of duplicates', () => {
+    expect(new Set(CHEEKY_WORDS).size).toBe(CHEEKY_WORDS.length);
+    for (const word of CHEEKY_WORDS) expect(word).toMatch(/^[a-z]{4,6}$/);
+  });
+
+  /** The guarantee the file header makes: none of these can ever be a daily answer. */
+  it('shares no word with the answer pool', () => {
+    const leaked = CHEEKY_WORDS.filter((word) => ELIGIBLE.get(word.length as WordPuzzleWordLength)?.has(word));
+    expect(leaked).toEqual([]);
+  });
+});
 
 describe('wordPuzzle wordlist data', () => {
   it.each(WORD_PUZZLE_WORD_LENGTHS)('packs length %i as an exact multiple of the word length', (length) => {
@@ -252,6 +266,14 @@ describe('the 1,000-date sweep', () => {
     expect(repeats).toEqual([]);
   });
 
+  it('never serves a cheeky word as the answer', () => {
+    const offenders: string[] = [];
+    for (const day of sweep) {
+      for (const word of day) if (isCheekyWord(word)) offenders.push(word);
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it('never serves a blocklisted term', () => {
     const blocked = blockedTerms();
     expect(blocked.size).toBeGreaterThan(0);
@@ -281,6 +303,13 @@ describe('isValidGuess', () => {
       expect(isValidGuess(words.slice(0, length))).toBe(true);
       expect(isValidGuess(words.slice((count - 1) * length))).toBe(true);
     }
+  });
+
+  it('accepts the cheeky list as guesses, whether or not the lexicon carries them', () => {
+    expect(isValidGuess('fuck')).toBe(true);
+    expect(isValidGuess('COCK')).toBe(true);
+    expect(isValidGuess('orgasm')).toBe(true);
+    expect(isValidGuess('slut')).toBe(true);
   });
 
   it('rejects non-words, wrong lengths and non-letters', () => {

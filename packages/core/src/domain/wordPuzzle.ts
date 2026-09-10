@@ -12,6 +12,7 @@
  * so a client can lay out the board -- and re-render it mid-session -- without ever
  * holding the solution it has not earned yet.
  */
+import { isCheekyWord } from '../data/cheekyWords';
 import { WORD_PUZZLE_WORDS, type WordPuzzleWordLength } from '../data/wordPuzzleWords';
 import type { BrainTrainingMetadata, HealthEvent, WordPuzzleRoundOutcome } from './health';
 import { calculateStreaks, toDateKey, type StreakSummary } from './streaks';
@@ -301,9 +302,11 @@ export const revealAnswer = (puzzleDate: string, roundIndex: number): string => 
 // Guessing.
 // ---------------------------------------------------------------------------
 
+/** The lexicon plus the cheeky list: a rude word is a fine guess, just never the answer. */
 export const isValidGuess = (guess: string): boolean => {
   const word = guess.toLowerCase();
   if (!isWordLength(word.length)) return false;
+  if (isCheekyWord(word)) return true;
   return indexOfWord(word.length, word) >= 0;
 };
 

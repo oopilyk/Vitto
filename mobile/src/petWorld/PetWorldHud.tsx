@@ -115,9 +115,9 @@ export function PetWorldHud({
   // The room rides on the day line now that the name has the plate. The
   // feeling line between them is the thing people actually read, so it gets
   // the size.
-  const meta = [dayLabel, ENVIRONMENT_LABEL[environment].toUpperCase(), evolved ? formLabel.toUpperCase() : null]
-    .filter(Boolean)
-    .join(' · ');
+  // The room is a plate of its own again (under the name), so the day line is
+  // just the day, plus the build once the pet has evolved.
+  const meta = evolved ? `${dayLabel} · ${formLabel.toUpperCase()}` : dayLabel;
 
   return (
     // `box-none`: the HUD layer spans the whole screen and sits on top of the
@@ -189,6 +189,13 @@ export function PetWorldHud({
           <View style={[retro.panel, night && retro.panelNight, styles.namePlate]}>
             <Text style={[retro.label, night && retro.labelNight, styles.nameLabel]} numberOfLines={1}>
               {pet.name}
+            </Text>
+          </View>
+          {/* The room, as its own smaller plate beneath the name — where it
+              lived before the name plate arrived, restored on request. */}
+          <View style={[retro.panel, night && retro.panelNight, styles.roomPlate]}>
+            <Text style={[retro.label, night && retro.labelNight, styles.roomLabel]}>
+              {ENVIRONMENT_LABEL[environment].toUpperCase()}
             </Text>
           </View>
           <Text style={[styles.feeling, night && styles.feelingNight]}>{feeling}</Text>
@@ -328,6 +335,10 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   nameLabel: { fontSize: 15 },
+  // Smaller than the name plate and tucked under it, with a hard shadow to
+  // match; the name stays the headline.
+  roomPlate: { paddingHorizontal: 10, paddingVertical: 3, marginTop: 6 },
+  roomLabel: { fontSize: 10 },
   // The update line -- "Blue2 is starving. Log a meal." -- is what someone
   // glances up for, so it is the largest text in the column.
   feeling: {

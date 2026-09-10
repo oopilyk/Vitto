@@ -15,10 +15,12 @@
  * six-letter word using all of them. Every board is seeded from such a word, which
  * guarantees at least one bloom exists, and boards with too few words are rerolled.
  *
- * Only answer-eligible words count. That pool is the common, inoffensive one the
- * daily word puzzle draws from, so a player is never told an obscure word they
- * have never heard of was "missed".
+ * Only answer-eligible words count, plus the cheeky list. The answer pool is the
+ * common one the daily word puzzle draws from, so a player is never told an
+ * obscure word they have never heard of was "missed"; the cheeky words are there
+ * for anyone who wants to spell them, and score like any other word.
  */
+import { CHEEKY_WORDS } from '../data/cheekyWords';
 import type { WordPuzzleWordLength } from '../data/wordPuzzleWords';
 import type { BrainTrainingMetadata } from './health';
 import { answerEligibleWords } from './wordPuzzle';
@@ -115,13 +117,16 @@ export const wordGardenMultiplier = (streak: number): number => {
 
 const buildPuzzle = (seed: string, petals: string[]): WordGardenPuzzle => {
   const allowed = new Set([seed, ...petals]);
-  const words: string[] = [];
+  const grown = new Set<string>();
   for (const length of LENGTHS) {
     for (const word of answerEligibleWords(length)) {
-      if (word.includes(seed) && usesOnly(word, allowed)) words.push(word);
+      if (word.includes(seed) && usesOnly(word, allowed)) grown.add(word);
     }
   }
-  words.sort();
+  for (const word of CHEEKY_WORDS) {
+    if (word.includes(seed) && usesOnly(word, allowed)) grown.add(word);
+  }
+  const words = [...grown].sort();
   const board = { seed, petals };
   const maxPoints = words.reduce((sum, word) => sum + wordGardenBasePoints(word, board), 0);
   return {

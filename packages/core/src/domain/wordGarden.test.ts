@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isCheekyWord } from '../data/cheekyWords';
 import {
   WORD_GARDEN_LETTERS,
   WORD_GARDEN_MIN_WORDS,
@@ -41,6 +42,24 @@ describe('generateWordGarden', () => {
       expect(puzzle.maxPoints).toBeGreaterThan(0);
       expect(puzzle.fullBloomPoints).toBeLessThanOrEqual(puzzle.maxPoints);
     }
+  });
+
+  it('never grows a board from a cheeky word, but lets one count once it fits', () => {
+    let cheekyBoards = 0;
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const puzzle = generateWordGarden(seededRng(seed));
+      const bloomsFromCheeky = puzzle.words.filter((word) => word.length === 6 && isWordGardenBloom(word, puzzle) && isCheekyWord(word));
+      // A cheeky word can be a bloom, but the board itself is always seeded from the clean pool.
+      expect(puzzle.words.some((word) => !isCheekyWord(word) && isWordGardenBloom(word, puzzle))).toBe(true);
+      const cheeky = puzzle.words.find((word) => isCheekyWord(word));
+      if (cheeky) {
+        cheekyBoards += 1;
+        expect(judgeWordGardenWord(cheeky, puzzle, [])).toBe('accepted');
+        expect(wordGardenBasePoints(cheeky, puzzle)).toBeGreaterThan(0);
+      }
+      expect(bloomsFromCheeky.length).toBeLessThanOrEqual(puzzle.bloomCount);
+    }
+    expect(cheekyBoards).toBeGreaterThan(0);
   });
 
   it('is repeatable for the same seed', () => {
