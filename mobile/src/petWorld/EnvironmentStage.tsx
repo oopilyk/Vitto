@@ -8,10 +8,11 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import type { PetState } from '@vitto/core';
+import { assessCondition, type PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { playPokeFeedback } from '../services/mealFeedback';
 import { PetNameBubble } from './PetNameBubble';
+import { PetTapReaction, RAPID_TAP_WINDOW_MS } from './PetTapReaction';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
 import type { EnvironmentId, PetAvatarActivityProps } from './types';
 
@@ -154,8 +155,22 @@ export function EnvironmentStage({
   // the pet reacting to the touch and not just as opening something. Kept apart
   // from `pulse` (the scene-change settle) so the two can play over each other.
   const poke = useRef(new Animated.Value(0)).current;
+
+  // Tap reaction: a monotonic counter that fires an emote burst above the pet on
+  // every tap (see `PetTapReaction`), plus how many taps have landed in quick
+  // succession so a run of them can escalate.
+  const [tap, setTap] = useState({ burst: 0, rapid: 0 });
+  const lastTapAt = useRef(0);
+
   const handlePetPress = useCallback(() => {
-    if (!onPetTap) return;
+    const now = Date.now();
+    const isRapid = now - lastTapAt.current < RAPID_TAP_WINDOW_MS;
+    lastTapAt.current = now;
+    setTap((prev) => ({
+      burst: prev.burst + 1,
+      rapid: isRapid ? prev.rapid + 1 : 1,
+    }));
+
     poke.stopAnimation();
     poke.setValue(0);
     Animated.sequence([
@@ -173,7 +188,7 @@ export function EnvironmentStage({
       }),
     ]).start();
     playPokeFeedback();
-    onPetTap();
+    onPetTap?.();
   }, [onPetTap, poke]);
 
   // The name bubble: visible while the pointer hovers the pet (web) or for a
@@ -262,6 +277,16 @@ export function EnvironmentStage({
         <PetNameBubble name={pet.name} visible={nameShown} night={night} />
       </View>
 
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.reactionLayer]}>
+        <PetTapReaction
+          burst={tap.burst}
+          rapid={tap.rapid}
+          mood={pet.mood}
+          unwell={Boolean(assessCondition(pet).primary)}
+          night={night}
+        />
+      </View>
+
       <FadeSwap swapKey={environment} style={styles.controlsLayer}>
         <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
           {regions.controls}
@@ -335,6 +360,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingBottom: NAME_BUBBLE_LIFT,
+  },
+  // Sits a little above the name bubble so a tapped emote floats up clear of it.
+  reactionLayer: {
+    zIndex: 3,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: NAME_BUBBLE_LIFT + 44,
   },
   petStage: {
     flex: 1,
