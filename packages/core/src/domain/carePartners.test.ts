@@ -11,6 +11,8 @@ import {
   formatInviteCode,
   generateInviteCode,
   inviteErrorMessage,
+  isOwnPet,
+  canJoinAnotherPet,
   inviteExpiresAt,
   isInviteOpen,
   isSharedPet,
@@ -270,6 +272,8 @@ describe('inviteErrorMessage', () => {
     'ALREADY_MEMBER',
     'PET_FULL',
     'HAS_ACTIVE_PET',
+    'HAS_JOINT_PET',
+    'ALREADY_OWNS_PET',
     'NOT_A_MEMBER',
     'NOT_SIGNED_IN',
   ];
@@ -291,5 +295,25 @@ describe('inviteErrorMessage', () => {
     expect(inviteErrorMessage(new Error('boom'))).toBe('boom');
     expect(inviteErrorMessage({ message: 'network down', code: 'PGRST000' })).toBe('network down (PGRST000)');
     expect(inviteErrorMessage(undefined)).toBe('Could not join that pet.');
+  });
+});
+
+
+describe('pet slots', () => {
+  const mine = { userId: 'user-1' };
+  const theirs = { userId: 'user-2' };
+
+  it('tells the adopted pet from the joint one by who adopted it', () => {
+    expect(isOwnPet(mine, 'user-1')).toBe(true);
+    expect(isOwnPet(theirs, 'user-1')).toBe(false);
+  });
+
+  it('allows joining only while the joint slot is free', () => {
+    expect(canJoinAnotherPet([], 'user-1')).toBe(true);
+    expect(canJoinAnotherPet([mine], 'user-1')).toBe(true);
+    // The joint slot is taken; the way to free it is to leave that pet.
+    expect(canJoinAnotherPet([mine, theirs], 'user-1')).toBe(false);
+    // Joined from onboarding, never adopted: still one joint slot, still full.
+    expect(canJoinAnotherPet([theirs], 'user-1')).toBe(false);
   });
 });

@@ -449,21 +449,25 @@ describe('SupabaseRepository.revokeInvite', () => {
 });
 
 describe('SupabaseRepository.redeemInvite', () => {
-  it('normalises the code, passes confirmLeave and returns the pet id', async () => {
+  it('normalises the code and returns the joined pet id', async () => {
     rpc.mockResolvedValueOnce({ data: 'pet-9', error: null });
 
-    const petId = await new SupabaseRepository().redeemInvite('abc-def', { confirmLeave: true });
+    const petId = await new SupabaseRepository().redeemInvite('abc-def');
 
-    expect(rpc).toHaveBeenCalledWith('redeem_pet_invite', { p_code: 'ABCDEF', p_confirm_leave: true });
+    expect(rpc).toHaveBeenCalledWith('redeem_pet_invite', { p_code: 'ABCDEF' });
     expect(petId).toBe('pet-9');
   });
 
-  it('defaults confirmLeave to false', async () => {
+  it('never asks the server to leave a pet on the caller\'s behalf', async () => {
+    // Joining adds a second pet; `p_confirm_leave` is inert server-side now and
+    // must not be sent, so a stale "make room" path can never come back by
+    // accident.
     rpc.mockResolvedValueOnce({ data: 'pet-9', error: null });
 
     await new SupabaseRepository().redeemInvite('ABCDEF');
 
-    expect(rpc).toHaveBeenCalledWith('redeem_pet_invite', { p_code: 'ABCDEF', p_confirm_leave: false });
+    const [, args] = rpc.mock.calls[0];
+    expect(args).not.toHaveProperty('p_confirm_leave');
   });
 
   it('throws the RPC error so inviteErrorMessage can map its code', async () => {
@@ -475,18 +479,18 @@ describe('SupabaseRepository.redeemInvite', () => {
 });
 
 describe('SupabaseRepository.leavePet', () => {
-  it('calls leave_pet', async () => {
+  it('leaves the named pet, not whichever one the server finds first', async () => {
     rpc.mockResolvedValueOnce({ data: null, error: null });
 
-    await new SupabaseRepository().leavePet();
+    await new SupabaseRepository().leavePet('pet-9');
 
-    expect(rpc).toHaveBeenCalledWith('leave_pet');
+    expect(rpc).toHaveBeenCalledWith('leave_pet', { p_pet_id: 'pet-9' });
   });
 
   it('throws the RPC error', async () => {
     const failure = { code: 'P0001', message: 'NOT_SIGNED_IN' };
     rpc.mockResolvedValueOnce({ data: null, error: failure });
 
-    await expect(new SupabaseRepository().leavePet()).rejects.toBe(failure);
+    await expect(new SupabaseRepository().leavePet('pet-9')).rejects.toBe(failure);
   });
 });

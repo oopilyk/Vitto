@@ -113,6 +113,14 @@ interface Props {
   carePartner?: {
     petName: string;
     selfUserId: string;
+    /**
+     * Which slot the pet on screen is in. Your own pet is the one you invite a
+     * partner TO and can never leave; the joint pet is the one you were invited
+     * to and CAN leave. The card is a different card for each.
+     */
+    isOwnPet: boolean;
+    /** The joint slot is free, so a code can be entered from either pet's card. */
+    canJoin: boolean;
     members: PetMember[];
     invite: PetInvite | null;
     busy: boolean;
@@ -467,11 +475,13 @@ export function ProfileScreen({
 
         {carePartner ? (
           <Card
-            title="Care partner"
+            title={carePartner.isOwnPet ? 'Care partner' : 'Joint pet'}
             hint={
-              shared
-                ? `You both care for ${carePartner.petName}. They only ever see that you did, never what you logged.`
-                : `Raise ${carePartner.petName} with one other person. They see when you care, never what you ate or did.`
+              !carePartner.isOwnPet
+                ? `You're helping raise ${carePartner.petName}. Leaving frees your joint slot; they keep the pet.`
+                : shared
+                  ? `You both care for ${carePartner.petName}. They only ever see that you did, never what you logged.`
+                  : `Raise ${carePartner.petName} with one other person. They see when you care, never what you ate or did.`
             }
           >
             {activeMembers(carePartner.members).map((member) => (
@@ -486,7 +496,11 @@ export function ProfileScreen({
               </View>
             ))}
 
-            {shared ? (
+            {/* Leaving is only ever offered for the joint pet. Your own pet is
+                not something you walk away from -- and under the one-owned,
+                one-joint rule the server no longer hands an owner's pet to the
+                partner, so there would be nowhere for it to go. */}
+            {!carePartner.isOwnPet ? (
               <View style={styles.partnerActions}>
                 <TextButton
                   label={`Leave ${carePartner.petName}`}
@@ -496,7 +510,7 @@ export function ProfileScreen({
               </View>
             ) : (
               <>
-                {isOwner ? (
+                {isOwner && !shared ? (
                   openInvite ? (
                     <Group label="Invite code · share it with your partner">
                       <Text style={styles.inviteCode} selectable>
@@ -540,9 +554,12 @@ export function ProfileScreen({
                   )
                 ) : null}
 
-                {showJoin ? (
+                {/* Joining adds a second pet; it never touches this one. Hidden
+                    once the joint slot is taken -- the way to free it is on the
+                    joint pet's own card. */}
+                {!carePartner.canJoin ? null : showJoin ? (
                   <Group label="Join a partner's pet">
-                    <Field label="Invite code" hint={`you'll stop caring for ${carePartner.petName}`}>
+                    <Field label="Invite code" hint="becomes your joint pet">
                       <TextInput
                         style={[layout.input, styles.inviteInput]}
                         value={joinCode}

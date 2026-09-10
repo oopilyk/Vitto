@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, DECAY_TICK_MS, activeMembers, applyForcedAilment, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -503,7 +503,9 @@ export default function App() {
     }
     const startedFor = session.user.id;
     const [petResult, membersResult, careLogResult, inviteResult] = await Promise.allSettled([
-      remoteRepository.loadPet(),
+      // By id, not `loadPet()`: that returns the FIRST pet, which is the wrong
+      // one whenever the joint pet is the one on screen.
+      remoteRepository.loadPetById(pet.id),
       remoteRepository.loadPetMembers(pet.id),
       remoteRepository.loadCareLog(pet.id),
       remoteRepository.loadOpenInvite(pet.id),
@@ -527,7 +529,19 @@ export default function App() {
       petName: pet.name,
     });
     if (outcome.kind === 'gone') {
-      clearPetState();
+      // This pet is no longer ours (left on another device, or the owner
+      // removed us). Drop just it; the other pet, if any, carries on.
+      const remaining = pets.filter((candidate) => candidate.id !== pet.id);
+      if (remaining.length === 0) {
+        clearPetState();
+        return;
+      }
+      setPets(remaining);
+      setActivePetId(remaining[0].id);
+      setMembers([]);
+      setCareLog([]);
+      setInvite(null);
+      lastSeenCareLogAt.current = null;
       return;
     }
     if (outcome.pet) setPet(outcome.pet);
@@ -681,43 +695,54 @@ export default function App() {
     });
 
   /**
-   * Joins a partner's pet. With a pet already, the server refuses unless the
-   * user confirms leaving it (the old pet is kept, never deleted); from
-   * onboarding, the profile is saved first so fuel targets work from day one.
-   * Resolves true once joined (the normal load path then fetches the new pet)
-   * and false when the user cancelled, so the screen keeps the typed code.
+   * Joins a partner's pet as a SECOND pet. The one already in hand is untouched:
+   * this used to confirm "you'll stop caring for {pet}" and pass
+   * `confirmLeave`, which is why joint care replaced your pet instead of adding
+   * one. With the joint slot already taken the server refuses with
+   * `HAS_JOINT_PET`, and the screen shows that copy -- leaving is its own,
+   * explicit action.
+   *
+   * From onboarding the profile is saved first so fuel targets work from day
+   * one. Resolves true once joined; the load path then fetches both pets, and
+   * the switcher lands on the new one.
    */
   const redeemInvite = (code: string): Promise<boolean> =>
     runPartnerAction(async () => {
-      let confirmLeave = false;
-      if (pet) {
-        const confirmed = await confirmDialog(
-          "Join your partner's pet?",
-          `${pet.name} stays as they are, but you'll stop caring for them.`,
-          'Join',
-        );
-        if (!confirmed) return false;
-        confirmLeave = true;
-      } else {
-        await persistProfile(profile);
-      }
-      await remoteRepository.redeemInvite(code, { confirmLeave });
+      if (!pet) await persistProfile(profile);
+      const joinedId = await remoteRepository.redeemInvite(code);
+      setActivePetId(joinedId);
       setReloadToken((token) => token + 1);
       return true;
     });
 
-  /** Leaves the shared pet; the partner keeps it. */
+  /**
+   * Leaves the pet on screen -- which is only ever offered for the joint one.
+   * The other pet stays, and the view moves to it. Only when nothing is left
+   * (an account that joined from onboarding and never adopted) does this fall
+   * back to a full clear, which sends them to adoption.
+   */
   const leavePet = () =>
     runPartnerAction(async () => {
       if (!pet) return;
       const confirmed = await confirmDialog(
         `Leave ${pet.name}?`,
-        `You'll stop caring for ${pet.name}. ${partnerName ?? 'Your partner'} keeps them, and you can adopt a new pet.`,
+        `You'll stop caring for ${pet.name}. ${partnerName ?? 'Your partner'} keeps them, and your joint slot is free again.`,
         'Leave',
       );
       if (!confirmed) return;
-      await remoteRepository.leavePet();
-      clearPetState();
+      await remoteRepository.leavePet(pet.id);
+      const remaining = pets.filter((candidate) => candidate.id !== pet.id);
+      if (remaining.length === 0) {
+        clearPetState();
+        return;
+      }
+      setPets(remaining);
+      setActivePetId(remaining[0].id);
+      setMembers([]);
+      setCareLog([]);
+      setInvite(null);
+      lastSeenCareLogAt.current = null;
+      void refreshShared();
     });
 
   const adopt = async () => {
@@ -1103,7 +1128,11 @@ export default function App() {
               isWalking={walkingNow}
               atGym={atGymNow}
               accountInitial={session?.user.email?.charAt(0)}
-              pets={pets.map((candidate) => ({ id: candidate.id, name: candidate.name }))}
+              pets={pets.map((candidate) => ({
+                id: candidate.id,
+                name: candidate.name,
+                own: isOwnPet(candidate, userId),
+              }))}
               activePetId={pet.id}
               onSelectPet={(petId) => {
                 setActivePetId(petId);
@@ -1173,6 +1202,8 @@ export default function App() {
                   ? {
                       petName: pet.name,
                       selfUserId: userId,
+                      isOwnPet: isOwnPet(pet, userId),
+                      canJoin: canJoinAnotherPet(pets, userId),
                       members,
                       invite,
                       busy: isPartnerBusy,

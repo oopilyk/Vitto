@@ -50,7 +50,8 @@ interface PetWorldHudProps {
    * button" note.
    */
   onOpenFriends?: () => void;
-  pets?: { id: string; name: string }[];
+  /** `own` marks the adopted pet; the other one is the joint pet. */
+  pets?: { id: string; name: string; own?: boolean }[];
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
   partnerName?: string;
@@ -152,6 +153,11 @@ export function PetWorldHud({
         </Pressable>
       </View>
 
+      {/* Which pet is on screen: yours, or the one you were invited to. Only
+          shown once there are two -- a one-option switcher is noise -- and
+          labelled by slot as well as by name, because the point of the switch
+          is knowing which one you are looking at. The active tab is inert, the
+          same rule as the room hotbar. */}
       {pets && pets.length > 1 && onSelectPet ? (
         <View style={styles.petSwitcher} pointerEvents="box-none">
           {pets.map((candidate) => {
@@ -160,12 +166,18 @@ export function PetWorldHud({
               <Pressable
                 key={candidate.id}
                 accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`Show ${candidate.name}`}
+                accessibilityState={{ selected, disabled: selected }}
+                accessibilityLabel={`Show ${candidate.name}, your ${candidate.own ? 'own' : 'joint'} pet`}
+                disabled={selected}
                 onPress={() => onSelectPet(candidate.id)}
-                style={[styles.petTab, selected && styles.petTabOn]}
+                style={[styles.petTab, night && styles.petTabNight, selected && styles.petTabOn]}
               >
-                <Text style={[styles.petTabLabel, selected && styles.petTabLabelOn]}>{candidate.name}</Text>
+                <Text style={[styles.petTabKicker, night && styles.petTabKickerNight, selected && styles.petTabKickerOn]}>
+                  {candidate.own ? 'MINE' : 'JOINT'}
+                </Text>
+                <Text style={[styles.petTabLabel, night && styles.petTabLabelNight, selected && styles.petTabLabelOn]}>
+                  {candidate.name}
+                </Text>
               </Pressable>
             );
           })}
@@ -307,14 +319,20 @@ const styles = StyleSheet.create({
   iconPressed: { opacity: 0.7 },
   petSwitcher: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginTop: 10 },
   petTab: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.55)',
   },
-  petTabOn: { borderColor: colors.coral, backgroundColor: 'rgba(253,241,238,0.85)' },
-  petTabLabel: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkSoft },
+  petTabNight: { borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(20,18,38,0.55)' },
+  petTabOn: { borderColor: colors.coral, backgroundColor: 'rgba(253,241,238,0.92)' },
+  petTabKicker: { fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1.2, color: colors.muted },
+  petTabKickerNight: { color: 'rgba(247,245,255,0.7)' },
+  petTabKickerOn: { color: colors.coralDeep },
+  petTabLabel: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkSoft, marginTop: 1 },
+  petTabLabelNight: { color: '#f7f5ff' },
   petTabLabelOn: { color: colors.coralDeep },
   caption: {
     marginHorizontal: 16,

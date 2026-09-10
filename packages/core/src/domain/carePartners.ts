@@ -119,6 +119,19 @@ export const memberRole = (members: PetMember[], userId: string): PetMemberRole 
   activeMembers(members).find((member) => member.userId === userId)?.role ?? null;
 
 /**
+ * Which of a person's two slots a pet sits in. `pets.user_id` is who adopted
+ * it, and adoption is the only way into the owned slot, so this needs no
+ * membership lookup -- which matters because the switcher has to label every
+ * pet, and members are only ever loaded for the one on screen.
+ */
+export const isOwnPet = (pet: { userId: string }, selfUserId: string): boolean =>
+  pet.userId === selfUserId;
+
+/** True while the joint slot is free: nothing in the list was adopted by someone else. */
+export const canJoinAnotherPet = (pets: { userId: string }[], selfUserId: string): boolean =>
+  !pets.some((pet) => !isOwnPet(pet, selfUserId));
+
+/**
  * Resolves through left members too, so a diary row written by someone who has
  * since left still reads as them rather than as a stranger.
  */
@@ -252,7 +265,10 @@ const INVITE_ERROR_COPY: Record<string, string> = {
   OWN_INVITE: "That's your own code — share it with your partner instead.",
   ALREADY_MEMBER: "You're already caring for this pet.",
   PET_FULL: `This pet already has ${MAX_PET_MEMBERS} carers.`,
+  // Raised by servers still on the one-pet rule; kept so the copy is not lost.
   HAS_ACTIVE_PET: "You're already caring for a pet. Leave them first to join another.",
+  HAS_JOINT_PET: 'Your joint slot is taken. Leave that pet first to join another.',
+  ALREADY_OWNS_PET: 'You already have a pet of your own. A second pet can only be a joint one.',
   NOT_A_MEMBER: "You're not caring for this pet any more.",
   NOT_SIGNED_IN: 'Sign in to use invite codes.',
 };

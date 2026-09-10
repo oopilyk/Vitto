@@ -46,7 +46,7 @@ interface Props {
    * for most accounts, which is what hides the switcher. Care moments feed all
    * of them either way — this only chooses what is displayed.
    */
-  pets?: { id: string; name: string }[];
+  pets?: { id: string; name: string; own?: boolean }[];
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
   /** What the pet is doing right now, and the actions that drive it — owned by

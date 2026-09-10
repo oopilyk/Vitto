@@ -450,20 +450,29 @@ export class SupabaseRepository {
     if (error) throw error;
   }
 
-  /** Returns the joined pet's id. `confirmLeave` is required when the caller already has a pet. */
-  async redeemInvite(code: string, options?: { confirmLeave?: boolean }): Promise<string> {
+  /**
+   * Returns the joined pet's id. Joining never costs the caller a pet: with the
+   * joint slot already taken the RPC refuses (`HAS_JOINT_PET`) rather than
+   * leaving anything on their behalf. `p_confirm_leave` still exists server-side
+   * for older clients but is inert, so it is not sent.
+   */
+  async redeemInvite(code: string): Promise<string> {
     const client = requireClient();
     const { data, error } = await client.rpc('redeem_pet_invite', {
       p_code: normalizeInviteCode(code),
-      p_confirm_leave: options?.confirmLeave ?? false,
     });
     if (error) throw error;
     return data as string;
   }
 
-  async leavePet(): Promise<void> {
+  /**
+   * Leaves ONE pet, by id. The old zero-argument `leave_pet` closed whichever of
+   * the caller's memberships the database happened to return first, which with
+   * two pets could be the one they adopted.
+   */
+  async leavePet(petId: string): Promise<void> {
     const client = requireClient();
-    const { error } = await client.rpc('leave_pet');
+    const { error } = await client.rpc('leave_pet', { p_pet_id: petId });
     if (error) throw error;
   }
 }

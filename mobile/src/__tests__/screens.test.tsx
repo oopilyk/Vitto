@@ -315,6 +315,48 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('switches between your pet and the joint pet from the top of the screen', () => {
+    const selected: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          pets={[
+            { id: 'p', name: 'Miso', own: true },
+            { id: 'q', name: 'Blue', own: false },
+          ]}
+          activePetId="p"
+          onSelectPet={(id: string) => selected.push(id)}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('MINE');
+    expect(rendered).toContain('JOINT');
+    expect(rendered).toContain('Blue');
+
+    const byLabel = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+    // The joint tab switches; the active tab is inert, like the room hotbar.
+    act(() => byLabel('Show Blue, your joint pet')!.props.onPress());
+    expect(selected).toEqual(['q']);
+    expect(byLabel('Show Miso, your own pet')!.props.disabled).toBe(true);
+    tree.unmount();
+  });
+
   it('shows nothing where the toast goes until something is logged', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -1354,6 +1396,9 @@ describe('care partners', () => {
   const partnerProps = (overrides: Record<string, unknown> = {}) => ({
     petName: 'Miso',
     selfUserId: 'user-1',
+    // The card for YOUR pet, with the joint slot free, unless a test says otherwise.
+    isOwnPet: true,
+    canJoin: true,
     members: [owner],
     invite: null,
     busy: false,
@@ -1388,10 +1433,16 @@ describe('care partners', () => {
     expect(findButton(solo, 'Invite a care partner')).toBeTruthy();
     solo.unmount();
 
+    // Your own pet, now shared: no more invites. Joining is a separate question
+    // (it is about the joint slot), so it stays until that slot is taken.
     const shared = renderProfile(partnerProps({ members: [owner, alex] }));
     expect(findButton(shared, 'Invite a care partner')).toBeUndefined();
-    expect(findButton(shared, 'Have a code?')).toBeUndefined();
+    expect(findButton(shared, 'Have a code?')).toBeTruthy();
     shared.unmount();
+
+    const slotTaken = renderProfile(partnerProps({ canJoin: false }));
+    expect(findButton(slotTaken, 'Have a code?')).toBeUndefined();
+    slotTaken.unmount();
   });
 
   it('normalises a typed code and hands it to onRedeemInvite', async () => {
@@ -1449,10 +1500,12 @@ describe('care partners', () => {
     tree.unmount();
   });
 
-  it('lists both carers on a shared pet and offers to leave it', async () => {
+  it('lists both carers on the joint pet and offers to leave it', async () => {
     let left = 0;
     const tree = renderProfile(
       partnerProps({
+        isOwnPet: false,
+        canJoin: false,
         members: [owner, alex],
         onLeave: async () => {
           left += 1;
@@ -1469,6 +1522,12 @@ describe('care partners', () => {
       await leave!.props.onPress();
     });
     expect(left).toBe(1);
+    tree.unmount();
+  });
+
+  it('never offers to leave your own pet, even once it is shared', () => {
+    const tree = renderProfile(partnerProps({ members: [owner, alex] }));
+    expect(findButton(tree, 'Leave Miso')).toBeUndefined();
     tree.unmount();
   });
 

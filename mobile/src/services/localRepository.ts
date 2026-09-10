@@ -180,13 +180,14 @@ export class LocalRepository {
     throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
   }
 
-  async redeemInvite(code: string, options?: { confirmLeave?: boolean }): Promise<string> {
+  // Same shapes as the remote repository, so the two cannot drift apart.
+  async redeemInvite(code: string): Promise<string> {
     void code;
-    void options;
     throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
   }
 
-  async leavePet(): Promise<void> {
+  async leavePet(petId: string): Promise<void> {
+    void petId;
     throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
   }
 }
