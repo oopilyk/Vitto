@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  FOCUS_AREAS,
   PROFILE_SURVEY_DEFAULTS,
   calculateMacroTargets,
+  measurementSystemOf,
+  unitsFor,
+  withMeasurementSystem,
   convertHeightToFeetAndInches,
   convertWeightValue,
   feetAndInchesToCm,
@@ -184,5 +188,55 @@ describe('planForGoal', () => {
       goalWeeks: 4,
     });
     expect(targets.calories).toBeGreaterThanOrEqual(1200);
+  });
+});
+
+describe('measurement system', () => {
+  const base = {
+    age: 30,
+    sex: 'male' as const,
+    heightCm: 175,
+    heightUnit: 'cm' as const,
+    weightKg: 70,
+    weightUnit: 'kg' as const,
+    activity: 'moderate' as const,
+    goal: 'maintain' as const,
+    goalPace: 'steady' as const,
+    trainingDaysPerWeek: 3,
+    trainingStyle: 'mixed' as const,
+    focusAreas: FOCUS_AREAS,
+  };
+
+  it('maps a system to both units at once', () => {
+    expect(unitsFor('metric')).toEqual({ heightUnit: 'cm', weightUnit: 'kg' });
+    expect(unitsFor('imperial')).toEqual({ heightUnit: 'ft', weightUnit: 'lb' });
+  });
+
+  it('reads the system off the weight unit', () => {
+    expect(measurementSystemOf({ weightUnit: 'kg' })).toBe('metric');
+    expect(measurementSystemOf({ weightUnit: 'lb' })).toBe('imperial');
+  });
+
+  it('switches both units together, leaving the stored values alone', () => {
+    const imperial = withMeasurementSystem(base, 'imperial');
+    expect(imperial.heightUnit).toBe('ft');
+    expect(imperial.weightUnit).toBe('lb');
+    // Values are always stored metric; only the display unit moves.
+    expect(imperial.heightCm).toBe(175);
+    expect(imperial.weightKg).toBe(70);
+  });
+
+  it('reconciles a mixed pair from before the single toggle existed', () => {
+    // Pounds with centimetres was reachable with the old two toggles; weight
+    // decides, so this resolves to fully imperial rather than staying mixed.
+    const mixed = withSurveyDefaults({ ...base, weightUnit: 'lb', heightUnit: 'cm' });
+    expect(mixed.heightUnit).toBe('ft');
+    expect(mixed.weightUnit).toBe('lb');
+  });
+
+  it('leaves a consistent metric profile untouched', () => {
+    const metric = withSurveyDefaults(base);
+    expect(metric.heightUnit).toBe('cm');
+    expect(metric.weightUnit).toBe('kg');
   });
 });

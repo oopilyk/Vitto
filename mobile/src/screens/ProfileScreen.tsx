@@ -13,6 +13,9 @@ import {
 } from 'react-native';
 import {
 
+  measurementSystemOf,
+  withMeasurementSystem,
+  type MeasurementSystem,
   ACHIEVEMENTS,
   type AchievementId,
   type TrophyId,  type BodyProfile,
@@ -744,25 +747,21 @@ export function ProfileScreen({
             </View>
           )}
 
+          {/* One toggle for every unit, matching the one at sign-up: weight and
+              height always move together. */}
           <Group label="Units">
-            <View style={styles.unitRow}>
-              <ChoiceRow
-                options={[
-                  { value: 'kg' as const, label: 'kg' },
-                  { value: 'lb' as const, label: 'lb' },
-                ]}
-                value={profile.weightUnit}
-                onChange={(value) => update('weightUnit', value)}
-              />
-              <ChoiceRow
-                options={[
-                  { value: 'cm' as const, label: 'cm' },
-                  { value: 'ft' as const, label: 'ft & in' },
-                ]}
-                value={profile.heightUnit}
-                onChange={(value) => update('heightUnit', value)}
-              />
-            </View>
+            <ChoiceRow
+              options={[
+                { value: 'metric' as const, label: 'Metric', detail: 'kg · cm' },
+                { value: 'imperial' as const, label: 'Imperial', detail: 'lb · ft/in' },
+              ]}
+              value={measurementSystemOf(profile)}
+              onChange={(value: MeasurementSystem) => {
+                // One update, not two: both unit fields move together.
+                setProfile((current) => withMeasurementSystem(current, value));
+                setError(null);
+              }}
+            />
           </Group>
 
           <Group label="Sex">
@@ -1216,7 +1215,6 @@ const styles = StyleSheet.create({
   },
   grid: { flexDirection: 'row', gap: 12 },
   narrowInput: { maxWidth: 120 },
-  unitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   rings: { flexDirection: 'row', gap: 6, marginTop: 10 },
   targetLine: {
     fontFamily: fonts.mono,

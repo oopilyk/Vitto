@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
-  FOCUS_AREAS,
+
+  measurementSystemOf,
+  type MeasurementSystem,  FOCUS_AREAS,
   calculateMacroTargets,
   convertHeightToFeetAndInches,
   convertWeightValue,
@@ -22,6 +24,8 @@ interface Props {
   onNameChange: (value: string) => void;
   profile: BodyProfile;
   onUpdate: <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => void;
+  /** Sets weight and height units together, in one write — see `setMeasurementSystem`. */
+  onSetUnits: (system: MeasurementSystem) => void;
   breed: PetBreed;
   onBreedChange: (breed: PetBreed) => void;
   onAdopt: () => Promise<void> | void;
@@ -81,6 +85,7 @@ export function OnboardingScreen({
   onBreedChange,
   profile,
   onUpdate,
+  onSetUnits,
   onAdopt,
   error,
   onSignOut,
@@ -203,22 +208,19 @@ export function OnboardingScreen({
                 />
               </Field>
             </View>
-            <ChoiceRow
-              options={[
-                { value: 'kg' as const, label: 'Kilograms' },
-                { value: 'lb' as const, label: 'Pounds' },
-              ]}
-              value={profile.weightUnit}
-              onChange={(value) => onUpdate('weightUnit', value)}
-            />
-            <ChoiceRow
-              options={[
-                { value: 'cm' as const, label: 'Centimeters' },
-                { value: 'ft' as const, label: 'Feet & inches' },
-              ]}
-              value={profile.heightUnit}
-              onChange={(value) => onUpdate('heightUnit', value)}
-            />
+            {/* One choice for every unit in the app. Picking pounds sets feet
+                and inches too — the old pair of toggles let you land on
+                pounds-and-centimetres, which nobody wants and reads as a bug. */}
+            <Field label="Units">
+              <ChoiceRow
+                options={[
+                  { value: 'metric' as const, label: 'Metric', detail: 'kg · cm' },
+                  { value: 'imperial' as const, label: 'Imperial', detail: 'lb · ft/in' },
+                ]}
+                value={measurementSystemOf(profile)}
+                onChange={onSetUnits}
+              />
+            </Field>
             {profile.heightUnit === 'cm' ? (
               <Field label="Height (cm)">
                 <TextInput

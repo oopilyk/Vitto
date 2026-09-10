@@ -148,6 +148,7 @@ describe('screens render', () => {
         onNameChange={() => {}}
         profile={profile}
         onUpdate={() => {}}
+          onSetUnits={() => {}}
         onAdopt={() => {}}
         breed="shiba"
         onBreedChange={() => {}}
@@ -1854,6 +1855,43 @@ describe('care partners', () => {
     tree.unmount();
   });
 
+  it('changes both units together from the one Units toggle', () => {
+    const { measurementSystemOf } = require('@vitto/core');
+    let saved: any = null;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async (next: any) => {
+            saved = next;
+          }}
+          onClose={() => {}}
+        />,
+      );
+    });
+    expect(measurementSystemOf(profile)).toBe('metric');
+
+    // The imperial chip: one press, and height follows weight.
+    const imperial = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node.findAllByType(RNText).some((text: any) => text.props.children === 'Imperial'),
+      );
+    expect(imperial).toBeTruthy();
+    act(() => imperial!.props.onPress());
+
+    const rendered = JSON.stringify(tree.toJSON());
+    // Both the weight field label and the height fields switch over.
+    expect(rendered).toContain('Weight (lb)');
+    expect(rendered).toContain('Height (ft)');
+    expect(rendered).not.toContain('Weight (kg)');
+    tree.unmount();
+  });
+
   it('never offers to leave your own pet, even once it is shared', () => {
     const tree = renderProfile(partnerProps({ members: [owner, alex] }));
     expect(findButton(tree, 'Leave Miso')).toBeUndefined();
@@ -2167,6 +2205,7 @@ describe('care partners', () => {
           onNameChange={() => {}}
           profile={profile}
           onUpdate={() => {}}
+          onSetUnits={() => {}}
           onAdopt={() => {}}
           breed="shiba"
           onBreedChange={() => {}}

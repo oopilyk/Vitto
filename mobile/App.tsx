@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type MeasurementSystem, withMeasurementSystem, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -493,6 +493,23 @@ export default function App() {
       return;
     }
     await repository.saveProfile(next);
+  };
+
+  /**
+   * Both unit fields in ONE update. Setting them with two `updateProfile` calls
+   * fired two saves, the first carrying the old height unit — harmless for the
+   * final state but a pointless race, and the stale write could land last.
+   */
+  const setMeasurementSystem = (system: MeasurementSystem) => {
+    setProfile((current) => {
+      const next = withMeasurementSystem(current, system);
+      if (isSupabaseConfigured && session) {
+        void remoteRepository.saveProfile(next).catch(() => undefined);
+      } else {
+        void repository.saveProfile(next);
+      }
+      return next;
+    });
   };
 
   const updateProfile = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => {
@@ -1191,6 +1208,7 @@ export default function App() {
           onBreedChange={setBreed}
           profile={profile}
           onUpdate={updateProfile}
+          onSetUnits={setMeasurementSystem}
           onAdopt={adopt}
           error={error}
           onSignOut={isSupabaseConfigured && session ? logOut : undefined}
