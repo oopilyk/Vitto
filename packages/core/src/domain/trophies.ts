@@ -14,15 +14,19 @@ import { toDateKey } from './streaks';
  * Everything here is pure, so the rules are testable without a renderer.
  */
 
-export type TrophyId = 'dumbbell' | 'shoe' | 'drumstick';
+export type TrophyId = 'dumbbell' | 'shoe' | 'drumstick' | 'book';
 
-/** Shelf order, top plank first. Also the order they are likely to be earned in. */
-export const TROPHY_IDS: readonly TrophyId[] = ['dumbbell', 'shoe', 'drumstick'];
+/**
+ * Shelf order: the two body trophies, then food, then mind. Fixed regardless of
+ * the order they were earned in, so the shelf reads the same for everyone.
+ */
+export const TROPHY_IDS: readonly TrophyId[] = ['dumbbell', 'shoe', 'drumstick', 'book'];
 
 export const TROPHY_LABEL: Record<TrophyId, string> = {
   dumbbell: 'Golden dumbbell',
   shoe: 'Golden shoe',
   drumstick: 'Golden drumstick',
+  book: 'Golden book',
 };
 
 /** How long a habit has to hold, in days. "A month", per the product owner. */
@@ -46,6 +50,8 @@ export const trophyRule = (id: TrophyId, profile: Pick<BodyProfile, 'trainingDay
       return `${STEP_TROPHY_DAILY_STEPS.toLocaleString()} steps every day for ${TROPHY_DAYS} days`;
     case 'drumstick':
       return `Hitting your calorie and protein goals every day for ${TROPHY_DAYS} days`;
+    case 'book':
+      return `A mind-gym session every day for ${TROPHY_DAYS} days`;
   }
 };
 
@@ -55,9 +61,10 @@ interface DayRecord {
   workout: boolean;
   steps: number;
   hitGoals: boolean;
+  mind: boolean;
 }
 
-const emptyDay = (): DayRecord => ({ workout: false, steps: 0, hitGoals: false });
+const emptyDay = (): DayRecord => ({ workout: false, steps: 0, hitGoals: false, mind: false });
 
 const parseKey = (key: string): Date => {
   const [year, month, day] = key.split('-').map(Number);
@@ -98,6 +105,9 @@ const buildDays = (events: HealthEvent[], profile: BodyProfile): Map<string, Day
         }
         break;
       }
+      case 'BRAIN_TRAINING':
+        record(key).mind = true;
+        break;
       case 'MEAL': {
         record(key);
         const list = mealsByDay.get(key) ?? [];
@@ -211,5 +221,6 @@ export const earnedTrophies = (
     earned.push('shoe');
   }
   if (hadConsecutiveDays(days, today, TROPHY_DAYS, (day) => day.hitGoals)) earned.push('drumstick');
+  if (hadConsecutiveDays(days, today, TROPHY_DAYS, (day) => day.mind)) earned.push('book');
   return earned;
 };

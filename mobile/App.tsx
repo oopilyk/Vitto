@@ -1207,6 +1207,7 @@ export default function App() {
           {({ navigation, route }) => (
             <ProfileScreen
               openJoin={route.params?.join === true}
+              trophies={trophiesNow}
               profile={profile}
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}

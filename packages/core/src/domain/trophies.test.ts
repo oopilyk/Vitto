@@ -140,10 +140,36 @@ describe('earnedTrophies', () => {
 
   it('returns trophies in shelf order regardless of which was earned first', () => {
     const events = [
+      ...Array.from({ length: TROPHY_DAYS }, (_, n) =>
+        event('BRAIN_TRAINING', daysAgo(n, 17), { game: 'math', correct: 8, total: 10, durationSeconds: 60, score: 80 }),
+      ),
       ...Array.from({ length: TROPHY_DAYS }, (_, n) => steps(n, 12_000)),
       ...[0, 1, 2, 3].flatMap((week) => [1, 3, 6].map((d) => workout(week * 7 + d))),
     ];
-    expect(earnedTrophies(events, profile, TODAY)).toEqual(['dumbbell', 'shoe']);
+    // Earned book-first, but the shelf order is fixed.
+    expect(earnedTrophies(events, profile, TODAY)).toEqual(['dumbbell', 'shoe', 'book']);
+  });
+});
+
+describe('book — a mind-gym session every day for a month', () => {
+  const mind = (n: number) =>
+    event('BRAIN_TRAINING', daysAgo(n, 17), { game: 'math', correct: 8, total: 10, durationSeconds: 60, score: 80 });
+
+  it('is earned by thirty consecutive days of mind sessions', () => {
+    const events = Array.from({ length: TROPHY_DAYS }, (_, n) => mind(n));
+    expect(earnedTrophies(events, profile, TODAY)).toContain('book');
+  });
+
+  it('is broken by a single missed day', () => {
+    const events = Array.from({ length: TROPHY_DAYS }, (_, n) => mind(n)).filter((_, n) => n !== 9);
+    expect(earnedTrophies(events, profile, TODAY)).not.toContain('book');
+  });
+
+  it('counts a session however it went — a streak is showing up, not scoring', () => {
+    const events = Array.from({ length: TROPHY_DAYS }, (_, n) =>
+      event('BRAIN_TRAINING', daysAgo(n, 17), { game: 'reading', correct: 0, total: 10, durationSeconds: 60, score: 0 }),
+    );
+    expect(earnedTrophies(events, profile, TODAY)).toContain('book');
   });
 });
 

@@ -111,7 +111,8 @@ const DEV_TROPHY_OPTIONS: { value: DevTrophyChoice; label: string; detail?: stri
   { value: 'dumbbell', label: 'Dumbbell' },
   { value: 'shoe', label: 'Shoe' },
   { value: 'drumstick', label: 'Drumstick' },
-  { value: 'all', label: 'All three' },
+  { value: 'book', label: 'Book' },
+  { value: 'all', label: 'All four' },
 ];
 type DevAmbientChoice = ForcedAmbient | 'live';
 
@@ -579,8 +580,8 @@ export function TodayScreen({
             <Text style={styles.devHint}>
               Puts trophies on the living-room shelf without earning them: the dumbbell is a
               month at your weekly workout target, the shoe is 10k steps a day for a month,
-              the drumstick is a month of hitting your calorie and protein goals. Nothing
-              here is saved.
+              the drumstick is a month of hitting your calorie and protein goals, the book
+              is a month of daily mind-gym sessions. Nothing here is saved.
             </Text>
           </View>
         ) : null}

@@ -413,6 +413,32 @@ describe('screens render', () => {
     both.unmount();
   });
 
+  it('lays trophies out two to a shelf, filling the enclosed shelves before the top', () => {
+    const { shelfSlots, SHELF } = require('../petWorld/TrophyShelf');
+
+    // A lone trophy centres rather than hanging off to the left.
+    expect(shelfSlots(1)).toEqual([{ plank: 0, centreX: SHELF.centreX, width: SHELF.soloWidth }]);
+
+    // A pair splits either side of the shelf's centre line.
+    const pair = shelfSlots(2);
+    expect(pair.map((s: any) => s.plank)).toEqual([0, 0]);
+    expect(pair[0].centreX).toBeLessThan(SHELF.centreX);
+    expect(pair[1].centreX).toBeGreaterThan(SHELF.centreX);
+    expect(pair[0].width).toBe(SHELF.pairWidth);
+
+    // Three: a pair up top, the odd one centred on the shelf below.
+    const three = shelfSlots(3);
+    expect(three.map((s: any) => s.plank)).toEqual([0, 0, 1]);
+    expect(three[2].centreX).toBe(SHELF.centreX);
+    expect(three[2].width).toBe(SHELF.soloWidth);
+
+    // Four fills both enclosed shelves; the open top of the unit is overflow.
+    expect(shelfSlots(4).map((s: any) => s.plank)).toEqual([0, 0, 1, 1]);
+    expect(shelfSlots(6).map((s: any) => s.plank)).toEqual([0, 0, 1, 1, 2, 2]);
+    // Plank 0 and 1 are the enclosed surfaces, 2 is the top of the unit.
+    expect(SHELF.plankTops[2]).toBeLessThan(SHELF.plankTops[0]);
+  });
+
   it('puts earned trophies on the living-room shelf, and leaves it bare otherwise', () => {
     const render = (trophies: string[]) => {
       let tree!: renderer.ReactTestRenderer;
@@ -1668,6 +1694,36 @@ describe('care partners', () => {
     act(() => card.props.onLayout({ nativeEvent: { layout: { x: 0, y: 950, width: 0, height: 0 } } }));
     expect(scrollTo).toHaveBeenCalledTimes(1);
     expect(scrollTo).toHaveBeenCalledWith({ y: 888, animated: true });
+    tree.unmount();
+  });
+
+  it('lists every trophy, marking the earned ones and explaining the locked ones', () => {
+    const { TROPHY_IDS, TROPHY_LABEL, trophyRule } = require('@vitto/core');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async () => {}}
+          onClose={() => {}}
+          trophies={['shoe']}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+
+    // Locked ones are listed too — the rule text is the only place the goals
+    // are written down, so hiding them would leave the shelf unexplained.
+    for (const id of TROPHY_IDS) {
+      expect(rendered).toContain(TROPHY_LABEL[id]);
+      expect(rendered).toContain(trophyRule(id, profile));
+    }
+    expect(rendered).toContain('1 of 4 earned');
+    expect(rendered).toContain('EARNED');
+    expect(rendered).toContain('LOCKED');
     tree.unmount();
   });
 

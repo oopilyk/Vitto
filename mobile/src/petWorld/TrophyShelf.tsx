@@ -21,6 +21,7 @@ const TROPHY_ART: Record<TrophyId, ReturnType<typeof require>> = {
   dumbbell: require('../../assets/trophies/dumbbell.png'),
   shoe: require('../../assets/trophies/shoe.png'),
   drumstick: require('../../assets/trophies/drumstick.png'),
+  book: require('../../assets/trophies/book.png'),
 };
 
 /**
@@ -29,19 +30,60 @@ const TROPHY_ART: Record<TrophyId, ReturnType<typeof require>> = {
  * on it. `x` is the centre of the span between the posts.
  */
 export const SHELF = {
+  /** Centre of the span between the posts (x 215..351 of 1086, measured off the wood). */
   centreX: 0.261,
-  /** Widest a trophy may draw, as a share of art width — inside the posts with a margin. */
-  maxWidth: 0.105,
-  /** Tallest a trophy may draw — the gap between planks, less headroom. */
-  maxHeight: 0.036,
   /**
-   * Plank surfaces are at 0.170 / 0.218 / 0.267 of the art's height (rows
-   * 246 / 316 / 386 of 1448, measured off the wood). The feet sit 0.004 lower so
-   * they overlap the plank's lighter top edge — anchored exactly on the surface
-   * they read as hovering a pixel or two above it.
+   * Tallest a trophy may draw. The enclosed shelves are ~56px of clear air
+   * (plank surfaces at rows 246 / 316 / 386, planks ~14px thick), so 48px keeps
+   * a little headroom under the plank above.
    */
-  plankTops: [0.174, 0.222, 0.271] as const,
+  maxHeight: 0.033,
+  /**
+   * Plank surfaces, as a share of art height, IN FILL ORDER — the two enclosed
+   * shelves first, the open top of the unit last.
+   *
+   * Filling the top first put the trophies in open air above the frame while the
+   * shelves below stood empty, which read as balanced on the edge rather than
+   * displayed. Rows 316 and 386 of 1448 are the enclosed surfaces; 246 is the
+   * top of the unit, kept as overflow for a fifth and sixth trophy.
+   *
+   * The feet sit 0.004 lower than the measured surface so they overlap the
+   * plank's lighter top edge — anchored exactly on it they read as hovering a
+   * pixel or two above.
+   */
+  plankTops: [0.222, 0.271, 0.174] as const,
+  /**
+   * Two trophies to a plank, because there are three planks and four trophies.
+   * Six slots also leaves room for a fifth and sixth without moving anything.
+   */
+  perPlank: 2,
+  /** A pair's slot width, and a lone trophy's — the span is 0.125 of art width. */
+  pairWidth: 0.058,
+  soloWidth: 0.098,
+  /** How far a paired trophy sits from the shelf's centre line. */
+  pairOffset: 0.031,
 } as const;
+
+/**
+ * Where each trophy sits: filled top plank first, two to a plank, and a plank
+ * holding only one centres it rather than leaving it hanging off to the left.
+ */
+export const shelfSlots = (
+  count: number,
+): { plank: number; centreX: number; width: number }[] =>
+  Array.from({ length: count }, (_, index) => {
+    const plank = Math.min(Math.floor(index / SHELF.perPlank), SHELF.plankTops.length - 1);
+    const onThisPlank = Math.min(count - plank * SHELF.perPlank, SHELF.perPlank);
+    if (onThisPlank === 1) {
+      return { plank, centreX: SHELF.centreX, width: SHELF.soloWidth };
+    }
+    const side = index % SHELF.perPlank === 0 ? -1 : 1;
+    return {
+      plank,
+      centreX: SHELF.centreX + side * SHELF.pairOffset,
+      width: SHELF.pairWidth,
+    };
+  });
 
 /** Night wash: the room's night sky tone, thin enough that gold still reads as gold. */
 const NIGHT_WASH = 'rgba(67, 66, 128, 0.42)';
@@ -51,10 +93,12 @@ export function TrophyShelf({ trophies, night }: { trophies: readonly TrophyId[]
   // Shelf order is fixed (top plank first) regardless of earn order, so a shelf
   // with only the shoe still shows it on the top plank rather than a gap above.
   const shown = TROPHY_IDS.filter((id) => trophies.includes(id));
+  const slots = shelfSlots(shown.length);
   return (
     <>
       {shown.map((id, index) => {
-        const plankTop = SHELF.plankTops[Math.min(index, SHELF.plankTops.length - 1)];
+        const slot = slots[index];
+        const plankTop = SHELF.plankTops[slot.plank];
         return (
           <View
             key={id}
@@ -64,8 +108,8 @@ export function TrophyShelf({ trophies, night }: { trophies: readonly TrophyId[]
             style={[
               styles.slot,
               {
-                left: `${(SHELF.centreX - SHELF.maxWidth / 2) * 100}%`,
-                width: `${SHELF.maxWidth * 100}%`,
+                left: `${(slot.centreX - slot.width / 2) * 100}%`,
+                width: `${slot.width * 100}%`,
                 // Anchored by its bottom to the plank's top surface.
                 bottom: `${(1 - plankTop) * 100}%`,
                 height: `${SHELF.maxHeight * 100}%`,

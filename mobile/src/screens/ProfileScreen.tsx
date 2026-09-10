@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   type LayoutChangeEvent,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,7 +12,11 @@ import {
   View,
 } from 'react-native';
 import {
-  type BodyProfile,
+
+  TROPHY_IDS,
+  TROPHY_LABEL,
+  type TrophyId,
+  trophyRule,  type BodyProfile,
   type BrainTrainingMetadata,
   FOCUS_AREAS,
   type FocusArea,
@@ -68,6 +73,12 @@ interface Props {
   onSignOut?: () => void;
   /** Omitted for a signed-out/local-only session -- friends require an account. */
   onOpenFriends?: () => void;
+  /**
+   * Which trophies have been earned. The card below lists ALL of them either
+   * way -- a locked trophy with its rule showing is the only place the goals are
+   * written down, so hiding them would make the shelf unexplained.
+   */
+  trophies?: readonly TrophyId[];
   /** Omitted entirely on platforms with no HealthKit provider (Android, web). */
   appleHealthStatus?: 'disconnected' | 'connected';
   onConnectAppleHealth?: () => void;
@@ -134,6 +145,14 @@ interface Props {
     onLeave: () => Promise<void>;
   };
 }
+
+/** The same art the living-room shelf uses, so the list and the shelf cannot disagree. */
+const TROPHY_ART: Record<TrophyId, ReturnType<typeof require>> = {
+  dumbbell: require('../../assets/trophies/dumbbell.png'),
+  shoe: require('../../assets/trophies/shoe.png'),
+  drumstick: require('../../assets/trophies/drumstick.png'),
+  book: require('../../assets/trophies/book.png'),
+};
 
 /** Longest a display name can be; matches the server-side `left(..., 40)` so what is typed is what the partner sees. */
 const DISPLAY_NAME_MAX_LENGTH = 40;
@@ -242,6 +261,7 @@ export function ProfileScreen({
   onClose,
   onSignOut,
   onOpenFriends,
+  trophies,
   appleHealthStatus,
   onConnectAppleHealth,
   onSyncAppleHealth,
@@ -422,6 +442,7 @@ export function ProfileScreen({
       if (await carePartner.onRedeemInvite(code)) setJoinCode('');
     }, 'Could not join that pet.');
 
+  const earnedCount = TROPHY_IDS.filter((id) => (trophies ?? []).includes(id)).length;
   const shared = carePartner ? isSharedPet(carePartner.members) : false;
   const isOwner = carePartner ? memberRole(carePartner.members, carePartner.selfUserId) === 'owner' : false;
   const openInvite =
@@ -499,6 +520,35 @@ export function ProfileScreen({
 
         <Card title="Your companion" hint="Changes take effect straight away">
           <BreedPicker value={breed} onChange={onBreedChange} size={88} />
+        </Card>
+
+        <Card
+          title="Trophies"
+          hint={`${earnedCount} of ${TROPHY_IDS.length} earned · they appear on your living-room shelf`}
+        >
+          {TROPHY_IDS.map((id) => {
+            const earned = (trophies ?? []).includes(id);
+            return (
+              <View key={id} style={styles.trophyRow}>
+                <Image
+                  source={TROPHY_ART[id]}
+                  resizeMode="contain"
+                  // A locked trophy is shown as its own silhouette rather than
+                  // hidden: you can see what is coming, but not mistake it for won.
+                  style={[styles.trophyArt, !earned && styles.trophyArtLocked]}
+                />
+                <View style={styles.trophyText}>
+                  <Text style={[styles.trophyName, !earned && styles.trophyNameLocked]}>
+                    {TROPHY_LABEL[id]}
+                  </Text>
+                  <Text style={styles.trophyRule}>{trophyRule(id, profile)}</Text>
+                </View>
+                <Text style={[styles.trophyState, earned && styles.trophyStateEarned]}>
+                  {earned ? 'EARNED' : 'LOCKED'}
+                </Text>
+              </View>
+            );
+          })}
         </Card>
 
         {carePartner ? (
@@ -1211,6 +1261,23 @@ const styles = StyleSheet.create({
   link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
   appleHealth: { gap: 8, paddingVertical: 14, ...layout.hairline },
   friends: { gap: 8, paddingVertical: 14, ...layout.hairline },
+  trophyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
+  },
+  trophyArt: { width: 40, height: 40 },
+  // Flattened to a grey silhouette: the shape still reads, the gold does not.
+  trophyArtLocked: { opacity: 0.28, tintColor: colors.faint },
+  trophyText: { flex: 1, minWidth: 0 },
+  trophyName: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  trophyNameLocked: { color: colors.muted },
+  trophyRule: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 3, lineHeight: 14 },
+  trophyState: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.8, color: colors.faint },
+  trophyStateEarned: { color: colors.mintDeep },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
   memberName: { fontSize: 14, fontWeight: '600', color: colors.ink },
   memberRole: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint },
