@@ -1,5 +1,3 @@
-import { Platform, StyleSheet, View } from 'react-native';
-
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
@@ -34,10 +32,6 @@ export const NIGHT_TINT = '#434280';
  */
 const MAIN_LIFT = -0.04;
 
-// Clears the home indicator on modern iPhones without pulling in a safe-area
-// package, which drags a second copy of React into the workspace.
-const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
-
 interface MainControlsProps {
   /** Walks the pet into the tapped scene. */
   onNavigate: (id: EnvironmentId) => void;
@@ -48,19 +42,6 @@ export function mainEnvironment({ onNavigate }: MainControlsProps): EnvironmentD
   return {
     background: <EnvironmentBackdrop source={night ? MAIN_NIGHT : MAIN_DAY} lift={MAIN_LIFT} />,
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
-    controls: (
-      <View style={styles.bottomRow}>
-        <EnvironmentActionRow current="main" onNavigate={onNavigate} night={night} />
-      </View>
-    ),
+    controls: <EnvironmentActionRow current="main" onNavigate={onNavigate} night={night} />,
   };
 }
-
-const styles = StyleSheet.create({
-  bottomRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: HOME_INDICATOR_INSET,
-  },
-});

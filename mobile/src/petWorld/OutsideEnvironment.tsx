@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
@@ -26,8 +26,6 @@ const OUTSIDE_NIGHT = require('../../assets/environments/outside-night.png');
  */
 const DAY_SKY = '#808463';
 const NIGHT_SKY = '#252c4f';
-
-const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface OutsideEnvironmentControlsProps {
   onSyncSteps: () => void;
@@ -58,11 +56,7 @@ function OutsideEnvironmentControls({
   return (
     <>
       <LogStepsButton onPress={onSyncSteps} />
-      <View style={styles.bottomRow}>
-        {/* No Outdoors button here -- already outside. "Log steps" above is the
-            scene's own action. */}
-        <EnvironmentActionRow current="outside" onNavigate={onNavigate} night={night} />
-      </View>
+      <EnvironmentActionRow current="outside" onNavigate={onNavigate} night={night} />
     </>
   );
 }
@@ -79,12 +73,6 @@ export function outsideEnvironment(props: OutsideEnvironmentControlsProps): Envi
 }
 
 const styles = StyleSheet.create({
-  bottomRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: HOME_INDICATOR_INSET,
-  },
   stepsSlot: {
     position: 'absolute',
     top: '32%',

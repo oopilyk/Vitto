@@ -51,6 +51,13 @@ export function petInteractionReducer(
     case 'EXPLORE_FINISHED':
       return state.kind === 'exploring' ? IDLE_STATE : state;
 
+    case 'TRAVEL_STARTED':
+      // Same guard as AMBIENT_WALKING: a room-change dash only takes over
+      // idle/noticing, never a meal, workout, celebration or an active explore.
+      return state.kind === 'idle' || state.kind === 'noticing' ? { kind: 'travelling' } : state;
+    case 'TRAVEL_FINISHED':
+      return state.kind === 'travelling' ? IDLE_STATE : state;
+
     case 'AMBIENT_WALKING_STARTED':
       // A background cue must not interrupt anything more specific already
       // happening — feeding, a tap-triggered explore, celebrating — the same

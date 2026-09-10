@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
@@ -35,8 +35,6 @@ const STUDY_LIFT = 0.07;
 const DAY_FLOOR = '#b99670';
 const NIGHT_FLOOR = '#54435d';
 
-const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
-
 interface StudyEnvironmentControlsProps {
   onTrainMind: () => void;
   /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
@@ -67,11 +65,7 @@ function StudyEnvironmentControls({
   return (
     <>
       <TrainMindButton onPress={onTrainMind} />
-      <View style={styles.bottomRow}>
-        {/* No Study button here -- already in the Study. "Train mind" above is
-            the scene's own action. */}
-        <EnvironmentActionRow current="study" onNavigate={onNavigate} night={night} />
-      </View>
+      <EnvironmentActionRow current="study" onNavigate={onNavigate} night={night} />
     </>
   );
 }
@@ -92,14 +86,6 @@ export function studyEnvironment(props: StudyEnvironmentControlsProps): Environm
 }
 
 const styles = StyleSheet.create({
-  // Matches every other scene's `bottomRow` exactly so the buttons land in the
-  // same spots wherever the pet is standing.
-  bottomRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: HOME_INDICATOR_INSET,
-  },
   trainSlot: {
     position: 'absolute',
     top: '32%',

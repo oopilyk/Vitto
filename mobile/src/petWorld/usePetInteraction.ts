@@ -9,6 +9,7 @@ import {
   MUNCH_INTERVAL_MS,
   NOTICE_MS,
   SHEET_DISMISS_MS,
+  TRAVEL_DURATION_MS,
   WORKOUT_DURATION_MS,
 } from './timing';
 import { IDLE_STATE, type PetInteractionState } from './types';
@@ -43,6 +44,9 @@ export interface UsePetInteractionResult {
   startFeeding: (imageUri: string | null, grade: MealAnalysis['grade']) => void;
   startWorkout: () => void;
   startExploring: () => void;
+  /** A short timed dash for a room change — the pet runs, then settles into the
+   *  new scene. Only takes over an idle/noticing pet (see the reducer). */
+  startTravel: () => void;
   /**
    * Live ambient walking cue (see mobile/AMBIENT.md), not a timed one-shot like
    * `startExploring`: the caller re-asserts this on every render with the
@@ -125,6 +129,11 @@ export function usePetInteraction(callbacks: PetInteractionCallbacks = {}): UseP
     after(EXPLORE_DURATION_MS, () => dispatch({ type: 'EXPLORE_FINISHED' }));
   }, [after]);
 
+  const startTravel = useCallback(() => {
+    dispatch({ type: 'TRAVEL_STARTED' });
+    after(TRAVEL_DURATION_MS, () => dispatch({ type: 'TRAVEL_FINISHED' }));
+  }, [after]);
+
   const setAmbientWalking = useCallback(
     (walking: boolean) =>
       dispatch({ type: walking ? 'AMBIENT_WALKING_STARTED' : 'AMBIENT_WALKING_STOPPED' }),
@@ -141,6 +150,7 @@ export function usePetInteraction(callbacks: PetInteractionCallbacks = {}): UseP
     startFeeding,
     startWorkout,
     startExploring,
+    startTravel,
     setAmbientWalking,
     reset,
   };

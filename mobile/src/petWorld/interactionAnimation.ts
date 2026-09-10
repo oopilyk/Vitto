@@ -44,7 +44,8 @@ export function animationForInteraction(
     state.kind === 'workingOut' ||
     state.kind === 'exploring' ||
     state.kind === 'walkingToFood' ||
-    state.kind === 'ambientWalking'
+    state.kind === 'ambientWalking' ||
+    state.kind === 'travelling'
   ) {
     return 'move';
   }

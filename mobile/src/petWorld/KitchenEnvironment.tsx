@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
@@ -37,8 +37,6 @@ const KITCHEN_LIFT = 0.07;
 const DAY_FLOOR = '#b79f84';
 const NIGHT_FLOOR = '#523961';
 
-const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
-
 interface KitchenEnvironmentControlsProps {
   onChooseFood: () => void;
   /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
@@ -70,9 +68,7 @@ function KitchenEnvironmentControls({
   return (
     <>
       <LogMealButton onPress={onChooseFood} />
-      <View style={styles.bottomRow}>
-        <EnvironmentActionRow current="kitchen" onNavigate={onNavigate} night={night} />
-      </View>
+      <EnvironmentActionRow current="kitchen" onNavigate={onNavigate} night={night} />
     </>
   );
 }
@@ -91,14 +87,6 @@ export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): Envi
 }
 
 const styles = StyleSheet.create({
-  // Matches MainEnvironment's `bottomRow` exactly so the buttons land in the
-  // same spots as the living room scene.
-  bottomRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: HOME_INDICATOR_INSET,
-  },
   mealSlot: {
     position: 'absolute',
     top: '32%',

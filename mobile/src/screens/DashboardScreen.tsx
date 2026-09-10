@@ -37,6 +37,8 @@ interface Props {
   onOpenStats: () => void;
   /** Opens the day's detail (nutrition, care, movement, mind). */
   onOpenToday: () => void;
+  /** Opens the friends list. Absent when signed out/offline — see `PetWorldHud`. */
+  onOpenFriends?: () => void;
   /** Letter shown in the account button — the signed-in email's initial. */
   accountInitial?: string;
   /**
@@ -83,6 +85,7 @@ export function DashboardScreen({
   onOpenProfile,
   onOpenStats,
   onOpenToday,
+  onOpenFriends,
   accountInitial,
   pets,
   activePetId,
@@ -120,9 +123,10 @@ export function DashboardScreen({
   const formLabel = hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : `Level ${pet.level}`;
 
   // One move for every scene change — a row button, or "Living room" back out of
-  // a scene. The pet notices the walk the same way it notices a tap.
+  // a scene. The pet runs a short dash (see `startTravel`) as it "moves" between
+  // rooms, then settles into the new scene.
   const navigate = (id: EnvironmentId) => {
-    interaction.notice();
+    interaction.startTravel();
     setEnvironment(id);
   };
 
@@ -147,6 +151,7 @@ export function DashboardScreen({
           onOpenProfile={onOpenProfile}
           onOpenStats={onOpenStats}
           onOpenToday={onOpenToday}
+          onOpenFriends={onOpenFriends}
           pets={pets}
           activePetId={activePetId}
           onSelectPet={onSelectPet}

@@ -27,6 +27,7 @@ jest.mock('expo-haptics', () => ({
 
 jest.mock('../services/friendsService', () => ({
   friendsService: {
+    loadFriendsOverview: jest.fn(),
     loadMyFriendRequests: jest.fn(),
     getMyUsername: jest.fn(),
     setMyUsername: jest.fn(),
@@ -66,6 +67,7 @@ const idleInteraction: UsePetInteractionResult = {
   startFeeding: () => {},
   startWorkout: () => {},
   startExploring: () => {},
+  startTravel: () => {},
   setAmbientWalking: () => {},
   reset: () => {},
 };
@@ -1821,14 +1823,30 @@ describe('friends screen', () => {
   const { FriendsScreen } = require('../screens/FriendsScreen');
   const { friendsService } = require('../services/friendsService');
 
+  const overviewFriend = (over: Record<string, unknown> = {}) => ({
+    friendId: 'user-2',
+    profile: { id: 'user-2', username: 'friend_two', displayName: 'Friend Two' },
+    pet: createPet('user-2', 'Blue'),
+    lastActivity: null,
+    friendsSince: '2026-01-02T00:00:00.000Z',
+    ...over,
+  });
+
+  const openAddPanel = (tree: renderer.ReactTestRenderer) => {
+    const toggle = tree.root.findAll(
+      (node: any) => node.props.accessibilityLabel === 'Add a friend' && typeof node.props.onPress === 'function',
+    )[0];
+    act(() => toggle.props.onPress());
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    friendsService.loadFriendsOverview.mockResolvedValue([]);
+    friendsService.loadMyFriendRequests.mockResolvedValue([]);
+    friendsService.getMyUsername.mockResolvedValue(null);
   });
 
   it('shows the empty state and the username gate for a user with no username yet', async () => {
-    friendsService.loadMyFriendRequests.mockResolvedValue([]);
-    friendsService.getMyUsername.mockResolvedValue(null);
-
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
@@ -1836,30 +1854,21 @@ describe('friends screen', () => {
       );
     });
 
-    const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('No friends yet');
-    expect(rendered).toContain('Save username');
-    // Search is gated behind choosing a username first.
-    expect(rendered).not.toContain('Search a username');
+    // Empty friends list is called out in place...
+    expect(JSON.stringify(tree.toJSON())).toContain('No friends yet');
+    // ...and search stays gated behind choosing a username, inside the +
+    // panel, which is closed by default.
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Search a username');
+
+    openAddPanel(tree);
+    expect(JSON.stringify(tree.toJSON())).toContain('Save username');
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Search a username');
     tree.unmount();
   });
 
-  it("lists an accepted friend by name, with a working 'View pet' action", async () => {
-    friendsService.loadMyFriendRequests.mockResolvedValue([
-      {
-        id: 'r1',
-        requesterId: 'user-1',
-        addresseeId: 'user-2',
-        status: 'accepted',
-        createdAt: '2026-01-01T00:00:00.000Z',
-      },
-    ]);
+  it('lists an accepted friend by their pet-avatar row, and taps through to their pet', async () => {
+    friendsService.loadFriendsOverview.mockResolvedValue([overviewFriend()]);
     friendsService.getMyUsername.mockResolvedValue('me');
-    friendsService.loadFriendProfile.mockResolvedValue({
-      id: 'user-2',
-      username: 'friend_two',
-      displayName: 'Friend Two',
-    });
 
     const opened: Array<[string, string[]]> = [];
     let tree!: renderer.ReactTestRenderer;
@@ -1875,19 +1884,58 @@ describe('friends screen', () => {
 
     expect(JSON.stringify(tree.toJSON())).toContain('Friend Two');
 
-    const { Text: RNText } = require('react-native');
-    const viewPet = tree.root
-      .findAll((node: any) => typeof node.props.onPress === 'function')
-      .find((node: any) => node.findAllByType(RNText).some((t: any) => t.props.children === 'View pet'));
-    expect(viewPet).toBeTruthy();
-    act(() => viewPet!.props.onPress());
-    // Hands over the full ordered accepted-friends list, not just the one tapped,
-    // so `FriendPetScreen` can browse sequentially without another round trip.
+    const row = tree.root.findAll(
+      (node: any) =>
+        typeof node.props.accessibilityLabel === 'string' &&
+        node.props.accessibilityLabel.startsWith("Open Friend Two's pet") &&
+        typeof node.props.onPress === 'function',
+    )[0];
+    expect(row).toBeTruthy();
+    act(() => row.props.onPress());
+    // Hands over the full ordered accepted-friends list, not just the one tapped.
     expect(opened).toEqual([['user-2', ['user-2']]]);
     tree.unmount();
   });
 
-  it('shows an incoming request with accept/decline actions', async () => {
+  it('shows a null-pet friend with a "No pet yet" status line', async () => {
+    friendsService.loadFriendsOverview.mockResolvedValue([overviewFriend({ pet: null })]);
+    friendsService.getMyUsername.mockResolvedValue('me');
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Friend Two');
+    expect(rendered).toContain('No pet yet');
+    tree.unmount();
+  });
+
+  it('shows the derived health/place status line for a friend with a pet', async () => {
+    friendsService.loadFriendsOverview.mockResolvedValue([
+      overviewFriend({
+        pet: createPet('user-2', 'Blue'),
+        lastActivity: { type: 'WORKOUT', occurredAt: new Date().toISOString() },
+      }),
+    ]);
+    friendsService.getMyUsername.mockResolvedValue('me');
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+
+    // A live WORKOUT signal puts the pet "At the gym" (see deriveSocialPetStatus).
+    expect(JSON.stringify(tree.toJSON())).toContain('At the gym');
+    tree.unmount();
+  });
+
+  it('shows an incoming request banner with accept/decline actions', async () => {
     friendsService.loadMyFriendRequests.mockResolvedValue([
       {
         id: 'r1',
@@ -1912,16 +1960,23 @@ describe('friends screen', () => {
     });
 
     const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('Requests for you');
+    expect(rendered).toContain('wants to be friends');
     // No display name set, so it falls back to the @username.
     expect(rendered).toContain('@friend_two');
     expect(rendered).toContain('Accept');
     expect(rendered).toContain('Decline');
+
+    const decline = tree.root.findAll(
+      (node: any) => typeof node.props.onPress === 'function',
+    ).find((node: any) =>
+      node.findAllByType(require('react-native').Text).some((t: any) => t.props.children === 'Decline'),
+    );
+    act(() => decline!.props.onPress());
+    expect(friendsService.declineFriendRequest).toHaveBeenCalledWith('r1');
     tree.unmount();
   });
 
   it('shows "no one found" for a search with no results', async () => {
-    friendsService.loadMyFriendRequests.mockResolvedValue([]);
     friendsService.getMyUsername.mockResolvedValue('me');
     friendsService.searchUsersByUsername.mockResolvedValue([]);
 
@@ -1931,6 +1986,8 @@ describe('friends screen', () => {
         <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
       );
     });
+
+    openAddPanel(tree);
 
     const { TextInput } = require('react-native');
     const searchInput = tree.root
@@ -1946,7 +2003,6 @@ describe('friends screen', () => {
       jest.advanceTimersByTime(400);
     });
     jest.useRealTimers();
-    // Flush the resolved searchUsersByUsername() promise.
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
@@ -1958,6 +2014,7 @@ describe('friends screen', () => {
   });
 
   it('does not show "Add" for a search result who is already a friend or has a pending request', async () => {
+    friendsService.loadFriendsOverview.mockResolvedValue([overviewFriend()]);
     friendsService.loadMyFriendRequests.mockResolvedValue([
       {
         id: 'r1',
@@ -1968,11 +2025,6 @@ describe('friends screen', () => {
       },
     ]);
     friendsService.getMyUsername.mockResolvedValue('me');
-    friendsService.loadFriendProfile.mockResolvedValue({
-      id: 'user-2',
-      username: 'friend_two',
-      displayName: 'Friend Two',
-    });
     friendsService.searchUsersByUsername.mockResolvedValue([
       { id: 'user-2', username: 'friend_two', displayName: 'Friend Two' },
     ]);
@@ -1983,6 +2035,8 @@ describe('friends screen', () => {
         <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
       );
     });
+
+    openAddPanel(tree);
 
     const { TextInput } = require('react-native');
     const searchInput = tree.root
@@ -2013,6 +2067,7 @@ describe('friends screen', () => {
     tree.unmount();
   });
 });
+
 
 describe('friend pet screen', () => {
   const { FriendPetScreen } = require('../screens/FriendPetScreen');

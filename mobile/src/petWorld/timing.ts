@@ -56,7 +56,16 @@ export const EXPLORE_DURATION_MS = 3000;
 export const NOTICE_MS = 900;
 
 /**
- * New: how long the crossfade between environments (Main <-> Kitchen) takes.
- * Also new — the dashboard never changed "scenes" before this system.
+ * How long the crossfade between environments takes -- the background-colour
+ * blend, the content fade-swap and the settle-pulse all run for this long.
+ * Longer than the original 380ms so the room change eases rather than snaps.
  */
-export const ENVIRONMENT_TRANSITION_MS = 380;
+export const ENVIRONMENT_TRANSITION_MS = 560;
+
+/**
+ * How long the pet runs when a scene button is tapped -- a short dash that reads
+ * as the pet running from one room to the next, then it settles back to idle in
+ * the new room. Shorter than a step-sync `EXPLORE_DURATION_MS` run: this is a
+ * transition flourish, not "went for a run with you".
+ */
+export const TRAVEL_DURATION_MS = 850;

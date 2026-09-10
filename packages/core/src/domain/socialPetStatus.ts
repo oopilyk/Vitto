@@ -1,6 +1,6 @@
 import type { HealthEventType } from './health';
 import type { PetState } from './pet';
-import { getStatusEffects } from './petStatusEffects';
+import { getStatusEffects, type StatusEffect } from './petStatusEffects';
 
 /**
  * Friends & Social Pets -- "what is this pet doing right now."
@@ -57,9 +57,90 @@ export interface SocialPetStatus {
    * kept alongside activity rather than duplicated, so a friend's
    * "Foggy"/"Thriving" chip always agrees with the one the pet's own
    * dashboard would show. `null` when nothing is notable either way.
+   *
+   * @deprecated Superseded by `health`, which always has a value (down to a
+   * plain "Healthy") and carries a tone for colouring. Kept for the existing
+   * `FriendPetCard` until it migrates.
    */
   moodLabel: string | null;
+  /**
+   * Which room the pet reads as being in. The app has no shared real-time
+   * presence, so this is INFERRED from the latest live activity, never a
+   * precise location -- `home` whenever nothing live is happening.
+   */
+  place: SocialPetPlace;
+  /** Display copy for `place`, e.g. "At the gym", "In the kitchen". */
+  placeLabel: string;
+  /**
+   * The pet's overall health read -- "Healthy" / "Thriving" / "Fading" and so
+   * on, with a tone the UI can colour by. Always set (unlike `moodLabel`); the
+   * single source both the friends list and the friend-pet card should use.
+   */
+  health: SocialHealthInfo;
 }
+
+/**
+ * Which room a friend's pet reads as being in. Mirrors the mobile app's
+ * `EnvironmentId` set (`home` is its `main`/living-room scene) so the client can
+ * map it straight onto a scene without a translation table.
+ */
+export type SocialPetPlace = 'home' | 'kitchen' | 'gym' | 'outdoors' | 'study';
+
+export const SOCIAL_PLACE_LABEL: Record<SocialPetPlace, string> = {
+  home: 'At home',
+  kitchen: 'In the kitchen',
+  gym: 'At the gym',
+  outdoors: 'Outdoors',
+  study: 'In the study',
+};
+
+/** The room each activity implies, when that activity is live. */
+const PLACE_BY_ACTIVITY: Record<SocialActivity, SocialPetPlace> = {
+  workout: 'gym',
+  eating: 'kitchen',
+  walking: 'outdoors',
+  training: 'study',
+  sleeping: 'home',
+  relaxing: 'home',
+  idle: 'home',
+};
+
+/**
+ * The pet's overall condition, in the words a friend sees. One word plus a
+ * tone -- deliberately not the full `getStatusEffects` detail string, which is
+ * owner-facing ("Energy 18, at or under 20. Log a walk.").
+ */
+export type SocialHealthLevel = StatusEffect['id'] | 'healthy';
+export type SocialHealthTone = 'good' | 'neutral' | 'warn' | 'bad';
+
+export interface SocialHealthInfo {
+  level: SocialHealthLevel;
+  /** Chip text, one word: "Healthy", "Thriving", "Fading", "Starving", ... */
+  label: string;
+  tone: SocialHealthTone;
+}
+
+const HEALTH_TONE: Record<StatusEffect['id'], SocialHealthTone> = {
+  dying: 'bad',
+  starving: 'bad',
+  exhausted: 'warn',
+  sad: 'warn',
+  foggy: 'warn',
+  sleepy: 'neutral',
+  thriving: 'good',
+};
+
+/**
+ * Collapses `getStatusEffects` into the one-word, toned read a friend sees.
+ * Reuses that function's precedence and labels verbatim so a friend's chip can
+ * never disagree with the pet's own dashboard; a pet with nothing notable
+ * reads as a plain, neutral "Healthy".
+ */
+export const deriveSocialHealth = (pet: PetState): SocialHealthInfo => {
+  const top = getStatusEffects(pet)[0];
+  if (!top) return { level: 'healthy', label: 'Healthy', tone: 'neutral' };
+  return { level: top.id, label: top.label, tone: HEALTH_TONE[top.id] };
+};
 
 /** A signal older than this no longer looks like something happening right now. */
 const LIVE_WINDOW_MINUTES = 45;
@@ -162,6 +243,10 @@ export const deriveSocialPetStatus = (
 
   const moodLabel = getStatusEffects(pet)[0]?.label ?? null;
 
+  // Location is only claimed from a LIVE activity -- a pet that worked out two
+  // hours ago is back home now, not still at the gym.
+  const place: SocialPetPlace = isLive ? PLACE_BY_ACTIVITY[activity] : 'home';
+
   return {
     activity,
     headline,
@@ -169,5 +254,8 @@ export const deriveSocialPetStatus = (
     lastActiveAt: latest && hasValidAge ? latest.occurredAt : undefined,
     recentlyActive,
     moodLabel,
+    place,
+    placeLabel: SOCIAL_PLACE_LABEL[place],
+    health: deriveSocialHealth(pet),
   };
 };

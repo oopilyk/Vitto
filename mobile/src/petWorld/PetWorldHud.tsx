@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   AILMENT_MESSAGE,
   type CareToast,
@@ -14,6 +14,9 @@ import { colors, fonts } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
 import { LevelRing } from './LevelRing';
 import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
+
+/** The product owner's own friends glyph, tinted per day/night at render time. */
+const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
 
 /**
  * The chrome that isn't either scene: level ring top-left, at most two status
@@ -40,6 +43,13 @@ interface PetWorldHudProps {
   onOpenProfile: () => void;
   onOpenStats: () => void;
   onOpenToday: () => void;
+  /**
+   * Opens the friends list. Optional so the HUD still renders offline / signed
+   * out (when there is nowhere for it to go) -- the button is only shown when a
+   * handler is passed, per the product owner's "every main page gets a friends
+   * button" note.
+   */
+  onOpenFriends?: () => void;
   pets?: { id: string; name: string }[];
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
@@ -60,6 +70,7 @@ export function PetWorldHud({
   onOpenProfile,
   onOpenStats,
   onOpenToday,
+  onOpenFriends,
   pets,
   activePetId,
   onSelectPet,
@@ -81,37 +92,60 @@ export function PetWorldHud({
     <View style={styles.fill} pointerEvents="box-none">
       <View style={styles.topRow}>
         <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
+      </View>
 
-        <View style={styles.iconStack}>
+      {/* A vertical rail of round buttons down the right edge, the way a Talking
+          Tom-style pet game lines its secondary controls beside the pet rather
+          than clustering them in a corner. Profile and Friends are icon discs;
+          TODAY keeps its word because it opens a whole detail page, not a
+          setting. `box-none` so the gaps between buttons still pass taps
+          through to the pet. */}
+      <View style={styles.rightRail} pointerEvents="box-none">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open your profile"
+          onPress={onOpenProfile}
+          hitSlop={8}
+          style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
+        >
+          <Text style={[styles.avatarLetter, night && styles.avatarLetterNight]}>
+            {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
+          </Text>
+        </Pressable>
+
+        {onOpenFriends ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Open your profile"
-            onPress={onOpenProfile}
+            accessibilityLabel="Open friends"
+            onPress={onOpenFriends}
             hitSlop={8}
-            style={({ pressed }) => [styles.avatar, night && styles.avatarNight, pressed && styles.iconPressed]}
+            style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
           >
-            <Text style={[styles.avatarLetter, night && styles.avatarLetterNight]}>
-              {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
-            </Text>
+            <Image
+              source={FRIENDS_ICON}
+              resizeMode="contain"
+              style={[styles.railIcon, { tintColor: night ? '#f7f5ff' : colors.ink }]}
+            />
           </Pressable>
-          {/* Labelled, not a bare chevron: an arrow alone said only "there is
-              more that way", which is not the same as telling someone the day's
-              nutrition and care detail is behind it. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open today's detail"
-            onPress={onOpenToday}
-            hitSlop={8}
-            style={({ pressed }) => [
-              styles.todayButton,
-              night && styles.todayButtonNight,
-              pressed && styles.iconPressed,
-            ]}
-          >
-            <Text style={[styles.todayLabel, night && styles.todayLabelNight]}>TODAY</Text>
-            <Text style={[styles.todayMark, night && styles.todayMarkNight]}>›</Text>
-          </Pressable>
-        </View>
+        ) : null}
+
+        {/* Labelled, not a bare chevron: an arrow alone said only "there is
+            more that way", which is not the same as telling someone the day's
+            nutrition and care detail is behind it. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open today's detail"
+          onPress={onOpenToday}
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.todayButton,
+            night && styles.todayButtonNight,
+            pressed && styles.iconPressed,
+          ]}
+        >
+          <Text style={[styles.todayLabel, night && styles.todayLabelNight]}>TODAY</Text>
+          <Text style={[styles.todayMark, night && styles.todayMarkNight]}>›</Text>
+        </Pressable>
       </View>
 
       {pets && pets.length > 1 && onSelectPet ? (
@@ -201,10 +235,27 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: TOP_INSET,
   },
+  // Down the right edge, beside the pet -- not pinned to the top corner.
+  rightRail: {
+    position: 'absolute',
+    right: 12,
+    top: '30%',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  railDisc: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  railDiscNight: { backgroundColor: 'rgba(20,18,38,0.6)' },
+  railIcon: { width: 26, height: 26 },
   // A wrapping row rather than the old vertical stack: laid out along the card's
   // bottom edge there is width to spare, and stacking pushed the second chip
   // down over the pet.
@@ -229,19 +280,7 @@ const styles = StyleSheet.create({
   chipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3, color: '#8c4433' },
   chipLabelBuff: { color: '#55705d' },
   chipLabelNight: { color: '#f7f5ff' },
-  // Right-aligned, not centred: the Today pill is wider than the avatar above
-  // it, so centring would leave the pair looking hung off a ragged edge.
-  iconStack: { alignItems: 'flex-end', gap: 10 },
-  avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarNight: { backgroundColor: 'rgba(20,18,38,0.55)' },
-  avatarLetter: { fontSize: 13, fontWeight: '700', color: colors.ink },
+  avatarLetter: { fontSize: 16, fontWeight: '700', color: colors.ink },
   avatarLetterNight: { color: '#f7f5ff' },
   todayButton: {
     flexDirection: 'row',

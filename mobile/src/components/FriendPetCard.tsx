@@ -6,13 +6,25 @@ import {
   SOCIAL_ACTIVITY_POSE,
 } from '@vitto/core';
 import { PetAvatar } from './PetAvatar';
+import { FRIENDS_LIGHT, type FriendsPalette, healthToneColor } from '../friendsTheme';
 import { colors, fonts, text } from '../theme';
 
 interface FriendPetCardProps {
   profile: FriendProfileSummary;
   pet: PetState;
   status: SocialPetStatus;
+  /** Day/night palette from `FriendPetScreen`; defaults to the light one. */
+  palette?: FriendsPalette;
 }
+
+/** A short room glyph for the location line -- keeps it recognisable at a glance. */
+const PLACE_GLYPH: Record<SocialPetStatus['place'], string> = {
+  home: '🏠',
+  kitchen: '🍳',
+  gym: '🏋️',
+  outdoors: '🌳',
+  study: '📚',
+};
 
 export const displayName = (profile: FriendProfileSummary): string =>
   profile.displayName || `@${profile.username}`;
@@ -42,12 +54,13 @@ const formatLastActive = (iso: string, now: Date = new Date()): string => {
  * recent-but-not-live activity must never be shown as if it is happening right
  * now (see `deriveSocialPetStatus` in `@vitto/core`).
  */
-export function FriendPetCard({ profile, pet, status }: FriendPetCardProps) {
+export function FriendPetCard({ profile, pet, status, palette = FRIENDS_LIGHT }: FriendPetCardProps) {
   const pose = status.isLive ? SOCIAL_ACTIVITY_POSE[status.activity] : undefined;
+  const healthColor = healthToneColor(status.health.tone, palette);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.name}>{displayName(profile)}</Text>
+      <Text style={[styles.name, { color: palette.primaryText }]}>{displayName(profile)}</Text>
       <PetAvatar
         pet={pet}
         isAnalyzingMeal={false}
@@ -59,15 +72,22 @@ export function FriendPetCard({ profile, pet, status }: FriendPetCardProps) {
         isExploring={pose === 'exploring'}
       />
       <View style={styles.statusRow}>
-        <Text style={styles.headline}>{status.headline}</Text>
-        {status.moodLabel ? (
-          <View style={styles.moodChip}>
-            <Text style={styles.moodChipLabel}>{status.moodLabel}</Text>
-          </View>
-        ) : null}
+        <Text style={[styles.headline, { color: palette.primaryText }]}>{status.headline}</Text>
+        {/* Health, not the deprecated `moodLabel`: always set (down to a plain
+            "Healthy") and carries a tone to colour by. */}
+        <View style={[styles.healthChip, { borderColor: healthColor }]}>
+          <Text style={[styles.healthChipLabel, { color: healthColor }]}>{status.health.label}</Text>
+        </View>
       </View>
+      {/* Location is inferred from the latest LIVE activity -- "At home"
+          whenever nothing live is happening (see `deriveSocialPetStatus`). */}
+      <Text style={[styles.place, { color: palette.secondaryText }]}>
+        {PLACE_GLYPH[status.place]} {status.placeLabel}
+      </Text>
       {!status.isLive && status.lastActiveAt ? (
-        <Text style={styles.lastActive}>Active {formatLastActive(status.lastActiveAt)}</Text>
+        <Text style={[styles.lastActive, { color: palette.secondaryText }]}>
+          Active {formatLastActive(status.lastActiveAt)}
+        </Text>
       ) : null}
     </View>
   );
@@ -85,14 +105,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headline: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  moodChip: {
+  healthChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
-    backgroundColor: colors.sageSoft,
     borderWidth: 1,
-    borderColor: colors.hairline,
   },
-  moodChipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3, color: colors.mintDeep },
+  healthChipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3 },
+  place: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.3, textAlign: 'center', marginTop: 10 },
   lastActive: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, textAlign: 'center', marginTop: 6 },
 });

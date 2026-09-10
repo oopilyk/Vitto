@@ -23,11 +23,11 @@ import type { EnvironmentId, PetAvatarActivityProps } from './types';
 const PET_STAGE_SIZE = 280;
 
 /**
- * How far the pet's feet sit above the very bottom of the screen. Only needs to
- * clear the action row -- home-indicator inset (~28) + the row itself
- * (`EnvironmentButton`'s 60px art + 6px gap + ~12px label, ~78px) -- so the pet
- * stands just above the buttons, on the room's own floor, rather than floating
- * in the middle of it. Verify on-device if the row's content ever grows.
+ * How far the pet's feet sit above the very bottom of the screen. The hotbar
+ * (`EnvironmentActionRow`) is translucent and the pet reads through it, so this
+ * only has to keep the pet's feet off the very bottom edge -- it stands on the
+ * room's own floor rather than floating in the middle of it. Verify on-device if
+ * the bar's height ever grows.
  */
 const PET_STAGE_BOTTOM_PADDING = 64;
 
@@ -124,7 +124,9 @@ export function EnvironmentStage({
 
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
-    pulse.setValue(0.94);
+    // A gentle settle rather than a visible zoom -- with the longer transition
+    // a bigger dip read as the whole scene lurching.
+    pulse.setValue(0.97);
     Animated.timing(pulse, {
       toValue: 1,
       duration: ENVIRONMENT_TRANSITION_MS,

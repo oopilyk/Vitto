@@ -10,6 +10,8 @@ import {
 } from '@vitto/core';
 import { friendsService } from '../services/friendsService';
 import { FriendPetCard, displayName } from '../components/FriendPetCard';
+import { isNightTime } from '../petWorld/timeOfDay';
+import { friendsPalette } from '../friendsTheme';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
@@ -40,6 +42,10 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   const [error, setError] = useState<string | null>(null);
 
   const currentFriendId: string | undefined = friendUserIds[index];
+  // Same day/night palette as the friends list, so moving list -> detail is not
+  // a jarring theme flip.
+  const palette = friendsPalette(isNightTime());
+  const screenStyle = [layout.screen, { backgroundColor: palette.screenBg }];
 
   useEffect(() => {
     if (!currentFriendId) return;
@@ -90,12 +96,12 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   const goNext = () => canGoNext && setIndex((current) => current + 1);
 
   const Topbar = ({ title }: { title: string }) => (
-    <View style={styles.topbar}>
+    <View style={[styles.topbar, { borderBottomColor: palette.divider }]}>
       <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.back}>
         <Text style={styles.backMark}>←</Text>
-        <Text style={styles.backLabel}>Friends</Text>
+        <Text style={[styles.backLabel, { color: palette.secondaryText }]}>Friends</Text>
       </Pressable>
-      <Text style={styles.topTitle}>{title}</Text>
+      <Text style={[styles.topTitle, { color: palette.primaryText }]}>{title}</Text>
       <View style={styles.back} />
     </View>
   );
@@ -103,7 +109,7 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   // Pager is always visible (never swipe-only) so this works with mouse/click
   // too -- the product spec explicitly wants desktop/web parity here.
   const Pager = () => (
-    <View style={styles.pager}>
+    <View style={[styles.pager, { borderBottomColor: palette.divider }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Previous friend"
@@ -132,11 +138,11 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
 
   if (friendUserIds.length === 0 || !currentFriendId) {
     return (
-      <View style={layout.screen}>
+      <View style={screenStyle}>
         <Topbar title="Friends" />
         <View style={[styles.center, styles.messageBody]}>
-          <Text style={styles.messageTitle}>No friends to browse</Text>
-          <Text style={styles.messageBodyText}>Add a friend from the Friends list to see their pet here.</Text>
+          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>No friends to browse</Text>
+          <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>Add a friend from the Friends list to see their pet here.</Text>
         </View>
       </View>
     );
@@ -144,10 +150,10 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
 
   if (state === 'loading') {
     return (
-      <View style={layout.screen}>
+      <View style={screenStyle}>
         <Topbar title="Loading..." />
         <Pager />
-        <View style={[layout.screen, styles.center]}>
+        <View style={[screenStyle, styles.center]}>
           <ActivityIndicator color={colors.coral} />
         </View>
       </View>
@@ -156,12 +162,12 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
 
   if (state === 'error') {
     return (
-      <View style={layout.screen}>
+      <View style={screenStyle}>
         <Topbar title="Friend" />
         <Pager />
         <View style={[styles.center, styles.messageBody]}>
-          <Text style={styles.messageTitle}>Could not load this pet</Text>
-          <Text style={styles.messageBodyText}>{error}</Text>
+          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>Could not load this pet</Text>
+          <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>{error}</Text>
         </View>
       </View>
     );
@@ -173,12 +179,12 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   // error, since nothing actually went wrong.
   if (!profile) {
     return (
-      <View style={layout.screen}>
+      <View style={screenStyle}>
         <Topbar title="Friend" />
         <Pager />
         <View style={[styles.center, styles.messageBody]}>
-          <Text style={styles.messageTitle}>You're not connected anymore</Text>
-          <Text style={styles.messageBodyText}>
+          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>You're not connected anymore</Text>
+          <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>
             This person is no longer sharing their pet with you.
           </Text>
         </View>
@@ -188,25 +194,25 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
 
   if (!pet) {
     return (
-      <View style={layout.screen}>
+      <View style={screenStyle}>
         <Topbar title={displayName(profile)} />
         <Pager />
         <View style={[styles.center, styles.messageBody]}>
-          <Text style={styles.messageTitle}>No pet yet</Text>
-          <Text style={styles.messageBodyText}>{displayName(profile)} hasn't adopted a pet yet.</Text>
+          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>No pet yet</Text>
+          <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>{displayName(profile)} hasn't adopted a pet yet.</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={layout.screen}>
+    <View style={screenStyle}>
       <Topbar title={displayName(profile)} />
       <Pager />
       {/* `status` is always set by the time we reach here: it's only left
           `null` while `state === 'loading'`, or when `pet` is null (handled
           above). */}
-      {status ? <FriendPetCard profile={profile} pet={pet} status={status} /> : null}
+      {status ? <FriendPetCard profile={profile} pet={pet} status={status} palette={palette} /> : null}
     </View>
   );
 }

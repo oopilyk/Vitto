@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
@@ -25,8 +25,6 @@ const GYM_NIGHT = require('../../assets/environments/gym-night.png');
 /** The art's own top-edge tone -- see `EnvironmentBackdrop`. */
 const DAY_TINT = '#8f7f6d';
 const NIGHT_TINT = '#433558';
-
-const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 
 interface GymEnvironmentControlsProps {
   onStartWorkout: () => void;
@@ -58,12 +56,7 @@ function GymEnvironmentControls({
   return (
     <>
       <LogWorkoutButton onPress={onStartWorkout} />
-      <View style={styles.bottomRow}>
-        {/* No Gym button here -- the pet is already in the Gym, so that slot
-            becomes the Kitchen instead. "Log workout" above is the scene's own
-            action. */}
-        <EnvironmentActionRow current="gym" onNavigate={onNavigate} night={night} />
-      </View>
+      <EnvironmentActionRow current="gym" onNavigate={onNavigate} night={night} />
     </>
   );
 }
@@ -78,14 +71,6 @@ export function gymEnvironment(props: GymEnvironmentControlsProps): EnvironmentD
 }
 
 const styles = StyleSheet.create({
-  // Matches MainEnvironment's and KitchenEnvironment's `bottomRow` exactly so the
-  // buttons land in the same spots in every scene.
-  bottomRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: HOME_INDICATOR_INSET,
-  },
   workoutSlot: {
     position: 'absolute',
     top: '32%',

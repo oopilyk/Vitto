@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { deriveSocialPetStatus, SOCIAL_ACTIVITY_POSE, type RecentActivitySignal } from './socialPetStatus';
+import {
+  deriveSocialHealth,
+  deriveSocialPetStatus,
+  SOCIAL_ACTIVITY_POSE,
+  SOCIAL_PLACE_LABEL,
+  type RecentActivitySignal,
+} from './socialPetStatus';
 import { createPet } from './pet';
 import { getStatusEffects } from './petStatusEffects';
 
@@ -110,6 +116,59 @@ describe('deriveSocialPetStatus', () => {
       expect(status.activity).toBe(expectedActivity);
       expect(status.headline.length).toBeGreaterThan(0);
     }
+  });
+
+  it('places the pet in the room its live activity implies', () => {
+    const rooms: Array<[RecentActivitySignal['type'], string]> = [
+      ['WORKOUT', 'gym'],
+      ['MEAL', 'kitchen'],
+      ['STEP_ACTIVITY', 'outdoors'],
+      ['BRAIN_TRAINING', 'study'],
+    ];
+    for (const [type, place] of rooms) {
+      const status = deriveSocialPetStatus(pet(), [signal(type, minutesAgo(5))], NOW);
+      expect(status.place).toBe(place);
+      expect(status.placeLabel).toBe(SOCIAL_PLACE_LABEL[place as keyof typeof SOCIAL_PLACE_LABEL]);
+    }
+  });
+
+  it('sends the pet home once the activity is no longer live', () => {
+    const status = deriveSocialPetStatus(pet(), [signal('WORKOUT', minutesAgo(120))], NOW);
+    expect(status.isLive).toBe(false);
+    expect(status.place).toBe('home');
+    expect(status.placeLabel).toBe('At home');
+  });
+
+  it('is home with no signals at all', () => {
+    expect(deriveSocialPetStatus(pet(), [], NOW).place).toBe('home');
+  });
+
+  it('carries a toned health read that always has a value', () => {
+    // Healthy: nothing wrong, nothing outstanding.
+    const neutral = pet({ health: 50, nutrition: 50, energy: 50, happiness: 50, mind: 50 });
+    expect(deriveSocialPetStatus(neutral, [], NOW).health).toEqual({
+      level: 'healthy',
+      label: 'Healthy',
+      tone: 'neutral',
+    });
+    // Thriving: every vital high.
+    expect(deriveSocialPetStatus(pet(), [], NOW).health).toEqual({
+      level: 'thriving',
+      label: 'Thriving',
+      tone: 'good',
+    });
+    // Dying outranks everything and reads as the worst tone.
+    expect(deriveSocialPetStatus(pet({ health: 5 }), [], NOW).health).toEqual({
+      level: 'dying',
+      label: 'Fading',
+      tone: 'bad',
+    });
+  });
+
+  it('deriveSocialHealth agrees with the status field and with getStatusEffects labels', () => {
+    const foggy = pet({ mind: 5 });
+    expect(deriveSocialHealth(foggy)).toEqual(deriveSocialPetStatus(foggy, [], NOW).health);
+    expect(deriveSocialHealth(foggy).label).toBe(getStatusEffects(foggy)[0]?.label);
   });
 
   it('only defines a PetAvatar pose for activities with real matching art', () => {

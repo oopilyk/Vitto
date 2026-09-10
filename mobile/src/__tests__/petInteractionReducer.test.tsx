@@ -92,6 +92,24 @@ describe('petInteractionReducer', () => {
     expect(petInteractionReducer(exploring, { type: 'EXPLORE_FINISHED' })).toEqual(IDLE_STATE);
   });
 
+  it('runs a room-change dash from idle/noticing only, and never over a care moment', () => {
+    const travelling = petInteractionReducer(IDLE_STATE, { type: 'TRAVEL_STARTED' });
+    expect(travelling).toEqual({ kind: 'travelling' });
+    expect(petInteractionReducer(travelling, { type: 'TRAVEL_FINISHED' })).toEqual(IDLE_STATE);
+
+    const noticing = petInteractionReducer(IDLE_STATE, { type: 'PET_NOTICED' });
+    expect(petInteractionReducer(noticing, { type: 'TRAVEL_STARTED' })).toEqual({ kind: 'travelling' });
+
+    // Navigating mid-meal / mid-workout must not cut it short.
+    const eating: PetInteractionState = { kind: 'eating', feedingImage: null, grade: 'A' };
+    const workingOut: PetInteractionState = { kind: 'workingOut' };
+    expect(petInteractionReducer(eating, { type: 'TRAVEL_STARTED' })).toEqual(eating);
+    expect(petInteractionReducer(workingOut, { type: 'TRAVEL_STARTED' })).toEqual(workingOut);
+
+    // A stale finish timer landing after the pet moved on is ignored.
+    expect(petInteractionReducer(eating, { type: 'TRAVEL_FINISHED' })).toEqual(eating);
+  });
+
   it('starts and stops ambient walking from idle or noticing, but not over anything more specific', () => {
     const walking = petInteractionReducer(IDLE_STATE, { type: 'AMBIENT_WALKING_STARTED' });
     expect(walking).toEqual({ kind: 'ambientWalking' });

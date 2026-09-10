@@ -1,4 +1,5 @@
 import {
+  type FriendOverview,
   type FriendProfileSummary,
   type FriendRequest,
   type FriendRequestStatus,
@@ -7,6 +8,8 @@ import {
   errorMessage,
   isValidUsername,
   newId,
+  otherPartyId,
+  partitionFriendRequests,
   requireSupabase,
 } from '@vitto/core';
 
@@ -95,6 +98,39 @@ const toPetState = (row: FriendPetRow): PetState => ({
 });
 
 /**
+ * One row of `get_friends_overview` -- the whole friends list in a single RPC,
+ * rather than N per-friend round trips. `pet` is a raw `pets` row (snake_case
+ * JSON) that `toPetState` already knows how to map, or `null` for a friend who
+ * has not adopted one.
+ */
+type FriendsOverviewRow = {
+  friend_id: string;
+  username: string | null;
+  display_name: string | null;
+  pet: FriendPetRow | null;
+  last_activity_type: RecentActivitySignal['type'] | null;
+  last_activity_at: string | null;
+  friends_since: string;
+};
+
+const toFriendOverview = (row: FriendsOverviewRow): FriendOverview => ({
+  friendId: row.friend_id,
+  profile: {
+    id: row.friend_id,
+    username: row.username ?? '',
+    displayName: row.display_name,
+  },
+  pet: row.pet ? toPetState(row.pet) : null,
+  // Both halves must be present to count as a signal -- a type with no
+  // timestamp (or vice versa) is dropped rather than passed on half-formed.
+  lastActivity:
+    row.last_activity_type && row.last_activity_at
+      ? { type: row.last_activity_type, occurredAt: row.last_activity_at }
+      : null,
+  friendsSince: row.friends_since,
+});
+
+/**
  * Postgres reports a unique-constraint violation as `23505` -- see the
  * `missingColumn` comment in `packages/core/src/supabaseRepository.ts` for the
  * sibling pattern of matching on Supabase's error shape.
@@ -108,6 +144,14 @@ const toPetState = (row: FriendPetRow): PetState => ({
  * username"); this is incremental, not novel. Not treated as a defect.
  */
 const UNIQUE_VIOLATION = '23505';
+
+/**
+ * PostgREST returns `PGRST202` when an RPC target is not in the schema cache --
+ * which is what a not-yet-applied migration looks like from the client. Used to
+ * fall back to an older code path rather than surfacing a raw error.
+ */
+const isMissingFunction = (error: { code?: string; message?: string } | null): boolean =>
+  error?.code === 'PGRST202' || /schema cache/i.test(error?.message ?? '');
 
 export const mapSetUsernameError = (error: { code?: string; message?: string } | null): string => {
   if (error?.code === UNIQUE_VIOLATION) return 'That username is taken.';
@@ -182,6 +226,61 @@ export class FriendsService {
     const client = requireSupabase();
     const { error } = await client.from('friend_requests').delete().eq('id', requestId);
     if (error) throw new Error(errorMessage(error, 'Could not remove that friend request.'));
+  }
+
+  /**
+   * The accepted-friends list, batched: one `get_friends_overview` call returns
+   * every friend's minimal profile, current pet row, and single most-recent
+   * privacy-safe activity signal. Feed a row's `pet` + `[lastActivity]` straight
+   * into `deriveSocialPetStatus` for its location/health line. Incoming and
+   * outgoing requests still come from `loadMyFriendRequests` -- this RPC is
+   * accepted friendships only.
+   *
+   * Falls back to composing the same shape from the older per-friend RPCs when
+   * `get_friends_overview` is not in the database yet (its migration
+   * unapplied) -- PostgREST answers that with `PGRST202`. The fallback is 3N
+   * round trips instead of one, but it keeps the friends screen working the
+   * moment the app ships, before the migration is pushed.
+   */
+  async loadFriendsOverview(): Promise<FriendOverview[]> {
+    const client = requireSupabase();
+    const { data, error } = await client.rpc('get_friends_overview');
+    if (error) {
+      if (isMissingFunction(error)) return this.loadFriendsOverviewPerFriend();
+      throw new Error(errorMessage(error, 'Could not load your friends.'));
+    }
+    return ((data ?? []) as FriendsOverviewRow[]).map(toFriendOverview);
+  }
+
+  /** Pre-`get_friends_overview` path: one `FriendOverview` per accepted friend,
+   *  assembled from the RPCs that already exist. */
+  private async loadFriendsOverviewPerFriend(): Promise<FriendOverview[]> {
+    const client = requireSupabase();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user) throw new Error('Sign in to see your friends.');
+
+    const requests = await this.loadMyFriendRequests();
+    const { accepted } = partitionFriendRequests(requests, user.id);
+
+    return Promise.all(
+      accepted.map(async (request) => {
+        const friendId = otherPartyId(request, user.id);
+        const [profile, pet, signals] = await Promise.all([
+          this.loadFriendProfile(friendId),
+          this.loadFriendPet(friendId),
+          this.loadFriendRecentActivity(friendId).catch(() => [] as RecentActivitySignal[]),
+        ]);
+        return {
+          friendId,
+          profile: profile ?? { id: friendId, username: '', displayName: null },
+          pet,
+          lastActivity: signals[0] ?? null,
+          friendsSince: request.respondedAt ?? request.createdAt,
+        };
+      }),
+    );
   }
 
   async loadMyFriendRequests(): Promise<FriendRequest[]> {

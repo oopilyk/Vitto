@@ -60,6 +60,14 @@ export type PetInteractionState =
    * can never race each other's finish.
    */
   | { kind: 'ambientWalking' }
+  /**
+   * A short dash when a scene button is tapped -- the pet running from one room
+   * to the next. Timed (`TRAVEL_DURATION_MS`) and maps to the same `move` sprite
+   * band as `exploring`/`ambientWalking`, but only ever starts from
+   * idle/noticing (like `ambientWalking`) so navigating mid-meal can't cut the
+   * meal short.
+   */
+  | { kind: 'travelling' }
   /** Distinct from `idle`: a true sleep read, driven by energy rather than an action. */
   | { kind: 'sleeping' };
 
@@ -97,6 +105,8 @@ export type PetInteractionEvent =
   | { type: 'EXPLORE_FINISHED' }
   | { type: 'AMBIENT_WALKING_STARTED' }
   | { type: 'AMBIENT_WALKING_STOPPED' }
+  | { type: 'TRAVEL_STARTED' }
+  | { type: 'TRAVEL_FINISHED' }
   | { type: 'SLEEP_STARTED' }
   | { type: 'SLEEP_ENDED' }
   | { type: 'RESET' };

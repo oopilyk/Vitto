@@ -8,6 +8,9 @@
  * client (mobile, and web later).
  */
 
+import type { PetState } from './pet';
+import type { RecentActivitySignal } from './socialPetStatus';
+
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined';
 
 export interface FriendRequest {
@@ -39,6 +42,26 @@ export interface Friend {
   requestId: string;
   profile: FriendProfileSummary;
   since: string;
+}
+
+/**
+ * Everything one row of the friends list needs, in a single batched read
+ * (`get_friends_overview` -- one RPC for the whole list, not three per friend).
+ *
+ * `pet` is the friend's full pet row (already friend-visible via the `pets`
+ * RLS policy) or `null` if they have not adopted one. `lastActivity` is the
+ * single most recent privacy-safe activity signal (type + time only, last few
+ * days) -- enough for the list's status line; the friend-pet detail screen
+ * still fetches the fuller history. Feed `pet` + `[lastActivity]` straight into
+ * `deriveSocialPetStatus` for the row's location and health read.
+ */
+export interface FriendOverview {
+  friendId: string;
+  profile: FriendProfileSummary;
+  pet: PetState | null;
+  lastActivity: RecentActivitySignal | null;
+  /** When the two accounts became friends -- for stable list ordering. */
+  friendsSince: string;
 }
 
 /**

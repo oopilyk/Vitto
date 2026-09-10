@@ -1099,6 +1099,7 @@ export default function App() {
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
+              onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
               isWalking={walkingNow}
               atGym={atGymNow}
               accountInitial={session?.user.email?.charAt(0)}
