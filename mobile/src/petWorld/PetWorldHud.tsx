@@ -175,37 +175,32 @@ export function PetWorldHud({
             </Text>
           </View>
 
-          {/* The status cluster sits on a soft dark scrim — not a bordered
-              panel — so cream text stays crisp against the warm wall AND the
-              room, without adding another box. */}
-          <View style={[styles.statusScrim, night && styles.statusScrimNight]}>
-            {/* The line people actually glance up for — a sentence, so it reads
-                like one: mono, regular weight. */}
-            <Text style={styles.feeling} numberOfLines={2}>
-              {feeling}
-            </Text>
-            {/* One quiet meta line: day count, then the streak as a bare
-                fire+number, then the partner. */}
-            <Text
-              style={styles.meta}
-              accessibilityLabel={
-                streaks.currentStreak > 0
-                  ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}.`
-                  : undefined
-              }
-            >
-              {dayLabel}
-              {streaks.currentStreak > 0 ? (
-                <Text style={styles.metaFlame}>{`   ·   🔥 ${streaks.currentStreak}`}</Text>
-              ) : null}
-              {partnerName ? (
-                <Text style={styles.metaSoft}>
-                  {'   ·   '}
-                  <Text>Raised with {partnerName}</Text>
-                </Text>
-              ) : null}
-            </Text>
-          </View>
+          {/* The line people actually glance up for — a sentence, so it reads
+              like one: mono, regular weight, straight on the scene (no box). */}
+          <Text style={[styles.feeling, night && styles.feelingNight]} numberOfLines={2}>
+            {feeling}
+          </Text>
+          {/* One quiet meta line: day count, then the streak as a bare
+              fire+number, then the partner. */}
+          <Text
+            style={[styles.meta, night && styles.metaNight]}
+            accessibilityLabel={
+              streaks.currentStreak > 0
+                ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}.`
+                : undefined
+            }
+          >
+            {dayLabel}
+            {streaks.currentStreak > 0 ? (
+              <Text style={styles.metaFlame}>{`   ·   🔥 ${streaks.currentStreak}`}</Text>
+            ) : null}
+            {partnerName ? (
+              <Text style={[styles.metaSoft, night && styles.metaSoftNight]}>
+                {'   ·   '}
+                <Text>Raised with {partnerName}</Text>
+              </Text>
+            ) : null}
+          </Text>
         </View>
 
         <View style={styles.sideRight} pointerEvents="box-none">
@@ -315,34 +310,37 @@ const styles = StyleSheet.create({
     color: world.ink,
   },
 
-  statusScrim: {
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignItems: 'center',
-    backgroundColor: 'rgba(36,26,18,0.46)',
-  },
-  statusScrimNight: { backgroundColor: 'rgba(8,6,8,0.5)' },
   feeling: {
     fontFamily: fonts.mono,
     fontSize: 13,
+    fontWeight: '700',
     lineHeight: 18,
     letterSpacing: 0.2,
-    color: '#f7efdd',
+    color: '#241a11', // near-black warm brown — reads on the tan HUD band
     textAlign: 'center',
+    marginTop: 10,
+    textShadowColor: 'rgba(247,240,224,0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
+  feelingNight: { color: '#f4ecda', textShadowColor: 'rgba(0,0,0,0.55)' },
   meta: {
     fontFamily: fonts.mono,
     fontSize: 10,
+    fontWeight: '700',
     letterSpacing: 0.8,
-    color: 'rgba(247,239,221,0.78)',
+    color: '#4a3c2b',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 5,
     textTransform: 'uppercase',
+    textShadowColor: 'rgba(247,240,224,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
-  metaSoft: { color: 'rgba(247,239,221,0.66)' },
-  metaFlame: { color: '#f0a878', fontWeight: '700' },
+  metaNight: { color: '#cdbfa6', textShadowColor: 'rgba(0,0,0,0.5)' },
+  metaSoft: { color: '#6e5c43', fontWeight: '400' },
+  metaSoftNight: { color: '#a99a83' },
+  metaFlame: { color: '#b25a35', fontWeight: '700' },
 
   rail: { alignItems: 'flex-end', gap: 12 },
   disc: {
