@@ -148,10 +148,13 @@ describe('screens render', () => {
         onNameChange={() => {}}
         profile={profile}
         onUpdate={() => {}}
-          onSetUnits={() => {}}
         onAdopt={() => {}}
         breed="shiba"
         onBreedChange={() => {}}
+        personality="supportive"
+        onPersonalityChange={() => {}}
+        stepGoal={10000}
+        onStepGoalChange={() => {}}
         error={null}
       />,
       );
@@ -1855,43 +1858,6 @@ describe('care partners', () => {
     tree.unmount();
   });
 
-  it('changes both units together from the one Units toggle', () => {
-    const { measurementSystemOf } = require('@vitto/core');
-    let saved: any = null;
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <ProfileScreen
-          profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
-          events={[]}
-          onSave={async (next: any) => {
-            saved = next;
-          }}
-          onClose={() => {}}
-        />,
-      );
-    });
-    expect(measurementSystemOf(profile)).toBe('metric');
-
-    // The imperial chip: one press, and height follows weight.
-    const imperial = tree.root
-      .findAll((node: any) => typeof node.props.onPress === 'function')
-      .find((node: any) =>
-        node.findAllByType(RNText).some((text: any) => text.props.children === 'Imperial'),
-      );
-    expect(imperial).toBeTruthy();
-    act(() => imperial!.props.onPress());
-
-    const rendered = JSON.stringify(tree.toJSON());
-    // Both the weight field label and the height fields switch over.
-    expect(rendered).toContain('Weight (lb)');
-    expect(rendered).toContain('Height (ft)');
-    expect(rendered).not.toContain('Weight (kg)');
-    tree.unmount();
-  });
-
   it('never offers to leave your own pet, even once it is shared', () => {
     const tree = renderProfile(partnerProps({ members: [owner, alex] }));
     expect(findButton(tree, 'Leave Miso')).toBeUndefined();
@@ -2196,7 +2162,7 @@ describe('care partners', () => {
     tree.unmount();
   });
 
-  const renderOnboardingLastStep = (onRedeemInvite?: (code: string) => Promise<boolean>) => {
+  const renderOnboarding = (onRedeemInvite?: (code: string) => Promise<boolean>) => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -2205,43 +2171,42 @@ describe('care partners', () => {
           onNameChange={() => {}}
           profile={profile}
           onUpdate={() => {}}
-          onSetUnits={() => {}}
           onAdopt={() => {}}
           breed="shiba"
           onBreedChange={() => {}}
+          personality="supportive"
+          onPersonalityChange={() => {}}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
           error={null}
           onRedeemInvite={onRedeemInvite}
         />,
       );
     });
-    // Three "Continue"s reach the last step; the test profile passes every check.
-    for (let step = 0; step < 3; step += 1) {
-      act(() => findButton(tree, 'Continue')!.props.onPress());
-    }
-    expect(findButton(tree, 'Adopt Miso')).toBeTruthy();
     return tree;
   };
 
   it('offers to join a partner instead of adopting, only when signed in online', async () => {
     const redeemed: string[] = [];
-    const tree = renderOnboardingLastStep(async (code) => {
+    const tree = renderOnboarding(async (code) => {
       redeemed.push(code);
       return true;
     });
-    const reveal = findButton(tree, "Got an invite code? Join a partner's pet instead");
+    // The join affordance lives on the first (welcome) step now.
+    const reveal = findButton(tree, "Have an invite code? Join a partner’s pet");
     expect(reveal).toBeTruthy();
     act(() => reveal!.props.onPress());
     const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
     expect(input).toBeTruthy();
     act(() => input!.props.onChangeText('abc def'));
     await act(async () => {
-      await findButton(tree, 'Join')!.props.onPress();
+      await findButton(tree, 'Join their pet')!.props.onPress();
     });
     expect(redeemed).toEqual(['ABCDEF']);
     tree.unmount();
 
-    const offline = renderOnboardingLastStep();
-    expect(findButton(offline, "Got an invite code? Join a partner's pet instead")).toBeUndefined();
+    const offline = renderOnboarding();
+    expect(findButton(offline, "Have an invite code? Join a partner’s pet")).toBeUndefined();
     offline.unmount();
   });
 });

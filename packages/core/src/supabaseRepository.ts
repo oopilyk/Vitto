@@ -12,7 +12,7 @@ import {
 } from './domain/carePartners';
 import { requireSupabase } from './config';
 
-type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 type PetMemberRow = { user_id: string; role: PetMember['role']; joined_at: string; left_at: string | null; display_name: string | null };
 type PetInviteRow = { id: string; pet_id: string; code: string; created_at: string; expires_at: string; redeemed_at: string | null; revoked_at: string | null };
@@ -146,6 +146,7 @@ const petPayload = (pet: PetState) =>
     recovery: pet.recovery,
     mind: pet.mind,
     mood: pet.mood,
+    personality: pet.personality ?? null,
     adopted_at: pet.adoptedAt,
     last_event_at: pet.lastEventAt ?? null,
   });
@@ -177,6 +178,11 @@ export class SupabaseRepository {
       focusAreas: Array.isArray(data.focus_areas) ? data.focus_areas : undefined,
       screenTimeBudgetMinutes: data.screen_time_budget_minutes ?? undefined,
       displayName: usableDisplayName(data.display_name),
+      goalTargetDate: data.goal_target_date ?? undefined,
+      stepGoal: data.step_goal ?? undefined,
+      trainingTypes: Array.isArray(data.training_types) ? data.training_types : undefined,
+      dietaryPreference: data.dietary_preference ?? undefined,
+      motivations: Array.isArray(data.motivations) ? data.motivations : undefined,
     });
   }
 
@@ -200,6 +206,13 @@ export class SupabaseRepository {
       training_days_per_week: profile.trainingDaysPerWeek,
       training_style: profile.trainingStyle,
       focus_areas: profile.focusAreas,
+      // Onboarding-v2 inputs. Dropped + retried by `saveDroppingMissingColumns`
+      // on a database that has not run 20260910120000 yet, so the rest saves.
+      goal_target_date: profile.goalTargetDate ?? null,
+      step_goal: profile.stepGoal ?? null,
+      training_types: profile.trainingTypes ?? [],
+      dietary_preference: profile.dietaryPreference ?? null,
+      motivations: profile.motivations ?? [],
       // Dropped and retried by saveDroppingMissingColumns on a database that
       // has not run the screen-time migration yet, so the rest still saves.
       // `||` not `??`: zero means "no budget" everywhere else (engine, mapping),
@@ -215,7 +228,7 @@ export class SupabaseRepository {
   }
 
   private static toPetState(row: PetRow): PetState {
-    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
+    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
   }
 
   /**

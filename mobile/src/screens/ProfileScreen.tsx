@@ -747,22 +747,6 @@ export function ProfileScreen({
             </View>
           )}
 
-          {/* One toggle for every unit, matching the one at sign-up: weight and
-              height always move together. */}
-          <Group label="Units">
-            <ChoiceRow
-              options={[
-                { value: 'metric' as const, label: 'Metric', detail: 'kg · cm' },
-                { value: 'imperial' as const, label: 'Imperial', detail: 'lb · ft/in' },
-              ]}
-              value={measurementSystemOf(profile)}
-              onChange={(value: MeasurementSystem) => {
-                // One update, not two: both unit fields move together.
-                setProfile((current) => withMeasurementSystem(current, value));
-                setError(null);
-              }}
-            />
-          </Group>
 
           <Group label="Sex">
             <ChoiceRow
