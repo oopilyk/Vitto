@@ -21,8 +21,13 @@ import { PixelConfetti } from './PixelConfetti';
  * The "achievement unlocked" moment. Same family as `LevelUpCelebration` —
  * veil, spring-in, confetti, a retro plate — but smaller and quicker: a level-up
  * is the pet's moment and takes the whole screen; this is the user's, and it
- * should feel like a reward without stopping play for long. It dismisses itself
- * after a beat, or on tap.
+ * should feel like a reward without stopping play for long. It waits for a tap.
+ *
+ * Deliberately NOT self-dismissing. Most unlocks happen while the user is still
+ * inside the sheet that caused them — the meal, workout or mind-gym screen — and
+ * this mounts on the dashboard beneath that sheet. A timer would have it come
+ * and go before the sheet closes, and the user would never see it. Waiting for
+ * a tap is how the level-up celebration already handles the same thing.
  *
  * Presentation only. The achievement is derived from history and already
  * counted as seen by the time this mounts; if it never renders, nothing is lost.
@@ -31,7 +36,7 @@ import { PixelConfetti } from './PixelConfetti';
  *   0    veil in, success haptic
  *   180  plate springs in, pet springs up beside it playing its cheer band
  *   420  confetti bursts; the title slams in
- *   2600 auto-dismiss (unless tapped first)
+ *   then holds until tapped
  */
 interface Props {
   id: AchievementId;
@@ -40,8 +45,6 @@ interface Props {
   night?: boolean;
   onComplete: () => void;
 }
-
-const AUTO_DISMISS_MS = 2600;
 
 const TROPHY_ART: Partial<Record<AchievementId, ReturnType<typeof require>>> = {
   dumbbell: require('../../assets/trophies/dumbbell.png'),
@@ -108,7 +111,6 @@ export function AchievementUnlock({ id, pet, profile, night, onComplete }: Props
       if (!rm) setConfetti(true);
       spring(titleIn, 120).start();
     });
-    at(AUTO_DISMISS_MS, finish);
     return () => timers.current.forEach(clearTimeout);
     // The timeline runs once per mount; `finish` and the values are stable refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps

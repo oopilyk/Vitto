@@ -1771,6 +1771,74 @@ describe('care partners', () => {
     }
   });
 
+  it('holds until tapped rather than dismissing itself, so it survives a sheet closing over it', async () => {
+    const { AchievementUnlock } = require('../celebrations/AchievementUnlock');
+    jest.useFakeTimers();
+    try {
+      let completed = 0;
+      let tree!: renderer.ReactTestRenderer;
+      await act(async () => {
+        tree = renderer.create(
+          <AchievementUnlock
+            id="first_meal"
+            pet={pet}
+            profile={{ trainingDaysPerWeek: 3 }}
+            onComplete={() => {
+              completed += 1;
+            }}
+          />,
+        );
+      });
+      // Well past the whole timeline and any plausible auto-dismiss.
+      await act(async () => {
+        jest.advanceTimersByTime(10_000);
+      });
+      expect(completed).toBe(0);
+      await act(async () => {
+        tree.unmount();
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('mounts the unlock on the dashboard, but not while a level-up owns the screen', async () => {
+    const render = (extra: Record<string, unknown>) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <DashboardScreen
+            pet={pet}
+            events={[]}
+            reaction={null}
+            onLogMeal={() => {}}
+            onLogWorkout={() => {}}
+            onSyncSteps={() => {}}
+            onTrainMind={() => {}}
+            onOpenProfile={() => {}}
+            onOpenStats={() => {}}
+            onOpenToday={() => {}}
+            interaction={idleInteraction}
+            {...extra}
+          />,
+        );
+      });
+      return tree;
+    };
+    const unlock = { id: 'first_meal', trainingDaysPerWeek: 3 };
+
+    const shown = render({ achievementUnlock: unlock });
+    expect(JSON.stringify(shown.toJSON())).toContain('First bite');
+    shown.unmount();
+
+    const behindLevelUp = render({
+      achievementUnlock: unlock,
+      celebration: { kind: 'levelUp', petId: pet.id, level: 2 },
+    });
+    expect(JSON.stringify(behindLevelUp.toJSON())).not.toContain('First bite');
+    behindLevelUp.unmount();
+  });
+
   it('says TROPHY EARNED, with the trophy art, for a shelf trophy', async () => {
     const { AchievementUnlock } = require('../celebrations/AchievementUnlock');
     let tree!: renderer.ReactTestRenderer;

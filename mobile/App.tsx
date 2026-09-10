@@ -1113,16 +1113,25 @@ export default function App() {
   // is then extended so each unlock is shown exactly once.
   useEffect(() => {
     if (!dataReady || seenAchievements === null) return;
+
+    // First run on this device: record what is already earned, silently, and
+    // do it whether or not that is anything. This used to happen only when the
+    // first pass found something new — so on a fresh account (nothing earned
+    // yet) nothing was stored, the seed never "happened", and the very first
+    // real unlock was then swallowed as the seed instead of announced.
+    if (!seenEverStored.current) {
+      seenEverStored.current = true;
+      const seeded = new Set(achievementsNow);
+      setSeenAchievements(seeded);
+      void repository.saveSeenAchievements([...seeded]).catch(() => undefined);
+      return;
+    }
+
     const fresh = newlyUnlocked(achievementsNow, seenAchievements);
     if (fresh.length === 0) return;
     const next = new Set([...seenAchievements, ...fresh]);
     setSeenAchievements(next);
     void repository.saveSeenAchievements([...next]).catch(() => undefined);
-    // First run on a device with history: record, don't announce.
-    if (!seenEverStored.current) {
-      seenEverStored.current = true;
-      return;
-    }
     setUnlockQueue((queue) => [...queue, ...fresh]);
     // `repository` is a stable module-level instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
