@@ -199,6 +199,10 @@ export class LocalRepository {
     throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
   }
 
+  async deleteAccount(): Promise<void> {
+    throw new Error('Deleting an account needs an online account.');
+  }
+
   // Same shapes as the remote repository, so the two cannot drift apart.
   async redeemInvite(code: string): Promise<string> {
     void code;

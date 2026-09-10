@@ -18,9 +18,16 @@ export interface FriendsPalette {
   primaryText: string;
   secondaryText: string;
   divider: string;
-  /** The pinned "wants to be friends" banner. */
+  /**
+   * The pinned "wants to be friends" banner. Neutral on purpose: it used to be
+   * the coral wash, which is the same family as `ErrorText` and the Decline
+   * link, so a friendly invitation read as something having gone wrong. The
+   * Accept (mint) and Decline (coral) links carry the meaning instead.
+   */
   bannerBg: string;
   bannerText: string;
+  /** Keeps the neutral banner distinct from the rows beneath it. */
+  bannerBorder: string;
   /** Circle behind a pet-less friend's initial. */
   avatarPlaceholderBg: string;
 }
@@ -31,8 +38,9 @@ export const FRIENDS_LIGHT: FriendsPalette = {
   primaryText: colors.ink,
   secondaryText: colors.muted,
   divider: colors.hairline,
-  bannerBg: colors.coralWash,
-  bannerText: colors.coralDeep,
+  bannerBg: colors.card,
+  bannerText: colors.ink,
+  bannerBorder: colors.border,
   avatarPlaceholderBg: colors.sageSoft,
 };
 
@@ -42,8 +50,9 @@ export const FRIENDS_DARK: FriendsPalette = {
   primaryText: '#f7f5ff',
   secondaryText: '#9a97a6',
   divider: '#2c2b33',
-  bannerBg: '#3a1f1a',
-  bannerText: '#f0b7ab',
+  bannerBg: '#1c1b21',
+  bannerText: '#f7f5ff',
+  bannerBorder: '#3a3944',
   avatarPlaceholderBg: '#2c2b33',
 };
 

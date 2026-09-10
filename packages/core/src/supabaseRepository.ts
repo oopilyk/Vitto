@@ -241,12 +241,30 @@ export class SupabaseRepository {
    */
   async loadPets(): Promise<PetState[]> {
     const client = requireClient();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user) return [];
+
+    // Joined through `pet_members`, NOT a bare `select *`.
+    //
+    // RLS policies are OR'd, and `pets` carries two SELECT policies: one for
+    // active members, and one letting an accepted FRIEND view their friend's
+    // pet (20260904120000). A bare select therefore returned every friend's pet
+    // as well as the caller's own, and the pet switcher showed them as extra
+    // pets the user supposedly cared for. The inner join is the actual rule the
+    // app wants: pets this user is an active member of.
     const { data, error } = await client
       .from('pets')
-      .select('*')
+      .select('*, pet_members!inner(user_id, left_at)')
+      .eq('pet_members.user_id', user.id)
+      .is('pet_members.left_at', null)
       .order('created_at', { ascending: true });
     if (error) throw error;
-    return (data as PetRow[]).map((row) => SupabaseRepository.toPetState(row));
+    return (data as (PetRow & { pet_members?: unknown })[]).map(({ pet_members, ...row }) => {
+      void pet_members; // The join is a filter; it is not part of the pet.
+      return SupabaseRepository.toPetState(row as PetRow);
+    });
   }
 
   /** One pet by id, for reloading the right row after a version conflict. */
@@ -483,6 +501,20 @@ export class SupabaseRepository {
    * the caller's memberships the database happened to return first, which with
    * two pets could be the one they adopted.
    */
+  /**
+   * Deletes the signed-in user and everything that belongs to them.
+   *
+   * Irreversible, and not something the client can do itself: `auth.users` is
+   * out of reach from an authenticated client, and a shared pet the user
+   * created has to be handed to its other carer in the same transaction or the
+   * cascade takes it. Both live in `delete_my_account`.
+   */
+  async deleteAccount(): Promise<void> {
+    const client = requireClient();
+    const { error } = await client.rpc('delete_my_account');
+    if (error) throw error;
+  }
+
   async leavePet(petId: string): Promise<void> {
     const client = requireClient();
     const { error } = await client.rpc('leave_pet', { p_pet_id: petId });

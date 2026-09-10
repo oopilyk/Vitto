@@ -76,6 +76,12 @@ interface Props {
   /** Omitted for a signed-out/local-only session -- friends require an account. */
   onOpenFriends?: () => void;
   /**
+   * Deletes the account for good. Owns its own confirmation (see App), so this
+   * is called only once the user has actually agreed. Absent offline.
+   */
+  onDeleteAccount?: () => Promise<void>;
+  deletingAccount?: boolean;
+  /**
    * Every achievement earned so far, badges and trophies. The card lists ALL
    * of them either way -- a locked one with its rule showing is the only place
    * the goals are written down, so hiding them would make the shelf unexplained.
@@ -263,6 +269,8 @@ export function ProfileScreen({
   onClose,
   onSignOut,
   onOpenFriends,
+  onDeleteAccount,
+  deletingAccount,
   achievements,
   appleHealthStatus,
   onConnectAppleHealth,
@@ -1152,6 +1160,21 @@ export function ProfileScreen({
             <TextButton label="Log out" onPress={onSignOut} />
           </View>
         ) : null}
+
+        {onDeleteAccount ? (
+          <View style={styles.deleteAccount}>
+            <TextButton
+              label={deletingAccount ? 'Deleting...' : 'Delete account'}
+              tone="coral"
+              disabled={deletingAccount}
+              onPress={() => void onDeleteAccount()}
+            />
+            <Text style={styles.deleteAccountHint}>
+              Permanently deletes your account, your pet and everything you have logged. A pet you
+              share stays with your care partner. This cannot be undone.
+            </Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       {dirty ? (
@@ -1310,6 +1333,14 @@ const styles = StyleSheet.create({
   partnerError: { ...text.error, fontSize: 12, marginTop: 12 },
   screenLogged: { marginTop: 14 },
   screenActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, marginTop: 14 },
+  deleteAccount: { marginTop: 18, alignItems: 'center', gap: 8, paddingHorizontal: 24 },
+  deleteAccountHint: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    lineHeight: 15,
+    color: colors.muted,
+    textAlign: 'center',
+  },
   signOut: { alignItems: 'center', paddingVertical: 10 },
   saveBar: {
     position: 'absolute',

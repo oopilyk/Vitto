@@ -1966,6 +1966,44 @@ describe('care partners', () => {
     tree.unmount();
   });
 
+  it('offers Delete account under Log out, and says what it destroys', async () => {
+    let deleted = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async () => {}}
+          onClose={() => {}}
+          onSignOut={() => {}}
+          onDeleteAccount={async () => {
+            deleted += 1;
+          }}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Delete account');
+    // The warning has to name the shared-pet outcome, which is the surprising part.
+    expect(rendered).toContain('cannot be undone');
+    expect(rendered).toContain('care partner');
+
+    await act(async () => {
+      await findButton(tree, 'Delete account')!.props.onPress();
+    });
+    expect(deleted).toBe(1);
+    tree.unmount();
+  });
+
+  it('hides Delete account offline, where there is no account to delete', () => {
+    const tree = renderProfile();
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Delete account');
+    tree.unmount();
+  });
+
   it('never offers to leave your own pet, even once it is shared', () => {
     const tree = renderProfile(partnerProps({ members: [owner, alex] }));
     expect(findButton(tree, 'Leave Miso')).toBeUndefined();
