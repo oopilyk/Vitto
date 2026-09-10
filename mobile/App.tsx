@@ -70,7 +70,8 @@ type RootStackParamList = {
   Dashboard: undefined;
   // Reached from the dashboard's account button rather than a tab, so it pushes
   // and backs out the same way every other screen off the dashboard does.
-  Profile: undefined;
+  /** `join` opens the care-partner code field straight away — the "+" tile's destination. */
+  Profile: { join?: boolean } | undefined;
   // A drill-down off the dashboard, so it pushes rather than presenting as a modal.
   PetStats: undefined;
   // Reached from Profile, same as Profile itself is reached from the dashboard.
@@ -1122,6 +1123,13 @@ export default function App() {
               onSyncSteps={() => void syncSteps()}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenProfile={() => navigation.navigate('Profile')}
+              // The "+" under the level ring. Absent once the joint slot is
+              // taken (the slot becomes the switcher) and offline (nothing to join).
+              onAddJointPet={
+                isOnline && canJoinAnotherPet(pets, userId)
+                  ? () => navigation.navigate('Profile', { join: true })
+                  : undefined
+              }
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
@@ -1146,8 +1154,9 @@ export default function App() {
           )}
         </RootStack.Screen>
         <RootStack.Screen name="Profile">
-          {({ navigation }) => (
+          {({ navigation, route }) => (
             <ProfileScreen
+              openJoin={route.params?.join === true}
               profile={profile}
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}

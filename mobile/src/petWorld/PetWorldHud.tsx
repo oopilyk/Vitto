@@ -63,6 +63,12 @@ interface PetWorldHudProps {
   pets?: { id: string; name: string; own?: boolean }[];
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
+  /**
+   * Opens the join-by-code flow. Passed only while the joint slot is free and
+   * the account is online, which is exactly when the "+" tile under the level
+   * ring should exist; once a second pet arrives that tile becomes the switcher.
+   */
+  onAddJointPet?: () => void;
   partnerName?: string;
   /** Switches the chrome to a dark-glass/bright-text treatment so it stays
    * legible over the night backgrounds. */
@@ -84,6 +90,7 @@ export function PetWorldHud({
   pets,
   activePetId,
   onSelectPet,
+  onAddJointPet,
   partnerName,
   night,
 }: PetWorldHudProps) {
@@ -114,6 +121,58 @@ export function PetWorldHud({
       <View style={styles.topRow} pointerEvents="box-none">
         <View style={styles.topSideLeft}>
           <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
+
+          {/* One slot, two states, directly under the ring. With a single pet
+              it is a "+" tile that starts the join-by-code flow; once the
+              joint pet arrives the same slot becomes the switcher. Same place
+              either way, so the eye learns where "the other pet" lives before
+              there is one. The active tab is inert, like the room hotbar. */}
+          {pets && pets.length > 1 && onSelectPet ? (
+            <View style={styles.slotColumn} pointerEvents="box-none">
+              {pets.map((candidate) => {
+                const selected = candidate.id === (activePetId ?? pets[0].id);
+                return (
+                  <Pressable
+                    key={candidate.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected, disabled: selected }}
+                    accessibilityLabel={`Show ${candidate.name}, your ${candidate.own ? 'own' : 'joint'} pet`}
+                    disabled={selected}
+                    onPress={() => onSelectPet(candidate.id)}
+                    style={[styles.petTab, night && styles.railDiscNight, selected && styles.petTabOn]}
+                  >
+                    <Text style={[styles.petTabKicker, night && styles.petTabKickerNight, selected && styles.petTabKickerOn]}>
+                      {candidate.own ? 'MINE' : 'JOINT'}
+                    </Text>
+                    <Text
+                      style={[styles.petTabLabel, night && styles.petTabLabelNight, selected && styles.petTabLabelOn]}
+                      numberOfLines={1}
+                    >
+                      {candidate.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : onAddJointPet ? (
+            <View style={styles.slotColumn} pointerEvents="box-none">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add a joint pet"
+                onPress={onAddJointPet}
+                hitSlop={6}
+                style={({ pressed }) => [
+                  retro.panel,
+                  night && retro.panelNight,
+                  styles.addTile,
+                  pressed && styles.iconPressed,
+                ]}
+              >
+                <Text style={[styles.addPlus, night && styles.addPlusNight]}>+</Text>
+                <Text style={[retro.label, night && retro.labelNight, styles.addLabel]}>JOINT PET</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.topCenter} pointerEvents="none">
@@ -198,37 +257,6 @@ export function PetWorldHud({
           </View>
         </View>
       </View>
-
-      {/* Which pet is on screen: yours, or the one you were invited to. Only
-          shown once there are two -- a one-option switcher is noise -- and
-          labelled by slot as well as by name, because the point of the switch
-          is knowing which one you are looking at. The active tab is inert, the
-          same rule as the room hotbar. */}
-      {pets && pets.length > 1 && onSelectPet ? (
-        <View style={styles.petSwitcher} pointerEvents="box-none">
-          {pets.map((candidate) => {
-            const selected = candidate.id === (activePetId ?? pets[0].id);
-            return (
-              <Pressable
-                key={candidate.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected, disabled: selected }}
-                accessibilityLabel={`Show ${candidate.name}, your ${candidate.own ? 'own' : 'joint'} pet`}
-                disabled={selected}
-                onPress={() => onSelectPet(candidate.id)}
-                style={[styles.petTab, night && styles.railDiscNight, selected && styles.petTabOn]}
-              >
-                <Text style={[styles.petTabKicker, night && styles.petTabKickerNight, selected && styles.petTabKickerOn]}>
-                  {candidate.own ? 'MINE' : 'JOINT'}
-                </Text>
-                <Text style={[styles.petTabLabel, night && styles.petTabLabelNight, selected && styles.petTabLabelOn]}>
-                  {candidate.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
 
       {/* Under the top row and hard right — a readout of what is wrong with the
           pet, not a third control. */}
@@ -388,15 +416,26 @@ const styles = StyleSheet.create({
   todayLabelNight: { color: '#f7f5ff' },
   todayMark: { fontSize: 16, color: colors.ink, fontFamily: fonts.mono },
   iconPressed: { opacity: 0.7, transform: [{ translateX: 1 }, { translateY: 1 }] },
-  petSwitcher: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginTop: 12 },
+  // Stacked under the level ring and as wide as its column, so the two tabs
+  // (or the "+" tile) read as part of the ring's own stack rather than as a
+  // strip floating over the room.
+  slotColumn: { marginTop: 10, gap: 6, width: SIDE_COLUMN, alignItems: 'stretch' },
   petTab: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 4,
     borderWidth: 2,
     borderColor: colors.ink,
     backgroundColor: colors.card,
   },
+  addTile: {
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPlus: { fontFamily: fonts.mono, fontSize: 26, lineHeight: 28, fontWeight: '700', color: colors.ink },
+  addPlusNight: { color: '#f7f5ff' },
+  addLabel: { fontSize: 9, marginTop: 2 },
   petTabOn: { borderColor: colors.coral, backgroundColor: colors.coralWash },
   // The slot kicker (MINE / JOINT) above the name — the reason the switch exists.
   petTabKicker: { fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1.2, color: colors.muted },

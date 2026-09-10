@@ -357,6 +357,62 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('offers a "+" under the level ring while the joint slot is free, and not once it is taken', () => {
+    let opened = 0;
+    const render = (pets: { id: string; name: string; own: boolean }[]) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <DashboardScreen
+            pet={pet}
+            events={[]}
+            reaction={null}
+            pets={pets}
+            activePetId={pets[0]?.id}
+            onSelectPet={() => {}}
+            onAddJointPet={() => {
+              opened += 1;
+            }}
+            onLogMeal={() => {}}
+            onLogWorkout={() => {}}
+            onSyncSteps={() => {}}
+            onTrainMind={() => {}}
+            onOpenProfile={() => {}}
+            onOpenStats={() => {}}
+            onOpenToday={() => {}}
+            interaction={idleInteraction}
+          />,
+        );
+      });
+      return tree;
+    };
+    const find = (tree: renderer.ReactTestRenderer, label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+
+    // One pet: the slot is a "+" that starts the join flow.
+    const solo = render([{ id: 'p', name: 'Miso', own: true }]);
+    const add = find(solo, 'Add a joint pet');
+    expect(add).toBeTruthy();
+    act(() => add!.props.onPress());
+    expect(opened).toBe(1);
+    // No switcher yet: the tile says "JOINT PET", but there is no tab to switch
+    // to, and no MINE tab either.
+    expect(find(solo, 'Show Miso, your own pet')).toBeUndefined();
+    expect(JSON.stringify(solo.toJSON())).not.toContain('MINE');
+    solo.unmount();
+
+    // Two pets: the same slot is now the switcher, and the "+" is gone.
+    const both = render([
+      { id: 'p', name: 'Miso', own: true },
+      { id: 'q', name: 'Blue', own: false },
+    ]);
+    expect(find(both, 'Add a joint pet')).toBeUndefined();
+    expect(find(both, 'Show Blue, your joint pet')).toBeTruthy();
+    both.unmount();
+  });
+
   it('shows nothing where the toast goes until something is logged', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

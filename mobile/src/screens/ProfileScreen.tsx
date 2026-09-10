@@ -62,6 +62,8 @@ interface Props {
   events: HealthEvent[];
   onSave: (profile: BodyProfile) => Promise<void>;
   onClose: () => void;
+  /** Land with the "Join a partner's pet" code field already open — the "+" tile's way in. */
+  openJoin?: boolean;
   onSignOut?: () => void;
   /** Omitted for a signed-out/local-only session -- friends require an account. */
   onOpenFriends?: () => void;
@@ -219,6 +221,7 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function ProfileScreen({
+  openJoin,
   profile: initial,
   breed,
   onBreedChange,
@@ -239,7 +242,7 @@ export function ProfileScreen({
 }: Props) {
   const [profile, setProfile] = useState(initial);
   // The invite-code entry, revealed on demand; raw text, normalised on submit.
-  const [showJoin, setShowJoin] = useState(false);
+  const [showJoin, setShowJoin] = useState(openJoin === true);
   const [joinCode, setJoinCode] = useState('');
   const [partnerError, setPartnerError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
