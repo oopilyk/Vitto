@@ -130,7 +130,11 @@ export function PetWorldHud({
           ) : null}
         </View>
 
-        <View style={styles.topSide} pointerEvents="box-none">
+        {/* Right column: the streak chip, then the secondary-control rail
+            stacked directly beneath it, per the product owner's "put them below
+            the streak button" note. `box-none` so the gaps between buttons
+            still pass taps through to the pet. */}
+        <View style={styles.topRight} pointerEvents="box-none">
           {streaks.currentStreak > 0 ? (
             <View
               style={[styles.streakChip, night && retro.panelNight]}
@@ -142,59 +146,56 @@ export function PetWorldHud({
               </Text>
             </View>
           ) : null}
+
+          <View style={styles.rail} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open your profile"
+              onPress={onOpenProfile}
+              hitSlop={8}
+              style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
+            >
+              <Text style={[styles.avatarLetter, night && styles.avatarLetterNight]}>
+                {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
+              </Text>
+            </Pressable>
+
+            {onOpenFriends ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open friends"
+                onPress={onOpenFriends}
+                hitSlop={8}
+                style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
+              >
+                <Image
+                  source={FRIENDS_ICON}
+                  resizeMode="contain"
+                  style={[styles.railIcon, { tintColor: night ? '#f7f5ff' : colors.ink }]}
+                />
+              </Pressable>
+            ) : null}
+
+            {/* Labelled, not a bare chevron: an arrow alone said only "there is
+                more that way", which is not the same as telling someone the
+                day's nutrition and care detail is behind it. Kept a rectangle
+                while the others are discs, per the product owner. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open today's detail"
+              onPress={onOpenToday}
+              hitSlop={8}
+              style={({ pressed }) => [
+                styles.todayButton,
+                night && styles.railDiscNight,
+                pressed && styles.iconPressed,
+              ]}
+            >
+              <Text style={[styles.todayLabel, night && styles.todayLabelNight]}>TODAY</Text>
+              <Text style={[styles.todayMark, night && styles.todayLabelNight]}>›</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
-
-      {/* A vertical rail of round buttons down the right edge, the way a Talking
-          Tom-style pet game lines its secondary controls beside the pet rather
-          than clustering them in a corner. `box-none` so the gaps between
-          buttons still pass taps through to the pet. */}
-      <View style={styles.rightRail} pointerEvents="box-none">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open your profile"
-          onPress={onOpenProfile}
-          hitSlop={8}
-          style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
-        >
-          <Text style={[styles.avatarLetter, night && styles.avatarLetterNight]}>
-            {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
-          </Text>
-        </Pressable>
-
-        {onOpenFriends ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open friends"
-            onPress={onOpenFriends}
-            hitSlop={8}
-            style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
-          >
-            <Image
-              source={FRIENDS_ICON}
-              resizeMode="contain"
-              style={[styles.railIcon, { tintColor: night ? '#f7f5ff' : colors.ink }]}
-            />
-          </Pressable>
-        ) : null}
-
-        {/* Labelled, not a bare chevron: an arrow alone said only "there is
-            more that way", which is not the same as telling someone the day's
-            nutrition and care detail is behind it. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open today's detail"
-          onPress={onOpenToday}
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.todayButton,
-            night && styles.railDiscNight,
-            pressed && styles.iconPressed,
-          ]}
-        >
-          <Text style={[styles.todayLabel, night && styles.todayLabelNight]}>TODAY</Text>
-          <Text style={[styles.todayMark, night && styles.todayLabelNight]}>›</Text>
-        </Pressable>
       </View>
 
       {pets && pets.length > 1 && onSelectPet ? (
@@ -257,7 +258,7 @@ const TOP_INSET = 58;
 
 /** The level ring's footprint — the side columns match it so the centre plate
  * lands on the true screen centre, not offset by a wider ring. */
-const SIDE_COLUMN = 82;
+const SIDE_COLUMN = 92;
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
     paddingTop: TOP_INSET,
   },
   topSideLeft: { width: SIDE_COLUMN, alignItems: 'flex-start' },
-  topSide: { width: SIDE_COLUMN, alignItems: 'flex-end' },
+  topRight: { width: SIDE_COLUMN, alignItems: 'flex-end' },
   topCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 6 },
   roomPlate: {
     paddingHorizontal: 12,
@@ -299,28 +300,26 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: colors.ink,
     borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
     shadowColor: '#1b1830',
     shadowOffset: { width: 3, height: 3 },
     shadowOpacity: 1,
     shadowRadius: 0,
     elevation: 4,
   },
-  streakText: { fontFamily: fonts.mono, fontSize: 13, fontWeight: '700', color: colors.ink },
+  streakText: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: colors.ink },
   streakTextNight: { color: '#f7f5ff' },
-  // Down the right edge, beside the pet -- not pinned to the top corner.
-  rightRail: {
-    position: 'absolute',
-    right: 12,
-    top: '34%',
+  // Stacked directly under the streak chip in the top-right column.
+  rail: {
     alignItems: 'flex-end',
     gap: 12,
+    marginTop: 12,
   },
   railDisc: {
-    width: 46,
-    height: 46,
-    borderRadius: 6,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: colors.card,
     borderWidth: 3,
     borderColor: colors.ink,
@@ -333,7 +332,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   railDiscNight: { backgroundColor: '#141226', borderColor: '#4b4870' },
-  railIcon: { width: 24, height: 24 },
+  railIcon: { width: 28, height: 28 },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -354,16 +353,16 @@ const styles = StyleSheet.create({
   chipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3, color: '#8c4433' },
   chipLabelBuff: { color: colors.mintDeep },
   chipLabelNight: { color: '#f7f5ff' },
-  avatarLetter: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: colors.ink },
+  avatarLetter: { fontFamily: fonts.mono, fontSize: 20, fontWeight: '700', color: colors.ink },
   avatarLetterNight: { color: '#f7f5ff' },
   todayButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingLeft: 10,
-    paddingRight: 8,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingLeft: 13,
+    paddingRight: 10,
+    paddingVertical: 12,
+    borderRadius: 8,
     backgroundColor: colors.card,
     borderWidth: 3,
     borderColor: colors.ink,
@@ -373,9 +372,9 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 4,
   },
-  todayLabel: { fontFamily: fonts.mono, fontSize: 10, fontWeight: '700', letterSpacing: 1, color: colors.ink },
+  todayLabel: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', letterSpacing: 1, color: colors.ink },
   todayLabelNight: { color: '#f7f5ff' },
-  todayMark: { fontSize: 13, color: colors.ink, fontFamily: fonts.mono },
+  todayMark: { fontSize: 16, color: colors.ink, fontFamily: fonts.mono },
   iconPressed: { opacity: 0.7, transform: [{ translateX: 1 }, { translateY: 1 }] },
   petSwitcher: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginTop: 12 },
   petTab: {

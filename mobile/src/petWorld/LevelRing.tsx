@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 
-const SIZE = 82;
-const STROKE = 6;
+const SIZE = 90;
+const STROKE = 7;
 
 /**
  * The pet's level/XP badge — the single loudest piece of HUD chrome, per the
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   },
   kicker: {
     fontFamily: fonts.mono,
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.5,
     color: colors.inkSoft,
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   },
   level: {
     fontFamily: fonts.mono,
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     color: colors.ink,
   },
