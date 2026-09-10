@@ -14,26 +14,24 @@ import {
 import { colors, fonts } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
 import { LevelRing } from './LevelRing';
-import { retro } from './retroStyle';
+import { retro, retroPressed } from './retroStyle';
 import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
 
 /** The product owner's own friends glyph, tinted per day/night at render time. */
 const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
 
 /**
- * The chrome that isn't either scene, in a retro / pixel-UI dressing:
+ * The chrome that isn't either scene, in the pet-world's pixel-UI language.
+ * One clear hierarchy, not a wall of equal boxes:
  *
- * - a big level ring top-left (the loudest element, per the product owner);
- * - the room name on a retro plate dead centre, with a small
- *   "<pet> is feeling <mood>" line under it;
- * - the streak as a bare `🔥 n` chip top-right;
- * - a rail of profile / friends / today buttons down the right edge.
- *
- * The pet's *name* deliberately does not live here any more — it pops up in a
- * hover/tap bubble over the pet itself (see `PetNameBubble`) -- and, since the
- * product owner asked for it back, a permanent name plate at the top of the
- * centre column too -- replacing the
- * boxed name card this used to show.
+ *   primary    — the level ring (progression, top-left).
+ *   identity   — ONE plate, top-centre: the room as a kicker over the pet's
+ *                name. Directly beneath it, un-boxed on the scene, the status
+ *                line ("Miso is feeling bright.") and a quiet day/partner line.
+ *   secondary  — the joint-pet slot (quiet, under the ring) and the account /
+ *                friends / today rail (matched discs + one pill, top-right).
+ *   game info  — the streak, kept deliberately quiet: it is a number to glance
+ *                at, not a control.
  */
 interface PetWorldHudProps {
   pet: PetState;
@@ -45,10 +43,10 @@ interface PetWorldHudProps {
    * acknowledgement at all whenever the pet happened to be unwell.
    */
   careToast?: CareToast | null;
-  /** Which scene is on screen, named on the centre plate. */
+  /** Which scene is on screen, named on the identity plate. */
   environment: EnvironmentId;
   /** "Level 4", or the evolved build name once the pet has evolved. Only shown
-   * on the meta line while evolved — before that it just repeats the ring. */
+   * on the day line while evolved — before that it just repeats the ring. */
   formLabel: string;
   accountInitial?: string;
   onOpenProfile: () => void;
@@ -72,7 +70,7 @@ interface PetWorldHudProps {
    */
   onAddJointPet?: () => void;
   partnerName?: string;
-  /** Switches the chrome to a dark-glass/bright-text treatment so it stays
+  /** Switches the chrome to a dark-panel/bright-text treatment so it stays
    * legible over the night backgrounds. */
   night?: boolean;
 }
@@ -104,20 +102,17 @@ export function PetWorldHud({
   const chips = getStatusEffects(pet).slice(0, 2);
 
   // An ailment outranks the reaction: a message about the meal just logged must
-  // not sit on top of "Miso is fading". Otherwise it's the plain feeling line
-  // the product owner asked for.
+  // not sit on top of "Miso is fading". Otherwise it's the plain feeling line.
   const feeling = condition.primary
     ? AILMENT_MESSAGE[condition.primary](pet.name)
     : (reaction?.message ?? `${pet.name} is feeling ${pet.mood}.`);
 
   const evolved = hasEvolved(pet);
-  const dayLabel = `DAY ${daysWithPet(pet, today)}`;
-  // The room rides on the day line now that the name has the plate. The
-  // feeling line between them is the thing people actually read, so it gets
-  // the size.
-  // The room is a plate of its own again (under the name), so the day line is
-  // just the day, plus the build once the pet has evolved.
-  const meta = evolved ? `${dayLabel} · ${formLabel.toUpperCase()}` : dayLabel;
+  const dayLabel = evolved
+    ? `DAY ${daysWithPet(pet, today)} · ${formLabel.toUpperCase()}`
+    : `DAY ${daysWithPet(pet, today)}`;
+
+  const showSwitcher = pets && pets.length > 1 && onSelectPet;
 
   return (
     // `box-none`: the HUD layer spans the whole screen and sits on top of the
@@ -126,18 +121,18 @@ export function PetWorldHud({
     // because they are real press targets.
     <View style={styles.fill} pointerEvents="box-none">
       <View style={styles.topRow} pointerEvents="box-none">
-        <View style={styles.topSideLeft}>
+        <View style={styles.sideLeft}>
           <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
 
-          {/* One slot, two states, directly under the ring. With a single pet
-              it is a "+" tile that starts the join-by-code flow; once the
-              joint pet arrives the same slot becomes the switcher. Same place
-              either way, so the eye learns where "the other pet" lives before
-              there is one. The active tab is inert, like the room hotbar. */}
-          {pets && pets.length > 1 && onSelectPet ? (
+          {/* One slot, two states, directly under the ring — quiet, so it
+              never competes with it. With a single pet it is a "+" tile that
+              starts the join-by-code flow; once the joint pet arrives the same
+              slot becomes the switcher. Same place either way, so the eye
+              learns where "the other pet" lives before there is one. */}
+          {showSwitcher ? (
             <View style={styles.slotColumn} pointerEvents="box-none">
-              {pets.map((candidate) => {
-                const selected = candidate.id === (activePetId ?? pets[0].id);
+              {pets!.map((candidate) => {
+                const selected = candidate.id === (activePetId ?? pets![0].id);
                 return (
                   <Pressable
                     key={candidate.id}
@@ -145,14 +140,26 @@ export function PetWorldHud({
                     accessibilityState={{ selected, disabled: selected }}
                     accessibilityLabel={`Show ${candidate.name}, your ${candidate.own ? 'own' : 'joint'} pet`}
                     disabled={selected}
-                    onPress={() => onSelectPet(candidate.id)}
-                    style={[styles.petTab, night && styles.railDiscNight, selected && styles.petTabOn]}
+                    onPress={() => onSelectPet!(candidate.id)}
+                    style={[
+                      retro.panelQuiet,
+                      night && retro.panelQuietNight,
+                      styles.petTab,
+                      selected && styles.petTabOn,
+                    ]}
                   >
-                    <Text style={[styles.petTabKicker, night && styles.petTabKickerNight, selected && styles.petTabKickerOn]}>
+                    <Text
+                      style={[
+                        retro.kicker,
+                        night && retro.kickerNight,
+                        styles.petTabKicker,
+                        selected && styles.petTabTextOn,
+                      ]}
+                    >
                       {candidate.own ? 'MINE' : 'JOINT'}
                     </Text>
                     <Text
-                      style={[styles.petTabLabel, night && styles.petTabLabelNight, selected && styles.petTabLabelOn]}
+                      style={[styles.petTabName, night && retro.labelNight, selected && styles.petTabTextOn]}
                       numberOfLines={1}
                     >
                       {candidate.name}
@@ -167,72 +174,77 @@ export function PetWorldHud({
                 accessibilityRole="button"
                 accessibilityLabel="Add a joint pet"
                 onPress={onAddJointPet}
-                hitSlop={6}
+                hitSlop={8}
                 style={({ pressed }) => [
-                  retro.panel,
-                  night && retro.panelNight,
+                  retro.panelQuiet,
+                  night && retro.panelQuietNight,
                   styles.addTile,
-                  pressed && styles.iconPressed,
+                  pressed && retroPressed,
                 ]}
               >
-                <Text style={[styles.addPlus, night && styles.addPlusNight]}>+</Text>
-                <Text style={[retro.label, night && retro.labelNight, styles.addLabel]}>JOINT PET</Text>
+                <Text style={[styles.addPlus, night && retro.labelNight]}>+</Text>
+                <Text style={[retro.kicker, night && retro.kickerNight, styles.addLabel]}>JOINT PET</Text>
               </Pressable>
             </View>
           ) : null}
         </View>
 
-        <View style={styles.topCenter} pointerEvents="none">
-          {/* The pet's name, top and centre, per the product owner. The hover
-              bubble over the sprite stays as a nicety; this is the permanent
-              one. */}
-          <View style={[retro.panel, night && retro.panelNight, styles.namePlate]}>
-            <Text style={[retro.label, night && retro.labelNight, styles.nameLabel]} numberOfLines={1}>
-              {pet.name}
-            </Text>
-          </View>
-          {/* The room, as its own smaller plate beneath the name — where it
-              lived before the name plate arrived, restored on request. */}
-          <View style={[retro.panel, night && retro.panelNight, styles.roomPlate]}>
-            <Text style={[retro.label, night && retro.labelNight, styles.roomLabel]}>
+        <View style={styles.center} pointerEvents="none">
+          {/* One plate: the room as a kicker over the pet's name. Replaces the
+              two separate name / room plates that used to stack here. */}
+          <View style={[retro.panel, night && retro.panelNight, styles.plate]}>
+            <Text style={[retro.kicker, night && retro.kickerNight, styles.roomKicker]} numberOfLines={1}>
               {ENVIRONMENT_LABEL[environment].toUpperCase()}
             </Text>
-          </View>
-          <Text style={[styles.feeling, night && styles.feelingNight]}>{feeling}</Text>
-          <Text style={[retro.subtle, night && retro.subtleNight, styles.meta]}>{meta}</Text>
-          {partnerName ? (
-            <Text style={[retro.subtle, night && retro.subtleNight, styles.meta]}>
-              Raised with {partnerName}
+            <Text style={[styles.name, night && retro.labelNight]} numberOfLines={1}>
+              {pet.name.toUpperCase()}
             </Text>
-          ) : null}
+          </View>
+
+          {/* The line people actually glance up for — a sentence, so it reads
+              like one: mono but regular weight, on the scene rather than boxed. */}
+          <Text style={[styles.feeling, night && styles.feelingNight]} numberOfLines={2}>
+            {feeling}
+          </Text>
+          <Text style={[styles.meta, night && styles.metaNight]}>
+            {dayLabel}
+            {partnerName ? (
+              <Text style={styles.metaSoft}>
+                {'   ·   '}
+                <Text>Raised with {partnerName}</Text>
+              </Text>
+            ) : null}
+          </Text>
         </View>
 
-        {/* Right column: the streak chip, then the secondary-control rail
-            stacked directly beneath it, per the product owner's "put them below
-            the streak button" note. `box-none` so the gaps between buttons
-            still pass taps through to the pet. */}
-        <View style={styles.topRight} pointerEvents="box-none">
+        <View style={styles.sideRight} pointerEvents="box-none">
           {streaks.currentStreak > 0 ? (
             <View
-              style={[styles.streakChip, night && retro.panelNight]}
+              style={[retro.panelQuiet, night && retro.panelQuietNight, styles.streak]}
               accessible
               accessibilityLabel={`${streaks.currentStreak} day streak, best ${streaks.longestStreak}`}
             >
-              <Text style={[styles.streakText, night && styles.streakTextNight]}>
-                🔥 {streaks.currentStreak}
-              </Text>
+              <Text style={[styles.streakText, night && retro.labelNight]}>🔥 {streaks.currentStreak}</Text>
             </View>
           ) : null}
 
+          {/* Account and friends as matched discs; today as a pill of the same
+              height — a person is a disc, a page is a pill, both in the same
+              outline + shadow. */}
           <View style={styles.rail} pointerEvents="box-none">
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Open your profile"
               onPress={onOpenProfile}
               hitSlop={8}
-              style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
+              style={({ pressed }) => [
+                retro.panel,
+                night && retro.panelNight,
+                styles.disc,
+                pressed && retroPressed,
+              ]}
             >
-              <Text style={[styles.avatarLetter, night && styles.avatarLetterNight]}>
+              <Text style={[styles.discInitial, night && retro.labelNight]}>
                 {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
               </Text>
             </Pressable>
@@ -243,48 +255,50 @@ export function PetWorldHud({
                 accessibilityLabel="Open friends"
                 onPress={onOpenFriends}
                 hitSlop={8}
-                style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
+                style={({ pressed }) => [
+                  retro.panel,
+                  night && retro.panelNight,
+                  styles.disc,
+                  pressed && retroPressed,
+                ]}
               >
                 <Image
                   source={FRIENDS_ICON}
                   resizeMode="contain"
-                  style={[styles.railIcon, { tintColor: night ? '#f7f5ff' : colors.ink }]}
+                  style={[styles.discIcon, { tintColor: night ? '#f4f2ff' : colors.ink }]}
                 />
               </Pressable>
             ) : null}
 
-            {/* Labelled, not a bare chevron: an arrow alone said only "there is
-                more that way", which is not the same as telling someone the
-                day's nutrition and care detail is behind it. Kept a rectangle
-                while the others are discs, per the product owner. */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Open today's detail"
               onPress={onOpenToday}
               hitSlop={8}
               style={({ pressed }) => [
-                styles.todayButton,
-                night && styles.railDiscNight,
-                pressed && styles.iconPressed,
+                retro.panel,
+                night && retro.panelNight,
+                styles.pill,
+                pressed && retroPressed,
               ]}
             >
-              <Text style={[styles.todayLabel, night && styles.todayLabelNight]}>TODAY</Text>
-              <Text style={[styles.todayMark, night && styles.todayLabelNight]}>›</Text>
+              <Text style={[retro.label, night && retro.labelNight, styles.pillLabel]}>TODAY</Text>
             </Pressable>
           </View>
         </View>
       </View>
 
-      {/* Under the top row and hard right — a readout of what is wrong with the
-          pet, not a third control. */}
+      {/* A quiet readout of what is wrong (or right) with the pet — tertiary,
+          so it uses the quiet panel weight. */}
       {chips.length > 0 ? (
         <View style={styles.chips} pointerEvents="none">
           {chips.map((effect) => (
             <View
               key={effect.id}
               style={[
+                retro.panelQuiet,
+                night && retro.panelQuietNight,
                 styles.chip,
-                night && retro.panelNight,
                 effect.kind === 'buff' && styles.chipBuff,
               ]}
               accessible
@@ -294,7 +308,7 @@ export function PetWorldHud({
                 style={[
                   styles.chipLabel,
                   effect.kind === 'buff' && styles.chipLabelBuff,
-                  night && styles.chipLabelNight,
+                  night && retro.labelNight,
                 ]}
               >
                 {effect.label}
@@ -309,13 +323,12 @@ export function PetWorldHud({
   );
 }
 
-/** How far the top row sits from the very top edge — clears the notch/status
- * bar now that there is no boxed top bar reserving that space itself. */
-const TOP_INSET = 58;
-
-/** The level ring's footprint — the side columns match it so the centre plate
- * lands on the true screen centre, not offset by a wider ring. */
-const SIDE_COLUMN = 92;
+/** Clears the notch / status bar — no boxed top bar reserves that space now. */
+const TOP_INSET = 56;
+/** Level-ring footprint; the side columns match it so the centre plate lands
+ *  on the true screen centre. */
+const SIDE_COLUMN = 96;
+const DISC = 52;
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
@@ -326,79 +339,78 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: TOP_INSET,
   },
-  topSideLeft: { width: SIDE_COLUMN, alignItems: 'flex-start' },
-  topRight: { width: SIDE_COLUMN, alignItems: 'flex-end' },
-  topCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 6 },
-  namePlate: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  sideLeft: { width: SIDE_COLUMN, alignItems: 'flex-start' },
+  sideRight: { width: SIDE_COLUMN, alignItems: 'flex-end' },
+  center: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
+
+  plate: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 8,
+    alignItems: 'center',
     maxWidth: '100%',
   },
-  nameLabel: { fontSize: 15 },
-  // Smaller than the name plate and tucked under it, with a hard shadow to
-  // match; the name stays the headline.
-  roomPlate: { paddingHorizontal: 10, paddingVertical: 3, marginTop: 6 },
-  roomLabel: { fontSize: 10 },
-  // The update line -- "Blue2 is starving. Log a meal." -- is what someone
-  // glances up for, so it is the largest text in the column.
+  roomKicker: { fontSize: 10, marginBottom: 1 },
+  name: {
+    fontFamily: fonts.mono,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: colors.ink,
+  },
+
   feeling: {
     fontFamily: fonts.mono,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    lineHeight: 18,
     letterSpacing: 0.2,
-    lineHeight: 19,
     color: colors.ink,
     textAlign: 'center',
-    marginTop: 9,
-    textShadowColor: 'rgba(255,255,255,0.6)',
+    marginTop: 10,
+    textShadowColor: 'rgba(255,255,255,0.7)',
     textShadowRadius: 3,
   },
-  feelingNight: { color: '#f2efff', textShadowColor: 'rgba(0,0,0,0.35)' },
+  feelingNight: { color: '#f4f2ff', textShadowColor: 'rgba(0,0,0,0.45)' },
   meta: {
-    fontSize: 9,
+    fontFamily: fonts.mono,
+    fontSize: 10,
     letterSpacing: 0.8,
+    color: colors.inkSoft,
     textAlign: 'center',
-    marginTop: 3,
+    marginTop: 5,
     textTransform: 'uppercase',
+    textShadowColor: 'rgba(255,255,255,0.6)',
+    textShadowRadius: 2,
   },
-  streakChip: {
-    backgroundColor: colors.card,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 4,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    shadowColor: '#1b1830',
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 4,
+  metaNight: { color: '#d6d1f0', textShadowColor: 'rgba(0,0,0,0.4)' },
+  metaSoft: { color: colors.muted },
+
+  streak: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 12,
   },
-  streakText: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: colors.ink },
-  streakTextNight: { color: '#f7f5ff' },
-  // Stacked directly under the streak chip in the top-right column.
-  rail: {
-    alignItems: 'flex-end',
-    gap: 12,
-    marginTop: 12,
-  },
-  railDisc: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: colors.card,
-    borderWidth: 3,
-    borderColor: colors.ink,
+  streakText: { fontFamily: fonts.mono, fontSize: 15, fontWeight: '700', color: colors.ink },
+
+  rail: { alignItems: 'flex-end', gap: 12 },
+  disc: {
+    width: DISC,
+    height: DISC,
+    borderRadius: DISC / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1b1830',
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 4,
   },
-  railDiscNight: { backgroundColor: '#141226', borderColor: '#4b4870' },
-  railIcon: { width: 28, height: 28 },
+  discInitial: { fontFamily: fonts.mono, fontSize: 19, fontWeight: '700', color: colors.ink },
+  discIcon: { width: 26, height: 26 },
+  pill: {
+    height: DISC,
+    borderRadius: DISC / 2,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillLabel: { fontSize: 12, letterSpacing: 1.4 },
+
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -407,70 +419,24 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 10,
   },
-  chip: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    backgroundColor: colors.card,
-  },
+  chip: { paddingHorizontal: 9, paddingVertical: 4 },
   chipBuff: { borderColor: colors.mintDeep },
-  chipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3, color: '#8c4433' },
+  chipLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    color: '#8c4433',
+  },
   chipLabelBuff: { color: colors.mintDeep },
-  chipLabelNight: { color: '#f7f5ff' },
-  avatarLetter: { fontFamily: fonts.mono, fontSize: 20, fontWeight: '700', color: colors.ink },
-  avatarLetterNight: { color: '#f7f5ff' },
-  todayButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingLeft: 13,
-    paddingRight: 10,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: colors.card,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    shadowColor: '#1b1830',
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 4,
-  },
-  todayLabel: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', letterSpacing: 1, color: colors.ink },
-  todayLabelNight: { color: '#f7f5ff' },
-  todayMark: { fontSize: 16, color: colors.ink, fontFamily: fonts.mono },
-  iconPressed: { opacity: 0.7, transform: [{ translateX: 1 }, { translateY: 1 }] },
-  // Stacked under the level ring and as wide as its column, so the two tabs
-  // (or the "+" tile) read as part of the ring's own stack rather than as a
-  // strip floating over the room.
+
   slotColumn: { marginTop: 10, gap: 6, width: SIDE_COLUMN, alignItems: 'stretch' },
-  petTab: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    backgroundColor: colors.card,
-  },
-  // Deliberately the quietest thing in the column: a way in, not a feature.
-  addTile: {
-    paddingVertical: 4,
-    alignSelf: 'flex-start',
-    minWidth: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addPlus: { fontFamily: fonts.mono, fontSize: 18, lineHeight: 20, fontWeight: '700', color: colors.ink },
-  addPlusNight: { color: '#f7f5ff' },
-  addLabel: { fontSize: 7, letterSpacing: 1, marginTop: 0 },
+  petTab: { paddingHorizontal: 10, paddingVertical: 6, alignItems: 'flex-start' },
   petTabOn: { borderColor: colors.coral, backgroundColor: colors.coralWash },
-  // The slot kicker (MINE / JOINT) above the name — the reason the switch exists.
-  petTabKicker: { fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1.2, color: colors.muted },
-  petTabKickerNight: { color: 'rgba(247,245,255,0.7)' },
-  petTabKickerOn: { color: colors.coralDeep },
-  petTabLabel: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkSoft, marginTop: 1 },
-  petTabLabelNight: { color: '#f7f5ff' },
-  petTabLabelOn: { color: colors.coralDeep },
+  petTabKicker: { fontSize: 8, letterSpacing: 1.2, marginBottom: 1 },
+  petTabName: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', color: colors.inkSoft },
+  petTabTextOn: { color: colors.coralDeep },
+  addTile: { paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
+  addPlus: { fontFamily: fonts.mono, fontSize: 20, lineHeight: 22, fontWeight: '700', color: colors.ink },
+  addLabel: { fontSize: 8, letterSpacing: 1, marginTop: 2 },
 });

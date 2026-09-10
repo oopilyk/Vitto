@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { playPokeFeedback } from '../services/mealFeedback';
 import { PetNameBubble } from './PetNameBubble';
 import { stageMetrics } from './EnvironmentBackdrop';
@@ -99,6 +100,8 @@ export function EnvironmentStage({
   night,
 }: EnvironmentStageProps) {
   const regions = environments[environment];
+  const reduceMotion = useReducedMotion();
+  const transitionMs = reduceMotion ? 0 : ENVIRONMENT_TRANSITION_MS;
 
   // The stage measures itself once and sizes the pet from that; every scene's
   // art is fitted from the same width, so this is the same box the backdrop
@@ -126,7 +129,7 @@ export function EnvironmentStage({
     progress.setValue(0);
     Animated.timing(progress, {
       toValue: 1,
-      duration: ENVIRONMENT_TRANSITION_MS,
+      duration: transitionMs,
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: false, // backgroundColor cannot use the native driver.
     }).start();
@@ -142,6 +145,10 @@ export function EnvironmentStage({
 
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
+    if (reduceMotion) {
+      pulse.setValue(1);
+      return;
+    }
     // A gentle settle rather than a visible zoom -- with the longer transition
     // a bigger dip read as the whole scene lurching.
     pulse.setValue(0.97);
@@ -151,7 +158,7 @@ export function EnvironmentStage({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [environment, pulse]);
+  }, [environment, pulse, reduceMotion]);
 
   // A quick squash-and-hop whenever the pet itself is tapped, so a poke reads as
   // the pet reacting to the touch and not just as opening something. Kept apart
@@ -218,14 +225,39 @@ export function EnvironmentStage({
 
   const pokeScale = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 1.09] });
   const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
+  // The contact shadow tucks in as the pet hops, so it reads as leaving the
+  // ground rather than dragging a puck around.
+  const shadowSquash = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 0.62] });
+  const shadowFade = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] });
 
   return (
     <Animated.View style={[styles.stage, { backgroundColor }]} onLayout={onStageLayout}>
-      <FadeSwap swapKey={environment}>
+      <FadeSwap swapKey={environment} durationMs={transitionMs}>
         <Animated.View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {regions.background}
         </Animated.View>
       </FadeSwap>
+
+      {/* A soft flattened contact shadow at the pet's feet — the single thing
+          that stops the sprite reading as a sticker on the photo. Behind the
+          pet (same layer, drawn first), non-interactive. */}
+      <View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, styles.groundLayer, { paddingBottom: metrics.petBottom }]}
+      >
+        <Animated.View
+          style={[
+            styles.contactShadow,
+            night && styles.contactShadowNight,
+            {
+              width: Math.round(metrics.petSize * 0.5),
+              height: Math.round(metrics.petSize * 0.11),
+              opacity: Animated.multiply(shadowFade, night ? 0.9 : 0.75),
+              transform: [{ scaleX: shadowSquash }, { scaleY: shadowSquash }],
+            },
+          ]}
+        />
+      </View>
 
       <Pressable
         onPress={handlePetPress}
@@ -266,7 +298,7 @@ export function EnvironmentStage({
         <PetNameBubble name={pet.name} visible={nameShown} night={night} />
       </View>
 
-      <FadeSwap swapKey={environment} style={styles.controlsLayer}>
+      <FadeSwap swapKey={environment} style={styles.controlsLayer} durationMs={transitionMs}>
         <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
           {regions.controls}
         </Animated.View>
@@ -293,8 +325,11 @@ function FadeSwap({
   swapKey,
   style,
   children,
+  durationMs = ENVIRONMENT_TRANSITION_MS,
 }: {
   swapKey: string;
+  /** 0 under Reduce Motion — the content just appears. */
+  durationMs?: number;
   /**
    * Applied to the faded wrapper itself, not its child — so a `zIndex` here
    * lands on the element that is actually a sibling of the stage's other
@@ -310,13 +345,13 @@ function FadeSwap({
     opacity.setValue(0);
     Animated.timing(opacity, {
       toValue: 1,
-      duration: ENVIRONMENT_TRANSITION_MS,
+      duration: durationMs,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
     // Keyed on `swapKey` rather than `opacity` (which is a stable ref and would
     // only ever fire once): this is what makes the fade replay on every swap.
-  }, [swapKey, opacity]);
+  }, [swapKey, opacity, durationMs]);
   return (
     <Animated.View style={[StyleSheet.absoluteFill, style, { opacity }]}>{children}</Animated.View>
   );
@@ -332,6 +367,13 @@ const styles = StyleSheet.create({
   petLayer: { zIndex: 1 },
   controlsLayer: { zIndex: 2 },
   hudLayer: { zIndex: 3 },
+  // Same layer as the pet, drawn first so it sits behind the sprite.
+  groundLayer: { zIndex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  contactShadow: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(20,16,30,0.22)',
+  },
+  contactShadowNight: { backgroundColor: 'rgba(0,0,0,0.34)' },
   // Above the pet, below the HUD chrome. Anchors the name bubble near the pet's
   // head. Non-interactive, so it never steals a tap from the controls beneath.
   // `paddingBottom` is set inline from `stageMetrics`.

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
+import { retroPressed } from './retroStyle';
 
 const SIZE = 90;
 const STROKE = 7;
@@ -43,7 +44,7 @@ export function LevelRing({
       accessibilityRole="button"
       accessibilityLabel="Open pet stats"
       hitSlop={8}
-      style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.wrap, pressed && retroPressed]}
     >
       {/* Hard, un-blurred drop shadow — a duplicate disc offset behind the
           badge, so the retro shadow survives the ring's -45° rotation (which a
@@ -75,7 +76,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { opacity: 0.7 },
   shadowDisc: {
     position: 'absolute',
     width: SIZE,
