@@ -139,6 +139,7 @@ export function DashboardScreen({
       activityProps={toPetAvatarActivityProps(interaction.state)}
       atGym={atGym}
       onPetTap={interaction.notice}
+      night={night}
       hudOverlay={
         <PetWorldHud
           pet={pet}

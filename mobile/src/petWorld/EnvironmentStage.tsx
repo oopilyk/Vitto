@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
   Pressable,
   StyleSheet,
+  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { playPokeFeedback } from '../services/mealFeedback';
+import { PetNameBubble } from './PetNameBubble';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
 import type { EnvironmentId, PetAvatarActivityProps } from './types';
 
@@ -30,6 +32,16 @@ const PET_STAGE_SIZE = 280;
  * the bar's height ever grows.
  */
 const PET_STAGE_BOTTOM_PADDING = 64;
+
+/**
+ * How far above the screen bottom the name bubble floats — roughly the pet's
+ * head at `PET_STAGE_SIZE`, so it reads as coming from the pet rather than
+ * hanging in empty space.
+ */
+const NAME_BUBBLE_LIFT = PET_STAGE_BOTTOM_PADDING + Math.round(PET_STAGE_SIZE * 0.86);
+
+/** How long the name bubble lingers after a tap on touch devices (no hover). */
+const NAME_BUBBLE_HOLD_MS = 2200;
 
 /** What one environment dresses the persistent pet in. */
 export interface EnvironmentDressing {
@@ -74,6 +86,8 @@ interface EnvironmentStageProps {
   environments: Record<EnvironmentId, EnvironmentDressing>;
   /** A tap anywhere on the pet itself — used to fire a "noticing" reaction. */
   onPetTap?: () => void;
+  /** Dark-mode the pet's name bubble so it stays legible on night backdrops. */
+  night?: boolean;
 }
 
 /**
@@ -92,6 +106,7 @@ export function EnvironmentStage({
   hudOverlay,
   environments,
   onPetTap,
+  night,
 }: EnvironmentStageProps) {
   const regions = environments[environment];
 
@@ -161,6 +176,43 @@ export function EnvironmentStage({
     onPetTap();
   }, [onPetTap, poke]);
 
+  // The name bubble: visible while the pointer hovers the pet (web) or for a
+  // short beat after a tap (touch, where there is no hover). A tap always
+  // reveals it, even when `onPetTap` is absent and the Pressable is disabled,
+  // via `onPressIn` still firing on hover-capable platforms — the timeout is
+  // the touch fallback.
+  const [nameShown, setNameShown] = useState(false);
+  const hoverName = useRef(false);
+  const nameHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearNameTimer = useCallback(() => {
+    if (nameHideTimer.current) {
+      clearTimeout(nameHideTimer.current);
+      nameHideTimer.current = null;
+    }
+  }, []);
+
+  const showNameOnHover = useCallback(() => {
+    hoverName.current = true;
+    clearNameTimer();
+    setNameShown(true);
+  }, [clearNameTimer]);
+
+  const hideNameOnHoverOut = useCallback(() => {
+    hoverName.current = false;
+    setNameShown(false);
+  }, []);
+
+  const flashNameOnTap = useCallback(() => {
+    clearNameTimer();
+    setNameShown(true);
+    nameHideTimer.current = setTimeout(() => {
+      if (!hoverName.current) setNameShown(false);
+    }, NAME_BUBBLE_HOLD_MS);
+  }, [clearNameTimer]);
+
+  useEffect(() => clearNameTimer, [clearNameTimer]);
+
   const pokeScale = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 1.09] });
   const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
 
@@ -174,6 +226,9 @@ export function EnvironmentStage({
 
       <Pressable
         onPress={handlePetPress}
+        onPressIn={flashNameOnTap}
+        onHoverIn={showNameOnHover}
+        onHoverOut={hideNameOnHoverOut}
         disabled={!onPetTap}
         style={[StyleSheet.absoluteFill, styles.petLayer]}
         accessibilityRole={onPetTap ? 'button' : undefined}
@@ -202,6 +257,10 @@ export function EnvironmentStage({
           </PetAvatar>
         </Animated.View>
       </Pressable>
+
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.nameLayer]}>
+        <PetNameBubble name={pet.name} visible={nameShown} night={night} />
+      </View>
 
       <FadeSwap swapKey={environment} style={styles.controlsLayer}>
         <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
@@ -269,6 +328,14 @@ const styles = StyleSheet.create({
   petLayer: { zIndex: 1 },
   controlsLayer: { zIndex: 2 },
   hudLayer: { zIndex: 3 },
+  // Above the pet, below the HUD chrome. Anchors the name bubble near the pet's
+  // head. Non-interactive, so it never steals a tap from the controls beneath.
+  nameLayer: {
+    zIndex: 2,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: NAME_BUBBLE_LIFT,
+  },
   petStage: {
     flex: 1,
     backgroundColor: 'transparent',
