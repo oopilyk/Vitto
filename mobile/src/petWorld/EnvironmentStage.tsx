@@ -5,6 +5,7 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type LayoutChangeEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -12,33 +13,22 @@ import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { playPokeFeedback } from '../services/mealFeedback';
 import { PetNameBubble } from './PetNameBubble';
+import { stageMetrics } from './EnvironmentBackdrop';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
 import type { EnvironmentId, PetAvatarActivityProps } from './types';
 
 /**
- * Bigger than `PetAvatar`'s own default (148) so the pet reads as the main
- * object of the full-bleed scene it now stands in -- the product owner's
- * explicit "main concentration" of the screen -- without resizing it in any
- * of `PetAvatar`'s other callers (breed pickers, `FriendPetCard`), which
- * don't pass this override and keep the size their art was tuned against.
+ * The pet's size and floor position come from `stageMetrics`, as a share of the
+ * room art rather than a fixed point size: a fixed 280pt was three quarters of
+ * a small phone's width and a quarter of an iPad's while the room scaled with
+ * the screen, so the pet looked huge on one and lost on the other. On the
+ * reference phone the numbers are unchanged (280pt, 64pt off the bottom); these
+ * are only what is used before the stage has reported its size.
  */
-const PET_STAGE_SIZE = 280;
+const FALLBACK_STAGE = { width: 393, height: 852 };
 
-/**
- * How far the pet's feet sit above the very bottom of the screen. The hotbar
- * (`EnvironmentActionRow`) is translucent and the pet reads through it, so this
- * only has to keep the pet's feet off the very bottom edge -- it stands on the
- * room's own floor rather than floating in the middle of it. Verify on-device if
- * the bar's height ever grows.
- */
-const PET_STAGE_BOTTOM_PADDING = 64;
-
-/**
- * How far above the screen bottom the name bubble floats — roughly the pet's
- * head at `PET_STAGE_SIZE`, so it reads as coming from the pet rather than
- * hanging in empty space.
- */
-const NAME_BUBBLE_LIFT = PET_STAGE_BOTTOM_PADDING + Math.round(PET_STAGE_SIZE * 0.86);
+/** The name bubble floats at roughly the pet's head, so it reads as coming from the pet. */
+const NAME_BUBBLE_HEAD_FRACTION = 0.86;
 
 /** How long the name bubble lingers after a tap on touch devices (no hover). */
 const NAME_BUBBLE_HOLD_MS = 2200;
@@ -109,6 +99,19 @@ export function EnvironmentStage({
   night,
 }: EnvironmentStageProps) {
   const regions = environments[environment];
+
+  // The stage measures itself once and sizes the pet from that; every scene's
+  // art is fitted from the same width, so this is the same box the backdrop
+  // draws in (see `stageMetrics`).
+  const [stageSize, setStageSize] = useState(FALLBACK_STAGE);
+  const onStageLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setStageSize((current) => (current.width === width && current.height === height ? current : { width, height }));
+    }
+  };
+  const metrics = stageMetrics(stageSize.width, stageSize.height);
+  const nameBubbleLift = metrics.petBottom + Math.round(metrics.petSize * NAME_BUBBLE_HEAD_FRACTION);
 
   // 0 = the scene being left, 1 = the one being entered. Drives the background
   // blend and a small settle-pulse on the pet, so the pet visibly "carries
@@ -217,7 +220,7 @@ export function EnvironmentStage({
   const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
 
   return (
-    <Animated.View style={[styles.stage, { backgroundColor }]}>
+    <Animated.View style={[styles.stage, { backgroundColor }]} onLayout={onStageLayout}>
       <FadeSwap swapKey={environment}>
         <Animated.View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {regions.background}
@@ -237,6 +240,7 @@ export function EnvironmentStage({
         <Animated.View
           style={[
             styles.petStage,
+            { paddingBottom: metrics.petBottom },
             {
               transform: [
                 { translateY: pokeHop },
@@ -249,16 +253,16 @@ export function EnvironmentStage({
             pet={pet}
             {...activityProps}
             atGym={atGym}
-            stageStyle={styles.petStage}
+            stageStyle={[styles.petStage, { paddingBottom: metrics.petBottom }]}
             hideStatusCaption
-            size={PET_STAGE_SIZE}
+            size={metrics.petSize}
           >
             {null}
           </PetAvatar>
         </Animated.View>
       </Pressable>
 
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.nameLayer]}>
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.nameLayer, { paddingBottom: nameBubbleLift }]}>
         <PetNameBubble name={pet.name} visible={nameShown} night={night} />
       </View>
 
@@ -330,16 +334,16 @@ const styles = StyleSheet.create({
   hudLayer: { zIndex: 3 },
   // Above the pet, below the HUD chrome. Anchors the name bubble near the pet's
   // head. Non-interactive, so it never steals a tap from the controls beneath.
+  // `paddingBottom` is set inline from `stageMetrics`.
   nameLayer: {
     zIndex: 2,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingBottom: NAME_BUBBLE_LIFT,
   },
+  // `paddingBottom` is set inline from `stageMetrics`.
   petStage: {
     flex: 1,
     backgroundColor: 'transparent',
     justifyContent: 'flex-end',
-    paddingBottom: PET_STAGE_BOTTOM_PADDING,
   },
 });

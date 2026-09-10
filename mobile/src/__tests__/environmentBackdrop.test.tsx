@@ -1,5 +1,5 @@
 import { Image } from 'react-native';
-import { backdropAspectRatio, backdropSize } from '../petWorld/EnvironmentBackdrop';
+import { backdropAspectRatio, backdropSize, stageMetrics, widthScaleFor } from '../petWorld/EnvironmentBackdrop';
 
 /**
  * Regression: the backdrop called `Image.resolveAssetSource` unguarded. That is a
@@ -84,11 +84,14 @@ describe('backdropSize', () => {
     expect(filled.left).toBeLessThan(0);
   });
 
-  it('never shrinks the art below the width fit when filling', () => {
-    // A short, wide container: covering its height needs less width than the
-    // 1.2x width fit, so the width fit still wins and no scene gets smaller.
+  it('never draws the art narrower than the stage, even when filling a short container', () => {
+    // A short, wide container: the width fit already covers its height, so the
+    // overscan drops to 1x — the art is exactly the stage's width and no less.
+    // (It used to stay at 1.2x here, which on a tablet cropped the sides and
+    // pushed a fifth of the art off the top for nothing.)
     const filled = backdropSize(393, 0.75, { containerHeight: 100, fill: true });
-    expect(filled).toEqual(backdropSize(393, 0.75));
+    expect(filled.width).toBe(393);
+    expect(filled.width).toBe(backdropSize(393, 0.75, { containerHeight: 100 }).width);
   });
 
   it('ignores a missing container height rather than collapsing', () => {
@@ -126,5 +129,66 @@ describe('backdropSize', () => {
     const both = backdropSize(393, 0.75, { containerHeight: 852, fill: true, lift: 0.05 });
     expect(both.height).toBeCloseTo(852, 5);
     expect(both.bottom).toBeCloseTo(852 * 0.05, 5);
+  });
+});
+
+
+describe('widthScaleFor — overscan only where it helps', () => {
+  it('stays at 1.2x on a tall phone, where the overscan shrinks the band', () => {
+    expect(widthScaleFor(393, 852, 0.75)).toBe(1.2);
+    // iPhone SE: still tall enough to want the full overscan.
+    expect(widthScaleFor(375, 667, 0.75)).toBe(1.2);
+  });
+
+  it('drops to 1x on an iPad, whose screen is already the art\'s shape', () => {
+    expect(widthScaleFor(1024, 1366, 0.75)).toBeCloseTo(1, 2);
+  });
+
+  it('lands between on a squarer screen', () => {
+    // Width-fit height 800 in a 900 container: 1.125x covers it exactly.
+    const scale = widthScaleFor(600, 900, 0.75);
+    expect(scale).toBeCloseTo(1.125, 3);
+    expect(scale).toBeGreaterThan(1);
+    expect(scale).toBeLessThan(1.2);
+  });
+
+  it('is the phone answer when there is no height to go on', () => {
+    expect(widthScaleFor(393, undefined, 0.75)).toBe(1.2);
+    expect(widthScaleFor(393, 0, 0.75)).toBe(1.2);
+  });
+});
+
+describe('stageMetrics — the pet as a share of the room', () => {
+  it('reproduces the reference phone exactly, so nothing moved there', () => {
+    const { petSize, petBottom } = stageMetrics(393, 852);
+    expect(petSize).toBe(280);
+    expect(petBottom).toBe(64);
+  });
+
+  it('keeps the same pet-to-room proportion on an iPad', () => {
+    const phone = stageMetrics(393, 852);
+    const tablet = stageMetrics(1024, 1366);
+    // The room is ~2.2x wider on the tablet; the pet grows with it rather than
+    // staying a 280pt speck in a 1024pt room. The proportion is held to within
+    // a few percent: the 560pt cap trims it slightly on the very largest
+    // screens, because a 128px sprite blown up past that is mostly blur.
+    expect(tablet.petSize / tablet.artWidth).toBeCloseTo(phone.petSize / phone.artWidth, 1);
+    expect(tablet.petSize).toBeGreaterThan(phone.petSize * 1.9);
+    expect(tablet.petSize).toBe(560);
+  });
+
+  it('shrinks the pet on a small phone instead of letting it fill the screen', () => {
+    const small = stageMetrics(320, 568);
+    expect(small.petSize).toBeLessThan(280);
+    expect(small.petSize / small.artWidth).toBeCloseTo(280 / 472, 2);
+    // ...but the feet never drop below what clears the hotbar.
+    expect(small.petBottom).toBe(64);
+  });
+
+  it('never lets the pet outgrow the room', () => {
+    for (const [w, h] of [[320, 568], [375, 667], [393, 852], [430, 932], [768, 1024], [1024, 1366]]) {
+      const { petSize, artWidth } = stageMetrics(w, h);
+      expect(petSize).toBeLessThan(artWidth);
+    }
   });
 });

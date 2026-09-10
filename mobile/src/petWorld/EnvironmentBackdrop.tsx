@@ -32,8 +32,8 @@ import { Image, StyleSheet, View, type ImageSourcePropType, type LayoutChangeEve
 const FALLBACK_ASPECT = 3 / 4;
 
 /**
- * How much wider than the stage the art is drawn, which is the one knob for the
- * band-vs-crop trade-off.
+ * The most the art is ever drawn wider than the stage — the one knob for the
+ * band-vs-crop trade-off on a tall phone.
  *
  * 1 fits the width exactly and shows every pixel, but leaves ~38% of a phone
  * screen as flat colour above the art. 1.2 scales the art up and centres it:
@@ -45,7 +45,29 @@ const FALLBACK_ASPECT = 3 / 4;
  * transparent background, so that strip would show through as flat colour under
  * them.
  */
-const WIDTH_SCALE = 1.2;
+export const MAX_WIDTH_SCALE = 1.2;
+
+/**
+ * How much wider than the stage to draw the art for THIS stage.
+ *
+ * The 1.2x overscan exists to shrink the band above 3:4 art on a 9:19.5 phone.
+ * A tablet is nearly 3:4 itself, so on one the same 1.2x had nothing to fix and
+ * only cost: 10% cropped off each side and a fifth of the art pushed off the
+ * top. The scale is therefore only as much as it takes for the width-fitted art
+ * to reach the container's height, capped at `MAX_WIDTH_SCALE` — 1.2 on every
+ * phone (unchanged), 1.0 on an iPad, and something between on the squarer
+ * screens in between. With no height to go on (first render, tests) it is the
+ * cap, which is the phone answer.
+ */
+export const widthScaleFor = (
+  containerWidth: number,
+  containerHeight: number | undefined,
+  aspectRatio: number,
+): number => {
+  if (!containerHeight || containerHeight <= 0 || containerWidth <= 0) return MAX_WIDTH_SCALE;
+  const fittedHeight = containerWidth / aspectRatio;
+  return Math.min(MAX_WIDTH_SCALE, Math.max(1, containerHeight / fittedHeight));
+};
 
 /**
  * Bound on `lift` magnitude, as a fraction of the art's own height — applied in
@@ -98,7 +120,7 @@ export const backdropSize = (
   aspectRatio: number,
   options?: { containerHeight?: number; fill?: boolean; lift?: number },
 ) => {
-  const fitted = containerWidth * WIDTH_SCALE;
+  const fitted = containerWidth * widthScaleFor(containerWidth, options?.containerHeight, aspectRatio);
   // Width the art would need for its height to reach the container's.
   const covering = options?.fill ? (options.containerHeight ?? 0) * aspectRatio : 0;
   const width = Math.max(fitted, covering);
@@ -107,6 +129,46 @@ export const backdropSize = (
     ? Math.min(Math.max(options?.lift ?? 0, -MAX_LIFT), MAX_LIFT)
     : 0;
   return { width, height, left: (containerWidth - width) / 2, bottom: height * lift };
+};
+
+/**
+ * The pet drawn as a share of the ROOM rather than at a fixed point size.
+ *
+ * A fixed 280pt pet was three quarters of a small phone's width and a quarter
+ * of an iPad's, while the room behind it scaled with the screen — so the pet
+ * looked huge on one and lost on the other. These fractions are the reference
+ * phone's numbers (280pt tall and 64pt off the bottom, in a 472x629 art box on
+ * a 393pt-wide iPhone) written as shares of that box, so the same proportion
+ * holds everywhere. The clamp only guards absurd containers.
+ */
+const PET_ART_FRACTION = 280 / (393 * MAX_WIDTH_SCALE);
+const PET_FEET_FRACTION = 64 / (393 * MAX_WIDTH_SCALE / FALLBACK_ASPECT);
+const PET_SIZE_MIN = 160;
+const PET_SIZE_MAX = 560;
+/** Never below the reference phone's padding: that is what clears the hotbar. */
+const PET_FEET_MIN = 64;
+
+export interface StageMetrics {
+  artWidth: number;
+  artHeight: number;
+  /** Side of the square the pet is drawn in. */
+  petSize: number;
+  /** How far the pet's feet sit above the stage's bottom edge. */
+  petBottom: number;
+}
+
+/**
+ * Pet sizing for a stage of this size. Uses the un-filled 3:4 box every scene
+ * shares, so the pet is the same size in every room — the outdoors scene's
+ * `fill` widens its own art, but the pet does not grow to match.
+ */
+export const stageMetrics = (containerWidth: number, containerHeight: number): StageMetrics => {
+  const { width: artWidth, height: artHeight } = backdropSize(containerWidth, FALLBACK_ASPECT, {
+    containerHeight,
+  });
+  const petSize = Math.round(Math.min(PET_SIZE_MAX, Math.max(PET_SIZE_MIN, artWidth * PET_ART_FRACTION)));
+  const petBottom = Math.round(Math.max(PET_FEET_MIN, artHeight * PET_FEET_FRACTION));
+  return { artWidth, artHeight, petSize, petBottom };
 };
 
 export function EnvironmentBackdrop({
