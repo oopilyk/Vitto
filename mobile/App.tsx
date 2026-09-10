@@ -21,6 +21,8 @@ import { usePetInteraction } from './src/petWorld/usePetInteraction';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
+import { detectLevelUp } from './src/celebrations/detectLevelUp';
+import type { CelebrationEvent } from './src/celebrations/types';
 import { readCurrentLocation, useAtGym, useWalking } from './src/services/ambient';
 import {
   type NotificationPermission,
@@ -244,6 +246,13 @@ export default function App() {
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
   const [toast, setToast] = useState<CareToast | null>(null);
+  /**
+   * A full-screen reward moment (currently only a level-up). Presentation only,
+   * never persisted: raised by `recordEvent` off the engine's own result, and
+   * cleared when the user taps Continue. Refresh / navigation / re-open never
+   * re-run the engine, so none of them can replay it.
+   */
+  const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
   // Care partners. All empty for a solo pet and in local mode; loaded once
   // after the pet, and refreshed only while there is a partner (or an open
   // invite one could be arriving through) — see `refreshShared`.
@@ -615,10 +624,28 @@ export default function App() {
       await repository.savePet(nextPet);
       await repository.saveEvent(event);
       setPets(fanOut.pets);
-      if (nextReaction) showReaction(nextReaction);
-      // Every logged moment is acknowledged, reaction or not — that is the whole
-      // point of the toast being separate from the pet's own mood line.
-      showCareToast(careToast(event, nextReaction?.delta ?? {}));
+
+      // The one place a level-up can originate in normal play: a care moment,
+      // already run through the engine and persisted above. The celebration is
+      // pure presentation off that fact — if it never shows, the level is still
+      // saved. A multi-level jump (near-full bar + big delta, or a Health
+      // backfill looping through here) keeps climbing to the real final level
+      // rather than restarting a celebration that is already on screen.
+      const levelUp = detectLevelUp(pet, nextPet);
+      if (levelUp) {
+        setCelebration((current) =>
+          current ? { ...current, level: Math.max(current.level, levelUp.level) } : levelUp,
+        );
+      }
+
+      // The celebration is the acknowledgement for a level-up moment, so the
+      // banner/toast would only stack behind it and then flash on dismissal.
+      if (!levelUp) {
+        if (nextReaction) showReaction(nextReaction);
+        // Every logged moment is acknowledged, reaction or not — that is the
+        // whole point of the toast being separate from the pet's mood line.
+        showCareToast(careToast(event, nextReaction?.delta ?? {}));
+      }
       setEvents((current) => [event, ...current]);
       setError(null);
     } catch (cause) {
@@ -1171,6 +1198,8 @@ export default function App() {
               }}
               interaction={interaction}
               partnerName={shared ? partnerName : undefined}
+              celebration={celebration}
+              onCelebrationComplete={() => setCelebration(null)}
             />
           )}
         </RootStack.Screen>
