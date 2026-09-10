@@ -326,6 +326,9 @@ export function ProfileScreen({
   const metric = profile.weightUnit === 'kg';
   const toKg = (value: number) => (metric ? value : value / 2.20462);
   const round = (value: number) => Math.round(value * 10) / 10;
+  /** A kg figure from the domain, shown in the user's unit — see the same helper in onboarding. */
+  const weightLabel = (kg: number) =>
+    metric ? `${kg} kg` : `${round(convertWeightValue(kg, 'kg', 'lb'))} lb`;
   const displayedWeight = metric ? round(profile.weightKg) : round(convertWeightValue(profile.weightKg, 'kg', 'lb'));
   const displayedTarget = profile.targetWeightKg
     ? metric
@@ -822,8 +825,8 @@ export function ProfileScreen({
               {plan ? (
                 <View style={styles.plan}>
                   <Text style={styles.planText}>
-                    {plan.totalKg} kg over {plan.achievableWeeks} weeks —{' '}
-                    <Text style={styles.planValue}>{plan.kgPerWeek} kg</Text> per week,{' '}
+                    {weightLabel(plan.totalKg)} over {plan.achievableWeeks} weeks —{' '}
+                    <Text style={styles.planValue}>{weightLabel(plan.kgPerWeek)}</Text> per week,{' '}
                     <Text style={styles.planValue}>{Math.abs(plan.dailyAdjustment)} kcal</Text>{' '}
                     {profile.goal === 'lose' ? 'below' : 'above'} maintenance.
                   </Text>

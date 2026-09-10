@@ -98,6 +98,16 @@ export function OnboardingScreen({
   const [joining, setJoining] = useState(false);
 
   const metric = profile.weightUnit === 'kg';
+  /**
+   * A weight the domain computed in kg, shown in the user's unit. The plan
+   * numbers are all kg internally, so every one of them needs this — showing
+   * "0.5 kg per week" to someone working in pounds was the same bug as the
+   * workout screen's hardcoded label.
+   */
+  const weightLabel = (kg: number) =>
+    metric
+      ? `${kg} kg`
+      : `${Math.round(convertWeightValue(kg, 'kg', 'lb') * 10) / 10} lb`;
   const displayedWeight = metric
     ? Math.round(profile.weightKg * 10) / 10
     : Math.round(convertWeightValue(profile.weightKg, 'kg', 'lb') * 10) / 10;
@@ -120,7 +130,7 @@ export function OnboardingScreen({
       if (profile.weightKg < 30 || profile.weightKg > 300) return 'Weight must be between 30 and 300 kg.';
     }
     if (step === 1 && profile.targetWeightKg && (profile.targetWeightKg < 30 || profile.targetWeightKg > 300)) {
-      return 'Target weight must be between 30 and 300 kg.';
+      return `Target weight must be between ${weightLabel(30)} and ${weightLabel(300)}.`;
     }
     if (step === 1 && profile.goalWeeks !== undefined && (profile.goalWeeks < 1 || profile.goalWeeks > 104)) {
       return 'Pick a timeline between 1 and 104 weeks.';
@@ -330,7 +340,7 @@ export function OnboardingScreen({
                     {plan ? (
                       <View style={styles.plan}>
                         <Text style={styles.planText}>
-                          <Text style={styles.planValue}>{plan.kgPerWeek} kg</Text> per week ·{' '}
+                          <Text style={styles.planValue}>{weightLabel(plan.kgPerWeek)}</Text> per week ·{' '}
                           <Text style={styles.planValue}>{Math.abs(plan.dailyAdjustment)} kcal</Text>{' '}
                           {profile.goal === 'lose' ? 'below' : 'above'} maintenance, every day until{' '}
                           {new Date(plan.targetDate).toLocaleDateString([], {
@@ -426,9 +436,10 @@ export function OnboardingScreen({
               </Text>
               {goalProgress && goalProgress.direction !== 'maintain' ? (
                 <Text style={styles.summaryMeta}>
-                  {goalProgress.remainingKg} kg to {goalProgress.direction === 'lose' ? 'lose' : 'gain'} ·{' '}
+                  {weightLabel(goalProgress.remainingKg)} to{' '}
+                  {goalProgress.direction === 'lose' ? 'lose' : 'gain'} ·{' '}
                   {plan
-                    ? `${plan.kgPerWeek} kg per week over ${plan.achievableWeeks} weeks`
+                    ? `${weightLabel(plan.kgPerWeek)} per week over ${plan.achievableWeeks} weeks`
                     : `a ${profile.goalPace} pace`}
                 </Text>
               ) : null}

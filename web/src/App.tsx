@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
-import { type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateMacroTargets, calculateStreaks, createPet, errorMessage, estimateCaloriesBurned, getEventsForDay, getMealsForDay, getSession, isUsernameAvailable, mindScoreLabel, normalizeUsername, onAuthStateChange, usernameError, signInWithEmail, signOut, signUpWithEmail, sumMealMacros, withSurveyDefaults } from '@vitto/core';
+import {  measurementSystemForLocale, unitsFor,type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateMacroTargets, calculateStreaks, createPet, errorMessage, estimateCaloriesBurned, getEventsForDay, getMealsForDay, getSession, isUsernameAvailable, mindScoreLabel, normalizeUsername, onAuthStateChange, usernameError, signInWithEmail, signOut, signUpWithEmail, sumMealMacros, withSurveyDefaults } from '@vitto/core';
 import { MockHealthDataProvider } from "./services/healthDataProvider";
 import { LocalRepository } from "./services/localRepository";
 import { MealCapture } from "./components/MealCapture";
@@ -12,6 +12,15 @@ import { WorkoutFlow } from "./components/WorkoutFlow";
 import { Onboarding } from "./components/Onboarding";
 import { MindGym } from "./components/MindGym";
 import { playCelebrationSound, playMealSound, playMunchSound } from "./services/mealFeedback";
+
+/**
+ * Units start from the browser's locale, so a US visitor gets pounds and feet
+ * without touching the toggle. A default, not a lock — the survey's Units
+ * choice overrides it.
+ */
+const DEFAULT_UNITS = unitsFor(
+  measurementSystemForLocale(typeof navigator === 'undefined' ? undefined : navigator.language),
+);
 
 const repository = new LocalRepository();
 const engine = new PetHealthEngine();
@@ -67,9 +76,9 @@ function App() {
     age: 30,
     sex: "other",
     heightCm: 170,
-    heightUnit: "cm",
+    heightUnit: DEFAULT_UNITS.heightUnit,
     weightKg: 70,
-    weightUnit: "kg",
+    weightUnit: DEFAULT_UNITS.weightUnit,
     activity: "moderate",
     goal: "maintain",
     ...PROFILE_SURVEY_DEFAULTS,
@@ -157,8 +166,8 @@ function App() {
     if (savedProfile)
       setProfile(
         withSurveyDefaults({
-          heightUnit: "cm",
-          weightUnit: "kg",
+          heightUnit: DEFAULT_UNITS.heightUnit,
+          weightUnit: DEFAULT_UNITS.weightUnit,
           ...(JSON.parse(savedProfile) as Partial<BodyProfile>),
         }),
       );

@@ -64,6 +64,33 @@ export const measurementSystemOf = (
   profile: Pick<BodyProfile, 'weightUnit'>,
 ): MeasurementSystem => (profile.weightUnit === 'lb' ? 'imperial' : 'metric');
 
+/**
+ * Countries that weigh people in pounds and measure them in feet.
+ *
+ * Deliberately short. The US is the case that matters; Liberia and Myanmar are
+ * the only other countries not on the metric system. The UK is NOT here: people
+ * there do say stones and feet, but the app has no stones, so pounds-only would
+ * be a worse default than kilograms.
+ */
+const IMPERIAL_REGIONS = new Set(['US', 'LR', 'MM']);
+
+/**
+ * The system a device in this locale should start on, so an American phone opens
+ * on pounds without anyone touching the toggle.
+ *
+ * A default, never a lock: it seeds the sign-up survey and the user can change
+ * it there or in Profile at any time. Anything unrecognised is metric, which is
+ * what most of the world uses.
+ */
+export const measurementSystemForLocale = (locale: string | undefined | null): MeasurementSystem => {
+  if (!locale) return 'metric';
+  // Accepts 'en-US', 'en_US', 'en-US-u-ca-gregory', and a bare region 'US'.
+  const parts = locale.replace(/_/g, '-').split('-');
+  const region = parts.find((part) => /^[A-Za-z]{2}$/.test(part) && part === part.toUpperCase())
+    ?? (parts.length === 1 ? parts[0] : undefined);
+  return region && IMPERIAL_REGIONS.has(region.toUpperCase()) ? 'imperial' : 'metric';
+};
+
 /** A profile with both units moved to `system`. Values are untouched: they are stored in kg/cm regardless. */
 export const withMeasurementSystem = <T extends Pick<BodyProfile, 'heightUnit' | 'weightUnit'>>(
   profile: T,

@@ -39,6 +39,7 @@ import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
+import { deviceMeasurementSystem } from './src/services/deviceLocale';
 import { hasNativeUUID, randomUUID } from './src/services/uuid';
 import { lockWebViewport } from './src/web/lockWebViewport';
 import { colors, fonts, layout } from './src/theme';
@@ -118,17 +119,25 @@ const REACTION_VISIBLE_MS = 6000;
 const CARE_TOAST_VISIBLE_MS = 3200;
 const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
 
-const DEFAULT_PROFILE: BodyProfile = {
-  age: 30,
-  sex: 'other',
-  heightCm: 170,
-  heightUnit: 'cm',
-  weightKg: 70,
-  weightUnit: 'kg',
-  activity: 'moderate',
-  goal: 'maintain',
-  ...PROFILE_SURVEY_DEFAULTS,
-};
+/**
+ * Units start from the device's locale, so an American phone opens the survey on
+ * pounds and feet without anyone touching the toggle. Read once at module load;
+ * it is only a starting point, and the survey's Units choice overrides it.
+ */
+const DEFAULT_PROFILE: BodyProfile = withMeasurementSystem(
+  {
+    age: 30,
+    sex: 'other',
+    heightCm: 170,
+    heightUnit: 'cm',
+    weightKg: 70,
+    weightUnit: 'kg',
+    activity: 'moderate',
+    goal: 'maintain',
+    ...PROFILE_SURVEY_DEFAULTS,
+  } as BodyProfile,
+  deviceMeasurementSystem(),
+);
 
 const makeEvent = <T,>(userId: string, type: HealthEvent['type'], metadata: T): HealthEvent<T> => ({
   id: newId(),
@@ -1448,6 +1457,7 @@ export default function App() {
           <RootStack.Screen name="Workout">
             {({ navigation }) => (
               <WorkoutScreen
+                weightUnit={profile.weightUnit}
                 onFinish={async (metadata) => {
                   await completeWorkout(metadata);
                   navigation.goBack();
