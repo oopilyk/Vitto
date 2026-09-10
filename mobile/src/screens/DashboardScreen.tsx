@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 import {
   PET_BUILD_LABEL,
   type CareToast,
@@ -8,6 +9,8 @@ import {
   getPetBuild,
   hasEvolved,
 } from '@vitto/core';
+import { LevelUpCelebration } from '../celebrations/LevelUpCelebration';
+import type { CelebrationEvent } from '../celebrations/types';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
 import { PetWorldHud } from '../petWorld/PetWorldHud';
 import { mainEnvironment } from '../petWorld/MainEnvironment';
@@ -73,6 +76,14 @@ interface Props {
    */
   isWalking?: boolean;
   atGym?: boolean;
+  /**
+   * A full-screen reward moment to play over this screen (currently only a
+   * level-up). Raised by `App.tsx` off the progression engine's own result —
+   * see `detectLevelUp`. Null the rest of the time.
+   */
+  celebration?: CelebrationEvent | null;
+  /** Tapped Continue on the celebration — clears it back in `App.tsx`. */
+  onCelebrationComplete?: () => void;
 }
 
 export function DashboardScreen({
@@ -97,6 +108,8 @@ export function DashboardScreen({
   partnerName,
   isWalking,
   atGym,
+  celebration,
+  onCelebrationComplete,
 }: Props) {
   const [environment, setEnvironment] = useState<EnvironmentId>('main');
 
@@ -140,7 +153,22 @@ export function DashboardScreen({
 
   const night = isNightTime();
 
+  // The underlying pet gives a little "huh?" bob just as the celebration veil
+  // comes in — the "pet notices something is happening" beat of the sequence.
+  // Once per celebration: `interaction.notice` is stable (see `usePetInteraction`).
+  const celebrating = celebration?.kind === 'levelUp';
+  const noticedCelebration = useRef(false);
+  useEffect(() => {
+    if (celebrating && !noticedCelebration.current) {
+      noticedCelebration.current = true;
+      interaction.notice();
+    } else if (!celebrating) {
+      noticedCelebration.current = false;
+    }
+  }, [celebrating, interaction.notice]);
+
   return (
+    <View style={{ flex: 1 }}>
     <EnvironmentStage
       environment={environment}
       pet={pet}
@@ -177,5 +205,14 @@ export function DashboardScreen({
         outside: outsideEnvironment({ onSyncSteps, onNavigate: navigate }),
       }}
     />
+      {celebration?.kind === 'levelUp' ? (
+        <LevelUpCelebration
+          pet={pet}
+          level={celebration.level}
+          night={night}
+          onComplete={() => onCelebrationComplete?.()}
+        />
+      ) : null}
+    </View>
   );
 }
