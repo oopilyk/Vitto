@@ -4,22 +4,6 @@ export type FocusArea = 'nutrition' | 'training' | 'movement' | 'mind';
 
 export const FOCUS_AREAS: FocusArea[] = ['nutrition', 'training', 'movement', 'mind'];
 
-/**
- * The game-facing goal picked in onboarding. Richer than `goal`
- * (lose/maintain/gain), which stays the energy-balance axis the calorie maths
- * reads and is *derived* from this — see `deriveEnergyGoal` in `onboarding.ts`.
- */
-export type PrimaryGoal =
-  | 'build_muscle'
-  | 'get_stronger'
-  | 'gain_weight'
-  | 'lose_weight'
-  | 'maintain'
-  | 'improve_fitness'
-  | 'build_habits'
-  | 'athletic_performance'
-  | 'other';
-
 /** How the user actually trains. `trainingStyle` is derived from this. */
 export type TrainingType =
   | 'weightlifting'
@@ -72,13 +56,16 @@ export interface BodyProfile {
   /**
    * Onboarding-v2 fields. All optional and undefaulted: an account created
    * before onboarding-v2 has none of them, and "unset" is a real state the
-   * flow can resume from. `goal`/`trainingStyle` above stay the values the
-   * calorie/protein maths reads and are *derived* from `primaryGoal`/
-   * `trainingTypes` (see `onboarding.ts`).
+   * flow can resume from.
+   *
+   * The goal is purely weight-based — `targetWeightKg` + a date. `goalTargetDate`
+   * (ISO `YYYY-MM-DD`) is what the user picks; onboarding also writes
+   * `goalWeeks` derived from it so `planForGoal` is unchanged. `goal`
+   * (lose/maintain/gain) is derived from current vs target weight, and
+   * `trainingStyle` from `trainingTypes` — see `onboarding.ts`.
    */
+  goalTargetDate?: string;
   stepGoal?: number;
-  primaryGoal?: PrimaryGoal;
-  secondaryGoals?: PrimaryGoal[];
   trainingTypes?: TrainingType[];
   dietaryPreference?: DietaryPreference;
   motivations?: Motivation[];

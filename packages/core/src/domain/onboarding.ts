@@ -1,8 +1,8 @@
+import { MAX_DECAY_DAYS } from './decay';
 import type {
   BodyProfile,
   DietaryPreference,
   Motivation,
-  PrimaryGoal,
   TrainingStyle,
   TrainingType,
 } from './macroTargets';
@@ -11,16 +11,15 @@ import type { PetPersonality } from './pet';
 /**
  * Onboarding is a way of populating the real `profiles` / `pets` models — not a
  * store of its own. This module holds the vocab the flow offers and the pure
- * derivations that turn a game-facing answer into the value an existing engine
+ * derivations that turn a plain answer into the value an existing engine
  * already reads:
  *
- *   primaryGoal    -> goal          (energy-balance axis, drives calories)
- *   trainingTypes  -> trainingStyle (drives the protein target)
- *   activity/etc.  -> a suggested step goal
+ *   current vs goal weight -> goal          (energy-balance axis, drives calories)
+ *   goal target date       -> goalWeeks     (drives the calorie plan)
+ *   trainingTypes          -> trainingStyle (drives the protein target)
  *
- * The derived value is still stored (it's an existing required column), but it
- * is seeded here and the user can override it — `goal` on the weight step in
- * particular.
+ * Plus the small "what's optimal for this goal / what keeps the pet alive"
+ * helpers the summary screen shows.
  */
 
 export interface Choice<T extends string> {
@@ -28,18 +27,6 @@ export interface Choice<T extends string> {
   label: string;
   detail?: string;
 }
-
-export const PRIMARY_GOAL_OPTIONS: Choice<PrimaryGoal>[] = [
-  { value: 'lose_weight', label: 'Lose weight' },
-  { value: 'build_muscle', label: 'Build muscle' },
-  { value: 'get_stronger', label: 'Get stronger' },
-  { value: 'gain_weight', label: 'Gain weight' },
-  { value: 'maintain', label: 'Maintain my weight' },
-  { value: 'improve_fitness', label: 'Improve fitness' },
-  { value: 'athletic_performance', label: 'Athletic performance' },
-  { value: 'build_habits', label: 'Build better habits' },
-  { value: 'other', label: 'Something else' },
-];
 
 export const TRAINING_TYPE_OPTIONS: Choice<TrainingType>[] = [
   { value: 'weightlifting', label: 'Weightlifting' },
@@ -78,19 +65,29 @@ export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
 
 export const STEP_GOAL_PRESETS = [5000, 7500, 10000, 12500] as const;
 
-/** Which primary goals actually involve moving the number on the scale. */
-export const goalInvolvesWeightChange = (goal: PrimaryGoal | undefined): boolean =>
-  goal === 'lose_weight' || goal === 'gain_weight' || goal === 'build_muscle';
+const WEIGHT_MATCH_KG = 0.5;
 
 /**
- * The energy-balance axis the calorie maths reads. Seeded from the primary
- * goal; the weight step lets the user override it (e.g. "build muscle" while
- * eating at maintenance).
+ * The energy-balance axis the calorie maths reads, from where the user is now to
+ * where they want to be. A target within half a kilo of current is "maintain".
  */
-export const deriveEnergyGoal = (goal: PrimaryGoal | undefined): BodyProfile['goal'] => {
-  if (goal === 'lose_weight') return 'lose';
-  if (goal === 'gain_weight' || goal === 'build_muscle') return 'gain';
-  return 'maintain';
+export const deriveEnergyGoal = (
+  currentKg: number,
+  goalKg: number | undefined,
+): BodyProfile['goal'] => {
+  if (goalKg === undefined || !Number.isFinite(goalKg)) return 'maintain';
+  const diff = goalKg - currentKg;
+  if (Math.abs(diff) < WEIGHT_MATCH_KG) return 'maintain';
+  return diff < 0 ? 'lose' : 'gain';
+};
+
+/** Whole weeks from today to an ISO date, floored at 1. */
+export const weeksUntil = (isoDate: string | undefined, now: Date = new Date()): number | undefined => {
+  if (!isoDate) return undefined;
+  const target = Date.parse(isoDate);
+  if (!Number.isFinite(target)) return undefined;
+  const days = (target - now.getTime()) / 86_400_000;
+  return Math.max(1, Math.round(days / 7));
 };
 
 /**
@@ -120,11 +117,42 @@ export const suggestStepGoal = (
   return Math.round((base + trains) / 500) * 500;
 };
 
+/** What the summary screen recommends for this goal, to sit beside the user's own commitments. */
+export const optimalDailySteps = (profile: Pick<BodyProfile, 'goal' | 'activity'>): number => {
+  const forGoal = profile.goal === 'lose' ? 10000 : profile.goal === 'gain' ? 7500 : 8000;
+  const lift = profile.activity === 'high' ? 1500 : 0;
+  return forGoal + lift;
+};
+
+export const optimalTrainingDays = (profile: Pick<BodyProfile, 'goal'>): number =>
+  profile.goal === 'maintain' ? 3 : 4;
+
+export interface PetSurvivalGuidance {
+  /** Roughly how many active days a week keep the pet from sliding. */
+  minActiveDaysPerWeek: number;
+  /** The window of total neglect after which the pet can be lost. */
+  neglectDays: number;
+  headline: string;
+  detail: string;
+}
+
+/** A motivating (not exact) read of the decay model for the pet-intro screen. */
+export const petSurvivalGuidance = (petName: string): PetSurvivalGuidance => ({
+  minActiveDaysPerWeek: 3,
+  neglectDays: MAX_DECAY_DAYS,
+  headline: `${petName} needs you`,
+  detail:
+    `Log a workout, a meal or your steps most days and ${petName} thrives. Go quiet for a few ` +
+    `days and ${petName} starts to fade — about ${MAX_DECAY_DAYS} days of nothing and ${petName} ` +
+    `could be lost.`,
+});
+
 /**
  * Has the user answered enough of the questionnaire that returning to onboarding
  * should resume at pet creation rather than restart? `motivations` is the last
  * question before the pet, so its presence is the marker.
  */
 export const hasCompletedQuestionnaire = (
-  profile: Pick<BodyProfile, 'primaryGoal' | 'motivations'>,
-): boolean => Boolean(profile.primaryGoal) && (profile.motivations?.length ?? 0) > 0;
+  profile: Pick<BodyProfile, 'targetWeightKg' | 'motivations'>,
+): boolean =>
+  profile.targetWeightKg !== undefined && (profile.motivations?.length ?? 0) > 0;

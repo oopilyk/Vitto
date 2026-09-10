@@ -121,10 +121,11 @@ const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
 const DEFAULT_PROFILE: BodyProfile = {
   age: 30,
   sex: 'other',
-  heightCm: 170,
-  heightUnit: 'cm',
-  weightKg: 70,
-  weightUnit: 'kg',
+  // Stored in metric; the app is US-only, so it always displays lb / ft-in.
+  heightCm: 173, // 5'8"
+  heightUnit: 'ft',
+  weightKg: 73, // ~160 lb
+  weightUnit: 'lb',
   activity: 'moderate',
   goal: 'maintain',
   ...PROFILE_SURVEY_DEFAULTS,

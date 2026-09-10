@@ -178,9 +178,8 @@ export class SupabaseRepository {
       focusAreas: Array.isArray(data.focus_areas) ? data.focus_areas : undefined,
       screenTimeBudgetMinutes: data.screen_time_budget_minutes ?? undefined,
       displayName: usableDisplayName(data.display_name),
+      goalTargetDate: data.goal_target_date ?? undefined,
       stepGoal: data.step_goal ?? undefined,
-      primaryGoal: data.primary_goal ?? undefined,
-      secondaryGoals: Array.isArray(data.secondary_goals) ? data.secondary_goals : undefined,
       trainingTypes: Array.isArray(data.training_types) ? data.training_types : undefined,
       dietaryPreference: data.dietary_preference ?? undefined,
       motivations: Array.isArray(data.motivations) ? data.motivations : undefined,
@@ -209,9 +208,8 @@ export class SupabaseRepository {
       focus_areas: profile.focusAreas,
       // Onboarding-v2 inputs. Dropped + retried by `saveDroppingMissingColumns`
       // on a database that has not run 20260910120000 yet, so the rest saves.
+      goal_target_date: profile.goalTargetDate ?? null,
       step_goal: profile.stepGoal ?? null,
-      primary_goal: profile.primaryGoal ?? null,
-      secondary_goals: profile.secondaryGoals ?? [],
       training_types: profile.trainingTypes ?? [],
       dietary_preference: profile.dietaryPreference ?? null,
       motivations: profile.motivations ?? [],
