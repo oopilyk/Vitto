@@ -744,26 +744,6 @@ export function ProfileScreen({
             </View>
           )}
 
-          <Group label="Units">
-            <View style={styles.unitRow}>
-              <ChoiceRow
-                options={[
-                  { value: 'kg' as const, label: 'kg' },
-                  { value: 'lb' as const, label: 'lb' },
-                ]}
-                value={profile.weightUnit}
-                onChange={(value) => update('weightUnit', value)}
-              />
-              <ChoiceRow
-                options={[
-                  { value: 'cm' as const, label: 'cm' },
-                  { value: 'ft' as const, label: 'ft & in' },
-                ]}
-                value={profile.heightUnit}
-                onChange={(value) => update('heightUnit', value)}
-              />
-            </View>
-          </Group>
 
           <Group label="Sex">
             <ChoiceRow
