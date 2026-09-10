@@ -55,8 +55,6 @@ interface Props {
   pets?: { id: string; name: string; own?: boolean }[];
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
-  /** Starts the join-by-code flow; only passed while the joint slot is free. */
-  onAddJointPet?: () => void;
   /** What the pet is doing right now, and the actions that drive it — owned by
    * `App.tsx`'s `usePetInteraction()` so the Kitchen's meal-capture modal
    * (a sibling stack screen, not a child of this one) can drive the same
@@ -114,7 +112,6 @@ export function DashboardScreen({
   pets,
   activePetId,
   onSelectPet,
-  onAddJointPet,
   interaction,
   partnerName,
   isWalking,
@@ -206,7 +203,6 @@ export function DashboardScreen({
           pets={pets}
           activePetId={activePetId}
           onSelectPet={onSelectPet}
-          onAddJointPet={onAddJointPet}
           partnerName={partnerName}
           night={night}
         />

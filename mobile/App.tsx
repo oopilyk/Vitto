@@ -263,10 +263,15 @@ export default function App() {
    */
   const [pets, setPets] = useState<PetState[]>([]);
   const [activePetId, setActivePetId] = useState<string | null>(null);
-  const pet = useMemo(
-    () => pets.find((candidate) => candidate.id === activePetId) ?? pets[0] ?? null,
-    [pets, activePetId],
-  );
+  const pet = useMemo(() => {
+    const chosen = pets.find((candidate) => candidate.id === activePetId);
+    if (chosen) return chosen;
+    // No explicit choice yet: the world screen is YOUR pet, not the joint one.
+    // `pets[0]` can be the joint pet depending on load order, which is what
+    // made the HUD show the partner's animal by default.
+    const own = pets.find((candidate) => isOwnPet(candidate, session?.user.id ?? 'demo-user'));
+    return own ?? pets[0] ?? null;
+  }, [pets, activePetId, session?.user.id]);
   /**
    * Replaces one pet in the list, keeping the call sites that predate two pets
    * working unchanged. `null` clears everything, which is what signing out means.
@@ -474,7 +479,10 @@ export default function App() {
         // loaded for whichever is on screen. Switching pets refreshes it.
         const loadedPets = petResult.status === 'fulfilled' ? petResult.value : [];
         const loadedPet =
-          loadedPets.find((candidate) => candidate.id === activePetId) ?? loadedPets[0] ?? null;
+          loadedPets.find((candidate) => candidate.id === activePetId) ??
+          loadedPets.find((candidate) => isOwnPet(candidate, session?.user.id ?? 'demo-user')) ??
+          loadedPets[0] ??
+          null;
         if (!loadedPet) {
           setMembers([]);
           setCareLog([]);
@@ -802,14 +810,14 @@ export default function App() {
    * explicit action.
    *
    * From onboarding the profile is saved first so fuel targets work from day
-   * one. Resolves true once joined; the load path then fetches both pets, and
-   * the switcher lands on the new one.
+   * one. Resolves true once joined; the load path then fetches both pets. The
+   * world screen stays on YOUR pet — the joint one is a tab away, not the
+   * default — so `activePetId` is deliberately left where it is.
    */
   const redeemInvite = (code: string): Promise<boolean> =>
     runPartnerAction(async () => {
       if (!pet) await persistProfile(profile);
-      const joinedId = await remoteRepository.redeemInvite(code);
-      setActivePetId(joinedId);
+      await remoteRepository.redeemInvite(code);
       setReloadToken((token) => token + 1);
       return true;
     });
@@ -1330,13 +1338,6 @@ export default function App() {
               onSyncSteps={() => void syncSteps()}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenProfile={() => navigation.navigate('Profile')}
-              // The "+" under the level ring. Absent once the joint slot is
-              // taken (the slot becomes the switcher) and offline (nothing to join).
-              onAddJointPet={
-                isOnline && canJoinAnotherPet(pets, userId)
-                  ? () => navigation.navigate('Profile', { join: true })
-                  : undefined
-              }
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}

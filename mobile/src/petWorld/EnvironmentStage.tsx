@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { playPokeFeedback } from '../services/mealFeedback';
 import { PetNameBubble } from './PetNameBubble';
 import { stageMetrics } from './EnvironmentBackdrop';
@@ -99,6 +100,8 @@ export function EnvironmentStage({
   night,
 }: EnvironmentStageProps) {
   const regions = environments[environment];
+  const reduceMotion = useReducedMotion();
+  const transitionMs = reduceMotion ? 0 : ENVIRONMENT_TRANSITION_MS;
 
   // The stage measures itself once and sizes the pet from that; every scene's
   // art is fitted from the same width, so this is the same box the backdrop
@@ -126,7 +129,7 @@ export function EnvironmentStage({
     progress.setValue(0);
     Animated.timing(progress, {
       toValue: 1,
-      duration: ENVIRONMENT_TRANSITION_MS,
+      duration: transitionMs,
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: false, // backgroundColor cannot use the native driver.
     }).start();
@@ -142,6 +145,10 @@ export function EnvironmentStage({
 
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
+    if (reduceMotion) {
+      pulse.setValue(1);
+      return;
+    }
     // A gentle settle rather than a visible zoom -- with the longer transition
     // a bigger dip read as the whole scene lurching.
     pulse.setValue(0.97);
@@ -151,7 +158,7 @@ export function EnvironmentStage({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [environment, pulse]);
+  }, [environment, pulse, reduceMotion]);
 
   // A quick squash-and-hop whenever the pet itself is tapped, so a poke reads as
   // the pet reacting to the touch and not just as opening something. Kept apart
@@ -221,7 +228,7 @@ export function EnvironmentStage({
 
   return (
     <Animated.View style={[styles.stage, { backgroundColor }]} onLayout={onStageLayout}>
-      <FadeSwap swapKey={environment}>
+      <FadeSwap swapKey={environment} durationMs={transitionMs}>
         <Animated.View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {regions.background}
         </Animated.View>
@@ -266,7 +273,7 @@ export function EnvironmentStage({
         <PetNameBubble name={pet.name} visible={nameShown} night={night} />
       </View>
 
-      <FadeSwap swapKey={environment} style={styles.controlsLayer}>
+      <FadeSwap swapKey={environment} style={styles.controlsLayer} durationMs={transitionMs}>
         <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
           {regions.controls}
         </Animated.View>
@@ -293,8 +300,11 @@ function FadeSwap({
   swapKey,
   style,
   children,
+  durationMs = ENVIRONMENT_TRANSITION_MS,
 }: {
   swapKey: string;
+  /** 0 under Reduce Motion — the content just appears. */
+  durationMs?: number;
   /**
    * Applied to the faded wrapper itself, not its child — so a `zIndex` here
    * lands on the element that is actually a sibling of the stage's other
@@ -310,13 +320,13 @@ function FadeSwap({
     opacity.setValue(0);
     Animated.timing(opacity, {
       toValue: 1,
-      duration: ENVIRONMENT_TRANSITION_MS,
+      duration: durationMs,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
     // Keyed on `swapKey` rather than `opacity` (which is a stable ref and would
     // only ever fire once): this is what makes the fade replay on every swap.
-  }, [swapKey, opacity]);
+  }, [swapKey, opacity, durationMs]);
   return (
     <Animated.View style={[StyleSheet.absoluteFill, style, { opacity }]}>{children}</Animated.View>
   );
