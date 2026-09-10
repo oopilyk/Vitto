@@ -751,7 +751,9 @@ export function ProfileScreen({
           )}
 
           {/* One toggle for every unit, matching the one at sign-up: weight and
-              height always move together. */}
+              height always move together. Restored in the onboarding-v2 merge —
+              that branch removed it on a US-only assumption the product owner
+              reversed. */}
           <Group label="Units">
             <ChoiceRow
               options={[

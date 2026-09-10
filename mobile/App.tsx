@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type MeasurementSystem, withMeasurementSystem, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  withMeasurementSystem, type MeasurementSystem,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -123,14 +123,17 @@ const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
  * Units start from the device's locale, so an American phone opens the survey on
  * pounds and feet without anyone touching the toggle. Read once at module load;
  * it is only a starting point, and the survey's Units choice overrides it.
+ *
+ * The body values are metric regardless — that is how they are stored — and are
+ * onboarding-v2's more realistic starting figures rather than round numbers.
  */
 const DEFAULT_PROFILE: BodyProfile = withMeasurementSystem(
   {
     age: 30,
     sex: 'other',
-    heightCm: 170,
+    heightCm: 173, // 5'8"
+    weightKg: 73, // ~160 lb
     heightUnit: 'cm',
-    weightKg: 70,
     weightUnit: 'kg',
     activity: 'moderate',
     goal: 'maintain',
@@ -299,8 +302,13 @@ export default function App() {
   const [name, setName] = useState('Miso');
   // Chosen at adoption; changeable later from the profile.
   const [breed, setBreed] = useState<PetBreed>('bichon');
+  const [personality, setPersonality] = useState<PetPersonality>('supportive');
   const [error, setError] = useState<string | null>(null);
-  const [stepGoal, setStepGoal] = useState(10000);
+  // Persisted on `profiles` now (onboarding-v2). Derived rather than its own
+  // state so a `loadProfile` after sign-in is what fills it. `updateProfile`
+  // saves it optimistically, same as every other profile field.
+  const stepGoal = profile.stepGoal ?? 10000;
+  const setStepGoal = (next: number) => updateProfile('stepGoal', next);
   const [wordPuzzleProgress, setWordPuzzleProgress] = useState<WordPuzzleProgress | null>(null);
 
   // What the pet is doing on screen, and the choreography (walk to food, eat,
@@ -827,7 +835,7 @@ export default function App() {
       if (profile.weightKg < 30 || profile.weightKg > 300)
         throw new Error('Weight must be between 30 and 300 kg.');
 
-      const nextPet = createPet(userId, name.trim() || 'Miso', 'dog', breed);
+      const nextPet = createPet(userId, name.trim() || 'Miso', 'dog', breed, personality);
       if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
       await persistProfile(profile);
       await repository.savePet(nextPet);
@@ -1215,6 +1223,10 @@ export default function App() {
           onNameChange={setName}
           breed={breed}
           onBreedChange={setBreed}
+          personality={personality}
+          onPersonalityChange={setPersonality}
+          stepGoal={stepGoal}
+          onStepGoalChange={setStepGoal}
           profile={profile}
           onUpdate={updateProfile}
           onSetUnits={setMeasurementSystem}

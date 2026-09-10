@@ -2,6 +2,14 @@ import { newId } from './ids';
 
 export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
 
+/**
+ * The companion's disposition, chosen at adoption. Lives on the pet, not the
+ * user: a pet persists independently of the profile, and multi-pet / switching
+ * later must not tie personality to the account. Only stored today — dialogue,
+ * reactions and social presentation can read it when those systems exist.
+ */
+export type PetPersonality = 'energetic' | 'chill' | 'competitive' | 'supportive';
+
 /** Which drawn companion the pet is. Optional: pets adopted before the picker have none. */
 export type PetBreed =
   | 'bichon'
@@ -61,6 +69,8 @@ export interface PetState {
   recovery: number;
   mind: number;
   mood: PetMood;
+  /** Chosen at adoption (onboarding-v2). Optional: pets created before it have none. */
+  personality?: PetPersonality;
   adoptedAt: string;
   lastEventAt?: string;
   /**
@@ -224,6 +234,7 @@ export const createPet = (
   name: string,
   species: PetState['species'] = 'cat',
   breed: PetBreed = 'bichon',
+  personality?: PetPersonality,
   id: string = newId(),
 ): PetState => ({
   id,
@@ -231,6 +242,7 @@ export const createPet = (
   userId,
   name,
   species,
+  ...(personality ? { personality } : {}),
   level: 1,
   xp: 0,
   health: 78,
