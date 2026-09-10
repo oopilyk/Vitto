@@ -1,16 +1,19 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 
-const SIZE = 46;
-const STROKE = 3;
+const SIZE = 90;
+const STROKE = 7;
 
 /**
- * A compact level/XP indicator — what used to be the boxed "VITALS" panel
- * (four separate stat bars) is consolidated into one quiet ring, tapped to
- * reach the same full stat sheet. No SVG dependency: RN has no conic-gradient,
- * so the fill is approximated in quarters (0/25/50/75/100% of `xpPct`) via the
- * four border sides rather than a true swept arc — coarser than an SVG ring,
- * but close enough at 46px to read as "mostly there" without a new dependency.
+ * The pet's level/XP badge — the single loudest piece of HUD chrome, per the
+ * product owner's "the level circle should be a lot bigger in comparison to
+ * everything else" note. Tapped to reach the full stat sheet.
+ *
+ * No SVG dependency: RN has no conic-gradient, so the XP fill is approximated in
+ * quarters (0/25/50/75/100% of `xpPct`) via the four border sides of a rotated
+ * ring rather than a true swept arc — coarser than an SVG ring, but close enough
+ * at this size to read as "mostly there" without a new dependency. A solid ink
+ * outline and a hard offset shadow give it the blocky, pixel-UI weight.
  */
 export function LevelRing({
   level,
@@ -42,10 +45,15 @@ export function LevelRing({
       hitSlop={8}
       style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}
     >
+      {/* Hard, un-blurred drop shadow — a duplicate disc offset behind the
+          badge, so the retro shadow survives the ring's -45° rotation (which a
+          `shadow*` style on the ring itself would be dragged around by). */}
+      <View style={styles.shadowDisc} />
+      {/* The solid outlined face the number sits on. Same colour in every room. */}
+      <View style={[styles.face, night && styles.faceNight]} />
       <View
         style={[
           styles.ring,
-          night && styles.ringNight,
           {
             borderTopColor: quarters[0] ? colors.coral : track,
             borderRightColor: quarters[1] ? colors.coral : track,
@@ -54,6 +62,7 @@ export function LevelRing({
           },
         ]}
       />
+      <Text style={[styles.kicker, night && styles.levelNight]}>LV</Text>
       <Text style={[styles.level, night && styles.levelNight]}>{level}</Text>
     </Pressable>
   );
@@ -67,21 +76,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pressed: { opacity: 0.7 },
-  ring: {
-    ...StyleSheet.absoluteFill,
+  shadowDisc: {
+    position: 'absolute',
+    width: SIZE,
+    height: SIZE,
     borderRadius: SIZE / 2,
-    borderWidth: STROKE,
-    // Opaque, not a wash: the level sat directly on the scene, so a pale wall or
-    // a lit window decided how readable the number was. The disc is the same
-    // colour in every room.
+    backgroundColor: '#1b1830',
+    transform: [{ translateX: 3 }, { translateY: 4 }],
+  },
+  face: {
+    position: 'absolute',
+    width: SIZE,
+    height: SIZE,
+    borderRadius: SIZE / 2,
     backgroundColor: colors.card,
+    borderWidth: 3,
+    borderColor: colors.ink,
+  },
+  faceNight: { backgroundColor: '#141226', borderColor: '#4b4870' },
+  ring: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    width: SIZE - 12,
+    height: SIZE - 12,
+    borderRadius: (SIZE - 12) / 2,
+    borderWidth: STROKE,
+    backgroundColor: 'transparent',
     transform: [{ rotate: '-45deg' }],
   },
-  // The night chrome's own tone (the caption card's, at full opacity).
-  ringNight: { backgroundColor: '#141226' },
+  kicker: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    color: colors.inkSoft,
+    marginBottom: -3,
+  },
   level: {
     fontFamily: fonts.mono,
-    fontSize: 15,
+    fontSize: 32,
     fontWeight: '700',
     color: colors.ink,
   },

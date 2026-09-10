@@ -73,4 +73,24 @@ describe('EnvironmentStage pet tap reaction', () => {
     expect(petLayer(tree)).toBeUndefined();
     tree.unmount();
   });
+
+  it('carries the pet name in the hover/tap bubble, not a permanent HUD card', () => {
+    const tree = render(() => {});
+    const named = tree.root
+      .findAllByType(Text)
+      .some((node) => node.props.children === pet.name);
+    expect(named).toBe(true);
+    tree.unmount();
+  });
+
+  it('reveals and hides the name bubble on hover without throwing', () => {
+    const tree = render(() => {});
+    const layer = petLayer(tree);
+    expect(typeof layer!.props.onHoverIn).toBe('function');
+    expect(typeof layer!.props.onHoverOut).toBe('function');
+    act(() => layer!.props.onHoverIn());
+    act(() => layer!.props.onPressIn());
+    act(() => layer!.props.onHoverOut());
+    tree.unmount();
+  });
 });
