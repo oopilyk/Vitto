@@ -67,34 +67,36 @@ describe('EnvironmentActionRow (hotbar)', () => {
     }
   });
 
-  it('sits on the world — no bar background — with every icon as the same three layers', () => {
+  it('gives the day-active button the layered outline+filled treatment; the others one image', () => {
     const tree = rowFor('kitchen', false);
     const active = buttons(tree).get('Go to the kitchen')!;
     const inactive = buttons(tree).get('Go to the gym')!;
 
-    for (const btn of [active, inactive]) {
-      const imgs = btn.findAllByType(Image);
-      expect(imgs).toHaveLength(3); // shadow copy + shape + keyline
-      expect(imgs.map(tintOf).sort()).toEqual(['#12101c', '#ffffff', '#ffffff']);
-    }
+    // Two layered images (dark filled shape + white outline keyline) vs one.
+    const activeImages = active.findAllByType(Image);
+    expect(activeImages).toHaveLength(2);
+    expect(activeImages.map((img) => img.props.source)).toEqual([
+      expect.anything(),
+      expect.anything(),
+    ]);
+    // The two layers are different crops, and carry the dark/white tint pair.
+    expect(activeImages[0].props.source).not.toBe(activeImages[1].props.source);
+    expect(activeImages.map(tintOf).sort()).toEqual(['#1b1b1b', '#ffffff']);
 
-    // No translucent strip behind the icons (the old bar bg was an rgba()).
-    const { View } = require('react-native');
-    const hasTranslucentStrip = tree.root.findAllByType(View).some((v: any) => {
-      const bg = StyleSheet.flatten(v.props.style)?.backgroundColor;
-      return typeof bg === 'string' && bg.startsWith('rgba');
-    });
-    expect(hasTranslucentStrip).toBe(false);
-    tree.unmount();
+    expect(inactive.findAllByType(Image)).toHaveLength(1);
+    expect(tintOf(inactive.findAllByType(Image)[0])).toBe('#ffffff');
   });
 
-  it('the current scene is the only full-strength icon', () => {
-    const tree = rowFor('kitchen', false);
-    const fill = (btn: renderer.ReactTestInstance) =>
-      StyleSheet.flatten(btn.findAllByType(Image)[1].props.style).opacity as number;
-    expect(fill(buttons(tree).get('Go to the kitchen')!)).toBe(1);
-    expect(fill(buttons(tree).get('Go to the gym')!)).toBeLessThan(1);
-    tree.unmount();
+  it('gives every night button a white keyline; the active one is solid white, the rest dark-with-outline', () => {
+    const tree = rowFor('kitchen', true);
+    const active = buttons(tree).get('Go to the kitchen')!;
+    const inactive = buttons(tree).get('Go to the gym')!;
+
+    // Both render the filled + outline layer pair at night.
+    const activeTints = active.findAllByType(Image).map(tintOf).sort();
+    const inactiveTints = inactive.findAllByType(Image).map(tintOf).sort();
+    expect(activeTints).toEqual(['#ffffff', '#ffffff']); // solid white shape + white keyline
+    expect(inactiveTints).toEqual(['#111111', '#ffffff']); // dark shape + white keyline
   });
 
   it('navigates to the tapped scene', () => {

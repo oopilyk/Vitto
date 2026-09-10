@@ -1,34 +1,36 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Image, type ImageSourcePropType, Pressable, StyleSheet } from 'react-native';
+import { Animated, Image, type ImageSourcePropType, Pressable, StyleSheet, View } from 'react-native';
 
 /**
- * One icon on the bottom hotbar (`EnvironmentActionRow`). There is no bar behind
- * it any more, so each icon carries its own contrast: a hard 1px pixel shadow
- * copy behind, and an always-on white keyline in front, so it reads on a bright
- * wall or a dark night sky alike. No blur, no glow.
+ * One icon on the Snapchat-style hotbar (`EnvironmentActionRow`) -- white icon
+ * art on transparent, tinted to fit the bar rather than wrapped in any chrome.
+ * The bar reads as a strip of glyphs sitting directly on the scene.
  *
- * The current room:
- *  - solid white fill at full strength,
- *  - lifts 2px,
- *  - and drops a short coral pixel pedestal that scales in when the room changes
- *    — a "you are here" marker that needs no label.
+ * Four looks, from `night` x `isActive`:
+ *  - day, inactive  -- solid shape, white, slightly dimmed.
+ *  - day, active    -- a dark shape with a crisp white keyline: the `filled` art
+ *    tinted near-black UNDER the `outline` art tinted white.
+ *  - night, inactive -- dark shape with a white keyline, so it still reads
+ *    against a dark bar over a dark scene.
+ *  - night, active  -- solid shape, white, full strength (also keylined).
  *
- * Every other room: the same shape, dimmed, sitting flat.
+ * The current room also gets a short coral "you are here" pedestal under it --
+ * a 3px pixel bar, no glow -- so the active state is unmistakable without a
+ * label. It scales in when the room changes.
  */
 const ICON_SIZE = 40;
 const SLOT_SIZE = 48;
 
-const FILL_TINT = {
-  dayInactive: { tintColor: '#ffffff', opacity: 0.78 },
-  dayActive: { tintColor: '#ffffff', opacity: 1 },
-  nightInactive: { tintColor: '#ffffff', opacity: 0.6 },
+const FILLED_STYLE = {
+  dayInactive: { tintColor: '#ffffff', opacity: 0.85 },
+  dayActive: { tintColor: '#1b1b1b', opacity: 1 },
+  nightInactive: { tintColor: '#111111', opacity: 0.75 },
   nightActive: { tintColor: '#ffffff', opacity: 1 },
 } as const;
 
-const SHADOW_TINT = '#12101c';
-const KEYLINE_TINT = '#ffffff';
-/** One "you are here" colour, day or night — coral is Vitto's progress hue. */
-const PEDESTAL = '#e5654c';
+const ACTIVE_OUTLINE_TINT = '#ffffff';
+const PEDESTAL_DAY = '#e5654c';
+const PEDESTAL_NIGHT = '#ffffff';
 
 export interface EnvironmentButtonProps {
   /** A verb phrase ("Go to the gym"), so a screen reader announces a destination. */
@@ -48,24 +50,25 @@ export function EnvironmentButton({
   night,
   onPress,
 }: EnvironmentButtonProps) {
-  const fill = night
+  const filledStyle = night
     ? isActive
-      ? FILL_TINT.nightActive
-      : FILL_TINT.nightInactive
+      ? FILLED_STYLE.nightActive
+      : FILLED_STYLE.nightInactive
     : isActive
-      ? FILL_TINT.dayActive
-      : FILL_TINT.dayInactive;
+      ? FILLED_STYLE.dayActive
+      : FILLED_STYLE.dayInactive;
 
-  // The active icon lifts, and its pedestal scales in — a quick "I moved here".
-  const active = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const showOutline = night || isActive;
+
+  // The pedestal scales in on becoming active — a quick "I moved here" beat.
+  const pedestal = useRef(new Animated.Value(isActive ? 1 : 0)).current;
   useEffect(() => {
-    Animated.timing(active, {
+    Animated.timing(pedestal, {
       toValue: isActive ? 1 : 0,
       duration: isActive ? 160 : 110,
       useNativeDriver: true,
     }).start();
-  }, [isActive, active]);
-  const lift = active.interpolate({ inputRange: [0, 1], outputRange: [0, -2] });
+  }, [isActive, pedestal]);
 
   return (
     <Pressable
@@ -79,25 +82,25 @@ export function EnvironmentButton({
       hitSlop={8}
       style={({ pressed }) => [styles.slot, pressed && !isActive && styles.pressed]}
     >
-      <Animated.View style={[styles.iconBox, { transform: [{ translateY: lift }] }]}>
-        {/* hard pixel shadow */}
-        <Image
-          source={filledSource}
-          style={[styles.icon, styles.shadowIcon, { tintColor: SHADOW_TINT }]}
-          resizeMode="contain"
-        />
-        {/* the shape */}
-        <Image source={filledSource} style={[styles.icon, fill]} resizeMode="contain" />
-        {/* always-on keyline */}
-        <Image
-          source={outlineSource}
-          style={[styles.icon, styles.keyline, { tintColor: KEYLINE_TINT, opacity: isActive ? 1 : 0.85 }]}
-          resizeMode="contain"
-        />
-      </Animated.View>
+      <View style={styles.iconBox}>
+        <Image source={filledSource} style={[styles.icon, filledStyle]} resizeMode="contain" />
+        {showOutline ? (
+          <View style={styles.outlineLayer} pointerEvents="none">
+            <Image
+              source={outlineSource}
+              style={[styles.icon, { tintColor: ACTIVE_OUTLINE_TINT }]}
+              resizeMode="contain"
+            />
+          </View>
+        ) : null}
+      </View>
       <Animated.View
         pointerEvents="none"
-        style={[styles.pedestal, { opacity: active, transform: [{ scaleX: active }] }]}
+        style={[
+          styles.pedestal,
+          { backgroundColor: night ? PEDESTAL_NIGHT : PEDESTAL_DAY },
+          { opacity: pedestal, transform: [{ scaleX: pedestal }] },
+        ]}
       />
     </Pressable>
   );
@@ -107,15 +110,21 @@ const styles = StyleSheet.create({
   slot: { width: SLOT_SIZE, height: SLOT_SIZE, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.6, transform: [{ scale: 0.9 }] },
   iconBox: { width: ICON_SIZE, height: ICON_SIZE, alignItems: 'center', justifyContent: 'center' },
-  icon: { position: 'absolute', width: ICON_SIZE, height: ICON_SIZE },
-  shadowIcon: { transform: [{ translateX: 1.5 }, { translateY: 1.5 }], opacity: 0.5 },
-  keyline: {},
+  icon: { width: ICON_SIZE, height: ICON_SIZE },
+  outlineLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pedestal: {
     position: 'absolute',
-    bottom: 1,
-    width: 20,
+    bottom: 2,
+    width: 18,
     height: 3,
     borderRadius: 1,
-    backgroundColor: PEDESTAL,
   },
 });

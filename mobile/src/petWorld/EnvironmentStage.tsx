@@ -225,10 +225,6 @@ export function EnvironmentStage({
 
   const pokeScale = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 1.09] });
   const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
-  // The contact shadow tucks in as the pet hops, so it reads as leaving the
-  // ground rather than dragging a puck around.
-  const shadowSquash = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 0.62] });
-  const shadowFade = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45] });
 
   return (
     <Animated.View style={[styles.stage, { backgroundColor }]} onLayout={onStageLayout}>
@@ -237,27 +233,6 @@ export function EnvironmentStage({
           {regions.background}
         </Animated.View>
       </FadeSwap>
-
-      {/* A soft flattened contact shadow at the pet's feet — the single thing
-          that stops the sprite reading as a sticker on the photo. Behind the
-          pet (same layer, drawn first), non-interactive. */}
-      <View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, styles.groundLayer, { paddingBottom: metrics.petBottom }]}
-      >
-        <Animated.View
-          style={[
-            styles.contactShadow,
-            night && styles.contactShadowNight,
-            {
-              width: Math.round(metrics.petSize * 0.5),
-              height: Math.round(metrics.petSize * 0.11),
-              opacity: Animated.multiply(shadowFade, night ? 0.9 : 0.75),
-              transform: [{ scaleX: shadowSquash }, { scaleY: shadowSquash }],
-            },
-          ]}
-        />
-      </View>
 
       <Pressable
         onPress={handlePetPress}
@@ -367,13 +342,6 @@ const styles = StyleSheet.create({
   petLayer: { zIndex: 1 },
   controlsLayer: { zIndex: 2 },
   hudLayer: { zIndex: 3 },
-  // Same layer as the pet, drawn first so it sits behind the sprite.
-  groundLayer: { zIndex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  contactShadow: {
-    borderRadius: 999,
-    backgroundColor: 'rgba(20,16,30,0.22)',
-  },
-  contactShadowNight: { backgroundColor: 'rgba(0,0,0,0.34)' },
   // Above the pet, below the HUD chrome. Anchors the name bubble near the pet's
   // head. Non-interactive, so it never steals a tap from the controls beneath.
   // `paddingBottom` is set inline from `stageMetrics`.

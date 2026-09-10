@@ -33,31 +33,50 @@ describe('EnvironmentButton (hotbar icon)', () => {
     tree.unmount();
   });
 
-  const fillOpacity = (tree: renderer.ReactTestRenderer) =>
-    StyleSheet.flatten(images(tree)[1].props.style).opacity as number;
-
-  it('renders three layers on any state: a hard shadow copy, the shape, an always-on white keyline', () => {
+  it('day, inactive: one white filled icon, slightly dimmed', () => {
     const tree = render({ isActive: false, night: false });
-    const [shadow, fill, keyline] = images(tree);
-    expect(shadow.props.source).toBe(filledSource);
-    expect(tintOf(shadow)).toBe('#12101c');
-    expect(fill.props.source).toBe(filledSource);
-    expect(tintOf(fill)).toBe('#ffffff');
-    expect(keyline.props.source).toBe(outlineSource);
-    expect(tintOf(keyline)).toBe('#ffffff');
+    const imgs = images(tree);
+    expect(imgs).toHaveLength(1);
+    const style = StyleSheet.flatten(imgs[0].props.style);
+    expect(style.tintColor).toBe('#ffffff');
+    expect(style.opacity).toBeLessThan(1);
     tree.unmount();
   });
 
-  it('the current room is full strength; the others are dimmed, dimmer still at night', () => {
-    const dayActive = render({ isActive: true, night: false });
-    const dayInactive = render({ isActive: false, night: false });
-    const nightInactive = render({ isActive: false, night: true });
-    expect(fillOpacity(dayActive)).toBe(1);
-    expect(fillOpacity(dayInactive)).toBeLessThan(1);
-    expect(fillOpacity(nightInactive)).toBeLessThan(fillOpacity(dayInactive));
-    dayActive.unmount();
-    dayInactive.unmount();
-    nightInactive.unmount();
+  it('day, active: layers a dark filled icon under a white outline keyline', () => {
+    const tree = render({ isActive: true, night: false });
+    const imgs = images(tree);
+    expect(imgs).toHaveLength(2);
+    const [filled, outline] = imgs;
+    expect(filled.props.source).toBe(filledSource);
+    expect(tintOf(filled)).toBe('#1b1b1b');
+    expect(outline.props.source).toBe(outlineSource);
+    expect(tintOf(outline)).toBe('#ffffff');
+    tree.unmount();
+  });
+
+  it('night, inactive: a dark filled icon under a white outline keyline so it still reads', () => {
+    const tree = render({ isActive: false, night: true });
+    const imgs = images(tree);
+    expect(imgs).toHaveLength(2);
+    const [filled, outline] = imgs;
+    expect(filled.props.source).toBe(filledSource);
+    expect(tintOf(filled)).toBe('#111111');
+    expect(outline.props.source).toBe(outlineSource);
+    expect(tintOf(outline)).toBe('#ffffff');
+    tree.unmount();
+  });
+
+  it('night, active: a full-strength white filled icon, also keylined', () => {
+    const tree = render({ isActive: true, night: true });
+    const imgs = images(tree);
+    expect(imgs).toHaveLength(2);
+    const [filled, outline] = imgs;
+    expect(tintOf(filled)).toBe('#ffffff');
+    expect(StyleSheet.flatten(filled.props.style).opacity).toBe(1);
+    expect(outline.props.source).toBe(outlineSource);
+    expect(tintOf(outline)).toBe('#ffffff');
+    tree.unmount();
   });
 
   it('marks itself selected for a screen reader only while active', () => {
