@@ -357,6 +357,62 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('offers a "+" under the level ring while the joint slot is free, and not once it is taken', () => {
+    let opened = 0;
+    const render = (pets: { id: string; name: string; own: boolean }[]) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <DashboardScreen
+            pet={pet}
+            events={[]}
+            reaction={null}
+            pets={pets}
+            activePetId={pets[0]?.id}
+            onSelectPet={() => {}}
+            onAddJointPet={() => {
+              opened += 1;
+            }}
+            onLogMeal={() => {}}
+            onLogWorkout={() => {}}
+            onSyncSteps={() => {}}
+            onTrainMind={() => {}}
+            onOpenProfile={() => {}}
+            onOpenStats={() => {}}
+            onOpenToday={() => {}}
+            interaction={idleInteraction}
+          />,
+        );
+      });
+      return tree;
+    };
+    const find = (tree: renderer.ReactTestRenderer, label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+
+    // One pet: the slot is a "+" that starts the join flow.
+    const solo = render([{ id: 'p', name: 'Miso', own: true }]);
+    const add = find(solo, 'Add a joint pet');
+    expect(add).toBeTruthy();
+    act(() => add!.props.onPress());
+    expect(opened).toBe(1);
+    // No switcher yet: the tile says "JOINT PET", but there is no tab to switch
+    // to, and no MINE tab either.
+    expect(find(solo, 'Show Miso, your own pet')).toBeUndefined();
+    expect(JSON.stringify(solo.toJSON())).not.toContain('MINE');
+    solo.unmount();
+
+    // Two pets: the same slot is now the switcher, and the "+" is gone.
+    const both = render([
+      { id: 'p', name: 'Miso', own: true },
+      { id: 'q', name: 'Blue', own: false },
+    ]);
+    expect(find(both, 'Add a joint pet')).toBeUndefined();
+    expect(find(both, 'Show Blue, your joint pet')).toBeTruthy();
+    both.unmount();
+  });
+
   it('shows nothing where the toast goes until something is logged', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -1522,6 +1578,45 @@ describe('care partners', () => {
       await leave!.props.onPress();
     });
     expect(left).toBe(1);
+    tree.unmount();
+  });
+
+  it('arrives with the join field open and scrolls to the care-partner card when asked', () => {
+    const { ScrollView: RNScrollView } = require('react-native');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          openJoin
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async () => {}}
+          onClose={() => {}}
+          carePartner={partnerProps()}
+        />,
+      );
+    });
+    // The code field is already open: no "Have a code?" step in the way.
+    expect(findButton(tree, 'Have a code?')).toBeUndefined();
+    expect(findButton(tree, 'Join')).toBeTruthy();
+
+    // The card reports where it landed, and the screen scrolls there once.
+    const scrollView = tree.root.findByType(RNScrollView);
+    const scrollTo = jest.fn();
+    (scrollView.instance as any).scrollTo = scrollTo;
+    // The care-partner card is the one Card given an onLayout.
+    const card = tree.root.findAll(
+      (node: any) =>
+        typeof node.props.onLayout === 'function' &&
+        JSON.stringify(node.props.style ?? {}).includes('borderRadius'),
+    )[0];
+    expect(card).toBeTruthy();
+    act(() => card.props.onLayout({ nativeEvent: { layout: { x: 0, y: 900, width: 0, height: 0 } } }));
+    act(() => card.props.onLayout({ nativeEvent: { layout: { x: 0, y: 950, width: 0, height: 0 } } }));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith({ y: 888, animated: true });
     tree.unmount();
   });
 
