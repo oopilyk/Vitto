@@ -300,7 +300,13 @@ export function LevelUpCelebration({ pet, level, night, onComplete }: Props) {
         </Pressable>
       </Animated.View>
 
-      <Animated.View style={[styles.flash, { opacity: flash }]} pointerEvents="none" />
+      <Animated.View
+        style={[
+          styles.flash,
+          { opacity: flash.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) },
+        ]}
+        pointerEvents="none"
+      />
     </Animated.View>
   );
 }
