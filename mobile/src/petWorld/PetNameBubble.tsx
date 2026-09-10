@@ -61,20 +61,20 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   bubbleDay: {
-    backgroundColor: '#f7f2e4',
-    borderColor: '#26312d',
+    backgroundColor: '#efe5d0',
+    borderColor: '#43372c',
   },
   bubbleNight: {
-    backgroundColor: '#141226',
-    borderColor: '#4b4870',
+    backgroundColor: '#2b2420',
+    borderColor: '#7d6d5e',
   },
   name: {
     fontFamily: fonts.mono,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1,
-    color: '#26312d',
+    color: '#43372c',
     textTransform: 'uppercase',
   },
-  nameNight: { color: '#f7f5ff' },
+  nameNight: { color: '#efe5d0' },
 });

@@ -10,7 +10,7 @@ import {
   assessCondition,
   hasEvolved,
 } from '@vitto/core';
-import { colors, fonts } from '../theme';
+import { fonts, world } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
 import { LevelRing } from './LevelRing';
 import { retro, retroPressed } from './retroStyle';
@@ -241,7 +241,7 @@ export function PetWorldHud({
                 <Image
                   source={FRIENDS_ICON}
                   resizeMode="contain"
-                  style={[styles.discIcon, { tintColor: night ? '#f4f2ff' : colors.ink }]}
+                  style={[styles.discIcon, { tintColor: night ? world.nightText : world.ink }]}
                 />
               </Pressable>
             ) : null}
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     letterSpacing: 1,
-    color: colors.ink,
+    color: world.ink,
   },
 
   feeling: {
@@ -315,27 +315,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: 0.2,
-    color: colors.ink,
+    color: world.ink,
     textAlign: 'center',
     marginTop: 10,
-    textShadowColor: 'rgba(255,255,255,0.7)',
+    textShadowColor: 'rgba(255,250,238,0.72)',
     textShadowRadius: 3,
   },
-  feelingNight: { color: '#f4f2ff', textShadowColor: 'rgba(0,0,0,0.45)' },
+  feelingNight: { color: world.nightText, textShadowColor: 'rgba(0,0,0,0.5)' },
   meta: {
     fontFamily: fonts.mono,
     fontSize: 10,
     letterSpacing: 0.8,
-    color: colors.inkSoft,
+    color: world.inkSoft,
     textAlign: 'center',
     marginTop: 5,
     textTransform: 'uppercase',
-    textShadowColor: 'rgba(255,255,255,0.6)',
+    textShadowColor: 'rgba(255,250,238,0.6)',
     textShadowRadius: 2,
   },
-  metaNight: { color: '#d6d1f0', textShadowColor: 'rgba(0,0,0,0.4)' },
-  metaSoft: { color: colors.muted },
-  metaFlame: { color: colors.coralDeep },
+  metaNight: { color: world.nightTextSoft, textShadowColor: 'rgba(0,0,0,0.45)' },
+  metaSoft: { color: world.inkSoft },
+  metaFlame: { color: world.accentDeep },
 
   rail: { alignItems: 'flex-end', gap: 12 },
   disc: {
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  discInitial: { fontFamily: fonts.mono, fontSize: 19, fontWeight: '700', color: colors.ink },
+  discInitial: { fontFamily: fonts.mono, fontSize: 19, fontWeight: '700', color: world.ink },
   discIcon: { width: 26, height: 26 },
   pill: {
     height: DISC,
@@ -355,16 +355,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   // Coral-outlined so TODAY reads as "your daily goals", not another nav disc.
-  pillGoals: { borderColor: colors.coral },
-  pillGoalsNight: { borderColor: colors.coral },
+  pillGoals: { borderColor: world.accent },
+  pillGoalsNight: { borderColor: world.nightAccent },
   pillLabel: { fontSize: 12, letterSpacing: 1.4 },
-  pillLabelGoals: { color: colors.coralDeep },
-  pillLabelNight: { color: '#ffb9a6' },
+  pillLabelGoals: { color: world.accentDeep },
+  pillLabelNight: { color: world.nightAccent },
 
   slotColumn: { marginTop: 10, gap: 6, width: SIDE_COLUMN, alignItems: 'stretch' },
   petTab: { paddingHorizontal: 10, paddingVertical: 6, alignItems: 'flex-start' },
-  petTabOn: { borderColor: colors.coral, backgroundColor: colors.coralWash },
+  petTabOn: { borderColor: world.accent, backgroundColor: world.accentWash },
   petTabKicker: { fontSize: 8, letterSpacing: 1.2, marginBottom: 1 },
-  petTabName: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', color: colors.inkSoft },
-  petTabTextOn: { color: colors.coralDeep },
+  petTabName: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', color: world.inkSoft },
+  petTabTextOn: { color: world.accentDeep },
 });

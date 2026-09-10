@@ -1,36 +1,29 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Image, type ImageSourcePropType, Pressable, StyleSheet, View } from 'react-native';
+import { world } from '../theme';
 
 /**
- * One icon on the Snapchat-style hotbar (`EnvironmentActionRow`) -- white icon
- * art on transparent, tinted to fit the bar rather than wrapped in any chrome.
- * The bar reads as a strip of glyphs sitting directly on the scene.
+ * One icon on the bottom hotbar (`EnvironmentActionRow`). Warm-cream glyph art
+ * — not stark white — sitting on the translucent strip.
  *
- * Four looks, from `night` x `isActive`:
- *  - day, inactive  -- solid shape, white, slightly dimmed.
- *  - day, active    -- a dark shape with a crisp white keyline: the `filled` art
- *    tinted near-black UNDER the `outline` art tinted white.
- *  - night, inactive -- dark shape with a white keyline, so it still reads
- *    against a dark bar over a dark scene.
- *  - night, active  -- solid shape, white, full strength (also keylined).
- *
- * The current room also gets a short coral "you are here" pedestal under it --
- * a 3px pixel bar, no glow -- so the active state is unmistakable without a
- * label. It scales in when the room changes.
+ *  - inactive       -- the cream shape, dimmed.
+ *  - active          -- the cream shape at full strength, with a crisp cream
+ *    keyline and a short muted-coral "you are here" pedestal that scales in.
+ *  - night           -- every icon carries the keyline so a dim glyph never
+ *    vanishes against a dark bar over a dark scene.
  */
 const ICON_SIZE = 40;
 const SLOT_SIZE = 48;
 
-const FILLED_STYLE = {
-  dayInactive: { tintColor: '#ffffff', opacity: 0.85 },
-  dayActive: { tintColor: '#1b1b1b', opacity: 1 },
-  nightInactive: { tintColor: '#111111', opacity: 0.75 },
-  nightActive: { tintColor: '#ffffff', opacity: 1 },
-} as const;
+const GLYPH = '#f2e8d4'; // warm cream
+const KEYLINE = '#f2e8d4';
 
-const ACTIVE_OUTLINE_TINT = '#ffffff';
-const PEDESTAL_DAY = '#e5654c';
-const PEDESTAL_NIGHT = '#ffffff';
+const FILL_OPACITY = {
+  dayInactive: 0.68,
+  dayActive: 1,
+  nightInactive: 0.5,
+  nightActive: 1,
+} as const;
 
 export interface EnvironmentButtonProps {
   /** A verb phrase ("Go to the gym"), so a screen reader announces a destination. */
@@ -50,15 +43,15 @@ export function EnvironmentButton({
   night,
   onPress,
 }: EnvironmentButtonProps) {
-  const filledStyle = night
+  const opacity = night
     ? isActive
-      ? FILLED_STYLE.nightActive
-      : FILLED_STYLE.nightInactive
+      ? FILL_OPACITY.nightActive
+      : FILL_OPACITY.nightInactive
     : isActive
-      ? FILLED_STYLE.dayActive
-      : FILLED_STYLE.dayInactive;
+      ? FILL_OPACITY.dayActive
+      : FILL_OPACITY.dayInactive;
 
-  const showOutline = night || isActive;
+  const showKeyline = night || isActive;
 
   // The pedestal scales in on becoming active — a quick "I moved here" beat.
   const pedestal = useRef(new Animated.Value(isActive ? 1 : 0)).current;
@@ -83,12 +76,16 @@ export function EnvironmentButton({
       style={({ pressed }) => [styles.slot, pressed && !isActive && styles.pressed]}
     >
       <View style={styles.iconBox}>
-        <Image source={filledSource} style={[styles.icon, filledStyle]} resizeMode="contain" />
-        {showOutline ? (
+        <Image
+          source={filledSource}
+          style={[styles.icon, { tintColor: GLYPH, opacity }]}
+          resizeMode="contain"
+        />
+        {showKeyline ? (
           <View style={styles.outlineLayer} pointerEvents="none">
             <Image
               source={outlineSource}
-              style={[styles.icon, { tintColor: ACTIVE_OUTLINE_TINT }]}
+              style={[styles.icon, { tintColor: KEYLINE }]}
               resizeMode="contain"
             />
           </View>
@@ -96,11 +93,7 @@ export function EnvironmentButton({
       </View>
       <Animated.View
         pointerEvents="none"
-        style={[
-          styles.pedestal,
-          { backgroundColor: night ? PEDESTAL_NIGHT : PEDESTAL_DAY },
-          { opacity: pedestal, transform: [{ scaleX: pedestal }] },
-        ]}
+        style={[styles.pedestal, { opacity: pedestal, transform: [{ scaleX: pedestal }] }]}
       />
     </Pressable>
   );
@@ -126,5 +119,6 @@ const styles = StyleSheet.create({
     width: 18,
     height: 3,
     borderRadius: 1,
+    backgroundColor: world.accent,
   },
 });

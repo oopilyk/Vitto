@@ -33,6 +33,40 @@ export const colors = {
 } as const;
 
 /**
+ * The pet world's own palette — warm parchment surfaces, warm dark-brown
+ * outlines, and accents pulled from the living-room art (muted coral, sage,
+ * tan). Kept separate from `colors` (which the rest of the app uses) so the
+ * HUD, level ring and hotbar can feel like they were painted into the scene
+ * without touching every other screen. Night is the same language in deeper,
+ * warmer tones with a cream highlight — not a bright daytime UI over a dark
+ * room.
+ */
+export const world = {
+  // Day
+  surface: '#efe5d0', // warm cream / parchment — the primary light UI surface
+  surfaceSoft: '#e4d7bd', // recessed / pressed
+  ink: '#43372c', // warm dark-brown outline + primary text
+  inkSoft: '#6f6252', // muted warm-brown secondary text
+  accent: '#c56a4e', // muted coral — selected nav, today, progression, attention
+  accentDeep: '#a9553c',
+  accentWash: '#e7d0c4',
+  positive: '#6f9163', // muted sage — a positive pet state
+
+  // Night — deeper muted tones, warm cream highlights, restrained accents
+  nightSurface: '#2b2420', // warm charcoal-brown (not a cold blue-black)
+  nightSurfaceSoft: 'rgba(43,36,32,0.80)',
+  nightInk: '#7d6d5e', // light enough that the outline never vanishes on a dark scene
+  nightText: '#efe5d0', // the same warm cream as the day surface
+  nightTextSoft: '#b3a690',
+  nightAccent: '#d17f60',
+
+  // The translucent hotbar strip, warmed
+  barDay: 'rgba(46,38,30,0.30)',
+  barNight: 'rgba(18,14,16,0.42)',
+  barHairline: 'rgba(239,229,208,0.14)',
+} as const;
+
+/**
  * The web used Fraunces for display text and DM Mono for labels. Rather than ship
  * font files, native maps them to the platform's own serif and monospace faces,
  * which keeps the same typographic contrast without a font-loading step.

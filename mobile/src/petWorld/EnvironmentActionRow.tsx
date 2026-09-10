@@ -1,4 +1,5 @@
 import { type ImageSourcePropType, Platform, StyleSheet, View } from 'react-native';
+import { world } from '../theme';
 import { EnvironmentButton } from './EnvironmentButton';
 import type { EnvironmentId } from './types';
 
@@ -55,10 +56,11 @@ const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 const ICON_AREA_HEIGHT = 60;
 /** Keeps the two end icons off the very screen edge while they spread out. */
 const ICON_EDGE_PADDING = 24;
-/** Translucent enough that the room reads through the bar -- the whole point. */
-const DAY_BAR_BG = 'rgba(18,17,24,0.30)';
-const NIGHT_BAR_BG = 'rgba(0,0,0,0.34)';
-const TOP_HAIRLINE = 'rgba(255,255,255,0.12)';
+/** Translucent enough that the room reads through the bar -- the whole point.
+ *  Warmed to sit in the same palette as the rest of the HUD. */
+const DAY_BAR_BG = world.barDay;
+const NIGHT_BAR_BG = world.barNight;
+const TOP_HAIRLINE = world.barHairline;
 
 export interface EnvironmentActionRowProps {
   /** The scene on screen -- its icon is the filled one. */
