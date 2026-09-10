@@ -9,7 +9,9 @@ import {
   View,
 } from 'react-native';
 import {
-  DIETARY_OPTIONS,
+
+  measurementSystemOf,
+  type MeasurementSystem,  DIETARY_OPTIONS,
   MOTIVATION_OPTIONS,
   PET_PERSONALITY_OPTIONS,
   STEP_GOAL_PRESETS,
@@ -53,6 +55,8 @@ interface Props {
   onUpdate: <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => void;
   onAdopt: () => Promise<void> | void;
   error: string | null;
+  /** Sets weight and height units together, in one write — see `setMeasurementSystem`. */
+  onSetUnits: (system: MeasurementSystem) => void;
   onSignOut?: () => void;
   onRedeemInvite?: (code: string) => Promise<boolean>;
 }
@@ -61,6 +65,12 @@ const INVITE_INPUT_MAX_LENGTH = 7;
 const LB_PER_KG = 2.20462;
 const toLb = (kg: number) => Math.round(convertWeightValue(kg, 'kg', 'lb'));
 const toKg = (lb: number) => lb / LB_PER_KG;
+
+/**
+ * Goal-weight bounds, per unit. The same human range either way — onboarding-v2
+ * hard-coded the pound figures, which read as nonsense to anyone on kilograms.
+ */
+const GOAL_BOUNDS = { kg: { min: 30, max: 300 }, lb: { min: 66, max: 660 } } as const;
 
 const ACTIVITY_OPTIONS = [
   { value: 'low' as const, label: 'Mostly sitting', detail: 'Desk job, not much walking' },
@@ -131,16 +141,10 @@ export function OnboardingScreen({
   onUpdate,
   onAdopt,
   error,
+  onSetUnits,
   onSignOut,
   onRedeemInvite,
 }: Props) {
-  // American units only — normalise anything stored otherwise, once.
-  useEffect(() => {
-    if (profile.weightUnit !== 'lb') onUpdate('weightUnit', 'lb');
-    if (profile.heightUnit !== 'ft') onUpdate('heightUnit', 'ft');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Resume at the companion if the questionnaire is answered (fields persist
   // per-keystroke). Decided once so a later edit doesn't yank the user around.
   const startId = useRef<StepId>(
@@ -158,9 +162,20 @@ export function OnboardingScreen({
   const isLast = index === SEQUENCE.length - 1;
 
   const months = useMemo(monthChoices, []);
-  const displayedWeightLb = toLb(profile.weightKg);
+  // Units follow the profile — seeded from the device locale, changed by the
+  // Units toggle on this step. `displayedWeight*` keep their names from
+  // onboarding-v2, but now hold whichever unit the user is working in.
+  const metric = profile.weightUnit === 'kg';
+  const toDisplayWeight = (kg: number) => (metric ? Math.round(kg) : toLb(kg));
+  const fromDisplayWeight = (value: number) => (metric ? value : toKg(value));
+  /** A kg figure from the domain, in the user's unit. */
+  const weightLabel = (kg: number) =>
+    metric ? `${kg} kg` : `${Math.round(convertWeightValue(kg, 'kg', 'lb') * 10) / 10} lb`;
+  const bounds = GOAL_BOUNDS[profile.weightUnit];
+  const displayedWeightLb = toDisplayWeight(profile.weightKg);
   const displayedHeight = convertHeightToFeetAndInches(profile.heightCm);
-  const displayedGoalLb = profile.targetWeightKg === undefined ? undefined : toLb(profile.targetWeightKg);
+  const displayedGoalLb =
+    profile.targetWeightKg === undefined ? undefined : toDisplayWeight(profile.targetWeightKg);
 
   const targets = calculateMacroTargets(profile);
   const plan = planForGoal(profile);
@@ -172,7 +187,7 @@ export function OnboardingScreen({
   );
 
   const setGoalWeightLb = (lb: number | undefined) => {
-    const kg = lb === undefined ? undefined : toKg(lb);
+    const kg = lb === undefined ? undefined : fromDisplayWeight(lb);
     onUpdate('targetWeightKg', kg);
     onUpdate('goal', deriveEnergyGoal(profile.weightKg, kg));
   };
@@ -199,8 +214,10 @@ export function OnboardingScreen({
     }
     if (stepId === 'goal') {
       if (profile.targetWeightKg === undefined) return 'Enter the weight you want to reach.';
-      const lb = displayedGoalLb ?? 0;
-      if (lb < 66 || lb > 660) return 'Goal weight must be between 66 and 660 lb.';
+      const entered = displayedGoalLb ?? 0;
+      if (entered < bounds.min || entered > bounds.max) {
+        return `Goal weight must be between ${bounds.min} and ${bounds.max} ${profile.weightUnit}.`;
+      }
       if (!profile.goalTargetDate) return 'Pick a month to reach it by.';
     }
     if (stepId === 'motivation' && (profile.motivations?.length ?? 0) === 0)
@@ -340,6 +357,18 @@ export function OnboardingScreen({
             <Text style={styles.intro}>
               Enough for Vitto to set your calorie target — nothing more.
             </Text>
+            {/* One choice for every unit in the app. Seeded from the device
+                locale, so a US phone opens on pounds and feet already. */}
+            <Field label="Units">
+              <ChoiceRow
+                options={[
+                  { value: 'metric' as const, label: 'Metric', detail: 'kg · cm' },
+                  { value: 'imperial' as const, label: 'Imperial', detail: 'lb · ft/in' },
+                ]}
+                value={measurementSystemOf(profile)}
+                onChange={onSetUnits}
+              />
+            </Field>
             <View style={styles.grid}>
               <Field label="Age">
                 <TextInput
@@ -351,51 +380,64 @@ export function OnboardingScreen({
                   }
                 />
               </Field>
-              <Field label="Weight (lb)">
+              <Field label={`Weight (${profile.weightUnit})`}>
                 <TextInput
                   style={layout.input}
                   keyboardType="number-pad"
                   value={String(displayedWeightLb)}
                   onChangeText={(value) =>
-                    onUpdate('weightKg', toKg(Number(value.replace(/[^0-9]/g, '')) || 0))
+                    onUpdate('weightKg', fromDisplayWeight(Number(value.replace(/[^0-9]/g, '')) || 0))
                   }
                 />
               </Field>
             </View>
-            <View style={styles.grid}>
-              <Field label="Height (ft)">
+            {metric ? (
+              <Field label="Height (cm)">
                 <TextInput
                   style={layout.input}
                   keyboardType="number-pad"
-                  value={String(displayedHeight.feet)}
+                  value={String(profile.heightCm)}
                   onChangeText={(value) =>
-                    onUpdate(
-                      'heightCm',
-                      feetAndInchesToCm(
-                        Number(value.replace(/[^0-9]/g, '')) || 0,
-                        displayedHeight.inches,
-                      ),
-                    )
+                    onUpdate('heightCm', Number(value.replace(/[^0-9]/g, '')) || 0)
                   }
                 />
               </Field>
-              <Field label="Height (in)">
-                <TextInput
-                  style={layout.input}
-                  keyboardType="number-pad"
-                  value={String(displayedHeight.inches)}
-                  onChangeText={(value) =>
-                    onUpdate(
-                      'heightCm',
-                      feetAndInchesToCm(
-                        displayedHeight.feet,
-                        Number(value.replace(/[^0-9]/g, '')) || 0,
-                      ),
-                    )
-                  }
-                />
-              </Field>
-            </View>
+            ) : (
+              <View style={styles.grid}>
+                <Field label="Height (ft)">
+                  <TextInput
+                    style={layout.input}
+                    keyboardType="number-pad"
+                    value={String(displayedHeight.feet)}
+                    onChangeText={(value) =>
+                      onUpdate(
+                        'heightCm',
+                        feetAndInchesToCm(
+                          Number(value.replace(/[^0-9]/g, '')) || 0,
+                          displayedHeight.inches,
+                        ),
+                      )
+                    }
+                  />
+                </Field>
+                <Field label="Height (in)">
+                  <TextInput
+                    style={layout.input}
+                    keyboardType="number-pad"
+                    value={String(displayedHeight.inches)}
+                    onChangeText={(value) =>
+                      onUpdate(
+                        'heightCm',
+                        feetAndInchesToCm(
+                          displayedHeight.feet,
+                          Number(value.replace(/[^0-9]/g, '')) || 0,
+                        ),
+                      )
+                    }
+                  />
+                </Field>
+              </View>
+            )}
             <Text style={styles.groupLabel}>Sex</Text>
             <Text style={styles.hint}>Used only for the energy estimate. Stays private.</Text>
             <ChoiceRow
@@ -414,10 +456,14 @@ export function OnboardingScreen({
           <View style={styles.stepBlock}>
             <Text style={styles.headline}>What are you working toward?</Text>
             <Text style={styles.intro}>
-              You’re at <Text style={styles.inlineValue}>{displayedWeightLb} lb</Text> now. Where do
+              You’re at{' '}
+              <Text style={styles.inlineValue}>
+                {displayedWeightLb} {profile.weightUnit}
+              </Text>{' '}
+              now. Where do
               you want to be?
             </Text>
-            <Field label="Goal weight (lb)">
+            <Field label={`Goal weight (${profile.weightUnit})`}>
               <TextInput
                 style={layout.input}
                 keyboardType="number-pad"
@@ -442,10 +488,10 @@ export function OnboardingScreen({
                 <Text style={styles.planBig}>{targets.calories.toLocaleString()} kcal</Text>
                 <Text style={styles.planText}>
                   {profile.goal === 'maintain'
-                    ? `Holding ${displayedWeightLb} lb.`
-                    : `${plan ? `About ${plan.kgPerWeek} kg` : 'A steady pace'} a week to hit ${
+                    ? `Holding ${displayedWeightLb} ${profile.weightUnit}.`
+                    : `${plan ? `About ${weightLabel(plan.kgPerWeek)}` : 'A steady pace'} a week to hit ${
                         displayedGoalLb
-                      } lb by ${formatMonth(profile.goalTargetDate)}.`}
+                      } ${profile.weightUnit} by ${formatMonth(profile.goalTargetDate)}.`}
                 </Text>
                 {plan?.capped ? (
                   <Text style={styles.planWarning}>
@@ -591,7 +637,7 @@ export function OnboardingScreen({
 
             <View style={styles.recap}>
               <Kicker>Your plan</Kicker>
-              <RecapRow label="Goal" value={`${displayedGoalLb ?? displayedWeightLb} lb by ${formatMonth(profile.goalTargetDate) || 'your date'}`} />
+              <RecapRow label="Goal" value={`${displayedGoalLb ?? displayedWeightLb} ${profile.weightUnit} by ${formatMonth(profile.goalTargetDate) || 'your date'}`} />
               <RecapRow label="Eat" value={`${targets.calories.toLocaleString()} kcal · ${targets.proteinGrams}g protein / day`} />
               <RecapRow
                 label="Move"

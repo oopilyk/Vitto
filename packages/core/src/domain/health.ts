@@ -43,7 +43,9 @@ export interface WorkoutMetadata {
   stats?: WorkoutStats;
 }
 
-export interface WorkoutSet { id: string; reps: number; weight?: number; unit?: 'kg' | 'lb'; rpe?: number; completed: boolean; previous?: { reps: number; weight?: number; unit?: 'kg' | 'lb' }; }
+/** What a set's `weight` number means. Matches `BodyProfile['weightUnit']`. */
+export type WeightUnit = 'kg' | 'lb';
+export interface WorkoutSet { id: string; reps: number; weight?: number; unit?: WeightUnit; rpe?: number; completed: boolean; previous?: { reps: number; weight?: number; unit?: WeightUnit }; }
 export interface WorkoutExercise { id: string; name: string; muscleGroup: string; bodyweight?: boolean; sets: WorkoutSet[]; }
 export interface WorkoutStats {
   durationMinutes: number;

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  withMeasurementSystem, type MeasurementSystem,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -39,6 +39,7 @@ import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
+import { deviceMeasurementSystem } from './src/services/deviceLocale';
 import { hasNativeUUID, randomUUID } from './src/services/uuid';
 import { lockWebViewport } from './src/web/lockWebViewport';
 import { colors, fonts, layout } from './src/theme';
@@ -118,18 +119,28 @@ const REACTION_VISIBLE_MS = 6000;
 const CARE_TOAST_VISIBLE_MS = 3200;
 const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
 
-const DEFAULT_PROFILE: BodyProfile = {
-  age: 30,
-  sex: 'other',
-  // Stored in metric; the app is US-only, so it always displays lb / ft-in.
-  heightCm: 173, // 5'8"
-  heightUnit: 'ft',
-  weightKg: 73, // ~160 lb
-  weightUnit: 'lb',
-  activity: 'moderate',
-  goal: 'maintain',
-  ...PROFILE_SURVEY_DEFAULTS,
-};
+/**
+ * Units start from the device's locale, so an American phone opens the survey on
+ * pounds and feet without anyone touching the toggle. Read once at module load;
+ * it is only a starting point, and the survey's Units choice overrides it.
+ *
+ * The body values are metric regardless — that is how they are stored — and are
+ * onboarding-v2's more realistic starting figures rather than round numbers.
+ */
+const DEFAULT_PROFILE: BodyProfile = withMeasurementSystem(
+  {
+    age: 30,
+    sex: 'other',
+    heightCm: 173, // 5'8"
+    weightKg: 73, // ~160 lb
+    heightUnit: 'cm',
+    weightUnit: 'kg',
+    activity: 'moderate',
+    goal: 'maintain',
+    ...PROFILE_SURVEY_DEFAULTS,
+  } as BodyProfile,
+  deviceMeasurementSystem(),
+);
 
 const makeEvent = <T,>(userId: string, type: HealthEvent['type'], metadata: T): HealthEvent<T> => ({
   id: newId(),
@@ -507,6 +518,23 @@ export default function App() {
       return;
     }
     await repository.saveProfile(next);
+  };
+
+  /**
+   * Both unit fields in ONE update. Setting them with two `updateProfile` calls
+   * fired two saves, the first carrying the old height unit — harmless for the
+   * final state but a pointless race, and the stale write could land last.
+   */
+  const setMeasurementSystem = (system: MeasurementSystem) => {
+    setProfile((current) => {
+      const next = withMeasurementSystem(current, system);
+      if (isSupabaseConfigured && session) {
+        void remoteRepository.saveProfile(next).catch(() => undefined);
+      } else {
+        void repository.saveProfile(next);
+      }
+      return next;
+    });
   };
 
   const updateProfile = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => {
@@ -1209,6 +1237,7 @@ export default function App() {
           onStepGoalChange={setStepGoal}
           profile={profile}
           onUpdate={updateProfile}
+          onSetUnits={setMeasurementSystem}
           onAdopt={adopt}
           error={error}
           onSignOut={isSupabaseConfigured && session ? logOut : undefined}
@@ -1441,6 +1470,7 @@ export default function App() {
           <RootStack.Screen name="Workout">
             {({ navigation }) => (
               <WorkoutScreen
+                weightUnit={profile.weightUnit}
                 onFinish={async (metadata) => {
                   await completeWorkout(metadata);
                   navigation.goBack();

@@ -148,6 +148,7 @@ describe('screens render', () => {
         onNameChange={() => {}}
         profile={profile}
         onUpdate={() => {}}
+          onSetUnits={() => {}}
         onAdopt={() => {}}
         breed="shiba"
         onBreedChange={() => {}}
@@ -380,6 +381,53 @@ describe('screens render', () => {
         .findAllByProps({ accessibilityLabel: 'Show Miso, your own pet' })
         .find((node: any) => typeof node.props.onPress === 'function'),
     ).toBeUndefined();
+    tree.unmount();
+  });
+
+  it('labels workout weights in the user\'s unit, and stamps the sets with it', () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text: WorkoutText, TextInput: WorkoutInput } = require('react-native');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen weightUnit="lb" onFinish={async () => {}} onClose={() => {}} />,
+      );
+    });
+
+    // The library only shows while searching, so type first, then add.
+    const search = tree.root
+      .findAllByType(WorkoutInput)
+      .find((node: any) => node.props.placeholder === 'Search exercises to add');
+    act(() => search!.props.onChangeText('Bench'));
+
+    const add = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node.findAllByType(WorkoutText).some((text: any) => text.props.children === 'Bench Press'),
+      );
+    expect(add).toBeTruthy();
+    act(() => add!.props.onPress());
+
+    // Check the actual label/placeholder values, not the serialised tree —
+    // "backgroundColor" contains the substring "kg".
+    const texts = tree.root
+      .findAllByType(WorkoutText)
+      .flatMap((node: any) => (Array.isArray(node.props.children) ? node.props.children : [node.props.children]))
+      .filter((child: any) => typeof child === 'string');
+    expect(texts).toContain('lb');
+    expect(texts).not.toContain('kg');
+
+    const placeholders = tree.root
+      .findAllByType(WorkoutInput)
+      .map((node: any) => node.props.placeholder);
+    expect(placeholders).toContain('lb');
+    expect(placeholders).not.toContain('kg');
+
+    // And the starting load is an empty barbell in the lifter's own unit.
+    const weightField = tree.root
+      .findAllByType(WorkoutInput)
+      .find((node: any) => node.props.placeholder === 'lb');
+    expect(weightField!.props.value).toBe('45');
     tree.unmount();
   });
 
@@ -1824,6 +1872,66 @@ describe('care partners', () => {
     tree.unmount();
   });
 
+  it('changes both units together from the one Units toggle', () => {
+    const { measurementSystemOf } = require('@vitto/core');
+    let saved: any = null;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async (next: any) => {
+            saved = next;
+          }}
+          onClose={() => {}}
+        />,
+      );
+    });
+    expect(measurementSystemOf(profile)).toBe('metric');
+
+    // The imperial chip: one press, and height follows weight.
+    const imperial = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node.findAllByType(RNText).some((text: any) => text.props.children === 'Imperial'),
+      );
+    expect(imperial).toBeTruthy();
+    act(() => imperial!.props.onPress());
+
+    const rendered = JSON.stringify(tree.toJSON());
+    // Both the weight field label and the height fields switch over.
+    expect(rendered).toContain('Weight (lb)');
+    expect(rendered).toContain('Height (ft)');
+    expect(rendered).not.toContain('Weight (kg)');
+    tree.unmount();
+  });
+
+  it('shows plan weights in the user\'s own unit', () => {
+    const imperial = { ...profile, weightUnit: 'lb' as const, heightUnit: 'ft' as const, goal: 'lose' as const, targetWeightKg: 65 };
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={imperial}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    // The plan is computed in kg internally; nothing may say "kg" to someone
+    // working in pounds.
+    expect(rendered).toContain('lb');
+    expect(rendered).not.toMatch(/\d\s?kg/);
+    tree.unmount();
+  });
+
   it('never offers to leave your own pet, even once it is shared', () => {
     const tree = renderProfile(partnerProps({ members: [owner, alex] }));
     expect(findButton(tree, 'Leave Miso')).toBeUndefined();
@@ -2137,6 +2245,7 @@ describe('care partners', () => {
           onNameChange={() => {}}
           profile={profile}
           onUpdate={() => {}}
+          onSetUnits={() => {}}
           onAdopt={() => {}}
           breed="shiba"
           onBreedChange={() => {}}

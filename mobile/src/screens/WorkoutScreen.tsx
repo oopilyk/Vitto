@@ -1,15 +1,21 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
-import { type WorkoutExercise, type WorkoutMetadata, addSet, calculateWorkoutStats, createExercise, errorMessage, exerciseLibrary, updateSet } from '@vitto/core';
+import { type WeightUnit, type WorkoutExercise, type WorkoutMetadata, addSet, calculateWorkoutStats, createExercise, errorMessage, exerciseLibrary, updateSet } from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
   onFinish: (metadata: WorkoutMetadata) => Promise<void>;
   onClose: () => void;
+  /**
+   * The lifter's own unit, from their profile. Labels every weight field and
+   * stamps each set, so a workout logged in pounds still reads as pounds later.
+   * Defaults to kg only so a caller that has no profile still type-checks.
+   */
+  weightUnit?: WeightUnit;
 }
 
-export function WorkoutScreen({ onFinish, onClose }: Props) {
+export function WorkoutScreen({ onFinish, onClose, weightUnit = 'kg' }: Props) {
   const [name, setName] = useState('Strength session');
   const [duration, setDuration] = useState('30');
   const [notes, setNotes] = useState('');
@@ -99,7 +105,7 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
                   onPress={() => {
                     setExercises([
                       ...exercises,
-                      createExercise(exerciseName, muscle, bodyweight === 'bodyweight'),
+                      createExercise(exerciseName, muscle, bodyweight === 'bodyweight', weightUnit),
                     ]);
                     setSearch('');
                   }}
@@ -125,7 +131,7 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
               <View style={styles.setHead}>
                 <Text style={[styles.setHeadLabel, styles.setIndex]}>#</Text>
                 <Text style={[styles.setHeadLabel, styles.setInputHead]}>
-                  {exercise.bodyweight ? 'body' : 'kg'}
+                  {exercise.bodyweight ? 'body' : weightUnit}
                 </Text>
                 <Text style={[styles.setHeadLabel, styles.setInputHead]}>reps</Text>
                 <Text style={[styles.setHeadLabel, styles.setDoneHead]}>done</Text>
@@ -138,7 +144,7 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
                     keyboardType="number-pad"
                     editable={!exercise.bodyweight}
                     value={exercise.bodyweight ? '' : String(set.weight ?? '')}
-                    placeholder={exercise.bodyweight ? 'BW' : 'kg'}
+                    placeholder={exercise.bodyweight ? 'BW' : weightUnit}
                     placeholderTextColor={colors.faint}
                     onChangeText={(value) =>
                       setExercises(
@@ -187,7 +193,7 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
               <TextButton
                 label="+ Add set"
                 onPress={() =>
-                  setExercises(exercises.map((item) => (item.id === exercise.id ? addSet(item) : item)))
+                  setExercises(exercises.map((item) => (item.id === exercise.id ? addSet(item, weightUnit) : item)))
                 }
               />
             </View>
@@ -207,7 +213,7 @@ export function WorkoutScreen({ onFinish, onClose }: Props) {
           <View style={styles.footer}>
             <Text style={styles.stats}>
               {stats.completedSets} of {totalSets} sets done · {stats.totalReps} reps ·{' '}
-              {stats.totalVolume} kg volume
+              {stats.totalVolume} {weightUnit} volume
             </Text>
             {totalSets > 0 && stats.completedSets === 0 ? (
               <Text style={styles.statsHint}>Tap the circle on a set to count it.</Text>

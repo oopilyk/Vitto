@@ -37,6 +37,7 @@ const mount = (profile: BodyProfile, overrides: Overrides = {}) => {
         onPersonalityChange={() => {}}
         stepGoal={10000}
         onStepGoalChange={() => {}}
+        onSetUnits={() => {}}
         profile={profile}
         onUpdate={(key, value) => updates.push([key as string, value])}
         onAdopt={() => {}}

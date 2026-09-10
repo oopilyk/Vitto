@@ -4,6 +4,7 @@ import {
   PROFILE_SURVEY_DEFAULTS,
   calculateMacroTargets,
   measurementSystemOf,
+  measurementSystemForLocale,
   unitsFor,
   withMeasurementSystem,
   convertHeightToFeetAndInches,
@@ -238,5 +239,43 @@ describe('measurement system', () => {
     const metric = withSurveyDefaults(base);
     expect(metric.heightUnit).toBe('cm');
     expect(metric.weightUnit).toBe('kg');
+  });
+});
+
+
+describe('measurementSystemForLocale', () => {
+  it('starts an American phone on imperial', () => {
+    expect(measurementSystemForLocale('en-US')).toBe('imperial');
+    expect(measurementSystemForLocale('es-US')).toBe('imperial');
+  });
+
+  it('starts everywhere else on metric', () => {
+    for (const locale of ['en-GB', 'en-AU', 'fr-FR', 'de-DE', 'ja-JP', 'en-CA']) {
+      expect(measurementSystemForLocale(locale)).toBe('metric');
+    }
+  });
+
+  it('covers the other two non-metric countries', () => {
+    expect(measurementSystemForLocale('en-LR')).toBe('imperial');
+    expect(measurementSystemForLocale('my-MM')).toBe('imperial');
+  });
+
+  it('reads the region out of the shapes a platform actually returns', () => {
+    expect(measurementSystemForLocale('en_US')).toBe('imperial');
+    expect(measurementSystemForLocale('en-US-u-ca-gregory')).toBe('imperial');
+    expect(measurementSystemForLocale('US')).toBe('imperial');
+  });
+
+  it('falls back to metric when there is no locale, or none it recognises', () => {
+    expect(measurementSystemForLocale(undefined)).toBe('metric');
+    expect(measurementSystemForLocale(null)).toBe('metric');
+    expect(measurementSystemForLocale('')).toBe('metric');
+    expect(measurementSystemForLocale('en')).toBe('metric');
+    expect(measurementSystemForLocale('nonsense')).toBe('metric');
+  });
+
+  it('is not fooled by a language subtag that looks like a region', () => {
+    // 'us' lower-case is a language code, not the United States.
+    expect(measurementSystemForLocale('us-DE')).toBe('metric');
   });
 });
