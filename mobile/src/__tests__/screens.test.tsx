@@ -1581,6 +1581,45 @@ describe('care partners', () => {
     tree.unmount();
   });
 
+  it('arrives with the join field open and scrolls to the care-partner card when asked', () => {
+    const { ScrollView: RNScrollView } = require('react-native');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          openJoin
+          profile={profile}
+          breed="shiba"
+          onBreedChange={() => {}}
+          events={[]}
+          onSave={async () => {}}
+          onClose={() => {}}
+          carePartner={partnerProps()}
+        />,
+      );
+    });
+    // The code field is already open: no "Have a code?" step in the way.
+    expect(findButton(tree, 'Have a code?')).toBeUndefined();
+    expect(findButton(tree, 'Join')).toBeTruthy();
+
+    // The card reports where it landed, and the screen scrolls there once.
+    const scrollView = tree.root.findByType(RNScrollView);
+    const scrollTo = jest.fn();
+    (scrollView.instance as any).scrollTo = scrollTo;
+    // The care-partner card is the one Card given an onLayout.
+    const card = tree.root.findAll(
+      (node: any) =>
+        typeof node.props.onLayout === 'function' &&
+        JSON.stringify(node.props.style ?? {}).includes('borderRadius'),
+    )[0];
+    expect(card).toBeTruthy();
+    act(() => card.props.onLayout({ nativeEvent: { layout: { x: 0, y: 900, width: 0, height: 0 } } }));
+    act(() => card.props.onLayout({ nativeEvent: { layout: { x: 0, y: 950, width: 0, height: 0 } } }));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith({ y: 888, animated: true });
+    tree.unmount();
+  });
+
   it('never offers to leave your own pet, even once it is shared', () => {
     const tree = renderProfile(partnerProps({ members: [owner, alex] }));
     expect(findButton(tree, 'Leave Miso')).toBeUndefined();

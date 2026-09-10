@@ -30,7 +30,9 @@ const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
  * - a rail of profile / friends / today buttons down the right edge.
  *
  * The pet's *name* deliberately does not live here any more — it pops up in a
- * hover/tap bubble over the pet itself (see `PetNameBubble`), replacing the
+ * hover/tap bubble over the pet itself (see `PetNameBubble`) -- and, since the
+ * product owner asked for it back, a permanent name plate at the top of the
+ * centre column too -- replacing the
  * boxed name card this used to show.
  */
 interface PetWorldHudProps {
@@ -110,7 +112,12 @@ export function PetWorldHud({
 
   const evolved = hasEvolved(pet);
   const dayLabel = `DAY ${daysWithPet(pet, today)}`;
-  const meta = evolved ? `${dayLabel} · ${formLabel.toUpperCase()}` : dayLabel;
+  // The room rides on the day line now that the name has the plate. The
+  // feeling line between them is the thing people actually read, so it gets
+  // the size.
+  const meta = [dayLabel, ENVIRONMENT_LABEL[environment].toUpperCase(), evolved ? formLabel.toUpperCase() : null]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     // `box-none`: the HUD layer spans the whole screen and sits on top of the
@@ -176,9 +183,12 @@ export function PetWorldHud({
         </View>
 
         <View style={styles.topCenter} pointerEvents="none">
-          <View style={[retro.panel, night && retro.panelNight, styles.roomPlate]}>
-            <Text style={[retro.label, night && retro.labelNight, styles.roomLabel]}>
-              {ENVIRONMENT_LABEL[environment].toUpperCase()}
+          {/* The pet's name, top and centre, per the product owner. The hover
+              bubble over the sprite stays as a nicety; this is the permanent
+              one. */}
+          <View style={[retro.panel, night && retro.panelNight, styles.namePlate]}>
+            <Text style={[retro.label, night && retro.labelNight, styles.nameLabel]} numberOfLines={1}>
+              {pet.name}
             </Text>
           </View>
           <Text style={[styles.feeling, night && styles.feelingNight]}>{feeling}</Text>
@@ -312,18 +322,23 @@ const styles = StyleSheet.create({
   topSideLeft: { width: SIDE_COLUMN, alignItems: 'flex-start' },
   topRight: { width: SIDE_COLUMN, alignItems: 'flex-end' },
   topCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 6 },
-  roomPlate: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+  namePlate: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    maxWidth: '100%',
   },
-  roomLabel: { fontSize: 12 },
+  nameLabel: { fontSize: 15 },
+  // The update line -- "Blue2 is starving. Log a meal." -- is what someone
+  // glances up for, so it is the largest text in the column.
   feeling: {
     fontFamily: fonts.mono,
-    fontSize: 11,
-    letterSpacing: 0.3,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    lineHeight: 19,
     color: colors.ink,
     textAlign: 'center',
-    marginTop: 7,
+    marginTop: 9,
     textShadowColor: 'rgba(255,255,255,0.6)',
     textShadowRadius: 3,
   },
@@ -428,14 +443,17 @@ const styles = StyleSheet.create({
     borderColor: colors.ink,
     backgroundColor: colors.card,
   },
+  // Deliberately the quietest thing in the column: a way in, not a feature.
   addTile: {
-    paddingVertical: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    minWidth: 64,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addPlus: { fontFamily: fonts.mono, fontSize: 26, lineHeight: 28, fontWeight: '700', color: colors.ink },
+  addPlus: { fontFamily: fonts.mono, fontSize: 18, lineHeight: 20, fontWeight: '700', color: colors.ink },
   addPlusNight: { color: '#f7f5ff' },
-  addLabel: { fontSize: 9, marginTop: 2 },
+  addLabel: { fontSize: 7, letterSpacing: 1, marginTop: 0 },
   petTabOn: { borderColor: colors.coral, backgroundColor: colors.coralWash },
   // The slot kicker (MINE / JOINT) above the name — the reason the switch exists.
   petTabKicker: { fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1.2, color: colors.muted },

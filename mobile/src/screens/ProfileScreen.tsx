@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  type LayoutChangeEvent,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -201,9 +202,20 @@ const describeEvent = (event: HealthEvent): string => {
 };
 
 /** A titled card. Grouping the form this way keeps any one screenful readable. */
-function Card({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+function Card({
+  title,
+  hint,
+  children,
+  onLayout,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+  /** Where the card sits in the scroll content -- so a deep link can scroll to it. */
+  onLayout?: (event: LayoutChangeEvent) => void;
+}) {
   return (
-    <View style={styles.card}>
+    <View style={styles.card} onLayout={onLayout}>
       <Kicker>{title}</Kicker>
       {hint ? <Text style={styles.cardHint}>{hint}</Text> : null}
       <View style={styles.cardBody}>{children}</View>
@@ -243,6 +255,18 @@ export function ProfileScreen({
   const [profile, setProfile] = useState(initial);
   // The invite-code entry, revealed on demand; raw text, normalised on submit.
   const [showJoin, setShowJoin] = useState(openJoin === true);
+  // Arriving from the "+" under the level ring: this screen is a long scroll
+  // and the care-partner card is most of the way down it, so opening the join
+  // field alone left the person at the top with nothing to see. Scroll to the
+  // card once its position is known -- once, so later re-layouts (keyboard,
+  // the save bar appearing) do not yank the view back.
+  const scrollRef = useRef<ScrollView>(null);
+  const scrolledToPartner = useRef(false);
+  const onPartnerCardLayout = (event: LayoutChangeEvent) => {
+    if (!openJoin || scrolledToPartner.current) return;
+    scrolledToPartner.current = true;
+    scrollRef.current?.scrollTo({ y: Math.max(0, event.nativeEvent.layout.y - 12), animated: true });
+  };
   const [joinCode, setJoinCode] = useState('');
   const [partnerError, setPartnerError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -415,6 +439,7 @@ export function ProfileScreen({
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.body, { paddingBottom: (dirty ? 110 : 40) + HOME_INDICATOR_INSET }]}
         keyboardShouldPersistTaps="handled"
       >
@@ -478,6 +503,7 @@ export function ProfileScreen({
 
         {carePartner ? (
           <Card
+            onLayout={onPartnerCardLayout}
             title={carePartner.isOwnPet ? 'Care partner' : 'Joint pet'}
             hint={
               !carePartner.isOwnPet
