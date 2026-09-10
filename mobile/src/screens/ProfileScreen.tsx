@@ -13,6 +13,9 @@ import {
 } from 'react-native';
 import {
 
+  measurementSystemOf,
+  withMeasurementSystem,
+  type MeasurementSystem,
   ACHIEVEMENTS,
   type AchievementId,
   type TrophyId,  type BodyProfile,
@@ -1196,7 +1199,6 @@ const styles = StyleSheet.create({
   },
   grid: { flexDirection: 'row', gap: 12 },
   narrowInput: { maxWidth: 120 },
-  unitRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   rings: { flexDirection: 'row', gap: 6, marginTop: 10 },
   targetLine: {
     fontFamily: fonts.mono,

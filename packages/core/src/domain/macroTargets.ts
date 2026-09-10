@@ -72,6 +72,42 @@ export interface BodyProfile {
 }
 
 /**
+ * One choice that drives every unit in the app.
+ *
+ * `heightUnit` and `weightUnit` are still stored separately — they are what the
+ * database has and what every screen reads — but nothing asks for them
+ * independently any more. Picking pounds at sign-up means feet and inches too,
+ * which is what someone choosing pounds expects; the old two-toggle version let
+ * you end up on pounds-and-centimetres, which nobody wants and which read as a
+ * bug.
+ */
+export type MeasurementSystem = 'metric' | 'imperial';
+
+/** The unit pair a system implies. The single source for "what does imperial mean". */
+export const unitsFor = (
+  system: MeasurementSystem,
+): Pick<BodyProfile, 'heightUnit' | 'weightUnit'> =>
+  system === 'imperial'
+    ? { heightUnit: 'ft', weightUnit: 'lb' }
+    : { heightUnit: 'cm', weightUnit: 'kg' };
+
+/**
+ * Which system a stored profile is in. Weight is the deciding field: it is the
+ * one the user picks first and sees most, and a profile saved before this
+ * existed can hold a mixed pair — this resolves that to one answer rather than
+ * leaving the UI to show a toggle that matches neither.
+ */
+export const measurementSystemOf = (
+  profile: Pick<BodyProfile, 'weightUnit'>,
+): MeasurementSystem => (profile.weightUnit === 'lb' ? 'imperial' : 'metric');
+
+/** A profile with both units moved to `system`. Values are untouched: they are stored in kg/cm regardless. */
+export const withMeasurementSystem = <T extends Pick<BodyProfile, 'heightUnit' | 'weightUnit'>>(
+  profile: T,
+  system: MeasurementSystem,
+): T => ({ ...profile, ...unitsFor(system) });
+
+/**
  * Applied to anything loaded from before the survey existed. Optional fields
  * such as `screenTimeBudgetMinutes` are intentionally absent — undefined means
  * "not set", which is a real state, not a missing default.
@@ -83,13 +119,18 @@ export const PROFILE_SURVEY_DEFAULTS = {
   focusAreas: FOCUS_AREAS,
 };
 
-export const withSurveyDefaults = (profile: Partial<BodyProfile>): BodyProfile => ({
-  ...profile,
-  goalPace: profile.goalPace ?? PROFILE_SURVEY_DEFAULTS.goalPace,
-  trainingDaysPerWeek: profile.trainingDaysPerWeek ?? PROFILE_SURVEY_DEFAULTS.trainingDaysPerWeek,
-  trainingStyle: profile.trainingStyle ?? PROFILE_SURVEY_DEFAULTS.trainingStyle,
-  focusAreas: profile.focusAreas?.length ? profile.focusAreas : PROFILE_SURVEY_DEFAULTS.focusAreas,
-} as BodyProfile);
+export const withSurveyDefaults = (profile: Partial<BodyProfile>): BodyProfile => {
+  const withDefaults = {
+    ...profile,
+    goalPace: profile.goalPace ?? PROFILE_SURVEY_DEFAULTS.goalPace,
+    trainingDaysPerWeek: profile.trainingDaysPerWeek ?? PROFILE_SURVEY_DEFAULTS.trainingDaysPerWeek,
+    trainingStyle: profile.trainingStyle ?? PROFILE_SURVEY_DEFAULTS.trainingStyle,
+    focusAreas: profile.focusAreas?.length ? profile.focusAreas : PROFILE_SURVEY_DEFAULTS.focusAreas,
+  } as BodyProfile;
+  // Reconcile a mixed pair from before the single toggle existed (or from the
+  // web, which writes cm/kg literals): weight decides, and height follows it.
+  return withMeasurementSystem(withDefaults, measurementSystemOf(withDefaults));
+};
 
 export interface MacroTargets {
   calories: number;

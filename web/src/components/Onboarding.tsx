@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  FOCUS_AREAS,
+ measurementSystemOf, unitsFor, type MeasurementSystem,  FOCUS_AREAS,
   calculateMacroTargets,
   convertHeightToFeetAndInches,
   convertWeightValue,
@@ -157,24 +157,21 @@ export function Onboarding({ name, onNameChange, profile, onUpdate, onAdopt, err
                   onChange={(event) => onUpdate('weightKg', toWeightKg(event.target.value))}
                 />
               </label>
+              {/* One choice for every unit, matching mobile: picking pounds
+                  sets feet and inches too. Two independent selects let you land
+                  on pounds-and-centimetres, which reads as a bug. */}
               <label>
-                Unit
+                Units
                 <select
-                  value={profile.weightUnit}
-                  onChange={(event) => onUpdate('weightUnit', event.target.value as BodyProfile['weightUnit'])}
+                  value={measurementSystemOf(profile)}
+                  onChange={(event) => {
+                    const units = unitsFor(event.target.value as MeasurementSystem);
+                    onUpdate('weightUnit', units.weightUnit);
+                    onUpdate('heightUnit', units.heightUnit);
+                  }}
                 >
-                  <option value="kg">Kilograms (kg)</option>
-                  <option value="lb">Pounds (lb)</option>
-                </select>
-              </label>
-              <label>
-                Height unit
-                <select
-                  value={profile.heightUnit}
-                  onChange={(event) => onUpdate('heightUnit', event.target.value as BodyProfile['heightUnit'])}
-                >
-                  <option value="cm">Centimeters</option>
-                  <option value="ft">Feet &amp; inches</option>
+                  <option value="metric">Metric (kg, cm)</option>
+                  <option value="imperial">Imperial (lb, ft/in)</option>
                 </select>
               </label>
               {profile.heightUnit === 'cm' ? (
