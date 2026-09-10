@@ -6,8 +6,8 @@ import type { EnvironmentId } from './types';
  * The Snapchat-style hotbar across the bottom of every scene: a translucent
  * full-width strip with five fixed-position icons on it and the room visible
  * THROUGH it. The current scene's icon is filled in; the rest are dimmed. Icons
- * never move and all five are always shown -- tapping the active one just
- * re-navigates to the scene it is already in, which is harmless.
+ * never move and all five are always shown -- the active one is inert, since
+ * the room you are standing in is not a place you can travel to.
  *
  * Pure navigation. Each scene's own action (log a meal, a workout, steps, a mind
  * session) is that scene's floating call to action above the pet, not a slot

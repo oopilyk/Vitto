@@ -90,36 +90,40 @@ export function PetWorldHud({
     // tap meant for the buttons underneath. Its own controls (level ring,
     // profile/today icons) stay tappable because they are real press targets.
     <View style={styles.fill} pointerEvents="box-none">
+      {/* Level ring left, account right — the two things that are about YOU
+          rather than about the room, held in the corners the way they were
+          before the right rail existed. */}
       <View style={styles.topRow}>
         <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
-      </View>
 
-      {/* A vertical rail of round buttons down the right edge, the way a Talking
-          Tom-style pet game lines its secondary controls beside the pet rather
-          than clustering them in a corner. Profile and Friends are icon discs;
-          TODAY keeps its word because it opens a whole detail page, not a
-          setting. `box-none` so the gaps between buttons still pass taps
-          through to the pet. */}
-      <View style={styles.rightRail} pointerEvents="box-none">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open your profile"
           onPress={onOpenProfile}
           hitSlop={8}
-          style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
+          style={({ pressed }) => [styles.disc, night && styles.discNight, pressed && styles.iconPressed]}
         >
           <Text style={[styles.avatarLetter, night && styles.avatarLetterNight]}>
             {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
           </Text>
         </Pressable>
+      </View>
 
+      {/* A vertical rail of round buttons down the right edge, the way a Talking
+          Tom-style pet game lines its secondary controls beside the pet rather
+          than clustering them in a corner. Friends is an icon disc; TODAY keeps
+          its word because it opens a whole detail page, not a setting. The
+          account button is NOT here — it lives in the top-right corner, per the
+          product owner. `box-none` so the gaps between buttons still pass taps
+          through to the pet. */}
+      <View style={styles.rightRail} pointerEvents="box-none">
         {onOpenFriends ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open friends"
             onPress={onOpenFriends}
             hitSlop={8}
-            style={({ pressed }) => [styles.railDisc, night && styles.railDiscNight, pressed && styles.iconPressed]}
+            style={({ pressed }) => [styles.disc, night && styles.discNight, pressed && styles.iconPressed]}
           >
             <Image
               source={FRIENDS_ICON}
@@ -235,6 +239,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: TOP_INSET,
   },
@@ -246,7 +251,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 12,
   },
-  railDisc: {
+  disc: {
     width: 46,
     height: 46,
     borderRadius: 23,
@@ -254,7 +259,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  railDiscNight: { backgroundColor: 'rgba(20,18,38,0.6)' },
+  discNight: { backgroundColor: 'rgba(20,18,38,0.6)' },
   railIcon: { width: 26, height: 26 },
   // A wrapping row rather than the old vertical stack: laid out along the card's
   // bottom edge there is width to spare, and stacking pushed the second chip

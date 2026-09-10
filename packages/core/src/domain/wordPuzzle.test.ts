@@ -4,6 +4,7 @@ import {
   WORD_PUZZLE_EPOCH,
   WORD_PUZZLE_GENERATOR_VERSION,
   WORD_PUZZLE_LENGTHS,
+  WORD_PUZZLE_MAX_GUESSES,
   WORD_PUZZLE_ROUNDS,
   findWordPuzzleEventForDate,
   generateWordPuzzle,
@@ -99,8 +100,8 @@ const brainEvent = (
   source: 'manual',
   metadata: {
     game: 'wordPuzzle',
-    correct: 5,
-    total: 5,
+    correct: 1,
+    total: 1,
     durationSeconds: 300,
     score: 100,
     ...metadata,
@@ -154,21 +155,16 @@ describe('generateWordPuzzle', () => {
   it('matches the pinned board for 2026-09-01', () => {
     expect(generateWordPuzzle('2026-09-01')).toEqual({
       puzzleDate: '2026-09-01',
-      generatorVersion: 1,
-      rounds: [
-        { index: 0, length: 4, maxGuesses: 4 },
-        { index: 1, length: 5, maxGuesses: 5 },
-        { index: 2, length: 5, maxGuesses: 5 },
-        { index: 3, length: 6, maxGuesses: 6 },
-      ],
+      generatorVersion: 2,
+      rounds: [{ index: 0, length: 5, maxGuesses: WORD_PUZZLE_MAX_GUESSES }],
     });
   });
 
   /** The other half of the same guarantee: the shape is worthless if the words drift. */
   it('matches the pinned answers for 2026-09-01 and for the epoch', () => {
     const answersFor = (date: string) => WORD_PUZZLE_LENGTHS.map((_, round) => revealAnswer(date, round));
-    expect(answersFor('2026-09-01')).toEqual(['halo', 'liter', 'rocky', 'cabana']);
-    expect(answersFor(WORD_PUZZLE_EPOCH)).toEqual(['bulk', 'sweet', 'belch', 'wither']);
+    expect(answersFor('2026-09-01')).toEqual(['quart']);
+    expect(answersFor(WORD_PUZZLE_EPOCH)).toEqual(['front']);
   });
 
   it('reports the generator version it was built with', () => {
@@ -352,90 +348,64 @@ describe('markGuess', () => {
 // ---------------------------------------------------------------------------
 
 describe('wordPuzzleScore', () => {
-  it('awards the full 25 for solving within half the guess budget', () => {
-    expect(wordPuzzleScore([outcome(4, true, 1)])).toBe(25);
-    expect(wordPuzzleScore([outcome(4, true, 2)])).toBe(25);
-    expect(wordPuzzleScore([outcome(5, true, 2)])).toBe(25);
-    expect(wordPuzzleScore([outcome(6, true, 3)])).toBe(25);
+  it('pays most for a fast solve and a little less for every guess spent', () => {
+    expect(wordPuzzleScore([outcome(5, true, 1)])).toBe(100);
+    expect(wordPuzzleScore([outcome(5, true, 2)])).toBe(95);
+    expect(wordPuzzleScore([outcome(5, true, 3)])).toBe(85);
+    expect(wordPuzzleScore([outcome(5, true, 4)])).toBe(75);
+    expect(wordPuzzleScore([outcome(5, true, 5)])).toBe(65);
+    expect(wordPuzzleScore([outcome(5, true, 6)])).toBe(55);
   });
 
-  it('awards 20 for solving with at least one guess to spare', () => {
-    expect(wordPuzzleScore([outcome(4, true, 3)])).toBe(20);
-    expect(wordPuzzleScore([outcome(5, true, 3)])).toBe(20);
-    expect(wordPuzzleScore([outcome(5, true, 4)])).toBe(20);
-    expect(wordPuzzleScore([outcome(6, true, 5)])).toBe(20);
-  });
-
-  it('awards 15 for solving on the final guess', () => {
-    expect(wordPuzzleScore([outcome(4, true, 4)])).toBe(15);
-    expect(wordPuzzleScore([outcome(5, true, 5)])).toBe(15);
-    expect(wordPuzzleScore([outcome(6, true, 6)])).toBe(15);
-  });
-
-  it('awards nothing for an unsolved round, however many guesses were spent', () => {
-    expect(wordPuzzleScore([outcome(5, false, 5)])).toBe(0);
+  it('awards nothing for an unsolved word, however many guesses were spent', () => {
+    expect(wordPuzzleScore([outcome(5, false, 6)])).toBe(0);
     expect(wordPuzzleScore([outcome(5, false, 1)])).toBe(0);
+    expect(wordPuzzleScore([])).toBe(0);
   });
 
-  it('tops out at 100 for a flawless day and bottoms at 0 for a blank one', () => {
-    const flawless = [outcome(4, true, 2), outcome(5, true, 2), outcome(5, true, 1), outcome(6, true, 3), outcome(6, true, 2)];
-    expect(wordPuzzleScore(flawless)).toBe(100);
-    const blank = WORD_PUZZLE_LENGTHS.map((length) => outcome(length, false, length));
-    expect(wordPuzzleScore(blank)).toBe(0);
-    expect(wordPuzzleScore([])).toBe(0);
+  it('never leaves the 0-100 range even for odd inputs', () => {
+    expect(wordPuzzleScore([outcome(5, true, 0)])).toBe(100);
+    expect(wordPuzzleScore([outcome(5, true, 40)])).toBe(55);
   });
 });
 
 describe('wordPuzzleSolvedCount', () => {
   it('counts solved rounds regardless of guesses used', () => {
-    expect(
-      wordPuzzleSolvedCount([
-        outcome(4, true, 4),
-        outcome(5, false, 5),
-        outcome(5, true, 1),
-        outcome(6, true, 6),
-        outcome(6, true, 2),
-      ]),
-    ).toBe(4);
+    expect(wordPuzzleSolvedCount([outcome(5, true, 6)])).toBe(1);
+    expect(wordPuzzleSolvedCount([outcome(5, false, 6)])).toBe(0);
     expect(wordPuzzleSolvedCount([])).toBe(0);
   });
 });
 
 describe('toWordPuzzleMetadata', () => {
   const puzzle = generateWordPuzzle('2026-09-01');
-  const threeOfFour = [
-    outcome(4, true, 2),
-    outcome(5, true, 5),
-    outcome(5, false, 5),
-    outcome(6, true, 4),
-  ];
+  const solvedInFour = [outcome(5, true, 4)];
 
   /**
-   * The pet engine gates `recovery: 4` on a per-game sharp bar. With four rounds a
-   * single miss is already 25%, so the word puzzle's bar is 0.75 -- 3-of-4 must land
-   * exactly on it, keeping "sharp" a good day rather than a flawless one.
+   * The pet engine gates `recovery: 4` on a per-game sharp bar. With one word a day
+   * the bar is 1: solving it, in however many guesses, is a sharp session.
    */
-  it('puts 3-of-4 exactly on the sharp-session bar', () => {
-    const metadata = toWordPuzzleMetadata(puzzle, threeOfFour, 480);
-    expect(metadata.correct).toBe(3);
-    expect(metadata.total).toBe(4);
-    expect(metadata.correct / metadata.total).toBe(0.75);
+  it('puts a solve exactly on the sharp-session bar and a miss well under it', () => {
+    const metadata = toWordPuzzleMetadata(puzzle, solvedInFour, 480);
+    expect(metadata.correct).toBe(1);
+    expect(metadata.total).toBe(1);
+    expect(toWordPuzzleMetadata(puzzle, [outcome(5, false, 6)], 480).correct).toBe(0);
   });
 
   it('carries the puzzle identity and the display score', () => {
-    const metadata = toWordPuzzleMetadata(puzzle, threeOfFour, 480);
+    const metadata = toWordPuzzleMetadata(puzzle, solvedInFour, 480);
     expect(metadata.game).toBe('wordPuzzle');
     expect(metadata.durationSeconds).toBe(480);
     expect(metadata.puzzleDate).toBe('2026-09-01');
     expect(metadata.generatorVersion).toBe(WORD_PUZZLE_GENERATOR_VERSION);
-    expect(metadata.score).toBe(wordPuzzleScore(threeOfFour));
-    expect(metadata.score).toBe(20 + 12 + 0 + 16 + 12);
+    expect(metadata.score).toBe(wordPuzzleScore(solvedInFour));
+    expect(metadata.score).toBe(75);
   });
 
   /** A player's own event history must never become a spoiler archive. */
   it('records no answers in roundOutcomes', () => {
-    const metadata = toWordPuzzleMetadata(puzzle, threeOfFour, 480);
-    expect(metadata.roundOutcomes).toHaveLength(4);
+    const metadata = toWordPuzzleMetadata(puzzle, solvedInFour, 480);
+    expect(metadata.roundOutcomes).toHaveLength(1);
     for (const recorded of metadata.roundOutcomes!) {
       expect(Object.keys(recorded).sort()).toEqual(['guessesUsed', 'length', 'solved']);
     }
@@ -446,7 +416,7 @@ describe('toWordPuzzleMetadata', () => {
   });
 
   it('does not alias the outcome objects it was handed', () => {
-    const outcomes = [outcome(4, true, 2)];
+    const outcomes = [outcome(5, true, 2)];
     const metadata = toWordPuzzleMetadata(puzzle, outcomes, 60);
     expect(metadata.roundOutcomes![0]).not.toBe(outcomes[0]);
   });

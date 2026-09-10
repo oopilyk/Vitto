@@ -263,8 +263,10 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
             </Text>
             <Text style={styles.moodHint}>
               {todaysWordPuzzle
-                ? `${todaysWordPuzzle.metadata.correct}/${todaysWordPuzzle.metadata.total} rounds solved.`
-                : `Five rounds, once a day — ${pet.name} is waiting on today's board.`}
+                ? todaysWordPuzzle.metadata.correct > 0
+                  ? `Solved in ${todaysWordPuzzle.metadata.roundOutcomes?.[0]?.guessesUsed ?? '?'} guesses.`
+                  : 'Not solved today.'
+                : `One five-letter word, once a day — ${pet.name} is waiting on today's board.`}
             </Text>
             <View style={styles.facts}>
               <Fact label="word puzzle streak" value={String(wordPuzzleDays.currentStreak)} />

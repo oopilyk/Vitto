@@ -73,3 +73,26 @@ export interface FriendOverview {
 export const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 export const isValidUsername = (value: string): boolean => USERNAME_PATTERN.test(value);
+
+/**
+ * What actually gets stored: trimmed and lower-cased. Typing "Kyle_Li" and
+ * "kyle_li" must not create two accounts, so every path -- registration, the
+ * friends screen, the availability check -- normalises through here first, and
+ * the database's unique index sees one canonical form.
+ */
+export const normalizeUsername = (value: string): string => value.trim().toLowerCase();
+
+/**
+ * Why a candidate cannot be used, or null when it is fine. Shape only -- whether
+ * it is already taken is a question for the server.
+ */
+export const usernameError = (value: string): string | null => {
+  const normalized = normalizeUsername(value);
+  if (normalized.length === 0) return 'Pick a username so friends can find you.';
+  if (normalized.length < 3) return 'Usernames are at least 3 characters.';
+  if (normalized.length > 20) return 'Usernames are at most 20 characters.';
+  if (!isValidUsername(normalized)) {
+    return 'Usernames can use lowercase letters, digits and underscores only.';
+  }
+  return null;
+};

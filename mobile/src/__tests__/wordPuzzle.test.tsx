@@ -19,19 +19,13 @@ const playedToday: HealthEvent<BrainTrainingMetadata> = {
   source: 'manual',
   metadata: {
     game: 'wordPuzzle',
-    correct: 4,
-    total: 5,
+    correct: 1,
+    total: 1,
     durationSeconds: 420,
-    score: 76,
+    score: 75,
     puzzleDate: todayKey,
-    generatorVersion: 1,
-    roundOutcomes: [
-      { length: 4, solved: true, guessesUsed: 2 },
-      { length: 5, solved: true, guessesUsed: 3 },
-      { length: 5, solved: false, guessesUsed: 5 },
-      { length: 6, solved: true, guessesUsed: 4 },
-      { length: 6, solved: true, guessesUsed: 6 },
-    ],
+    generatorVersion: 2,
+    roundOutcomes: [{ length: 5, solved: true, guessesUsed: 4 }],
   },
 };
 
@@ -80,8 +74,8 @@ describe('wordPuzzle screen', () => {
     const tree = render({ events: [playedToday] });
     const rendered = JSON.stringify(tree.toJSON());
 
-    expect(rendered).toContain('76');
-    expect(rendered).toContain('4');
+    expect(rendered).toContain('75');
+    expect(rendered).toContain('Solved in 4');
     // No keyboard and no way back into the board: one attempt a day.
     expect(byLabel(tree, 'Submit guess')).toBeUndefined();
     expect(byText(tree, "Start today's puzzle")).toBeUndefined();
@@ -97,7 +91,7 @@ describe('wordPuzzle screen', () => {
     expect(saved).toHaveLength(1);
     expect(saved[0]!.puzzleDate).toBe(todayKey);
 
-    type(tree, 'zzzz');
+    type(tree, 'zzzzz');
     act(() => byLabel(tree, 'Submit guess')!.props.onPress());
 
     expect(JSON.stringify(tree.toJSON())).toContain('word list');
@@ -107,19 +101,27 @@ describe('wordPuzzle screen', () => {
     tree.unmount();
   });
 
-  it('solves a round, saves the outcome and moves on', () => {
+  it('saves each guess, then the outcome once the word is solved', () => {
     const saved: WordPuzzleProgress[] = [];
     const tree = render({ onSaveProgress: (progress) => saved.push(progress) });
 
     act(() => byText(tree, "Start today's puzzle")!.props.onPress());
     const answer = revealAnswer(todayKey, 0);
+    expect(answer).toHaveLength(5);
+    // A wrong-but-real word spends a guess and is saved, with no outcome yet.
+    const miss = answer === 'audio' ? 'crane' : 'audio';
+    type(tree, miss);
+    act(() => byLabel(tree, 'Submit guess')!.props.onPress());
+    expect(saved[saved.length - 1]).toMatchObject({ roundIndex: 0, guesses: [[miss]], outcomes: [] });
+    expect(JSON.stringify(tree.toJSON())).toContain('5 of 6 guesses left');
+
     type(tree, answer);
     act(() => byLabel(tree, 'Submit guess')!.props.onPress());
 
     const latest = saved[saved.length - 1]!;
     expect(latest.roundIndex).toBe(1);
-    expect(latest.outcomes).toEqual([{ length: 4, solved: true, guessesUsed: 1 }]);
-    expect(latest.guesses).toEqual([[answer]]);
+    expect(latest.outcomes).toEqual([{ length: 5, solved: true, guessesUsed: 2 }]);
+    expect(latest.guesses).toEqual([[miss, answer]]);
     // Only the shape above is written down — no answer field rides along.
     expect(Object.keys(latest).sort()).toEqual([
       'guesses',
@@ -129,28 +131,49 @@ describe('wordPuzzle screen', () => {
       'startedAt',
     ]);
 
-    act(() => byText(tree, 'Next round')!.props.onPress());
-    expect(JSON.stringify(tree.toJSON())).toContain('Round 2 of 4');
+    expect(JSON.stringify(tree.toJSON())).toContain('Got it in 2.');
+    act(() => byText(tree, 'See your score')!.props.onPress());
+    const summary = JSON.stringify(tree.toJSON());
+    expect(summary).toContain('Solved in 2');
+    expect(summary).toContain('95');
     tree.unmount();
   });
 
-  it('resumes a saved day at the round it left off', () => {
+  it('resumes a saved day with its guesses on the board', () => {
     const progress: WordPuzzleProgress = {
       puzzleDate: todayKey,
       startedAt: new Date().toISOString(),
-      roundIndex: 2,
-      guesses: [['aaaa'], ['aaaaa']],
-      outcomes: [
-        { length: 4, solved: true, guessesUsed: 1 },
-        { length: 5, solved: false, guessesUsed: 5 },
-      ],
+      roundIndex: 0,
+      guesses: [['audio', 'crane']],
+      outcomes: [],
     };
     const tree = render({ progress });
 
-    expect(JSON.stringify(tree.toJSON())).toContain('Round 3 of 4');
+    expect(JSON.stringify(tree.toJSON())).toContain('4 of 6 guesses left');
     // Straight into play — the intro is not shown again.
     expect(byText(tree, "Start today's puzzle")).toBeUndefined();
     expect(byLabel(tree, 'Submit guess')).toBeTruthy();
+    tree.unmount();
+  });
+
+  it('ends the day after six misses and shows the word', () => {
+    const answer = revealAnswer(todayKey, 0);
+    const misses = ['audio', 'crane', 'light', 'storm', 'plumb', 'fjord'].filter((word) => word !== answer).slice(0, 5);
+    const progress: WordPuzzleProgress = {
+      puzzleDate: todayKey,
+      startedAt: new Date().toISOString(),
+      roundIndex: 0,
+      guesses: [misses],
+      outcomes: [],
+    };
+    const tree = render({ progress });
+    const last = ['jumpy', 'vixen'].find((word) => word !== answer)!;
+    type(tree, last);
+    act(() => byLabel(tree, 'Submit guess')!.props.onPress());
+
+    expect(JSON.stringify(tree.toJSON())).toContain(`The word was ${answer.toUpperCase()}.`);
+    act(() => byText(tree, 'See your score')!.props.onPress());
+    expect(JSON.stringify(tree.toJSON())).toContain('Not solved');
     tree.unmount();
   });
 });

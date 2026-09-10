@@ -113,19 +113,22 @@ describe('PetHealthEngine', () => {
     expect(sharp.pet.recovery).toBeLessThanOrEqual(100);
   });
 
-  it('treats an wordPuzzle session as a sharp one at the accuracy bar', () => {
+  it('treats a solved wordPuzzle as a sharp session and a miss as a scrappy one', () => {
     const pet = createPet('user-1', 'Miso');
-    const result = new PetHealthEngine().apply(pet, {
-      id: 'event-4',
-      userId: 'user-1',
-      occurredAt: '2026-08-28T12:00:00Z',
-      type: 'BRAIN_TRAINING' as const,
-      source: 'manual' as const,
-      metadata: { game: 'wordPuzzle' as const, correct: 4, total: 5, durationSeconds: 240, score: 84, puzzleDate: '2026-08-28' },
-    });
+    const play = (correct: number, id: string) =>
+      new PetHealthEngine().apply(pet, {
+        id,
+        userId: 'user-1',
+        occurredAt: '2026-08-28T12:00:00Z',
+        type: 'BRAIN_TRAINING' as const,
+        source: 'manual' as const,
+        metadata: { game: 'wordPuzzle' as const, correct, total: 1, durationSeconds: 240, score: correct ? 75 : 0, puzzleDate: '2026-08-28' },
+      });
 
-    expect(result.reaction.delta.recovery).toBe(4);
-    expect(result.reaction.eventLabel).toBe("Daily word puzzle");
+    const solved = play(1, 'event-4');
+    expect(solved.reaction.delta.recovery).toBe(4);
+    expect(solved.reaction.eventLabel).toBe("Daily word puzzle");
+    expect(play(0, 'event-5').reaction.delta.recovery).toBe(2);
   });
 
   it('leaves an empty mind session harmless rather than dividing by zero', () => {

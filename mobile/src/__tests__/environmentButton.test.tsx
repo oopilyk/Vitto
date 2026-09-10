@@ -83,14 +83,29 @@ describe('EnvironmentButton (hotbar icon)', () => {
     const inactive = render({ isActive: false });
     expect(
       inactive.root.findByProps({ accessibilityRole: 'button' }).props.accessibilityState,
-    ).toEqual({ selected: false });
+    ).toEqual({ selected: false, disabled: false });
     inactive.unmount();
 
+    // Also disabled: the room you are standing in is not a destination, so a
+    // screen reader should not offer it as one.
     const active = render({ isActive: true });
     expect(
       active.root.findByProps({ accessibilityRole: 'button' }).props.accessibilityState,
-    ).toEqual({ selected: true });
+    ).toEqual({ selected: true, disabled: true });
     active.unmount();
+  });
+
+  it('is inert while active — no press handler runs and no press feedback shows', () => {
+    let presses = 0;
+    const active = render({ isActive: true, onPress: () => { presses += 1; } });
+    const button = active.root.findByProps({ accessibilityRole: 'button' });
+    expect(button.props.disabled).toBe(true);
+    // Press feedback is suppressed too: dimming under a tap that goes nowhere is
+    // what makes a control feel broken.
+    const style = button.props.style({ pressed: true });
+    expect(JSON.stringify(style)).not.toContain('0.6');
+    active.unmount();
+    expect(presses).toBe(0);
   });
 
   it('calls onPress when tapped', () => {

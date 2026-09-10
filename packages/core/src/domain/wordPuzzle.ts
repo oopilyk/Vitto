@@ -1,8 +1,10 @@
 /**
  * WordPuzzle -- the daily word puzzle.
  *
- * Four rounds a day at lengths [4, 5, 5, 6], with the guess budget equal to the
- * word length. Everything here is pure and hermetically deterministic: the same
+ * One five-letter word a day with six guesses, the classic shape. The ladder is
+ * still expressed as a list of rounds so the board, storage and event metadata
+ * keep one shape whatever the day holds. Everything here is pure and
+ * hermetically deterministic: the same
  * puzzle date yields the same puzzle on every device, every platform and every run,
  * with no `Math.random`, no `Date.now`, and no locale-sensitive call in the path.
  *
@@ -14,9 +16,11 @@ import { WORD_PUZZLE_WORDS, type WordPuzzleWordLength } from '../data/wordPuzzle
 import type { BrainTrainingMetadata, HealthEvent, WordPuzzleRoundOutcome } from './health';
 import { calculateStreaks, toDateKey, type StreakSummary } from './streaks';
 
-export const WORD_PUZZLE_LENGTHS = [4, 5, 5, 6] as const;
+export const WORD_PUZZLE_LENGTHS = [5] as const;
 export const WORD_PUZZLE_ROUNDS = WORD_PUZZLE_LENGTHS.length;
-export const WORD_PUZZLE_GENERATOR_VERSION = 1;
+export const WORD_PUZZLE_MAX_GUESSES = 6;
+/** Bumped when the ladder or the draw changes: v2 went from four rounds to one. */
+export const WORD_PUZZLE_GENERATOR_VERSION = 2;
 /** Day zero of the schedule. The shuffle is seeded from this, never from the date. */
 export const WORD_PUZZLE_EPOCH = '2026-01-01';
 
@@ -25,7 +29,7 @@ export type LetterMark = 'correct' | 'present' | 'absent';
 export interface WordPuzzleRound {
   index: number;
   length: number;
-  /** Always equal to `length`: the guess budget is the word length. */
+  /** Always {@link WORD_PUZZLE_MAX_GUESSES}. */
   maxGuesses: number;
 }
 
@@ -170,6 +174,24 @@ const isAnswerEligible = (length: WordPuzzleWordLength, index: number): boolean 
   return (byte & (0b1000_0000 >> (index & 7))) !== 0;
 };
 
+const answerWordsCache = new Map<WordPuzzleWordLength, readonly string[]>();
+
+/**
+ * Every answer-eligible (common, inoffensive) word of one length, ASCII-ascending.
+ * Shared with the spelling bee, which needs to walk the pool rather than index it.
+ */
+export const answerEligibleWords = (length: WordPuzzleWordLength): readonly string[] => {
+  const cached = answerWordsCache.get(length);
+  if (cached) return cached;
+  const { count } = WORD_PUZZLE_WORDS[length];
+  const words: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    if (isAnswerEligible(length, i)) words.push(wordAt(length, i));
+  }
+  answerWordsCache.set(length, words);
+  return words;
+};
+
 // ---------------------------------------------------------------------------
 // The schedule.
 //
@@ -177,8 +199,7 @@ const isAnswerEligible = (length: WordPuzzleWordLength, index: number): boolean 
 // shuffled once, deterministically, from a seed derived from the EPOCH -- so the
 // order is the same forever -- and the daily draw is an index into that
 // permutation. A word therefore cannot recur until the pool has been fully spent,
-// which at 365 draws/year (4- and 6-letter) and 730 (5-letter) is ~4.5, ~3.2 and
-// ~8.4 years respectively. The 5-letter pool is the binding constraint.
+// which at one 5-letter draw a day is about 6.5 years.
 // ---------------------------------------------------------------------------
 
 /** How many rounds of each length a single day draws. */
@@ -254,7 +275,7 @@ export const generateWordPuzzle = (puzzleDate: string): WordPuzzlePuzzle => {
   return {
     puzzleDate,
     generatorVersion: WORD_PUZZLE_GENERATOR_VERSION,
-    rounds: ROUND_PLAN.map(({ index, length }) => ({ index, length, maxGuesses: length })),
+    rounds: ROUND_PLAN.map(({ index, length }) => ({ index, length, maxGuesses: WORD_PUZZLE_MAX_GUESSES })),
   };
 };
 
@@ -320,26 +341,26 @@ export const markGuess = (guess: string, answer: string): LetterMark[] => {
 // ---------------------------------------------------------------------------
 // Scoring. Two numbers on purpose.
 //
-//   - The pet engine gate reads `correct`/`total`, which is rounds solved out of 5,
-//     so the sharp bar sits at exactly 4/5 = 0.8 regardless of guesses used.
+//   - The pet engine gate reads `correct`/`total`, which is rounds solved, so with
+//     one round a day the sharp bar is simply "solved it".
 //   - `wordPuzzleScore` is the 0-100 number a player sees, and it is where guess
 //     efficiency lives.
 // ---------------------------------------------------------------------------
 
-const POINTS_PER_ROUND = 25;
-const POINTS_SPARE = 20;
-const POINTS_FINAL_GUESS = 15;
+/** Score for a solve, indexed by guesses used minus one. A miss scores nothing. */
+export const WORD_PUZZLE_GUESS_SCORES = [100, 95, 85, 75, 65, 55] as const;
 
-const roundPoints = ({ length, solved, guessesUsed }: WordPuzzleRoundOutcome): number => {
+const roundPoints = ({ solved, guessesUsed }: WordPuzzleRoundOutcome): number => {
   if (!solved) return 0;
-  if (guessesUsed <= Math.floor(length / 2)) return POINTS_PER_ROUND;
-  if (guessesUsed < length) return POINTS_SPARE;
-  return POINTS_FINAL_GUESS;
+  const index = Math.min(WORD_PUZZLE_GUESS_SCORES.length, Math.max(1, guessesUsed)) - 1;
+  return WORD_PUZZLE_GUESS_SCORES[index]!;
 };
 
+/** Averaged over the day's rounds, so the number stays 0-100 whatever the ladder. */
 export const wordPuzzleScore = (outcomes: WordPuzzleRoundOutcome[]): number => {
+  if (outcomes.length === 0) return 0;
   const total = outcomes.reduce((sum, outcome) => sum + roundPoints(outcome), 0);
-  return Math.max(0, Math.min(100, total));
+  return Math.max(0, Math.min(100, Math.round(total / Math.max(outcomes.length, WORD_PUZZLE_ROUNDS))));
 };
 
 export const wordPuzzleSolvedCount = (outcomes: WordPuzzleRoundOutcome[]): number =>
