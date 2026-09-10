@@ -1,19 +1,20 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { fonts, world } from '../theme';
+import { retroPressed } from './retroStyle';
 
 const SIZE = 90;
 const STROKE = 7;
 
 /**
- * The pet's level/XP badge — the single loudest piece of HUD chrome, per the
- * product owner's "the level circle should be a lot bigger in comparison to
- * everything else" note. Tapped to reach the full stat sheet.
+ * The pet's level/XP badge — a warm parchment disc with a warm-ink outline and
+ * a hard offset shadow, the loudest piece of HUD chrome (but still quieter than
+ * Orion). Tapped to reach the full stat sheet.
  *
  * No SVG dependency: RN has no conic-gradient, so the XP fill is approximated in
  * quarters (0/25/50/75/100% of `xpPct`) via the four border sides of a rotated
- * ring rather than a true swept arc — coarser than an SVG ring, but close enough
- * at this size to read as "mostly there" without a new dependency. A solid ink
- * outline and a hard offset shadow give it the blocky, pixel-UI weight.
+ * ring rather than a true swept arc — coarser than an SVG ring, but close
+ * enough at this size to read as "mostly there". The earned arc is the muted
+ * coral Vitto uses for progression everywhere.
  */
 export function LevelRing({
   level,
@@ -24,18 +25,14 @@ export function LevelRing({
   level: number;
   xpPct: number;
   onPress: () => void;
-  /** Whitens the level number so it stays legible over a dark night backdrop. */
+  /** Warm-cream number so it stays legible over a dark night backdrop. */
   night?: boolean;
 }) {
   const pct = Math.max(0, Math.min(100, xpPct));
   const quarters = [pct >= 25, pct >= 50, pct >= 75, pct >= 100];
-  /**
-   * The unearned part of the ring. It needs its own colour per theme now that
-   * the disc behind it is opaque: the old translucent white read against the
-   * artwork, but against a near-white fill it would vanish, taking the sense of
-   * "this much to go" with it.
-   */
-  const track = night ? 'rgba(255,255,255,0.26)' : colors.hairline;
+  // The unearned part of the ring — a warm hairline, per theme.
+  const track = night ? 'rgba(239,229,208,0.22)' : world.surfaceSoft;
+  const earned = night ? world.nightAccent : world.accent;
 
   return (
     <Pressable
@@ -43,11 +40,10 @@ export function LevelRing({
       accessibilityRole="button"
       accessibilityLabel="Open pet stats"
       hitSlop={8}
-      style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.wrap, pressed && retroPressed]}
     >
       {/* Hard, un-blurred drop shadow — a duplicate disc offset behind the
-          badge, so the retro shadow survives the ring's -45° rotation (which a
-          `shadow*` style on the ring itself would be dragged around by). */}
+          badge, so the retro shadow survives the ring's -45° rotation. */}
       <View style={styles.shadowDisc} />
       {/* The solid outlined face the number sits on. Same colour in every room. */}
       <View style={[styles.face, night && styles.faceNight]} />
@@ -55,10 +51,10 @@ export function LevelRing({
         style={[
           styles.ring,
           {
-            borderTopColor: quarters[0] ? colors.coral : track,
-            borderRightColor: quarters[1] ? colors.coral : track,
-            borderBottomColor: quarters[2] ? colors.coral : track,
-            borderLeftColor: quarters[3] ? colors.coral : track,
+            borderTopColor: quarters[0] ? earned : track,
+            borderRightColor: quarters[1] ? earned : track,
+            borderBottomColor: quarters[2] ? earned : track,
+            borderLeftColor: quarters[3] ? earned : track,
           },
         ]}
       />
@@ -75,13 +71,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { opacity: 0.7 },
   shadowDisc: {
     position: 'absolute',
     width: SIZE,
     height: SIZE,
     borderRadius: SIZE / 2,
-    backgroundColor: '#1b1830',
+    backgroundColor: '#2a1f16',
+    opacity: 0.9,
     transform: [{ translateX: 3 }, { translateY: 4 }],
   },
   face: {
@@ -89,11 +85,11 @@ const styles = StyleSheet.create({
     width: SIZE,
     height: SIZE,
     borderRadius: SIZE / 2,
-    backgroundColor: colors.card,
+    backgroundColor: world.surface,
     borderWidth: 3,
-    borderColor: colors.ink,
+    borderColor: world.ink,
   },
-  faceNight: { backgroundColor: '#141226', borderColor: '#4b4870' },
+  faceNight: { backgroundColor: world.nightSurface, borderColor: world.nightInk },
   ring: {
     position: 'absolute',
     top: 6,
@@ -110,14 +106,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.5,
-    color: colors.inkSoft,
+    color: world.inkSoft,
     marginBottom: -3,
   },
   level: {
     fontFamily: fonts.mono,
     fontSize: 32,
     fontWeight: '700',
-    color: colors.ink,
+    color: world.ink,
   },
-  levelNight: { color: '#ffffff' },
+  levelNight: { color: world.nightText },
 });

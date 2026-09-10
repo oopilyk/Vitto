@@ -67,36 +67,30 @@ describe('EnvironmentActionRow (hotbar)', () => {
     }
   });
 
-  it('gives the day-active button the layered outline+filled treatment; the others one image', () => {
+  const CREAM = '#f2e8d4';
+
+  it('warm-cream glyphs — not white — with a keyline on the active one only in the day', () => {
     const tree = rowFor('kitchen', false);
     const active = buttons(tree).get('Go to the kitchen')!;
     const inactive = buttons(tree).get('Go to the gym')!;
 
-    // Two layered images (dark filled shape + white outline keyline) vs one.
+    // Active: cream glyph + cream keyline. Inactive: just the dimmed cream glyph.
     const activeImages = active.findAllByType(Image);
     expect(activeImages).toHaveLength(2);
-    expect(activeImages.map((img) => img.props.source)).toEqual([
-      expect.anything(),
-      expect.anything(),
-    ]);
-    // The two layers are different crops, and carry the dark/white tint pair.
-    expect(activeImages[0].props.source).not.toBe(activeImages[1].props.source);
-    expect(activeImages.map(tintOf).sort()).toEqual(['#1b1b1b', '#ffffff']);
+    expect(activeImages.map(tintOf)).toEqual([CREAM, CREAM]);
+    expect(StyleSheet.flatten(activeImages[0].props.style).opacity).toBe(1);
 
     expect(inactive.findAllByType(Image)).toHaveLength(1);
-    expect(tintOf(inactive.findAllByType(Image)[0])).toBe('#ffffff');
+    expect(tintOf(inactive.findAllByType(Image)[0])).toBe(CREAM);
+    expect(StyleSheet.flatten(inactive.findAllByType(Image)[0].props.style).opacity).toBeLessThan(1);
   });
 
-  it('gives every night button a white keyline; the active one is solid white, the rest dark-with-outline', () => {
+  it('every night glyph keeps a cream keyline so it never vanishes on a dark bar', () => {
     const tree = rowFor('kitchen', true);
-    const active = buttons(tree).get('Go to the kitchen')!;
-    const inactive = buttons(tree).get('Go to the gym')!;
-
-    // Both render the filled + outline layer pair at night.
-    const activeTints = active.findAllByType(Image).map(tintOf).sort();
-    const inactiveTints = inactive.findAllByType(Image).map(tintOf).sort();
-    expect(activeTints).toEqual(['#ffffff', '#ffffff']); // solid white shape + white keyline
-    expect(inactiveTints).toEqual(['#111111', '#ffffff']); // dark shape + white keyline
+    for (const label of ORDERED_LABELS) {
+      const tints = buttons(tree).get(label)!.findAllByType(Image).map(tintOf);
+      expect(tints).toEqual([CREAM, CREAM]);
+    }
   });
 
   it('navigates to the tapped scene', () => {
