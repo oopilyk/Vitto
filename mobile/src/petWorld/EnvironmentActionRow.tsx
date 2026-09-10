@@ -3,11 +3,13 @@ import { EnvironmentButton } from './EnvironmentButton';
 import type { EnvironmentId } from './types';
 
 /**
- * The Snapchat-style hotbar across the bottom of every scene: a translucent
- * full-width strip with five fixed-position icons on it and the room visible
- * THROUGH it. The current scene's icon is filled in; the rest are dimmed. Icons
- * never move and all five are always shown -- the active one is inert, since
- * the room you are standing in is not a place you can travel to.
+ * The hotbar across the bottom of every scene: five fixed-position icons that
+ * sit directly ON the world — no bar, no panel, no blur. The room reads right
+ * up to the bottom edge; the icons carry their own keyline so they stay legible
+ * over anything, and the current room gets a short coral pixel pedestal (see
+ * `EnvironmentButton`). Icons never move and all five are always shown -- the
+ * active one is inert, since the room you are standing in is not a place you
+ * can travel to.
  *
  * Pure navigation. Each scene's own action (log a meal, a workout, steps, a mind
  * session) is that scene's floating call to action above the pet, not a slot
@@ -54,11 +56,7 @@ const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
  *  its top edge. */
 const ICON_AREA_HEIGHT = 60;
 /** Keeps the two end icons off the very screen edge while they spread out. */
-const ICON_EDGE_PADDING = 24;
-/** Translucent enough that the room reads through the bar -- the whole point. */
-const DAY_BAR_BG = 'rgba(18,17,24,0.30)';
-const NIGHT_BAR_BG = 'rgba(0,0,0,0.34)';
-const TOP_HAIRLINE = 'rgba(255,255,255,0.12)';
+const ICON_EDGE_PADDING = 22;
 
 export interface EnvironmentActionRowProps {
   /** The scene on screen -- its icon is the filled one. */
@@ -70,20 +68,16 @@ export interface EnvironmentActionRowProps {
 }
 
 export function EnvironmentActionRow({ current, onNavigate, night }: EnvironmentActionRowProps) {
-  // A plain opaque-to-touch View (not `box-none`): taps on the gaps between the
-  // icons must be caught here, not fall through to the pet's tap layer beneath.
+  // No background — the icons sit on the world. Still a plain (not `box-none`)
+  // View so a tap that misses an icon near the bottom edge is caught here
+  // rather than poking the pet through the layer beneath.
   return (
     <View
       style={[
         styles.bar,
-        {
-          backgroundColor: night ? NIGHT_BAR_BG : DAY_BAR_BG,
-          paddingTop: HOME_INDICATOR_INSET,
-          paddingBottom: HOME_INDICATOR_INSET,
-        },
+        { paddingTop: HOME_INDICATOR_INSET, paddingBottom: HOME_INDICATOR_INSET },
       ]}
     >
-      <View style={styles.hairline} />
       <View style={styles.icons}>
         {SCENES.map((scene) => (
           <EnvironmentButton
@@ -103,14 +97,6 @@ export function EnvironmentActionRow({ current, onNavigate, night }: Environment
 
 const styles = StyleSheet.create({
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  hairline: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: TOP_HAIRLINE,
-  },
   icons: {
     height: ICON_AREA_HEIGHT,
     flexDirection: 'row',

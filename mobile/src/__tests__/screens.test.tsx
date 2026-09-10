@@ -187,12 +187,10 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('shows a status chip for the two worst active ailments, quietly capped rather than listing every one', () => {
-    // The full-bleed redesign keeps this tray to a glance (per the product
-    // owner's "at most one or two" chip note) — the sprite/headline still show
-    // only the single highest-precedence ailment, and the complete list is a
-    // stat-sheet tap away via the level ring, so a third simultaneous ailment
-    // (Foggy here) is deliberately not also crowded into the chip row.
+  it('expresses the worst ailment as the pet’s own line, not a separate badge tray', () => {
+    // The pet's state is communicated by the pet's line (and, later, its
+    // animation) — not a row of metric chips. The single highest-precedence
+    // ailment owns the line; the full list is a stat-sheet tap on the ring away.
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -212,24 +210,15 @@ describe('screens render', () => {
       );
     });
     const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('Starving');
-    expect(rendered).toContain('Lonely');
-    expect(rendered).not.toContain('Foggy');
-
-    // Right-aligned under the name card, not centred in the top row between the
-    // level ring and the profile icons.
-    const { StyleSheet: RNStyleSheet, Text: RNTextView } = require('react-native');
+    // Nutrition is the lowest need here, so the pet's line is the starving one.
+    expect(rendered).toContain('is starving');
+    // No chip tray any more.
+    const { StyleSheet: RNStyleSheet } = require('react-native');
     const tray = tree.root.findAll((node: any) => {
       const style = RNStyleSheet.flatten(node.props.style);
       return Boolean(style && style.flexWrap === 'wrap' && style.justifyContent === 'flex-end');
     })[0];
-    expect(tray).toBeTruthy();
-    const trayLabels = tray
-      .findAllByType(RNTextView)
-      .map((node: any) => node.props.children)
-      .join(' ');
-    expect(trayLabels).toContain('Starving');
-    expect(trayLabels).toContain('Lonely');
+    expect(tray).toBeUndefined();
     tree.unmount();
   });
 
@@ -259,11 +248,11 @@ describe('screens render', () => {
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).toContain('1,240 steps logged');
     expect(rendered).toContain('+3 energy · +8 XP');
-    // The ailment still owns the line it owned before.
-    expect(rendered).toContain('Starving');
+    // The ailment still owns the pet's line.
+    expect(rendered).toContain('is starving');
 
     // Anchored above the action row, not stacked into the top-left column with
-    // the name card and the status chips.
+    // the identity plate.
     const { StyleSheet: RNStyleSheet, Text: RNTextView } = require('react-native');
     const slot = tree.root.findAll((node: any) => {
       const style = RNStyleSheet.flatten(node.props.style);
@@ -361,60 +350,37 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('offers a "+" under the level ring while the joint slot is free, and not once it is taken', () => {
-    let opened = 0;
-    const render = (pets: { id: string; name: string; own: boolean }[]) => {
-      let tree!: renderer.ReactTestRenderer;
-      act(() => {
-        tree = renderer.create(
-          <DashboardScreen
-            pet={pet}
-            events={[]}
-            reaction={null}
-            pets={pets}
-            activePetId={pets[0]?.id}
-            onSelectPet={() => {}}
-            onAddJointPet={() => {
-              opened += 1;
-            }}
-            onLogMeal={() => {}}
-            onLogWorkout={() => {}}
-            onSyncSteps={() => {}}
-            onTrainMind={() => {}}
-            onOpenProfile={() => {}}
-            onOpenStats={() => {}}
-            onOpenToday={() => {}}
-            interaction={idleInteraction}
-          />,
-        );
-      });
-      return tree;
-    };
-    const find = (tree: renderer.ReactTestRenderer, label: string) =>
+  it('shows no pet switcher on the world screen for a solo pet — joining lives in Profile', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          pets={[{ id: 'p', name: 'Miso', own: true }]}
+          activePetId="p"
+          onSelectPet={() => {}}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).not.toContain('MINE');
+    expect(rendered).not.toContain('Add a joint pet');
+    expect(
       tree.root
-        .findAllByProps({ accessibilityLabel: label })
-        .find((node: any) => typeof node.props.onPress === 'function');
-
-    // One pet: the slot is a "+" that starts the join flow.
-    const solo = render([{ id: 'p', name: 'Miso', own: true }]);
-    const add = find(solo, 'Add a joint pet');
-    expect(add).toBeTruthy();
-    act(() => add!.props.onPress());
-    expect(opened).toBe(1);
-    // No switcher yet: the tile says "JOINT PET", but there is no tab to switch
-    // to, and no MINE tab either.
-    expect(find(solo, 'Show Miso, your own pet')).toBeUndefined();
-    expect(JSON.stringify(solo.toJSON())).not.toContain('MINE');
-    solo.unmount();
-
-    // Two pets: the same slot is now the switcher, and the "+" is gone.
-    const both = render([
-      { id: 'p', name: 'Miso', own: true },
-      { id: 'q', name: 'Blue', own: false },
-    ]);
-    expect(find(both, 'Add a joint pet')).toBeUndefined();
-    expect(find(both, 'Show Blue, your joint pet')).toBeTruthy();
-    both.unmount();
+        .findAllByProps({ accessibilityLabel: 'Show Miso, your own pet' })
+        .find((node: any) => typeof node.props.onPress === 'function'),
+    ).toBeUndefined();
+    tree.unmount();
   });
 
   it('lays trophies out two to a shelf, filling the enclosed shelves before the top', () => {

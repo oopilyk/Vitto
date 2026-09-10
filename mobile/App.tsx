@@ -1244,13 +1244,6 @@ export default function App() {
               onSyncSteps={() => void syncSteps()}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenProfile={() => navigation.navigate('Profile')}
-              // The "+" under the level ring. Absent once the joint slot is
-              // taken (the slot becomes the switcher) and offline (nothing to join).
-              onAddJointPet={
-                isOnline && canJoinAnotherPet(pets, userId)
-                  ? () => navigation.navigate('Profile', { join: true })
-                  : undefined
-              }
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}

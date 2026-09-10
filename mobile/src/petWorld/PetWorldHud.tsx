@@ -7,7 +7,6 @@ import {
   type PetState,
   calculateStreaks,
   daysWithPet,
-  getStatusEffects,
   assessCondition,
   hasEvolved,
 } from '@vitto/core';
@@ -26,12 +25,15 @@ const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
  *
  *   primary    — the level ring (progression, top-left).
  *   identity   — ONE plate, top-centre: the room as a kicker over the pet's
- *                name. Directly beneath it, un-boxed on the scene, the status
- *                line ("Miso is feeling bright.") and a quiet day/partner line.
- *   secondary  — the joint-pet slot (quiet, under the ring) and the account /
- *                friends / today rail (matched discs + one pill, top-right).
- *   game info  — the streak, kept deliberately quiet: it is a number to glance
- *                at, not a control.
+ *                name. Directly beneath it, un-boxed on the scene, the pet's
+ *                state line ("Miso is feeling bright.") and one quiet meta line
+ *                (day count, streak, partner) — no separate chips or boxes.
+ *   secondary  — the account / friends / today rail down the right edge, and
+ *                the pet switcher (only when there are two pets) under the ring.
+ *
+ * The pet's condition is expressed as the pet's own line, not a badge; adding a
+ * second joint pet lives in Profile's care-partner card, not here; and the full
+ * stat sheet (buffs, ailments, every number) is one tap on the level ring away.
  */
 interface PetWorldHudProps {
   pet: PetState;
@@ -59,16 +61,12 @@ interface PetWorldHudProps {
    * button" note.
    */
   onOpenFriends?: () => void;
-  /** `own` marks the adopted pet; the other one is the joint pet. */
+  /** `own` marks the adopted pet; the other one is the joint pet. Only shown as
+   *  a switcher, and only when there really are two — adding one lives in
+   *  Profile's care-partner card, not on the world screen. */
   pets?: { id: string; name: string; own?: boolean }[];
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
-  /**
-   * Opens the join-by-code flow. Passed only while the joint slot is free and
-   * the account is online, which is exactly when the "+" tile under the level
-   * ring should exist; once a second pet arrives that tile becomes the switcher.
-   */
-  onAddJointPet?: () => void;
   partnerName?: string;
   /** Switches the chrome to a dark-panel/bright-text treatment so it stays
    * legible over the night backgrounds. */
@@ -90,16 +88,12 @@ export function PetWorldHud({
   pets,
   activePetId,
   onSelectPet,
-  onAddJointPet,
   partnerName,
   night,
 }: PetWorldHudProps) {
   const today = new Date();
   const streaks = calculateStreaks(events, today);
   const condition = assessCondition(pet);
-  // Worst two only — this is a glance, not the full stat sheet, which is what
-  // the ring's tap target is for.
-  const chips = getStatusEffects(pet).slice(0, 2);
 
   // An ailment outranks the reaction: a message about the meal just logged must
   // not sit on top of "Miso is fading". Otherwise it's the plain feeling line.
@@ -124,11 +118,9 @@ export function PetWorldHud({
         <View style={styles.sideLeft}>
           <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
 
-          {/* One slot, two states, directly under the ring — quiet, so it
-              never competes with it. With a single pet it is a "+" tile that
-              starts the join-by-code flow; once the joint pet arrives the same
-              slot becomes the switcher. Same place either way, so the eye
-              learns where "the other pet" lives before there is one. */}
+          {/* Only when there really are two pets: a quiet switcher under the
+              ring. Adding a joint pet is a deliberate social action and lives
+              in Profile's care-partner card, not as a button on the world. */}
           {showSwitcher ? (
             <View style={styles.slotColumn} pointerEvents="box-none">
               {pets!.map((candidate) => {
@@ -168,24 +160,6 @@ export function PetWorldHud({
                 );
               })}
             </View>
-          ) : onAddJointPet ? (
-            <View style={styles.slotColumn} pointerEvents="box-none">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Add a joint pet"
-                onPress={onAddJointPet}
-                hitSlop={8}
-                style={({ pressed }) => [
-                  retro.panelQuiet,
-                  night && retro.panelQuietNight,
-                  styles.addTile,
-                  pressed && retroPressed,
-                ]}
-              >
-                <Text style={[styles.addPlus, night && retro.labelNight]}>+</Text>
-                <Text style={[retro.kicker, night && retro.kickerNight, styles.addLabel]}>JOINT PET</Text>
-              </Pressable>
-            </View>
           ) : null}
         </View>
 
@@ -206,8 +180,20 @@ export function PetWorldHud({
           <Text style={[styles.feeling, night && styles.feelingNight]} numberOfLines={2}>
             {feeling}
           </Text>
-          <Text style={[styles.meta, night && styles.metaNight]}>
+          {/* One quiet meta line: day count, then the streak as a bare
+              fire+number (game info, not a boxed control), then the partner. */}
+          <Text
+            style={[styles.meta, night && styles.metaNight]}
+            accessibilityLabel={
+              streaks.currentStreak > 0
+                ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}.`
+                : undefined
+            }
+          >
             {dayLabel}
+            {streaks.currentStreak > 0 ? (
+              <Text style={styles.metaFlame}>{`   ·   🔥 ${streaks.currentStreak}`}</Text>
+            ) : null}
             {partnerName ? (
               <Text style={styles.metaSoft}>
                 {'   ·   '}
@@ -218,19 +204,9 @@ export function PetWorldHud({
         </View>
 
         <View style={styles.sideRight} pointerEvents="box-none">
-          {streaks.currentStreak > 0 ? (
-            <View
-              style={[retro.panelQuiet, night && retro.panelQuietNight, styles.streak]}
-              accessible
-              accessibilityLabel={`${streaks.currentStreak} day streak, best ${streaks.longestStreak}`}
-            >
-              <Text style={[styles.streakText, night && retro.labelNight]}>🔥 {streaks.currentStreak}</Text>
-            </View>
-          ) : null}
-
           {/* Account and friends as matched discs; today as a pill of the same
-              height — a person is a disc, a page is a pill, both in the same
-              outline + shadow. */}
+              height, coral-outlined so it reads as "your daily goals" rather
+              than another nav button. */}
           <View style={styles.rail} pointerEvents="box-none">
             <Pressable
               accessibilityRole="button"
@@ -273,50 +249,25 @@ export function PetWorldHud({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Open today's detail"
+              accessibilityHint="Your goals for today"
               onPress={onOpenToday}
               hitSlop={8}
               style={({ pressed }) => [
                 retro.panel,
                 night && retro.panelNight,
                 styles.pill,
+                styles.pillGoals,
+                night && styles.pillGoalsNight,
                 pressed && retroPressed,
               ]}
             >
-              <Text style={[retro.label, night && retro.labelNight, styles.pillLabel]}>TODAY</Text>
+              <Text style={[retro.label, styles.pillLabel, night ? styles.pillLabelNight : styles.pillLabelGoals]}>
+                TODAY
+              </Text>
             </Pressable>
           </View>
         </View>
       </View>
-
-      {/* A quiet readout of what is wrong (or right) with the pet — tertiary,
-          so it uses the quiet panel weight. */}
-      {chips.length > 0 ? (
-        <View style={styles.chips} pointerEvents="none">
-          {chips.map((effect) => (
-            <View
-              key={effect.id}
-              style={[
-                retro.panelQuiet,
-                night && retro.panelQuietNight,
-                styles.chip,
-                effect.kind === 'buff' && styles.chipBuff,
-              ]}
-              accessible
-              accessibilityLabel={`${effect.label}. ${effect.detail}`}
-            >
-              <Text
-                style={[
-                  styles.chipLabel,
-                  effect.kind === 'buff' && styles.chipLabelBuff,
-                  night && retro.labelNight,
-                ]}
-              >
-                {effect.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
 
       <CareToastBanner toast={careToast} night={night} />
     </View>
@@ -384,13 +335,7 @@ const styles = StyleSheet.create({
   },
   metaNight: { color: '#d6d1f0', textShadowColor: 'rgba(0,0,0,0.4)' },
   metaSoft: { color: colors.muted },
-
-  streak: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginBottom: 12,
-  },
-  streakText: { fontFamily: fonts.mono, fontSize: 15, fontWeight: '700', color: colors.ink },
+  metaFlame: { color: colors.coralDeep },
 
   rail: { alignItems: 'flex-end', gap: 12 },
   disc: {
@@ -409,26 +354,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Coral-outlined so TODAY reads as "your daily goals", not another nav disc.
+  pillGoals: { borderColor: colors.coral },
+  pillGoalsNight: { borderColor: colors.coral },
   pillLabel: { fontSize: 12, letterSpacing: 1.4 },
-
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-    gap: 6,
-    marginHorizontal: 16,
-    marginTop: 10,
-  },
-  chip: { paddingHorizontal: 9, paddingVertical: 4 },
-  chipBuff: { borderColor: colors.mintDeep },
-  chipLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    color: '#8c4433',
-  },
-  chipLabelBuff: { color: colors.mintDeep },
+  pillLabelGoals: { color: colors.coralDeep },
+  pillLabelNight: { color: '#ffb9a6' },
 
   slotColumn: { marginTop: 10, gap: 6, width: SIDE_COLUMN, alignItems: 'stretch' },
   petTab: { paddingHorizontal: 10, paddingVertical: 6, alignItems: 'flex-start' },
@@ -436,7 +367,4 @@ const styles = StyleSheet.create({
   petTabKicker: { fontSize: 8, letterSpacing: 1.2, marginBottom: 1 },
   petTabName: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', color: colors.inkSoft },
   petTabTextOn: { color: colors.coralDeep },
-  addTile: { paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
-  addPlus: { fontFamily: fonts.mono, fontSize: 20, lineHeight: 22, fontWeight: '700', color: colors.ink },
-  addLabel: { fontSize: 8, letterSpacing: 1, marginTop: 2 },
 });
