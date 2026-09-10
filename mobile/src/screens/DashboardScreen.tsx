@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  PET_BUILD_LABEL,
+
+  type TrophyId,  PET_BUILD_LABEL,
   type CareToast,
   type HealthEvent,
   type PetReaction,
@@ -73,6 +74,8 @@ interface Props {
    */
   isWalking?: boolean;
   atGym?: boolean;
+  /** Trophies on the living-room shelf. Derived by App from the event history (or forced, in dev). */
+  trophies?: readonly TrophyId[];
 }
 
 export function DashboardScreen({
@@ -97,6 +100,7 @@ export function DashboardScreen({
   partnerName,
   isWalking,
   atGym,
+  trophies,
 }: Props) {
   const [environment, setEnvironment] = useState<EnvironmentId>('main');
 
@@ -170,7 +174,7 @@ export function DashboardScreen({
         />
       }
       environments={{
-        main: mainEnvironment({ onNavigate: navigate }),
+        main: mainEnvironment({ onNavigate: navigate, trophies }),
         kitchen: kitchenEnvironment({ onChooseFood: onLogMeal, onNavigate: navigate }),
         gym: gymEnvironment({ onStartWorkout: onLogWorkout, onNavigate: navigate }),
         study: studyEnvironment({ onTrainMind, onNavigate: navigate }),

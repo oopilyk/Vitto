@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -32,7 +32,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { FriendPetScreen } from './src/screens/FriendPetScreen';
-import { TodayScreen, type ForcedAmbient } from './src/screens/TodayScreen';
+import {  type ForcedTrophies,TodayScreen, type ForcedAmbient } from './src/screens/TodayScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
@@ -169,6 +169,8 @@ export default function App() {
   // way `livePet` bakes in `forcedAilment`/`forcedForm` before anything
   // downstream sees it.
   const [forcedAmbient, setForcedAmbient] = useState<ForcedAmbient | null>(null);
+  // Dev-only: put trophies on the shelf without the month of logging.
+  const [forcedTrophies, setForcedTrophies] = useState<ForcedTrophies | null>(null);
   /**
    * Ambient cues (mobile/AMBIENT.md). The saved gym is one coordinate held on
    * this device; the two hooks read live sensors while the app is open and keep
@@ -1028,10 +1030,28 @@ export default function App() {
         setIsAppleHealthConnected(false);
         setForcedAilment(null);
         setForcedForm(null);
+        setForcedTrophies(null);
         await repository.clear();
       })
       .catch(() => setError('Could not sign out.'));
   };
+
+  // Trophies are derived from history, never stored — see `earnedTrophies`.
+  // A dev override replaces the whole set, gated on the dev account like the
+  // other overrides.
+  //
+  // ABOVE the early returns below, and deliberately so: hooks must run in the
+  // same order on every render, and a `useMemo` placed after them only ran once
+  // a pet existed — which is what broke the app with "rendered more hooks than
+  // during the previous render". `isDevAccount` is recomputed here rather than
+  // reusing the `isDev` const, which is itself declared below those returns.
+  const trophiesNow: readonly TrophyId[] = useMemo(() => {
+    const forced = isDevAccount(session?.user.email) ? forcedTrophies : null;
+    if (forced === 'all') return TROPHY_IDS;
+    if (forced === 'none') return [];
+    if (forced) return [forced];
+    return earnedTrophies(events, profile, now);
+  }, [session, forcedTrophies, events, profile, now]);
 
   if (!authReady || !dataReady) {
     return (
@@ -1135,6 +1155,7 @@ export default function App() {
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
               isWalking={walkingNow}
               atGym={atGymNow}
+              trophies={trophiesNow}
               accountInitial={session?.user.email?.charAt(0)}
               pets={pets.map((candidate) => ({
                 id: candidate.id,
@@ -1274,6 +1295,8 @@ export default function App() {
               isSeeding={isSeeding}
               forcedAmbient={isDev ? forcedAmbient : undefined}
               onForceAmbient={isDev ? setForcedAmbient : undefined}
+              forcedTrophies={isDev ? forcedTrophies : undefined}
+              onForceTrophies={isDev ? setForcedTrophies : undefined}
               ambientDebug={
                 isDev
                   ? {

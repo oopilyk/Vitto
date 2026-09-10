@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType, type LayoutChangeEvent } from 'react-native';
 
 /**
@@ -114,8 +114,18 @@ export function EnvironmentBackdrop({
   fill,
   lift,
   floorColor,
+  children,
 }: {
   source: ImageSourcePropType;
+  /**
+   * Overlays that belong to the ART, not the screen — a trophy on a shelf, a
+   * poster on a wall. Rendered inside a box that exactly matches the art's
+   * placed size and position (scale, crop, lift and all), so a child positioned
+   * as a percentage of that box lands on the same pixel of the picture on every
+   * phone. Positioning against the screen instead would put the shelf somewhere
+   * different on every device.
+   */
+  children?: ReactNode;
   /**
    * Cover the whole stage instead of fitting the width, leaving no colour band
    * above the art.
@@ -176,6 +186,11 @@ export function EnvironmentBackdrop({
             // a rounding pixel; it never crops.
             resizeMode="cover"
           />
+          {children ? (
+            <View pointerEvents="none" style={[styles.art, { width, height, left, bottom }]}>
+              {children}
+            </View>
+          ) : null}
         </>
       ) : null}
     </View>

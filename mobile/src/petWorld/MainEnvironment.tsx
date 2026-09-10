@@ -1,6 +1,8 @@
+import type { TrophyId } from '@vitto/core';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
+import { TrophyShelf } from './TrophyShelf';
 import { isNightTime } from './timeOfDay';
 import type { EnvironmentId } from './types';
 
@@ -22,8 +24,9 @@ const MAIN_NIGHT = require('../../assets/environments/main-night.png');
  * above the art, which is fitted to full width rather than cropped —
  * see `EnvironmentBackdrop`.
  */
-const DAY_TINT = '#c1a693';
-export const NIGHT_TINT = '#434280';
+// Re-sampled for the redrawn room (the one with the empty shelf).
+const DAY_TINT = '#b1a07f';
+export const NIGHT_TINT = '#6f5265';
 
 /**
  * The living-room art's round rug sits a touch higher than the pet stands on the
@@ -35,12 +38,19 @@ const MAIN_LIFT = -0.04;
 interface MainControlsProps {
   /** Walks the pet into the tapped scene. */
   onNavigate: (id: EnvironmentId) => void;
+  /** Earned trophies, shown on the wall shelf — see `TrophyShelf`. */
+  trophies?: readonly TrophyId[];
 }
 
-export function mainEnvironment({ onNavigate }: MainControlsProps): EnvironmentDressing {
+export function mainEnvironment({ onNavigate, trophies = [] }: MainControlsProps): EnvironmentDressing {
   const night = isNightTime();
   return {
-    background: <EnvironmentBackdrop source={night ? MAIN_NIGHT : MAIN_DAY} lift={MAIN_LIFT} />,
+    // The shelf rides inside the backdrop so its positions are art-relative.
+    background: (
+      <EnvironmentBackdrop source={night ? MAIN_NIGHT : MAIN_DAY} lift={MAIN_LIFT}>
+        <TrophyShelf trophies={trophies} night={night} />
+      </EnvironmentBackdrop>
+    ),
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
     controls: <EnvironmentActionRow current="main" onNavigate={onNavigate} night={night} />,
   };

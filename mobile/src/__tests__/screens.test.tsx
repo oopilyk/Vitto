@@ -413,6 +413,57 @@ describe('screens render', () => {
     both.unmount();
   });
 
+  it('puts earned trophies on the living-room shelf, and leaves it bare otherwise', () => {
+    const render = (trophies: string[]) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <DashboardScreen
+            pet={pet}
+            events={[]}
+            reaction={null}
+            trophies={trophies as any}
+            onLogMeal={() => {}}
+            onLogWorkout={() => {}}
+            onSyncSteps={() => {}}
+            onTrainMind={() => {}}
+            onOpenProfile={() => {}}
+            onOpenStats={() => {}}
+            onOpenToday={() => {}}
+            interaction={idleInteraction}
+          />,
+        );
+      });
+      // The shelf lives inside the backdrop, which only draws once it has a
+      // measured width; give it one.
+      const backdrop = tree.root.findAll((node: any) => typeof node.props.onLayout === 'function' && node.props.style && JSON.stringify(node.props.style).includes('"position":"absolute"'))[0];
+      act(() => backdrop.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 393, height: 852 } } }));
+      return tree;
+    };
+    // Host nodes only: `findAll` also returns the composite wrapper of each
+    // View, which would list every trophy twice.
+    const labels = (tree: renderer.ReactTestRenderer) =>
+      tree.root
+        .findAll(
+          (node: any) =>
+            typeof node.type === 'string' &&
+            node.props.accessibilityRole === 'image' &&
+            typeof node.props.accessibilityLabel === 'string',
+        )
+        .map((node: any) => node.props.accessibilityLabel)
+        .filter((label: string) => label.startsWith('Golden'));
+
+    const bare = render([]);
+    expect(labels(bare)).toEqual([]);
+    bare.unmount();
+
+    // Shelf order is fixed: shoe alone still sits on the top plank, and the
+    // three come out top-to-bottom regardless of the order they were earned.
+    const some = render(['drumstick', 'shoe']);
+    expect(labels(some)).toEqual(['Golden shoe', 'Golden drumstick']);
+    some.unmount();
+  });
+
   it('shows nothing where the toast goes until something is logged', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

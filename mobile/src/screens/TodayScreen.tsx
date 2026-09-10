@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import {
-  AILMENT_PRECEDENCE,
+
+  type TrophyId,  AILMENT_PRECEDENCE,
   type BodyProfile,
   type BrainTrainingMetadata,
   type CareDiaryEntry,
@@ -78,6 +79,8 @@ interface Props {
    * mobile/AMBIENT.md) can be checked at a desk without real sensors. */
   forcedAmbient?: ForcedAmbient | null;
   onForceAmbient?: (state: ForcedAmbient | null) => void;
+  forcedTrophies?: ForcedTrophies | null;
+  onForceTrophies?: (state: ForcedTrophies | null) => void;
   /**
    * What the sensors are actually reporting. Both ambient hooks fail quietly by
    * design, so on a device "permission denied", "no such sensor" and "you are
@@ -94,6 +97,22 @@ interface Props {
 }
 
 export type ForcedAmbient = 'walking' | 'gym';
+
+/**
+ * Dev-only override for the living-room shelf: a single trophy, all of them,
+ * or none — so every plank can be checked without a month of logging. Nothing
+ * here is saved; `earnedTrophies` is the only real source.
+ */
+export type ForcedTrophies = 'none' | TrophyId | 'all';
+type DevTrophyChoice = 'live' | ForcedTrophies;
+const DEV_TROPHY_OPTIONS: { value: DevTrophyChoice; label: string; detail?: string }[] = [
+  { value: 'live', label: 'Live', detail: 'earned from history' },
+  { value: 'none', label: 'None' },
+  { value: 'dumbbell', label: 'Dumbbell' },
+  { value: 'shoe', label: 'Shoe' },
+  { value: 'drumstick', label: 'Drumstick' },
+  { value: 'all', label: 'All three' },
+];
 type DevAmbientChoice = ForcedAmbient | 'live';
 
 const DEV_AMBIENT_OPTIONS: { value: DevAmbientChoice; label: string; detail?: string }[] = [
@@ -188,6 +207,8 @@ export function TodayScreen({
   isSeeding,
   forcedAmbient,
   onForceAmbient,
+  forcedTrophies,
+  onForceTrophies,
   ambientDebug,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -541,6 +562,25 @@ export function TodayScreen({
             <Text style={styles.devHint}>
               Pretends the user is walking or at the gym (see mobile/AMBIENT.md), so both
               cues can be checked here without real sensors. Nothing here is saved.
+            </Text>
+          </View>
+        ) : null}
+
+        {onForceTrophies ? (
+          <View style={styles.devPanel}>
+            <Kicker>Dev · force trophies</Kicker>
+            <View style={styles.devChoices}>
+              <ChoiceRow
+                options={DEV_TROPHY_OPTIONS}
+                value={forcedTrophies ?? 'live'}
+                onChange={(next) => onForceTrophies(next === 'live' ? null : next)}
+              />
+            </View>
+            <Text style={styles.devHint}>
+              Puts trophies on the living-room shelf without earning them: the dumbbell is a
+              month at your weekly workout target, the shoe is 10k steps a day for a month,
+              the drumstick is a month of hitting your calorie and protein goals. Nothing
+              here is saved.
             </Text>
           </View>
         ) : null}

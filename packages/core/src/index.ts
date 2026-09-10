@@ -1,6 +1,7 @@
 // The shared heart of Vitto: pure domain logic plus the services that only need a
 // Supabase client, which each app injects through `configureCore`.
 export * from './domain/careToast';
+export * from './domain/trophies';
 export * from './domain/health';
 export * from './domain/pet';
 export * from './domain/friends';
