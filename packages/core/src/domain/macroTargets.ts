@@ -4,6 +4,43 @@ export type FocusArea = 'nutrition' | 'training' | 'movement' | 'mind';
 
 export const FOCUS_AREAS: FocusArea[] = ['nutrition', 'training', 'movement', 'mind'];
 
+/**
+ * The game-facing goal picked in onboarding. Richer than `goal`
+ * (lose/maintain/gain), which stays the energy-balance axis the calorie maths
+ * reads and is *derived* from this — see `deriveEnergyGoal` in `onboarding.ts`.
+ */
+export type PrimaryGoal =
+  | 'build_muscle'
+  | 'get_stronger'
+  | 'gain_weight'
+  | 'lose_weight'
+  | 'maintain'
+  | 'improve_fitness'
+  | 'build_habits'
+  | 'athletic_performance'
+  | 'other';
+
+/** How the user actually trains. `trainingStyle` is derived from this. */
+export type TrainingType =
+  | 'weightlifting'
+  | 'running'
+  | 'cycling'
+  | 'sports'
+  | 'hiit'
+  | 'classes'
+  | 'other';
+
+export type DietaryPreference = 'none' | 'vegetarian' | 'vegan' | 'pescatarian' | 'other';
+
+export type Motivation =
+  | 'progress'
+  | 'streaks'
+  | 'competition'
+  | 'friends'
+  | 'goals'
+  | 'pet'
+  | 'habits';
+
 export interface BodyProfile {
   age: number;
   sex: 'female' | 'male' | 'other';
@@ -32,6 +69,19 @@ export interface BodyProfile {
    * must never be shown to the partner, so "unset" has to stay distinguishable.
    */
   displayName?: string;
+  /**
+   * Onboarding-v2 fields. All optional and undefaulted: an account created
+   * before onboarding-v2 has none of them, and "unset" is a real state the
+   * flow can resume from. `goal`/`trainingStyle` above stay the values the
+   * calorie/protein maths reads and are *derived* from `primaryGoal`/
+   * `trainingTypes` (see `onboarding.ts`).
+   */
+  stepGoal?: number;
+  primaryGoal?: PrimaryGoal;
+  secondaryGoals?: PrimaryGoal[];
+  trainingTypes?: TrainingType[];
+  dietaryPreference?: DietaryPreference;
+  motivations?: Motivation[];
 }
 
 /**

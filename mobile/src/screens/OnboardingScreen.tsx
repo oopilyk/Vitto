@@ -1,63 +1,64 @@
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
 import {
-  FOCUS_AREAS,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import {
+  DIETARY_OPTIONS,
+  MOTIVATION_OPTIONS,
+  PET_PERSONALITY_OPTIONS,
+  PRIMARY_GOAL_OPTIONS,
+  STEP_GOAL_PRESETS,
+  TRAINING_TYPE_OPTIONS,
   calculateMacroTargets,
   convertHeightToFeetAndInches,
   convertWeightValue,
+  createPet,
+  deriveEnergyGoal,
+  deriveTrainingStyle,
   feetAndInchesToCm,
+  goalInvolvesWeightChange,
+  hasCompletedQuestionnaire,
   normalizeInviteCode,
   planForGoal,
+  suggestStepGoal,
   weightGoalProgress,
   type BodyProfile,
-  type FocusArea,
   type PetBreed,
+  type PetPersonality,
+  type PrimaryGoal,
+  type TrainingType,
 } from '@vitto/core';
 import { BreedPicker } from '../components/BreedPicker';
+import { PetAvatar } from '../components/PetAvatar';
+import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { ChoiceRow, ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
   name: string;
   onNameChange: (value: string) => void;
-  profile: BodyProfile;
-  onUpdate: <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => void;
   breed: PetBreed;
   onBreedChange: (breed: PetBreed) => void;
+  personality: PetPersonality;
+  onPersonalityChange: (value: PetPersonality) => void;
+  stepGoal: number;
+  onStepGoalChange: (value: number) => void;
+  profile: BodyProfile;
+  onUpdate: <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => void;
   onAdopt: () => Promise<void> | void;
   error: string | null;
   onSignOut?: () => void;
-  /**
-   * Joins a care partner's pet with their invite code instead of adopting one.
-   * Only passed for a signed-in online account; absent, the reveal is not shown.
-   * Resolves true once joined, false when the user backed out; rejects with a
-   * readable message, shown in place of the step error.
-   */
+  /** Joins a care partner's pet instead of adopting — see App. */
   onRedeemInvite?: (code: string) => Promise<boolean>;
 }
 
-/** Six characters plus the hyphen `formatInviteCode` shows, so a pasted formatted code fits. */
 const INVITE_INPUT_MAX_LENGTH = 7;
-
-const STEPS = ['About you', 'Your goal', 'Your rhythm', 'What you want'];
-
-const GOAL_OPTIONS = [
-  { value: 'lose' as const, label: 'Lose fat' },
-  { value: 'maintain' as const, label: 'Maintain' },
-  { value: 'gain' as const, label: 'Build muscle' },
-];
-
-const PACE_OPTIONS = [
-  { value: 'gentle' as const, label: 'Gentle', detail: 'Slow and sustainable' },
-  { value: 'steady' as const, label: 'Steady', detail: 'A clear, workable change' },
-  { value: 'focused' as const, label: 'Focused', detail: 'Faster, harder to hold' },
-];
-
-const STYLE_OPTIONS = [
-  { value: 'strength' as const, label: 'Strength', detail: 'Lifting, resistance work' },
-  { value: 'cardio' as const, label: 'Cardio', detail: 'Running, cycling, swimming' },
-  { value: 'mixed' as const, label: 'A bit of both', detail: 'Mixed training week' },
-];
 
 const ACTIVITY_OPTIONS = [
   { value: 'low' as const, label: 'Mostly sitting' },
@@ -65,20 +66,45 @@ const ACTIVITY_OPTIONS = [
   { value: 'high' as const, label: 'On my feet all day' },
 ];
 
-const FOCUS_OPTIONS: { value: FocusArea; label: string; detail: string }[] = [
-  { value: 'nutrition', label: 'Eat better', detail: 'Meals, macros, and daily fuel' },
-  { value: 'training', label: 'Get stronger', detail: 'Workouts and progress over time' },
-  { value: 'movement', label: 'Move more', detail: 'Steps and everyday activity' },
-  { value: 'mind', label: 'Sharpen my mind', detail: 'Focus sessions and reading' },
+const ENERGY_GOAL_OPTIONS = [
+  { value: 'lose' as const, label: 'Eat in a deficit', detail: 'Trend the scale down' },
+  { value: 'maintain' as const, label: 'Eat at maintenance', detail: 'Hold steady while you train' },
+  { value: 'gain' as const, label: 'Eat in a surplus', detail: 'Fuel growth' },
+];
+
+const TRAINING_DAY_OPTIONS = [
+  { value: '0', label: 'None' },
+  { value: '2', label: '1–2 / wk' },
+  { value: '3', label: '3 / wk' },
+  { value: '4', label: '4 / wk' },
+  { value: '5', label: '5 / wk' },
+  { value: '6', label: '6+ / wk' },
 ];
 
 const TIMELINE_PRESETS = [8, 12, 16, 24];
+
+type StepId =
+  | 'welcome'
+  | 'basics'
+  | 'goal'
+  | 'weight'
+  | 'training'
+  | 'steps'
+  | 'nutrition'
+  | 'motivation'
+  | 'choosePet'
+  | 'namePet'
+  | 'meetPet';
 
 export function OnboardingScreen({
   name,
   onNameChange,
   breed,
   onBreedChange,
+  personality,
+  onPersonalityChange,
+  stepGoal,
+  onStepGoalChange,
   profile,
   onUpdate,
   onAdopt,
@@ -86,59 +112,135 @@ export function OnboardingScreen({
   onSignOut,
   onRedeemInvite,
 }: Props) {
-  const [step, setStep] = useState(0);
+  // Resume at the companion if the questionnaire is already answered (fields
+  // persist per-keystroke, so a refresh mid-flow keeps everything). Computed
+  // once — a later answer changing shouldn't yank the user around.
+  const startId = useRef<StepId>(
+    hasCompletedQuestionnaire(profile) ? 'choosePet' : 'welcome',
+  ).current;
+
+  const sequence = useMemo<StepId[]>(() => {
+    const all: StepId[] = [
+      'welcome',
+      'basics',
+      'goal',
+      'weight',
+      'training',
+      'steps',
+      'nutrition',
+      'motivation',
+      'choosePet',
+      'namePet',
+      'meetPet',
+    ];
+    return all.filter((id) => id !== 'weight' || goalInvolvesWeightChange(profile.primaryGoal));
+  }, [profile.primaryGoal]);
+
+  const [stepId, setStepId] = useState<StepId>(startId);
   const [stepError, setStepError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
 
+  const index = Math.max(0, sequence.indexOf(stepId));
+  const isLast = index === sequence.length - 1;
+
   const metric = profile.weightUnit === 'kg';
+  const toKg = (value: number) => (metric ? value : value / 2.20462);
   const displayedWeight = metric
     ? Math.round(profile.weightKg * 10) / 10
     : Math.round(convertWeightValue(profile.weightKg, 'kg', 'lb') * 10) / 10;
   const displayedHeight = convertHeightToFeetAndInches(profile.heightCm);
-  const displayedTarget = profile.targetWeightKg
-    ? metric
-      ? Math.round(profile.targetWeightKg * 10) / 10
-      : Math.round(convertWeightValue(profile.targetWeightKg, 'kg', 'lb') * 10) / 10
-    : undefined;
+  const displayedTarget =
+    profile.targetWeightKg === undefined
+      ? undefined
+      : metric
+        ? Math.round(profile.targetWeightKg * 10) / 10
+        : Math.round(convertWeightValue(profile.targetWeightKg, 'kg', 'lb') * 10) / 10;
 
-  const toKg = (value: number) => (metric ? value : value / 2.20462);
   const targets = calculateMacroTargets(profile);
   const goalProgress = weightGoalProgress(profile);
   const plan = planForGoal(profile);
 
+  const previewPet = useMemo(
+    () => createPet('preview', name.trim() || 'Miso', 'dog', breed, personality),
+    [name, breed, personality],
+  );
+
+  const setPrimaryGoal = (value: PrimaryGoal) => {
+    onUpdate('primaryGoal', value);
+    // Seed the energy-balance axis the calorie maths reads. The weight step
+    // lets the user override it.
+    onUpdate('goal', deriveEnergyGoal(value));
+    if (!goalInvolvesWeightChange(value)) onUpdate('targetWeightKg', undefined);
+  };
+
+  const toggleInList = <T extends string>(key: keyof BodyProfile, list: T[], value: T) => {
+    const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+    onUpdate(key, next as BodyProfile[typeof key]);
+    return next;
+  };
+
+  const setTrainingTypes = (value: TrainingType) => {
+    const next = toggleInList<TrainingType>('trainingTypes', profile.trainingTypes ?? [], value);
+    const style = deriveTrainingStyle(next);
+    if (style) onUpdate('trainingStyle', style);
+  };
+
   const validate = (): string | null => {
-    if (step === 0) {
+    if (stepId === 'basics') {
       if (profile.age < 13 || profile.age > 100) return 'Age must be between 13 and 100.';
-      if (profile.heightCm < 120 || profile.heightCm > 230) return 'Height must be between 120 and 230 cm.';
-      if (profile.weightKg < 30 || profile.weightKg > 300) return 'Weight must be between 30 and 300 kg.';
+      if (profile.heightCm < 120 || profile.heightCm > 230)
+        return 'Height must be between 120 and 230 cm.';
+      if (profile.weightKg < 30 || profile.weightKg > 300)
+        return 'Weight must be between 30 and 300 kg.';
     }
-    if (step === 1 && profile.targetWeightKg && (profile.targetWeightKg < 30 || profile.targetWeightKg > 300)) {
-      return 'Target weight must be between 30 and 300 kg.';
+    if (stepId === 'goal' && !profile.primaryGoal) return 'Pick what you are mainly working toward.';
+    if (stepId === 'weight' && displayedTarget !== undefined) {
+      const kg = profile.targetWeightKg ?? 0;
+      if (kg < 30 || kg > 300) return 'Target weight must be between 30 and 300 kg.';
+      // Under-18s: no weight-change target is calculated for them — the pace
+      // presets and plain calorie axis carry the goal instead.
+      if (profile.age < 18)
+        return 'We don’t set weight targets under 18 — pick a pace instead, or leave the target blank.';
     }
-    if (step === 1 && profile.goalWeeks !== undefined && (profile.goalWeeks < 1 || profile.goalWeeks > 104)) {
+    if (
+      stepId === 'weight' &&
+      profile.goalWeeks !== undefined &&
+      (profile.goalWeeks < 1 || profile.goalWeeks > 104)
+    ) {
       return 'Pick a timeline between 1 and 104 weeks.';
     }
-    if (step === 3 && profile.focusAreas.length === 0) return 'Pick at least one thing you want from Vitto.';
+    if (stepId === 'motivation' && (profile.motivations?.length ?? 0) === 0)
+      return 'Pick at least one thing that keeps you going.';
+    if (stepId === 'namePet' && !name.trim()) return 'Give your companion a name.';
     return null;
   };
 
-  const advance = () => {
+  const advance = async () => {
     const failure = validate();
     setStepError(failure);
     if (failure) return;
-    if (step < STEPS.length - 1) setStep(step + 1);
-    else void onAdopt();
+    if (!isLast) {
+      setStepId(sequence[index + 1]);
+      return;
+    }
+    setBusy(true);
+    try {
+      await onAdopt();
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // The profile is still checked first: App saves it before redeeming, so the
-  // joiner's macro targets work from their first day on the partner's pet.
+  const back = () => {
+    setStepError(null);
+    if (index > 0) setStepId(sequence[index - 1]);
+  };
+
   const join = async () => {
     if (!onRedeemInvite) return;
-    const failure = validate();
-    setStepError(failure);
-    if (failure) return;
     const code = normalizeInviteCode(joinCode);
     if (code.length !== 6) {
       setStepError('Enter the six-character code your partner shared.');
@@ -148,11 +250,19 @@ export function OnboardingScreen({
     try {
       await onRedeemInvite(code);
     } catch (cause) {
-      setStepError(cause instanceof Error && cause.message ? cause.message : 'Could not join that pet.');
+      setStepError(
+        cause instanceof Error && cause.message ? cause.message : 'Could not join that pet.',
+      );
     } finally {
       setJoining(false);
     }
   };
+
+  const nextLabel = isLast
+    ? 'Enter the Vitto world'
+    : stepId === 'welcome'
+      ? 'Get started'
+      : 'Continue';
 
   return (
     <KeyboardAvoidingView
@@ -165,31 +275,84 @@ export function OnboardingScreen({
           {onSignOut ? <TextButton label="Log out" onPress={onSignOut} /> : null}
         </View>
 
-        <View style={styles.progress}>
-          {STEPS.map((label, index) => (
-            <View key={label} style={[styles.dot, index <= step && styles.dotOn]} />
-          ))}
-          <Text style={styles.progressLabel}>{STEPS[step]}</Text>
+        <View style={styles.progressTrack}>
+          <View
+            style={[styles.progressFill, { width: `${((index + 1) / sequence.length) * 100}%` }]}
+          />
         </View>
+        <Text style={styles.progressLabel}>
+          Step {index + 1} of {sequence.length}
+        </Text>
 
-        {step === 0 ? (
-          <>
-            <Text style={styles.headline}>Raise a pet by living well.</Text>
+        {stepId === 'welcome' ? (
+          <View style={styles.stepBlock}>
+            <View style={styles.peekPet}>
+              <PetAvatar
+                {...IDLE_ACTIVITY}
+                pet={previewPet}
+                isCelebrating={false}
+                size={120}
+                hideStatusCaption
+                stageStyle={styles.peekStage}
+              >
+                {null}
+              </PetAvatar>
+            </View>
+            <Text style={styles.headline}>A companion that grows with you.</Text>
             <Text style={styles.intro}>
-              Set a few basics so your companion can learn what fuel supports your goals.
+              First we’ll get to know you and what you’re working toward. Then you’ll meet the pet
+              that lives it with you — every workout, every meal, every step counts.
             </Text>
-            <Text style={styles.groupLabel}>Who will you raise?</Text>
-            <BreedPicker value={breed} onChange={onBreedChange} />
-            <Field label="What will you call them?">
-              <TextInput style={layout.input} value={name} onChangeText={onNameChange} maxLength={18} />
-            </Field>
+            {onRedeemInvite ? (
+              showJoin ? (
+                <View style={styles.join}>
+                  <Field label="Invite code" hint="from your care partner">
+                    <TextInput
+                      style={[layout.input, styles.inviteInput]}
+                      value={joinCode}
+                      onChangeText={(value) => {
+                        setJoinCode(value);
+                        setStepError(null);
+                      }}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      maxLength={INVITE_INPUT_MAX_LENGTH}
+                      placeholder="ABC-DEF"
+                      placeholderTextColor={colors.faint}
+                    />
+                  </Field>
+                  <PrimaryButton
+                    label="Join their pet"
+                    busy={joining}
+                    disabled={normalizeInviteCode(joinCode).length !== 6}
+                    onPress={() => void join()}
+                  />
+                </View>
+              ) : (
+                <TextButton
+                  label="Have an invite code? Join a partner’s pet"
+                  onPress={() => setShowJoin(true)}
+                />
+              )
+            ) : null}
+          </View>
+        ) : null}
+
+        {stepId === 'basics' ? (
+          <View style={styles.stepBlock}>
+            <Text style={styles.headline}>A few basics.</Text>
+            <Text style={styles.intro}>
+              Enough for Vitto to set sensible starting targets — nothing more.
+            </Text>
             <View style={styles.grid}>
               <Field label="Age">
                 <TextInput
                   style={layout.input}
                   keyboardType="number-pad"
                   value={String(profile.age)}
-                  onChangeText={(value) => onUpdate('age', Number(value.replace(/[^0-9]/g, '')) || 0)}
+                  onChangeText={(value) =>
+                    onUpdate('age', Number(value.replace(/[^0-9]/g, '')) || 0)
+                  }
                 />
               </Field>
               <Field label={`Weight (${profile.weightUnit})`}>
@@ -225,7 +388,9 @@ export function OnboardingScreen({
                   style={layout.input}
                   keyboardType="number-pad"
                   value={String(profile.heightCm)}
-                  onChangeText={(value) => onUpdate('heightCm', Number(value.replace(/[^0-9]/g, '')) || 0)}
+                  onChangeText={(value) =>
+                    onUpdate('heightCm', Number(value.replace(/[^0-9]/g, '')) || 0)
+                  }
                 />
               </Field>
             ) : (
@@ -238,7 +403,10 @@ export function OnboardingScreen({
                     onChangeText={(value) =>
                       onUpdate(
                         'heightCm',
-                        feetAndInchesToCm(Number(value.replace(/[^0-9]/g, '')) || 0, displayedHeight.inches),
+                        feetAndInchesToCm(
+                          Number(value.replace(/[^0-9]/g, '')) || 0,
+                          displayedHeight.inches,
+                        ),
                       )
                     }
                   />
@@ -251,14 +419,24 @@ export function OnboardingScreen({
                     onChangeText={(value) =>
                       onUpdate(
                         'heightCm',
-                        feetAndInchesToCm(displayedHeight.feet, Number(value.replace(/[^0-9]/g, '')) || 0),
+                        feetAndInchesToCm(
+                          displayedHeight.feet,
+                          Number(value.replace(/[^0-9]/g, '')) || 0,
+                        ),
                       )
                     }
                   />
                 </Field>
               </View>
             )}
+            <Text style={styles.groupLabel}>How active is your day, off training?</Text>
+            <ChoiceRow
+              options={ACTIVITY_OPTIONS}
+              value={profile.activity}
+              onChange={(value) => onUpdate('activity', value)}
+            />
             <Text style={styles.groupLabel}>Sex</Text>
+            <Text style={styles.hint}>Used only for the energy estimate. Stays private.</Text>
             <ChoiceRow
               options={[
                 { value: 'other' as const, label: 'Prefer not to say' },
@@ -268,18 +446,54 @@ export function OnboardingScreen({
               value={profile.sex}
               onChange={(value) => onUpdate('sex', value)}
             />
-          </>
+          </View>
         ) : null}
 
-        {step === 1 ? (
-          <>
-            <Text style={styles.headline}>What are you working toward?</Text>
-            <Text style={styles.intro}>This sets how far your daily calories sit from maintenance.</Text>
-            <ChoiceRow options={GOAL_OPTIONS} value={profile.goal} onChange={(value) => onUpdate('goal', value)} />
+        {stepId === 'goal' ? (
+          <View style={styles.stepBlock}>
+            <Text style={styles.headline}>What are you mainly working toward?</Text>
+            <Text style={styles.intro}>Pick one. This shapes your targets, and your pet’s.</Text>
+            <ChoiceRow
+              stacked
+              options={PRIMARY_GOAL_OPTIONS}
+              value={profile.primaryGoal}
+              onChange={setPrimaryGoal}
+            />
+            {profile.primaryGoal ? (
+              <>
+                <Text style={styles.groupLabel}>Anything else? (optional)</Text>
+                <ChoiceRow
+                  stacked
+                  options={PRIMARY_GOAL_OPTIONS.filter((o) => o.value !== profile.primaryGoal)}
+                  value={profile.secondaryGoals ?? []}
+                  onChange={(value) =>
+                    toggleInList<PrimaryGoal>(
+                      'secondaryGoals',
+                      profile.secondaryGoals ?? [],
+                      value,
+                    )
+                  }
+                />
+              </>
+            ) : null}
+          </View>
+        ) : null}
 
+        {stepId === 'weight' ? (
+          <View style={styles.stepBlock}>
+            <Text style={styles.headline}>How do you want to eat for that?</Text>
+            <Text style={styles.intro}>
+              Sustainable beats aggressive — Vitto keeps the pace in a safe range whatever you pick.
+            </Text>
+            <ChoiceRow
+              stacked
+              options={ENERGY_GOAL_OPTIONS}
+              value={profile.goal}
+              onChange={(value) => onUpdate('goal', value)}
+            />
             {profile.goal !== 'maintain' ? (
               <>
-                <Field label={`Target weight (${profile.weightUnit})`} hint="optional">
+                <Field label={`Goal weight (${profile.weightUnit})`} hint="optional">
                   <TextInput
                     style={layout.input}
                     keyboardType="decimal-pad"
@@ -292,56 +506,39 @@ export function OnboardingScreen({
                     }}
                   />
                 </Field>
-
                 {goalProgress && !goalProgress.matchesGoal ? (
                   <Text style={styles.warning}>
-                    That target means {goalProgress.direction === 'lose' ? 'losing' : 'gaining'} weight, which
-                    does not match this goal. You can keep both — just checking.
+                    That target means {goalProgress.direction === 'lose' ? 'losing' : 'gaining'}{' '}
+                    weight, which doesn’t match how you chose to eat. Both can be true — just
+                    flagging it.
                   </Text>
                 ) : null}
-
                 {profile.targetWeightKg ? (
                   <>
                     <Text style={styles.groupLabel}>By when?</Text>
                     <ChoiceRow
                       options={TIMELINE_PRESETS.map((weeks) => ({
                         value: String(weeks),
-                        label: `${weeks} weeks`,
-                        detail: `${Math.round(weeks / 4.345)} months`,
+                        label: `${weeks} wks`,
                       }))}
-                      value={profile.goalWeeks === undefined ? undefined : String(profile.goalWeeks)}
+                      value={
+                        profile.goalWeeks === undefined ? undefined : String(profile.goalWeeks)
+                      }
                       onChange={(value) => onUpdate('goalWeeks', Number(value))}
                     />
-                    <Field label="Or set your own (weeks)">
-                      <TextInput
-                        style={layout.input}
-                        keyboardType="number-pad"
-                        value={profile.goalWeeks === undefined ? '' : String(profile.goalWeeks)}
-                        placeholder="e.g. 14"
-                        placeholderTextColor={colors.faint}
-                        onChangeText={(value) => {
-                          const digits = value.replace(/[^0-9]/g, '');
-                          onUpdate('goalWeeks', digits === '' ? undefined : Number(digits));
-                        }}
-                      />
-                    </Field>
                     {plan ? (
                       <View style={styles.plan}>
                         <Text style={styles.planText}>
-                          <Text style={styles.planValue}>{plan.kgPerWeek} kg</Text> per week ·{' '}
-                          <Text style={styles.planValue}>{Math.abs(plan.dailyAdjustment)} kcal</Text>{' '}
-                          {profile.goal === 'lose' ? 'below' : 'above'} maintenance, every day until{' '}
-                          {new Date(plan.targetDate).toLocaleDateString([], {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}
-                          .
+                          About <Text style={styles.planValue}>{plan.kgPerWeek} kg</Text> a week —{' '}
+                          <Text style={styles.planValue}>
+                            {Math.abs(plan.dailyAdjustment)} kcal
+                          </Text>{' '}
+                          {profile.goal === 'lose' ? 'below' : 'above'} maintenance daily.
                         </Text>
                         {plan.capped ? (
                           <Text style={styles.planWarning}>
-                            That pace needs {plan.requestedDaily} kcal a day, more than is safe to hold. Capped
-                            at {Math.abs(plan.dailyAdjustment)} — about {plan.achievableWeeks} weeks at this rate.
+                            That pace isn’t safe to hold — capped, so it’ll take about{' '}
+                            {plan.achievableWeeks} weeks.
                           </Text>
                         ) : null}
                       </View>
@@ -351,157 +548,223 @@ export function OnboardingScreen({
                   <>
                     <Text style={styles.groupLabel}>How hard do you want to push?</Text>
                     <ChoiceRow
-                      options={PACE_OPTIONS}
+                      options={[
+                        { value: 'gentle' as const, label: 'Gentle' },
+                        { value: 'steady' as const, label: 'Steady' },
+                        { value: 'focused' as const, label: 'Focused' },
+                      ]}
                       value={profile.goalPace}
                       onChange={(value) => onUpdate('goalPace', value)}
                     />
-                    <Text style={styles.hint}>Set a target weight above to pick a deadline instead.</Text>
                   </>
                 )}
               </>
             ) : null}
-          </>
+          </View>
         ) : null}
 
-        {step === 2 ? (
-          <>
-            <Text style={styles.headline}>How does your week actually go?</Text>
+        {stepId === 'training' ? (
+          <View style={styles.stepBlock}>
+            <Text style={styles.headline}>How do you train?</Text>
             <Text style={styles.intro}>
-              Training days lift your calorie needs, and lifting raises your protein target.
+              This is how Vitto makes the pet feel like yours — pick everything that fits.
             </Text>
-            <Text style={styles.groupLabel}>Everyday activity</Text>
             <ChoiceRow
-              options={ACTIVITY_OPTIONS}
-              value={profile.activity}
-              onChange={(value) => onUpdate('activity', value)}
+              stacked
+              options={TRAINING_TYPE_OPTIONS}
+              value={profile.trainingTypes ?? []}
+              onChange={setTrainingTypes}
             />
-            <Field label="Training days per week">
+            <Text style={styles.groupLabel}>How often?</Text>
+            <ChoiceRow
+              options={TRAINING_DAY_OPTIONS}
+              value={String(profile.trainingDaysPerWeek)}
+              onChange={(value) => onUpdate('trainingDaysPerWeek', Number(value))}
+            />
+          </View>
+        ) : null}
+
+        {stepId === 'steps' ? (
+          <View style={styles.stepBlock}>
+            <Text style={styles.headline}>A daily step goal.</Text>
+            <Text style={styles.intro}>
+              Everyday movement counts too. Pick a number to aim for.
+            </Text>
+            <ChoiceRow
+              options={[
+                ...STEP_GOAL_PRESETS.map((n) => ({
+                  value: String(n),
+                  label: n.toLocaleString(),
+                })),
+                { value: 'auto', label: 'Let Vitto choose' },
+              ]}
+              value={
+                STEP_GOAL_PRESETS.includes(stepGoal as (typeof STEP_GOAL_PRESETS)[number])
+                  ? String(stepGoal)
+                  : undefined
+              }
+              onChange={(value) =>
+                onStepGoalChange(value === 'auto' ? suggestStepGoal(profile) : Number(value))
+              }
+            />
+            <Field label="Or set your own">
               <TextInput
                 style={layout.input}
                 keyboardType="number-pad"
-                value={String(profile.trainingDaysPerWeek)}
-                onChangeText={(value) =>
-                  onUpdate(
-                    'trainingDaysPerWeek',
-                    Math.max(0, Math.min(7, Number(value.replace(/[^0-9]/g, '')) || 0)),
-                  )
-                }
+                value={String(stepGoal)}
+                onChangeText={(value) => {
+                  const n = Number(value.replace(/[^0-9]/g, '')) || 0;
+                  if (n >= 1000 && n <= 50000) onStepGoalChange(n);
+                }}
               />
             </Field>
-            <Text style={styles.groupLabel}>What does that training look like?</Text>
-            <ChoiceRow
-              options={STYLE_OPTIONS}
-              value={profile.trainingStyle}
-              onChange={(value) => onUpdate('trainingStyle', value)}
-            />
-          </>
+          </View>
         ) : null}
 
-        {step === 3 ? (
-          <>
-            <Text style={styles.headline}>What do you want from Vitto?</Text>
-            <Text style={styles.intro}>Pick as many as you like — your dashboard leads with these.</Text>
+        {stepId === 'nutrition' ? (
+          <View style={styles.stepBlock}>
+            <Text style={styles.headline}>Vitto’s starting targets.</Text>
+            <Text style={styles.intro}>
+              Built from what you’ve told us. They update on their own as your weight, goal or
+              training change — you never do the maths.
+            </Text>
+            <View style={styles.targets}>
+              <TargetPill value={targets.calories.toLocaleString()} unit="kcal" />
+              <TargetPill value={`${targets.proteinGrams}g`} unit="protein" />
+              <TargetPill value={`${targets.carbsGrams}g`} unit="carbs" />
+              <TargetPill value={`${targets.fatGrams}g`} unit="fat" />
+            </View>
+            <Text style={styles.groupLabel}>Any dietary preference?</Text>
+            <ChoiceRow
+              options={DIETARY_OPTIONS}
+              value={profile.dietaryPreference}
+              onChange={(value) => onUpdate('dietaryPreference', value)}
+            />
+          </View>
+        ) : null}
+
+        {stepId === 'motivation' ? (
+          <View style={styles.stepBlock}>
+            <Text style={styles.headline}>What keeps you going?</Text>
+            <Text style={styles.intro}>
+              Vitto leans on this — for nudges, quests, and how your pet cheers you on.
+            </Text>
             <ChoiceRow
               stacked
-              options={FOCUS_OPTIONS}
-              value={profile.focusAreas}
-              onChange={(area) =>
-                onUpdate(
-                  'focusAreas',
-                  profile.focusAreas.includes(area)
-                    ? profile.focusAreas.filter((item) => item !== area)
-                    : [...profile.focusAreas, area],
-                )
-              }
+              options={MOTIVATION_OPTIONS}
+              value={profile.motivations ?? []}
+              onChange={(value) => toggleInList('motivations', profile.motivations ?? [], value)}
             />
-            <View style={styles.summary}>
-              <Kicker>Your daily fuel</Kicker>
-              <Text style={styles.summaryText}>
-                <Text style={styles.summaryValue}>{targets.calories.toLocaleString()}</Text> kcal ·{' '}
-                <Text style={styles.summaryValue}>{targets.proteinGrams}g</Text> protein ·{' '}
-                <Text style={styles.summaryValue}>{targets.carbsGrams}g</Text> carbs ·{' '}
-                <Text style={styles.summaryValue}>{targets.fatGrams}g</Text> fat
-              </Text>
-              {goalProgress && goalProgress.direction !== 'maintain' ? (
-                <Text style={styles.summaryMeta}>
-                  {goalProgress.remainingKg} kg to {goalProgress.direction === 'lose' ? 'lose' : 'gain'} ·{' '}
-                  {plan
-                    ? `${plan.kgPerWeek} kg per week over ${plan.achievableWeeks} weeks`
-                    : `a ${profile.goalPace} pace`}
-                </Text>
-              ) : null}
-            </View>
+          </View>
+        ) : null}
 
-            {onRedeemInvite ? (
-              <View style={styles.join}>
-                {showJoin ? (
-                  <>
-                    <Text style={styles.groupLabel}>Join a partner's pet</Text>
-                    <Field label="Invite code" hint="from your care partner">
-                      <TextInput
-                        style={[layout.input, styles.inviteInput]}
-                        value={joinCode}
-                        onChangeText={(value) => {
-                          setJoinCode(value);
-                          setStepError(null);
-                        }}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                        maxLength={INVITE_INPUT_MAX_LENGTH}
-                        placeholder="ABC-DEF"
-                        placeholderTextColor={colors.faint}
-                      />
-                    </Field>
-                    <View style={styles.joinActions}>
-                      <PrimaryButton
-                        label="Join"
-                        busy={joining}
-                        disabled={normalizeInviteCode(joinCode).length !== 6}
-                        onPress={() => void join()}
-                      />
-                    </View>
-                  </>
-                ) : (
-                  <TextButton
-                    label="Got an invite code? Join a partner's pet instead"
-                    onPress={() => setShowJoin(true)}
-                  />
-                )}
-              </View>
-            ) : null}
-          </>
+        {stepId === 'choosePet' ? (
+          <View style={styles.stepBlock}>
+            <Kicker>Now — your companion</Kicker>
+            <Text style={styles.headline}>Who’s coming with you?</Text>
+            <Text style={styles.intro}>
+              They’ll live your goals with you. Pick the one that feels right.
+            </Text>
+            <BreedPicker value={breed} onChange={onBreedChange} size={96} />
+          </View>
+        ) : null}
+
+        {stepId === 'namePet' ? (
+          <View style={styles.stepBlock}>
+            <View style={styles.centerPet}>
+              <PetAvatar
+                {...IDLE_ACTIVITY}
+                pet={previewPet}
+                isCelebrating={false}
+                size={180}
+                hideStatusCaption
+                stageStyle={styles.centerStage}
+              >
+                {null}
+              </PetAvatar>
+            </View>
+            <Field label="Their name">
+              <TextInput
+                style={layout.input}
+                value={name}
+                onChangeText={onNameChange}
+                maxLength={18}
+                placeholder="Miso"
+                placeholderTextColor={colors.faint}
+              />
+            </Field>
+            <Text style={styles.groupLabel}>Their personality</Text>
+            <ChoiceRow
+              stacked
+              options={PET_PERSONALITY_OPTIONS}
+              value={personality}
+              onChange={onPersonalityChange}
+            />
+          </View>
+        ) : null}
+
+        {stepId === 'meetPet' ? (
+          <View style={styles.stepBlock}>
+            <View style={styles.centerPet}>
+              <PetAvatar
+                {...IDLE_ACTIVITY}
+                pet={previewPet}
+                isCelebrating
+                size={220}
+                hideStatusCaption
+                stageStyle={styles.centerStage}
+              >
+                {null}
+              </PetAvatar>
+            </View>
+            <Text style={styles.meetName}>{name.trim() || 'Miso'}</Text>
+            <Text style={styles.meetLine}>
+              {name.trim() || 'Miso'} is ready. Every healthy choice you make from here, you make
+              together.
+            </Text>
+          </View>
         ) : null}
 
         <ErrorText>{stepError ?? error}</ErrorText>
 
         <View style={styles.actions}>
-          <PrimaryButton
-            label={step === STEPS.length - 1 ? `Adopt ${name || 'your pet'}` : 'Continue'}
-            onPress={advance}
-          />
-          {step > 0 ? (
-            <TextButton
-              label="Back"
-              onPress={() => {
-                setStepError(null);
-                setStep(step - 1);
-              }}
-            />
-          ) : null}
+          <PrimaryButton label={nextLabel} busy={busy} onPress={() => void advance()} />
+          {index > 0 ? <TextButton label="Back" onPress={back} /> : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
+function TargetPill({ value, unit }: { value: string; unit: string }) {
+  return (
+    <View style={styles.pill}>
+      <Text style={styles.pillValue}>{value}</Text>
+      <Text style={styles.pillUnit}>{unit}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   body: { padding: 22, paddingTop: 70, paddingBottom: 60 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  progress: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 22 },
-  dot: { width: 26, height: 4, borderRadius: 2, backgroundColor: '#deded7' },
-  dotOn: { backgroundColor: colors.coral },
-  progressLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginLeft: 8, letterSpacing: 1 },
-  headline: { ...text.display, marginTop: 26, lineHeight: 38 },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e4e2da',
+    marginTop: 22,
+    overflow: 'hidden',
+  },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: colors.coral },
+  progressLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    color: colors.faint,
+    marginTop: 8,
+    letterSpacing: 1,
+  },
+  stepBlock: { marginTop: 8 },
+  headline: { ...text.display, marginTop: 22, lineHeight: 38 },
   intro: { ...text.body, marginTop: 12, color: colors.muted },
   grid: { flexDirection: 'row', gap: 12 },
   groupLabel: {
@@ -512,6 +775,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
     textTransform: 'uppercase',
   },
+  hint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 6, lineHeight: 15 },
   warning: {
     marginTop: 12,
     padding: 12,
@@ -522,7 +786,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
   },
-  hint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 12, lineHeight: 16 },
   plan: {
     marginTop: 16,
     padding: 14,
@@ -533,20 +796,44 @@ const styles = StyleSheet.create({
   },
   planText: { fontSize: 13, lineHeight: 20, color: colors.inkSoft },
   planValue: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  planWarning: { fontFamily: fonts.mono, fontSize: 10, color: '#9a6b5c', marginTop: 8, lineHeight: 15 },
-  summary: {
-    marginTop: 22,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(132,160,138,0.35)',
-    backgroundColor: colors.sageSoft,
+  planWarning: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    color: '#9a6b5c',
+    marginTop: 8,
+    lineHeight: 15,
   },
-  summaryText: { fontSize: 13, lineHeight: 22, color: colors.inkSoft, marginTop: 8 },
-  summaryValue: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  summaryMeta: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 8 },
-  join: { marginTop: 22, alignItems: 'flex-start' },
-  joinActions: { marginTop: 14, alignSelf: 'stretch' },
+  targets: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+  pill: {
+    flexGrow: 1,
+    flexBasis: 130,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+  },
+  pillValue: { fontSize: 20, fontWeight: '700', color: colors.ink },
+  pillUnit: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    color: colors.muted,
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  join: { marginTop: 20, gap: 4, alignSelf: 'stretch' },
   inviteInput: { fontFamily: fonts.mono, letterSpacing: 3 },
+  peekPet: { alignItems: 'center', marginTop: 12 },
+  peekStage: { height: 130, backgroundColor: 'transparent' },
+  centerPet: { alignItems: 'center', marginTop: 10, marginBottom: 8 },
+  centerStage: { height: 220, backgroundColor: 'transparent' },
+  meetName: { ...text.display, textAlign: 'center', marginTop: 6 },
+  meetLine: {
+    ...text.body,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 12,
+    paddingHorizontal: 8,
+  },
   actions: { marginTop: 28, gap: 16 },
 });
