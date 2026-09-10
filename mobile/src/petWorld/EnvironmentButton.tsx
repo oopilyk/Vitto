@@ -70,9 +70,15 @@ export function EnvironmentButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ selected: isActive }}
+      // `disabled` as well as `selected`: the active room is not somewhere you
+      // can go, and a screen reader should not offer it as a destination.
+      accessibilityState={{ selected: isActive, disabled: isActive }}
+      // The room you are in is not a button. Inert rather than merely ignored on
+      // press, so it does not dim and shrink under a tap that goes nowhere --
+      // press feedback with no result is what makes a control feel broken.
+      disabled={isActive}
       onPress={onPress}
-      style={({ pressed }) => [styles.slot, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.slot, pressed && !isActive && styles.pressed]}
     >
       <Image source={filledSource} style={[styles.icon, filledStyle]} resizeMode="contain" />
       {showOutline ? (

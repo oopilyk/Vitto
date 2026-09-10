@@ -126,6 +126,11 @@ export function DashboardScreen({
   // a scene. The pet runs a short dash (see `startTravel`) as it "moves" between
   // rooms, then settles into the new scene.
   const navigate = (id: EnvironmentId) => {
+    // Tapping the room you are already standing in does nothing. `setEnvironment`
+    // would bail on an unchanged value by itself, but `startTravel` would not:
+    // the pet would dash on the spot, having gone nowhere. Guarded here rather
+    // than only in the row so it holds for every caller.
+    if (id === environment) return;
     interaction.startTravel();
     setEnvironment(id);
   };

@@ -46,6 +46,8 @@ const BRAIN_GAME_TITLE: Record<BrainTrainingMetadata['game'], string> = {
   math: 'Quick maths',
   reading: 'Read and recall',
   wordPuzzle: 'Word puzzle',
+  spellingBee: 'Spelling bee',
+  countryGuess: 'Guess the country',
 };
 
 /**
@@ -79,8 +81,20 @@ export const describeLoggedEvent = (event: HealthEvent): string => {
         : headline;
     }
     case 'BRAIN_TRAINING': {
-      const { game, correct, total } = event.metadata as BrainTrainingMetadata;
+      const { game, correct, total, wordsFound, rank, roundOutcomes } = event.metadata as BrainTrainingMetadata;
       const title = BRAIN_GAME_TITLE[game] ?? 'Brain training';
+      if (game === 'wordPuzzle' && roundOutcomes?.length === 1) {
+        const [round] = roundOutcomes;
+        return round!.solved ? `${title}: solved in ${round!.guessesUsed}` : `${title}: not solved today`;
+      }
+      if (game === 'spellingBee') {
+        const words = Math.max(0, Math.round(wordsFound ?? 0));
+        const found = `${words} ${words === 1 ? 'word' : 'words'}`;
+        return rank ? `${title}: ${rank} · ${found}` : `${title}: ${found}`;
+      }
+      if (game === 'countryGuess') {
+        return total > 0 ? `${title}: ${correct}/${total} solved` : `${title} logged`;
+      }
       return total > 0 ? `${title}: ${correct}/${total} correct` : `${title} logged`;
     }
     case 'SLEEP': {

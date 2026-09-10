@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { type BrainTrainingMetadata, type HealthEvent, MATH_ROUND_SECONDS, type MathProblem, type ReadingPassage, errorMessage, findWordPuzzleEventForDate, generateMathProblem, wordPuzzleStreak, mindScore, mindScoreLabel, pickReadingPassage, toDateKey } from '@vitto/core';
+import { CountryGuessGame } from '../components/CountryGuessGame';
+import { SpellingBeeGame } from '../components/SpellingBeeGame';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -12,11 +14,37 @@ interface Props {
   events?: HealthEvent[];
 }
 
-type Stage = 'pick' | 'math' | 'reading' | 'quiz' | 'result';
+type Stage = 'pick' | 'math' | 'reading' | 'quiz' | 'bee' | 'country' | 'result';
+
+const STAGE_TITLE: Record<Stage, string> = {
+  pick: 'Train your mind',
+  math: 'Quick maths',
+  reading: 'Read and recall',
+  quiz: 'Read and recall',
+  bee: 'Spelling bee',
+  country: 'Guess the country',
+  result: 'Train your mind',
+};
 
 interface SessionResult extends BrainTrainingMetadata {
   missed?: { prompt: string; chosen: string; answer: string }[];
+  /** Plain lines for the result card, from games that have more to say than a score. */
+  summary?: string[];
 }
+
+/** What the result card says under the score, per game. */
+const resultMeta = (result: SessionResult): string => {
+  switch (result.game) {
+    case 'spellingBee':
+      return `${result.wordsFound ?? 0} ${result.wordsFound === 1 ? 'word' : 'words'} · ${result.points ?? 0} points · ${result.durationSeconds}s`;
+    case 'countryGuess':
+      return `${result.correct} of ${result.total} countries found · ${result.durationSeconds}s`;
+    case 'math':
+      return `${result.correct} of ${result.total} right · ${result.durationSeconds}s · ${result.bestStreak} best streak`;
+    default:
+      return `${result.correct} of ${result.total} right · ${result.durationSeconds}s`;
+  }
+};
 
 export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = [] }: Props) {
   const [stage, setStage] = useState<Stage>('pick');
@@ -87,6 +115,12 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = []
     setStage('reading');
   };
 
+  /** The untimed games score themselves; the gym only shows and saves the result. */
+  const finishSession = (metadata: BrainTrainingMetadata, summary: string[]) => {
+    setResult({ ...metadata, summary });
+    setStage('result');
+  };
+
   const submitAnswer = () => {
     if (!problem || entry.trim() === '') return;
     const isRight = Number(entry) === problem.answer;
@@ -126,7 +160,7 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = []
     setSaving(true);
     setError(null);
     try {
-      const { missed: _missed, ...metadata } = result;
+      const { missed: _missed, summary: _summary, ...metadata } = result;
       await onFinish(metadata);
       onClose();
     } catch (cause) {
@@ -159,13 +193,7 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = []
         <View style={styles.header}>
           <View>
             <Kicker>Mind gym</Kicker>
-            <Text style={styles.title}>
-              {stage === 'math'
-                ? 'Quick maths'
-                : stage === 'reading' || stage === 'quiz'
-                  ? 'Read and recall'
-                  : 'Train your mind'}
-            </Text>
+            <Text style={styles.title}>{STAGE_TITLE[stage]}</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={styles.close}>
             <Text style={styles.closeMark}>×</Text>
@@ -214,8 +242,32 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = []
                 </View>
                 <Text style={styles.gameArrow}>→</Text>
               </Pressable>
+              <Pressable style={styles.gameCard} onPress={() => setStage('bee')}>
+                <View style={[styles.gameIcon, { backgroundColor: colors.yellow }]}>
+                  <Text style={{ color: colors.yellowDeep, fontSize: 18 }}>⬡</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.gameName}>Spelling bee</Text>
+                  <Text style={styles.gameHint}>Six letters, as many words as you can · untimed</Text>
+                </View>
+                <Text style={styles.gameArrow}>→</Text>
+              </Pressable>
+              <Pressable style={styles.gameCard} onPress={() => setStage('country')}>
+                <View style={[styles.gameIcon, { backgroundColor: colors.periwinkle }]}>
+                  <Text style={{ color: colors.slateDeep, fontSize: 18 }}>⌖</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.gameName}>Guess the country</Text>
+                  <Text style={styles.gameHint}>Three mystery countries · distance and direction clues</Text>
+                </View>
+                <Text style={styles.gameArrow}>→</Text>
+              </Pressable>
             </>
           ) : null}
+
+          {stage === 'bee' ? <SpellingBeeGame onFinish={finishSession} onCancel={onClose} /> : null}
+
+          {stage === 'country' ? <CountryGuessGame onFinish={finishSession} onCancel={onClose} /> : null}
 
           {stage === 'math' && problem ? (
             <>
@@ -320,12 +372,19 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = []
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.resultLabel}>{mindScoreLabel(result.score)}</Text>
-                  <Text style={styles.resultMeta}>
-                    {result.correct} of {result.total} right · {result.durationSeconds}s
-                    {result.game === 'math' ? ` · ${result.bestStreak} best streak` : ''}
-                  </Text>
+                  <Text style={styles.resultMeta}>{resultMeta(result)}</Text>
                 </View>
               </View>
+
+              {result.summary?.length ? (
+                <View style={styles.review}>
+                  {result.summary.map((line) => (
+                    <View key={line} style={styles.reviewRow}>
+                      <Text style={styles.reviewPrompt}>{line}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
 
               {result.missed?.length ? (
                 <View style={styles.review}>

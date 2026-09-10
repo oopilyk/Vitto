@@ -138,8 +138,20 @@ export interface WordPuzzleRoundOutcome {
   guessesUsed: number;
 }
 
+export interface CountryGuessRoundOutcome {
+  /** ISO 3166-1 alpha-2 code of the country that was the answer. */
+  code: string;
+  solved: boolean;
+  guessesUsed: number;
+}
+
 export interface BrainTrainingMetadata {
-  game: 'math' | 'reading' | 'wordPuzzle';
+  game: 'math' | 'reading' | 'wordPuzzle' | 'spellingBee' | 'countryGuess';
+  /**
+   * How well it went, 0..`total`. For the question games this is answers right; for
+   * the spelling bee it is points earned towards the "genius" bar, so that
+   * `correct / total` reads as progress for every game alike.
+   */
   correct: number;
   total: number;
   durationSeconds: number;
@@ -150,6 +162,13 @@ export interface BrainTrainingMetadata {
   puzzleDate?: string;
   generatorVersion?: number;
   roundOutcomes?: WordPuzzleRoundOutcome[];
+  /** Spelling bee: the six letters played, centre letter first. */
+  letters?: string;
+  wordsFound?: number;
+  points?: number;
+  maxPoints?: number;
+  rank?: string;
+  countryOutcomes?: CountryGuessRoundOutcome[];
 }
 
 export interface MealMetadata {

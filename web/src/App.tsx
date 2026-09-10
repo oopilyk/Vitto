@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
-import { type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateMacroTargets, calculateStreaks, createPet, errorMessage, estimateCaloriesBurned, getEventsForDay, getMealsForDay, getSession, mindScoreLabel, onAuthStateChange, signInWithEmail, signOut, signUpWithEmail, sumMealMacros, withSurveyDefaults } from '@vitto/core';
+import { type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateMacroTargets, calculateStreaks, createPet, errorMessage, estimateCaloriesBurned, getEventsForDay, getMealsForDay, getSession, isUsernameAvailable, mindScoreLabel, normalizeUsername, onAuthStateChange, usernameError, signInWithEmail, signOut, signUpWithEmail, sumMealMacros, withSurveyDefaults } from '@vitto/core';
 import { MockHealthDataProvider } from "./services/healthDataProvider";
 import { LocalRepository } from "./services/localRepository";
 import { MealCapture } from "./components/MealCapture";
@@ -53,6 +53,7 @@ function App() {
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authName, setAuthName] = useState("");
+  const [authUsername, setAuthUsername] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   // Raw stored pet: never a decayed projection. Decay is derived at render
@@ -168,10 +169,24 @@ function App() {
     setAuthError(null);
     setAuthMessage(null);
     try {
+      if (authMode === "sign-up") {
+        const problem = usernameError(authUsername);
+        if (problem) {
+          setAuthError(problem);
+          return;
+        }
+        // Advisory: the unique index on profiles.username is the real guarantee.
+        // This catches the ordinary "already someone else's" case in the form.
+        if (!(await isUsernameAvailable(authUsername))) {
+          setAuthError(`@${normalizeUsername(authUsername)} is already taken. Try another.`);
+          return;
+        }
+      }
+
       const result =
         authMode === "sign-in"
           ? await signInWithEmail(authEmail, authPassword)
-          : await signUpWithEmail(authEmail, authPassword, authName);
+          : await signUpWithEmail(authEmail, authPassword, authName, authUsername);
       if (result.error) throw result.error;
       if (authMode === "sign-up" && !result.data.session)
         setAuthMessage("Check your email to confirm your account.");
@@ -357,6 +372,18 @@ function App() {
                 value={authName}
                 onChange={(event) => setAuthName(event.target.value)}
                 placeholder="Your name"
+                required
+              />
+            )}
+            {authMode === "sign-up" && (
+              <input
+                value={authUsername}
+                // Normalised as it is typed, so what you see is what gets stored.
+                onChange={(event) => setAuthUsername(normalizeUsername(event.target.value))}
+                placeholder="Username (a-z, 0-9, _)"
+                autoCapitalize="none"
+                autoCorrect="off"
+                maxLength={20}
                 required
               />
             )}

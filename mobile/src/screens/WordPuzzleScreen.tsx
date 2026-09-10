@@ -3,7 +3,6 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import {
   type BrainTrainingMetadata,
   type HealthEvent,
-  WORD_PUZZLE_LENGTHS,
   WORD_PUZZLE_ROUNDS,
   type WordPuzzleRoundOutcome,
   type LetterMark,
@@ -11,7 +10,6 @@ import {
   findWordPuzzleEventForDate,
   generateWordPuzzle,
   wordPuzzleScore,
-  wordPuzzleSolvedCount,
   wordPuzzleStreak,
   isValidGuess,
   markGuess,
@@ -39,6 +37,11 @@ type Stage = 'intro' | 'play' | 'summary' | 'done';
 /** Later marks never downgrade an earlier one: once correct, a key stays correct. */
 const MARK_RANK: Record<LetterMark, number> = { absent: 0, present: 1, correct: 2 };
 
+/**
+ * One five-letter word a day, six guesses. The ladder is a single round, but the
+ * progress record keeps its per-round shape so a saved day from before the change
+ * still parses.
+ */
 export function WordPuzzleScreen({
   events,
   progress,
@@ -64,10 +67,7 @@ export function WordPuzzleScreen({
     if (!progress) return 'intro';
     return progress.outcomes.length >= WORD_PUZZLE_ROUNDS ? 'summary' : 'play';
   });
-  const [roundIndex, setRoundIndex] = useState(() =>
-    Math.min(Math.max(progress?.roundIndex ?? 0, 0), WORD_PUZZLE_ROUNDS - 1),
-  );
-  const [guesses, setGuesses] = useState<string[][]>(() => progress?.guesses ?? []);
+  const [guesses, setGuesses] = useState<string[]>(() => progress?.guesses[0] ?? []);
   const [outcomes, setOutcomes] = useState<WordPuzzleRoundOutcome[]>(() => progress?.outcomes ?? []);
   const [startedAt, setStartedAt] = useState(() => progress?.startedAt ?? new Date().toISOString());
   const [entry, setEntry] = useState('');
@@ -76,29 +76,25 @@ export function WordPuzzleScreen({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const round = puzzle.rounds[roundIndex]!;
-  // Pulled only for the round in play, and never written to storage or an event.
-  const answer = useMemo(() => revealAnswer(todayKey, roundIndex), [todayKey, roundIndex]);
-  const roundGuesses = useMemo(() => guesses[roundIndex] ?? [], [guesses, roundIndex]);
-  const roundMarks = useMemo(
-    () => roundGuesses.map((guess) => markGuess(guess, answer)),
-    [roundGuesses, answer],
-  );
+  const round = puzzle.rounds[0]!;
+  // Pulled only for play, and never written to storage or an event.
+  const answer = useMemo(() => revealAnswer(todayKey, 0), [todayKey]);
+  const marks = useMemo(() => guesses.map((guess) => markGuess(guess, answer)), [guesses, answer]);
   const keyMarks = useMemo(() => {
     const best: Record<string, LetterMark> = {};
-    roundGuesses.forEach((guess, row) => {
+    guesses.forEach((guess, row) => {
       guess.split('').forEach((letter, column) => {
-        const mark = roundMarks[row]?.[column];
+        const mark = marks[row]?.[column];
         if (!mark) return;
         const current = best[letter];
         if (!current || MARK_RANK[mark] > MARK_RANK[current]) best[letter] = mark;
       });
     });
     return best;
-  }, [roundGuesses, roundMarks]);
+  }, [guesses, marks]);
 
-  const solved = roundGuesses.length > 0 && roundGuesses[roundGuesses.length - 1] === answer;
-  const roundOver = solved || roundGuesses.length >= round.maxGuesses;
+  const solved = guesses.length > 0 && guesses[guesses.length - 1] === answer;
+  const over = solved || guesses.length >= round.maxGuesses;
   const finalMetadata = todayEvent?.metadata ?? saved;
 
   const start = () => {
@@ -115,19 +111,19 @@ export function WordPuzzleScreen({
   };
 
   const typeLetter = (letter: string) => {
-    if (roundOver || entry.length >= round.length) return;
+    if (over || entry.length >= round.length) return;
     setNotice(null);
     setEntry(entry + letter);
   };
 
   const backspace = () => {
-    if (roundOver) return;
+    if (over) return;
     setNotice(null);
     setEntry(entry.slice(0, -1));
   };
 
   const submit = () => {
-    if (roundOver) return;
+    if (over) return;
     if (entry.length !== round.length) {
       setNotice(`Needs ${round.length} letters.`);
       return;
@@ -138,40 +134,25 @@ export function WordPuzzleScreen({
       return;
     }
 
-    const nextRoundGuesses = [...roundGuesses, entry];
-    const nextGuesses = [...guesses];
-    nextGuesses[roundIndex] = nextRoundGuesses;
+    const nextGuesses = [...guesses, entry];
     setGuesses(nextGuesses);
     setEntry('');
     setNotice(null);
 
     const gotIt = entry === answer;
-    if (!gotIt && nextRoundGuesses.length < round.maxGuesses) return;
-
-    const nextOutcomes = [
-      ...outcomes,
-      { length: round.length, solved: gotIt, guessesUsed: nextRoundGuesses.length },
-    ];
-    setOutcomes(nextOutcomes);
-    // Saved on every round boundary: five rounds is long enough that being able to
-    // pick the day back up is what gets people to the end of it.
+    const finished = gotIt || nextGuesses.length >= round.maxGuesses;
+    const nextOutcomes = finished
+      ? [{ length: round.length, solved: gotIt, guessesUsed: nextGuesses.length }]
+      : outcomes;
+    if (finished) setOutcomes(nextOutcomes);
+    // Saved after every guess, so closing the sheet mid-word resumes rather than restarts.
     onSaveProgress({
       puzzleDate: todayKey,
       startedAt,
-      roundIndex: roundIndex + 1,
-      guesses: nextGuesses,
+      roundIndex: finished ? 1 : 0,
+      guesses: [nextGuesses],
       outcomes: nextOutcomes,
     });
-  };
-
-  const nextRound = () => {
-    setEntry('');
-    setNotice(null);
-    if (roundIndex + 1 >= WORD_PUZZLE_ROUNDS) {
-      setStage('summary');
-      return;
-    }
-    setRoundIndex(roundIndex + 1);
   };
 
   const save = async () => {
@@ -194,16 +175,13 @@ export function WordPuzzleScreen({
     }
   };
 
-  const title =
-    stage === 'play' ? `Round ${roundIndex + 1} of ${WORD_PUZZLE_ROUNDS}` : "Today's word puzzle";
-
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.sheet}>
         <View style={styles.header}>
           <View>
             <Kicker>Word puzzle</Kicker>
-            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.title}>Today's word</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -217,36 +195,29 @@ export function WordPuzzleScreen({
 
         {stage === 'play' ? (
           <View style={styles.play}>
-            <View style={styles.playHead}>
-              <OutcomeStrip outcomes={outcomes} current={roundIndex} />
-              <Text style={styles.roundHint}>
-                {round.length} letters · {round.maxGuesses - roundGuesses.length} of{' '}
-                {round.maxGuesses} guesses left
-              </Text>
-            </View>
+            <Text style={styles.roundHint}>
+              {`${round.length} letters · ${round.maxGuesses - guesses.length} of ${round.maxGuesses} guesses left`}
+            </Text>
 
             <View style={styles.board}>
               <WordPuzzleGrid
                 length={round.length}
                 maxGuesses={round.maxGuesses}
-                guesses={roundGuesses}
-                marks={roundMarks}
+                guesses={guesses}
+                marks={marks}
                 entry={entry}
               />
             </View>
 
             <View style={styles.footer}>
-              {roundOver ? (
+              {over ? (
                 <>
                   <Text style={styles.verdict}>
                     {solved
-                      ? `Got it in ${roundGuesses.length}.`
+                      ? `Got it in ${guesses.length}.`
                       : `The word was ${answer.toUpperCase()}.`}
                   </Text>
-                  <PrimaryButton
-                    label={roundIndex + 1 >= WORD_PUZZLE_ROUNDS ? 'See your day' : 'Next round'}
-                    onPress={nextRound}
-                  />
+                  <PrimaryButton label="See your score" onPress={() => setStage('summary')} />
                 </>
               ) : (
                 <>
@@ -268,12 +239,12 @@ export function WordPuzzleScreen({
             {stage === 'intro' ? (
               <>
                 <Text style={styles.intro}>
-                  Five words, once a day. The guesses you get are the letters in the word, and a
-                  word we don't recognise costs you nothing. No clock — take your time.
+                  One five-letter word, once a day. You get six guesses, and a word we don't
+                  recognise costs you nothing. No clock — take your time.
                 </Text>
                 <View style={styles.card}>
-                  <Text style={styles.cardLabel}>Today's ladder</Text>
-                  <Text style={styles.cardValue}>{WORD_PUZZLE_LENGTHS.join(' · ')} letters</Text>
+                  <Text style={styles.cardLabel}>Today's word</Text>
+                  <Text style={styles.cardValue}>5 letters · 6 guesses</Text>
                   <Text style={styles.cardHint}>
                     {streak.currentStreak > 0
                       ? `${streak.currentStreak}-day streak on the line`
@@ -289,13 +260,9 @@ export function WordPuzzleScreen({
 
             {stage === 'summary' ? (
               <>
-                <ScoreCard
-                  score={wordPuzzleScore(outcomes)}
-                  solvedCount={wordPuzzleSolvedCount(outcomes)}
-                />
-                <OutcomeStrip outcomes={outcomes} />
+                <ScoreCard score={wordPuzzleScore(outcomes)} outcome={outcomes[0]} />
                 <Text style={styles.note}>
-                  That's the day. Logging it feeds your pet and keeps the streak alive.
+                  That's today's word. Logging it feeds your pet and keeps the streak alive.
                 </Text>
                 <ErrorText>{error}</ErrorText>
                 <View style={styles.actions}>
@@ -310,11 +277,7 @@ export function WordPuzzleScreen({
 
             {stage === 'done' ? (
               <>
-                <ScoreCard
-                  score={finalMetadata?.score ?? 0}
-                  solvedCount={finalMetadata?.correct ?? 0}
-                />
-                <OutcomeStrip outcomes={finalMetadata?.roundOutcomes ?? []} />
+                <ScoreCard score={finalMetadata?.score ?? 0} outcome={finalMetadata?.roundOutcomes?.[0]} />
                 <View style={styles.card}>
                   <Text style={styles.cardLabel}>Streak</Text>
                   <Text style={styles.cardValue}>
@@ -322,9 +285,7 @@ export function WordPuzzleScreen({
                   </Text>
                   <Text style={styles.cardHint}>Longest run {streak.longestStreak}</Text>
                 </View>
-                <Text style={styles.note}>
-                  Today's puzzle is played. A new set of five lands tomorrow.
-                </Text>
+                <Text style={styles.note}>Today's word is played. A new one lands tomorrow.</Text>
                 <View style={styles.actions}>
                   <PrimaryButton label="Back to your pet" onPress={onClose} />
                 </View>
@@ -337,7 +298,8 @@ export function WordPuzzleScreen({
   );
 }
 
-function ScoreCard({ score, solvedCount }: { score: number; solvedCount: number }) {
+function ScoreCard({ score, outcome }: { score: number; outcome?: WordPuzzleRoundOutcome }) {
+  const solved = outcome?.solved ?? false;
   return (
     <View style={styles.scoreCard}>
       <View style={styles.scoreBadge}>
@@ -346,67 +308,18 @@ function ScoreCard({ score, solvedCount }: { score: number; solvedCount: number 
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.scoreLabel}>
-          {solvedCount} of {WORD_PUZZLE_ROUNDS} solved
+          {solved ? `Solved in ${outcome!.guessesUsed}` : 'Not solved'}
         </Text>
         <Text style={styles.scoreMeta}>
-          {solvedCount === WORD_PUZZLE_ROUNDS
-            ? 'A clean sweep.'
-            : solvedCount >= 4
-              ? 'Strong day.'
-              : 'Every day counts.'}
+          {!solved
+            ? "Tomorrow's a new word."
+            : outcome!.guessesUsed <= 2
+              ? 'Brilliant.'
+              : outcome!.guessesUsed <= 4
+                ? 'Nice work.'
+                : 'Got there in the end.'}
         </Text>
       </View>
-    </View>
-  );
-}
-
-/** The five rounds at a glance: solved, missed, in play, or still ahead. */
-function OutcomeStrip({
-  outcomes,
-  current,
-}: {
-  outcomes: WordPuzzleRoundOutcome[];
-  current?: number;
-}) {
-  return (
-    <View style={styles.strip}>
-      {WORD_PUZZLE_LENGTHS.map((length, index) => {
-        const outcome = outcomes[index];
-        const inPlay = current === index && !outcome;
-        const state = outcome
-          ? outcome.solved
-            ? `solved in ${outcome.guessesUsed}`
-            : 'not solved'
-          : inPlay
-            ? 'in play'
-            : 'not played yet';
-        return (
-          <View
-            key={`round-${index}`}
-            accessible
-            accessibilityLabel={`Round ${index + 1}, ${length} letters, ${state}`}
-            style={[
-              styles.pip,
-              outcome?.solved && styles.pipSolved,
-              outcome && !outcome.solved && styles.pipMissed,
-              inPlay && styles.pipCurrent,
-            ]}
-          >
-            <Text
-              style={[
-                styles.pipLabel,
-                outcome?.solved && { color: colors.mintDeep },
-                outcome && !outcome.solved && { color: colors.slateDeep },
-              ]}
-            >
-              {length}
-            </Text>
-            <Text style={styles.pipMark}>
-              {outcome ? (outcome.solved ? '●' : '×') : inPlay ? '◆' : '·'}
-            </Text>
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -434,7 +347,6 @@ const styles = StyleSheet.create({
   body: { padding: 22, paddingBottom: 60 },
   // The keyboard is pinned, so the play stage lays out with flex rather than scrolling.
   play: { flex: 1, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 18 },
-  playHead: { gap: 10 },
   roundHint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, textAlign: 'center' },
   board: { flex: 1, justifyContent: 'center', paddingVertical: 12 },
   footer: { gap: 12 },
@@ -477,21 +389,4 @@ const styles = StyleSheet.create({
   scoreCaption: { fontFamily: fonts.mono, fontSize: 7, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.6 },
   scoreLabel: { fontSize: 17, fontWeight: '600', color: colors.ink },
   scoreMeta: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 6 },
-  strip: { flexDirection: 'row', gap: 7, marginTop: 14, justifyContent: 'center' },
-  pip: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 0,
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-  },
-  pipSolved: { backgroundColor: colors.mint, borderColor: colors.mintDeep },
-  pipMissed: { backgroundColor: colors.slate, borderColor: colors.slateDeep },
-  pipCurrent: { borderColor: colors.yellowDeep, backgroundColor: colors.yellow },
-  pipLabel: { fontFamily: fonts.mono, fontSize: 12, color: colors.inkSoft },
-  pipMark: { fontSize: 8, color: colors.muted, marginTop: 2 },
 });

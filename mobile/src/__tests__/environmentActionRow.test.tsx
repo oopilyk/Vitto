@@ -53,9 +53,17 @@ describe('EnvironmentActionRow (hotbar)', () => {
 
   it('marks only the current scene as selected', () => {
     const byLabel = buttons(rowFor('gym'));
-    expect(byLabel.get('Go to the gym')!.props.accessibilityState).toEqual({ selected: true });
+    // The current scene is selected AND disabled — you cannot travel to where
+    // you already are, and the icon must not respond to a tap.
+    expect(byLabel.get('Go to the gym')!.props.accessibilityState).toEqual({
+      selected: true,
+      disabled: true,
+    });
     for (const label of ORDERED_LABELS.filter((l) => l !== 'Go to the gym')) {
-      expect(byLabel.get(label)!.props.accessibilityState).toEqual({ selected: false });
+      expect(byLabel.get(label)!.props.accessibilityState).toEqual({
+        selected: false,
+        disabled: false,
+      });
     }
   });
 

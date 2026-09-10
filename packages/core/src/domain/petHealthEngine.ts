@@ -30,13 +30,16 @@ const SHARP_SESSION_ACCURACY = 0.8;
 /**
  * A "sharp" session is meant to read as a good day, not a flawless one. The timed
  * games have many questions, so 0.8 sits comfortably below perfect. The daily word
- * puzzle has only four rounds, where a single miss is already 25% -- at 0.8 the bar
- * would mean a clean sweep, so it gets its own threshold to preserve the intent.
+ * puzzle is a single word, so it is either solved or not: solving it is the bar.
  */
 const SHARP_ACCURACY_BY_GAME: Record<BrainTrainingMetadata['game'], number> = {
   math: SHARP_SESSION_ACCURACY,
   reading: SHARP_SESSION_ACCURACY,
-  wordPuzzle: 0.75,
+  wordPuzzle: 1,
+  // Points towards the genius bar: halfway there is a genuinely good sitting.
+  spellingBee: 0.5,
+  // Three countries a session, so two of three is the honest "good day".
+  countryGuess: 0.66,
 };
 
 /** Keyed on the whole union, so a new brain game must be labelled here or the build fails. */
@@ -44,6 +47,8 @@ const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
   math: 'Quick maths',
   reading: 'Read and recall',
   wordPuzzle: "Daily word puzzle",
+  spellingBee: 'Spelling bee',
+  countryGuess: 'Guess the country',
 };
 
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
