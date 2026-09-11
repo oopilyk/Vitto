@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  withMeasurementSystem, type MeasurementSystem,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -232,6 +232,8 @@ export default function App() {
   const seenEverStored = useRef(false);
   /** Unlocks waiting to be announced, oldest first; the dashboard shows the head. */
   const [unlockQueue, setUnlockQueue] = useState<AchievementId[]>([]);
+  /** Saved workout routines — device-local, like reminders. */
+  const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
   useEffect(() => {
     void repository
       .loadSeenAchievements()
@@ -241,6 +243,7 @@ export default function App() {
       })
       .catch(() => setSeenAchievements(new Set()));
     void repository.loadGymLocation().then(setGym).catch(() => setGym(null));
+    void repository.loadWorkoutTemplates().then(setWorkoutTemplates).catch(() => setWorkoutTemplates([]));
     void repository
       .loadReminders()
       .then((saved) => {
@@ -1175,6 +1178,7 @@ export default function App() {
         setForcedForm(null);
         setForcedTrophies(null);
         setUnlockQueue([]);
+        setWorkoutTemplates([]);
         setSeenAchievements(new Set());
         seenEverStored.current = false;
         await repository.clear();
@@ -1235,6 +1239,19 @@ export default function App() {
     // `repository` is a stable module-level instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataReady, achievementsNow, seenAchievements]);
+
+  /** Saves (or replaces by name) a routine, then persists the list. */
+  const saveWorkoutTemplate = async (template: WorkoutTemplate) => {
+    const next = upsertTemplate(workoutTemplates, template);
+    setWorkoutTemplates(next);
+    await repository.saveWorkoutTemplates(next);
+  };
+
+  const deleteWorkoutTemplate = async (id: string) => {
+    const next = removeTemplate(workoutTemplates, id);
+    setWorkoutTemplates(next);
+    await repository.saveWorkoutTemplates(next);
+  };
 
   /** Dev: forget what has been shown, so every earned unlock pops again. */
   const replayAchievements = () => {
@@ -1530,6 +1547,9 @@ export default function App() {
             {({ navigation }) => (
               <WorkoutScreen
                 weightUnit={profile.weightUnit}
+                templates={workoutTemplates}
+                onSaveTemplate={saveWorkoutTemplate}
+                onDeleteTemplate={deleteWorkoutTemplate}
                 onFinish={async (metadata) => {
                   await completeWorkout(metadata);
                   navigation.goBack();

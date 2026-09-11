@@ -431,6 +431,140 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  /** The footer stats line, joined — it renders as several text children. */
+  const statsLine = (tree: renderer.ReactTestRenderer): string => {
+    const { Text: T } = require('react-native');
+    const node = tree.root
+      .findAllByType(T)
+      .find((n: any) => Array.isArray(n.props.children) && n.props.children.some((c: any) => c === ' sets done · '));
+    return node ? node.props.children.map((c: any) => (typeof c === 'string' ? c : String(c))).join('') : '';
+  };
+
+  it('loads a saved routine with last time\'s sets pre-filled but unticked', () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text: RNT, TextInput: RNI } = require('react-native');
+    const { templateFromSession, createExercise } = require('@vitto/core');
+    const bench = createExercise('Bench Press', 'chest', false, 'lb');
+    bench.sets[0].weight = 135;
+    bench.sets[0].completed = true;
+    const push = templateFromSession('Push', [bench]);
+
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen
+          weightUnit="lb"
+          templates={[push]}
+          onSaveTemplate={() => {}}
+          onDeleteTemplate={() => {}}
+          onFinish={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+
+    const chip = tree.root
+      .findAllByProps({ accessibilityLabel: 'Load routine Push' })
+      .find((node: any) => typeof node.props.onPress === 'function');
+    expect(chip).toBeTruthy();
+    act(() => chip!.props.onPress());
+
+    // The session is the routine: name, exercise, last time's weight, nothing ticked.
+    const nameField = tree.root.findAllByType(RNI).find((n: any) => n.props.placeholder === 'Workout name');
+    expect(nameField!.props.value).toBe('Push');
+    const texts = tree.root
+      .findAllByType(RNT)
+      .flatMap((n: any) => (Array.isArray(n.props.children) ? n.props.children : [n.props.children]))
+      .filter((c: any) => typeof c === 'string');
+    expect(texts).toContain('Bench Press');
+    const weightField = tree.root.findAllByType(RNI).find((n: any) => n.props.placeholder === 'lb');
+    expect(weightField!.props.value).toBe('135');
+    expect(statsLine(tree)).toMatch(/^0 of 1 sets done/);
+    tree.unmount();
+  });
+
+  it('"Tick all sets" then Finish logs the routine and writes today back into it', async () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { templateFromSession, createExercise } = require('@vitto/core');
+    const push = templateFromSession('Push', [createExercise('Bench Press', 'chest', false, 'lb')]);
+    const finished: any[] = [];
+    const saved: any[] = [];
+
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen
+          weightUnit="lb"
+          templates={[push]}
+          onSaveTemplate={(t: any) => {
+            saved.push(t);
+          }}
+          onDeleteTemplate={() => {}}
+          onFinish={async (m: any) => {
+            finished.push(m);
+          }}
+          onClose={() => {}}
+        />,
+      );
+    });
+    const press = (label: string) => {
+      const node = tree.root
+        .findAll((n: any) => typeof n.props.onPress === 'function')
+        .find((n: any) =>
+          n.findAllByType(require('react-native').Text).some((t: any) => t.props.children === label),
+        );
+      expect(node).toBeTruthy();
+      return node!.props.onPress();
+    };
+    act(() => {
+      tree.root
+        .findAllByProps({ accessibilityLabel: 'Load routine Push' })
+        .find((n: any) => typeof n.props.onPress === 'function')!
+        .props.onPress();
+    });
+    act(() => {
+      press('Tick all sets');
+    });
+    expect(statsLine(tree)).toMatch(/^1 of 1 sets done/);
+    await act(async () => {
+      await press('Finish workout');
+    });
+
+    expect(finished).toHaveLength(1);
+    expect(finished[0].name).toBe('Push');
+    expect(finished[0].stats.completedSets).toBe(1);
+    // The routine was updated in place (same id), with today's set carried as
+    // "previous" and nothing left ticked for next time.
+    expect(saved).toHaveLength(1);
+    expect(saved[0].id).toBe(push.id);
+    expect(saved[0].exercises[0].sets[0].completed).toBe(false);
+    expect(saved[0].exercises[0].sets[0].previous.weight).toBe(45);
+    tree.unmount();
+  });
+
+  it('refuses to save an empty session as a routine, with a reason', async () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const saved: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen
+          templates={[]}
+          onSaveTemplate={(t: any) => {
+            saved.push(t);
+          }}
+          onFinish={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+    // With no exercises there is no "Save as routine" action at all — the hint
+    // explains how to get one.
+    expect(JSON.stringify(tree.toJSON())).toContain('save it as a routine');
+    expect(saved).toHaveLength(0);
+    tree.unmount();
+  });
+
   it('lays trophies out two to a shelf, filling the enclosed shelves before the top', () => {
     const { shelfSlots, SHELF } = require('../petWorld/TrophyShelf');
 

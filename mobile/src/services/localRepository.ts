@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  type CareLogEntry,
+ type WorkoutTemplate,  type CareLogEntry,
   type GeoPoint,
   type Reminder,
   type HealthEvent,
@@ -28,6 +28,8 @@ const gymKey = 'vitto.gym';
 const remindersKey = 'vitto.reminders';
 /** Achievement ids the user has already been shown unlocking — see App's unlock queue. */
 const seenAchievementsKey = 'vitto.achievements.seen';
+/** Saved workout routines ("Push", "Pull", "Legs") — personal setup, kept on-device like reminders. */
+const workoutTemplatesKey = 'vitto.workout.templates';
 const MAX_STORED_EVENTS = 2000;
 const CARE_PARTNERS_OFFLINE_MESSAGE = 'Care partners need an online account.';
 
@@ -108,7 +110,7 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, seenAchievementsKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, seenAchievementsKey, workoutTemplatesKey, 'vitto.profile']);
   }
 
   async loadReminders(): Promise<Reminder[]> {
@@ -137,6 +139,17 @@ export class LocalRepository {
 
   async saveSeenAchievements(ids: readonly string[]): Promise<void> {
     await AsyncStorage.setItem(seenAchievementsKey, JSON.stringify([...ids]));
+  }
+
+  async loadWorkoutTemplates(): Promise<WorkoutTemplate[]> {
+    const value = await AsyncStorage.getItem(workoutTemplatesKey);
+    if (!value) return [];
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? (parsed as WorkoutTemplate[]) : [];
+  }
+
+  async saveWorkoutTemplates(templates: readonly WorkoutTemplate[]): Promise<void> {
+    await AsyncStorage.setItem(workoutTemplatesKey, JSON.stringify(templates));
   }
 
   async loadGymLocation(): Promise<GeoPoint | null> {
