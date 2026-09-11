@@ -255,15 +255,21 @@ export function TodayScreen({
             <Text style={[styles.xpValue, { color: c.ink }]}>+{recap.xp}</Text>
             <Text style={[styles.xpUnit, { color: c.soft }]}>XP earned</Text>
           </View>
-          <ProgressBar percent={recap.dailyProgress} track={c.track} />
+          {/* This bar is level progress, not a daily quota -- there is no
+              "XP due today". It reads left-to-right as one unit with the
+              caption naming exactly what it shows. */}
+          <ProgressBar
+            percent={Math.round((levelProgress.xpIntoLevel / levelProgress.xpForLevel) * 100)}
+            track={c.track}
+          />
+          <Text style={[styles.overMeta, { color: c.soft }]}>
+            Level {levelProgress.level} · {levelProgress.xpIntoLevel}/{levelProgress.xpForLevel} to
+            level {toLevel}
+          </Text>
           <Text style={[styles.overMeta, { color: c.soft }]}>
             {dayComplete
               ? `Every pillar tended — ${petName} had a good day.`
               : `${recap.dailyProgress}% of your day so far`}
-          </Text>
-          <Text style={[styles.overMeta, { color: c.soft }]}>
-            Level {levelProgress.level} · {levelProgress.xpIntoLevel}/{levelProgress.xpForLevel} to
-            level {toLevel}
           </Text>
 
           <View style={[styles.glanceRow, { borderTopColor: c.hairline }]}>
