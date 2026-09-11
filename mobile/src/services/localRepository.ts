@@ -85,6 +85,18 @@ export class LocalRepository {
     );
   }
 
+  /** Replace an existing event in place (same id) — used to keep one step
+   *  snapshot per day instead of appending on every re-sync. */
+  async replaceEvent(event: HealthEvent): Promise<void> {
+    const events = await this.loadEvents();
+    await AsyncStorage.setItem(
+      eventKey,
+      JSON.stringify(
+        [event, ...events.filter((existing) => existing.id !== event.id)].slice(0, MAX_STORED_EVENTS),
+      ),
+    );
+  }
+
   async loadWordPuzzleProgress(): Promise<WordPuzzleProgress | null> {
     const value = await AsyncStorage.getItem(wordPuzzleKey);
     return value ? (JSON.parse(value) as WordPuzzleProgress) : null;

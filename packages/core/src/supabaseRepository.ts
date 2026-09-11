@@ -341,6 +341,21 @@ export class SupabaseRepository {
     if (error) throw error;
   }
 
+  /** Upsert on the primary key — one step snapshot per day rather than a new
+   *  row on every re-sync. */
+  async replaceEvent(event: HealthEvent): Promise<void> {
+    const client = requireClient();
+    const { error } = await client.from('health_events').upsert({
+      id: event.id,
+      user_id: event.userId,
+      occurred_at: event.occurredAt,
+      type: event.type,
+      source: event.source,
+      metadata: event.metadata,
+    });
+    if (error) throw error;
+  }
+
   // --- Care partners -------------------------------------------------------
 
   /**

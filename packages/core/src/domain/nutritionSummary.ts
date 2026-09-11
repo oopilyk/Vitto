@@ -40,14 +40,24 @@ export const sumMealMacros = (mealEvents: HealthEvent<MealMetadata>[]): MacroTot
 const CALORIES_BURNED_PER_WORKOUT_MINUTE = 7;
 const CALORIES_BURNED_PER_STEP = 0.04;
 
+/**
+ * Steps arrive as cumulative daily snapshots — a re-sync at 3pm reports the
+ * whole day so far, not the delta. Summing the `STEP_ACTIVITY` events would
+ * therefore count the morning's steps once per later sync; the day's real
+ * figure is the highest snapshot. Workouts are genuine separate sessions and
+ * do sum.
+ */
+export const stepsForDay = (dayEvents: HealthEvent[]): number =>
+  dayEvents
+    .filter((event) => event.type === 'STEP_ACTIVITY')
+    .reduce((most, event) => Math.max(most, (event.metadata as StepMetadata).steps ?? 0), 0);
+
 export const estimateCaloriesBurned = (dayEvents: HealthEvent[]): number => {
   const workoutMinutes = dayEvents
     .filter((event) => event.type === 'WORKOUT')
     .reduce((total, event) => total + ((event.metadata as WorkoutMetadata).durationMinutes ?? 0), 0);
-  const steps = dayEvents
-    .filter((event) => event.type === 'STEP_ACTIVITY')
-    .reduce((total, event) => total + ((event.metadata as StepMetadata).steps ?? 0), 0);
   return Math.round(
-    workoutMinutes * CALORIES_BURNED_PER_WORKOUT_MINUTE + steps * CALORIES_BURNED_PER_STEP,
+    workoutMinutes * CALORIES_BURNED_PER_WORKOUT_MINUTE +
+      stepsForDay(dayEvents) * CALORIES_BURNED_PER_STEP,
   );
 };
