@@ -1,6 +1,20 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
-import { type WeightUnit, type WorkoutExercise, type WorkoutMetadata, addSet, calculateWorkoutStats, createExercise, errorMessage, exerciseLibrary, updateSet } from '@vitto/core';
+import {
+  type WeightUnit,
+  type WorkoutExercise,
+  type WorkoutMetadata,
+  type WorkoutTemplate,
+  addSet,
+  calculateWorkoutStats,
+  createExercise,
+  errorMessage,
+  exerciseLibrary,
+  sessionFromTemplate,
+  templateError,
+  templateFromSession,
+  updateSet,
+} from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -13,9 +27,24 @@ interface Props {
    * Defaults to kg only so a caller that has no profile still type-checks.
    */
   weightUnit?: WeightUnit;
+  /**
+   * Saved routines. Tapping one loads its exercises with last time's sets
+   * pre-filled; finishing writes today's numbers back into it. Optional so a
+   * caller without storage (tests, web) still renders the plain screen.
+   */
+  templates?: readonly WorkoutTemplate[];
+  onSaveTemplate?: (template: WorkoutTemplate) => Promise<void> | void;
+  onDeleteTemplate?: (id: string) => Promise<void> | void;
 }
 
-export function WorkoutScreen({ onFinish, onClose, weightUnit = 'kg' }: Props) {
+export function WorkoutScreen({
+  onFinish,
+  onClose,
+  weightUnit = 'kg',
+  templates = [],
+  onSaveTemplate,
+  onDeleteTemplate,
+}: Props) {
   const [name, setName] = useState('Strength session');
   const [duration, setDuration] = useState('30');
   const [notes, setNotes] = useState('');
@@ -23,6 +52,42 @@ export function WorkoutScreen({ onFinish, onClose, weightUnit = 'kg' }: Props) {
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The routine this session was started from, so finishing can update it. */
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [managingRoutines, setManagingRoutines] = useState(false);
+  const [routineMessage, setRoutineMessage] = useState<string | null>(null);
+
+  const loadRoutine = (template: WorkoutTemplate) => {
+    setName(template.name);
+    setExercises(sessionFromTemplate(template));
+    setActiveTemplateId(template.id);
+    setSearch('');
+    setError(null);
+    setRoutineMessage(null);
+  };
+
+  const saveAsRoutine = async () => {
+    if (!onSaveTemplate) return;
+    const problem = templateError(name, exercises, templates, activeTemplateId ?? undefined);
+    if (problem) {
+      setRoutineMessage(problem);
+      return;
+    }
+    const template = templateFromSession(name, exercises, activeTemplateId ?? undefined);
+    await onSaveTemplate(template);
+    setActiveTemplateId(template.id);
+    setRoutineMessage(`Saved "${template.name}" — it's one tap next time.`);
+  };
+
+  /** Every set ticked at once: the "I did the whole routine as written" tap. */
+  const tickAll = () => {
+    setExercises((current) =>
+      current.map((exercise) => ({
+        ...exercise,
+        sets: exercise.sets.map((set) => ({ ...set, completed: true })),
+      })),
+    );
+  };
 
   const stats = calculateWorkoutStats(exercises, Math.max(1, Number(duration) || 1));
   // Only ticked sets count toward the workout, so show the entered total too.
@@ -44,6 +109,15 @@ export function WorkoutScreen({ onFinish, onClose, weightUnit = 'kg' }: Props) {
         notes,
         stats,
       });
+      // A routine remembers what you did last: today's ticked sets become next
+      // time's starting point. Best effort — the workout itself is already saved.
+      if (activeTemplateId && onSaveTemplate) {
+        try {
+          await onSaveTemplate(templateFromSession(name, exercises, activeTemplateId));
+        } catch {
+          // The routine keeps last week's numbers; nothing about the workout is lost.
+        }
+      }
       onClose();
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save workout.'));
@@ -88,6 +162,67 @@ export function WorkoutScreen({ onFinish, onClose, weightUnit = 'kg' }: Props) {
               placeholderTextColor={colors.faint}
             />
           </View>
+
+          {onSaveTemplate ? (
+            <View style={styles.routines}>
+              <View style={styles.routinesHead}>
+                <Text style={styles.routinesLabel}>ROUTINES</Text>
+                {templates.length > 0 && onDeleteTemplate ? (
+                  <TextButton
+                    label={managingRoutines ? 'Done' : 'Manage'}
+                    onPress={() => setManagingRoutines((current) => !current)}
+                  />
+                ) : null}
+              </View>
+              {templates.length === 0 ? (
+                <Text style={styles.routinesHint}>
+                  Build a session below, then save it as a routine — "Push", "Legs" — and it's one tap next time.
+                </Text>
+              ) : (
+                <View style={styles.routineChips}>
+                  {templates.map((template) => {
+                    const active = template.id === activeTemplateId;
+                    return (
+                      <View key={template.id} style={styles.routineChipWrap}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Load routine ${template.name}`}
+                          accessibilityState={{ selected: active }}
+                          onPress={() => loadRoutine(template)}
+                          style={({ pressed }) => [
+                            styles.routineChip,
+                            active && styles.routineChipOn,
+                            pressed && styles.pressed,
+                          ]}
+                        >
+                          <Text style={[styles.routineChipLabel, active && styles.routineChipLabelOn]}>
+                            {template.name}
+                          </Text>
+                          <Text style={styles.routineChipMeta}>
+                            {template.exercises.length} {template.exercises.length === 1 ? 'exercise' : 'exercises'}
+                          </Text>
+                        </Pressable>
+                        {managingRoutines && onDeleteTemplate ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Delete routine ${template.name}`}
+                            hitSlop={8}
+                            onPress={() => {
+                              void onDeleteTemplate(template.id);
+                              if (activeTemplateId === template.id) setActiveTemplateId(null);
+                            }}
+                            style={styles.routineDelete}
+                          >
+                            <Text style={styles.routineDeleteMark}>×</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          ) : null}
 
           <TextInput
             style={[layout.input, { marginTop: 12 }]}
@@ -218,6 +353,20 @@ export function WorkoutScreen({ onFinish, onClose, weightUnit = 'kg' }: Props) {
             {totalSets > 0 && stats.completedSets === 0 ? (
               <Text style={styles.statsHint}>Tap the circle on a set to count it.</Text>
             ) : null}
+            {exercises.length > 0 ? (
+              <View style={styles.sessionActions}>
+                {stats.completedSets < totalSets ? (
+                  <TextButton label="Tick all sets" onPress={tickAll} />
+                ) : null}
+                {onSaveTemplate ? (
+                  <TextButton
+                    label={activeTemplateId ? 'Update routine' : 'Save as routine'}
+                    onPress={() => void saveAsRoutine()}
+                  />
+                ) : null}
+              </View>
+            ) : null}
+            {routineMessage ? <Text style={styles.routineMessage}>{routineMessage}</Text> : null}
             <PrimaryButton
               label={saving ? 'Saving...' : 'Finish workout'}
               busy={saving}
@@ -231,6 +380,36 @@ export function WorkoutScreen({ onFinish, onClose, weightUnit = 'kg' }: Props) {
 }
 
 const styles = StyleSheet.create({
+  routines: { marginTop: 14 },
+  routinesHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  routinesLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.3, color: colors.faint },
+  routinesHint: { ...text.small, marginTop: 6, lineHeight: 18 },
+  routineChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  routineChipWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  routineChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.cardSoft,
+  },
+  routineChipOn: { borderColor: colors.coral, backgroundColor: colors.coralWash },
+  routineChipLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  routineChipLabelOn: { color: colors.coralDeep },
+  routineChipMeta: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 2 },
+  routineDelete: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.coralWash,
+  },
+  routineDeleteMark: { fontSize: 16, color: colors.coralDeep, marginTop: -1 },
+  sessionActions: { flexDirection: 'row', gap: 18, marginTop: -4 },
+  routineMessage: { fontFamily: fonts.mono, fontSize: 11, color: colors.mintDeep, marginTop: -4 },
+  pressed: { opacity: 0.75 },
   sheet: { flex: 1, backgroundColor: colors.paper, paddingTop: 20 },
   header: {
     flexDirection: 'row',

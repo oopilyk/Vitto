@@ -3,6 +3,7 @@
 export * from './domain/careToast';
 export * from './domain/trophies';
 export * from './domain/achievements';
+export * from './domain/workoutTemplates';
 export * from './domain/health';
 export * from './domain/pet';
 export * from './domain/friends';

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { type FriendOverview, deriveSocialPetStatus } from '@vitto/core';
 import { PetSpriteAvatar } from './PetSpriteAvatar';
 import { type FriendsPalette, healthToneColor } from '../friendsTheme';
-import { fonts } from '../theme';
+import { colors, fonts } from '../theme';
 
 interface Props {
   friend: FriendOverview;
@@ -61,6 +61,8 @@ export function FriendListRow({ friend, palette, onPress }: Props) {
           <Text style={[styles.status, { color: palette.secondaryText }]}>No pet yet</Text>
         )}
       </View>
+      {/* The row is a door: say so. A friend with no pet has no room to visit. */}
+      {friend.pet ? <Text style={styles.visit}>Visit ›</Text> : null}
     </Pressable>
   );
 }
@@ -79,4 +81,5 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: 3 },
   name: { fontSize: 15, fontWeight: '600' },
   status: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.2 },
+  visit: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.5, color: colors.coral },
 });

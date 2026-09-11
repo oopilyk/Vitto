@@ -297,7 +297,10 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet }: Props
                     return (
                       <View
                         key={request.id}
-                        style={[styles.banner, { backgroundColor: palette.bannerBg }]}
+                        style={[
+                          styles.banner,
+                          { backgroundColor: palette.bannerBg, borderColor: palette.bannerBorder },
+                        ]}
                       >
                         <Text style={[styles.bannerText, { color: palette.bannerText }]} numberOfLines={2}>
                           {name} wants to be friends
@@ -413,6 +416,7 @@ const styles = StyleSheet.create({
   empty: { fontSize: 13, paddingVertical: 6 },
   banner: {
     borderRadius: 16,
+    borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     gap: 10,

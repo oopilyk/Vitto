@@ -478,6 +478,65 @@ describe('SupabaseRepository.redeemInvite', () => {
   });
 });
 
+describe('SupabaseRepository.loadPets', () => {
+  it('returns only pets the caller is an active member of', async () => {
+    // `pets` carries a second SELECT policy letting an accepted friend view a
+    // friend's pet, and RLS policies are OR'd — so a bare `select *` also
+    // returned every friend's pet and the switcher showed them as the user's
+    // own. The join is the real rule.
+    responses.push({ data: [petRow({ pet_members: [{ user_id: 'user-1', left_at: null }] })], error: null });
+
+    const pets = await new SupabaseRepository().loadPets();
+
+    expect(select).toHaveBeenCalledWith('*, pet_members!inner(user_id, left_at)');
+    expect(eq).toHaveBeenCalledWith('pet_members.user_id', 'user-1');
+    expect(is).toHaveBeenCalledWith('pet_members.left_at', null);
+    expect(pets).toHaveLength(1);
+    // The join is a filter, not part of the pet.
+    expect(pets[0]).not.toHaveProperty('pet_members');
+  });
+
+  it('is empty when nobody is signed in, rather than reading whatever RLS allows', async () => {
+    configureCore({
+      supabase: {
+        from,
+        rpc,
+        auth: { getUser: async () => ({ data: { user: null } }) },
+      } as unknown as SupabaseClient,
+    });
+
+    expect(await new SupabaseRepository().loadPets()).toEqual([]);
+    expect(from).not.toHaveBeenCalled();
+
+    configureCore({
+      supabase: {
+        from,
+        rpc,
+        auth: { getUser: async () => ({ data: { user: { id: 'user-1' } } }) },
+      } as unknown as SupabaseClient,
+    });
+  });
+});
+
+describe('SupabaseRepository.deleteAccount', () => {
+  it('calls the delete_my_account RPC', async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: null });
+
+    await new SupabaseRepository().deleteAccount();
+
+    expect(rpc).toHaveBeenCalledWith('delete_my_account');
+  });
+
+  it('throws rather than reporting success when the delete fails', async () => {
+    // The caller signs the user out on success, so a swallowed error here would
+    // look exactly like a completed deletion.
+    const failure = { code: 'P0001', message: 'NOT_SIGNED_IN' };
+    rpc.mockResolvedValueOnce({ data: null, error: failure });
+
+    await expect(new SupabaseRepository().deleteAccount()).rejects.toBe(failure);
+  });
+});
+
 describe('SupabaseRepository.leavePet', () => {
   it('leaves the named pet, not whichever one the server finds first', async () => {
     rpc.mockResolvedValueOnce({ data: null, error: null });

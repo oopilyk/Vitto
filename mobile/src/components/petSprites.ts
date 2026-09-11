@@ -199,7 +199,7 @@ const BICHON_RUNNER: PetSheet = {
 };
 
 const BICHON_ANIMATIONS: PetSheet['animations'] = {
-  idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
+  idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1,1], [1,1], [1,1], [1,1]],
   cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1], [3, 2]],
   move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1]],
   // The one frame on this sheet that reads as peaceful out of context: lying
@@ -282,7 +282,7 @@ const SHIBA_RUNNER: PetSheet = {
 };
 
 const SHIBA_ANIMATIONS: PetSheet['animations'] = {
-  idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
+  idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1,1], [1, 1], [1, 1],[1, 1]],
   cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1]],
   move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3]],
   // The tail of the content-sitting band: a calm, closed-mouth sit.
@@ -422,7 +422,7 @@ const BUNNY_LAYOUT: SheetLayout = {
   name: 'bunny',
   rows: 7,
   animations: {
-    idle: [[0, 0], [0, 1], [0, 2], [0, 3]],
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3],[0,3], [0,3], [0,3], [0,3], [0,3], [0,3], [0,1]],
     cheer: [[3, 0], [3, 1], [3, 2], [3, 3], [4, 0], [4, 1]],
     move: [[2, 0], [2, 1], [2, 2], [2, 3]],
     // Actually asleep — flat, ears down, eyes closed.
@@ -455,7 +455,7 @@ const FOX_LAYOUT: SheetLayout = {
   name: 'fox',
   rows: 8,
   animations: {
-    idle: [[0, 0], [0, 1], [0, 2]],
+    idle: [[0, 0], [0, 1], [0, 2], [0, 0], [0, 1], [0, 2], [0, 0], [0, 1], [0, 2], [0, 0], [0, 1], [0, 2], [0, 0], [0, 1], [0, 2], [0, 0], [0, 1], [0, 2], [0, 0], [0, 1], [0, 2], [0, 0], [0, 1], [0, 2], [0, 0], [0, 1], [0, 2], [1,0], [1,1], [1,2], [1,3], [2,0], [1,0]],
     // Eyes shut and clearly pleased — the closest this sheet has to celebrating.
     cheer: [[3, 0], [3, 1], [3, 2], [3, 3]],
     move: [[3, 0], [3, 1], [3, 2], [3, 3]],
@@ -491,7 +491,7 @@ const KOALA_LAYOUT: SheetLayout = {
   name: 'koala',
   rows: 10,
   animations: {
-    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0]],
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0]],
     // Ends on the two open-mouthed frames, which is where the delight lands.
     cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1]],
     move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0]],
@@ -525,7 +525,7 @@ const BEAR_LAYOUT: SheetLayout = {
   name: 'bear',
   rows: 8,
   animations: {
-    idle: [[0, 0], [0, 1], [0, 2], [0, 3]],
+    idle: [[0, 0], [0, 1], [0,1], [0,1], [0,1], [0,1], [0,1], [0, 2], [0, 3]],
     // Face in the honey pot: this sheet's happiest frames by a distance.
     cheer: [[1, 0], [1,0], [1, 1], [1,1], [1, 2], [1,2], [1, 3], [1,3], [2, 0]],
     move: [[3, 0], [3, 1], [3, 2], [3, 3]],
@@ -559,7 +559,7 @@ const AXOLOTL_LAYOUT: SheetLayout = {
   name: 'axolotl',
   rows: 9,
   animations: {
-    idle: [[0, 0], [0, 1], [0, 2], [0, 3],[0,2],[0,1]],
+    idle: [[0, 0], [0,0], [0,0], [0,0], [0,0], [0, 1], [0, 2], [0, 3],[0,2],[0,1]],
     cheer: [[1, 0], [1, 1], [1, 2], [1, 3], [2, 0], [2, 1], [2, 2]],
     move: [[3, 0], [3, 1], [3, 2], [3, 3], [4, 0]],
     rest: [[5, 0]],
@@ -589,7 +589,7 @@ const DINO_LAYOUT: SheetLayout = {
   name: 'dino',
   rows: 10,
   animations: {
-    idle: [[0, 0], [0, 1], [0, 2], [0, 3]],
+    idle: [[0, 0], [0,0], [0, 0], [0,0], [0, 0], [0,0], [0, 0], [0,0], [0, 1], [0, 2], [0, 3]],
     cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0]],
     move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0]],
     // No sleep art -- row 9 looks like one until you zoom in and find X eyes, so

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  withMeasurementSystem, type MeasurementSystem,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -159,8 +159,25 @@ const withTimeout = <T,>(promise: Promise<T>, message: string) =>
   ]);
 
 /** A yes/no system dialog as a promise, so a confirmed action can still reject to its caller. */
-const confirmDialog = (title: string, message: string, confirmLabel: string) =>
-  new Promise<boolean>((resolve) => {
+/**
+ * A yes/no the caller can await. Native gets a real `Alert`; the web build gets
+ * `window.confirm`.
+ *
+ * The web branch is not a nicety. `Alert.alert` on react-native-web is
+ * literally `static alert() {}` — an empty function — so the promise below
+ * never settled and every confirming action (leaving a pet, deleting an
+ * account) looked like a dead button. `window.confirm` cannot show a custom
+ * button label, so the label is folded into the prompt text instead.
+ */
+const confirmDialog = (title: string, message: string, confirmLabel: string): Promise<boolean> => {
+  if (Platform.OS === 'web') {
+    const ask = typeof window !== 'undefined' ? window.confirm : undefined;
+    // No `confirm` at all (SSR, a locked-down embed): refuse rather than
+    // silently treating it as agreement.
+    if (!ask) return Promise.resolve(false);
+    return Promise.resolve(ask(`${title}\n\n${message}\n\nOK to ${confirmLabel.toLowerCase()}.`));
+  }
+  return new Promise<boolean>((resolve) => {
     Alert.alert(
       title,
       message,
@@ -171,6 +188,7 @@ const confirmDialog = (title: string, message: string, confirmLabel: string) =>
       { cancelable: true, onDismiss: () => resolve(false) },
     );
   });
+};
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -215,6 +233,8 @@ export default function App() {
   const seenEverStored = useRef(false);
   /** Unlocks waiting to be announced, oldest first; the dashboard shows the head. */
   const [unlockQueue, setUnlockQueue] = useState<AchievementId[]>([]);
+  /** Saved workout routines — device-local, like reminders. */
+  const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
   useEffect(() => {
     void repository
       .loadSeenAchievements()
@@ -224,6 +244,7 @@ export default function App() {
       })
       .catch(() => setSeenAchievements(new Set()));
     void repository.loadGymLocation().then(setGym).catch(() => setGym(null));
+    void repository.loadWorkoutTemplates().then(setWorkoutTemplates).catch(() => setWorkoutTemplates([]));
     void repository
       .loadReminders()
       .then((saved) => {
@@ -858,6 +879,45 @@ export default function App() {
       void refreshShared();
     });
 
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  /**
+   * Deletes the account for good, after two confirmations — this is the one
+   * irreversible action in the app, and the second prompt names what goes.
+   *
+   * The local cache is cleared before the sign-out so nothing from the deleted
+   * account is left on the device; the auth listener then returns the app to
+   * the sign-in screen on its own.
+   */
+  const deleteAccount = async () => {
+    const shared = pets.filter((candidate) => !isOwnPet(candidate, userId)).length > 0;
+    const first = await confirmDialog(
+      'Delete your account?',
+      'This removes your account, your pet and everything you have logged. It cannot be undone.',
+      'Continue',
+    );
+    if (!first) return;
+    const second = await confirmDialog(
+      'Really delete everything?',
+      shared
+        ? 'Your own pet and all your history will be gone for good. A pet you share stays with your care partner.'
+        : 'Your pet and all your history will be gone for good.',
+      'Delete forever',
+    );
+    if (!second) return;
+
+    setIsDeletingAccount(true);
+    try {
+      await remoteRepository.deleteAccount();
+      await repository.clear();
+      await signOut();
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not delete your account.'));
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const adopt = async () => {
     try {
       setError(null);
@@ -1193,6 +1253,7 @@ export default function App() {
         setForcedForm(null);
         setForcedTrophies(null);
         setUnlockQueue([]);
+        setWorkoutTemplates([]);
         setSeenAchievements(new Set());
         seenEverStored.current = false;
         await repository.clear();
@@ -1253,6 +1314,19 @@ export default function App() {
     // `repository` is a stable module-level instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataReady, achievementsNow, seenAchievements]);
+
+  /** Saves (or replaces by name) a routine, then persists the list. */
+  const saveWorkoutTemplate = async (template: WorkoutTemplate) => {
+    const next = upsertTemplate(workoutTemplates, template);
+    setWorkoutTemplates(next);
+    await repository.saveWorkoutTemplates(next);
+  };
+
+  const deleteWorkoutTemplate = async (id: string) => {
+    const next = removeTemplate(workoutTemplates, id);
+    setWorkoutTemplates(next);
+    await repository.saveWorkoutTemplates(next);
+  };
 
   /** Dev: forget what has been shown, so every earned unlock pops again. */
   const replayAchievements = () => {
@@ -1400,6 +1474,8 @@ export default function App() {
               onSave={persistProfile}
               onClose={() => navigation.goBack()}
               onSignOut={isSupabaseConfigured && session ? logOut : undefined}
+              onDeleteAccount={isOnline ? deleteAccount : undefined}
+              deletingAccount={isDeletingAccount}
               onOpenFriends={
                 isSupabaseConfigured && session ? () => navigation.navigate('Friends') : undefined
               }
@@ -1546,6 +1622,9 @@ export default function App() {
             {({ navigation }) => (
               <WorkoutScreen
                 weightUnit={profile.weightUnit}
+                templates={workoutTemplates}
+                onSaveTemplate={saveWorkoutTemplate}
+                onDeleteTemplate={deleteWorkoutTemplate}
                 onFinish={async (metadata) => {
                   await completeWorkout(metadata);
                   navigation.goBack();
