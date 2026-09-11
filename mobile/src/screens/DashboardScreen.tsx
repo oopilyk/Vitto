@@ -12,6 +12,7 @@ import {
   hasEvolved,
 } from '@vitto/core';
 import { LevelUpCelebration } from '../celebrations/LevelUpCelebration';
+import { StreakCelebration } from '../celebrations/StreakCelebration';
 import { AchievementUnlock } from '../celebrations/AchievementUnlock';
 import type { CelebrationEvent } from '../celebrations/types';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
@@ -167,7 +168,7 @@ export function DashboardScreen({
   // The underlying pet gives a little "huh?" bob just as the celebration veil
   // comes in — the "pet notices something is happening" beat of the sequence.
   // Once per celebration: `interaction.notice` is stable (see `usePetInteraction`).
-  const celebrating = celebration?.kind === 'levelUp';
+  const celebrating = celebration?.kind === 'levelUp' || celebration?.kind === 'streak';
   const noticedCelebration = useRef(false);
   useEffect(() => {
     if (celebrating && !noticedCelebration.current) {
@@ -219,6 +220,13 @@ export function DashboardScreen({
         <LevelUpCelebration
           pet={pet}
           level={celebration.level}
+          night={night}
+          onComplete={() => onCelebrationComplete?.()}
+        />
+      ) : celebration?.kind === 'streak' ? (
+        <StreakCelebration
+          pet={pet}
+          streak={celebration.streak}
           night={night}
           onComplete={() => onCelebrationComplete?.()}
         />

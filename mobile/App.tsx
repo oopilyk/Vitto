@@ -22,6 +22,7 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
+import { detectNewStreakDay } from './src/celebrations/detectNewStreakDay';
 import type { CelebrationEvent } from './src/celebrations/types';
 import { readCurrentLocation, useAtGym, useWalking } from './src/services/ambient';
 import {
@@ -707,13 +708,22 @@ export default function App() {
       const levelUp = detectLevelUp(pet, nextPet);
       if (levelUp) {
         setCelebration((current) =>
-          current ? { ...current, level: Math.max(current.level, levelUp.level) } : levelUp,
+          current?.kind === 'levelUp' ? { ...current, level: Math.max(current.level, levelUp.level) } : levelUp,
         );
       }
 
-      // The celebration is the acknowledgement for a level-up moment, so the
-      // banner/toast would only stack behind it and then flash on dismissal.
-      if (!levelUp) {
+      // A level-up already claims the celebration slot for this moment; a new
+      // streak day is the other thing worth taking over the screen for. Reads
+      // `events` from *before* this write lands — the exact before/after shape
+      // `detectNewStreakDay` needs to tell "today just became qualifying" apart
+      // from "today already was" (a second meal, a workout later the same day).
+      const streakDay = levelUp ? null : detectNewStreakDay(events, storedEvent, pet.id);
+      if (streakDay) setCelebration(streakDay);
+
+      // The celebration is the acknowledgement for a level-up or new streak
+      // day, so the banner/toast would only stack behind it and then flash on
+      // dismissal.
+      if (!levelUp && !streakDay) {
         if (nextReaction) showReaction(nextReaction);
         // Every logged moment is acknowledged, reaction or not — that is the
         // whole point of the toast being separate from the pet's mood line.

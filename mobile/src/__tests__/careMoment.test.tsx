@@ -10,6 +10,7 @@ import {
   createPet,
 } from '@vitto/core';
 import {
+  STREAK_MILESTONE_BONUS_XP,
   careConflictMessage,
   commitCareMoment,
   commitCareMomentForAll,
@@ -247,5 +248,52 @@ describe('stepSyncTopUp', () => {
     const event: HealthEvent<StepMetadata> = { ...walk, metadata: { steps: 12000 } };
     const topUp = stepSyncTopUp(engine, pet, event, 8500);
     expect(topUp).toEqual({});
+  });
+});
+
+describe('planCareMoment streak-milestone bonus', () => {
+  const daysBefore = (isoDate: string, days: number): string => {
+    const date = new Date(isoDate);
+    date.setDate(date.getDate() - days);
+    return date.toISOString();
+  };
+
+  it('grants the bonus when this event creates a new qualifying streak day that lands on a milestone', () => {
+    // Two prior consecutive qualifying days; today's walk makes it day 3 --
+    // the first milestone in STREAK_MILESTONES.
+    const history: HealthEvent<StepMetadata>[] = [
+      { ...walk, id: 'd1', occurredAt: daysBefore(walk.occurredAt, 2) },
+      { ...walk, id: 'd2', occurredAt: daysBefore(walk.occurredAt, 1) },
+    ];
+    const plan = planCareMoment({ pet: storedPet(), event: walk, events: history, profile, engine });
+    expect(plan.reaction.eventLabel).toBe('Streak milestone');
+    expect(plan.reaction.delta.xp).toBe(STREAK_MILESTONE_BONUS_XP);
+  });
+
+  it('does not grant the bonus for a second qualifying event on a day that already qualified', () => {
+    const history: HealthEvent<StepMetadata>[] = [
+      { ...walk, id: 'd1', occurredAt: daysBefore(walk.occurredAt, 2) },
+      { ...walk, id: 'd2', occurredAt: daysBefore(walk.occurredAt, 1) },
+      { ...walk, id: 'd3-first', occurredAt: walk.occurredAt },
+    ];
+    const plan = planCareMoment({ pet: storedPet(), event: walk, events: history, profile, engine });
+    expect(plan.reaction.eventLabel).not.toBe('Streak milestone');
+  });
+
+  it("does not grant the bonus for a non-qualifying event, even as the day's first", () => {
+    const sleepEvent: HealthEvent = {
+      id: 'sleep-1',
+      userId: 'user-1',
+      occurredAt: walk.occurredAt,
+      type: 'SLEEP',
+      source: 'healthkit',
+      metadata: { asleepMinutes: 420, night: walk.occurredAt.slice(0, 10) },
+    };
+    const history: HealthEvent<StepMetadata>[] = [
+      { ...walk, id: 'd1', occurredAt: daysBefore(walk.occurredAt, 2) },
+      { ...walk, id: 'd2', occurredAt: daysBefore(walk.occurredAt, 1) },
+    ];
+    const plan = planCareMoment({ pet: storedPet(), event: sleepEvent, events: history, profile, engine });
+    expect(plan.reaction.eventLabel).not.toBe('Streak milestone');
   });
 });

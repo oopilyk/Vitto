@@ -30,7 +30,7 @@ import {
   type ScreenTimeMetadata,
   activeMembers,
   calculateMacroTargets,
-  calculateStreaks,
+  calculateQualifyingStreaks,
   convertHeightToFeetAndInches,
   convertWeightValue,
   estimateCaloriesBurned,
@@ -346,7 +346,7 @@ export function ProfileScreen({
   const consumed = sumMealMacros(getMealsForDay(events, today));
   const burned = estimateCaloriesBurned(todaysEvents);
   const remaining = targets.calories - consumed.calories + burned;
-  const streaks = calculateStreaks(events, today);
+  const streaks = calculateQualifyingStreaks(events, today);
   const counts = [
     [events.filter((event) => event.type === 'MEAL').length, 'meals logged'],
     [events.filter((event) => event.type === 'WORKOUT').length, 'workouts'],

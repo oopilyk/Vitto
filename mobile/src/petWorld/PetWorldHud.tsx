@@ -5,7 +5,7 @@ import {
   type HealthEvent,
   type PetReaction,
   type PetState,
-  calculateStreaks,
+  calculateStreakStatus,
   daysWithPet,
   assessCondition,
   hasEvolved,
@@ -92,7 +92,10 @@ export function PetWorldHud({
   night,
 }: PetWorldHudProps) {
   const today = new Date();
-  const streaks = calculateStreaks(events, today);
+  const streaks = calculateStreakStatus(events, today);
+  // Still alive, but nothing logged yet today: don't let the flame read as
+  // "banked" when it's actually one missed day away from resetting.
+  const streakAtRisk = streaks.currentStreak > 0 && !streaks.todayQualifies;
   const condition = assessCondition(pet);
 
   // An ailment outranks the reaction: a message about the meal just logged must
@@ -186,13 +189,16 @@ export function PetWorldHud({
             style={[styles.meta, night && styles.metaNight]}
             accessibilityLabel={
               streaks.currentStreak > 0
-                ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}.`
+                ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` +
+                  (streakAtRisk ? ', not yet logged today.' : '.')
                 : undefined
             }
           >
             {dayLabel}
             {streaks.currentStreak > 0 ? (
-              <Text style={styles.metaFlame}>{`   ·   🔥 ${streaks.currentStreak}`}</Text>
+              <Text style={[styles.metaFlame, streakAtRisk && styles.metaFlameAtRisk]}>
+                {`   ·   🔥 ${streaks.currentStreak}`}
+              </Text>
             ) : null}
             {partnerName ? (
               <Text style={[styles.metaSoft, night && styles.metaSoftNight]}>
@@ -341,6 +347,8 @@ const styles = StyleSheet.create({
   metaSoft: { color: '#6e5c43', fontWeight: '400' },
   metaSoftNight: { color: '#a99a83' },
   metaFlame: { color: '#b25a35', fontWeight: '700' },
+  /** Alive but not yet re-earned today — dimmed, not the same as a banked day. */
+  metaFlameAtRisk: { color: '#b25a35', opacity: 0.55, fontWeight: '600' },
 
   rail: { alignItems: 'flex-end', gap: 12 },
   disc: {

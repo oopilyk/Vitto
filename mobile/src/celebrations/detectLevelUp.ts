@@ -19,7 +19,7 @@ import type { CelebrationEvent } from './types';
 export function detectLevelUp(
   before: Pick<PetState, 'id' | 'level'>,
   after: Pick<PetState, 'level'>,
-): CelebrationEvent | null {
+): Extract<CelebrationEvent, { kind: 'levelUp' }> | null {
   if (after.level <= before.level) return null;
   return { kind: 'levelUp', petId: before.id, level: after.level };
 }

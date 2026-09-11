@@ -11,8 +11,8 @@ import {
   applyDelta,
   applyTimeDecay,
   assessCondition,
-  calculateStreaks,
-  getEventsForDay,
+  calculateQualifyingStreaks,
+  createsNewStreakDay,
   totalPetXp,
 } from '@vitto/core';
 
@@ -117,7 +117,11 @@ export interface CareMomentPlan {
 /** Pure: decay from the stored anchor, the engine, then the streak and revival bonuses. */
 export const planCareMoment = ({ pet, event, events, profile, engine }: CareMomentInput): CareMomentPlan => {
   const eventDay = new Date(event.occurredAt);
-  const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
+  // Whether logging `event` is what turns its own day into a NEW qualifying
+  // streak day -- the one gate for the streak-milestone bonus below. Not "was
+  // there any event today": a sleep sync or a second meal must never look
+  // like a fresh streak day just because it's technically the day's Nth event.
+  const newStreakDay = createsNewStreakDay(events, event);
   const decayed = applyTimeDecay(pet, eventDay);
   const xpBefore = totalPetXp(decayed);
   // Read before the event lands: the point is whether this care moment is the
@@ -129,8 +133,8 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
   let nextPet = result.pet;
   let nextReaction = result.reaction;
 
-  if (!wasActiveToday) {
-    const projected = calculateStreaks([...events, event], eventDay).currentStreak;
+  if (newStreakDay) {
+    const projected = calculateQualifyingStreaks([...events, event], eventDay).currentStreak;
     if (STREAK_MILESTONES.includes(projected)) {
       const bonus = { xp: STREAK_MILESTONE_BONUS_XP, happiness: 10 };
       nextPet = applyDelta(nextPet, bonus, event.occurredAt);

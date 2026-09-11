@@ -10,7 +10,7 @@ import {
   PET_STAT_DESCRIPTORS,
   type PetStatGroup,
   type PetState,
-  calculateStreaks,
+  calculateQualifyingStreaks,
   careCountsByType,
   daysWithPet,
   findWordPuzzleEventForDate,
@@ -138,7 +138,7 @@ const describeMood = (pet: PetState): string => {
 export function PetStatsScreen({ pet, events, onClose }: Props) {
   const now = new Date();
   const sheet = sheetForPet(pet);
-  const streaks = calculateStreaks(events, now);
+  const streaks = calculateQualifyingStreaks(events, now);
   const last7 = careCountsByType(events, 7, now);
   const last30 = careCountsByType(events, 30, now);
 
