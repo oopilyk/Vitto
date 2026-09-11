@@ -75,6 +75,13 @@ export interface StepMetadata {
    * to the workout+steps estimate in `nutritionSummary.ts` when it's missing.
    */
   caloriesBurned?: number;
+  /**
+   * The total xp the engine has granted for this event so far — stamped at
+   * log time (`recordEvent`) and topped up in place on a later re-sync that
+   * crosses a threshold the first sync's count hadn't reached (`syncSteps`'s
+   * `stepSyncTopUp`). `dailyRecap.ts` reads this back to total the day's xp.
+   */
+  xpAwarded?: number;
 }
 
 export interface SleepMetadata {

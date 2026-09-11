@@ -3,9 +3,9 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  withMeasurementSystem, type MeasurementSystem,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  withMeasurementSystem, type MeasurementSystem,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
-import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
+import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
@@ -975,6 +975,32 @@ export default function App() {
             occurredAt: today.toISOString(),
             metadata: { ...(existing.metadata as StepMetadata), steps: newSteps },
           };
+
+          // The first sync of the day already ran the full engine once,
+          // against whatever the count was at that moment -- often too low to
+          // register a milestone the day's steps go on to reach. Top up just
+          // the difference, via the SAME formula, so reaching 8,000 steps at
+          // 4pm counts the same as it would have at 9am, without re-paying
+          // the reward already granted at the first sync.
+          if (pet) {
+            const topUp = stepSyncTopUp(engine, pet, updated, had, {
+              history: events,
+              bodyWeightKg: profile.weightKg,
+            });
+            if (topUp.xp) {
+              const toppedUpPet = applyDelta(pet, topUp, today.toISOString());
+              if (isSupabaseConfigured && session) {
+                const outcome = await remoteRepository.savePetIfUnchanged(toppedUpPet, pet.version ?? 0);
+                if (outcome.status === 'saved') setPet({ ...toppedUpPet, version: outcome.version });
+              } else {
+                await repository.savePet(toppedUpPet);
+                setPet(toppedUpPet);
+              }
+              updated.metadata.xpAwarded =
+                ((existing.metadata as { xpAwarded?: number }).xpAwarded ?? 0) + (topUp.xp ?? 0);
+            }
+          }
+
           if (isSupabaseConfigured && session) await remoteRepository.replaceEvent(updated);
           await repository.replaceEvent(updated);
           setEvents((current) =>

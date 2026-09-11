@@ -9,7 +9,13 @@ import {
   applyTimeDecay,
   createPet,
 } from '@vitto/core';
-import { careConflictMessage, commitCareMoment, commitCareMomentForAll, planCareMoment } from '../services/careMoment';
+import {
+  careConflictMessage,
+  commitCareMoment,
+  commitCareMomentForAll,
+  planCareMoment,
+  stepSyncTopUp,
+} from '../services/careMoment';
 
 const engine = new PetHealthEngine();
 
@@ -210,5 +216,36 @@ describe('commitCareMomentForAll', () => {
     });
     expect(outcome.results).toHaveLength(1);
     expect(outcome.pets).toHaveLength(1);
+  });
+});
+
+describe('stepSyncTopUp', () => {
+  const pet = storedPet();
+
+  it('tops up the milestone reward when a re-sync crosses it for the first time', () => {
+    // The first sync of the day caught 300 steps (below the 8,000-step
+    // milestone, so only the base reward was granted); this re-sync reports
+    // 9,000 for the same day.
+    const event: HealthEvent<StepMetadata> = { ...walk, metadata: { steps: 9000 } };
+    const topUp = stepSyncTopUp(engine, pet, event, 300);
+
+    // Straight from PetHealthEngine's own STEP_ACTIVITY formula:
+    // milestone (7 energy, 4 happiness, 3 endurance, 16 xp) minus
+    // base (3 energy, 4 happiness, 1 endurance, 8 xp).
+    expect(topUp).toEqual({ energy: 4, endurance: 2, xp: 8 });
+  });
+
+  it('grants nothing when the re-sync stays under the milestone', () => {
+    const event: HealthEvent<StepMetadata> = { ...walk, metadata: { steps: 5000 } };
+    const topUp = stepSyncTopUp(engine, pet, event, 2000);
+    expect(topUp).toEqual({});
+  });
+
+  it('grants nothing for a re-sync that stays past an already-credited milestone', () => {
+    // Both readings are already over 8,000 -- the milestone was credited on
+    // an earlier sync this same day, so walking further shouldn't pay again.
+    const event: HealthEvent<StepMetadata> = { ...walk, metadata: { steps: 12000 } };
+    const topUp = stepSyncTopUp(engine, pet, event, 8500);
+    expect(topUp).toEqual({});
   });
 });

@@ -1,10 +1,13 @@
 import {
   type BodyProfile,
   type HealthEvent,
+  type PetDelta,
+  type PetHealthContext,
   type PetHealthEngine,
   type PetReaction,
   type PetSaveResult,
   type PetState,
+  type StepMetadata,
   applyDelta,
   applyTimeDecay,
   assessCondition,
@@ -12,6 +15,58 @@ import {
   getEventsForDay,
   totalPetXp,
 } from '@vitto/core';
+
+const PET_DELTA_KEYS: (keyof PetDelta)[] = [
+  'health',
+  'energy',
+  'happiness',
+  'nutrition',
+  'strength',
+  'pushingStrength',
+  'pullingStrength',
+  'legStrength',
+  'endurance',
+  'recovery',
+  'mind',
+  'xp',
+];
+
+/** `after` minus `before`, key by key — only the keys that actually changed. */
+const diffDelta = (before: PetDelta, after: PetDelta): PetDelta => {
+  const diff: PetDelta = {};
+  for (const key of PET_DELTA_KEYS) {
+    const change = (after[key] ?? 0) - (before[key] ?? 0);
+    if (change !== 0) diff[key] = change;
+  }
+  return diff;
+};
+
+/**
+ * The reward top-up for a step re-sync that pushes the day's total across a
+ * threshold the engine only ever checks once per event (see
+ * `PetHealthEngine`'s `STEP_ACTIVITY` case, e.g. its 8,000-step milestone).
+ * The first sync of the day already ran the full engine once, against
+ * whatever the count was at that moment — often too low to register a
+ * milestone the day goes on to reach. This computes the SAME formula's output
+ * for `event`'s (new) step count minus its output for `previousSteps`, so
+ * crossing the milestone at 4pm is worth exactly what crossing it at 9am
+ * would have been, without re-paying the base reward already granted.
+ */
+export const stepSyncTopUp = (
+  engine: Pick<PetHealthEngine, 'apply'>,
+  pet: PetState,
+  event: HealthEvent<StepMetadata>,
+  previousSteps: number,
+  context: PetHealthContext = {},
+): PetDelta => {
+  const before = engine.apply(
+    pet,
+    { ...event, metadata: { ...event.metadata, steps: previousSteps } },
+    context,
+  ).reaction.delta;
+  const after = engine.apply(pet, event, context).reaction.delta;
+  return diffDelta(before, after);
+};
 
 /**
  * A care moment, from "the user did something healthy" to "the pet's row is
