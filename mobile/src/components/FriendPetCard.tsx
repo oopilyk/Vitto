@@ -39,7 +39,7 @@ const DAY_MS = 24 * HOUR_MS;
  * Kept local rather than promoted to a shared utility -- this is the only
  * place in the app that needs it, per YAGNI.
  */
-const formatLastActive = (iso: string, now: Date = new Date()): string => {
+export const formatLastActive = (iso: string, now: Date = new Date()): string => {
   const elapsedMs = Math.max(0, now.getTime() - new Date(iso).getTime());
   if (elapsedMs < MINUTE_MS) return 'Just now';
   if (elapsedMs < HOUR_MS) return `${Math.floor(elapsedMs / MINUTE_MS)}m ago`;

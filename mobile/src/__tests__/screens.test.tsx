@@ -2642,7 +2642,9 @@ describe('friend pet screen', () => {
     // Never any children -- that is what keeps this view genuinely read-only,
     // since every feed/train affordance on the dashboard is passed as PetAvatar's
     // `children` rather than living inside the component.
-    expect(avatar.props.children).toBeUndefined();
+    // The stage passes `{null}` rather than omitting children; either way no
+    // feed/train affordance is rendered, which is the invariant that matters.
+    expect(avatar.props.children ?? undefined).toBeUndefined();
     expect(JSON.stringify(tree.toJSON())).toContain('Working out');
     tree.unmount();
   });
@@ -2752,6 +2754,53 @@ describe('friend pet screen', () => {
     });
 
     expect(JSON.stringify(tree.toJSON())).toContain('Friend Two');
+    tree.unmount();
+  });
+
+  it("draws the friend's pet in the room their live activity implies, with no controls", async () => {
+    const { EnvironmentStage } = require('../petWorld/EnvironmentStage');
+    friendsService.loadFriendPet.mockResolvedValue(pet);
+    friendsService.loadFriendProfile.mockResolvedValue(friendTwoProfile);
+    friendsService.loadFriendRecentActivity.mockResolvedValue([
+      { type: 'WORKOUT', occurredAt: new Date().toISOString() },
+    ]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendPetScreen friendUserIds={['user-2']} initialFriendUserId="user-2" onClose={() => {}} />,
+      );
+    });
+
+    // A live workout puts them in the gym — the same scene the owner sees.
+    const stage = tree.root.findByType(EnvironmentStage);
+    expect(stage.props.environment).toBe('gym');
+    expect(stage.props.pet).toBe(pet);
+    // Visiting is looking, not doing: no hotbar, no call to action, no pet tap.
+    expect(stage.props.onPetTap).toBeUndefined();
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).not.toContain('Go to the gym');
+    expect(rendered).not.toContain('Log workout');
+    expect(rendered).toContain('Visiting Friend Two');
+    expect(rendered).toContain('GYM');
+    tree.unmount();
+  });
+
+  it('puts a quiet friend in their living room', async () => {
+    const { EnvironmentStage } = require('../petWorld/EnvironmentStage');
+    friendsService.loadFriendPet.mockResolvedValue(pet);
+    friendsService.loadFriendProfile.mockResolvedValue(friendTwoProfile);
+    friendsService.loadFriendRecentActivity.mockResolvedValue([]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendPetScreen friendUserIds={['user-2']} initialFriendUserId="user-2" onClose={() => {}} />,
+      );
+    });
+
+    expect(tree.root.findByType(EnvironmentStage).props.environment).toBe('main');
+    expect(JSON.stringify(tree.toJSON())).toContain('LIVING ROOM');
     tree.unmount();
   });
 
