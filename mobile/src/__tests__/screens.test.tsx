@@ -394,19 +394,22 @@ describe('screens render', () => {
       );
     });
 
-    // The library only shows while searching, so type first, then add.
-    const search = tree.root
-      .findAllByType(WorkoutInput)
-      .find((node: any) => node.props.placeholder === 'Search exercises to add');
-    act(() => search!.props.onChangeText('Bench'));
-
+    // Exercises come from the picker: open it, then tap one.
+    const openPicker = tree.root
+      .findAllByProps({ accessibilityLabel: 'Add exercise' })
+      .find((node: any) => typeof node.props.onPress === 'function');
+    act(() => openPicker!.props.onPress());
     const add = tree.root
-      .findAll((node: any) => typeof node.props.onPress === 'function')
-      .find((node: any) =>
-        node.findAllByType(WorkoutText).some((text: any) => text.props.children === 'Bench Press'),
-      );
+      .findAllByProps({ accessibilityLabel: 'Add Bench Press' })
+      .find((node: any) => typeof node.props.onPress === 'function');
     expect(add).toBeTruthy();
     act(() => add!.props.onPress());
+    const done = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node.findAllByType(WorkoutText).some((t: any) => t.props.children === 'Done'),
+      );
+    act(() => done!.props.onPress());
 
     // Check the actual label/placeholder values, not the serialised tree —
     // "backgroundColor" contains the substring "kg".
@@ -542,8 +545,9 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('refuses to save an empty session as a routine, with a reason', async () => {
+  it('offers "New routine" from the start — making one no longer requires logging a session first', async () => {
     const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text: WText } = require('react-native');
     const saved: any[] = [];
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -558,10 +562,131 @@ describe('screens render', () => {
         />,
       );
     });
-    // With no exercises there is no "Save as routine" action at all — the hint
-    // explains how to get one.
-    expect(JSON.stringify(tree.toJSON())).toContain('save it as a routine');
+
+    // Visible before the user has ever made one — that is the point of it
+    // living in the strip rather than being a link at the bottom of the screen.
+    const tile = tree.root
+      .findAllByProps({ accessibilityLabel: 'Make a new routine' })
+      .find((node: any) => typeof node.props.onPress === 'function');
+    expect(tile).toBeTruthy();
+
+    act(() => tile!.props.onPress());
+
+    // Routine mode: named up front, and none of the mid-workout chrome.
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('ROUTINE NAME');
+    expect(rendered).toContain('Save routine');
+    expect(rendered).not.toContain('Finish workout');
+    expect(rendered).not.toContain('volume');
     expect(saved).toHaveLength(0);
+    tree.unmount();
+  });
+
+  it('builds a routine end to end: name it, add exercises, save it', async () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text: WText, TextInput: WInput } = require('react-native');
+    const saved: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen
+          templates={[]}
+          onSaveTemplate={(t: any) => {
+            saved.push(t);
+          }}
+          onFinish={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+
+    const press = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+
+    act(() => press('Make a new routine')!.props.onPress());
+
+    const nameField = tree.root
+      .findAllByType(WInput)
+      .find((node: any) => node.props.placeholder === 'Push, Pull, Legs');
+    expect(nameField).toBeTruthy();
+    act(() => nameField!.props.onChangeText('Push'));
+
+    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Add Bench Press')!.props.onPress());
+    act(() => press('Add Shoulder Press')!.props.onPress());
+    const done = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) => node.findAllByType(WText).some((t: any) => t.props.children === 'Done'));
+    act(() => done!.props.onPress());
+
+    // No done-circles while defining a routine — nothing to tick off a workout
+    // that has not happened.
+    expect(
+      tree.root.findAll((node: any) =>
+        String(node.props.accessibilityLabel ?? '').startsWith('Mark set'),
+      ),
+    ).toHaveLength(0);
+
+    const save = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node.findAllByType(WText).some((t: any) => t.props.children === 'Save routine'),
+      );
+    await act(async () => {
+      save!.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(saved).toHaveLength(1);
+    expect(saved[0].name).toBe('Push');
+    expect(saved[0].exercises.map((e: any) => e.name)).toEqual(['Bench Press', 'Shoulder Press']);
+    tree.unmount();
+  });
+
+  it('refuses to save a routine with no name, saying why', async () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text: WText } = require('react-native');
+    const saved: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen
+          templates={[]}
+          onSaveTemplate={(t: any) => {
+            saved.push(t);
+          }}
+          onFinish={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+    const press = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+
+    act(() => press('Make a new routine')!.props.onPress());
+    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Add Bench Press')!.props.onPress());
+    const doneBtn = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) => node.findAllByType(WText).some((t: any) => t.props.children === 'Done'));
+    act(() => doneBtn!.props.onPress());
+
+    const save = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node.findAllByType(WText).some((t: any) => t.props.children === 'Save routine'),
+      );
+    await act(async () => {
+      save!.props.onPress();
+      await Promise.resolve();
+    });
+
+    expect(saved).toHaveLength(0);
+    expect(JSON.stringify(tree.toJSON())).toContain('Give the routine a name');
     tree.unmount();
   });
 
