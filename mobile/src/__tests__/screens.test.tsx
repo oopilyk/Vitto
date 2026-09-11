@@ -600,17 +600,31 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('collapses repeated step re-syncs into one Outdoors summary, not one row per sync', () => {
-    // A device re-syncing steps through the day reports the day's running total
-    // each time -- nine syncs of the same 6,840-step day, not nine walks.
-    const stepEvents: HealthEvent[] = Array.from({ length: 9 }, (_, index) => ({
-      id: `step-${index}`,
-      userId: 'user-1',
-      occurredAt: new Date().toISOString(),
-      type: 'STEP_ACTIVITY',
-      source: 'mock',
-      metadata: { steps: 6840 },
-    })) as unknown as HealthEvent[];
+  it('sums genuinely distinct step-activity entries into one Outdoors summary, not one row each', () => {
+    // Two separate entries for the same day -- e.g. a manually logged walk
+    // alongside the HealthKit auto-sync reading -- are real additional
+    // activity: the total should add, and still show as one activity line.
+    // (Re-syncing the SAME cumulative HealthKit reading never produces a
+    // second event in the first place -- App.tsx's syncSteps updates the
+    // existing one in place -- so that case can't reach this screen at all.)
+    const stepEvents: HealthEvent[] = [
+      {
+        id: 'step-morning',
+        userId: 'user-1',
+        occurredAt: new Date().toISOString(),
+        type: 'STEP_ACTIVITY',
+        source: 'mock',
+        metadata: { steps: 5000 },
+      },
+      {
+        id: 'step-evening',
+        userId: 'user-1',
+        occurredAt: new Date().toISOString(),
+        type: 'STEP_ACTIVITY',
+        source: 'healthkit',
+        metadata: { steps: 1840 },
+      },
+    ] as unknown as HealthEvent[];
 
     let opened = 0;
     let tree!: renderer.ReactTestRenderer;
@@ -2148,8 +2162,8 @@ describe('care partners', () => {
       );
     });
     const rendered = JSON.stringify(tree.toJSON());
-    // The two step snapshots are the same day re-synced -- the higher figure wins.
-    expect(rendered).toContain('200');
+    // Two distinct step-activity entries for the day -- real activity, summed.
+    expect(rendered).toContain('300');
     expect(rendered).not.toContain('Alex · Trained together');
     tree.unmount();
   });

@@ -46,6 +46,7 @@ import {
 export const RECENT_SYNC_WINDOW_HOURS = 48;
 
 const STEP_COUNT = 'HKQuantityTypeIdentifierStepCount' as const;
+const ACTIVE_ENERGY_BURNED = 'HKQuantityTypeIdentifierActiveEnergyBurned' as const;
 const DIETARY_ENERGY = 'HKQuantityTypeIdentifierDietaryEnergyConsumed' as const;
 const DIETARY_PROTEIN = 'HKQuantityTypeIdentifierDietaryProtein' as const;
 const DIETARY_CARBS = 'HKQuantityTypeIdentifierDietaryCarbohydrates' as const;
@@ -72,7 +73,17 @@ export class HealthKitProvider implements HealthDataProvider {
     if (Platform.OS !== 'ios') return false;
     try {
       const granted = await requestAuthorization({
-        toRead: [STEP_COUNT, 'HKWorkoutTypeIdentifier', DIETARY_ENERGY, DIETARY_PROTEIN, DIETARY_CARBS, DIETARY_FAT, DIETARY_FIBER, SLEEP_ANALYSIS],
+        toRead: [
+          STEP_COUNT,
+          ACTIVE_ENERGY_BURNED,
+          'HKWorkoutTypeIdentifier',
+          DIETARY_ENERGY,
+          DIETARY_PROTEIN,
+          DIETARY_CARBS,
+          DIETARY_FAT,
+          DIETARY_FIBER,
+          SLEEP_ANALYSIS,
+        ],
       });
       this.authorized = granted;
       return granted;
@@ -94,13 +105,20 @@ export class HealthKitProvider implements HealthDataProvider {
     this.assertAuthorized();
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const samples = await queryQuantitySamples(STEP_COUNT, {
-      filter: { date: { startDate: startOfToday } },
-      limit: 0,
-      unit: 'count',
+    const filter = { date: { startDate: startOfToday } };
+    // Active energy is best-effort: some devices/permission states report no
+    // samples at all, and a missing calorie figure should never block steps.
+    const [stepSamples, energySamples] = await Promise.all([
+      queryQuantitySamples(STEP_COUNT, { filter, limit: 0, unit: 'count' }),
+      queryQuantitySamples(ACTIVE_ENERGY_BURNED, { filter, limit: 0, unit: 'kcal' }).catch(() => []),
+    ]);
+    const totalSteps = stepSamples.reduce((sum, sample) => sum + sample.quantity, 0);
+    const totalCalories = energySamples.reduce((sum, sample) => sum + sample.quantity, 0);
+    return mapStepSample(userId, {
+      quantity: totalSteps,
+      startDate: startOfToday,
+      ...(energySamples.length > 0 ? { caloriesBurned: totalCalories } : {}),
     });
-    const totalSteps = samples.reduce((sum, sample) => sum + sample.quantity, 0);
-    return mapStepSample(userId, { quantity: totalSteps, startDate: startOfToday });
   }
 
   async getNewWorkouts(

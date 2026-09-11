@@ -10,6 +10,7 @@ import {
   assessCondition,
   calculateStreaks,
   getEventsForDay,
+  totalPetXp,
 } from '@vitto/core';
 
 /**
@@ -48,6 +49,14 @@ export interface CareMomentInput {
 export interface CareMomentPlan {
   pet: PetState;
   reaction: PetReaction;
+  /**
+   * The total xp this moment actually granted — the pet's real before/after
+   * total, not `reaction.delta.xp` alone. A streak milestone or the revival
+   * bonus below *replaces* `reaction` (so its message is the one shown), which
+   * would otherwise mean its xp silently overwrote the base event's instead of
+   * adding to it. This is what callers should persist as "xp earned".
+   */
+  xpGranted: number;
 }
 
 /** Pure: decay from the stored anchor, the engine, then the streak and revival bonuses. */
@@ -55,6 +64,7 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
   const eventDay = new Date(event.occurredAt);
   const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
   const decayed = applyTimeDecay(pet, eventDay);
+  const xpBefore = totalPetXp(decayed);
   // Read before the event lands: the point is whether this care moment is the
   // one that arrived at the brink, not where it left the pet afterwards.
   const wasDying = assessCondition(decayed).primary === 'dying';
@@ -88,7 +98,7 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
     };
   }
 
-  return { pet: nextPet, reaction: nextReaction };
+  return { pet: nextPet, reaction: nextReaction, xpGranted: totalPetXp(nextPet) - xpBefore };
 };
 
 /** The two remote calls the commit loop needs; `SupabaseRepository` satisfies it directly. */
@@ -128,7 +138,12 @@ export const commitCareMoment = async ({
 
     const outcome = await remote.savePetIfUnchanged(plan.pet, base.version ?? 0);
     if (outcome.status === 'saved') {
-      return { pet: { ...plan.pet, version: outcome.version }, reaction: plan.reaction, attempts: attempt };
+      return {
+        pet: { ...plan.pet, version: outcome.version },
+        reaction: plan.reaction,
+        xpGranted: plan.xpGranted,
+        attempts: attempt,
+      };
     }
 
     // Somebody else wrote first. Never resend: their write moved the decay

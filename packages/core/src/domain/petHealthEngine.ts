@@ -1,6 +1,6 @@
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
-import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
+import { clamp, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { formatMinutes } from './careToast';
 import { workoutStrengthDelta } from './strengthProgression';
 
@@ -77,14 +77,14 @@ const laterOf = (anchor: string | undefined, occurredAt: string): string => {
 
 export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): PetState => {
   const nextXp = pet.xp + (delta.xp ?? 0);
-  const nextLevel = pet.level + Math.floor(nextXp / 100);
+  const nextLevel = pet.level + Math.floor(nextXp / XP_PER_LEVEL);
   const nextEnergy = clamp(pet.energy + (delta.energy ?? 0));
   const nextNutrition = clamp(pet.nutrition + (delta.nutrition ?? 0));
   const nextHappiness = clamp(pet.happiness + (delta.happiness ?? 0));
   return {
     ...pet,
     level: nextLevel,
-    xp: nextXp % 100,
+    xp: nextXp % XP_PER_LEVEL,
     health: clamp(pet.health + (delta.health ?? 0)),
     energy: nextEnergy,
     happiness: nextHappiness,

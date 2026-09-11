@@ -115,20 +115,70 @@ describe('buildDailyRecap', () => {
     expect(recap.gym.done).toBe(true);
   });
 
-  it('takes the highest cumulative step snapshot for the day, not the sum of re-syncs', () => {
-    // A device re-syncing steps through the day reports the running daily total
-    // each time -- three syncs of a 6,840-step day, not three separate walks.
-    const events: HealthEvent[] = [
-      makeEvent<StepMetadata>('STEP_ACTIVITY', onDay('09:00'), { steps: 2000 }),
-      makeEvent<StepMetadata>('STEP_ACTIVITY', onDay('14:00'), { steps: 5000 }),
-      makeEvent<StepMetadata>('STEP_ACTIVITY', onDay('20:00'), { steps: 6840 }),
-    ];
+  it("reports the day's single HealthKit sync reading as-is", () => {
+    // App.tsx's syncSteps keeps exactly one STEP_ACTIVITY event per day,
+    // updating it in place as the day's cumulative reading grows -- so summing
+    // "today's step events" never double-counts a re-sync in normal use.
+    const events: HealthEvent[] = [makeEvent<StepMetadata>('STEP_ACTIVITY', onDay('20:00'), { steps: 6840 })];
 
     const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day });
 
     expect(recap.outdoors.steps).toBe(6840);
     expect(recap.outdoors.percent).toBe(68);
     expect(recap.outdoors.goalReached).toBe(false);
+  });
+
+  it('sums genuinely distinct step-activity entries for the same day', () => {
+    // Two separate entries -- e.g. the HealthKit auto-sync plus a manually
+    // logged walk -- are real additional activity and should add together.
+    const events: HealthEvent[] = [
+      makeEvent<StepMetadata>('STEP_ACTIVITY', onDay('09:00'), { steps: 6840 }),
+      makeEvent<StepMetadata>('STEP_ACTIVITY', onDay('20:00'), { steps: 1200 }),
+    ];
+
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day });
+
+    expect(recap.outdoors.steps).toBe(8040);
+  });
+
+  it('shows real Apple Health calories burned when a step reading carries one', () => {
+    const events: HealthEvent[] = [
+      makeEvent<StepMetadata>('STEP_ACTIVITY', onDay('20:00'), { steps: 6840, caloriesBurned: 312 }),
+    ];
+
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day });
+
+    expect(recap.outdoors.caloriesBurned).toBe(312);
+    expect(recap.outdoors.caloriesBurnedFromHealth).toBe(true);
+  });
+
+  it('falls back to the workout+steps estimate when nothing today reports real calories burned', () => {
+    const events: HealthEvent[] = [makeEvent<StepMetadata>('STEP_ACTIVITY', onDay('20:00'), { steps: 6840 })];
+
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day });
+
+    expect(recap.outdoors.caloriesBurned).toBeGreaterThan(0);
+    expect(recap.outdoors.caloriesBurnedFromHealth).toBe(false);
+  });
+
+  it("earns xp as the pet's real total-xp gain since a given day-start reading, not the event sum", () => {
+    // No event today is stamped with xpAwarded at all -- exactly the case for
+    // events logged before that stamp existed -- yet the pet's real xp still
+    // climbed today, and the anchor diff must still show it.
+    const events: HealthEvent[] = [
+      makeEvent<WorkoutMetadata>('WORKOUT', onDay('08:00'), { workoutType: 'strength', durationMinutes: 40 }),
+    ];
+    const dayStartTotalXp = pet.level * 100 + pet.xp - 30; // pet gained 30 xp since this morning
+
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day, dayStartTotalXp });
+
+    expect(recap.xp).toBe(30);
+  });
+
+  it('never reports negative xp when the anchor is stale (e.g. a level just rolled over)', () => {
+    const dayStartTotalXp = pet.level * 100 + pet.xp + 50; // anchor ahead of the pet somehow
+    const recap = buildDailyRecap({ events: [], profile, pet, stepGoal: 10000, day, dayStartTotalXp });
+    expect(recap.xp).toBe(0);
   });
 
   it('aggregates multiple workouts into one gym summary', () => {

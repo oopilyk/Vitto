@@ -49,6 +49,12 @@ interface Props {
   profile: BodyProfile;
   stepGoal: number;
   onStepGoalChange: (goal: number) => void;
+  /**
+   * The pet's real total xp (`totalPetXp`) as of the start of today, if a
+   * reading has been taken (see App.tsx). Preferred source for the day's xp
+   * total — see `DailyRecap.xp`. Undefined until the first reading lands.
+   */
+  dayStartTotalXp?: number;
   onTrainMind: () => void;
   /** Optional: the mind pillar hides the action until the navigation is wired. */
   onOpenWordPuzzle?: () => void;
@@ -158,6 +164,7 @@ export function TodayScreen({
   profile,
   stepGoal,
   onStepGoalChange,
+  dayStartTotalXp,
   onTrainMind,
   onOpenWordPuzzle,
   onOpenProfile,
@@ -195,8 +202,8 @@ export function TodayScreen({
   // Keyed on the day string, not the fresh `today` Date each render hands out.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
   const recap: DailyRecap = useMemo(
-    () => buildDailyRecap({ events, profile, pet, stepGoal, day: today }),
-    [events, profile, pet, stepGoal, todayKey],
+    () => buildDailyRecap({ events, profile, pet, stepGoal, day: today, dayStartTotalXp }),
+    [events, profile, pet, stepGoal, todayKey, dayStartTotalXp],
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
   const topInsight = useMemo(() => calculateInsights(events, today)[0] ?? null, [events, todayKey]);
@@ -237,8 +244,10 @@ export function TodayScreen({
           ) : undefined
         }
       >
-        {/* --- Overview: you + the pet, the day's XP, overall progress --- */}
-        <View style={[retro.panel, night && retro.panelNight, styles.overview]}>
+        {/* --- Overview: you + the pet, the day's XP, overall progress ---
+            Deliberately NOT boxed like the pillars below: this is the main
+            section the screen leads with, not one panel among equals. */}
+        <View style={[styles.overview, { borderBottomColor: c.hairline }]}>
           <Text style={[styles.overKicker, { color: c.soft }]}>
             You and {petName}, today
           </Text>
@@ -324,6 +333,12 @@ export function TodayScreen({
           }
           progressPercent={outdoors.percent}
         >
+          {outdoors.steps > 0 ? (
+            <Text style={[styles.caloriesLine, { color: c.soft }]}>
+              🔥 {outdoors.caloriesBurned.toLocaleString()} cal burned
+              {outdoors.caloriesBurnedFromHealth ? '' : ' (estimate)'}
+            </Text>
+          ) : null}
           <View style={styles.goalEdit}>
             <Text style={[styles.goalEditLabel, { color: c.soft }]}>Daily goal</Text>
             <TextInput
@@ -719,7 +734,7 @@ const styles = StyleSheet.create({
   topTitle: { fontFamily: fonts.mono, fontSize: 14, fontWeight: '700', letterSpacing: 2 },
   body: { paddingHorizontal: 18, paddingTop: 18, gap: 14 },
 
-  overview: { padding: 16 },
+  overview: { paddingHorizontal: 2, paddingTop: 4, paddingBottom: 20, borderBottomWidth: 1 },
   overKicker: {
     fontFamily: fonts.mono,
     fontSize: 10,
@@ -765,6 +780,7 @@ const styles = StyleSheet.create({
   pillarAction: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.3 },
   xpChip: { borderWidth: 2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   xpChipText: { fontFamily: fonts.mono, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+  caloriesLine: { fontFamily: fonts.mono, fontSize: 11, marginTop: 2 },
   goalEdit: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
   goalEditLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase' },
   goalInput: {

@@ -15,6 +15,12 @@ const petKey = 'vitto.pet';
 const eventKey = 'vitto.events';
 const wordPuzzleKey = 'vitto.wordpuzzle.progress';
 /**
+ * Today's xp baseline for the Today recap — see `DayXpAnchor` below. Local
+ * rather than synced: it is a snapshot of THIS device's last reading of the
+ * pet's real xp, not a fact that needs to agree across devices.
+ */
+const dayXpAnchorKey = 'vitto.dayxpanchor';
+/**
  * One coordinate, on this device only. The gym check compares live position
  * against this and stores nothing else — no fixes, no trail. Kept local rather
  * than in the profile row so "where you train" never leaves the phone.
@@ -30,6 +36,19 @@ const remindersKey = 'vitto.reminders';
 const seenAchievementsKey = 'vitto.achievements.seen';
 const MAX_STORED_EVENTS = 2000;
 const CARE_PARTNERS_OFFLINE_MESSAGE = 'Care partners need an online account.';
+
+/**
+ * A snapshot of one pet's total xp (see `totalPetXp`), taken at the start of
+ * `dateKey`. The Today recap's "xp earned today" is the diff between this and
+ * the pet's current total — reading the real progression system, not a second
+ * counter of it, so it can never drift out of step with what the pet actually
+ * has. Keyed per pet: a user caring for two pets needs a baseline for each.
+ */
+export interface DayXpAnchor {
+  petId: string;
+  dateKey: string;
+  totalXp: number;
+}
 
 /**
  * A day's WordPuzzle in flight.
@@ -97,6 +116,15 @@ export class LocalRepository {
     );
   }
 
+  async loadDayXpAnchor(): Promise<DayXpAnchor | null> {
+    const value = await AsyncStorage.getItem(dayXpAnchorKey);
+    return value ? (JSON.parse(value) as DayXpAnchor) : null;
+  }
+
+  async saveDayXpAnchor(anchor: DayXpAnchor): Promise<void> {
+    await AsyncStorage.setItem(dayXpAnchorKey, JSON.stringify(anchor));
+  }
+
   async loadWordPuzzleProgress(): Promise<WordPuzzleProgress | null> {
     const value = await AsyncStorage.getItem(wordPuzzleKey);
     return value ? (JSON.parse(value) as WordPuzzleProgress) : null;
@@ -120,7 +148,7 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, seenAchievementsKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, seenAchievementsKey, dayXpAnchorKey, 'vitto.profile']);
   }
 
   async loadReminders(): Promise<Reminder[]> {

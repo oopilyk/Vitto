@@ -119,6 +119,19 @@ export const clamp = (value: number, minimum = 0, maximum = 100) =>
  */
 export const EVOLUTION_LEVEL = 11;
 
+/** How much xp `applyDelta` rolls into the next level. Whole-number levels only. */
+export const XP_PER_LEVEL = 100;
+
+/**
+ * A pet's total lifetime xp, as one number instead of a level/xp pair — the
+ * form every other total (a day's, a week's) is a difference of. Never stored:
+ * `level`/`xp` stay the two persisted fields, this is just their sum read back
+ * out, so a diff against an earlier reading of the same function can never
+ * drift from what the pet actually has.
+ */
+export const totalPetXp = (pet: Pick<PetState, 'level' | 'xp'>): number =>
+  pet.level * XP_PER_LEVEL + pet.xp;
+
 /**
  * The shape a pet has grown into. Derived from how it was actually raised, never
  * chosen: the point is that the pet reflects the user's own habits back at them.

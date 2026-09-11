@@ -68,6 +68,13 @@ export interface WorkoutStats {
 export interface StepMetadata {
   steps: number;
   date?: string;
+  /**
+   * Active energy burned today (kcal), from Apple Health's own reading —
+   * queried alongside steps, not derived from them. Absent on Android, before
+   * HealthKit authorization, or for a manual/mock step log; callers fall back
+   * to the workout+steps estimate in `nutritionSummary.ts` when it's missing.
+   */
+  caloriesBurned?: number;
 }
 
 export interface SleepMetadata {
