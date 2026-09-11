@@ -1,7 +1,7 @@
 import type { BodyProfile } from './macroTargets';
 import { calculateMacroTargets } from './macroTargets';
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, WorkoutMetadata } from './health';
-import { totalPetXp, XP_PER_LEVEL, type PetState } from './pet';
+import { XP_PER_LEVEL, type PetState } from './pet';
 import {
   type MacroTotals,
   caloriesBurnedForDay,
@@ -84,13 +84,16 @@ export interface RecapActivity {
 export interface DailyRecap {
   dayKey: string;
   /**
-   * The xp earned today. Read from the real progression system, not a copy of
-   * it: with `dayStartTotalXp` given, this is the pet's current total xp minus
-   * its total at the start of the day — a diff of the actual counter, so it
-   * can never disagree with the pet's own level/xp. Without an anchor (e.g. no
-   * reading has been taken yet), falls back to summing today's stamped
-   * per-event xp, which under-counts any event logged before that stamp
-   * existed.
+   * Σ of every today event's stamped `xpAwarded` (see `recordEvent` in
+   * App.tsx) — the actual xp the engine granted each event, not a
+   * recomputation of it. Zero on an event logged before that stamp existed.
+   *
+   * A day-start "pet total xp minus a snapshot" diff was tried instead and
+   * reverted: it silently folded any of today's activity that happened
+   * before the snapshot was taken into the snapshot itself, so a workout and
+   * a walk logged that morning vanished from the total and only a mind
+   * session played afterwards showed up. Per-event stamps can't do that —
+   * every event that has one always counts.
    */
   xp: number;
   xpByPillar: Record<Pillar, number>;
@@ -112,11 +115,6 @@ export interface DailyRecapInput {
   pet: PetState;
   stepGoal: number;
   day?: Date;
-  /**
-   * The pet's total xp (`totalPetXp`) as of the start of `day`, if a reading
-   * has been taken. Preferred source for `xp` — see the field's own doc.
-   */
-  dayStartTotalXp?: number;
 }
 
 const mindEventsForDay = (events: HealthEvent[], day: Date): HealthEvent<BrainTrainingMetadata>[] => {
@@ -134,25 +132,18 @@ export function buildDailyRecap({
   pet,
   stepGoal,
   day = new Date(),
-  dayStartTotalXp,
 }: DailyRecapInput): DailyRecap {
   const dayKey = toDateKey(day);
   const todays = events.filter((event) => isSameDay(event.occurredAt, day));
 
-  // Per-pillar chips still come from each event's own stamp -- attributing xp
-  // to a pillar needs per-event data an anchor diff cannot give.
   const xpByPillar: Record<Pillar, number> = { gym: 0, outdoors: 0, mind: 0, food: 0 };
-  let xpFromEvents = 0;
+  let xp = 0;
   for (const event of todays) {
     const earned = xpOf(event);
-    xpFromEvents += earned;
+    xp += earned;
     const pillar = PILLAR_OF[event.type];
     if (pillar) xpByPillar[pillar] += earned;
   }
-  const xp =
-    dayStartTotalXp !== undefined
-      ? Math.max(0, totalPetXp(pet) - dayStartTotalXp)
-      : xpFromEvents;
 
   // --- Gym --------------------------------------------------------------
   const workouts = todays.filter(

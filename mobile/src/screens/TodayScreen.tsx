@@ -49,12 +49,6 @@ interface Props {
   profile: BodyProfile;
   stepGoal: number;
   onStepGoalChange: (goal: number) => void;
-  /**
-   * The pet's real total xp (`totalPetXp`) as of the start of today, if a
-   * reading has been taken (see App.tsx). Preferred source for the day's xp
-   * total — see `DailyRecap.xp`. Undefined until the first reading lands.
-   */
-  dayStartTotalXp?: number;
   onTrainMind: () => void;
   /** Optional: the mind pillar hides the action until the navigation is wired. */
   onOpenWordPuzzle?: () => void;
@@ -164,7 +158,6 @@ export function TodayScreen({
   profile,
   stepGoal,
   onStepGoalChange,
-  dayStartTotalXp,
   onTrainMind,
   onOpenWordPuzzle,
   onOpenProfile,
@@ -202,8 +195,8 @@ export function TodayScreen({
   // Keyed on the day string, not the fresh `today` Date each render hands out.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
   const recap: DailyRecap = useMemo(
-    () => buildDailyRecap({ events, profile, pet, stepGoal, day: today, dayStartTotalXp }),
-    [events, profile, pet, stepGoal, todayKey, dayStartTotalXp],
+    () => buildDailyRecap({ events, profile, pet, stepGoal, day: today }),
+    [events, profile, pet, stepGoal, todayKey],
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
   const topInsight = useMemo(() => calculateInsights(events, today)[0] ?? null, [events, todayKey]);
@@ -213,7 +206,6 @@ export function TodayScreen({
   const { gym, outdoors, mind, food, levelProgress } = recap;
   const toLevel = levelProgress.level + 1;
   const petName = pet.name;
-  const dayComplete = recap.dailyProgress >= 100;
 
   return (
     <View style={[layout.screen, { backgroundColor: c.bg }]}>
@@ -265,11 +257,6 @@ export function TodayScreen({
           <Text style={[styles.overMeta, { color: c.soft }]}>
             Level {levelProgress.level} · {levelProgress.xpIntoLevel}/{levelProgress.xpForLevel} to
             level {toLevel}
-          </Text>
-          <Text style={[styles.overMeta, { color: c.soft }]}>
-            {dayComplete
-              ? `Every pillar tended — ${petName} had a good day.`
-              : `${recap.dailyProgress}% of your day so far`}
           </Text>
 
           <View style={[styles.glanceRow, { borderTopColor: c.hairline }]}>

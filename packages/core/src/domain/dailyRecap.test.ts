@@ -161,24 +161,44 @@ describe('buildDailyRecap', () => {
     expect(recap.outdoors.caloriesBurnedFromHealth).toBe(false);
   });
 
-  it("earns xp as the pet's real total-xp gain since a given day-start reading, not the event sum", () => {
-    // No event today is stamped with xpAwarded at all -- exactly the case for
-    // events logged before that stamp existed -- yet the pet's real xp still
-    // climbed today, and the anchor diff must still show it.
+  it('adds every pillar into the daily xp total, not just one of them', () => {
+    // A day-start "pet total minus a snapshot" diff was tried and reverted
+    // here: it silently folded whichever pillars ran before the snapshot was
+    // taken into the snapshot itself, so only the last thing logged (e.g. a
+    // mind session) ever showed up. Per-event stamps can't do that.
     const events: HealthEvent[] = [
-      makeEvent<WorkoutMetadata>('WORKOUT', onDay('08:00'), { workoutType: 'strength', durationMinutes: 40 }),
+      makeEvent<WorkoutMetadata & { xpAwarded: number }>('WORKOUT', onDay('07:00'), {
+        workoutType: 'strength',
+        durationMinutes: 40,
+        xpAwarded: 20,
+      }),
+      makeEvent<StepMetadata & { xpAwarded: number }>('STEP_ACTIVITY', onDay('12:00'), {
+        steps: 8500,
+        xpAwarded: 16,
+      }),
+      makeEvent<MealMetadata & { xpAwarded: number }>('MEAL', onDay('13:00'), {
+        protein: true,
+        vegetables: true,
+        fruit: false,
+        wholeGrains: true,
+        fiber: false,
+        treats: false,
+        xpAwarded: 10,
+      }),
+      makeEvent<BrainTrainingMetadata & { xpAwarded: number }>('BRAIN_TRAINING', onDay('20:00'), {
+        game: 'math',
+        correct: 8,
+        total: 10,
+        durationSeconds: 90,
+        score: 80,
+        xpAwarded: 18,
+      }),
     ];
-    const dayStartTotalXp = pet.level * 100 + pet.xp - 30; // pet gained 30 xp since this morning
 
-    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day, dayStartTotalXp });
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day });
 
-    expect(recap.xp).toBe(30);
-  });
-
-  it('never reports negative xp when the anchor is stale (e.g. a level just rolled over)', () => {
-    const dayStartTotalXp = pet.level * 100 + pet.xp + 50; // anchor ahead of the pet somehow
-    const recap = buildDailyRecap({ events: [], profile, pet, stepGoal: 10000, day, dayStartTotalXp });
-    expect(recap.xp).toBe(0);
+    expect(recap.xp).toBe(64);
+    expect(recap.xpByPillar).toEqual({ gym: 20, outdoors: 16, food: 10, mind: 18 });
   });
 
   it('aggregates multiple workouts into one gym summary', () => {

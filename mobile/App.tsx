@@ -3,8 +3,8 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  withMeasurementSystem, type MeasurementSystem,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, totalPetXp, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
-import { type DayXpAnchor, type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
+import {  withMeasurementSystem, type MeasurementSystem,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
@@ -648,52 +648,6 @@ export default function App() {
     () => (shared ? mergeCareDiary({ ownEvents: events, careLog, members, selfUserId: userId }) : undefined),
     [shared, events, careLog, members, userId],
   );
-
-  /**
-   * The Today recap's "xp earned today" is a diff against this baseline — the
-   * pet's own real total xp (`totalPetXp`) as of the start of the day — rather
-   * than a second xp counter (see dailyRecap.ts). Established once the day's
-   * data has actually loaded (`dataReady`), not on every event logged, so it
-   * is computed from the full event log and then left fixed for the rest of
-   * the day; `todayKey` re-fires it if the app is left open across midnight.
-   */
-  const [dayXpAnchor, setDayXpAnchor] = useState<DayXpAnchor | null>(null);
-  const todayKey = toDateKey(now);
-  useEffect(() => {
-    if (!dataReady || !pet) return;
-    let cancelled = false;
-    void (async () => {
-      const stored = await repository.loadDayXpAnchor();
-      if (cancelled) return;
-      if (stored && stored.dateKey === todayKey && stored.petId === pet.id) {
-        setDayXpAnchor(stored);
-        return;
-      }
-      // A new day (or pet, or first run ever): anchor to the pet's current
-      // total xp, backdated by whatever today's events already show as
-      // earned so a day already under way is not zeroed out.
-      const alreadyEarnedToday = events
-        .filter((event) => isSameDay(event.occurredAt, now))
-        .reduce(
-          (total, event) =>
-            total + Math.max(0, Math.round((event.metadata as { xpAwarded?: number }).xpAwarded ?? 0)),
-          0,
-        );
-      const anchor: DayXpAnchor = {
-        petId: pet.id,
-        dateKey: todayKey,
-        totalXp: Math.max(0, totalPetXp(pet) - alreadyEarnedToday),
-      };
-      await repository.saveDayXpAnchor(anchor);
-      if (!cancelled) setDayXpAnchor(anchor);
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // `events` is read only for the one-time backdate above and must not
-    // retrigger this for every newly logged event during the day.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataReady, pet?.id, todayKey]);
 
   const recordEvent = async (event: HealthEvent<unknown>) => {
     if (!pet) return;
@@ -1505,7 +1459,6 @@ export default function App() {
               profile={profile}
               stepGoal={stepGoal}
               onStepGoalChange={setStepGoal}
-              dayStartTotalXp={dayXpAnchor?.petId === livePet.id ? dayXpAnchor.totalXp : undefined}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenWordPuzzle={() => navigation.navigate('WordPuzzle')}
               onOpenProfile={() => navigation.navigate('Profile')}
