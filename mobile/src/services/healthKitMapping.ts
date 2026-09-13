@@ -21,6 +21,8 @@ import {
 export interface RawStepSample {
   quantity: number;
   startDate: Date;
+  /** Active energy burned today (kcal), queried alongside steps. */
+  caloriesBurned?: number;
 }
 
 export const mapStepSample = (userId: string, sample: RawStepSample): HealthEvent<StepMetadata> => ({
@@ -29,7 +31,10 @@ export const mapStepSample = (userId: string, sample: RawStepSample): HealthEven
   occurredAt: sample.startDate.toISOString(),
   type: 'STEP_ACTIVITY',
   source: 'healthkit',
-  metadata: { steps: Math.round(sample.quantity) },
+  metadata: {
+    steps: Math.round(sample.quantity),
+    ...(sample.caloriesBurned !== undefined ? { caloriesBurned: Math.round(sample.caloriesBurned) } : {}),
+  },
 });
 
 /** Pre-resolved by the provider from the library's WorkoutActivityType enum and Quantity duration. */

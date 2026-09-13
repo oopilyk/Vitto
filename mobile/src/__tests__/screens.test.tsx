@@ -945,15 +945,31 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it("shows only five of today's care events, with a link to the rest", () => {
-    const stepEvents: HealthEvent[] = Array.from({ length: 9 }, (_, index) => ({
-      id: `step-${index}`,
-      userId: 'user-1',
-      occurredAt: new Date().toISOString(),
-      type: 'STEP_ACTIVITY',
-      source: 'mock',
-      metadata: { steps: 6840 },
-    })) as unknown as HealthEvent[];
+  it('sums genuinely distinct step-activity entries into one Outdoors summary, not one row each', () => {
+    // Two separate entries for the same day -- e.g. a manually logged walk
+    // alongside the HealthKit auto-sync reading -- are real additional
+    // activity: the total should add, and still show as one activity line.
+    // (Re-syncing the SAME cumulative HealthKit reading never produces a
+    // second event in the first place -- App.tsx's syncSteps updates the
+    // existing one in place -- so that case can't reach this screen at all.)
+    const stepEvents: HealthEvent[] = [
+      {
+        id: 'step-morning',
+        userId: 'user-1',
+        occurredAt: new Date().toISOString(),
+        type: 'STEP_ACTIVITY',
+        source: 'mock',
+        metadata: { steps: 5000 },
+      },
+      {
+        id: 'step-evening',
+        userId: 'user-1',
+        occurredAt: new Date().toISOString(),
+        type: 'STEP_ACTIVITY',
+        source: 'healthkit',
+        metadata: { steps: 1840 },
+      },
+    ] as unknown as HealthEvent[];
 
     let opened = 0;
     let tree!: renderer.ReactTestRenderer;
@@ -974,23 +990,24 @@ describe('screens render', () => {
       );
     });
 
+    const rendered = JSON.stringify(tree.toJSON());
+    // One aggregated figure -- never a per-sync entry.
+    expect(rendered).toContain('6,840');
     const { Text: RNText } = require('react-native');
-    const rows = tree.root
+    const activityRows = tree.root
       .findAllByType(RNText)
-      .filter((node: any) => node.props.children === 'Went exploring');
-    expect(rows).toHaveLength(5);
+      .filter((node: any) => JSON.stringify(node.props.children).includes('Walked 6,840 steps'));
+    expect(activityRows).toHaveLength(1);
 
-    const more = tree.root
+    const historyLink = tree.root
       .findAll((node: any) => typeof node.props.onPress === 'function')
       .find((node: any) =>
         node
           .findAllByType(RNText)
-          .some((label: any) => JSON.stringify(label.props.children).includes('more today')),
+          .some((label: any) => JSON.stringify(label.props.children).includes('Full history')),
       );
-    expect(more).toBeTruthy();
-    // Nine events, five shown, so four are behind the link.
-    expect(JSON.stringify(more!.findAllByType(RNText)[0].props.children)).toContain('4');
-    act(() => more!.props.onPress());
+    expect(historyLink).toBeTruthy();
+    act(() => historyLink!.props.onPress());
     expect(opened).toBe(1);
     tree.unmount();
   });
@@ -2437,7 +2454,11 @@ describe('care partners', () => {
     tree.unmount();
   });
 
-  it("lists the partner's moments in today's care, named, and still capped at five", () => {
+  it('leaves the partner care diary to Profile — Today shows only the aggregated recap', () => {
+    // The Today screen now derives its activity list from `buildDailyRecap`
+    // (the user's own events only); a partner's raw care-log rows are not
+    // rendered here as a second event list. Full history in Profile still
+    // carries them.
     const careDiary = Array.from({ length: 7 }, (_, index) => ({
       id: `log-${index}`,
       occurredAt: new Date().toISOString(),
@@ -2446,6 +2467,7 @@ describe('care partners', () => {
       actorUserId: 'user-2',
       actorName: 'Alex',
     }));
+    let opened = 0;
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -2456,17 +2478,15 @@ describe('care partners', () => {
           stepGoal={10000}
           onStepGoalChange={() => {}}
           onTrainMind={() => {}}
-          onOpenProfile={() => {}}
+          onOpenProfile={() => {
+            opened += 1;
+          }}
           careDiary={careDiary}
           onRefresh={async () => {}}
           onClose={() => {}}
         />,
       );
     });
-    const rows = tree.root
-      .findAllByType(RNText)
-      .filter((node: any) => node.props.children === 'Alex · Trained together');
-    expect(rows).toHaveLength(5);
     // The refresh control puts a React element in the tree's props, so match on
     // the Text nodes rather than serialising the whole render.
     const texts = tree.root.findAllByType(RNText).map((node: any) =>
@@ -2475,13 +2495,22 @@ describe('care partners', () => {
         .filter((child: unknown) => typeof child === 'string' || typeof child === 'number')
         .join(''),
     );
-    // The link opens Profile, which lists own events only, so partner rows
-    // beyond the preview are not counted as "more".
-    expect(texts.some((children) => children.includes('more today'))).toBe(false);
+    expect(texts).not.toContain('Alex · Trained together');
+
+    const historyLink = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node
+          .findAllByType(RNText)
+          .some((label: any) => JSON.stringify(label.props.children).includes('Full history')),
+      );
+    expect(historyLink).toBeTruthy();
+    act(() => historyLink!.props.onPress());
+    expect(opened).toBe(1);
     tree.unmount();
   });
 
-  it('counts only own moments behind the "more" link on a shared dashboard', () => {
+  it("shows the user's own aggregated activity on a shared pet, regardless of the partner's care diary", () => {
     const now = new Date().toISOString();
     const ownSteps: HealthEvent[] = Array.from({ length: 2 }, (_, index) => ({
       id: `own-${index}`,
@@ -2489,27 +2518,16 @@ describe('care partners', () => {
       occurredAt: now,
       type: 'STEP_ACTIVITY',
       source: 'mock',
-      metadata: { steps: 100 },
+      metadata: { steps: 100 * (index + 1) },
     })) as unknown as HealthEvent[];
-    // Partner rows first, so both own rows fall past the five-row preview.
-    const careDiary = [
-      ...Array.from({ length: 5 }, (_, index) => ({
-        id: `log-${index}`,
-        occurredAt: new Date(Date.now() + 1000).toISOString(),
-        type: 'WORKOUT' as const,
-        label: CARE_LOG_LABEL.WORKOUT,
-        actorUserId: 'user-2',
-        actorName: 'Alex',
-      })),
-      ...ownSteps.map((event) => ({
-        id: event.id,
-        occurredAt: event.occurredAt,
-        type: event.type,
-        label: CARE_LOG_LABEL[event.type],
-        actorUserId: 'user-1',
-        actorName: null,
-      })),
-    ];
+    const careDiary = Array.from({ length: 5 }, (_, index) => ({
+      id: `log-${index}`,
+      occurredAt: new Date(Date.now() + 1000).toISOString(),
+      type: 'WORKOUT' as const,
+      label: CARE_LOG_LABEL.WORKOUT,
+      actorUserId: 'user-2',
+      actorName: 'Alex',
+    }));
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
@@ -2526,14 +2544,10 @@ describe('care partners', () => {
         />,
       );
     });
-    const texts = tree.root.findAllByType(RNText).map((node: any) =>
-      [node.props.children]
-        .flat()
-        .filter((child: unknown) => typeof child === 'string' || typeof child === 'number')
-        .join(''),
-    );
-    // Two own rows are hidden behind the preview and are exactly what Profile lists.
-    expect(texts).toContain('2 more today →');
+    const rendered = JSON.stringify(tree.toJSON());
+    // Two distinct step-activity entries for the day -- real activity, summed.
+    expect(rendered).toContain('300');
+    expect(rendered).not.toContain('Alex · Trained together');
     tree.unmount();
   });
 

@@ -1,16 +1,72 @@
 import {
   type BodyProfile,
   type HealthEvent,
+  type PetDelta,
+  type PetHealthContext,
   type PetHealthEngine,
   type PetReaction,
   type PetSaveResult,
   type PetState,
+  type StepMetadata,
   applyDelta,
   applyTimeDecay,
   assessCondition,
-  calculateStreaks,
-  getEventsForDay,
+  calculateQualifyingStreaks,
+  createsNewStreakDay,
+  totalPetXp,
 } from '@vitto/core';
+
+const PET_DELTA_KEYS: (keyof PetDelta)[] = [
+  'health',
+  'energy',
+  'happiness',
+  'nutrition',
+  'strength',
+  'pushingStrength',
+  'pullingStrength',
+  'legStrength',
+  'endurance',
+  'recovery',
+  'mind',
+  'xp',
+];
+
+/** `after` minus `before`, key by key — only the keys that actually changed. */
+const diffDelta = (before: PetDelta, after: PetDelta): PetDelta => {
+  const diff: PetDelta = {};
+  for (const key of PET_DELTA_KEYS) {
+    const change = (after[key] ?? 0) - (before[key] ?? 0);
+    if (change !== 0) diff[key] = change;
+  }
+  return diff;
+};
+
+/**
+ * The reward top-up for a step re-sync that pushes the day's total across a
+ * threshold the engine only ever checks once per event (see
+ * `PetHealthEngine`'s `STEP_ACTIVITY` case, e.g. its 8,000-step milestone).
+ * The first sync of the day already ran the full engine once, against
+ * whatever the count was at that moment — often too low to register a
+ * milestone the day goes on to reach. This computes the SAME formula's output
+ * for `event`'s (new) step count minus its output for `previousSteps`, so
+ * crossing the milestone at 4pm is worth exactly what crossing it at 9am
+ * would have been, without re-paying the base reward already granted.
+ */
+export const stepSyncTopUp = (
+  engine: Pick<PetHealthEngine, 'apply'>,
+  pet: PetState,
+  event: HealthEvent<StepMetadata>,
+  previousSteps: number,
+  context: PetHealthContext = {},
+): PetDelta => {
+  const before = engine.apply(
+    pet,
+    { ...event, metadata: { ...event.metadata, steps: previousSteps } },
+    context,
+  ).reaction.delta;
+  const after = engine.apply(pet, event, context).reaction.delta;
+  return diffDelta(before, after);
+};
 
 /**
  * A care moment, from "the user did something healthy" to "the pet's row is
@@ -48,13 +104,26 @@ export interface CareMomentInput {
 export interface CareMomentPlan {
   pet: PetState;
   reaction: PetReaction;
+  /**
+   * The total xp this moment actually granted — the pet's real before/after
+   * total, not `reaction.delta.xp` alone. A streak milestone or the revival
+   * bonus below *replaces* `reaction` (so its message is the one shown), which
+   * would otherwise mean its xp silently overwrote the base event's instead of
+   * adding to it. This is what callers should persist as "xp earned".
+   */
+  xpGranted: number;
 }
 
 /** Pure: decay from the stored anchor, the engine, then the streak and revival bonuses. */
 export const planCareMoment = ({ pet, event, events, profile, engine }: CareMomentInput): CareMomentPlan => {
   const eventDay = new Date(event.occurredAt);
-  const wasActiveToday = getEventsForDay(events, eventDay).length > 0;
+  // Whether logging `event` is what turns its own day into a NEW qualifying
+  // streak day -- the one gate for the streak-milestone bonus below. Not "was
+  // there any event today": a sleep sync or a second meal must never look
+  // like a fresh streak day just because it's technically the day's Nth event.
+  const newStreakDay = createsNewStreakDay(events, event);
   const decayed = applyTimeDecay(pet, eventDay);
+  const xpBefore = totalPetXp(decayed);
   // Read before the event lands: the point is whether this care moment is the
   // one that arrived at the brink, not where it left the pet afterwards.
   const wasDying = assessCondition(decayed).primary === 'dying';
@@ -64,8 +133,8 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
   let nextPet = result.pet;
   let nextReaction = result.reaction;
 
-  if (!wasActiveToday) {
-    const projected = calculateStreaks([...events, event], eventDay).currentStreak;
+  if (newStreakDay) {
+    const projected = calculateQualifyingStreaks([...events, event], eventDay).currentStreak;
     if (STREAK_MILESTONES.includes(projected)) {
       const bonus = { xp: STREAK_MILESTONE_BONUS_XP, happiness: 10 };
       nextPet = applyDelta(nextPet, bonus, event.occurredAt);
@@ -88,7 +157,7 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
     };
   }
 
-  return { pet: nextPet, reaction: nextReaction };
+  return { pet: nextPet, reaction: nextReaction, xpGranted: totalPetXp(nextPet) - xpBefore };
 };
 
 /** The two remote calls the commit loop needs; `SupabaseRepository` satisfies it directly. */
@@ -128,7 +197,12 @@ export const commitCareMoment = async ({
 
     const outcome = await remote.savePetIfUnchanged(plan.pet, base.version ?? 0);
     if (outcome.status === 'saved') {
-      return { pet: { ...plan.pet, version: outcome.version }, reaction: plan.reaction, attempts: attempt };
+      return {
+        pet: { ...plan.pet, version: outcome.version },
+        reaction: plan.reaction,
+        xpGranted: plan.xpGranted,
+        attempts: attempt,
+      };
     }
 
     // Somebody else wrote first. Never resend: their write moved the decay

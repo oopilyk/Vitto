@@ -1,7 +1,7 @@
 import type { HealthEvent } from './health';
 import type { BodyProfile } from './macroTargets';
 import { hasEvolved, type PetState } from './pet';
-import { calculateStreaks } from './streaks';
+import { calculateQualifyingStreaks } from './streaks';
 import { TROPHY_IDS, TROPHY_LABEL, type TrophyId, trophyRule } from './trophies';
 
 /**
@@ -101,7 +101,7 @@ export interface AchievementInput {
  */
 export const earnedAchievements = ({ events, pet, trophies, today = new Date() }: AchievementInput): AchievementId[] => {
   const has = (type: HealthEvent['type']) => events.some((event) => event.type === type);
-  const streaks = calculateStreaks(events, today);
+  const streaks = calculateQualifyingStreaks(events, today);
   const earned = new Set<AchievementId>();
 
   if (events.length > 0) earned.add('first_care');

@@ -3,9 +3,9 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
-import { careConflictMessage, commitCareMomentForAll } from './src/services/careMoment';
+import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
@@ -22,6 +22,7 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
+import { detectNewStreakDay } from './src/celebrations/detectNewStreakDay';
 import type { CelebrationEvent } from './src/celebrations/types';
 import { readCurrentLocation, useAtGym, useWalking } from './src/services/ambient';
 import {
@@ -718,12 +719,26 @@ export default function App() {
       );
       // The reaction shown is the on-screen pet's; the others are fed quietly.
       const nextPet = fanOut.pets.find((candidate) => candidate.id === pet.id) ?? pet;
-      const nextReaction =
-        fanOut.results.find((result) => result.pet.id === pet.id)?.reaction ??
-        fanOut.results[0]?.reaction;
+      const nextResult = fanOut.results.find((result) => result.pet.id === pet.id) ?? fanOut.results[0];
+      const nextReaction = nextResult?.reaction;
+
+      // Stamp the XP this moment actually granted onto the persisted event, so
+      // the Today recap can total the day's XP from the real log instead of
+      // keeping its own counter. `xpGranted` is the pet's real before/after xp
+      // difference (see careMoment.ts) — not `reaction.delta.xp`, which only
+      // carries the *last* bonus when a streak milestone or the revival bonus
+      // overrides the shown message, and would otherwise under-stamp the rest.
+      // Read back with `?? 0` for older events, logged before this existed.
+      const storedEvent: HealthEvent<unknown> = {
+        ...event,
+        metadata: {
+          ...(event.metadata as Record<string, unknown>),
+          xpAwarded: nextResult?.xpGranted ?? 0,
+        },
+      };
 
       if (remote) {
-        await withTimeout(remote.saveEvent(event), SAVE_TIMEOUT_MESSAGE);
+        await withTimeout(remote.saveEvent(storedEvent), SAVE_TIMEOUT_MESSAGE);
         // The partner's view of this moment: a type and a time, nothing more.
         // Best effort, and only once there is a partner to see it — the log
         // starts at pairing, so nobody inherits a history they were not part of.
@@ -734,7 +749,7 @@ export default function App() {
         }
       }
       await repository.savePet(nextPet);
-      await repository.saveEvent(event);
+      await repository.saveEvent(storedEvent);
       setPets(fanOut.pets);
 
       // The one place a level-up can originate in normal play: a care moment,
@@ -746,19 +761,28 @@ export default function App() {
       const levelUp = detectLevelUp(pet, nextPet);
       if (levelUp) {
         setCelebration((current) =>
-          current ? { ...current, level: Math.max(current.level, levelUp.level) } : levelUp,
+          current?.kind === 'levelUp' ? { ...current, level: Math.max(current.level, levelUp.level) } : levelUp,
         );
       }
 
-      // The celebration is the acknowledgement for a level-up moment, so the
-      // banner/toast would only stack behind it and then flash on dismissal.
-      if (!levelUp) {
+      // A level-up already claims the celebration slot for this moment; a new
+      // streak day is the other thing worth taking over the screen for. Reads
+      // `events` from *before* this write lands — the exact before/after shape
+      // `detectNewStreakDay` needs to tell "today just became qualifying" apart
+      // from "today already was" (a second meal, a workout later the same day).
+      const streakDay = levelUp ? null : detectNewStreakDay(events, storedEvent, pet.id);
+      if (streakDay) setCelebration(streakDay);
+
+      // The celebration is the acknowledgement for a level-up or new streak
+      // day, so the banner/toast would only stack behind it and then flash on
+      // dismissal.
+      if (!levelUp && !streakDay) {
         if (nextReaction) showReaction(nextReaction);
         // Every logged moment is acknowledged, reaction or not — that is the
         // whole point of the toast being separate from the pet's mood line.
         showCareToast(careToast(event, nextReaction?.delta ?? {}, nextReaction?.effects));
       }
-      setEvents((current) => [event, ...current]);
+      setEvents((current) => [storedEvent, ...current]);
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save this care moment.'));
@@ -1037,8 +1061,59 @@ export default function App() {
         }
       }
       interaction.startExploring();
-      const event = await stepsProvider.getTodaySteps(userId);
-      await recordEvent(event as HealthEvent<StepMetadata>);
+      const event = (await stepsProvider.getTodaySteps(userId)) as HealthEvent<StepMetadata>;
+      const newSteps = event.metadata.steps ?? 0;
+
+      // One STEP_ACTIVITY per day: the first sync is a real care moment (engine,
+      // XP, "Went exploring"); every re-sync after that just corrects the count
+      // on that same row, no second XP and no second diary line.
+      const today = new Date();
+      const existing = events.find(
+        (candidate) => candidate.type === 'STEP_ACTIVITY' && isSameDay(candidate.occurredAt, today),
+      );
+      if (existing) {
+        const had = (existing.metadata as StepMetadata).steps ?? 0;
+        if (newSteps > had) {
+          const updated: HealthEvent<StepMetadata> = {
+            ...(existing as HealthEvent<StepMetadata>),
+            occurredAt: today.toISOString(),
+            metadata: { ...(existing.metadata as StepMetadata), steps: newSteps },
+          };
+
+          // The first sync of the day already ran the full engine once,
+          // against whatever the count was at that moment -- often too low to
+          // register a milestone the day's steps go on to reach. Top up just
+          // the difference, via the SAME formula, so reaching 8,000 steps at
+          // 4pm counts the same as it would have at 9am, without re-paying
+          // the reward already granted at the first sync.
+          if (pet) {
+            const topUp = stepSyncTopUp(engine, pet, updated, had, {
+              history: events,
+              bodyWeightKg: profile.weightKg,
+            });
+            if (topUp.xp) {
+              const toppedUpPet = applyDelta(pet, topUp, today.toISOString());
+              if (isSupabaseConfigured && session) {
+                const outcome = await remoteRepository.savePetIfUnchanged(toppedUpPet, pet.version ?? 0);
+                if (outcome.status === 'saved') setPet({ ...toppedUpPet, version: outcome.version });
+              } else {
+                await repository.savePet(toppedUpPet);
+                setPet(toppedUpPet);
+              }
+              updated.metadata.xpAwarded =
+                ((existing.metadata as { xpAwarded?: number }).xpAwarded ?? 0) + (topUp.xp ?? 0);
+            }
+          }
+
+          if (isSupabaseConfigured && session) await remoteRepository.replaceEvent(updated);
+          await repository.replaceEvent(updated);
+          setEvents((current) =>
+            current.map((candidate) => (candidate.id === existing.id ? updated : candidate)),
+          );
+        }
+      } else {
+        await recordEvent(event);
+      }
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause, 'Could not sync steps.'));
