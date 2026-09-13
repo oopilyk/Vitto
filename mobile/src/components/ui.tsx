@@ -156,7 +156,12 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
   textButton: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 0.5 },
-  field: { marginTop: 14, flexGrow: 1, flexShrink: 1, flexBasis: 130, minWidth: 0 },
+  // `flexBasis: 'auto'`, not 130: a Field sits in two kinds of parent. In a
+  // two-up row the basis is width, and 130 was a sensible floor. In the usual
+  // column it became HEIGHT — every field 130px tall — which on web opened a
+  // hand's width of empty space between one field and the next. Auto sizes to
+  // content either way; `flexGrow` still splits a row evenly.
+  field: { marginTop: 14, flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minWidth: 0 },
   fieldLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginBottom: 7, letterSpacing: 0.5 },
   fieldHint: { color: colors.faint },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 12 },

@@ -51,7 +51,12 @@ export const signUpWithEmail = (
     },
   });
 
-export const signOut = () => requireClient().auth.signOut();
+/**
+ * `global` (the default) revokes the session server-side too. `local` only
+ * clears this device — what account deletion needs, since its user no longer
+ * exists to revoke anything for.
+ */
+export const signOut = (scope: 'global' | 'local' = 'global') => requireClient().auth.signOut({ scope });
 
 export const getSession = () => requireClient().auth.getSession();
 

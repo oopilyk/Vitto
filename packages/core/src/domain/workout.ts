@@ -8,16 +8,28 @@ export const exerciseLibrary = [
 ] as const;
 
 /**
- * A starting load, in whichever unit the lifter uses. 20 kg and 45 lb are both
- * "an empty barbell", so the suggestion means the same thing either way — 20 lb
- * would be a mystery number to someone working in pounds.
+ * A starting load, in whichever unit the lifter uses, by what the exercise is.
+ *
+ * Big compound lifts (chest, back, legs) start at an empty barbell — 20 kg and
+ * 45 lb are the same bar, so the suggestion means the same thing either way.
+ * Everything else — shoulders, arms, core, cardio — is dumbbell-and-cable
+ * territory, where 45 lb for a bicep curl is not a starting point but a
+ * warning. Those start at a light dumbbell. Only a starting point: the first
+ * time it is trained, the routine remembers what was actually lifted.
  */
-const STARTING_WEIGHT: Record<WeightUnit, number> = { kg: 20, lb: 45 };
+const BARBELL_GROUPS: ReadonlySet<string> = new Set(['chest', 'back', 'legs']);
+const STARTING_WEIGHT: Record<'barbell' | 'dumbbell', Record<WeightUnit, number>> = {
+  barbell: { kg: 20, lb: 45 },
+  dumbbell: { kg: 8, lb: 15 },
+};
 
-const newSet = (bodyweight: boolean, unit: WeightUnit): WorkoutSet => ({
+export const startingWeight = (muscleGroup: string, unit: WeightUnit): number =>
+  STARTING_WEIGHT[BARBELL_GROUPS.has(muscleGroup) ? 'barbell' : 'dumbbell'][unit];
+
+const newSet = (bodyweight: boolean, unit: WeightUnit, muscleGroup: string): WorkoutSet => ({
   id: newId(),
   reps: 8,
-  weight: bodyweight ? undefined : STARTING_WEIGHT[unit],
+  weight: bodyweight ? undefined : startingWeight(muscleGroup, unit),
   unit,
   completed: false,
 });
@@ -27,7 +39,7 @@ const newSet = (bodyweight: boolean, unit: WeightUnit): WorkoutSet => ({
  * the lifter's own unit — the set records what its number means, so a workout
  * logged in pounds still reads as pounds later.
  */
-export const createExercise = (name: string, muscleGroup: string, bodyweight = false, unit: WeightUnit = 'kg'): WorkoutExercise => ({ id: newId(), name, muscleGroup, bodyweight, sets: [newSet(bodyweight, unit)] });
+export const createExercise = (name: string, muscleGroup: string, bodyweight = false, unit: WeightUnit = 'kg'): WorkoutExercise => ({ id: newId(), name, muscleGroup, bodyweight, sets: [newSet(bodyweight, unit, muscleGroup)] });
 
 export const calculateWorkoutStats = (exercises: WorkoutExercise[], durationMinutes: number): WorkoutStats => {
   const volumeByMuscleGroup: Record<string, number> = {};
@@ -70,7 +82,7 @@ export const addSet = (exercise: WorkoutExercise, unit?: WeightUnit): WorkoutExe
   ...exercise,
   sets: [
     ...exercise.sets,
-    newSet(Boolean(exercise.bodyweight), unit ?? exercise.sets[exercise.sets.length - 1]?.unit ?? 'kg'),
+    newSet(Boolean(exercise.bodyweight), unit ?? exercise.sets[exercise.sets.length - 1]?.unit ?? 'kg', exercise.muscleGroup),
   ],
 });
 export const updateSet = (exercise: WorkoutExercise, setId: string, patch: Partial<WorkoutSet>): WorkoutExercise => ({ ...exercise, sets: exercise.sets.map((set) => set.id === setId ? { ...set, ...patch } : set) });

@@ -119,10 +119,25 @@ const mindEventsForDay = (
   });
 };
 
+/**
+ * One stat tile. A single long word ("Balanced") used to break mid-word in the
+ * narrow tile — "Balance / d" — so a value that is one word longer than the
+ * numerals steps down a size and is pinned to one line. `adjustsFontSizeToFit`
+ * covers native; react-native-web ignores it, which is why the size is chosen
+ * here rather than left to the renderer.
+ */
 function Fact({ label, value }: { label: string; value: string }) {
+  const long = value.length > 6;
   return (
     <View style={styles.fact}>
-      <Text style={styles.factValue}>{value}</Text>
+      <Text
+        style={[styles.factValue, long && styles.factValueLong]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
+        {value}
+      </Text>
       <Text style={styles.factLabel}>{label}</Text>
     </View>
   );
@@ -356,6 +371,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   factValue: { fontSize: 20, fontWeight: '700', color: colors.ink },
+  factValueLong: { fontSize: 15 },
   factLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 3 },
   moodRow: { marginTop: 18 },
   moodValue: { fontSize: 14, fontWeight: '600', color: colors.ink },

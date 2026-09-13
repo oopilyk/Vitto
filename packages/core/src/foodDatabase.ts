@@ -194,17 +194,29 @@ export const searchFoodsByName = async (query: string): Promise<FoodSearchResult
     usdaFailure = cause;
   }
 
-  try {
-    const results = await searchOpenFoodFacts(trimmed);
-    if (results.length > 0) return results;
-  } catch {
-    // Swallowed on purpose: if USDA also failed, its error names the actual
-    // problem (a missing key), which is more useful than "OpenFoodFacts is down".
+  // Not from a browser. OpenFoodFacts' text search (`cgi/search.pl`) sends no
+  // CORS headers, so a page can never read the response — the request fails
+  // every time and leaves a CORS error in the console. Its alternatives do not
+  // help: `search.openfoodfacts.org` returns hits without nutrients, and
+  // `/api/v2/search` allows CORS but ignores free text. Native has no CORS and
+  // keeps the fallback. (Checked against the live endpoints, 2026-09-13.)
+  if (!isBrowser()) {
+    try {
+      const results = await searchOpenFoodFacts(trimmed);
+      if (results.length > 0) return results;
+    } catch {
+      // Swallowed on purpose: if USDA also failed, its error names the actual
+      // problem (a missing key), which is more useful than "OpenFoodFacts is down".
+    }
   }
 
   if (usdaFailure) throw usdaFailure;
   return [];
 };
+
+/** A real browser page — react-native-web — as opposed to native or a test runner. */
+const isBrowser = (): boolean =>
+  typeof document !== 'undefined' && typeof (document as { createElement?: unknown }).createElement === 'function';
 
 interface OpenFoodFactsProduct {
   product_name?: string;

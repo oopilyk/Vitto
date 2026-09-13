@@ -2,6 +2,8 @@ import { Image, View } from 'react-native';
 import { CELL, SHEET_COLUMNS, SHEET_ROWS, type PetSheet } from './petSprites';
 
 interface Props {
+  /** Fires once the sheet's image has arrived — a caller can show a placeholder until then. */
+  onLoad?: () => void;
   sheet: PetSheet;
   /** [row, column] cell of the sheet to show. */
   frame: readonly [number, number];
@@ -17,7 +19,7 @@ interface Props {
  * One cell of a sprite sheet: a window `size` across with the whole sheet slid
  * behind it. Used both by the animated avatar and by the still previews in pickers.
  */
-export function SpriteFrame({ sheet, frame, size, tintColor }: Props) {
+export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
   const scale = size / CELL;
   const columns = sheet.columns ?? SHEET_COLUMNS;
   const rows = sheet.rows ?? SHEET_ROWS;
@@ -28,6 +30,7 @@ export function SpriteFrame({ sheet, frame, size, tintColor }: Props) {
       <Image
         source={sheet.source}
         tintColor={tintColor}
+        onLoad={onLoad}
         resizeMode="stretch"
         style={{
           width: CELL * columns * scale,

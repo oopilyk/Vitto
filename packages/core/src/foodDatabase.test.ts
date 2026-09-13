@@ -108,6 +108,22 @@ describe('searchFoodsByName — falling back to OpenFoodFacts', () => {
     expect(results.map((r) => r.name)).toEqual(['Real Food']);
   });
 
+  it('does not try OpenFoodFacts from a browser, where CORS makes it fail every time', async () => {
+    const calls = mockFetchByHost({
+      usda: () => ({ ok: false, status: 429 }),
+      off: () => ({ ok: true, body: { products: [offProduct('Never asked', 100)] } }),
+    });
+    // The shape react-native-web runs in: a document with createElement.
+    vi.stubGlobal('document', { createElement: () => ({}) });
+    try {
+      await expect(searchFoodsByName('pizza')).rejects.toThrow(/out of requests/i);
+      // One request: USDA. OpenFoodFacts was never contacted.
+      expect(calls).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('reports the USDA problem, not the fallback\'s, when both fail', async () => {
     mockFetchByHost({
       usda: () => ({ ok: false, status: 429 }),

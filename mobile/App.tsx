@@ -117,6 +117,8 @@ const REACTION_VISIBLE_MS = 6000;
  * and it sits over the scene rather than in a line of its own.
  */
 const CARE_TOAST_VISIBLE_MS = 3200;
+/** How long typing can go on before the profile is written. */
+const PROFILE_SAVE_DEBOUNCE_MS = 600;
 const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
 
 /**
@@ -428,6 +430,13 @@ export default function App() {
   // Local storage is async on device, so the first load happens in an effect
   // rather than in a state initialiser the way the web build could.
   useEffect(() => {
+    // Not until the session is known. This effect used to run on mount with
+    // `session` still null — before `getSession` had restored it — take the
+    // local branch, and flip `dataReady` with an empty pet list. The moment the
+    // session then landed, one render saw "ready, signed in, no pet" and drew
+    // onboarding for ~100ms before the real load reset the gate. Every launch
+    // flashed "Step 1 of 8" at an account that had a pet.
+    if (!authReady) return;
     let cancelled = false;
     setDataReady(false);
     setPetLoadFailed(false);
@@ -530,7 +539,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [session, reloadToken]);
+  }, [authReady, session, reloadToken]);
 
   const persistProfile = async (next: BodyProfile) => {
     setProfile(next);
@@ -558,14 +567,37 @@ export default function App() {
     });
   };
 
+  /**
+   * Profile writes are coalesced: the survey saved on every keystroke, so one
+   * pass through onboarding was a dozen PATCHes and typing "28" into Age was
+   * two. State updates immediately (the UI never waits); only the save trails,
+   * and any pending save is flushed when the profile is next read back.
+   */
+  const profileSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingProfile = useRef<BodyProfile | null>(null);
+  const flushProfileSave = () => {
+    if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current);
+    profileSaveTimer.current = null;
+    const next = pendingProfile.current;
+    pendingProfile.current = null;
+    if (!next) return;
+    if (isSupabaseConfigured && session) {
+      void remoteRepository.saveProfile(next).catch(() => undefined);
+    } else {
+      void repository.saveProfile(next);
+    }
+  };
+  const queueProfileSave = (next: BodyProfile) => {
+    pendingProfile.current = next;
+    if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current);
+    profileSaveTimer.current = setTimeout(flushProfileSave, PROFILE_SAVE_DEBOUNCE_MS);
+  };
+  useEffect(() => () => flushProfileSave(), []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const updateProfile = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => {
     setProfile((current) => {
       const next = { ...current, [key]: value };
-      if (isSupabaseConfigured && session) {
-        void remoteRepository.saveProfile(next).catch(() => undefined);
-      } else {
-        void repository.saveProfile(next);
-      }
+      queueProfileSave(next);
       return next;
     });
   };
@@ -886,7 +918,9 @@ export default function App() {
     try {
       await remoteRepository.deleteAccount();
       await repository.clear();
-      await signOut();
+      // Local only: the server-side user is already gone, and a global sign-out
+      // would ask it to revoke a session for a user that no longer exists (403).
+      await signOut('local');
     } catch (cause) {
       setError(errorMessage(cause, 'Could not delete your account.'));
     } finally {
