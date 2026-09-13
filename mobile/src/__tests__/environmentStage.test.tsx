@@ -93,4 +93,18 @@ describe('EnvironmentStage pet tap reaction', () => {
     act(() => layer!.props.onHoverOut());
     tree.unmount();
   });
+
+  it('floats a reaction emote above the pet only after it is tapped', () => {
+    const tree = render(() => {});
+    const emotes = () =>
+      tree.root
+        .findAllByType(Text)
+        .map((node) => node.props.children)
+        .filter((child) => typeof child === 'string' && /\p{Extended_Pictographic}/u.test(child));
+
+    expect(emotes()).toHaveLength(0);
+    act(() => petLayer(tree)!.props.onPress());
+    expect(emotes().length).toBeGreaterThan(0);
+    tree.unmount();
+  });
 });
