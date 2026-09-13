@@ -68,6 +68,14 @@ export function CareToastBanner({ toast, night }: { toast?: CareToast | null; ni
           },
         ]}
       >
+        {/* The food effect leads: "That was hot!" is the line worth reading,
+            and the tags say what the pet is now wearing. */}
+        {shown.effect ? (
+          <>
+            <Text style={styles.effectLine}>{shown.effect.line}</Text>
+            <Text style={styles.effectTags}>{shown.effect.tags.map((tag) => tag.toUpperCase()).join(' · ')}</Text>
+          </>
+        ) : null}
         <Text style={styles.headline}>{shown.headline}</Text>
         {shown.detail ? <Text style={styles.detail}>{shown.detail}</Text> : null}
       </Animated.View>
@@ -100,6 +108,15 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   toastNight: { backgroundColor: 'rgba(28,22,20,0.9)' },
+  effectLine: { fontSize: 17, fontWeight: '700', color: '#ffd36b', textAlign: 'center', marginBottom: 2 },
+  effectTags: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: 'rgba(255,211,107,0.85)',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
   headline: { fontSize: 14, fontWeight: '700', color: '#efe5d0', textAlign: 'center' },
   detail: {
     fontFamily: fonts.mono,

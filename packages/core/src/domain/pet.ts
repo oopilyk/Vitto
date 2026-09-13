@@ -1,3 +1,4 @@
+import type { FoodEffect } from './foodEffects';
 import { newId } from './ids';
 
 export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
@@ -100,6 +101,11 @@ export interface PetReaction {
   message: string;
   eventLabel: string;
   delta: PetDelta;
+  /**
+   * What the meal did, as tags — "Spicy", "Sugar rush". Only ever set for a
+   * MEAL, and only when the plate earned any. See `foodEffects.ts`.
+   */
+  effects?: FoodEffect[];
 }
 
 // Pet stats are whole numbers everywhere they are stored (integer columns) and shown,

@@ -1,5 +1,6 @@
 import type { HealthEvent, BrainTrainingMetadata, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import type { PetDelta } from './pet';
+import type { FoodEffect } from './foodEffects';
 
 /**
  * The confirmation shown the moment a care moment is logged: what was recorded,
@@ -170,9 +171,18 @@ export interface CareToast {
   headline: string;
   /** What it did to the pet, or null when no stat moved. */
   detail: string | null;
+  /**
+   * The plate's food effect, when a meal earned one: the pet's line ("That was
+   * hot!") and the tags it now wears ("Spicy · Cozy"). Absent for everything
+   * that is not a meal, and for a meal with nothing to say.
+   */
+  effect?: { line: string; tags: string[] };
 }
 
-export const careToast = (event: HealthEvent, delta: PetDelta): CareToast => ({
+export const careToast = (event: HealthEvent, delta: PetDelta, effects: readonly FoodEffect[] = []): CareToast => ({
   headline: describeLoggedEvent(event),
   detail: describeDelta(delta),
+  ...(effects.length > 0
+    ? { effect: { line: effects[0].reaction, tags: effects.map((effect) => effect.label) } }
+    : {}),
 });

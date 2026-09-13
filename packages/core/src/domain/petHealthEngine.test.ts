@@ -492,3 +492,31 @@ describe('applyDelta lastEventAt', () => {
     expect(next.lastEventAt).toBe('2026-09-08T12:00:00.000Z');
   });
 });
+
+describe('food effects on a meal', () => {
+  const engine = new PetHealthEngine();
+  const pet = createPet('user-1', 'Miso');
+  const mealEvent = (description: string) => ({
+    id: 'meal-fx',
+    userId: 'user-1',
+    occurredAt: '2026-09-13T12:00:00Z',
+    type: 'MEAL' as const,
+    source: 'manual' as const,
+    metadata: {
+      protein: true, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false,
+      analysis: { foodDescription: description, grade: 'B' as const, summary: description, confidence: 1, detectedFoods: [], macros: { calories: 400, proteinGrams: 15, carbsGrams: 40, fatGrams: 12 }, nutrients: { protein: true, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false } },
+    },
+  });
+
+  it('carries the plate\'s effects on the reaction and nudges the stats', () => {
+    const plain = engine.apply(pet, mealEvent('Plain rice'));
+    const spicy = engine.apply(pet, mealEvent('Spicy chicken curry'));
+    expect(plain.reaction.effects).toBeUndefined();
+    expect(spicy.reaction.effects?.map((e) => e.id)).toEqual(['spicy']);
+    expect(spicy.reaction.effects?.[0].reaction).toBe('That was hot!');
+    // The spicy nudge (+2 energy) rides on top of the meal's own delta.
+    expect(spicy.pet.energy).toBe(plain.pet.energy + 2);
+    // The meal's own copy is untouched — the effect is a second line, not a replacement.
+    expect(spicy.reaction.message).toContain('loved the variety');
+  });
+});

@@ -756,7 +756,7 @@ export default function App() {
         if (nextReaction) showReaction(nextReaction);
         // Every logged moment is acknowledged, reaction or not — that is the
         // whole point of the toast being separate from the pet's mood line.
-        showCareToast(careToast(event, nextReaction?.delta ?? {}));
+        showCareToast(careToast(event, nextReaction?.delta ?? {}, nextReaction?.effects));
       }
       setEvents((current) => [event, ...current]);
       setError(null);

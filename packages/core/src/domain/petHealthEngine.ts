@@ -2,6 +2,7 @@ import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetada
 import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
 import { clamp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { formatMinutes } from './careToast';
+import { type FoodEffect, detectFoodEffects, foodEffectsDelta } from './foodEffects';
 import { workoutStrengthDelta } from './strengthProgression';
 
 export interface EngineResult {
@@ -73,6 +74,15 @@ const laterOf = (anchor: string | undefined, occurredAt: string): string => {
   const anchorTime = Date.parse(anchor);
   const eventTime = Date.parse(occurredAt);
   return Number.isFinite(anchorTime) && Number.isFinite(eventTime) && anchorTime > eventTime ? anchor : occurredAt;
+};
+
+/** Two deltas, field by field. */
+const mergeDelta = (base: PetDelta, extra: PetDelta): PetDelta => {
+  const merged: PetDelta = { ...base };
+  for (const [key, value] of Object.entries(extra) as [keyof PetDelta, number][]) {
+    merged[key] = (merged[key] ?? 0) + value;
+  }
+  return merged;
 };
 
 export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): PetState => {
@@ -148,6 +158,7 @@ export class PetHealthEngine {
     let delta: PetDelta;
     let message: string;
     let eventLabel: string;
+    let foodEffects: FoodEffect[] = [];
 
     switch (event.type) {
       case 'WORKOUT': {
@@ -209,6 +220,10 @@ export class PetHealthEngine {
         const meal = event.metadata as unknown as MealMetadata;
         const nourishingSignals = [meal.protein, meal.vegetables, meal.fruit, meal.wholeGrains, meal.fiber].filter(Boolean).length;
         delta = { nutrition: nourishingSignals * 3, health: nourishingSignals >= 3 ? 2 : 0, happiness: meal.treats ? 4 : 2, energy: nourishingSignals >= 3 ? 3 : 0, xp: 10 };
+        // Food effects ride on top: a spicy plate is a little energising, a feast
+        // a little sleepy. Small by design — flavour, not a second nutrition engine.
+        foodEffects = detectFoodEffects(meal);
+        if (foodEffects.length > 0) delta = mergeDelta(delta, foodEffectsDelta(foodEffects));
         message = meal.treats ? `${pet.name} savored the treat. Balance feels good.` : `${pet.name} loved the variety in that meal.`;
         eventLabel = 'Shared a meal';
         break;
@@ -255,6 +270,9 @@ export class PetHealthEngine {
         eventLabel = 'A healthy moment';
     }
 
-    return { pet: applyDelta(pet, delta, event.occurredAt), reaction: { message, eventLabel, delta } };
+    return {
+      pet: applyDelta(pet, delta, event.occurredAt),
+      reaction: { message, eventLabel, delta, ...(foodEffects.length > 0 ? { effects: foodEffects } : {}) },
+    };
   }
 }

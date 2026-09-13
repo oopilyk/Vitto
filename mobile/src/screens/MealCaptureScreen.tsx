@@ -11,7 +11,7 @@ import {
   View, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
 import { analyzeMealImage, type PickedImage } from '../services/mealAnalysis';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
@@ -348,6 +348,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 }
 
 function AnalysisCard({ analysis }: { analysis: MealAnalysis }) {
+  // What this plate will do, shown before it is logged — the same read the
+  // toast and the pet will give afterwards, so nothing about it is a surprise.
+  const effects = detectFoodEffects({ ...analysis.nutrients, analysis });
   return (
     <View style={styles.analysis}>
       <View style={styles.grade}>
@@ -371,6 +374,16 @@ function AnalysisCard({ analysis }: { analysis: MealAnalysis }) {
             </Text>
           ))}
         </View>
+        {effects.length > 0 ? (
+          <View style={styles.effectRow} accessibilityLabel={`Effects: ${effects.map((e) => e.label).join(', ')}`}>
+            {effects.map((effect) => (
+              <View key={effect.id} style={styles.effectChip}>
+                <Text style={styles.effectChipLabel}>{effect.label.toUpperCase()}</Text>
+              </View>
+            ))}
+            <Text style={styles.effectLine} numberOfLines={1}>{effects[0].reaction}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -435,6 +448,15 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   pickLabel: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkSoft },
+  effectRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 10 },
+  effectChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: colors.yellow,
+  },
+  effectChipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: colors.yellowDeep },
+  effectLine: { fontFamily: fonts.mono, fontSize: 11, color: colors.yellowDeep, marginLeft: 2 },
   analysis: {
     flexDirection: 'row',
     alignItems: 'center',

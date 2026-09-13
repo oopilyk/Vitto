@@ -767,6 +767,92 @@ describe('screens render', () => {
     some.unmount();
   });
 
+  it("wears a food effect tag and says the effect's line after a spicy meal", () => {
+    const spicyMeal = {
+      id: 'm-spicy', userId: 'user-1', type: 'MEAL' as const, source: 'manual' as const,
+      occurredAt: new Date(Date.now() - 20 * 60_000).toISOString(),
+      metadata: {
+        protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false,
+        analysis: { foodDescription: 'Spicy chicken curry', grade: 'B', summary: 'Spicy chicken curry', confidence: 1, detectedFoods: [], macros: { calories: 500, proteinGrams: 20, carbsGrams: 50, fatGrams: 15 }, nutrients: {} },
+      },
+    };
+    const { detectFoodEffects } = require('@vitto/core');
+    const effects = detectFoodEffects(spicyMeal.metadata);
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[spicyMeal as any]}
+          reaction={{ message: 'Miso loved the variety in that meal.', eventLabel: 'Shared a meal', delta: {}, effects }}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    // The pet says the effect's line, not the stock meal copy...
+    expect(rendered).toContain('That was hot!');
+    expect(rendered).not.toContain('loved the variety');
+    // ...and wears the tag on the meta line, derived from the recent meal.
+    expect(rendered).toContain('SPICY');
+    tree.unmount();
+  });
+
+  it('drops the food tag once its time is up', () => {
+    const oldMeal = {
+      id: 'm-old', userId: 'user-1', type: 'MEAL' as const, source: 'manual' as const,
+      occurredAt: new Date(Date.now() - 5 * 60 * 60_000).toISOString(),
+      metadata: {
+        protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false,
+        analysis: { foodDescription: 'Hot wings', grade: 'C', summary: 'Hot wings', confidence: 1, detectedFoods: [], macros: { calories: 600, proteinGrams: 30, carbsGrams: 10, fatGrams: 30 }, nutrients: {} },
+      },
+    };
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[oldMeal as any]}
+          reaction={null}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onSyncSteps={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    expect(JSON.stringify(tree.toJSON())).not.toContain('SPICY');
+    tree.unmount();
+  });
+
+  it('leads the care toast with the food effect when a meal earned one', () => {
+    const { CareToastBanner } = require('../petWorld/CareToastBanner');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <CareToastBanner
+          toast={{ headline: 'Spicy ramen logged · 500 kcal', detail: '+3 nutrition · +10 XP', effect: { line: 'That was hot!', tags: ['Spicy', 'Cozy'] } }}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('That was hot!');
+    expect(rendered).toContain('SPICY · COZY');
+    expect(rendered).toContain('Spicy ramen logged');
+    tree.unmount();
+  });
+
   it('shows nothing where the toast goes until something is logged', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

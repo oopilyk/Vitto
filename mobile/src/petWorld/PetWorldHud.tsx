@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   AILMENT_MESSAGE,
+  activeFoodEffects,
   type CareToast,
   type HealthEvent,
   type PetReaction,
@@ -97,9 +98,18 @@ export function PetWorldHud({
 
   // An ailment outranks the reaction: a message about the meal just logged must
   // not sit on top of "Miso is fading". Otherwise it's the plain feeling line.
+  // A food effect's own line ("That was hot!") beats the meal's stock reaction
+  // while the reaction is up: it is the fun part, and the toast already carries
+  // the rest. An ailment still outranks both.
   const feeling = condition.primary
     ? AILMENT_MESSAGE[condition.primary](pet.name)
-    : (reaction?.message ?? `${pet.name} is feeling ${pet.mood}.`);
+    : reaction?.effects?.[0]
+      ? reaction.effects[0].reaction
+      : (reaction?.message ?? `${pet.name} is feeling ${pet.mood}.`);
+
+  // Tags the pet is wearing right now, from recent meals — derived, so they
+  // expire on their own and survive a reload.
+  const foodTags = activeFoodEffects(events, today).map((effect) => effect.label.toUpperCase());
 
   const evolved = hasEvolved(pet);
   const dayLabel = evolved
@@ -193,6 +203,11 @@ export function PetWorldHud({
             {dayLabel}
             {streaks.currentStreak > 0 ? (
               <Text style={styles.metaFlame}>{`   ·   🔥 ${streaks.currentStreak}`}</Text>
+            ) : null}
+            {foodTags.length > 0 ? (
+              <Text style={styles.metaTag} accessibilityLabel={`Effects: ${foodTags.join(', ')}`}>
+                {`   ·   ${foodTags.join(' · ')}`}
+              </Text>
             ) : null}
             {partnerName ? (
               <Text style={[styles.metaSoft, night && styles.metaSoftNight]}>
@@ -341,6 +356,8 @@ const styles = StyleSheet.create({
   metaSoft: { color: '#6e5c43', fontWeight: '400' },
   metaSoftNight: { color: '#a99a83' },
   metaFlame: { color: '#b25a35', fontWeight: '700' },
+  // Food effect tags — warm gold, so they read as a state the pet is in.
+  metaTag: { color: '#9a7b28', fontWeight: '700' },
 
   rail: { alignItems: 'flex-end', gap: 12 },
   disc: {

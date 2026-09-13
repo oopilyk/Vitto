@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { careToast, describeDelta, describeLoggedEvent, formatCount, formatMinutes } from './careToast';
+import { detectFoodEffects } from './foodEffects';
 import type { HealthEvent } from './health';
 
 const event = <T,>(type: HealthEvent['type'], metadata: T): HealthEvent =>
@@ -107,6 +108,17 @@ describe('describeDelta', () => {
 });
 
 describe('careToast', () => {
+  it('carries a meal\'s food effect as the pet\'s line plus its tags', () => {
+    const meal = event('MEAL', {
+      protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false,
+      analysis: { foodDescription: 'Spicy ramen', grade: 'B', summary: 'Spicy ramen', confidence: 1, detectedFoods: [], macros: { calories: 500, proteinGrams: 20, carbsGrams: 60, fatGrams: 15 }, nutrients: {} },
+    });
+    const toast = careToast(meal, { nutrition: 3, xp: 10 }, detectFoodEffects(meal.metadata));
+    expect(toast.effect).toEqual({ line: 'That was hot!', tags: ['Spicy', 'Cozy'] });
+    // A plain plate carries no effect at all, not an empty one.
+    expect(careToast(meal, { xp: 10 }).effect).toBeUndefined();
+  });
+
   it('states the fact and the effect together', () => {
     expect(careToast(event('STEP_ACTIVITY', { steps: 8200 }), { energy: 7, endurance: 3, xp: 16 })).toEqual({
       headline: '8,200 steps logged',
