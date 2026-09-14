@@ -182,6 +182,74 @@ describe('PetHealthEngine', () => {
   });
 });
 
+describe('BRAIN_TRAINING xpAwarded override', () => {
+  const jeopardy = (xpAwarded?: number): HealthEvent => ({
+    id: 'event-jeopardy',
+    userId: 'user-1',
+    occurredAt: '2026-08-28T12:00:00Z',
+    type: 'BRAIN_TRAINING' as const,
+    source: 'manual' as const,
+    metadata: {
+      game: 'petJeopardy' as const,
+      correct: 5,
+      total: 10,
+      durationSeconds: 90,
+      score: 50,
+      ...(xpAwarded === undefined ? {} : { xpAwarded }),
+    },
+  });
+
+  it('awards the stated xp instead of the accuracy formula', () => {
+    // Arrange
+    const pet = createPet('user-1', 'Miso');
+    const engine = new PetHealthEngine();
+
+    // Act
+    const stated = engine.apply(pet, jeopardy(37));
+    const derived = engine.apply(pet, jeopardy());
+
+    // Assert: same accuracy, different xp — the wager is what separates them.
+    expect(stated.reaction.delta.xp).toBe(37);
+    expect(derived.reaction.delta.xp).not.toBe(37);
+  });
+
+  it('leaves every other mind game on the derived formula', () => {
+    const pet = createPet('user-1', 'Miso');
+    const fourCorners: HealthEvent = {
+      id: 'event-fc',
+      userId: 'user-1',
+      occurredAt: '2026-08-28T12:00:00Z',
+      type: 'BRAIN_TRAINING' as const,
+      source: 'manual' as const,
+      metadata: { game: 'fourCorners' as const, correct: 4, total: 5, durationSeconds: 40, score: 80 },
+    };
+
+    const result = new PetHealthEngine().apply(pet, fourCorners);
+
+    // 8 floor + round(0.8 * 12) = 18, unchanged by the override existing.
+    expect(result.reaction.delta.xp).toBe(18);
+  });
+
+  it('clamps a hostile or malformed override rather than minting xp', () => {
+    const pet = createPet('user-1', 'Miso');
+    const engine = new PetHealthEngine();
+
+    expect(engine.apply(pet, jeopardy(10_000)).reaction.delta.xp).toBe(80);
+    expect(engine.apply(pet, jeopardy(-50)).reaction.delta.xp).toBe(0);
+    expect(engine.apply(pet, jeopardy(Number.NaN)).reaction.delta.xp).toBeGreaterThan(0);
+  });
+
+  it('never walks the pet backwards on a zero award', () => {
+    // A lost wager bottoms out at zero xp; it must not disturb level or xp.
+    const pet = { ...createPet('user-1', 'Miso'), level: 3, xp: 20 };
+
+    const result = new PetHealthEngine().apply(pet, jeopardy(0));
+
+    expect(result.pet.level).toBe(3);
+    expect(result.pet.xp).toBe(20);
+  });
+});
+
 describe('MEAL', () => {
   const mealEvent = (metadata: {
     protein?: boolean;
