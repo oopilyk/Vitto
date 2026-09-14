@@ -13,6 +13,8 @@ interface Props {
   onOpenWordPuzzle?: () => void;
   /** Same shape as {@link onOpenWordPuzzle}: Four Corners is its own screen, not a stage here. */
   onOpenFourCorners?: () => void;
+  /** Same again — Pet Jeopardy owns a full board and a wager step, so it is its own route. */
+  onOpenPetJeopardy?: () => void;
   events?: HealthEvent[];
 }
 
@@ -51,7 +53,14 @@ const resultMeta = (result: SessionResult): string => {
   }
 };
 
-export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, onOpenFourCorners, events = [] }: Props) {
+export function MindGymScreen({
+  onFinish,
+  onClose,
+  onOpenWordPuzzle,
+  onOpenFourCorners,
+  onOpenPetJeopardy,
+  events = [],
+}: Props) {
   const [stage, setStage] = useState<Stage>('pick');
   const [problem, setProblem] = useState<MathProblem | null>(null);
   const [entry, setEntry] = useState('');
@@ -236,6 +245,20 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, onOpenFourC
                     <Text style={styles.gameName}>Four Corners</Text>
                     <Text style={styles.gameHint}>
                       Five quick questions · your pet jumps to your answer
+                    </Text>
+                  </View>
+                  <Text style={styles.gameArrow}>→</Text>
+                </Pressable>
+              ) : null}
+              {onOpenPetJeopardy ? (
+                <Pressable style={styles.gameCard} onPress={onOpenPetJeopardy}>
+                  <View style={[styles.gameIcon, { backgroundColor: colors.mint }]}>
+                    <Text style={{ color: colors.mintDeep, fontSize: 18 }}>▦</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.gameName}>Pet Jeopardy</Text>
+                    <Text style={styles.gameHint}>
+                      Pick your squares · then wager XP on one final question
                     </Text>
                   </View>
                   <Text style={styles.gameArrow}>→</Text>

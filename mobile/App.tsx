@@ -38,6 +38,7 @@ import { FriendPetScreen } from './src/screens/FriendPetScreen';
 import {  type ForcedTrophies,TodayScreen, type ForcedAmbient } from './src/screens/TodayScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { FourCornersScreen } from './src/screens/FourCornersScreen';
+import { PetJeopardyScreen } from './src/screens/PetJeopardyScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
@@ -95,6 +96,9 @@ type RootStackParamList = {
   // of it), so it is a route of its own rather than a stage inside MindGym --
   // the same call the daily word puzzle already makes.
   FourCorners: undefined;
+  // Same call again: a board, a wager step and a final question do not fit as a
+  // stage inside MindGym's sheet, so Pet Jeopardy is a route of its own.
+  PetJeopardy: undefined;
 };
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
@@ -1684,6 +1688,7 @@ export default function App() {
                 // second modal on top of the one already presented.
                 onOpenWordPuzzle={() => navigation.replace('WordPuzzle')}
                 onOpenFourCorners={() => navigation.replace('FourCorners')}
+                onOpenPetJeopardy={() => navigation.replace('PetJeopardy')}
                 onClose={() => navigation.goBack()}
               />
             )}
@@ -1695,6 +1700,20 @@ export default function App() {
                 // One BRAIN_TRAINING event per round, recorded through the same
                 // path every other mind game uses -- the screen guards against
                 // calling this twice, so nothing here needs to.
+                onFinish={completeMindSession}
+                onClose={() => navigation.goBack()}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen name="PetJeopardy">
+            {({ navigation }) => (
+              <PetJeopardyScreen
+                pet={livePet}
+                // One BRAIN_TRAINING event per game, through the same path every
+                // other mind game uses. The screen guards against calling this
+                // twice, so nothing here needs to -- and because the metadata
+                // carries an explicit `xpAwarded`, the wager's result reaches the
+                // pet engine as that one number rather than a second award call.
                 onFinish={completeMindSession}
                 onClose={() => navigation.goBack()}
               />
