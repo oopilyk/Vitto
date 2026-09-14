@@ -29,9 +29,23 @@ describe('describeLoggedEvent', () => {
     expect(describeLoggedEvent(event('STEP_ACTIVITY', { steps: 1 }))).toBe('1 step logged');
   });
 
-  it('names the workout and its length', () => {
+  it('names the workout and its length when time is all it knows', () => {
     expect(describeLoggedEvent(event('WORKOUT', { workoutType: 'running', durationMinutes: 45 }))).toBe(
       '45 min running logged',
+    );
+  });
+
+  it('counts sets, not minutes, for a session logged set by set', () => {
+    const stats = { durationMinutes: 45, exerciseCount: 3, completedSets: 9, totalReps: 72, totalVolume: 0, muscleGroups: [] };
+    expect(describeLoggedEvent(event('WORKOUT', { workoutType: 'strength', durationMinutes: 45, stats }))).toBe(
+      'strength logged · 9 sets',
+    );
+    expect(describeLoggedEvent(event('WORKOUT', { workoutType: '', durationMinutes: 45, stats: { ...stats, completedSets: 1 } }))).toBe(
+      'Workout logged · 1 set',
+    );
+    // Nothing ticked: back to time, so an empty session is not "0 sets".
+    expect(describeLoggedEvent(event('WORKOUT', { workoutType: 'strength', durationMinutes: 45, stats: { ...stats, completedSets: 0 } }))).toBe(
+      '45 min strength logged',
     );
   });
 

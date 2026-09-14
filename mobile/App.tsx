@@ -7,6 +7,7 @@ import {  withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, r
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
+import { saveWithRetry } from './src/services/saveWithRetry';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/healthKitProvider';
@@ -747,7 +748,10 @@ export default function App() {
       };
 
       if (remote) {
-        await withTimeout(remote.saveEvent(storedEvent), SAVE_TIMEOUT_MESSAGE);
+        // The pet is already written above. Retried here, same id, so a gateway
+        // blip on this one row does not send the user back to "Save" and pay
+        // the pet a second time (see saveWithRetry).
+        await saveWithRetry(() => withTimeout(remote.saveEvent(storedEvent), SAVE_TIMEOUT_MESSAGE));
         // The partner's view of this moment: a type and a time, nothing more.
         // Best effort, and only once there is a partner to see it — the log
         // starts at pairing, so nobody inherits a history they were not part of.
@@ -1159,6 +1163,10 @@ export default function App() {
     if (!isSupabaseConfigured || !session) return;
     setIsSeeding(true);
     try {
+      // Swept first: seeded ids are derived from the account and the seed, so
+      // they are the same every run. Without this a second press collides on
+      // the primary key instead of replacing the history it already wrote.
+      await remoteRepository.deleteEventsBySource(SEED_SOURCE);
       const seeded = generateSeedEvents(userId);
       await remoteRepository.saveEvents(seeded);
       setEvents(await remoteRepository.loadEvents());
@@ -1683,9 +1691,14 @@ export default function App() {
                 // screen uses -- see `MindTodayPanel`.
                 pet={livePet}
                 events={events}
+                // The sheet closes itself the moment this resolves, so the save is
+                // not awaited: the reaction and the care toast land on the dashboard
+                // when the write does, and holding a "Saving..." spinner open on two
+                // network round trips gained nothing. A failure still shows in the
+                // app's error banner (recordEvent sets it before rethrowing), which
+                // is why it is swallowed here rather than left as an unhandled rejection.
                 onFinish={async (metadata) => {
-                  await completeMindSession(metadata);
-                  navigation.goBack();
+                  void completeMindSession(metadata).catch(() => undefined);
                 }}
                 // `replace` swaps this sheet for the puzzle rather than stacking a
                 // second modal on top of the one already presented.

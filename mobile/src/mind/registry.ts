@@ -1,6 +1,7 @@
 import {
   type BrainTrainingMetadata,
-  MATH_ROUND_SECONDS,
+  MATH_RUN_LIVES,
+  MATH_RUN_SECONDS,
   brainTrainingXp,
   jeopardyMaxBoardPoints,
 } from '@vitto/core';
@@ -38,7 +39,7 @@ const JEOPARDY_MAX_XP = brainTrainingXp({
   xpAwarded: jeopardyMaxBoardPoints() * 2,
 });
 
-const MATH_ROUND_MINUTES = Math.max(1, Math.round(MATH_ROUND_SECONDS / 60));
+const MATH_RUN_MINUTES = Math.max(1, Math.round(MATH_RUN_SECONDS / 60));
 
 export const MIND_GAMES: readonly MindGameEntry[] = [
   {
@@ -100,9 +101,9 @@ export const MIND_GAMES: readonly MindGameEntry[] = [
   {
     id: 'math',
     name: 'Quick maths',
-    blurb: `${MATH_ROUND_SECONDS} seconds of sums that get harder as you go.`,
+    blurb: `Your pet runs, you solve — ${MATH_RUN_SECONDS}s or ${MATH_RUN_LIVES} hits before the run ends.`,
     category: 'LOGIC',
-    minutes: MATH_ROUND_MINUTES,
+    minutes: MATH_RUN_MINUTES,
     maxXp: maxXpFor('math'),
     hasPoints: false,
     launch: { kind: 'stage', stage: 'math' },

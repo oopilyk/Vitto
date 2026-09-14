@@ -13,6 +13,8 @@ import { WordGardenGame } from '../components/WordGardenGame';
 import { MIND_GAMES } from '../mind/registry';
 import { MindGymScreen } from '../screens/MindGymScreen';
 
+const pet = createPet('user-1', 'Miso');
+
 const seededRng = (seed: number) => {
   let state = seed;
   return () => {

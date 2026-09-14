@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
-import { type BrainTrainingMetadata, type HealthEvent, MATH_ROUND_SECONDS, type MathProblem, type PetState, type ReadingPassage, errorMessage, generateMathProblem, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
+import { useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { MathRunGame } from '../mathRun/MathRunGame';
 import { MindHub } from '../mind/MindHub';
 import type { MindRouteHandlers } from '../mind/hub';
 import type { MindStage } from '../mind/types';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, text } from '../theme';
 
 /**
  * The Mind section: a game room to choose from, and the sheet the four
@@ -20,6 +21,7 @@ import { colors, fonts, layout, text } from '../theme';
  */
 
 interface Props {
+  /** The pet that runs the Quick maths track. */
   pet: PetState;
   onFinish: (metadata: BrainTrainingMetadata) => Promise<void>;
   onClose: () => void;
@@ -61,7 +63,7 @@ const resultMeta = (result: SessionResult): string => {
     case 'countryGuess':
       return `${result.correct} of ${result.total} countries found · ${result.durationSeconds}s`;
     case 'math':
-      return `${result.correct} of ${result.total} right · ${result.durationSeconds}s · ${result.bestStreak} best streak`;
+      return `${result.correct} of ${result.total} obstacles dodged · ${result.durationSeconds}s · best run ${result.bestStreak ?? 0}`;
     default:
       return `${result.correct} of ${result.total} right · ${result.durationSeconds}s`;
   }
@@ -77,14 +79,6 @@ export function MindGymScreen({
   events = [],
 }: Props) {
   const [stage, setStage] = useState<Stage>('pick');
-  const [problem, setProblem] = useState<MathProblem | null>(null);
-  const [entry, setEntry] = useState('');
-  const [streak, setStreak] = useState(0);
-  const [correct, setCorrect] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [deadline, setDeadline] = useState(0);
-  const [secondsLeft, setSecondsLeft] = useState(MATH_ROUND_SECONDS);
-  const [flash, setFlash] = useState<'right' | 'wrong' | null>(null);
   const [passage, setPassage] = useState<ReadingPassage | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [startedAt, setStartedAt] = useState(0);
@@ -92,49 +86,19 @@ export function MindGymScreen({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const tally = useRef({ correct: 0, total: 0, bestStreak: 0 });
-
-  const finishRound = (
-    game: 'math' | 'reading',
-    scored: { correct: number; total: number },
-    missed?: SessionResult['missed'],
-  ) => {
+  const finishReading = (scored: { correct: number; total: number }, missed?: SessionResult['missed']) => {
     const durationSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
     setResult({
-      game,
+      game: 'reading',
       correct: scored.correct,
       total: scored.total,
       durationSeconds,
-      score: mindScore({ game, ...scored, durationSeconds }),
-      bestStreak: game === 'math' ? tally.current.bestStreak : undefined,
-      passageId: game === 'reading' ? passage?.id : undefined,
-      passageTitle: game === 'reading' ? passage?.title : undefined,
+      score: mindScore({ game: 'reading', ...scored, durationSeconds }),
+      passageId: passage?.id,
+      passageTitle: passage?.title,
       missed,
     });
     setStage('result');
-  };
-
-  useEffect(() => {
-    if (stage !== 'math') return;
-    const timer = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      setSecondsLeft(remaining);
-      if (remaining === 0) finishRound('math', tally.current);
-    }, 250);
-    return () => clearInterval(timer);
-  }, [stage, deadline]);
-
-  const startMath = () => {
-    tally.current = { correct: 0, total: 0, bestStreak: 0 };
-    setCorrect(0);
-    setTotal(0);
-    setStreak(0);
-    setEntry('');
-    setProblem(generateMathProblem(0));
-    setSecondsLeft(MATH_ROUND_SECONDS);
-    setStartedAt(Date.now());
-    setDeadline(Date.now() + MATH_ROUND_SECONDS * 1000);
-    setStage('math');
   };
 
   const startReading = () => {
@@ -144,28 +108,10 @@ export function MindGymScreen({
     setStage('reading');
   };
 
-  /** The untimed games score themselves; the gym only shows and saves the result. */
+  /** The self-scoring games (the run included) hand back a result; the gym only shows and saves it. */
   const finishSession = (metadata: BrainTrainingMetadata, summary: string[]) => {
     setResult({ ...metadata, summary });
     setStage('result');
-  };
-
-  const submitAnswer = () => {
-    if (!problem || entry.trim() === '') return;
-    const isRight = Number(entry) === problem.answer;
-    const nextStreak = isRight ? streak + 1 : 0;
-    tally.current = {
-      correct: tally.current.correct + (isRight ? 1 : 0),
-      total: tally.current.total + 1,
-      bestStreak: Math.max(tally.current.bestStreak, nextStreak),
-    };
-    setCorrect(tally.current.correct);
-    setTotal(tally.current.total);
-    setStreak(nextStreak);
-    setFlash(isRight ? 'right' : 'wrong');
-    setTimeout(() => setFlash(null), 260);
-    setEntry('');
-    setProblem(generateMathProblem(nextStreak));
   };
 
   const submitQuiz = () => {
@@ -177,11 +123,7 @@ export function MindGymScreen({
         chosen: question.options[answers[question.id]] ?? 'No answer',
         answer: question.options[question.answerIndex],
       }));
-    finishRound(
-      'reading',
-      { correct: passage.questions.length - missed.length, total: passage.questions.length },
-      missed,
-    );
+    finishReading({ correct: passage.questions.length - missed.length, total: passage.questions.length }, missed);
   };
 
   const save = async () => {
@@ -216,10 +158,6 @@ export function MindGymScreen({
 
   /** The hub's one way in to a game this sheet plays itself. */
   const startStage = (next: MindStage) => {
-    if (next === 'math') {
-      startMath();
-      return;
-    }
     if (next === 'reading') {
       startReading();
       return;
@@ -267,45 +205,7 @@ export function MindGymScreen({
 
           {stage === 'country' ? <CountryGuessGame onFinish={finishSession} onCancel={onClose} /> : null}
 
-          {stage === 'math' && problem ? (
-            <>
-              <View style={styles.scoreboard}>
-                <Text style={styles.scoreItem}>
-                  <Text style={styles.scoreValue}>{secondsLeft}s</Text> left
-                </Text>
-                <Text style={styles.scoreItem}>
-                  <Text style={styles.scoreValue}>{correct}</Text>/{total} correct
-                </Text>
-                <Text style={styles.scoreItem}>
-                  <Text style={styles.scoreValue}>{streak}</Text> streak · tier {problem.tier}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.problem,
-                  flash === 'right' && styles.problemRight,
-                  flash === 'wrong' && styles.problemWrong,
-                ]}
-              >
-                <Text style={styles.prompt}>{problem.prompt}</Text>
-                <TextInput
-                  style={[layout.input, styles.answerInput]}
-                  keyboardType="numbers-and-punctuation"
-                  value={entry}
-                  onChangeText={setEntry}
-                  onSubmitEditing={submitAnswer}
-                  placeholder="Your answer"
-                  placeholderTextColor={colors.faint}
-                  autoFocus
-                  returnKeyType="done"
-                />
-                <PrimaryButton label="Enter" onPress={submitAnswer} />
-              </View>
-              <View style={styles.actions}>
-                <TextButton label="End round early" onPress={() => finishRound('math', tally.current)} />
-              </View>
-            </>
-          ) : null}
+          {stage === 'math' ? <MathRunGame pet={pet} onFinish={finishSession} /> : null}
 
           {stage === 'reading' && passage ? (
             <>
@@ -435,21 +335,6 @@ const styles = StyleSheet.create({
   },
   closeMark: { fontSize: 24, color: colors.muted, lineHeight: 28 },
   body: { padding: 22, paddingBottom: 60 },
-  scoreboard: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 14 },
-  scoreItem: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted },
-  scoreValue: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  problem: {
-    padding: 24,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(132,160,138,0.3)',
-    backgroundColor: colors.sageSoft,
-    gap: 14,
-  },
-  problemRight: { borderColor: '#8fae91', backgroundColor: '#dcecdb' },
-  problemWrong: { borderColor: '#d8a396', backgroundColor: '#f5e3de' },
-  prompt: { fontFamily: fonts.display, fontSize: 42, color: colors.ink, textAlign: 'center' },
-  answerInput: { textAlign: 'center', fontSize: 20, fontWeight: '600' },
   passage: {
     padding: 20,
     borderRadius: 16,

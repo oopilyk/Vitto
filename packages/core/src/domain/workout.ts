@@ -1,10 +1,44 @@
 import { newId } from './ids';
 import type { WeightUnit, WorkoutExercise, WorkoutSet, WorkoutStats } from './health';
 
+/**
+ * The exercise picker, grouped by muscle so a scroll reads like a gym: chest,
+ * back, legs, shoulders, arms, core, cardio. The muscle labels are the ones
+ * `axisForMuscleGroup` and `startingWeight` know — chest/shoulders/triceps push,
+ * back/biceps pull, legs are legs; core and cardio train no axis — so a new row
+ * only needs a name, a group, and whether it is loaded.
+ */
 export const exerciseLibrary = [
-  ['Bench Press', 'chest'], ['Push Ups', 'chest', 'bodyweight'], ['Barbell Row', 'back'], ['Lat Pulldown', 'back'],
-  ['Squat', 'legs'], ['Romanian Deadlift', 'legs'], ['Shoulder Press', 'shoulders'], ['Lateral Raise', 'shoulders'],
-  ['Bicep Curl', 'biceps'], ['Tricep Pushdown', 'triceps'], ['Plank', 'core', 'bodyweight'], ['Running', 'cardio', 'bodyweight'],
+  // Chest
+  ['Bench Press', 'chest'], ['Incline Bench Press', 'chest'], ['Dumbbell Bench Press', 'chest'],
+  ['Incline Dumbbell Press', 'chest'], ['Machine Chest Press', 'chest'], ['Chest Fly', 'chest'],
+  ['Cable Crossover', 'chest'], ['Push Ups', 'chest', 'bodyweight'], ['Dips', 'chest', 'bodyweight'],
+  // Back
+  ['Barbell Row', 'back'], ['Dumbbell Row', 'back'], ['Seated Cable Row', 'back'], ['T-Bar Row', 'back'],
+  ['Lat Pulldown', 'back'], ['Straight-Arm Pulldown', 'back'], ['Deadlift', 'back'], ['Face Pull', 'back'],
+  ['Pull Ups', 'back', 'bodyweight'], ['Chin Ups', 'back', 'bodyweight'],
+  // Legs
+  ['Squat', 'legs'], ['Front Squat', 'legs'], ['Goblet Squat', 'legs'], ['Leg Press', 'legs'],
+  ['Romanian Deadlift', 'legs'], ['Sumo Deadlift', 'legs'], ['Hip Thrust', 'legs'], ['Bulgarian Split Squat', 'legs'],
+  ['Leg Extension', 'legs'], ['Leg Curl', 'legs'], ['Calf Raise', 'legs'], ['Lunges', 'legs', 'bodyweight'],
+  // Shoulders
+  ['Shoulder Press', 'shoulders'], ['Dumbbell Shoulder Press', 'shoulders'], ['Arnold Press', 'shoulders'],
+  ['Lateral Raise', 'shoulders'], ['Front Raise', 'shoulders'], ['Rear Delt Fly', 'shoulders'],
+  ['Upright Row', 'shoulders'], ['Shrugs', 'shoulders'],
+  // Biceps
+  ['Bicep Curl', 'biceps'], ['Hammer Curl', 'biceps'], ['EZ Bar Curl', 'biceps'], ['Preacher Curl', 'biceps'],
+  ['Incline Dumbbell Curl', 'biceps'], ['Cable Curl', 'biceps'],
+  // Triceps
+  ['Tricep Pushdown', 'triceps'], ['Skull Crushers', 'triceps'], ['Overhead Tricep Extension', 'triceps'],
+  ['Close-Grip Bench Press', 'triceps'], ['Tricep Kickback', 'triceps'],
+  // Core
+  ['Plank', 'core', 'bodyweight'], ['Crunches', 'core', 'bodyweight'], ['Hanging Leg Raise', 'core', 'bodyweight'],
+  ['Russian Twist', 'core', 'bodyweight'], ['Ab Wheel Rollout', 'core', 'bodyweight'], ['Dead Bug', 'core', 'bodyweight'],
+  ['Mountain Climbers', 'core', 'bodyweight'], ['Cable Crunch', 'core'],
+  // Cardio
+  ['Running', 'cardio', 'bodyweight'], ['Walking', 'cardio', 'bodyweight'], ['Cycling', 'cardio', 'bodyweight'],
+  ['Rowing', 'cardio', 'bodyweight'], ['Elliptical', 'cardio', 'bodyweight'], ['Stair Climber', 'cardio', 'bodyweight'],
+  ['Jump Rope', 'cardio', 'bodyweight'], ['Swimming', 'cardio', 'bodyweight'], ['Burpees', 'cardio', 'bodyweight'],
 ] as const;
 
 /**

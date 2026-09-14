@@ -645,6 +645,52 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('lets an exercise be taken back out of a routine, from the picker or the card', async () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text: WText } = require('react-native');
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(
+        <WorkoutScreen
+          onFinish={async () => {}}
+          onClose={() => {}}
+          templates={[]}
+          onSaveTemplate={async () => {}}
+        />,
+      );
+    });
+    const press = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+    // With the picker closed, the only place an exercise name appears is its card.
+    const cardsNamed = (name: string) =>
+      tree.root.findAllByType(WText).filter((t: any) => t.props.children === name).length;
+
+    act(() => press('Make a new routine')!.props.onPress());
+    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Add Bench Press')!.props.onPress());
+    act(() => press('Add Bench Press')!.props.onPress());
+    act(() => press('Add Shoulder Press')!.props.onPress());
+
+    // A minus on the picker row undoes the last add of that exercise, in place.
+    expect(press('Remove Bench Press')).toBeTruthy();
+    act(() => press('Remove Bench Press')!.props.onPress());
+    const done = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) => node.findAllByType(WText).some((t: any) => t.props.children === 'Done'));
+    act(() => done!.props.onPress());
+
+    expect(cardsNamed('Bench Press')).toBe(1);
+    expect(cardsNamed('Shoulder Press')).toBe(1);
+
+    // And each card can be removed from the routine itself.
+    act(() => press('Remove Shoulder Press')!.props.onPress());
+    expect(cardsNamed('Shoulder Press')).toBe(0);
+    expect(cardsNamed('Bench Press')).toBe(1);
+    tree.unmount();
+  });
+
   it('refuses to save a routine with no name, saying why', async () => {
     const { WorkoutScreen } = require('../screens/WorkoutScreen');
     const { Text: WText } = require('react-native');
@@ -1488,9 +1534,9 @@ describe('pet sprite', () => {
     const sheet = tree.root
       .findAllByType(Image)
       .find((node: any) => node.props.style?.marginLeft !== undefined);
-    const { marginLeft, marginTop } = sheet!.props.style;
+    const { marginLeft, marginTop, width, height } = sheet!.props.style;
     tree.unmount();
-    return { marginLeft, marginTop };
+    return { marginLeft, marginTop, width, height };
   };
 
   const well = assessCondition(pet);
@@ -1600,9 +1646,85 @@ describe('pet sprite', () => {
     const resting = spriteOffset({ pet: { ...pet, mood: 'sleepy' } });
     const running = spriteOffset({ isExploring: true });
     expect(resting).not.toEqual(running);
-    // Every frame is windowed from inside the sheet, never past its edge.
-    expect(resting.marginTop).toBeLessThanOrEqual(0);
-    expect(running.marginLeft).toBeLessThanOrEqual(0);
+    // Every frame is windowed from inside the sheet, never past its edge. Stated
+    // in drawn cells rather than as "the offset is never positive", because a
+    // sheet dialled down by `artScale` starts half an inset in from the left.
+    const { SHEET_COLUMNS, sheetForPet } = require('../components/petSprites');
+    const drawnCell = running.width / (sheetForPet(pet).columns ?? SHEET_COLUMNS);
+    for (const frame of [resting, running]) {
+      expect(frame.marginLeft).toBeLessThanOrEqual(drawnCell);
+      expect(frame.marginTop).toBeLessThanOrEqual(drawnCell);
+      expect(frame.marginLeft).toBeGreaterThan(-frame.width);
+      expect(frame.marginTop).toBeGreaterThan(-frame.height);
+    }
+  });
+
+  it('shrinks an oversized sheet in place, keeping its feet on the floor', () => {
+    const { SpriteFrame } = require('../components/SpriteFrame');
+    const { CELL, SHEET_COLUMNS, sheetByBreed } = require('../components/petSprites');
+    const size = 200;
+
+    const styleFor = (sheet: any) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => { tree = renderer.create(<SpriteFrame sheet={sheet} frame={[0, 0]} size={size} />); });
+      const style = tree.root.findAllByType(Image)[0].props.style;
+      tree.unmount();
+      return style;
+    };
+
+    // The bichon was drawn about a third larger for its cell than the other
+    // breeds, so it towered over them at a shared size.
+    const bichon = sheetByBreed('bichon');
+    const shiba = sheetByBreed('shiba');
+    expect(bichon.artScale).toBeLessThan(1);
+    expect(shiba.artScale).toBeUndefined();
+
+    // A sheet with no artScale still maps one cell onto the whole window.
+    const plain = styleFor(shiba);
+    expect(plain.width).toBe(size * SHEET_COLUMNS);
+    expect(plain.marginLeft).toBe(0);
+    expect(plain.marginTop).toBe(0);
+
+    // The scaled one is drawn smaller, centred, and pushed down so the cell floor
+    // still sits on the window floor rather than leaving the pet hovering.
+    const scaled = styleFor(bichon);
+    const cell = size * bichon.artScale;
+    expect(scaled.width).toBe(cell * SHEET_COLUMNS);
+    expect(scaled.width).toBeLessThan(plain.width);
+    expect(scaled.marginLeft).toBeCloseTo((size - cell) / 2);
+    expect(scaled.marginTop).toBeCloseTo(size - cell);
+
+    // Row and column offsets still land on the right cell once scaled.
+    let tree!: renderer.ReactTestRenderer;
+    act(() => { tree = renderer.create(<SpriteFrame sheet={bichon} frame={[3, 2]} size={size} />); });
+    const offset = tree.root.findAllByType(Image)[0].props.style;
+    tree.unmount();
+    expect(offset.marginLeft).toBeCloseTo((size - cell) / 2 - 2 * CELL * (cell / CELL));
+    expect(offset.marginTop).toBeCloseTo(size - cell - 3 * CELL * (cell / CELL));
+  });
+
+  it('gives every bichon form the same scale, so evolving does not resize the pet', () => {
+    const { sheetByBreed } = require('../components/petSprites');
+    const bichon = sheetByBreed('bichon');
+    for (const form of Object.values(bichon.evolutions ?? {}) as any[]) {
+      expect(form.artScale).toBe(bichon.artScale);
+    }
+  });
+
+  it('keeps every animation frame inside its own sheet\'s grid, evolutions included', () => {
+    const { SHEET_COLUMNS, SHEET_ROWS } = require('../components/petSprites');
+    const sheets = PET_SHEETS.flatMap((sheet: any) => [sheet, ...Object.values(sheet.evolutions ?? {})]);
+    for (const sheet of sheets) {
+      const columns = sheet.columns ?? SHEET_COLUMNS;
+      const rows = sheet.rows ?? SHEET_ROWS;
+      for (const [animation, frames] of Object.entries(sheet.animations) as [string, [number, number][]][]) {
+        expect(frames.length).toBeGreaterThan(0);
+        for (const [row, column] of frames) {
+          expect({ sheet: sheet.label, animation, row, column, ok: row >= 0 && row < rows && column >= 0 && column < columns })
+            .toMatchObject({ ok: true });
+        }
+      }
+    }
   });
 
   it('draws the breed the pet was given', () => {
