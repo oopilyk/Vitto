@@ -43,6 +43,20 @@ describe('detectFoodEffects', () => {
     );
   });
 
+  it('calls a D plate junk, and keeps the wholesome tags off it', () => {
+    const graded = (grade: 'A' | 'B' | 'C' | 'D'): MealMetadata => {
+      const m = meal('Pizza, burgers, fries, lettuce, orange slices', {}, { calories: 8580, proteinGrams: 240, carbsGrams: 870, fatGrams: 460 });
+      return { ...m, analysis: { ...m.analysis!, grade } };
+    };
+    const junkPlate = detectFoodEffects(graded('D'));
+    // Junk leads, so it is the line the pet says; the flavour tags still read true.
+    expect(junkPlate.map((e) => e.id)).toEqual(['junk', 'comfort', 'feast']);
+    expect(junkPlate[0].reaction).toBe('Greasy. Not feeling great.');
+    // The same plate graded C is not junk, and earns its protein and greens.
+    expect(ids(graded('C'))).not.toContain('junk');
+    expect(ids(graded('C'))).toEqual(expect.arrayContaining(['protein_packed', 'greens']));
+  });
+
   it('never fires off the nutrient flags alone — those are the meal engine\'s, and already paid for', () => {
     expect(ids(meal('Lunch', { treats: true, vegetables: true, fruit: true }))).toEqual([]);
   });

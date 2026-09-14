@@ -20,9 +20,17 @@ import type { PetDelta } from './pet';
  * Triggering "Greens" off `vegetables: true` would have paid every salad an
  * extra health point on top of the meal's own bonus, quietly changing the
  * economy for the most common meal in the app.
+ *
+ * The one thing read off the grade is "Junk": a D plate is the analyser saying
+ * this was not a balanced meal, and the pet should say so too rather than
+ * cheer "Gains incoming" over 240g of burger protein. On a D plate the
+ * wholesome tags (Protein, Greens, Fresh, Sharp) stay off — a lettuce leaf on
+ * a burger does not make the plate leafy and lean — while the flavour tags
+ * (Spicy, Sugar rush, Cozy, Stuffed) still read true.
  */
 
 export type FoodEffectId =
+  | 'junk'
   | 'spicy'
   | 'sugar_rush'
   | 'caffeinated'
@@ -60,6 +68,16 @@ const HOUR = 60;
  * truncated list still shows what mattered.
  */
 export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
+  {
+    id: 'junk',
+    label: 'Junk',
+    reaction: 'Greasy. Not feeling great.',
+    durationMinutes: 2 * HOUR,
+    // The grade already decides the meal's own (small) delta; this is the
+    // after-effect, and the only effect that costs anything.
+    delta: { health: -1, energy: -1 },
+    test: (meal) => meal.analysis?.grade === 'D',
+  },
   {
     id: 'spicy',
     label: 'Spicy',
@@ -143,6 +161,9 @@ export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
   },
 ];
 
+/** Effects that say a plate is good for you. A D plate never wears them. */
+const WHOLESOME_EFFECTS: ReadonlySet<FoodEffectId> = new Set(['protein_packed', 'greens', 'fresh', 'brain_food']);
+
 export const FOOD_EFFECT_BY_ID: Record<FoodEffectId, FoodEffect> = Object.fromEntries(
   FOOD_EFFECT_RULES.map(({ words: _w, test: _t, ...effect }) => [effect.id, effect]),
 ) as Record<FoodEffectId, FoodEffect>;
@@ -173,8 +194,10 @@ const hasWord = (text: string, word: string): boolean => {
  */
 export const detectFoodEffects = (meal: MealMetadata): FoodEffect[] => {
   const text = mealText(meal);
+  const junk = meal.analysis?.grade === 'D';
   const found: FoodEffect[] = [];
   for (const rule of FOOD_EFFECT_RULES) {
+    if (junk && WHOLESOME_EFFECTS.has(rule.id)) continue;
     const byWord = rule.words?.some((word) => hasWord(text, word)) ?? false;
     const byTest = rule.test?.(meal) ?? false;
     if (byWord || byTest) {
