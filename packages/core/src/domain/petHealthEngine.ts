@@ -42,6 +42,35 @@ const SHARP_ACCURACY_BY_GAME: Record<BrainTrainingMetadata['game'], number> = {
   spellingBee: 0.5,
   // Three countries a session, so two of three is the honest "good day".
   countryGuess: 0.66,
+  // Five questions a round, so four of five.
+  fourCorners: SHARP_SESSION_ACCURACY,
+};
+
+/**
+ * XP for one mind session. Extracted from the engine's `BRAIN_TRAINING` case so
+ * a game's own results screen can show the figure it is actually about to earn
+ * without re-deriving (and eventually contradicting) it. The engine below is the
+ * only thing that *awards* it; this is the same arithmetic, named.
+ *
+ * The floor is the participation award every mind game already pays: sitting
+ * down to think is the behaviour worth rewarding, and how well it went moves the
+ * number between the floor and the cap.
+ */
+const BRAIN_TRAINING_FLOOR_XP = 8;
+const BRAIN_TRAINING_MAX_XP = 24;
+const BRAIN_TRAINING_ACCURACY_XP = 12;
+const READING_BONUS_XP = 2;
+
+export const brainTrainingXp = (
+  metadata: Pick<BrainTrainingMetadata, 'game' | 'correct' | 'total'>,
+): number => {
+  const accuracy = metadata.total > 0 ? Math.max(0, Math.min(1, metadata.correct / metadata.total)) : 0;
+  return Math.min(
+    BRAIN_TRAINING_MAX_XP,
+    BRAIN_TRAINING_FLOOR_XP +
+      Math.round(accuracy * BRAIN_TRAINING_ACCURACY_XP) +
+      (metadata.game === 'reading' ? READING_BONUS_XP : 0),
+  );
 };
 
 /** Keyed on the whole union, so a new brain game must be labelled here or the build fails. */
@@ -52,6 +81,7 @@ const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
   wordGarden: 'Word garden',
   spellingBee: 'Word garden',
   countryGuess: 'Guess the country',
+  fourCorners: 'Four Corners',
 };
 
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
@@ -208,7 +238,7 @@ export class PetHealthEngine {
           // Sitting down and doing the work is the behaviour worth rewarding;
           // how well it went still separates the XP and the mood below.
           mind: Math.max(0, MIND_FULL - pet.mind),
-          xp: Math.min(24, 8 + Math.round(accuracy * 12) + (metadata.game === 'reading' ? 2 : 0)),
+          xp: brainTrainingXp(metadata),
         };
         message = sharp
           ? `${pet.name} feels clear-headed after thinking that through with you.`
