@@ -52,13 +52,15 @@ export function FourCornersResults({
 
   return (
     <View style={styles.wrap}>
-      <Text style={[retro.kicker, night && retro.kickerNight]}>Four Corners</Text>
-      <Text style={[styles.score, night && styles.scoreNight]}>
-        {`${correct} / ${round.answers.length} correct`}
-      </Text>
-      <Text style={[retro.caption, night && retro.captionNight, styles.line]}>
-        {closingLine(correct, round.answers.length)}
-      </Text>
+      <View style={[styles.scorePanel, retro.panel, night && retro.panelNight]}>
+        <Text style={[retro.kicker, night && retro.kickerNight]}>Four Corners</Text>
+        <Text style={[styles.score, night && styles.scoreNight]}>
+          {`${correct} / ${round.answers.length} correct`}
+        </Text>
+        <Text style={[retro.caption, night && retro.captionNight, styles.line]}>
+          {closingLine(correct, round.answers.length)}
+        </Text>
+      </View>
 
       <View style={styles.stage}>
         <PetAvatar
@@ -103,6 +105,7 @@ function Reward({ value, unit, night }: { value: string; unit: string; night: bo
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
+  scorePanel: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 },
   score: { fontFamily: fonts.display, fontSize: 30, color: world.ink, marginTop: 8, letterSpacing: -0.6 },
   scoreNight: { color: world.nightText },
   line: { marginTop: 6, textAlign: 'center' },
