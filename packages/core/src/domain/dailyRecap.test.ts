@@ -7,7 +7,7 @@ import type {
   StepMetadata,
   WorkoutMetadata,
 } from './health';
-import { buildDailyRecap } from './dailyRecap';
+import { buildDailyRecap, mindGamesPlayedOn, mindRecapForDay } from './dailyRecap';
 import { PROFILE_SURVEY_DEFAULTS, type BodyProfile } from './macroTargets';
 import type { PetState } from './pet';
 
@@ -303,5 +303,113 @@ describe('buildDailyRecap', () => {
   it('reports level progress straight from the pet, never a second copy', () => {
     const recap = buildDailyRecap({ events: [], profile, pet, stepGoal: 10000, day });
     expect(recap.levelProgress).toEqual({ level: 3, xpIntoLevel: 42, xpForLevel: 100 });
+  });
+});
+
+describe('mindRecapForDay', () => {
+  const mindEvent = (
+    occurredAt: string,
+    metadata: Partial<BrainTrainingMetadata> & Pick<BrainTrainingMetadata, 'game'>,
+  ) =>
+    makeEvent<BrainTrainingMetadata>('BRAIN_TRAINING', occurredAt, {
+      correct: 3,
+      total: 4,
+      durationSeconds: 60,
+      score: 75,
+      ...metadata,
+    });
+
+  it('sums the xp the engine actually stamped on that day’s mind sessions', () => {
+    // Arrange
+    const events: HealthEvent[] = [
+      mindEvent('2026-09-10T09:00:00.000Z', { game: 'fourCorners', xpAwarded: 18 }),
+      mindEvent('2026-09-10T10:00:00.000Z', { game: 'petJeopardy', xpAwarded: 40 }),
+      mindEvent('2026-09-09T10:00:00.000Z', { game: 'math', xpAwarded: 20 }),
+    ];
+
+    // Act
+    const mind = mindRecapForDay(events, day);
+
+    // Assert
+    expect(mind.xp).toBe(58);
+    expect(mind.sessionCount).toBe(2);
+  });
+
+  it('sums the mind points the scored games reported, ignoring games that report none', () => {
+    // Arrange
+    const events: HealthEvent[] = [
+      mindEvent('2026-09-10T09:00:00.000Z', { game: 'fourCorners', points: 240 }),
+      mindEvent('2026-09-10T10:00:00.000Z', { game: 'wordGarden', points: 60 }),
+      mindEvent('2026-09-10T11:00:00.000Z', { game: 'reading' }),
+    ];
+
+    // Act
+    const mind = mindRecapForDay(events, day);
+
+    // Assert
+    expect(mind.points).toBe(300);
+  });
+
+  it('reports zero for a day with no mind sessions at all', () => {
+    // Arrange / Act
+    const mind = mindRecapForDay([], day);
+
+    // Assert
+    expect(mind).toEqual({
+      sessionCount: 0,
+      bestScore: 0,
+      wordPuzzleDone: false,
+      xp: 0,
+      points: 0,
+    });
+  });
+
+  it('is the same figure the full daily recap reports, never a second derivation', () => {
+    // Arrange
+    const events: HealthEvent[] = [
+      mindEvent('2026-09-10T09:00:00.000Z', { game: 'countryGuess', xpAwarded: 14, points: 30 }),
+    ];
+
+    // Act
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day });
+
+    // Assert
+    expect(recap.mind).toEqual(mindRecapForDay(events, day));
+  });
+});
+
+describe('mindGamesPlayedOn', () => {
+  const mindEvent = (occurredAt: string, metadata: Partial<BrainTrainingMetadata> & Pick<BrainTrainingMetadata, 'game'>) =>
+    makeEvent<BrainTrainingMetadata>('BRAIN_TRAINING', occurredAt, {
+      correct: 4,
+      total: 5,
+      durationSeconds: 40,
+      score: 80,
+      ...metadata,
+    });
+
+  it('reports every game id recorded that day, so a hub can mark them played', () => {
+    // Arrange
+    const events: HealthEvent[] = [
+      mindEvent('2026-09-10T09:00:00.000Z', { game: 'fourCorners' }),
+      mindEvent('2026-09-09T09:00:00.000Z', { game: 'math' }),
+    ];
+
+    // Act
+    const played = mindGamesPlayedOn(events, day);
+
+    // Assert
+    expect(played.has('fourCorners')).toBe(true);
+    expect(played.has('math')).toBe(false);
+  });
+
+  it('keys a word puzzle on its puzzleDate, matching how the recap counts it', () => {
+    // Arrange
+    const events: HealthEvent[] = [
+      mindEvent('2026-09-11T00:30:00.000Z', { game: 'wordPuzzle', puzzleDate: '2026-09-10' }),
+    ];
+
+    // Act / Assert
+    expect(mindGamesPlayedOn(events, day).has('wordPuzzle')).toBe(true);
   });
 });

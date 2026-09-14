@@ -64,6 +64,13 @@ export interface MindRecap {
   bestScore: number;
   wordPuzzleDone: boolean;
   xp: number;
+  /**
+   * Σ of the day's sessions' own "Mind Points" — the per-game scoreboard figure
+   * (`points` on the metadata), not xp. Only the games that keep a points scale
+   * report one; the rest contribute nothing rather than a fabricated zero-scale
+   * number.
+   */
+  points: number;
 }
 
 export interface FoodRecap {
@@ -126,6 +133,38 @@ const mindEventsForDay = (events: HealthEvent[], day: Date): HealthEvent<BrainTr
   });
 };
 
+/**
+ * The mind pillar on its own, for a caller that wants only this day's mind
+ * numbers and has no reason to assemble a body profile, a pet and a step goal
+ * to get them (the Mind hub's "MIND TODAY" line).
+ *
+ * {@link buildDailyRecap} returns exactly this object for its `mind` field, so
+ * there is still only one derivation of these figures — this is the same code
+ * reached by a cheaper door, never a second copy of it.
+ */
+export const mindRecapForDay = (events: HealthEvent[], day: Date = new Date()): MindRecap => {
+  const sessions = mindEventsForDay(events, day);
+  return {
+    sessionCount: sessions.length,
+    bestScore: sessions.reduce((best, event) => Math.max(best, event.metadata.score ?? 0), 0),
+    wordPuzzleDone: sessions.some((event) => event.metadata.game === 'wordPuzzle'),
+    xp: sessions.reduce((total, event) => total + xpOf(event), 0),
+    points: sessions.reduce((total, event) => total + Math.max(0, event.metadata.points ?? 0), 0),
+  };
+};
+
+/**
+ * Which mind games were played on a given day, as their `BrainTrainingMetadata`
+ * game ids — what a menu needs to mark a game "played today". A set rather than
+ * a list because the only question ever asked of it is membership; playing the
+ * same game twice is not a different answer.
+ */
+export const mindGamesPlayedOn = (
+  events: HealthEvent[],
+  day: Date = new Date(),
+): ReadonlySet<BrainTrainingMetadata['game']> =>
+  new Set(mindEventsForDay(events, day).map((event) => event.metadata.game));
+
 export function buildDailyRecap({
   events,
   profile,
@@ -180,13 +219,7 @@ export function buildDailyRecap({
   };
 
   // --- Mind ----------------------------------------------------------
-  const mindEvents = mindEventsForDay(events, day);
-  const mind: MindRecap = {
-    sessionCount: mindEvents.length,
-    bestScore: mindEvents.reduce((best, event) => Math.max(best, event.metadata.score ?? 0), 0),
-    wordPuzzleDone: mindEvents.some((event) => event.metadata.game === 'wordPuzzle'),
-    xp: xpByPillar.mind,
-  };
+  const mind = mindRecapForDay(events, day);
 
   // --- Food --------------------------------------------------------
   const meals = getMealsForDay(events, day);
