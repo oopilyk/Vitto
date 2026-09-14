@@ -22,15 +22,26 @@ export interface MindGameCardProps {
   onPress: () => void;
 }
 
-/** One of the palette's three tones per category — never a new colour. */
-const ACCENT_BY_CATEGORY: Record<MindCategory, string> = {
-  TRIVIA: world.accent,
-  MEMORY: world.positive,
-  WORDS: world.inkSoft,
-  LOGIC: world.accent,
-  GEOGRAPHY: world.positive,
-  REACTION: world.accent,
+/**
+ * One of the palette's tones per category — never a new colour, and a day and a
+ * night answer for each, the way every other colour in this file has one.
+ *
+ * `WORDS` cannot simply reuse its day tone at night: `world.inkSoft` is a
+ * day-mode secondary-text brown and lands around 2.6:1 on the night panel,
+ * under the floor for even large bold type. It takes the cream secondary at
+ * night instead.
+ */
+const ACCENT_BY_CATEGORY: Record<MindCategory, { day: string; night: string }> = {
+  TRIVIA: { day: world.accent, night: world.nightAccent },
+  MEMORY: { day: world.positive, night: world.positive },
+  WORDS: { day: world.inkSoft, night: world.nightTextSoft },
+  LOGIC: { day: world.accent, night: world.nightAccent },
+  GEOGRAPHY: { day: world.positive, night: world.positive },
+  REACTION: { day: world.accent, night: world.nightAccent },
 };
+
+const accentFor = (category: MindCategory, night: boolean): string =>
+  night ? ACCENT_BY_CATEGORY[category].night : ACCENT_BY_CATEGORY[category].day;
 
 const rewardLine = (game: MindGameEntry): string =>
   game.hasPoints ? `UP TO ${game.maxXp} XP · + MIND POINTS` : `UP TO ${game.maxXp} XP`;
@@ -51,7 +62,7 @@ function PlayedMark() {
 }
 
 export function MindGameCard({ game, playedToday, night, onPress }: MindGameCardProps) {
-  const accent = ACCENT_BY_CATEGORY[game.category];
+  const accent = accentFor(game.category, night);
   return (
     <Pressable
       accessibilityRole="button"
@@ -78,7 +89,7 @@ export function MindGameCard({ game, playedToday, night, onPress }: MindGameCard
         {game.blurb}
       </Text>
       <View style={styles.cardFooter}>
-        <Text style={[retro.caption, night && retro.captionNight]} numberOfLines={1}>
+        <Text style={[retro.caption, night && retro.captionNight, styles.meta]} numberOfLines={1}>
           {minutesLine(game)} · {rewardLine(game)}
         </Text>
         <Text style={[styles.playLabel, { color: night ? world.nightAccent : world.accentDeep }]}>
@@ -90,7 +101,7 @@ export function MindGameCard({ game, playedToday, night, onPress }: MindGameCard
 }
 
 export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameCardProps) {
-  const accent = ACCENT_BY_CATEGORY[game.category];
+  const accent = accentFor(game.category, night);
   return (
     <Pressable
       accessibilityRole="button"
@@ -111,7 +122,7 @@ export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameC
       <Text style={[styles.featureName, night && styles.featureNameNight]} numberOfLines={2}>
         {game.name}
       </Text>
-      <Text style={[retro.caption, night && retro.captionNight, styles.featureBlurb]} numberOfLines={1}>
+      <Text style={[retro.caption, night && retro.captionNight, styles.featureBlurb]} numberOfLines={2}>
         {game.blurb}
       </Text>
       <View style={styles.featureFooter}>
@@ -182,6 +193,10 @@ const styles = StyleSheet.create({
     color: world.inkSoft,
   },
   rewardNight: { color: world.nightTextSoft },
+  // Yoga defaults `flexShrink` to 0, unlike the web: without this the
+  // `numberOfLines` guard has no width to truncate against, so a longer reward
+  // line would run past the card's edge instead of ellipsing.
+  meta: { flexShrink: 1 },
   playLabel: {
     fontFamily: fonts.mono,
     fontSize: 11,

@@ -141,14 +141,27 @@ const mindEventsForDay = (events: HealthEvent[], day: Date): HealthEvent<BrainTr
  * {@link buildDailyRecap} returns exactly this object for its `mind` field, so
  * there is still only one derivation of these figures — this is the same code
  * reached by a cheaper door, never a second copy of it.
+ *
+ * **The two day rules here are deliberate, not an oversight.** What was played
+ * is keyed on `puzzleDate` where one is set, so a word puzzle finished at
+ * 00:30 still counts for the day it was *for*. The xp is keyed on the calendar
+ * day the event actually occurred, because that is what `xpByPillar` and the
+ * recap's top-line `xp` count — and a day's xp total that does not add up from
+ * its own pillars would be a worse lie than a puzzle's xp landing on the
+ * calendar day it was earned. So `mind.xp` is always exactly
+ * `xpByPillar.mind`, and `mind.sessionCount` may legitimately count a session
+ * whose xp is on the neighbouring day.
  */
 export const mindRecapForDay = (events: HealthEvent[], day: Date = new Date()): MindRecap => {
   const sessions = mindEventsForDay(events, day);
+  const earnedToday = events.filter(
+    (event) => event.type === 'BRAIN_TRAINING' && isSameDay(event.occurredAt, day),
+  );
   return {
     sessionCount: sessions.length,
     bestScore: sessions.reduce((best, event) => Math.max(best, event.metadata.score ?? 0), 0),
     wordPuzzleDone: sessions.some((event) => event.metadata.game === 'wordPuzzle'),
-    xp: sessions.reduce((total, event) => total + xpOf(event), 0),
+    xp: earnedToday.reduce((total, event) => total + xpOf(event), 0),
     points: sessions.reduce((total, event) => total + Math.max(0, event.metadata.points ?? 0), 0),
   };
 };

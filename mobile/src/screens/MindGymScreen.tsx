@@ -202,8 +202,8 @@ export function MindGymScreen({
   /**
    * The registry decides which games exist; this says which of the ones that
    * own a route can be reached from here. Memoised because the hub keys its own
-   * derivation on this object, and a fresh literal every render would redo that
-   * work on every keystroke of a maths round.
+   * roster derivation on this object's identity, so a fresh literal each render
+   * would re-derive the roster on every hub render for no reason.
    */
   const routes: MindRouteHandlers = useMemo(
     () => ({

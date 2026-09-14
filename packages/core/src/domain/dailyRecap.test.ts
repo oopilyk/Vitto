@@ -364,6 +364,26 @@ describe('mindRecapForDay', () => {
     });
   });
 
+  it('keeps the day s mind xp adding up to the pillar, even when a puzzle is keyed to another day', () => {
+    // Arrange — finished after midnight, but it is the 10th's puzzle. The
+    // session counts for the 10th; the xp was granted on the 11th.
+    const events: HealthEvent[] = [
+      mindEvent('2026-09-11T00:30:00.000Z', {
+        game: 'wordPuzzle',
+        xpAwarded: 22,
+        puzzleDate: '2026-09-10',
+      }),
+    ];
+
+    // Act
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day });
+
+    // Assert
+    expect(recap.mind.sessionCount).toBe(1);
+    expect(recap.mind.wordPuzzleDone).toBe(true);
+    expect(recap.mind.xp).toBe(recap.xpByPillar.mind);
+  });
+
   it('is the same figure the full daily recap reports, never a second derivation', () => {
     // Arrange
     const events: HealthEvent[] = [

@@ -79,6 +79,25 @@ describe('mind hub', () => {
     tree.unmount();
   });
 
+  it('runs a stage game s setup rather than dropping onto an empty stage', () => {
+    // Arrange — "Read and recall" needs a passage picked and a clock started
+    // before its stage renders; landing there via a bare setStage would show
+    // a blank screen.
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <MindGymScreen pet={hubPet} onFinish={async () => {}} onClose={() => {}} />,
+      );
+    });
+
+    // Act
+    press(buttonWithText(tree, 'Read and recall'));
+
+    // Assert
+    expect(buttonWithText(tree, "I've finished reading")).toBeTruthy();
+    tree.unmount();
+  });
+
   it('opens Four Corners on its own route rather than as a stage here', () => {
     // Arrange
     let opened = 0;
