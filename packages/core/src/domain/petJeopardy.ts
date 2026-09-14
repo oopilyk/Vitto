@@ -349,8 +349,10 @@ export const jeopardyCorrectCount = (game: JeopardyGame): number =>
   jeopardyPlayedCells(game).filter((cell) => cell.correct).length + (game.final?.correct ? 1 : 0);
 
 /** Questions actually answered, the final included once it has been. */
-export const jeopardyAnsweredCount = (game: JeopardyGame): number =>
-  jeopardyPlayedCells(game).length + (game.final?.chosenIndex === null || !game.final ? 0 : 1);
+export const jeopardyAnsweredCount = (game: JeopardyGame): number => {
+  const finalAnswered = game.final !== null && game.final.chosenIndex !== null;
+  return jeopardyPlayedCells(game).length + (finalAnswered ? 1 : 0);
+};
 
 /**
  * Real xp for the board alone: the participation floor, plus the share of the
