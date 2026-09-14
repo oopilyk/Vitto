@@ -2,6 +2,7 @@ import renderer, { act } from 'react-test-renderer';
 import { Text, TextInput } from 'react-native';
 import {
   type BrainTrainingMetadata,
+  createPet,
   findCountry,
   generateWordGarden,
   isWordGardenBloom,
@@ -9,6 +10,8 @@ import {
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
 import { MindGymScreen } from '../screens/MindGymScreen';
+
+const pet = createPet('user-1', 'Miso');
 
 const seededRng = (seed: number) => {
   let state = seed;
@@ -39,7 +42,7 @@ describe('mind gym menu', () => {
   it('offers the word garden and country games', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<MindGymScreen onFinish={async () => {}} onClose={() => {}} />);
+      tree = renderer.create(<MindGymScreen pet={pet} onFinish={async () => {}} onClose={() => {}} />);
     });
     const menu = JSON.stringify(tree.toJSON());
     expect(menu).toContain('Word garden');
@@ -56,6 +59,7 @@ describe('mind gym menu', () => {
     act(() => {
       tree = renderer.create(
         <MindGymScreen
+          pet={pet}
           onFinish={async () => {}}
           onClose={() => {}}
           onOpenFourCorners={() => {
@@ -75,7 +79,7 @@ describe('mind gym menu', () => {
   it('hides Four Corners when no route is wired up', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<MindGymScreen onFinish={async () => {}} onClose={() => {}} />);
+      tree = renderer.create(<MindGymScreen pet={pet} onFinish={async () => {}} onClose={() => {}} />);
     });
 
     expect(JSON.stringify(tree.toJSON())).not.toContain('Four Corners');

@@ -156,45 +156,53 @@ const sheetFrom = (layout: SheetLayout, label: string, source: ImageSourcePropTy
 // ---------------------------------------------------------------------------
 
 /**
- * The bichon's runner evolution. Leaner, groomed back, navy bandana and grey
- * socks — the same gear language as the cat's runner, so the builds read as a
- * set rather than as two unrelated redesigns.
+ * The bichon's runner evolution: a show-cut bichon on longer legs, fuller
+ * plume of a tail, blue bow at the collar — the athlete of the litter.
  *
- * It was drawn to the base sheet's layout — same eleven bands, same frames per
- * band, same cells left empty — and arrived square on the grid with real alpha
- * and no fringe, so none of it had to be re-laid-out.
+ * Unlike the other hand-drawn runners this one did not arrive as a sheet. It
+ * came as four slice images (idle, run, queasy, sad-to-collapse), each holding
+ * one band of poses at the generator's own spacing; `scripts/assembleSpriteSlices.mjs`
+ * cuts the poses out, halves them, and lays them onto the 4-column grid feet
+ * centred on one baseline, sized so the idle art fills the same share of its
+ * cell as the base bichon. Re-running that script rebuilds this sheet from
+ * `assets/pet/source/bichonRunner/`.
  *
- * Its frame map is its own rather than shared with the base, so the evolved form
- * can be animated differently: the two sheets happen to agree cell for cell, but
- * nothing here depends on that, and editing one will not disturb the other.
+ * It is a 4x9 sheet — five bands, no cheer band:
  *
- * The one change made to the art was scale. It is hard-edged pixel art (48
- * colours) where the base bichon is a soft ~1,800-colour render, and at 128px
- * cells the app's 1.156x upscale to the baby stage put some blocks on two screen
- * pixels and their neighbours on three, which tore the outlines. Doubled to 256px
- * cells with nearest-neighbour — lossless, still 48 colours — which puts every
- * stage in the downscaling regime the cat runner already uses.
+ *   rows 0–1   idle standing, 6 frames (two with eyes closed, smiling)
+ *   rows 2–3   run, 6 frames
+ *   rows 4–6   queasy / worried standing, 10 frames
+ *   rows 7–8   sad standing → sink → lying → 4 frames lying with X eyes
+ *
+ * There is no drawn cheer, so `cheer` hops: it alternates the two closed-eye
+ * smiling idles with the two gathered, tail-up run frames, which reads as the
+ * dog bouncing on the spot. And like the base bichon it has no true sleep pose,
+ * so `rest` borrows the one lying-still frame with its eyes closed.
  */
 const BICHON_RUNNER: PetSheet = {
   name: 'bichon',
   label: 'Bichon · Runner',
   source: require('../../assets/pet/bichonRunner.png'),
+  rows: 9,
   animations: {
-    idle: [[0, 0], [0, 1], [0,2]],
-    cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1], [3, 2]],
-    move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0]],
-    // Lying flat, face down, eyes closed — the one frame that reads as peaceful
-    // out of context. Single frame on purpose: PetAvatar skips the frame timer
-    // under two frames and its bob keeps the pet alive.
-    rest: [[9, 2]],
-    // The dizzy beats only. The base bichon spends rows 6-8 shading queasy into
-    // dizzy across ten frames; this drops that build-up and the row 7 opener,
-    // leaving the three cells where the spiral eyes are fully drawn.
-    unwell: [[7, 1], [7, 2], [7, 3]],
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
+    // No cheer band: a bounce, built from the happy idles and the gathered run
+    // frames (the two with all four feet under the dog and the tail up).
+    cheer: [[0, 2], [2, 1], [1, 1], [3, 0], [0, 2], [2, 1], [1, 1]],
+    // Gather → reach → full stretch → land → gather → stretch: the slice's six
+    // frames re-ordered into a gallop, since the generator drew them as a set
+    // of poses rather than a cycle.
+    move: [[2, 1], [2, 2], [2, 0], [2, 3], [3, 0], [3, 1]],
+    // Lying flat, eyes closed — the beat before the X eyes; alone it is a dog
+    // having a lie-down. Single frame on purpose: PetAvatar skips the frame
+    // timer under two frames and its bob keeps the pet alive.
+    rest: [[7, 3]],
+    // Worried, blushing, tearful: the whole queasy band.
+    unwell: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3], [6, 0], [6, 1]],
     // Just the standing-sad beats; the collapse belongs to `faint`.
-    sad: [[6, 0],[6,1]],
-    // Wobble → collapse → down for good. Row 10 is four frames of lying still.
-    faint: [[9, 1], [9, 2], [9, 3], [10, 0], [10, 1], [10, 2], [10, 3]],
+    sad: [[7, 0], [7, 1]],
+    // Head down → sink → lying → down for good. Row 8 is four frames of lying still.
+    faint: [[7, 1], [7, 2], [7, 3], [8, 0], [8, 1], [8, 2], [8, 3]],
   },
 };
 

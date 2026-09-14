@@ -1295,7 +1295,7 @@ describe('screens render', () => {
   it('runs a maths round in the mind gym', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<MindGymScreen onFinish={async () => {}} onClose={() => {}} />);
+      tree = renderer.create(<MindGymScreen pet={pet} onFinish={async () => {}} onClose={() => {}} />);
     });
 
     // Find the pressable whose own subtree renders the game's name. React elements
@@ -1647,6 +1647,22 @@ describe('pet sprite', () => {
     // Every frame is windowed from inside the sheet, never past its edge.
     expect(resting.marginTop).toBeLessThanOrEqual(0);
     expect(running.marginLeft).toBeLessThanOrEqual(0);
+  });
+
+  it('keeps every animation frame inside its own sheet\'s grid, evolutions included', () => {
+    const { SHEET_COLUMNS, SHEET_ROWS } = require('../components/petSprites');
+    const sheets = PET_SHEETS.flatMap((sheet: any) => [sheet, ...Object.values(sheet.evolutions ?? {})]);
+    for (const sheet of sheets) {
+      const columns = sheet.columns ?? SHEET_COLUMNS;
+      const rows = sheet.rows ?? SHEET_ROWS;
+      for (const [animation, frames] of Object.entries(sheet.animations) as [string, [number, number][]][]) {
+        expect(frames.length).toBeGreaterThan(0);
+        for (const [row, column] of frames) {
+          expect({ sheet: sheet.label, animation, row, column, ok: row >= 0 && row < rows && column >= 0 && column < columns })
+            .toMatchObject({ ok: true });
+        }
+      }
+    }
   });
 
   it('draws the breed the pet was given', () => {
