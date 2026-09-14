@@ -2,12 +2,15 @@ import renderer, { act } from 'react-test-renderer';
 import { Text, TextInput } from 'react-native';
 import {
   type BrainTrainingMetadata,
+  type HealthEvent,
+  createPet,
   findCountry,
   generateWordGarden,
   isWordGardenBloom,
 } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
+import { MIND_GAMES } from '../mind/registry';
 import { MindGymScreen } from '../screens/MindGymScreen';
 
 const seededRng = (seed: number) => {
@@ -35,27 +38,55 @@ const press = (node: any) => {
   });
 };
 
-describe('mind gym menu', () => {
-  it('offers the word garden and country games', () => {
+const hubPet = createPet('user-1', 'Miso');
+
+describe('mind hub', () => {
+  it('shows every game the registry offers, with what it asks of you and what it pays', () => {
+    // Arrange
     let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<MindGymScreen onFinish={async () => {}} onClose={() => {}} />);
+      tree = renderer.create(
+        <MindGymScreen pet={hubPet} onFinish={async () => {}} onClose={() => {}} />,
+      );
     });
-    const menu = JSON.stringify(tree.toJSON());
-    expect(menu).toContain('Word garden');
-    expect(menu).toContain('Guess the country');
 
+    // Act
+    const hub = JSON.stringify(tree.toJSON());
+
+    // Assert
+    for (const game of MIND_GAMES) {
+      if (game.launch.kind === 'stage') expect(hub).toContain(game.name);
+    }
+    expect(hub).toContain('GEOGRAPHY');
+    expect(hub).toContain('MIND TODAY');
+    tree.unmount();
+  });
+
+  it('starts a stage game in this sheet rather than routing anywhere', () => {
+    // Arrange
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <MindGymScreen pet={hubPet} onFinish={async () => {}} onClose={() => {}} />,
+      );
+    });
+
+    // Act
     press(buttonWithText(tree, 'Word garden'));
+
+    // Assert
     expect(byLabel(tree, 'Submit word')).toBeTruthy();
     tree.unmount();
   });
 
   it('opens Four Corners on its own route rather than as a stage here', () => {
+    // Arrange
     let opened = 0;
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <MindGymScreen
+          pet={hubPet}
           onFinish={async () => {}}
           onClose={() => {}}
           onOpenFourCorners={() => {
@@ -65,20 +96,66 @@ describe('mind gym menu', () => {
       );
     });
 
+    // Act
     expect(JSON.stringify(tree.toJSON())).toContain('Four Corners');
     press(buttonWithText(tree, 'Four Corners'));
 
+    // Assert
     expect(opened).toBe(1);
     tree.unmount();
   });
 
-  it('hides Four Corners when no route is wired up', () => {
+  it('hides a route game whose route is not wired up, rather than offering a dead card', () => {
+    // Arrange
     let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<MindGymScreen onFinish={async () => {}} onClose={() => {}} />);
+      tree = renderer.create(
+        <MindGymScreen pet={hubPet} onFinish={async () => {}} onClose={() => {}} />,
+      );
     });
 
+    // Act / Assert
     expect(JSON.stringify(tree.toJSON())).not.toContain('Four Corners');
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Pet Jeopardy');
+    tree.unmount();
+  });
+
+  it('marks a game played today from the event log without locking it', () => {
+    // Arrange
+    const playedToday: HealthEvent[] = [
+      {
+        id: 'event-1',
+        userId: 'user-1',
+        occurredAt: new Date().toISOString(),
+        type: 'BRAIN_TRAINING',
+        source: 'manual',
+        metadata: {
+          game: 'wordGarden',
+          correct: 3,
+          total: 5,
+          durationSeconds: 90,
+          score: 60,
+        } satisfies BrainTrainingMetadata,
+      },
+    ];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <MindGymScreen
+          pet={hubPet}
+          events={playedToday}
+          onFinish={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+
+    // Act
+    expect(JSON.stringify(tree.toJSON())).toContain('PLAYED TODAY');
+    press(buttonWithText(tree, 'Word garden'));
+
+    // Assert — a played game is still a playable game.
+    expect(byLabel(tree, 'Submit word')).toBeTruthy();
     tree.unmount();
   });
 });

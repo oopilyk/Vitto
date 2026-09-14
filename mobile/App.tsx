@@ -1679,6 +1679,9 @@ export default function App() {
           <RootStack.Screen name="MindGym">
             {({ navigation }) => (
               <MindGymScreen
+                // The hub shows the real pet, the same renderer every game
+                // screen uses -- see `MindTodayPanel`.
+                pet={livePet}
                 events={events}
                 onFinish={async (metadata) => {
                   await completeMindSession(metadata);

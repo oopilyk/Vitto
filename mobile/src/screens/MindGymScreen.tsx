@@ -1,15 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
-import { type BrainTrainingMetadata, type HealthEvent, MATH_ROUND_SECONDS, type MathProblem, type ReadingPassage, errorMessage, findWordPuzzleEventForDate, generateMathProblem, wordPuzzleStreak, mindScore, mindScoreLabel, pickReadingPassage, toDateKey } from '@vitto/core';
+import { type BrainTrainingMetadata, type HealthEvent, MATH_ROUND_SECONDS, type MathProblem, type PetState, type ReadingPassage, errorMessage, generateMathProblem, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { MindHub } from '../mind/MindHub';
+import type { MindRouteHandlers } from '../mind/hub';
+import type { MindStage } from '../mind/types';
 import { colors, fonts, layout, text } from '../theme';
 
+/**
+ * The Mind section: a game room to choose from, and the sheet the four
+ * in-house games are actually played in.
+ *
+ * The menu that used to live here is now {@link MindHub} — a scenic, browsable
+ * page over the study, driven entirely by the game registry. This file is the
+ * games again: the stage machine, the two rounds it runs itself, and the one
+ * award call every mind game shares.
+ */
+
 interface Props {
+  pet: PetState;
   onFinish: (metadata: BrainTrainingMetadata) => Promise<void>;
   onClose: () => void;
-  /** Optional so the mind gym still stands alone if the daily puzzle isn't wired up. */
+  /** Optional so the Mind section still stands alone if the daily puzzle isn't wired up. */
   onOpenWordPuzzle?: () => void;
   /** Same shape as {@link onOpenWordPuzzle}: Four Corners is its own screen, not a stage here. */
   onOpenFourCorners?: () => void;
@@ -18,10 +32,10 @@ interface Props {
   events?: HealthEvent[];
 }
 
-type Stage = 'pick' | 'math' | 'reading' | 'quiz' | 'garden' | 'country' | 'result';
+/** `pick` is the hub; the rest are what this sheet plays and shows itself. */
+type Stage = 'pick' | MindStage | 'quiz' | 'result';
 
-const STAGE_TITLE: Record<Stage, string> = {
-  pick: 'Train your mind',
+const STAGE_TITLE: Record<Exclude<Stage, 'pick'>, string> = {
   math: 'Quick maths',
   reading: 'Read and recall',
   quiz: 'Read and recall',
@@ -54,6 +68,7 @@ const resultMeta = (result: SessionResult): string => {
 };
 
 export function MindGymScreen({
+  pet,
   onFinish,
   onClose,
   onOpenWordPuzzle,
@@ -184,19 +199,52 @@ export function MindGymScreen({
     }
   };
 
-  const wordPuzzle = useMemo(() => {
-    const todayKey = toDateKey(new Date());
-    const streak = wordPuzzleStreak(events);
-    return {
-      done: findWordPuzzleEventForDate(events, todayKey) !== null,
-      streak: streak.currentStreak,
-    };
-  }, [events]);
+  /**
+   * The registry decides which games exist; this says which of the ones that
+   * own a route can be reached from here. Memoised because the hub keys its own
+   * derivation on this object, and a fresh literal every render would redo that
+   * work on every keystroke of a maths round.
+   */
+  const routes: MindRouteHandlers = useMemo(
+    () => ({
+      wordPuzzle: onOpenWordPuzzle,
+      fourCorners: onOpenFourCorners,
+      petJeopardy: onOpenPetJeopardy,
+    }),
+    [onOpenWordPuzzle, onOpenFourCorners, onOpenPetJeopardy],
+  );
+
+  /** The hub's one way in to a game this sheet plays itself. */
+  const startStage = (next: MindStage) => {
+    if (next === 'math') {
+      startMath();
+      return;
+    }
+    if (next === 'reading') {
+      startReading();
+      return;
+    }
+    setStage(next);
+  };
 
   const allAnswered = useMemo(
     () => passage?.questions.every((question) => question.id in answers) ?? false,
     [passage, answers],
   );
+
+  if (stage === 'pick') {
+    return (
+      <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+        <MindHub
+          pet={pet}
+          events={events}
+          routes={routes}
+          onStartStage={startStage}
+          onClose={onClose}
+        />
+      </Modal>
+    );
+  }
 
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -206,7 +254,7 @@ export function MindGymScreen({
       >
         <View style={styles.header}>
           <View>
-            <Kicker>Mind gym</Kicker>
+            <Kicker>Mind</Kicker>
             <Text style={styles.title}>{STAGE_TITLE[stage]}</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={styles.close}>
@@ -215,98 +263,6 @@ export function MindGymScreen({
         </View>
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          {stage === 'pick' ? (
-            <>
-              <Text style={styles.intro}>
-                A few focused minutes counts as care too. Pick a session — your pet feels the difference
-                either way.
-              </Text>
-              {onOpenWordPuzzle ? (
-                <Pressable style={styles.gameCard} onPress={onOpenWordPuzzle}>
-                  <View style={[styles.gameIcon, { backgroundColor: colors.lilac }]}>
-                    <Text style={{ color: colors.lilacDeep, fontSize: 18 }}>✎</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.gameName}>Today's word puzzle</Text>
-                    <Text style={styles.gameHint}>
-                      {wordPuzzle.done ? 'Played today' : 'Not played yet'} ·{' '}
-                      {wordPuzzle.streak > 0 ? `${wordPuzzle.streak}-day streak` : 'no streak yet'}
-                    </Text>
-                  </View>
-                  <Text style={styles.gameArrow}>→</Text>
-                </Pressable>
-              ) : null}
-              {onOpenFourCorners ? (
-                <Pressable style={styles.gameCard} onPress={onOpenFourCorners}>
-                  <View style={[styles.gameIcon, { backgroundColor: colors.yellow }]}>
-                    <Text style={{ color: colors.yellowDeep, fontSize: 18 }}>✦</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.gameName}>Four Corners</Text>
-                    <Text style={styles.gameHint}>
-                      Five quick questions · your pet jumps to your answer
-                    </Text>
-                  </View>
-                  <Text style={styles.gameArrow}>→</Text>
-                </Pressable>
-              ) : null}
-              {onOpenPetJeopardy ? (
-                <Pressable style={styles.gameCard} onPress={onOpenPetJeopardy}>
-                  <View style={[styles.gameIcon, { backgroundColor: colors.mint }]}>
-                    <Text style={{ color: colors.mintDeep, fontSize: 18 }}>▦</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.gameName}>Pet Jeopardy</Text>
-                    <Text style={styles.gameHint}>
-                      Pick your squares · then wager XP on one final question
-                    </Text>
-                  </View>
-                  <Text style={styles.gameArrow}>→</Text>
-                </Pressable>
-              ) : null}
-              <Pressable style={styles.gameCard} onPress={startMath}>
-                <View style={[styles.gameIcon, { backgroundColor: colors.coralWash }]}>
-                  <Text style={{ color: colors.coralDeep, fontSize: 18 }}>∑</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gameName}>Quick maths</Text>
-                  <Text style={styles.gameHint}>{MATH_ROUND_SECONDS} seconds · gets harder as you go</Text>
-                </View>
-                <Text style={styles.gameArrow}>→</Text>
-              </Pressable>
-              <Pressable style={styles.gameCard} onPress={startReading}>
-                <View style={[styles.gameIcon, { backgroundColor: colors.mint }]}>
-                  <Text style={{ color: colors.mintDeep, fontSize: 18 }}>❧</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gameName}>Read and recall</Text>
-                  <Text style={styles.gameHint}>A short passage, then questions from memory</Text>
-                </View>
-                <Text style={styles.gameArrow}>→</Text>
-              </Pressable>
-              <Pressable style={styles.gameCard} onPress={() => setStage('garden')}>
-                <View style={[styles.gameIcon, { backgroundColor: colors.mint }]}>
-                  <Text style={{ color: colors.mintDeep, fontSize: 18 }}>✿</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gameName}>Word garden</Text>
-                  <Text style={styles.gameHint}>Grow words from a seed letter · runs multiply · untimed</Text>
-                </View>
-                <Text style={styles.gameArrow}>→</Text>
-              </Pressable>
-              <Pressable style={styles.gameCard} onPress={() => setStage('country')}>
-                <View style={[styles.gameIcon, { backgroundColor: colors.periwinkle }]}>
-                  <Text style={{ color: colors.slateDeep, fontSize: 18 }}>⌖</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gameName}>Guess the country</Text>
-                  <Text style={styles.gameHint}>Three mystery countries · distance and direction clues</Text>
-                </View>
-                <Text style={styles.gameArrow}>→</Text>
-              </Pressable>
-            </>
-          ) : null}
-
           {stage === 'garden' ? <WordGardenGame onFinish={finishSession} onCancel={onClose} /> : null}
 
           {stage === 'country' ? <CountryGuessGame onFinish={finishSession} onCancel={onClose} /> : null}
@@ -479,22 +435,6 @@ const styles = StyleSheet.create({
   },
   closeMark: { fontSize: 24, color: colors.muted, lineHeight: 28 },
   body: { padding: 22, paddingBottom: 60 },
-  intro: { ...text.body, marginBottom: 18 },
-  gameCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    marginBottom: 12,
-  },
-  gameIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  gameName: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  gameHint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
-  gameArrow: { fontSize: 18, color: colors.faint },
   scoreboard: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 14 },
   scoreItem: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted },
   scoreValue: { fontSize: 16, fontWeight: '700', color: colors.ink },

@@ -1246,10 +1246,12 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('runs a maths round in the mind gym', () => {
+  it('runs a maths round from the mind hub', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(<MindGymScreen onFinish={async () => {}} onClose={() => {}} />);
+      tree = renderer.create(
+        <MindGymScreen pet={pet} onFinish={async () => {}} onClose={() => {}} />,
+      );
     });
 
     // Find the pressable whose own subtree renders the game's name. React elements

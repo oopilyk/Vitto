@@ -44,7 +44,7 @@ export const MIND_GAMES: readonly MindGameEntry[] = [
   {
     id: 'fourCorners',
     name: 'Four Corners',
-    blurb: 'Five quick questions — your pet runs to the answer you pick.',
+    blurb: 'Five quick questions. Your pet runs to your answer.',
     category: 'REACTION',
     minutes: 2,
     maxXp: maxXpFor('fourCorners'),
@@ -55,7 +55,7 @@ export const MIND_GAMES: readonly MindGameEntry[] = [
   {
     id: 'petJeopardy',
     name: 'Pet Jeopardy',
-    blurb: 'Pick three squares, then wager what you won on one final question.',
+    blurb: 'Pick three squares, then wager it all on the final.',
     category: 'TRIVIA',
     minutes: 4,
     maxXp: JEOPARDY_MAX_XP,
@@ -77,7 +77,7 @@ export const MIND_GAMES: readonly MindGameEntry[] = [
   {
     id: 'wordGarden',
     name: 'Word garden',
-    blurb: 'Grow words from one seed letter — runs multiply, and it is untimed.',
+    blurb: 'Grow words from one seed letter. Runs multiply.',
     category: 'WORDS',
     minutes: 5,
     maxXp: maxXpFor('wordGarden'),
@@ -89,7 +89,7 @@ export const MIND_GAMES: readonly MindGameEntry[] = [
   {
     id: 'countryGuess',
     name: 'Guess the country',
-    blurb: 'Three mystery countries, narrowed by distance and direction.',
+    blurb: 'Three mystery countries, narrowed by distance.',
     category: 'GEOGRAPHY',
     minutes: 4,
     maxXp: maxXpFor('countryGuess'),
@@ -100,7 +100,7 @@ export const MIND_GAMES: readonly MindGameEntry[] = [
   {
     id: 'math',
     name: 'Quick maths',
-    blurb: `${MATH_ROUND_SECONDS} seconds of sums that get harder the longer you hold a streak.`,
+    blurb: `${MATH_ROUND_SECONDS} seconds of sums that get harder as you go.`,
     category: 'LOGIC',
     minutes: MATH_ROUND_MINUTES,
     maxXp: maxXpFor('math'),
@@ -111,7 +111,7 @@ export const MIND_GAMES: readonly MindGameEntry[] = [
   {
     id: 'reading',
     name: 'Read and recall',
-    blurb: 'A short passage, then questions on it from memory alone.',
+    blurb: 'A short passage, then questions from memory.',
     category: 'MEMORY',
     minutes: 3,
     maxXp: maxXpFor('reading'),
