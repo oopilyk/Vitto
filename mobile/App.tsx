@@ -37,6 +37,7 @@ import { FriendsScreen } from './src/screens/FriendsScreen';
 import { FriendPetScreen } from './src/screens/FriendPetScreen';
 import {  type ForcedTrophies,TodayScreen, type ForcedAmbient } from './src/screens/TodayScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
+import { FourCornersScreen } from './src/screens/FourCornersScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
@@ -90,6 +91,10 @@ type RootStackParamList = {
   Workout: undefined;
   MindGym: undefined;
   WordPuzzle: undefined;
+  // A mind game with its own full-screen play area (the pet stands in the middle
+  // of it), so it is a route of its own rather than a stage inside MindGym --
+  // the same call the daily word puzzle already makes.
+  FourCorners: undefined;
 };
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
@@ -1678,6 +1683,19 @@ export default function App() {
                 // `replace` swaps this sheet for the puzzle rather than stacking a
                 // second modal on top of the one already presented.
                 onOpenWordPuzzle={() => navigation.replace('WordPuzzle')}
+                onOpenFourCorners={() => navigation.replace('FourCorners')}
+                onClose={() => navigation.goBack()}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen name="FourCorners">
+            {({ navigation }) => (
+              <FourCornersScreen
+                pet={livePet}
+                // One BRAIN_TRAINING event per round, recorded through the same
+                // path every other mind game uses -- the screen guards against
+                // calling this twice, so nothing here needs to.
+                onFinish={completeMindSession}
                 onClose={() => navigation.goBack()}
               />
             )}

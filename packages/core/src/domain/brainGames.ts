@@ -1,11 +1,15 @@
-export type BrainGameKind = 'math' | 'reading' | 'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess';
+export type BrainGameKind = 'math' | 'reading' | 'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess' | 'fourCorners';
 
 /**
- * The timed games. The word puzzle, word garden and country guess are untimed, so
+ * The timed games. The word puzzle, word garden, country guess and Four Corners
+ * are scored on accuracy rather than the clock, so
  * pace scoring is meaningless for them and they are deliberately excluded here
  * rather than left to convention.
  */
-export type PacedBrainGameKind = Exclude<BrainGameKind, 'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess'>;
+export type PacedBrainGameKind = Exclude<
+  BrainGameKind,
+  'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess' | 'fourCorners'
+>;
 
 export interface MathProblem {
   id: string;

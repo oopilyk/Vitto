@@ -163,7 +163,7 @@ export interface CountryGuessRoundOutcome {
 
 export interface BrainTrainingMetadata {
   /** `spellingBee` is the word garden's former name, kept so old events still read. */
-  game: 'math' | 'reading' | 'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess';
+  game: 'math' | 'reading' | 'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess' | 'fourCorners';
   /**
    * How well it went, 0..`total`. For the question games this is answers right; for
    * the word garden it is points earned towards the "full bloom" bar, so that
