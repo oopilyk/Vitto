@@ -30,9 +30,13 @@ export const REVEAL_HOLD_MS = 820;
  */
 export const FINAL_SUSPENSE_MS = 620;
 
-/** Wager stepper granularity. 5 keeps the ceiling (50) about ten taps wide. */
+/**
+ * Wager stepper granularity. The ceiling is now whatever the round actually
+ * earned (see `maxJeopardyWager`), not a fixed number, so 5 is chosen for a
+ * typical round rather than to fit a specific max in a round number of taps.
+ */
 export const WAGER_STEP = 5;
-/** Where the stepper starts: a real stake, but nowhere near the ceiling. */
+/** Where the stepper starts: a real stake, but nowhere near a typical ceiling. */
 export const DEFAULT_WAGER = 10;
 
 /**
@@ -80,9 +84,9 @@ export const valueTone = (value: JeopardyValue, night: boolean): ValueTone => {
  * user they cannot tap it, not that they already won it.
  */
 export const cellLabel = (categoryLabel: string, cell: JeopardyCell): string => {
-  if (!cell.played) return `${categoryLabel}, ${cell.value} points`;
-  const outcome = cell.correct ? `won ${cell.value} points` : 'missed';
-  return `${categoryLabel}, ${cell.value} points, already played, ${outcome}`;
+  if (!cell.played) return `${categoryLabel}, ${cell.value} XP`;
+  const outcome = cell.correct ? `won ${cell.value} XP` : 'missed';
+  return `${categoryLabel}, ${cell.value} XP, already played, ${outcome}`;
 };
 
 /**
@@ -94,9 +98,9 @@ export const cellLabel = (categoryLabel: string, cell: JeopardyCell): string => 
 export const answerLabel = (answer: string, mark: string | null): string =>
   mark ? `${answer}, ${mark}` : answer;
 
-/** Warm, never scolding — a missed square costs points, not encouragement. */
+/** Warm, never scolding — a missed square costs XP, not encouragement. */
 export const verdictLine = (correct: boolean, value: number, answer: string): string =>
-  correct ? `CORRECT  ·  +${value}` : `NOT THIS TIME  ·  IT WAS ${answer.toUpperCase()}`;
+  correct ? `CORRECT  ·  +${value} XP` : `NOT THIS TIME  ·  IT WAS ${answer.toUpperCase()}`;
 
 export const finalVerdictLine = (correct: boolean, wager: number, answer: string): string =>
   correct

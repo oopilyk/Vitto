@@ -1,8 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  FINAL_JEOPARDY_MAX_WAGER,
-  JEOPARDY_FLOOR_XP,
-  JEOPARDY_MAX_BOARD_XP,
+  JEOPARDY_PICKS_PER_ROUND,
   JEOPARDY_VALUES,
   type JeopardyCategory,
   type JeopardyGame,
@@ -48,8 +46,11 @@ const finalPool: readonly JeopardyQuestion[] = [
 /** Deterministic: always picks the first of any range, so shuffles are identity. */
 const staticRng = () => 0;
 
-const deal = (): JeopardyGame =>
-  createJeopardyGame({ categories: CATEGORIES, pool, finalPool, baselineXp: 500 }, staticRng);
+const deal = (): JeopardyGame => createJeopardyGame({ categories: CATEGORIES, pool, finalPool }, staticRng);
+
+/** What a round earns when every one of its picks lands correctly: alpha's three cells, in the
+ *  fixed order `playRound` picks them (see below) — the sum of every value tier once each. */
+const PERFECT_ROUND_XP = JEOPARDY_VALUES.reduce((total, value) => total + value, 0);
 
 /** Index of the option that is the correct one for the currently open cell. */
 const correctIndexOfOpen = (game: JeopardyGame): number => {
@@ -60,16 +61,21 @@ const correctIndexOfOpen = (game: JeopardyGame): number => {
 
 const wrongIndexOfOpen = (game: JeopardyGame): number => (correctIndexOfOpen(game) + 1) % 3;
 
-/** Plays every board cell, answering the first `correctCount` of them correctly. */
-const playWholeBoard = (start: JeopardyGame, correctCount: number): JeopardyGame => {
+/**
+ * Plays exactly one round's worth of picks (`JEOPARDY_PICKS_PER_ROUND`), answering the first
+ * `correctCount` of them correctly. Always picks whichever unplayed cell comes first in
+ * `game.cells` (alpha-100, alpha-200, alpha-300 for this fixture's category order), so a given
+ * `correctCount` always produces the same board points.
+ */
+const playRound = (start: JeopardyGame, correctCount: number): JeopardyGame => {
   let game = start;
-  let answered = 0;
-  for (const cell of start.cells) {
+  for (let played = 0; played < JEOPARDY_PICKS_PER_ROUND; played += 1) {
+    const cell = game.cells.find((item) => !item.played);
+    if (!cell) break;
     game = openJeopardyCell(game, cell.id);
-    const index = answered < correctCount ? correctIndexOfOpen(game) : wrongIndexOfOpen(game);
+    const index = played < correctCount ? correctIndexOfOpen(game) : wrongIndexOfOpen(game);
     game = answerJeopardyCell(game, index);
     game = closeJeopardyReveal(game);
-    answered += 1;
   }
   return game;
 };
@@ -111,9 +117,9 @@ describe('createJeopardyGame', () => {
   });
 
   test('throws when the board pool is empty', () => {
-    expect(() =>
-      createJeopardyGame({ categories: CATEGORIES, pool: [], finalPool, baselineXp: 0 }, staticRng),
-    ).toThrow(/no questions/i);
+    expect(() => createJeopardyGame({ categories: CATEGORIES, pool: [], finalPool }, staticRng)).toThrow(
+      /no questions/i,
+    );
   });
 
   test('throws when a category and value pair has no question at all', () => {
@@ -121,9 +127,9 @@ describe('createJeopardyGame', () => {
     const holed = pool.filter((question) => !(question.category === 'beta' && question.value === 300));
 
     // Act / Assert
-    expect(() =>
-      createJeopardyGame({ categories: CATEGORIES, pool: holed, finalPool, baselineXp: 0 }, staticRng),
-    ).toThrow(/beta/i);
+    expect(() => createJeopardyGame({ categories: CATEGORIES, pool: holed, finalPool }, staticRng)).toThrow(
+      /beta/i,
+    );
   });
 
   test('throws when a question is malformed with the wrong number of answers', () => {
@@ -132,23 +138,14 @@ describe('createJeopardyGame', () => {
     );
 
     expect(() =>
-      createJeopardyGame({ categories: CATEGORIES, pool: malformed, finalPool, baselineXp: 0 }, staticRng),
+      createJeopardyGame({ categories: CATEGORIES, pool: malformed, finalPool }, staticRng),
     ).toThrow(/alpha-100/);
   });
 
   test('throws when the final pool is empty', () => {
     expect(() =>
-      createJeopardyGame({ categories: CATEGORIES, pool, finalPool: [], baselineXp: 0 }, staticRng),
+      createJeopardyGame({ categories: CATEGORIES, pool, finalPool: [] }, staticRng),
     ).toThrow(/final/i);
-  });
-
-  test('clamps a negative baseline xp to zero rather than trusting the caller', () => {
-    const game = createJeopardyGame(
-      { categories: CATEGORIES, pool, finalPool, baselineXp: -40 },
-      staticRng,
-    );
-
-    expect(game.baselineXp).toBe(0);
   });
 });
 
@@ -185,6 +182,19 @@ describe('openJeopardyCell', () => {
     const reopened = openJeopardyCell(game, 'alpha-100');
 
     // Assert
+    expect(reopened).toBe(game);
+  });
+
+  test('refuses to open a further cell once the round has used up its picks, even though squares remain', () => {
+    // Arrange: a round always leaves cells unplayed — three picks out of six here.
+    const game = playRound(deal(), JEOPARDY_PICKS_PER_ROUND);
+    const untouched = game.cells.find((cell) => !cell.played);
+    expect(untouched).toBeDefined();
+
+    // Act
+    const reopened = openJeopardyCell(game, untouched!.id);
+
+    // Assert: refused by reference, exactly like reopening an already-played cell.
     expect(reopened).toBe(game);
   });
 });
@@ -255,7 +265,7 @@ describe('answerJeopardyCell', () => {
 });
 
 describe('closeJeopardyReveal', () => {
-  test('returns to the board while cells remain', () => {
+  test('returns to the board while picks remain', () => {
     let game = openJeopardyCell(deal(), 'alpha-100');
     game = answerJeopardyCell(game, correctIndexOfOpen(game));
 
@@ -265,11 +275,13 @@ describe('closeJeopardyReveal', () => {
     expect(closed.openCellId).toBeNull();
   });
 
-  test('moves to the wager once every cell is played', () => {
-    const game = playWholeBoard(deal(), 6);
+  test("moves to the wager once the round's picks are used up", () => {
+    const game = playRound(deal(), JEOPARDY_PICKS_PER_ROUND);
 
     expect(game.status).toBe('wager');
-    expect(game.cells.every((cell) => cell.played)).toBe(true);
+    expect(game.cells.filter((cell) => cell.played)).toHaveLength(JEOPARDY_PICKS_PER_ROUND);
+    // Not the whole board: a round leaves squares on the table.
+    expect(game.cells.some((cell) => !cell.played)).toBe(true);
   });
 
   test('is a no-op outside a reveal, so a stray timer cannot skip a question', () => {
@@ -282,16 +294,17 @@ describe('closeJeopardyReveal', () => {
 });
 
 describe('wager validation', () => {
-  test('caps the wager at the pet xp the player actually has', () => {
-    expect(maxJeopardyWager(30)).toBe(30);
+  test('caps the wager at exactly what the round earned, nothing more', () => {
+    const game = playRound(deal(), 2);
+
+    expect(maxJeopardyWager(game)).toBe(game.boardPoints);
+    expect(maxJeopardyWager(game)).toBe(300); // alpha-100 + alpha-200
   });
 
-  test('caps the wager at the house limit for a rich pet', () => {
-    expect(maxJeopardyWager(100_000)).toBe(FINAL_JEOPARDY_MAX_WAGER);
-  });
+  test('offers nothing to wager when the round earned nothing', () => {
+    const game = playRound(deal(), 0);
 
-  test('never offers a negative maximum', () => {
-    expect(maxJeopardyWager(-10)).toBe(0);
+    expect(maxJeopardyWager(game)).toBe(0);
   });
 
   test('accepts whole numbers inside the range, including both ends', () => {
@@ -309,8 +322,8 @@ describe('wager validation', () => {
   });
 
   test('setJeopardyWager refuses an invalid wager by reference', () => {
-    const game = playWholeBoard(deal(), 6);
-    const max = maxJeopardyWager(game.baselineXp);
+    const game = playRound(deal(), JEOPARDY_PICKS_PER_ROUND);
+    const max = maxJeopardyWager(game);
 
     expect(setJeopardyWager(game, max + 1)).toBe(game);
     expect(setJeopardyWager(game, -1)).toBe(game);
@@ -319,7 +332,7 @@ describe('wager validation', () => {
   });
 
   test('setJeopardyWager accepts a valid wager and deals the final question', () => {
-    const game = playWholeBoard(deal(), 6);
+    const game = playRound(deal(), JEOPARDY_PICKS_PER_ROUND);
 
     const wagered = setJeopardyWager(game, 10);
 
@@ -330,7 +343,7 @@ describe('wager validation', () => {
   });
 
   test('a second wager is refused, so the stake cannot be raised after seeing the question', () => {
-    const wagered = setJeopardyWager(playWholeBoard(deal(), 6), 10);
+    const wagered = setJeopardyWager(playRound(deal(), JEOPARDY_PICKS_PER_ROUND), 10);
 
     expect(setJeopardyWager(wagered, 0)).toBe(wagered);
   });
@@ -344,10 +357,10 @@ describe('wager validation', () => {
 
 describe('final jeopardy', () => {
   const toFinal = (correctCount: number, wager: number): JeopardyGame =>
-    setJeopardyWager(playWholeBoard(deal(), correctCount), wager);
+    setJeopardyWager(playRound(deal(), correctCount), wager);
 
   test('a correct final adds the wager to the session', () => {
-    const game = toFinal(6, 20);
+    const game = toFinal(JEOPARDY_PICKS_PER_ROUND, 20);
 
     const answered = answerJeopardyFinal(game, game.final?.correctIndex ?? 0);
 
@@ -357,7 +370,7 @@ describe('final jeopardy', () => {
   });
 
   test('a wrong final subtracts the wager from the session', () => {
-    const game = toFinal(6, 20);
+    const game = toFinal(JEOPARDY_PICKS_PER_ROUND, 20);
     const wrong = ((game.final?.correctIndex ?? 0) + 1) % 3;
 
     const answered = answerJeopardyFinal(game, wrong);
@@ -367,21 +380,21 @@ describe('final jeopardy', () => {
   });
 
   test('a second final answer is refused by reference', () => {
-    const game = toFinal(6, 20);
+    const game = toFinal(JEOPARDY_PICKS_PER_ROUND, 20);
     const answered = answerJeopardyFinal(game, game.final?.correctIndex ?? 0);
 
     expect(answerJeopardyFinal(answered, 1)).toBe(answered);
   });
 
   test('rejects an out of range final option', () => {
-    const game = toFinal(6, 20);
+    const game = toFinal(JEOPARDY_PICKS_PER_ROUND, 20);
 
     expect(answerJeopardyFinal(game, 3)).toBe(game);
     expect(answerJeopardyFinal(game, -1)).toBe(game);
   });
 
   test('completes only from the final reveal', () => {
-    const game = toFinal(6, 5);
+    const game = toFinal(JEOPARDY_PICKS_PER_ROUND, 5);
     const answered = answerJeopardyFinal(game, game.final?.correctIndex ?? 0);
 
     expect(completeJeopardy(game)).toBe(game);
@@ -392,7 +405,7 @@ describe('final jeopardy', () => {
   });
 
   test('an unanswered final contributes nothing either way', () => {
-    const game = toFinal(6, 30);
+    const game = toFinal(JEOPARDY_PICKS_PER_ROUND, 30);
 
     expect(jeopardyWagerDelta(game)).toBe(0);
   });
@@ -406,84 +419,93 @@ describe('xp and points accounting', () => {
     expect(jeopardyNetXp(game)).toBe(0);
   });
 
-  test('a single answer earns at least the participation floor', () => {
+  test('a wrong answer earns no board xp — only a won square pays', () => {
     let game = openJeopardyCell(deal(), 'alpha-100');
     game = answerJeopardyCell(game, wrongIndexOfOpen(game));
 
-    // Wrong, but the player showed up: the floor is paid regardless.
-    expect(jeopardyBoardXp(game)).toBe(JEOPARDY_FLOOR_XP);
+    expect(jeopardyBoardXp(game)).toBe(0);
   });
 
-  test('a perfect board earns the board cap', () => {
-    const game = playWholeBoard(deal(), 6);
+  test('a correct answer earns exactly its face value, one to one', () => {
+    let game = openJeopardyCell(deal(), 'alpha-200');
+    game = answerJeopardyCell(game, correctIndexOfOpen(game));
 
-    expect(game.boardPoints).toBe(jeopardyMaxBoardPoints(game));
-    expect(jeopardyBoardXp(game)).toBe(JEOPARDY_MAX_BOARD_XP);
+    expect(jeopardyBoardXp(game)).toBe(200);
   });
 
-  test('board xp rises with board points and never exceeds the cap', () => {
-    const scores = [0, 1, 2, 3, 4, 5, 6].map((count) => jeopardyBoardXp(playWholeBoard(deal(), count)));
+  test('a perfect round earns the sum of its picks, exactly', () => {
+    const game = playRound(deal(), JEOPARDY_PICKS_PER_ROUND);
+
+    expect(jeopardyBoardXp(game)).toBe(PERFECT_ROUND_XP);
+  });
+
+  test("the theoretical max is the round's picks, all at the top value", () => {
+    expect(jeopardyMaxBoardPoints()).toBe(JEOPARDY_PICKS_PER_ROUND * Math.max(...JEOPARDY_VALUES));
+  });
+
+  test('board xp rises with how many picks were correct', () => {
+    const scores = [0, 1, 2, 3].map((count) => jeopardyBoardXp(playRound(deal(), count)));
 
     for (let index = 1; index < scores.length; index += 1) {
       expect(scores[index]).toBeGreaterThanOrEqual(scores[index - 1]);
     }
-    expect(Math.max(...scores)).toBeLessThanOrEqual(JEOPARDY_MAX_BOARD_XP);
-    expect(Math.min(...scores)).toBeGreaterThanOrEqual(JEOPARDY_FLOOR_XP);
+    expect(scores[0]).toBe(0);
+    expect(scores[JEOPARDY_PICKS_PER_ROUND]).toBe(PERFECT_ROUND_XP);
   });
 
   test('a won final adds its wager to the net', () => {
-    const game = setJeopardyWager(playWholeBoard(deal(), 6), 15);
+    const game = setJeopardyWager(playRound(deal(), JEOPARDY_PICKS_PER_ROUND), 15);
     const won = completeJeopardy(answerJeopardyFinal(game, game.final?.correctIndex ?? 0));
 
-    expect(jeopardyNetXp(won)).toBe(JEOPARDY_MAX_BOARD_XP + 15);
+    expect(jeopardyNetXp(won)).toBe(PERFECT_ROUND_XP + 15);
   });
 
   test('a lost final subtracts its wager from the net', () => {
-    const game = setJeopardyWager(playWholeBoard(deal(), 6), 15);
+    const game = setJeopardyWager(playRound(deal(), JEOPARDY_PICKS_PER_ROUND), 15);
     const wrong = ((game.final?.correctIndex ?? 0) + 1) % 3;
     const lost = completeJeopardy(answerJeopardyFinal(game, wrong));
 
-    expect(jeopardyNetXp(lost)).toBe(JEOPARDY_MAX_BOARD_XP - 15);
+    expect(jeopardyNetXp(lost)).toBe(PERFECT_ROUND_XP - 15);
   });
 
-  test('net xp can never go negative however large the loss', () => {
-    // Arrange: a weak board and the biggest wager the pet can cover.
-    const board = playWholeBoard(deal(), 0);
-    const game = setJeopardyWager(board, maxJeopardyWager(board.baselineXp));
+  test('net xp floors at zero even after wagering everything earned and losing', () => {
+    // Arrange: one won square, then the whole of it staked and lost.
+    const board = playRound(deal(), 1);
+    const game = setJeopardyWager(board, maxJeopardyWager(board));
     const wrong = ((game.final?.correctIndex ?? 0) + 1) % 3;
 
     // Act
     const lost = completeJeopardy(answerJeopardyFinal(game, wrong));
 
-    // Assert: the floor holds even though the wager exceeds the board's earnings.
-    expect(jeopardyWagerDelta(lost)).toBeLessThan(-jeopardyBoardXp(lost));
+    // Assert: losing the whole wager cannot take the session below zero.
+    expect(jeopardyWagerDelta(lost)).toBe(-maxJeopardyWager(board));
     expect(jeopardyNetXp(lost)).toBe(0);
   });
 
   test('counts correct answers across the board and the final', () => {
-    const board = playWholeBoard(deal(), 4);
-    expect(jeopardyCorrectCount(board)).toBe(4);
+    const board = playRound(deal(), 2);
+    expect(jeopardyCorrectCount(board)).toBe(2);
 
     const game = setJeopardyWager(board, 5);
     const won = answerJeopardyFinal(game, game.final?.correctIndex ?? 0);
-    expect(jeopardyCorrectCount(won)).toBe(5);
+    expect(jeopardyCorrectCount(won)).toBe(3);
   });
 });
 
 describe('toJeopardyMetadata', () => {
   test('reports the full session and stamps the exact xp the engine must award', () => {
-    const board = playWholeBoard(deal(), 6);
+    const board = playRound(deal(), JEOPARDY_PICKS_PER_ROUND);
     const game = setJeopardyWager(board, 12);
     const done = completeJeopardy(answerJeopardyFinal(game, game.final?.correctIndex ?? 0));
 
     const metadata = toJeopardyMetadata(done, 95);
 
     expect(metadata.game).toBe('petJeopardy');
-    expect(metadata.correct).toBe(7);
-    expect(metadata.total).toBe(7);
+    expect(metadata.correct).toBe(JEOPARDY_PICKS_PER_ROUND + 1);
+    expect(metadata.total).toBe(JEOPARDY_PICKS_PER_ROUND + 1);
     expect(metadata.durationSeconds).toBe(95);
     expect(metadata.points).toBe(done.boardPoints);
-    expect(metadata.maxPoints).toBe(jeopardyMaxBoardPoints(done));
+    expect(metadata.maxPoints).toBe(jeopardyMaxBoardPoints());
     expect(metadata.xpAwarded).toBe(jeopardyNetXp(done));
     expect(metadata.score).toBe(100);
   });

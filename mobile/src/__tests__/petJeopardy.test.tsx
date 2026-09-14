@@ -4,12 +4,11 @@ import {
   type JeopardyCategory,
   type JeopardyGame,
   type JeopardyQuestion,
+  JEOPARDY_PICKS_PER_ROUND,
   JEOPARDY_VALUES,
   createJeopardyGame,
   createPet,
   jeopardyNetXp,
-  maxJeopardyWager,
-  totalPetXp,
 } from '@vitto/core';
 import { PetJeopardyScreen } from '../screens/PetJeopardyScreen';
 import { DEFAULT_WAGER, FINAL_SUSPENSE_MS, REVEAL_HOLD_MS } from '../petJeopardy/board';
@@ -49,10 +48,16 @@ const FINAL_POOL: readonly JeopardyQuestion[] = [
 const staticRng = () => 0;
 
 const newGame = (): JeopardyGame =>
-  createJeopardyGame(
-    { categories: CATEGORIES, pool: POOL, finalPool: FINAL_POOL, baselineXp: totalPetXp(pet) },
-    staticRng,
-  );
+  createJeopardyGame({ categories: CATEGORIES, pool: POOL, finalPool: FINAL_POOL }, staticRng);
+
+/** The board's square-and-value pairs, in the fixed order a round plays them — alpha's three
+ *  squares, since a round only ever plays `JEOPARDY_PICKS_PER_ROUND` of the board's six. */
+const ROUND_SQUARES = CATEGORIES.flatMap((category) =>
+  JEOPARDY_VALUES.map((value) => ({ category, value })),
+).slice(0, JEOPARDY_PICKS_PER_ROUND);
+
+/** What a round earns when every one of its picks is answered correctly. */
+const PERFECT_ROUND_XP = ROUND_SQUARES.reduce((total, square) => total + square.value, 0);
 
 /** Both the composite and the host node match a label, so take the pressable one. */
 const byLabel = (tree: renderer.ReactTestRenderer, label: string) =>
@@ -116,25 +121,24 @@ const render = (overrides: Partial<Parameters<typeof PetJeopardyScreen>[0]> = {}
 
 /** What a square says out loud once it is spent — see `cellLabel`. */
 const spentLabel = (categoryLabel: string, value: number, correct: boolean): string =>
-  `${categoryLabel}, ${value} points, already played, ${correct ? `won ${value} points` : 'missed'}`;
+  `${categoryLabel}, ${value} XP, already played, ${correct ? `won ${value} XP` : 'missed'}`;
 
 /** Opens a square, answers it, and settles back onto the board. */
 const playSquare = (tree: renderer.ReactTestRenderer, categoryLabel: string, value: number, correct: boolean) => {
   const cellId = `${categoryLabel.toLowerCase()}-${value}`;
-  press(byLabel(tree, `${categoryLabel}, ${value} points`));
+  press(byLabel(tree, `${categoryLabel}, ${value} XP`));
   const answer = correct ? `RIGHT-${cellId}` : `WRONG-a-${value}`;
   press(byLabel(tree, answer));
   settleBoardReveal();
 };
 
-/** Plays the whole board, winning `correctCount` of the six squares. */
-const playWholeBoard = (tree: renderer.ReactTestRenderer, correctCount: number) => {
+/** Plays a whole round (`JEOPARDY_PICKS_PER_ROUND` picks, not the whole board), winning
+ *  `correctCount` of them. */
+const playRound = (tree: renderer.ReactTestRenderer, correctCount: number) => {
   let played = 0;
-  for (const category of CATEGORIES) {
-    for (const value of JEOPARDY_VALUES) {
-      playSquare(tree, category.label, value, played < correctCount);
-      played += 1;
-    }
+  for (const { category, value } of ROUND_SQUARES) {
+    playSquare(tree, category.label, value, played < correctCount);
+    played += 1;
   }
 };
 
@@ -165,7 +169,7 @@ describe('PetJeopardyScreen board', () => {
   test('rapid taps on answers cannot score a square twice', async () => {
     // Arrange
     const { tree, onFinish } = render();
-    press(byLabel(tree, 'Alpha, 300 points'));
+    press(byLabel(tree, 'Alpha, 300 XP'));
 
     // Act: the user hammers the tiles during the reveal.
     press(byLabel(tree, 'RIGHT-alpha-300'));
@@ -181,35 +185,49 @@ describe('PetJeopardyScreen board', () => {
     expect(onFinish.mock.calls[0][0].points).toBe(300);
     unmount(tree);
   });
+
+  test('a round cannot be played past its picks, even though squares remain', () => {
+    // Arrange: use up the round's three picks.
+    const { tree } = render();
+    playRound(tree, JEOPARDY_PICKS_PER_ROUND);
+
+    // Assert: the board is gone (the wager panel is up) rather than offering a fourth square.
+    expect(byLabel(tree, 'Beta, 100 XP')).toBeUndefined();
+    unmount(tree);
+  });
 });
 
 describe('PetJeopardyScreen wager', () => {
   const toWager = () => {
     const rendered = render();
-    playWholeBoard(rendered.tree, 6);
+    playRound(rendered.tree, JEOPARDY_PICKS_PER_ROUND);
     return rendered;
   };
 
-  test('offers the capped ceiling, not the pet whole xp total', () => {
-    // Arrange: a level-1 pet is worth 100xp, above the 50xp house ceiling.
+  test('offers the default wager, capped by what the round actually earned', () => {
     const { tree } = toWager();
 
-    // Assert
-    // A level-1 pet is worth 100xp, so the house ceiling — not the total — is
-    // what the panel may offer.
-    expect(totalPetXp(pet)).toBe(100);
-    expect(maxJeopardyWager(totalPetXp(pet))).toBe(50);
+    // A perfect round here banks every value tier once — well above the default stake.
     expect(anyLabel(tree, `Wager: ${DEFAULT_WAGER} XP`)).toBeDefined();
     unmount(tree);
   });
 
-  test('"Everything" cannot push the stake past the ceiling', () => {
+  test("\"Everything\" wagers exactly what the round earned, not the pet's whole history", () => {
     const { tree } = toWager();
 
     press(byLabel(tree, 'Wager everything'));
 
-    const max = maxJeopardyWager(totalPetXp(pet));
-    expect(anyLabel(tree, `Wager: ${max} XP`)).toBeDefined();
+    expect(anyLabel(tree, `Wager: ${PERFECT_ROUND_XP} XP`)).toBeDefined();
+    unmount(tree);
+  });
+
+  test('a round that earned nothing offers nothing to wager', () => {
+    const { tree } = render();
+    playRound(tree, 0);
+
+    press(byLabel(tree, 'Wager everything'));
+
+    expect(anyLabel(tree, 'Wager: 0 XP')).toBeDefined();
     unmount(tree);
   });
 
@@ -227,7 +245,7 @@ describe('PetJeopardyScreen wager', () => {
 describe('PetJeopardyScreen award', () => {
   const toResults = (correctCount: number, wagerPreset: string, finalCorrect: boolean) => {
     const rendered = render();
-    playWholeBoard(rendered.tree, correctCount);
+    playRound(rendered.tree, correctCount);
     press(byLabel(rendered.tree, wagerPreset));
     press(buttonWithText(rendered.tree, 'Lock it in'));
     press(byLabel(rendered.tree, finalCorrect ? 'RIGHT-final' : 'NO-1'));
@@ -240,7 +258,7 @@ describe('PetJeopardyScreen award', () => {
 
   test('records exactly one event carrying the exact xp the game decided', async () => {
     // Arrange
-    const { tree, onFinish, onClose } = toResults(6, 'Wager nothing', true);
+    const { tree, onFinish, onClose } = toResults(JEOPARDY_PICKS_PER_ROUND, 'Wager nothing', true);
 
     // Act
     await pressAsync(buttonWithText(tree, 'Save and go back'));
@@ -249,15 +267,15 @@ describe('PetJeopardyScreen award', () => {
     expect(onFinish).toHaveBeenCalledTimes(1);
     const metadata = onFinish.mock.calls[0][0];
     expect(metadata.game).toBe('petJeopardy');
-    expect(metadata.correct).toBe(7);
-    expect(metadata.total).toBe(7);
-    expect(metadata.xpAwarded).toBeGreaterThan(0);
+    expect(metadata.correct).toBe(JEOPARDY_PICKS_PER_ROUND + 1);
+    expect(metadata.total).toBe(JEOPARDY_PICKS_PER_ROUND + 1);
+    expect(metadata.xpAwarded).toBe(PERFECT_ROUND_XP);
     expect(onClose).toHaveBeenCalledTimes(1);
     unmount(tree);
   });
 
   test('a lost wager never sends negative xp to the engine', async () => {
-    // Arrange: nothing won on the board, then everything staked and lost.
+    // Arrange: nothing won on the board, so there is nothing to stake or lose.
     const { tree, onFinish } = toResults(0, 'Wager everything', false);
 
     // Act
@@ -266,6 +284,18 @@ describe('PetJeopardyScreen award', () => {
     // Assert: the floor holds — the engine must never see a negative delta.
     expect(onFinish).toHaveBeenCalledTimes(1);
     expect(onFinish.mock.calls[0][0].xpAwarded).toBe(0);
+    unmount(tree);
+  });
+
+  test('a won wager on a partial board never exceeds double what was earned', async () => {
+    // Arrange: one square won (100 xp), then all of it staked and won again.
+    const { tree, onFinish } = toResults(1, 'Wager everything', true);
+
+    // Act
+    await pressAsync(buttonWithText(tree, 'Save and go back'));
+
+    // Assert: 100 earned + 100 wagered and won = 200, never the pet's unrelated total.
+    expect(onFinish.mock.calls[0][0].xpAwarded).toBe(200);
     unmount(tree);
   });
 
@@ -314,7 +344,7 @@ describe('PetJeopardyScreen award', () => {
 
   test('play again banks the finished game before dealing the next one', async () => {
     // Arrange
-    const { tree, onFinish } = toResults(6, 'Wager nothing', true);
+    const { tree, onFinish } = toResults(JEOPARDY_PICKS_PER_ROUND, 'Wager nothing', true);
 
     // Act
     await pressAsync(buttonWithText(tree, 'Play again'));
@@ -327,7 +357,7 @@ describe('PetJeopardyScreen award', () => {
     const squares = tree.root
       .findAll((node: any) => typeof node.props?.accessibilityLabel === 'string')
       .map((node: any) => node.props.accessibilityLabel as string)
-      .filter((label) => / \d00 points$/.test(label));
+      .filter((label) => / \d00 XP$/.test(label));
     expect(squares.length).toBeGreaterThan(0);
     expect(squares.every((label) => !label.includes('already played'))).toBe(true);
     unmount(tree);

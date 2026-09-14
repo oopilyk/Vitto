@@ -11,19 +11,22 @@ import type { BrainTrainingMetadata } from './health';
  * reference** when called out of turn, and that reference check is the entire
  * anti-double-submit story — there is not a single boolean guard flag in here.
  *
- * ## Why the board's 100/200/300 are points, not xp
+ * ## The board pays real xp, one to one, but only for {@link JEOPARDY_PICKS_PER_ROUND} squares
  *
- * `XP_PER_LEVEL` is 100 (see `pet.ts`), and every event the pet engine handles
- * pays between 5 and 40 xp. A board that literally granted its face values would
- * pay 600 xp — six whole levels — for ninety seconds of trivia, against an
- * `EVOLUTION_LEVEL` of 11. So the board values are this game's own currency, in
- * the same role `FOUR_CORNERS_POINTS_CORRECT` plays for Four Corners, just on a
- * scale that reads like a game show. They ride in the `points`/`maxPoints`
- * fields `BrainTrainingMetadata` already carries for exactly this purpose.
+ * The board's 100/200/300 values ARE the xp awarded — there is no separate
+ * points currency and no formula that scales them down. What keeps that from
+ * blowing out the pet's economy is that a round only ever plays
+ * {@link JEOPARDY_PICKS_PER_ROUND} of the board's nine squares: reach for the
+ * high-value squares and you are risking not getting to play the easy ones,
+ * exactly the tension a real Jeopardy board has. `points`/`maxPoints` on
+ * `BrainTrainingMetadata` still carry the board's own score for the care diary
+ * and mind streaks (the same role `FOUR_CORNERS_POINTS_CORRECT` plays for Four
+ * Corners) — they are just the same numbers as the xp now rather than a
+ * separate scale.
  *
- * Real xp is then {@link jeopardyNetXp}, which stays inside the same band as
- * every other mind game, and is handed to the engine through the explicit
- * `xpAwarded` override on the metadata rather than being re-derived there.
+ * Real xp is then {@link jeopardyNetXp}, handed to the engine through the
+ * explicit `xpAwarded` override on the metadata rather than being re-derived
+ * there.
  */
 
 export interface JeopardyCategory {
@@ -40,6 +43,16 @@ export interface JeopardyCategory {
  */
 export const JEOPARDY_VALUES = [100, 200, 300] as const;
 export type JeopardyValue = (typeof JEOPARDY_VALUES)[number];
+
+/**
+ * How many of the board's nine squares one round actually plays. Not all of
+ * them: since the board now pays its face value as real xp, letting a player
+ * clear all nine would pay out far more than any other Vitto mind session for
+ * the same few minutes. Picking only three also *is* the game's decision —
+ * reach for a 300 early and there may not be a turn left to fall back on an
+ * easy 100.
+ */
+export const JEOPARDY_PICKS_PER_ROUND = 3;
 
 /** Exactly three choices per question — the shape the answer tiles are built for. */
 export const JEOPARDY_OPTION_COUNT = 3;
@@ -86,7 +99,7 @@ export interface JeopardyFinal {
 /**
  * `board` — choosing a square. `question` — a square is open, waiting on a tap.
  * `revealing` — answered, feedback on screen, further taps ignored. `wager` —
- * every square played, setting the stake. `final` — the last question is up.
+ * the round's picks are used up, setting the stake. `final` — the last question is up.
  * `finalRevealing` — the final is answered. `complete` — results.
  *
  * The status is what makes rapid multi-tapping a no-op rather than a double
@@ -107,15 +120,8 @@ export interface JeopardyGame {
   status: JeopardyStatus;
   /** Which cell the open question belongs to, or null whenever none is open. */
   openCellId: string | null;
-  /** Board points banked so far — the sum of the values actually won. */
+  /** Board points banked so far — the sum of the values actually won. Also this round's real xp. */
   boardPoints: number;
-  /**
-   * The pet's real total xp when the game was dealt, read once via `totalPetXp`.
-   * The wager ceiling is derived from this rather than re-read mid-game, so the
-   * number the player was shown when they set the stake is the number they were
-   * actually held to.
-   */
-  baselineXp: number;
   wager: number | null;
   /**
    * Drawn at deal time but held back until the wager is set, so the player can
@@ -137,36 +143,6 @@ const shuffle = <T,>(items: readonly T[], rng: Rng): T[] => {
   return copy;
 };
 
-/**
- * Mind Points, on a game-show scale. A wrong answer still pays the participation
- * floor below; these are what a *won* square is worth.
- *
- * The participation principle is the same one Four Corners and the pet engine
- * already apply to sleep and screen time: showing up is the behaviour worth
- * rewarding, and how it went moves the number — it never drives it below the
- * floor.
- */
-export const JEOPARDY_FLOOR_XP = 8;
-/**
- * The most the board alone can pay. A little above Four Corners' 24-xp ceiling
- * because this is the longer sitting, and still inside the range every other
- * mind session lands in, so no game is the obviously efficient one to grind.
- */
-export const JEOPARDY_MAX_BOARD_XP = 28;
-
-/**
- * The most a player may stake on the final, whatever their pet is worth.
- *
- * The spec for this game asks for a wager of up to the player's whole xp total,
- * and for a rich pet that would be thousands of xp — weeks of real workouts,
- * meals and sleep — riding on one trivia question. In a health app that is
- * indefensible: the xp is a record of things the user actually did, and a
- * missed guess about the femur must not erase it. So the ceiling is the *lower*
- * of the pet's total and this, which keeps a lost final firmly in
- * "that stings" territory (roughly two mind sessions) rather than punitive.
- */
-export const FINAL_JEOPARDY_MAX_WAGER = 50;
-
 const cellId = (categoryId: string, value: JeopardyValue): string => `${categoryId}-${value}`;
 
 /** Shuffles a question's answers and records where the correct one landed. */
@@ -184,8 +160,6 @@ export interface JeopardyDeal {
   pool: readonly JeopardyQuestion[];
   /** Final Jeopardy questions, drawn from separately. */
   finalPool: readonly JeopardyQuestion[];
-  /** The pet's real total xp right now — `totalPetXp(pet)`. */
-  baselineXp: number;
 }
 
 /**
@@ -197,7 +171,7 @@ export interface JeopardyDeal {
  * with a hole in it that silently scores nothing.
  */
 export const createJeopardyGame = (deal: JeopardyDeal, rng: Rng = Math.random): JeopardyGame => {
-  const { categories, pool, finalPool, baselineXp } = deal;
+  const { categories, pool, finalPool } = deal;
   if (pool.length === 0) throw new Error('No questions are available for the board right now.');
   if (finalPool.length === 0) throw new Error('No Final Jeopardy question is available right now.');
   if (categories.length === 0) throw new Error('No categories are available for the board right now.');
@@ -232,9 +206,6 @@ export const createJeopardyGame = (deal: JeopardyDeal, rng: Rng = Math.random): 
     status: 'board',
     openCellId: null,
     boardPoints: 0,
-    // A caller cannot hand us a negative bankroll; clamping here means the wager
-    // ceiling is trustworthy without every reader re-checking it.
-    baselineXp: Math.max(0, Math.floor(baselineXp)),
     wager: null,
     finalQuestion: shuffle(finalPool, rng)[0],
     final: null,
@@ -244,8 +215,9 @@ export const createJeopardyGame = (deal: JeopardyDeal, rng: Rng = Math.random): 
 export const openJeopardyCellOf = (game: JeopardyGame): JeopardyCell | null =>
   game.cells.find((cell) => cell.id === game.openCellId) ?? null;
 
-export const jeopardyMaxBoardPoints = (game: JeopardyGame): number =>
-  game.cells.reduce((total, cell) => total + cell.value, 0);
+/** The best a round can possibly score: its picks, all at the top value. */
+export const jeopardyMaxBoardPoints = (): number =>
+  JEOPARDY_PICKS_PER_ROUND * Math.max(...JEOPARDY_VALUES);
 
 const isOptionIndex = (index: number): boolean =>
   Number.isInteger(index) && index >= 0 && index < JEOPARDY_OPTION_COUNT;
@@ -285,19 +257,23 @@ export const answerJeopardyCell = (game: JeopardyGame, optionIndex: number): Jeo
 };
 
 /**
- * Moves past the reveal — back to the board, or on to the wager once the last
- * square is played. A no-op in any other status, so a stray timer firing after
- * the user has already left cannot skip a question.
+ * Moves past the reveal — back to the board, or on to the wager once the round
+ * has used up its picks. A no-op in any other status, so a stray timer firing
+ * after the user has already left cannot skip a question.
  */
 export const closeJeopardyReveal = (game: JeopardyGame): JeopardyGame => {
   if (game.status !== 'revealing') return game;
-  const boardDone = game.cells.every((cell) => cell.played);
+  const boardDone = jeopardyPlayedCells(game).length >= JEOPARDY_PICKS_PER_ROUND;
   return { ...game, status: boardDone ? 'wager' : 'board', openCellId: null };
 };
 
-/** The most this player may stake: their own xp, under the house ceiling, never negative. */
-export const maxJeopardyWager = (baselineXp: number): number =>
-  Math.max(0, Math.min(Math.floor(baselineXp), FINAL_JEOPARDY_MAX_WAGER));
+/**
+ * The most this player may stake: exactly what the board paid out this round,
+ * never more. A wager is risk on top of what was actually earned just now, not
+ * a line of credit against the pet's history — so losing it can only ever cost
+ * this session's own xp.
+ */
+export const maxJeopardyWager = (game: JeopardyGame): number => game.boardPoints;
 
 /**
  * A wager must be a whole number of xp inside `[0, max]`. Exported so the screen
@@ -314,7 +290,7 @@ export const isValidJeopardyWager = (amount: number, max: number): boolean =>
  */
 export const setJeopardyWager = (game: JeopardyGame, amount: number, rng: Rng = Math.random): JeopardyGame => {
   if (game.status !== 'wager') return game;
-  if (!isValidJeopardyWager(amount, maxJeopardyWager(game.baselineXp))) return game;
+  if (!isValidJeopardyWager(amount, maxJeopardyWager(game))) return game;
   if (!game.finalQuestion) return game;
 
   const { options, correctIndex } = place(game.finalQuestion, rng);
@@ -355,18 +331,15 @@ export const jeopardyAnsweredCount = (game: JeopardyGame): number => {
 };
 
 /**
- * Real xp for the board alone: the participation floor, plus the share of the
- * board's points that were actually won, scaled across the remaining range.
- *
- * Zero — not the floor — when nothing was answered at all, so opening the game
- * and immediately backing out pays nothing and there is no free xp to farm.
+ * Real xp earned from the board alone — literally `boardPoints`. There is no
+ * separate formula: a won square pays its face value, one to one, and a round
+ * is capped at {@link JEOPARDY_PICKS_PER_ROUND} picks specifically so that this
+ * can be true without breaking the pet's economy. Kept as its own named
+ * function (rather than every caller reading `game.boardPoints` directly)
+ * because the results screen and the wager panel both want to call this "the
+ * board's xp" and that name should live in one place.
  */
-export const jeopardyBoardXp = (game: JeopardyGame): number => {
-  if (jeopardyPlayedCells(game).length === 0) return 0;
-  const maxPoints = jeopardyMaxBoardPoints(game);
-  const share = maxPoints > 0 ? Math.max(0, Math.min(1, game.boardPoints / maxPoints)) : 0;
-  return JEOPARDY_FLOOR_XP + Math.round(share * (JEOPARDY_MAX_BOARD_XP - JEOPARDY_FLOOR_XP));
-};
+export const jeopardyBoardXp = (game: JeopardyGame): number => game.boardPoints;
 
 /** What the final did to the session: +wager, -wager, or nothing if it was never answered. */
 export const jeopardyWagerDelta = (game: JeopardyGame): number => {
@@ -415,6 +388,6 @@ export const toJeopardyMetadata = (
   durationSeconds: Math.max(1, Math.round(durationSeconds)),
   score: jeopardyScore(game),
   points: game.boardPoints,
-  maxPoints: jeopardyMaxBoardPoints(game),
+  maxPoints: jeopardyMaxBoardPoints(),
   xpAwarded: jeopardyNetXp(game),
 });

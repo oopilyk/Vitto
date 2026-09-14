@@ -11,7 +11,6 @@ import {
   createJeopardyGame,
   errorMessage,
   jeopardyAnsweredCount,
-  jeopardyBoardXp,
   jeopardyCategories,
   jeopardyFinalQuestions,
   jeopardyQuestions,
@@ -20,7 +19,6 @@ import {
   openJeopardyCellOf,
   setJeopardyWager,
   toJeopardyMetadata,
-  totalPetXp,
 } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { ErrorText, PrimaryButton } from '../components/ui';
@@ -70,16 +68,13 @@ interface Deal {
  * this — a missing data file becomes one readable line on screen instead of a
  * crash inside a `useState` initialiser.
  */
-const dealGame = (pet: PetState): Deal => {
+const dealGame = (): Deal => {
   try {
     return {
       game: createJeopardyGame({
         categories: jeopardyCategories,
         pool: jeopardyQuestions,
         finalPool: jeopardyFinalQuestions,
-        // Read at deal time, once: the ceiling the player is shown when they set
-        // their stake has to be the ceiling they are actually held to.
-        baselineXp: totalPetXp(pet),
       }),
       error: null,
     };
@@ -99,7 +94,7 @@ const dealGame = (pet: PetState): Deal => {
  * `onFinish` call.
  */
 export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
-  const [deal, setDeal] = useState<Deal>(() => (game ? { game, error: null } : dealGame(pet)));
+  const [deal, setDeal] = useState<Deal>(() => (game ? { game, error: null } : dealGame()));
   const active = deal.game;
 
   const gameRef = useRef<JeopardyGame | null>(active);
@@ -274,7 +269,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
     if (saving) return;
     const live = gameRef.current;
     if (live && !(await submit(live))) return;
-    const next = dealGame(pet);
+    const next = dealGame();
     if (!next.game) {
       setSaveError(next.error);
       return;
@@ -310,7 +305,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
   }
 
   const openCell = openJeopardyCellOf(active);
-  const max = maxJeopardyWager(active.baselineXp);
+  const max = maxJeopardyWager(active);
   const amount = Math.min(wager ?? DEFAULT_WAGER, max);
 
   const petSlot = (size: number) => (
@@ -367,7 +362,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
         {openCell && (active.status === 'question' || active.status === 'revealing') ? (
           <QuestionStage
             kicker={categoryLabel(openCell.categoryId)}
-            stake={`${openCell.value} points`}
+            stake={`${openCell.value} XP`}
             prompt={openCell.question.prompt}
             options={openCell.options}
             reveal={boardReveal}
@@ -386,8 +381,6 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
 
         {active.status === 'wager' ? (
           <WagerPanel
-            baselineXp={active.baselineXp}
-            boardXp={jeopardyBoardXp(active)}
             max={max}
             amount={amount}
             onChange={setWager}

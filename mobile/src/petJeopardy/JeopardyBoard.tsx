@@ -1,10 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import {
-  JEOPARDY_VALUES,
-  type JeopardyGame,
-  jeopardyBoardXp,
-  jeopardyMaxBoardPoints,
-} from '@vitto/core';
+import { JEOPARDY_PICKS_PER_ROUND, JEOPARDY_VALUES, type JeopardyGame } from '@vitto/core';
 import { retro } from '../petWorld/retroStyle';
 import { fonts, world } from '../theme';
 import { ValueTile } from './ValueTile';
@@ -28,14 +23,16 @@ export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
   const labelOf = (categoryId: string): string =>
     game.categories.find((category) => category.id === categoryId)?.label ?? categoryId;
 
+  const picked = game.cells.filter((cell) => cell.played).length;
+
   return (
     <View style={styles.wrap}>
       <View style={[styles.scoreStrip, retro.panelQuiet, night && retro.panelQuietNight]}>
         <Text style={[retro.kicker, night && retro.kickerNight]}>This session</Text>
-        <Text style={[styles.score, night && styles.scoreNight]}>
-          {`${game.boardPoints} / ${jeopardyMaxBoardPoints(game)} pts`}
+        <Text style={[styles.score, night && styles.scoreNight]}>{`${game.boardPoints} XP`}</Text>
+        <Text style={[retro.caption, night && retro.captionNight]}>
+          {`${picked} / ${JEOPARDY_PICKS_PER_ROUND} picks used`}
         </Text>
-        <Text style={[retro.caption, night && retro.captionNight]}>{`+${jeopardyBoardXp(game)} XP so far`}</Text>
       </View>
 
       <View style={styles.grid}>

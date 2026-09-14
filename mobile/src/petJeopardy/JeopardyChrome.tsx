@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { JeopardyGame } from '@vitto/core';
+import { JEOPARDY_PICKS_PER_ROUND, type JeopardyGame } from '@vitto/core';
 import { PrimaryButton } from '../components/ui';
 import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
 import { retro, retroPressed } from '../petWorld/retroStyle';
@@ -51,7 +51,7 @@ export const progressLine = (game: JeopardyGame): string => {
   if (game.status === 'wager') return 'Final Jeopardy · set your stake';
   if (game.status === 'final' || game.status === 'finalRevealing') return 'Final Jeopardy';
   const played = game.cells.filter((cell) => cell.played).length;
-  return `${played} / ${game.cells.length} squares · ${game.boardPoints} pts`;
+  return `${played} / ${JEOPARDY_PICKS_PER_ROUND} picks · ${game.boardPoints} XP`;
 };
 
 interface HeaderProps {

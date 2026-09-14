@@ -6,11 +6,7 @@ import { fonts, world } from '../theme';
 import { WAGER_STEP } from './board';
 
 interface WagerPanelProps {
-  /** The pet's real total XP, read at deal time — the number the player is held to. */
-  baselineXp: number;
-  /** XP the board has already earned this session, shown so the stake has context. */
-  boardXp: number;
-  /** `maxJeopardyWager(baselineXp)` — the house ceiling, not necessarily the whole total. */
+  /** `maxJeopardyWager(game)` — exactly what the board paid out this round. */
   max: number;
   amount: number;
   onChange: (amount: number) => void;
@@ -31,8 +27,6 @@ interface WagerPanelProps {
  * the rule that could drift from it.
  */
 export function WagerPanel({
-  baselineXp,
-  boardXp,
   max,
   amount,
   onChange,
@@ -48,15 +42,12 @@ export function WagerPanel({
       <View style={[styles.panel, retro.panel, night && retro.panelNight]}>
         <Text style={[retro.kicker, night && retro.kickerNight]}>Final Jeopardy</Text>
         <Text style={[styles.heading, night && styles.headingNight]}>How much do you risk?</Text>
-        <Text style={[retro.caption, night && retro.captionNight, styles.line]}>
-          {`Your pet has ${baselineXp} XP · this board earned ${boardXp} XP`}
-        </Text>
-        {/* Stated honestly: the ceiling is the lower of the pet's total and the
-            house limit, so "up to N" is never quietly less than it sounds. */}
+        {/* The ceiling IS what was earned this round, stated plainly: winning
+            doubles it, losing gives it back. */}
         <Text style={[retro.caption, night && retro.captionNight, styles.line]}>
           {max > 0
-            ? `You can risk up to ${max} XP on this question.`
-            : 'Your pet has no XP to risk yet — this one is a free shot.'}
+            ? `You earned ${max} XP this round. Risk any part of it — win, and you double it; lose, and it's gone.`
+            : "You didn't bank any XP this round — this one is a free shot."}
         </Text>
 
         <View style={styles.stepper}>
