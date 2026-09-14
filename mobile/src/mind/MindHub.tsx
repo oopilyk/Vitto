@@ -40,7 +40,7 @@ const NIGHT_TINT = '#513b42';
 interface Props {
   pet: PetState;
   /** The same event log the rest of the app holds — the only source of "today". */
-  events: readonly HealthEvent[];
+  events: HealthEvent[];
   /** Which of the games that own a route can be opened from here. */
   routes: MindRouteHandlers;
   onStartStage: (stage: MindStage) => void;
@@ -52,12 +52,11 @@ export function MindHub({ pet, events, routes, onStartStage, onClose }: Props) {
 
   const { today, playedToday, featured, rest } = useMemo(() => {
     const day = new Date();
-    const log = [...events];
-    const played = mindGamesPlayedOn(log, day);
+    const played = mindGamesPlayedOn(events, day);
     const games = availableMindGames(MIND_GAMES, routes);
     const feature = featuredMindGame(games, toDateKey(day), played);
     return {
-      today: mindRecapForDay(log, day),
+      today: mindRecapForDay(events, day),
       playedToday: played,
       featured: feature,
       // The feature is not repeated in the list below it: one game, one card.
