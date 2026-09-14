@@ -44,6 +44,9 @@ const SHARP_ACCURACY_BY_GAME: Record<BrainTrainingMetadata['game'], number> = {
   countryGuess: 0.66,
   // Five questions a round, so four of five.
   fourCorners: SHARP_SESSION_ACCURACY,
+  // Ten questions counting the final, and the high-value squares are meant to
+  // be hard, so the same four-in-five bar reads as a genuinely good board.
+  petJeopardy: SHARP_SESSION_ACCURACY,
 };
 
 /**
@@ -61,9 +64,24 @@ const BRAIN_TRAINING_MAX_XP = 24;
 const BRAIN_TRAINING_ACCURACY_XP = 12;
 const READING_BONUS_XP = 2;
 
+/**
+ * A stated `xpAwarded` wins over the formula, clamped into a sane range so a
+ * malformed or hostile event cannot mint xp. Only Pet Jeopardy sets it — its
+ * reward depends on a wager the player chose, which no function of `correct` and
+ * `total` can recover. The ceiling covers the board's own cap plus the largest
+ * stake the final allows, and the floor is zero rather than the participation
+ * floor because a lost wager is allowed to take the session down to nothing.
+ */
+const BRAIN_TRAINING_OVERRIDE_MAX_XP = 80;
+
 export const brainTrainingXp = (
-  metadata: Pick<BrainTrainingMetadata, 'game' | 'correct' | 'total'>,
+  metadata: Pick<BrainTrainingMetadata, 'game' | 'correct' | 'total'> &
+    Partial<Pick<BrainTrainingMetadata, 'xpAwarded'>>,
 ): number => {
+  const stated = metadata.xpAwarded;
+  if (stated !== undefined && Number.isFinite(stated)) {
+    return Math.round(Math.max(0, Math.min(BRAIN_TRAINING_OVERRIDE_MAX_XP, stated)));
+  }
   const accuracy = metadata.total > 0 ? Math.max(0, Math.min(1, metadata.correct / metadata.total)) : 0;
   return Math.min(
     BRAIN_TRAINING_MAX_XP,
@@ -82,6 +100,7 @@ const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
   spellingBee: 'Word garden',
   countryGuess: 'Guess the country',
   fourCorners: 'Four Corners',
+  petJeopardy: 'Pet Jeopardy',
 };
 
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {

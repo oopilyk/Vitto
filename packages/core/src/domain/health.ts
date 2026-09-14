@@ -163,7 +163,15 @@ export interface CountryGuessRoundOutcome {
 
 export interface BrainTrainingMetadata {
   /** `spellingBee` is the word garden's former name, kept so old events still read. */
-  game: 'math' | 'reading' | 'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess' | 'fourCorners';
+  game:
+    | 'math'
+    | 'reading'
+    | 'wordPuzzle'
+    | 'wordGarden'
+    | 'spellingBee'
+    | 'countryGuess'
+    | 'fourCorners'
+    | 'petJeopardy';
   /**
    * How well it went, 0..`total`. For the question games this is answers right; for
    * the word garden it is points earned towards the "full bloom" bar, so that
@@ -189,6 +197,23 @@ export interface BrainTrainingMetadata {
   /** Word garden: the highest run multiplier hit in the session. */
   bestMultiplier?: number;
   countryOutcomes?: CountryGuessRoundOutcome[];
+  /**
+   * An exact xp figure for this session, overriding the accuracy-and-duration
+   * formula in `brainTrainingXp`. Absent for every game whose reward really is a
+   * function of how well it went — which is all of them but one.
+   *
+   * Pet Jeopardy needs it because its reward is not derivable from `correct` and
+   * `total`: the player *chooses* the stake on the final question, so two
+   * sessions with identical accuracy can be worth legitimately different
+   * amounts. Stating the number here keeps the pet engine the only thing that
+   * awards xp (it still reads this through `brainTrainingXp`) while letting the
+   * game decide the figure. Follows the precedent `StepMetadata.xpAwarded`
+   * already set for stamping a granted amount onto an event.
+   *
+   * Clamped by `brainTrainingXp`; never negative — see `jeopardyNetXp` for why a
+   * negative xp delta must never reach `applyDelta`.
+   */
+  xpAwarded?: number;
 }
 
 export interface MealMetadata {

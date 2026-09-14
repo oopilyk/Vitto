@@ -51,6 +51,7 @@ const BRAIN_GAME_TITLE: Record<BrainTrainingMetadata['game'], string> = {
   spellingBee: 'Word garden',
   countryGuess: 'Guess the country',
   fourCorners: 'Four Corners',
+  petJeopardy: 'Pet Jeopardy',
 };
 
 /**
