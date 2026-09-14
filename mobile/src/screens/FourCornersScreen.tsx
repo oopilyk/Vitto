@@ -29,10 +29,27 @@ import {
 } from '../fourCorners/corners';
 import { usePetJump } from '../fourCorners/usePetJump';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
 import { retro, retroPressed } from '../petWorld/retroStyle';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { fonts, world } from '../theme';
+
+const FOUR_CORNERS_BG_DAY = require('../../assets/environments/4-corners-day.png');
+const FOUR_CORNERS_BG_NIGHT = require('../../assets/environments/4-corners-night.png');
+
+/** The art's own top-edge sky tone -- see `EnvironmentBackdrop`. Painted behind
+ *  it so the sliver `EnvironmentBackdrop` can't cover on the tallest phones
+ *  reads as the sky continuing, not as a gap. */
+const DAY_SKY = '#4f7ec2';
+const NIGHT_SKY = '#12182f';
+
+/** The scenic Four Corners environment, behind everything else on the screen.
+ *  Shared by all three states (asking/revealing, results, and the empty-pool
+ *  error) since they all render inside `styles.screen`. */
+function FourCornersBackdrop({ night }: { night: boolean }) {
+  return <EnvironmentBackdrop source={night ? FOUR_CORNERS_BG_NIGHT : FOUR_CORNERS_BG_DAY} />;
+}
 
 interface Props {
   pet: PetState;
@@ -220,12 +237,15 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
     return (
       <Modal {...SHEET} onRequestClose={onClose}>
         <View style={[styles.screen, night && styles.screenNight, styles.centred]}>
-          <Text style={[retro.label, night && retro.labelNight]}>Four Corners</Text>
-          <Text style={[retro.caption, night && retro.captionNight, styles.errorLine]}>
-            {deal.error ?? 'This game is unavailable right now.'}
-          </Text>
-          <View style={styles.errorAction}>
-            <PrimaryButton label="Back to Mind" onPress={onClose} />
+          <FourCornersBackdrop night={night} />
+          <View style={[styles.errorPanel, retro.panel, night && retro.panelNight]}>
+            <Text style={[retro.label, night && retro.labelNight]}>Four Corners</Text>
+            <Text style={[retro.caption, night && retro.captionNight, styles.errorLine]}>
+              {deal.error ?? 'This game is unavailable right now.'}
+            </Text>
+            <View style={styles.errorAction}>
+              <PrimaryButton label="Back to Mind" onPress={onClose} />
+            </View>
           </View>
         </View>
       </Modal>
@@ -236,6 +256,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
     return (
       <Modal {...SHEET} onRequestClose={requestClose}>
       <View style={[styles.screen, night && styles.screenNight]}>
+        <FourCornersBackdrop night={night} />
         <Header
           night={night}
           progress={`${activeRound.answers.length} / ${activeRound.cards.length}`}
@@ -280,6 +301,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
   return (
     <Modal {...SHEET} onRequestClose={requestClose}>
     <View style={[styles.screen, night && styles.screenNight]}>
+      <FourCornersBackdrop night={night} />
       <Header
         night={night}
         progress={`${Math.min(activeRound.index + 1, activeRound.cards.length)} / ${activeRound.cards.length}`}
@@ -302,9 +324,11 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
       */}
       <View style={styles.flashSlot} accessibilityLiveRegion="polite">
         {revealing && given ? (
-          <Text style={[styles.flash, night && styles.flashNight]}>
-            {given.correct ? `CORRECT!  +${given.points} MIND` : `NOT THAT ONE  ·  +${given.points} MIND`}
-          </Text>
+          <View style={[styles.flashChip, retro.panelQuiet, night && retro.panelQuietNight]}>
+            <Text style={[styles.flash, night && styles.flashNight]}>
+              {given.correct ? `CORRECT!  +${given.points} MIND` : `NOT THAT ONE  ·  +${given.points} MIND`}
+            </Text>
+          </View>
         ) : null}
       </View>
 
@@ -358,10 +382,10 @@ function Header({
   closeDisabled: boolean;
 }) {
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { backgroundColor: night ? world.barNight : world.barDay }]}>
       <View>
-        <Text style={[styles.title, night && styles.titleNight]}>Four Corners</Text>
-        <Text style={[retro.caption, night && retro.captionNight]}>{progress}</Text>
+        <Text style={styles.title}>Four Corners</Text>
+        <Text style={styles.progress}>{progress}</Text>
       </View>
       <Pressable
         accessibilityRole="button"
@@ -370,14 +394,9 @@ function Header({
         disabled={closeDisabled}
         onPress={onClose}
         hitSlop={10}
-        style={({ pressed }) => [
-          styles.close,
-          retro.panelQuiet,
-          night && retro.panelQuietNight,
-          pressed && retroPressed,
-        ]}
+        style={({ pressed }) => [styles.close, pressed && retroPressed]}
       >
-        <Text style={[styles.closeMark, night && styles.closeMarkNight]}>✕</Text>
+        <Text style={styles.closeMark}>✕</Text>
       </Pressable>
     </View>
   );
@@ -392,18 +411,29 @@ const SLOT_POSITION: Record<FourCorner, { top?: number; bottom?: number; left?: 
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: world.surfaceSoft, paddingTop: 56 },
-  screenNight: { backgroundColor: world.nightSurface },
+  screen: { flex: 1, backgroundColor: DAY_SKY, paddingTop: 56 },
+  screenNight: { backgroundColor: NIGHT_SKY },
   centred: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
+  errorPanel: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 22, maxWidth: 320 },
   errorLine: { marginTop: 10, textAlign: 'center', lineHeight: 16 },
   errorAction: { marginTop: 22, alignSelf: 'stretch' },
 
+  // Translucent, warmed strip -- the same "room visible through the bar"
+  // treatment as `EnvironmentActionRow`'s bottom hotbar, just pinned to the top
+  // edge instead. Always the dark scrim regardless of day/night (`barDay` and
+  // `barNight` are both dark-on-art tints), so the title stays on cream text
+  // rather than switching to ink, which would lose contrast over a bright day
+  // sky.
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 12,
     gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: world.barHairline,
   },
   title: {
     fontFamily: fonts.mono,
@@ -411,19 +441,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2,
     textTransform: 'uppercase',
-    color: world.ink,
+    color: world.nightText,
     marginBottom: 3,
   },
-  titleNight: { color: world.nightText },
-  close: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  closeMark: { fontFamily: fonts.mono, fontSize: 15, fontWeight: '700', color: world.ink },
-  closeMarkNight: { color: world.nightText },
+  progress: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 0.6, color: world.nightTextSoft },
+  close: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: world.nightSurfaceSoft,
+    borderWidth: 1,
+    borderColor: world.barHairline,
+  },
+  closeMark: { fontFamily: fonts.mono, fontSize: 15, fontWeight: '700', color: world.nightText },
 
   prompt: { marginTop: 14, marginHorizontal: 18, paddingVertical: 14, paddingHorizontal: 16 },
   promptText: { fontFamily: fonts.display, fontSize: 19, lineHeight: 25, color: world.ink },
   promptTextNight: { color: world.nightText },
 
-  flashSlot: { height: 24, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  flashSlot: { height: 32, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  flashChip: { paddingVertical: 4, paddingHorizontal: 12 },
   flash: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', letterSpacing: 1.4, color: world.ink },
   flashNight: { color: world.nightText },
 
