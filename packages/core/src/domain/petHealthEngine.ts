@@ -164,6 +164,9 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
 const MIND_FULL = 100;
 
 const CARDIO_STRENGTH_GAIN = 1;
+/** Workout XP: a floor for showing up, then two a set, a little for reps and breadth, capped. */
+const WORKOUT_XP_BASE = 8;
+const WORKOUT_XP_CAP = 40;
 
 /**
  * Sleep bands, in minutes asleep. A full night is the adult 7-hour guideline;
@@ -214,8 +217,9 @@ export class PetHealthEngine {
         const metadata = event.metadata as unknown as WorkoutMetadata;
         const hardBonus = metadata.intensity === 'hard' ? 2 : 0;
         const hasWorkoutStats = Boolean(metadata.stats);
-        const sets = Math.min(30, metadata.stats?.completedSets ?? 0);
-        const durationBonus = Math.min(8, Math.floor(Math.min(120, metadata.durationMinutes) / 30));
+        const sets = Math.min(30, Math.max(0, metadata.stats?.completedSets ?? 0));
+        const reps = Math.max(0, metadata.stats?.totalReps ?? 0);
+        const exerciseCount = Math.max(0, metadata.stats?.exerciseCount ?? 0);
         const cardio = metadata.workoutType === 'cardio';
         // Strength is volume-driven and measured against the user's own recent
         // training (see strengthProgression). Cardio keeps its token gain and
@@ -227,10 +231,32 @@ export class PetHealthEngine {
               bodyWeightKg: context.bodyWeightKg,
               occurredAt: event.occurredAt,
             });
+        // A logged session is paid for the work in it — sets ticked, reps done,
+        // exercises covered — not for how long the gym clock ran. Twelve hard
+        // sets in 35 minutes is a better session than three sets in an hour,
+        // and the reward should say so. Duration is still recorded (it drives
+        // the calorie estimate and the day's recap), it just earns nothing.
+        const workXp = Math.min(
+          WORKOUT_XP_CAP,
+          WORKOUT_XP_BASE + 2 * Math.min(12, sets) + Math.min(6, Math.floor(reps / 25)) + (exerciseCount >= 4 ? 2 : 0) + hardBonus,
+        );
         delta = hasWorkoutStats
-          ? { health: 2, energy: 6, happiness: 5, ...strengthDelta, endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : 2, recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0, mind: 1, xp: Math.min(40, 10 + Math.min(15, sets) + durationBonus + hardBonus) }
+          ? {
+              health: sets >= 6 ? 2 : 1,
+              energy: Math.min(8, 3 + Math.floor(sets / 3)),
+              happiness: Math.min(7, 3 + Math.floor(sets / 4)),
+              ...strengthDelta,
+              endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : Math.min(4, 1 + Math.floor(reps / 40)),
+              recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0,
+              mind: 1,
+              xp: workXp,
+            }
           : { energy: 6, happiness: 5, strength: metadata.workoutType === 'strength' ? 4 : 1, endurance: 2, xp: 18 + hardBonus };
-        message = `${pet.name} trained for ${metadata.durationMinutes} minutes and feels stronger.`;
+        message = hasWorkoutStats
+          ? sets > 0
+            ? `${pet.name} pushed through ${sets} ${sets === 1 ? 'set' : 'sets'} with you and feels stronger.`
+            : `${pet.name} showed up to train with you.`
+          : `${pet.name} trained for ${metadata.durationMinutes} minutes and feels stronger.`;
         eventLabel = `Trained ${metadata.workoutType}`;
         break;
       }

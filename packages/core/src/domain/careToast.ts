@@ -69,8 +69,12 @@ export const describeLoggedEvent = (event: HealthEvent): string => {
       return `${formatCount(count)} ${count === 1 ? 'step' : 'steps'} logged`;
     }
     case 'WORKOUT': {
-      const { workoutType, durationMinutes } = event.metadata as WorkoutMetadata;
+      const { workoutType, durationMinutes, stats } = event.metadata as WorkoutMetadata;
       const kind = workoutType?.trim();
+      // A session logged set by set is described by its sets — that is what it
+      // was paid for. Minutes are the fallback for imports that only know time.
+      const sets = Math.max(0, Math.round(stats?.completedSets ?? 0));
+      if (sets > 0) return `${kind || 'Workout'} logged · ${sets} ${sets === 1 ? 'set' : 'sets'}`;
       const minutes = Number.isFinite(durationMinutes) ? Math.max(0, Math.round(durationMinutes)) : 0;
       if (!kind) return minutes > 0 ? `${minutes} min workout logged` : 'Workout logged';
       return minutes > 0 ? `${minutes} min ${kind} logged` : `${kind} logged`;

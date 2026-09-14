@@ -97,6 +97,13 @@ export function WorkoutScreen({
   const removeExercise = (id: string) =>
     setExercises((current) => current.filter((item) => item.id !== id));
 
+  /** Undo from the picker: drops the last-added copy of that exercise. */
+  const removeLastOf = (exerciseName: string) =>
+    setExercises((current) => {
+      const index = current.map((item) => item.name).lastIndexOf(exerciseName);
+      return index < 0 ? current : current.filter((_, i) => i !== index);
+    });
+
   const patchSet = (exerciseId: string, setId: string, patch: Parameters<typeof updateSet>[2]) =>
     setExercises((current) =>
       current.map((item) => (item.id === exerciseId ? updateSet(item, setId, patch) : item)),
@@ -421,7 +428,14 @@ export function WorkoutScreen({
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                   <Text style={styles.exerciseMuscle}>{exercise.muscleGroup}</Text>
                 </View>
-                <TextButton label="Delete" onPress={() => removeExercise(exercise.id)} />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${exercise.name}`}
+                  hitSlop={8}
+                  onPress={() => removeExercise(exercise.id)}
+                >
+                  <Text style={styles.exerciseRemove}>Remove</Text>
+                </Pressable>
               </View>
               <View style={styles.setHead}>
                 <Text style={[styles.setHeadLabel, styles.setIndex]}>#</Text>
@@ -596,8 +610,22 @@ export function WorkoutScreen({
                         </Text>
                       </View>
                       {/* Stays open after a tap so a whole day goes in at once,
-                          with a count so you can see what you have added. */}
-                      {added > 0 ? <Text style={styles.libraryAdded}>{added} added</Text> : null}
+                          with a count so you can see what you have added, and a
+                          minus so a mis-tap is undone without leaving the list. */}
+                      {added > 0 ? (
+                        <>
+                          <Text style={styles.libraryAdded}>{added} added</Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove ${exerciseName}`}
+                            hitSlop={8}
+                            onPress={() => removeLastOf(exerciseName)}
+                            style={({ pressed }) => [styles.libraryMinus, pressed && styles.pressed]}
+                          >
+                            <Text style={styles.libraryMinusMark}>−</Text>
+                          </Pressable>
+                        </>
+                      ) : null}
                       <Text style={styles.libraryPlus}>+</Text>
                     </Pressable>
                   );
@@ -765,4 +793,15 @@ const styles = StyleSheet.create({
   libraryMuscle: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 2 },
   libraryAdded: { fontFamily: fonts.mono, fontSize: 10, color: colors.mintDeep },
   libraryPlus: { fontSize: 17, color: colors.coral },
+  libraryMinus: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  libraryMinusMark: { fontSize: 16, color: colors.faint, lineHeight: 18 },
+  exerciseRemove: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
 });

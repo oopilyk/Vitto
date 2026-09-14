@@ -56,6 +56,29 @@ describe('PetHealthEngine', () => {
     expect(result.pet.pushingStrength).toBeLessThanOrEqual(100);
   });
 
+  it('pays a logged session for its sets and reps, and not for the clock', () => {
+    const pet = createPet('user-1', 'Miso');
+    const engine = new PetHealthEngine();
+    const at = '2026-08-28T12:00:00Z';
+    const light = engine.apply(pet, strengthWorkout('w-l', at, statsWith({ completedSets: 3, totalReps: 24, exerciseCount: 1, durationMinutes: 90 })));
+    const solid = engine.apply(pet, strengthWorkout('w-s', at, statsWith({ completedSets: 12, totalReps: 96, exerciseCount: 4, durationMinutes: 35 })));
+    const slow = engine.apply(pet, strengthWorkout('w-slow', at, statsWith({ completedSets: 12, totalReps: 96, exerciseCount: 4, durationMinutes: 120 })));
+
+    // More work, more XP — a long session with three sets is still three sets.
+    expect(solid.reaction.delta.xp).toBeGreaterThan(light.reaction.delta.xp ?? 0);
+    expect(solid.reaction.delta.energy).toBeGreaterThan(light.reaction.delta.energy ?? 0);
+    expect(solid.reaction.delta.happiness).toBeGreaterThan(light.reaction.delta.happiness ?? 0);
+    // The same work in more time is the same reward.
+    expect(slow.reaction.delta).toEqual(solid.reaction.delta);
+    // Capped, so a marathon of sets cannot run away with it.
+    const huge = engine.apply(pet, strengthWorkout('w-h', at, statsWith({ completedSets: 40, totalReps: 400, exerciseCount: 10 })));
+    expect(huge.reaction.delta.xp).toBe(40);
+    // The pet talks about the sets, not the minutes.
+    expect(solid.reaction.message).toContain('12 sets');
+    expect(solid.reaction.message).not.toContain('minutes');
+    expect(engine.apply(pet, strengthWorkout('w-1', at, statsWith({ completedSets: 1, totalReps: 8, exerciseCount: 1 }))).reaction.message).toContain('1 set ');
+  });
+
   it('keeps the no-stats workout branch on the old flat formula', () => {
     const pet = createPet('user-1', 'Miso');
     const result = new PetHealthEngine().apply(pet, event, { history: [], bodyWeightKg: 80 });

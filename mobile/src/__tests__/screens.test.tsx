@@ -645,6 +645,52 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('lets an exercise be taken back out of a routine, from the picker or the card', async () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text: WText } = require('react-native');
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(
+        <WorkoutScreen
+          onFinish={async () => {}}
+          onClose={() => {}}
+          templates={[]}
+          onSaveTemplate={async () => {}}
+        />,
+      );
+    });
+    const press = (label: string) =>
+      tree.root
+        .findAllByProps({ accessibilityLabel: label })
+        .find((node: any) => typeof node.props.onPress === 'function');
+    // With the picker closed, the only place an exercise name appears is its card.
+    const cardsNamed = (name: string) =>
+      tree.root.findAllByType(WText).filter((t: any) => t.props.children === name).length;
+
+    act(() => press('Make a new routine')!.props.onPress());
+    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Add Bench Press')!.props.onPress());
+    act(() => press('Add Bench Press')!.props.onPress());
+    act(() => press('Add Shoulder Press')!.props.onPress());
+
+    // A minus on the picker row undoes the last add of that exercise, in place.
+    expect(press('Remove Bench Press')).toBeTruthy();
+    act(() => press('Remove Bench Press')!.props.onPress());
+    const done = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) => node.findAllByType(WText).some((t: any) => t.props.children === 'Done'));
+    act(() => done!.props.onPress());
+
+    expect(cardsNamed('Bench Press')).toBe(1);
+    expect(cardsNamed('Shoulder Press')).toBe(1);
+
+    // And each card can be removed from the routine itself.
+    act(() => press('Remove Shoulder Press')!.props.onPress());
+    expect(cardsNamed('Shoulder Press')).toBe(0);
+    expect(cardsNamed('Bench Press')).toBe(1);
+    tree.unmount();
+  });
+
   it('refuses to save a routine with no name, saying why', async () => {
     const { WorkoutScreen } = require('../screens/WorkoutScreen');
     const { Text: WText } = require('react-native');
