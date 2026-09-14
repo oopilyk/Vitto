@@ -11,6 +11,8 @@ interface Props {
   onClose: () => void;
   /** Optional so the mind gym still stands alone if the daily puzzle isn't wired up. */
   onOpenWordPuzzle?: () => void;
+  /** Same shape as {@link onOpenWordPuzzle}: Four Corners is its own screen, not a stage here. */
+  onOpenFourCorners?: () => void;
   events?: HealthEvent[];
 }
 
@@ -49,7 +51,7 @@ const resultMeta = (result: SessionResult): string => {
   }
 };
 
-export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = [] }: Props) {
+export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, onOpenFourCorners, events = [] }: Props) {
   const [stage, setStage] = useState<Stage>('pick');
   const [problem, setProblem] = useState<MathProblem | null>(null);
   const [entry, setEntry] = useState('');
@@ -220,6 +222,20 @@ export function MindGymScreen({ onFinish, onClose, onOpenWordPuzzle, events = []
                     <Text style={styles.gameHint}>
                       {wordPuzzle.done ? 'Played today' : 'Not played yet'} ·{' '}
                       {wordPuzzle.streak > 0 ? `${wordPuzzle.streak}-day streak` : 'no streak yet'}
+                    </Text>
+                  </View>
+                  <Text style={styles.gameArrow}>→</Text>
+                </Pressable>
+              ) : null}
+              {onOpenFourCorners ? (
+                <Pressable style={styles.gameCard} onPress={onOpenFourCorners}>
+                  <View style={[styles.gameIcon, { backgroundColor: colors.yellow }]}>
+                    <Text style={{ color: colors.yellowDeep, fontSize: 18 }}>✦</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.gameName}>Four Corners</Text>
+                    <Text style={styles.gameHint}>
+                      Five quick questions · your pet jumps to your answer
                     </Text>
                   </View>
                   <Text style={styles.gameArrow}>→</Text>

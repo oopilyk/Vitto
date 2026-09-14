@@ -49,6 +49,38 @@ describe('mind gym menu', () => {
     expect(byLabel(tree, 'Submit word')).toBeTruthy();
     tree.unmount();
   });
+
+  it('opens Four Corners on its own route rather than as a stage here', () => {
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <MindGymScreen
+          onFinish={async () => {}}
+          onClose={() => {}}
+          onOpenFourCorners={() => {
+            opened += 1;
+          }}
+        />,
+      );
+    });
+
+    expect(JSON.stringify(tree.toJSON())).toContain('Four Corners');
+    press(buttonWithText(tree, 'Four Corners'));
+
+    expect(opened).toBe(1);
+    tree.unmount();
+  });
+
+  it('hides Four Corners when no route is wired up', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<MindGymScreen onFinish={async () => {}} onClose={() => {}} />);
+    });
+
+    expect(JSON.stringify(tree.toJSON())).not.toContain('Four Corners');
+    tree.unmount();
+  });
 });
 
 describe('word garden', () => {
