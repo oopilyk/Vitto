@@ -52,6 +52,27 @@ describe('generateSeedEvents', () => {
     expect(second).toEqual(first);
   });
 
+  it('gives every event a real UUID, because health_events.id is a uuid column', () => {
+    // Readable `seed-<n>` ids were rejected by Postgres outright (22P02), so
+    // seeding failed on its very first insert and the dev panel just showed the
+    // driver's error.
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    const events = generateSeedEvents('user-1', { now: NOW });
+    for (const event of events) expect(event.id).toMatch(uuid);
+    // Unique, or the batch insert collides with itself.
+    expect(new Set(events.map((event) => event.id)).size).toBe(events.length);
+  });
+
+  it('keeps two accounts from claiming the same event ids', () => {
+    // The ids are stable per account on purpose, but `health_events.id` is a
+    // primary key across every user — deriving it from the seed alone would make
+    // the second account to seed collide with the first.
+    const mine = generateSeedEvents('user-1', { now: NOW }).map((event) => event.id);
+    const theirs = generateSeedEvents('user-2', { now: NOW }).map((event) => event.id);
+    expect(mine).toEqual(generateSeedEvents('user-1', { now: NOW }).map((event) => event.id));
+    expect(mine.filter((id) => theirs.includes(id))).toEqual([]);
+  });
+
   it('tags everything it makes so a seeded account can be swept clean', () => {
     const events = generateSeedEvents('user-1', { now: NOW });
     expect(events.every(isSeededEvent)).toBe(true);

@@ -1163,6 +1163,10 @@ export default function App() {
     if (!isSupabaseConfigured || !session) return;
     setIsSeeding(true);
     try {
+      // Swept first: seeded ids are derived from the account and the seed, so
+      // they are the same every run. Without this a second press collides on
+      // the primary key instead of replacing the history it already wrote.
+      await remoteRepository.deleteEventsBySource(SEED_SOURCE);
       const seeded = generateSeedEvents(userId);
       await remoteRepository.saveEvents(seeded);
       setEvents(await remoteRepository.loadEvents());

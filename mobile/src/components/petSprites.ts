@@ -82,6 +82,20 @@ export interface PetSheet {
    */
   columns?: number;
   rows?: number;
+  /**
+   * Shrinks this sheet's art within its cell, without redrawing it.
+   *
+   * How big a pet looks is set entirely by the share of its cell the art fills,
+   * since `SpriteFrame` maps one cell onto whatever size it is given. The breeds
+   * do not agree on that share: the bichon was drawn to about two thirds of its
+   * cell where the shiba and the cat sit near half, so at the same `size` the
+   * bichon towered over them. This dials one sheet back to match rather than
+   * re-laying the art, and `SpriteFrame` keeps the cell floor pinned so the pet
+   * shrinks in place instead of hovering or drifting.
+   *
+   * Omitted means 1: the art fills its cell exactly as drawn.
+   */
+  artScale?: number;
   animations: Record<PetAnimation, readonly Frame[]>;
   /**
    * Ailments this sheet's own art already depicts, so PetAvatar can drop the
@@ -156,6 +170,15 @@ const sheetFrom = (layout: SheetLayout, label: string, source: ImageSourcePropTy
 // ---------------------------------------------------------------------------
 
 /**
+ * The bichon is drawn larger for its cell than any other breed — about two
+ * thirds of the cell tall where the shiba and the cat are near half — so at a
+ * shared `size` it read as a different, bigger animal rather than as one of the
+ * set. Every bichon form is dialled back by the same factor so they stay a
+ * family, and so the evolutions do not change size relative to the base.
+ */
+const BICHON_ART_SCALE = 0.9;
+
+/**
  * The bichon's runner evolution: a show-cut bichon on longer legs, fuller
  * plume of a tail, blue bow at the collar — the athlete of the litter.
  *
@@ -184,6 +207,7 @@ const BICHON_RUNNER: PetSheet = {
   label: 'Bichon · Runner',
   source: require('../../assets/pet/bichonRunner.png'),
   rows: 9,
+  artScale: BICHON_ART_SCALE,
   animations: {
     idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
     // No cheer band: a bounce, built from the happy idles and the gathered run
@@ -227,7 +251,7 @@ const BICHON_ANIMATIONS: PetSheet['animations'] = {
   faint: [[9, 1], [9, 2], [9, 3], [10, 0], [10, 1], [10, 2], [10, 3]],
 };
 
-const BICHON_LAYOUT: SheetLayout = { name: 'bichon', animations: BICHON_ANIMATIONS };
+const BICHON_LAYOUT: SheetLayout = { name: 'bichon', animations: BICHON_ANIMATIONS, artScale: BICHON_ART_SCALE };
 
 const BICHON_LIFTER = sheetFrom(BICHON_LAYOUT, 'Bichon · Lifter', require('../../assets/pet/bichonLifter.png'));
 const BICHON_SCHOLAR = sheetFrom(BICHON_LAYOUT, 'Bichon · Scholar', require('../../assets/pet/bichonScholar.png'));

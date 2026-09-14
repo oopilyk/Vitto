@@ -1532,9 +1532,9 @@ describe('pet sprite', () => {
     const sheet = tree.root
       .findAllByType(Image)
       .find((node: any) => node.props.style?.marginLeft !== undefined);
-    const { marginLeft, marginTop } = sheet!.props.style;
+    const { marginLeft, marginTop, width, height } = sheet!.props.style;
     tree.unmount();
-    return { marginLeft, marginTop };
+    return { marginLeft, marginTop, width, height };
   };
 
   const well = assessCondition(pet);
@@ -1644,9 +1644,69 @@ describe('pet sprite', () => {
     const resting = spriteOffset({ pet: { ...pet, mood: 'sleepy' } });
     const running = spriteOffset({ isExploring: true });
     expect(resting).not.toEqual(running);
-    // Every frame is windowed from inside the sheet, never past its edge.
-    expect(resting.marginTop).toBeLessThanOrEqual(0);
-    expect(running.marginLeft).toBeLessThanOrEqual(0);
+    // Every frame is windowed from inside the sheet, never past its edge. Stated
+    // in drawn cells rather than as "the offset is never positive", because a
+    // sheet dialled down by `artScale` starts half an inset in from the left.
+    const { SHEET_COLUMNS, sheetForPet } = require('../components/petSprites');
+    const drawnCell = running.width / (sheetForPet(pet).columns ?? SHEET_COLUMNS);
+    for (const frame of [resting, running]) {
+      expect(frame.marginLeft).toBeLessThanOrEqual(drawnCell);
+      expect(frame.marginTop).toBeLessThanOrEqual(drawnCell);
+      expect(frame.marginLeft).toBeGreaterThan(-frame.width);
+      expect(frame.marginTop).toBeGreaterThan(-frame.height);
+    }
+  });
+
+  it('shrinks an oversized sheet in place, keeping its feet on the floor', () => {
+    const { SpriteFrame } = require('../components/SpriteFrame');
+    const { CELL, SHEET_COLUMNS, sheetByBreed } = require('../components/petSprites');
+    const size = 200;
+
+    const styleFor = (sheet: any) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => { tree = renderer.create(<SpriteFrame sheet={sheet} frame={[0, 0]} size={size} />); });
+      const style = tree.root.findAllByType(Image)[0].props.style;
+      tree.unmount();
+      return style;
+    };
+
+    // The bichon was drawn about a third larger for its cell than the other
+    // breeds, so it towered over them at a shared size.
+    const bichon = sheetByBreed('bichon');
+    const shiba = sheetByBreed('shiba');
+    expect(bichon.artScale).toBeLessThan(1);
+    expect(shiba.artScale).toBeUndefined();
+
+    // A sheet with no artScale still maps one cell onto the whole window.
+    const plain = styleFor(shiba);
+    expect(plain.width).toBe(size * SHEET_COLUMNS);
+    expect(plain.marginLeft).toBe(0);
+    expect(plain.marginTop).toBe(0);
+
+    // The scaled one is drawn smaller, centred, and pushed down so the cell floor
+    // still sits on the window floor rather than leaving the pet hovering.
+    const scaled = styleFor(bichon);
+    const cell = size * bichon.artScale;
+    expect(scaled.width).toBe(cell * SHEET_COLUMNS);
+    expect(scaled.width).toBeLessThan(plain.width);
+    expect(scaled.marginLeft).toBeCloseTo((size - cell) / 2);
+    expect(scaled.marginTop).toBeCloseTo(size - cell);
+
+    // Row and column offsets still land on the right cell once scaled.
+    let tree!: renderer.ReactTestRenderer;
+    act(() => { tree = renderer.create(<SpriteFrame sheet={bichon} frame={[3, 2]} size={size} />); });
+    const offset = tree.root.findAllByType(Image)[0].props.style;
+    tree.unmount();
+    expect(offset.marginLeft).toBeCloseTo((size - cell) / 2 - 2 * CELL * (cell / CELL));
+    expect(offset.marginTop).toBeCloseTo(size - cell - 3 * CELL * (cell / CELL));
+  });
+
+  it('gives every bichon form the same scale, so evolving does not resize the pet', () => {
+    const { sheetByBreed } = require('../components/petSprites');
+    const bichon = sheetByBreed('bichon');
+    for (const form of Object.values(bichon.evolutions ?? {}) as any[]) {
+      expect(form.artScale).toBe(bichon.artScale);
+    }
   });
 
   it('keeps every animation frame inside its own sheet\'s grid, evolutions included', () => {

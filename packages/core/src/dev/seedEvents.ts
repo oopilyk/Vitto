@@ -39,6 +39,35 @@ const makeRandom = (seed: number) => {
   };
 };
 
+/** FNV-1a, so a string can seed the PRNG without pulling in a hash library. */
+const hashString = (value: string): number => {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+};
+
+/**
+ * A deterministic, well-formed v4 UUID for a seeded event.
+ *
+ * `health_events.id` is a Postgres `uuid` column, so the readable
+ * `seed-<seed>-<n>` ids this used to mint were rejected outright (22P02) and
+ * seeding died on its first insert. The key folds in the user as well as the
+ * seed: ids stay stable per account, so re-seeding replaces rather than
+ * doubles, while two accounts seeding the same history cannot collide on the
+ * primary key.
+ */
+const seededUuid = (key: string): string => {
+  const random = makeRandom(hashString(key));
+  const hex = (length: number) =>
+    Array.from({ length }, () => Math.floor(random() * 16).toString(16)).join('');
+  // Version nibble pinned to 4, variant nibble to one of 8/9/a/b.
+  const variant = (Math.floor(random() * 4) + 8).toString(16);
+  return `${hex(8)}-${hex(4)}-4${hex(3)}-${variant}${hex(3)}-${hex(12)}`;
+};
+
 export interface SeedOptions {
   /** How far back to generate. The insight lookback is 90 days. */
   days?: number;
@@ -74,7 +103,7 @@ export const generateSeedEvents = (
   const random = makeRandom(seed);
   const events: HealthEvent[] = [];
   let counter = 0;
-  const id = () => `seed-${seed}-${(counter += 1)}`;
+  const id = () => seededUuid(`${userId}:${seed}:${(counter += 1)}`);
 
   // Decide each day's shape first, so the next day's outcome can read from it.
   const plan = Array.from({ length: days }, () => ({

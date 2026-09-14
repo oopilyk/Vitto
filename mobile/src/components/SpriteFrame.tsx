@@ -20,7 +20,14 @@ interface Props {
  * behind it. Used both by the animated avatar and by the still previews in pickers.
  */
 export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
-  const scale = size / CELL;
+  // A sheet drawn large for its cell can be dialled back without redrawing it
+  // (see `artScale`): the cell is laid out smaller inside the same window, so
+  // the pet shrinks while the window it is measured at stays the same. Pinned to
+  // the window's floor and centred horizontally, because the bottom of a cell is
+  // the ground the pet stands on — anchoring anywhere else leaves it hovering.
+  const cell = size * (sheet.artScale ?? 1);
+  const scale = cell / CELL;
+  const inset = size - cell;
   const columns = sheet.columns ?? SHEET_COLUMNS;
   const rows = sheet.rows ?? SHEET_ROWS;
   const [row, column] = frame;
@@ -35,8 +42,8 @@ export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
         style={{
           width: CELL * columns * scale,
           height: CELL * rows * scale,
-          marginLeft: -column * CELL * scale,
-          marginTop: -row * CELL * scale,
+          marginLeft: inset / 2 - column * CELL * scale,
+          marginTop: inset - row * CELL * scale,
         }}
       />
     </View>
