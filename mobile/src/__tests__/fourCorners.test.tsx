@@ -198,6 +198,23 @@ describe('four corners round', () => {
     unmount(tree);
   });
 
+  it('puts the verdict on the tile labels so a screen reader hears it', () => {
+    const round = createFourCornersRound(POOL, seededRng(31));
+    const tree = renderScreen(round);
+    const correctCorner = round.cards[0]!.correctCorner;
+    const wrongCorner = wrongCornerFor(round, 0);
+
+    press(cornerNode(tree, round, 0, wrongCorner));
+    settleOnReveal();
+
+    // The marks live in child Text nodes, which a labelled Pressable hides from
+    // a screen reader — so they have to ride on the label itself.
+    expect(byLabel(tree, `${cornerLabel(correctCorner, round.cards[0]!.options[correctCorner])}, ANSWER`)).toBeTruthy();
+    expect(byLabel(tree, `${cornerLabel(wrongCorner, round.cards[0]!.options[wrongCorner])}, YOUR PICK`)).toBeTruthy();
+
+    unmount(tree);
+  });
+
   it('ends on the results screen with the right correct count', () => {
     const round = createFourCornersRound(POOL, seededRng(31));
     const tree = renderScreen(round);
@@ -231,9 +248,12 @@ describe('four corners round', () => {
     const save = buttonWithText(tree, 'Save and go back');
     await pressAsync(save);
     expect(closed).toHaveLength(1);
-    // A second tap on the same button must not bank the round twice.
+    // A second tap on the same button must neither bank the round twice nor
+    // navigate twice -- `onClose` is `goBack()`, so a double call pops two
+    // screens and drops the user a level further back than they asked for.
     await pressAsync(save);
 
+    expect(closed).toHaveLength(1);
     expect(finished).toHaveLength(1);
     expect(finished[0]).toMatchObject({
       game: 'fourCorners',

@@ -28,8 +28,17 @@ interface CornerTileProps {
   position: StyleProp<ViewStyle>;
 }
 
-/** A cream that stays legible on both the sage and the coral fills. */
+/** A cream that stays legible on both fills — 4.9:1 on the sage, 4.8:1 on the coral. */
 const ON_FILL_TEXT = '#fdf6e7';
+
+/**
+ * A darker shade of `world.positive` (the same hue at 80% value), used only as
+ * the correct tile's fill. The palette's own sage is a *background* tone: cream
+ * text on it measures 3.3:1, under the 4.5:1 a 13px label needs. Darkening the
+ * fill rather than inventing a new hue keeps the tile inside the existing
+ * language while making the answer readable.
+ */
+const CORRECT_FILL = '#58744f';
 
 /**
  * One answer, pinned into one corner of the board. The outer corner of the tile
@@ -47,13 +56,16 @@ export function CornerTile({
   position,
 }: CornerTileProps) {
   const filled = state === 'correct' || state === 'wrong';
-  const fill =
-    state === 'correct' ? world.positive : state === 'wrong' ? world.accentDeep : undefined;
+  const fill = state === 'correct' ? CORRECT_FILL : state === 'wrong' ? world.accentDeep : undefined;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={cornerLabel(corner, answer)}
+      // The mark rides on the label during a reveal: it is printed inside the
+      // tile as a child `Text`, which a screen reader never reaches once the
+      // Pressable carries a label of its own. Without this, a VoiceOver user
+      // plays a whole round and is never told whether they were right.
+      accessibilityLabel={mark ? `${cornerLabel(corner, answer)}, ${mark}` : cornerLabel(corner, answer)}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={() => onPress(corner)}

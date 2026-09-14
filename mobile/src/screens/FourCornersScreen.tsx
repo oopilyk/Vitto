@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import {
   FOUR_CORNERS,
   type BrainTrainingMetadata,
@@ -83,6 +83,8 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
   const startedAtRef = useRef(Date.now());
   const finishedAtRef = useRef<number | null>(activeRound?.status === 'complete' ? Date.now() : null);
   const submittedRef = useRef(false);
+  /** `onClose` is `navigation.goBack()`; calling it twice would pop two screens. */
+  const closedRef = useRef(false);
 
   const [landed, setLanded] = useState(activeRound?.status === 'revealing');
   const [playSize, setPlaySize] = useState<PlaySize>(FALLBACK_PLAY_SIZE);
@@ -174,12 +176,18 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
     }
   };
 
-  /** Leaving mid-round still banks what was earned — the metadata totals only what was answered. */
+  /**
+   * Leaving mid-round still banks what was earned — the metadata totals only
+   * what was answered. Every exit runs through here, the hardware back button
+   * and the sheet's own dismiss included, so a round can never be abandoned
+   * after its reward has been shown.
+   */
   const handleClose = async () => {
-    if (saving) return;
+    if (saving || closedRef.current) return;
     clearTimers();
     const live = roundRef.current;
     if (live && !(await submit(live))) return;
+    closedRef.current = true;
     onClose();
   };
 
@@ -203,22 +211,30 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
     commitRound(next.round);
   };
 
+  // Android's hardware back and the sheet's own dismiss both land here rather
+  // than popping the route behind our back -- otherwise a finished round could
+  // be shown its reward and then dropped without ever being recorded.
+  const requestClose = () => void handleClose();
+
   if (!activeRound) {
     return (
-      <View style={[styles.screen, night && styles.screenNight, styles.centred]}>
-        <Text style={[retro.label, night && retro.labelNight]}>Four Corners</Text>
-        <Text style={[retro.caption, night && retro.captionNight, styles.errorLine]}>
-          {deal.error ?? 'This game is unavailable right now.'}
-        </Text>
-        <View style={styles.errorAction}>
-          <PrimaryButton label="Back to Mind" onPress={onClose} />
+      <Modal {...SHEET} onRequestClose={onClose}>
+        <View style={[styles.screen, night && styles.screenNight, styles.centred]}>
+          <Text style={[retro.label, night && retro.labelNight]}>Four Corners</Text>
+          <Text style={[retro.caption, night && retro.captionNight, styles.errorLine]}>
+            {deal.error ?? 'This game is unavailable right now.'}
+          </Text>
+          <View style={styles.errorAction}>
+            <PrimaryButton label="Back to Mind" onPress={onClose} />
+          </View>
         </View>
-      </View>
+      </Modal>
     );
   }
 
   if (activeRound.status === 'complete') {
     return (
+      <Modal {...SHEET} onRequestClose={requestClose}>
       <View style={[styles.screen, night && styles.screenNight]}>
         <Header
           night={night}
@@ -237,6 +253,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
           onPlayAgain={handlePlayAgain}
         />
       </View>
+      </Modal>
     );
   }
 
@@ -261,6 +278,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
   };
 
   return (
+    <Modal {...SHEET} onRequestClose={requestClose}>
     <View style={[styles.screen, night && styles.screenNight]}>
       <Header
         night={night}
@@ -273,10 +291,18 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
         <Text style={[styles.promptText, night && styles.promptTextNight]}>{card?.question.prompt}</Text>
       </View>
 
-      {/* A fixed-height slot so the board never jumps when the flash appears. */}
-      <View style={styles.flashSlot}>
+      {/*
+        A fixed-height slot so the board never jumps when the flash appears.
+        The verdict is carried by the words and by the tile fills, not by this
+        line's colour: the palette's sage reads 2.5:1 on the day surface and its
+        deep coral 2.9:1 on the night one, so tinting this text would have made
+        the one line that states the result the least readable thing on screen.
+        The polite live region is what gets it spoken on Android, where the tile
+        labels alone would not announce a change the user did not focus.
+      */}
+      <View style={styles.flashSlot} accessibilityLiveRegion="polite">
         {revealing && given ? (
-          <Text style={[styles.flash, { color: given.correct ? world.positive : world.accentDeep }]}>
+          <Text style={[styles.flash, night && styles.flashNight]}>
             {given.correct ? `CORRECT!  +${given.points} MIND` : `NOT THAT ONE  ·  +${given.points} MIND`}
           </Text>
         ) : null}
@@ -313,8 +339,12 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
         <ErrorText>{saveError}</ErrorText>
       </View>
     </View>
+    </Modal>
   );
 }
+
+/** The same sheet presentation the other mind games use (MindGym, WordPuzzle). */
+const SHEET = { animationType: 'slide', presentationStyle: 'pageSheet' } as const;
 
 function Header({
   night,
@@ -394,7 +424,8 @@ const styles = StyleSheet.create({
   promptTextNight: { color: world.nightText },
 
   flashSlot: { height: 24, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-  flash: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', letterSpacing: 1.4 },
+  flash: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', letterSpacing: 1.4, color: world.ink },
+  flashNight: { color: world.nightText },
 
   board: { flex: 1, marginTop: 6, marginHorizontal: 16, marginBottom: 8 },
   petLayer: {

@@ -14,7 +14,11 @@ export const CORNER_NAME: Record<FourCorner, string> = {
   bottomRight: 'Bottom right',
 };
 
-/** The one accessibility label a corner tile carries. Stable across the reveal. */
+/**
+ * The base accessibility label a corner tile carries. During a reveal the tile
+ * appends its mark ("CORRECT" / "ANSWER" / "YOUR PICK") to this — see
+ * `CornerTile` — so the verdict reaches a screen reader and not only the eye.
+ */
 export const cornerLabel = (corner: FourCorner, answer: string): string =>
   `${CORNER_NAME[corner]}: ${answer}`;
 
@@ -55,7 +59,14 @@ export const FALLBACK_PLAY_SIZE: PlaySize = { width: 340, height: 340 };
  * 360pt one and short of it on a tablet.
  */
 const CORNER_X_FRACTION = 0.3;
-const CORNER_Y_FRACTION = 0.29;
+/**
+ * Shorter than the horizontal reach on purpose. The pet is drawn over the tiles,
+ * and a full-height hop put its sprite across the bottom of the tile it had just
+ * landed under — exactly where that tile prints its "CORRECT" / "ANSWER" mark.
+ * Landing nearer the middle keeps the hop clearly directional while leaving the
+ * mark visible.
+ */
+const CORNER_Y_FRACTION = 0.22;
 
 export const cornerOffset = (corner: FourCorner, size: PlaySize): Offset => ({
   x: (isLeftCorner(corner) ? -1 : 1) * size.width * CORNER_X_FRACTION,
@@ -65,7 +76,8 @@ export const cornerOffset = (corner: FourCorner, size: PlaySize): Offset => ({
 /** The pet, sized off the shorter side so it never crowds the tiles on a small phone. */
 export const PET_MIN_SIZE = 78;
 export const PET_MAX_SIZE = 136;
+const PET_SIZE_FRACTION = 0.3;
 export const petSizeFor = (size: PlaySize): number =>
   Math.round(
-    Math.max(PET_MIN_SIZE, Math.min(PET_MAX_SIZE, Math.min(size.width, size.height) * 0.34)),
+    Math.max(PET_MIN_SIZE, Math.min(PET_MAX_SIZE, Math.min(size.width, size.height) * PET_SIZE_FRACTION)),
   );
