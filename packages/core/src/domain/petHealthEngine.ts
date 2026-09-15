@@ -167,6 +167,19 @@ const CARDIO_STRENGTH_GAIN = 1;
 /** Workout XP: a floor for showing up, then two a set, a little for reps and breadth, capped. */
 const WORKOUT_XP_BASE = 8;
 const WORKOUT_XP_CAP = 40;
+/**
+ * Cardio's own pay scale: the same floor for turning up, then time moving and
+ * ground covered. Both are capped so that neither a long dawdle nor a single
+ * fast hour runs away with the whole budget, and both count so that a session
+ * with no distance recorded is still worth going on.
+ *
+ * Tuned against the strength scale: a ten-kilometre run lands near a
+ * twelve-set gym session, which is what each of them costs a person.
+ */
+const CARDIO_XP_PER_MINUTE = 1 / 4;
+const CARDIO_XP_PER_KM = 1.5;
+const CARDIO_MINUTES_CAP = 120;
+const CARDIO_DISTANCE_CAP_KM = 21;
 
 /**
  * Sleep bands, in minutes asleep. A full night is the adult 7-hour guideline;
@@ -216,21 +229,60 @@ export class PetHealthEngine {
       case 'WORKOUT': {
         const metadata = event.metadata as unknown as WorkoutMetadata;
         const hardBonus = metadata.intensity === 'hard' ? 2 : 0;
+        const mobility = metadata.name?.toLowerCase().includes('mobility') ? 3 : 0;
+        eventLabel = `Trained ${metadata.workoutType}`;
+
+        if (metadata.workoutType === 'cardio') {
+          // Cardio has no sets to count, so it is paid for what it actually has:
+          // minutes moving and kilometres covered. Reading those rather than the
+          // set list is what stops a ten-kilometre run being worth less than four
+          // sets of curls — a run carries no ticked sets at all, so the strength
+          // formula below scored every one of them at the bare floor.
+          //
+          // Neither signal is required. A watch import and a hand-logged session
+          // are paid the same way, and a session with no distance recorded still
+          // earns its time.
+          const minutes = Math.min(CARDIO_MINUTES_CAP, Math.max(0, Math.round(metadata.durationMinutes)));
+          const km = Math.min(CARDIO_DISTANCE_CAP_KM, Math.max(0, metadata.distanceKm ?? 0));
+          delta = {
+            health: minutes >= 30 ? 2 : 1,
+            energy: Math.min(8, 3 + Math.floor(minutes / 15)),
+            happiness: Math.min(7, 3 + Math.floor(minutes / 20)),
+            // Running does not build the lifts, so the push/pull/leg axes are
+            // held flat on purpose rather than left undefined.
+            strength: CARDIO_STRENGTH_GAIN,
+            pushingStrength: 0,
+            pullingStrength: 0,
+            legStrength: 0,
+            endurance: Math.min(8, 2 + Math.floor(minutes / 20) + Math.floor(km / 4)),
+            recovery: mobility,
+            mind: 1,
+            xp: Math.min(
+              WORKOUT_XP_CAP,
+              WORKOUT_XP_BASE +
+                Math.floor(minutes * CARDIO_XP_PER_MINUTE) +
+                Math.round(km * CARDIO_XP_PER_KM) +
+                hardBonus,
+            ),
+          };
+          // Minutes, not distance: the engine stores kilometres and has no idea
+          // whether this user reads miles, and a pet announcing the wrong unit is
+          // worse than one that does not mention it.
+          message = `${pet.name} kept pace with you for ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} and feels lighter on its feet.`;
+          break;
+        }
+
         const hasWorkoutStats = Boolean(metadata.stats);
         const sets = Math.min(30, Math.max(0, metadata.stats?.completedSets ?? 0));
         const reps = Math.max(0, metadata.stats?.totalReps ?? 0);
         const exerciseCount = Math.max(0, metadata.stats?.exerciseCount ?? 0);
-        const cardio = metadata.workoutType === 'cardio';
         // Strength is volume-driven and measured against the user's own recent
-        // training (see strengthProgression). Cardio keeps its token gain and
-        // leans on endurance instead.
-        const strengthDelta = cardio
-          ? { strength: CARDIO_STRENGTH_GAIN, pushingStrength: 0, pullingStrength: 0, legStrength: 0 }
-          : workoutStrengthDelta(pet, metadata.stats, {
-              history: context.history,
-              bodyWeightKg: context.bodyWeightKg,
-              occurredAt: event.occurredAt,
-            });
+        // training (see strengthProgression).
+        const strengthDelta = workoutStrengthDelta(pet, metadata.stats, {
+          history: context.history,
+          bodyWeightKg: context.bodyWeightKg,
+          occurredAt: event.occurredAt,
+        });
         // A logged session is paid for the work in it — sets ticked, reps done,
         // exercises covered — not for how long the gym clock ran. Twelve hard
         // sets in 35 minutes is a better session than three sets in an hour,
@@ -246,18 +298,17 @@ export class PetHealthEngine {
               energy: Math.min(8, 3 + Math.floor(sets / 3)),
               happiness: Math.min(7, 3 + Math.floor(sets / 4)),
               ...strengthDelta,
-              endurance: cardio ? Math.min(5, 2 + Math.floor(sets / 8)) : Math.min(4, 1 + Math.floor(reps / 40)),
-              recovery: metadata.name?.toLowerCase().includes('mobility') ? 3 : 0,
+              endurance: Math.min(4, 1 + Math.floor(reps / 40)),
+              recovery: mobility,
               mind: 1,
               xp: workXp,
             }
-          : { energy: 6, happiness: 5, strength: metadata.workoutType === 'strength' ? 4 : 1, endurance: 2, xp: 18 + hardBonus };
+          : { energy: 6, happiness: 5, strength: 4, endurance: 2, xp: 18 + hardBonus };
         message = hasWorkoutStats
           ? sets > 0
             ? `${pet.name} pushed through ${sets} ${sets === 1 ? 'set' : 'sets'} with you and feels stronger.`
             : `${pet.name} showed up to train with you.`
           : `${pet.name} trained for ${metadata.durationMinutes} minutes and feels stronger.`;
-        eventLabel = `Trained ${metadata.workoutType}`;
         break;
       }
       case 'STEP_ACTIVITY': {

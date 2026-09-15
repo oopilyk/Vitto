@@ -1370,6 +1370,100 @@ describe('profile screen', () => {
       .find((node) => node.findAllByType(Text).some((t: any) => t.props.children === label));
   };
 
+  it('puts the heaviest ticked set on each big lift on the board, in the profile\'s unit', () => {
+    const { Text } = require('react-native');
+    const bench = {
+      id: 'w1', userId: 'u', type: 'WORKOUT', source: 'manual', occurredAt: '2026-09-08T10:00:00Z',
+      metadata: {
+        workoutType: 'strength', durationMinutes: 40,
+        exercises: [{
+          id: 'e1', name: 'Bench Press', muscleGroup: 'chest',
+          sets: [
+            { id: 's1', weight: 60, reps: 8, unit: 'kg', completed: true },
+            { id: 's2', weight: 80, reps: 5, unit: 'kg', completed: true },
+            { id: 's3', weight: 100, reps: 1, unit: 'kg', completed: false },
+          ],
+        }],
+      },
+    };
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen profile={{ ...profile, weightUnit: 'lb' }} breed="shiba" onBreedChange={() => {}} events={[bench as any]} onSave={async () => {}} onClose={() => {}} />,
+      );
+    });
+    const texts = tree.root.findAllByType(Text).map((t: any) => t.props.children);
+    const flat = texts.flat(2).map(String);
+    // 80 kg, the heaviest ticked set, shown as 176.4 lb because the profile is in pounds.
+    expect(flat).toContain('176.4');
+    expect(flat.some((t) => t.includes('× 5'))).toBe(true);
+    // The unticked 100 kg row is a plan, not a lift.
+    expect(flat).not.toContain('220.5');
+    // Lifts never logged still get a tile, so the board is the list of goals.
+    expect(flat.filter((t) => t === 'not yet lifted')).toHaveLength(3);
+    expect(flat.filter((t) => t === 'no runs yet')).toHaveLength(2);
+    tree.unmount();
+  });
+
+  it('places each lift against people of the same sex, bodyweight and age', () => {
+    const { Text } = require('react-native');
+    const bench = (weight: number) => ({
+      id: 'w1', userId: 'u', type: 'WORKOUT', source: 'manual', occurredAt: '2026-09-08T10:00:00Z',
+      metadata: {
+        workoutType: 'strength', durationMinutes: 40,
+        exercises: [{ id: 'e1', name: 'Bench Press', muscleGroup: 'chest',
+          sets: [{ id: 's1', weight, reps: 3, unit: 'kg', completed: true }] }],
+      },
+    });
+    const flatFor = (who: Partial<typeof profile>, weight: number) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <ProfileScreen profile={{ ...profile, ...who }} breed="shiba" onBreedChange={() => {}}
+            events={[bench(weight) as any]} onSave={async () => {}} onClose={() => {}} />,
+        );
+      });
+      const flat = tree.root.findAllByType(Text).map((t: any) => t.props.children).flat(2).map(String);
+      tree.unmount();
+      return flat;
+    };
+
+    // The male bench table puts 1.1x bodyweight at the 50th percentile.
+    const middling = flatFor({ sex: 'male', age: 30, weightKg: 80 }, 88);
+    expect(middling.some((t) => t.includes('50th') && t.includes('Intermediate'))).toBe(true);
+    // Lifts never logged carry no placing at all rather than a zero one.
+    expect(middling.filter((t) => t.includes('not yet lifted'))).toHaveLength(3);
+
+    // The same bar is a bigger deal for a lighter lifter, and bigger again with age.
+    const rank = (flat: string[]) => Number(flat.find((t) => /^\d+(st|nd|rd|th) · /.test(t))!.match(/^\d+/)![0]);
+    expect(rank(flatFor({ sex: 'male', age: 30, weightKg: 60 }, 88))).toBeGreaterThan(rank(middling));
+    expect(rank(flatFor({ sex: 'male', age: 60, weightKg: 80 }, 88))).toBeGreaterThan(rank(middling));
+
+    // The footnote says what the number is measured against, so it is not read as a population fact.
+    expect(middling.some((t) => t.includes('people who lift') && t.includes('estimate'))).toBe(true);
+  });
+
+  it('puts the fastest mile and the longest run on the board from cardio sessions with a distance', () => {
+    const { Text } = require('react-native');
+    const run = (id: string, distanceKm: number, durationMinutes: number) => ({
+      id, userId: 'u', type: 'WORKOUT', source: 'manual', occurredAt: `2026-09-0${id}T07:00:00Z`,
+      metadata: { workoutType: 'cardio', durationMinutes, distanceKm },
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen profile={{ ...profile, weightUnit: 'lb' }} breed="shiba" onBreedChange={() => {}}
+          events={[run('1', 10, 62), run('2', 3.218688, 16)] as any} onSave={async () => {}} onClose={() => {}} />,
+      );
+    });
+    const flat = tree.root.findAllByType(Text).map((t: any) => t.props.children).flat(2).map(String);
+    expect(flat).toContain('Fastest mile');
+    // 2 mi in 16 min is 8:00 a mile; the 10 km run is the longer one at 6.21 mi.
+    expect(flat).toContain('8:00');
+    expect(flat).toContain('6.21');
+    tree.unmount();
+  });
+
   it('hides the save bar until something changes, then saves', async () => {
     const saved: unknown[] = [];
     const tree = render(async (next: unknown) => {

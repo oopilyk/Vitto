@@ -16,6 +16,7 @@ import {
   templateFromSession,
   updateSet,
 } from '@vitto/core';
+import { KM_PER_MILE } from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -67,6 +68,8 @@ export function WorkoutScreen({
   const [mode, setMode] = useState<Mode>('log');
   const [name, setName] = useState(DEFAULT_SESSION_NAME);
   const [duration, setDuration] = useState('30');
+  /** Distance for a cardio session, typed in the lifter's own unit (mi for lb, km for kg). */
+  const [distance, setDistance] = useState('');
   const [notes, setNotes] = useState('');
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [saving, setSaving] = useState(false);
@@ -194,6 +197,11 @@ export function WorkoutScreen({
     );
 
   const stats = calculateWorkoutStats(exercises, Math.max(1, Number(duration) || 1));
+  const cardio = stats.muscleGroups.includes('cardio');
+  const distanceUnit = weightUnit === 'lb' ? 'mi' : 'km';
+  const distanceKm = cardio && Number(distance) > 0
+    ? Math.round(Number(distance) * (distanceUnit === 'mi' ? KM_PER_MILE : 1) * 1000) / 1000
+    : undefined;
   // Only ticked sets count toward the workout, so show the entered total too.
   const totalSets = exercises.reduce((count, exercise) => count + exercise.sets.length, 0);
 
@@ -206,8 +214,9 @@ export function WorkoutScreen({
     setError(null);
     try {
       await onFinish({
-        workoutType: stats.muscleGroups.includes('cardio') ? 'cardio' : 'strength',
+        workoutType: cardio ? 'cardio' : 'strength',
         durationMinutes: stats.durationMinutes,
+        ...(distanceKm !== undefined ? { distanceKm } : {}),
         name,
         exercises,
         notes,
@@ -299,6 +308,19 @@ export function WorkoutScreen({
                   placeholder="Min"
                   placeholderTextColor={colors.faint}
                 />
+                {/* Only a cardio session has a distance; it feeds the run records
+                    on the profile (fastest mile, longest run). */}
+                {cardio ? (
+                  <TextInput
+                    style={[layout.input, styles.minutes]}
+                    value={distance}
+                    onChangeText={setDistance}
+                    keyboardType="decimal-pad"
+                    placeholder={distanceUnit}
+                    accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}`}
+                    placeholderTextColor={colors.faint}
+                  />
+                ) : null}
               </View>
 
               {onSaveTemplate ? (

@@ -35,6 +35,12 @@ export interface HealthEvent<TMetadata = unknown> {
 export interface WorkoutMetadata {
   workoutType: string;
   durationMinutes: number;
+  /**
+   * How far a cardio session went, in kilometres. Optional: strength sessions
+   * have none, and runs logged before this field existed carry none either.
+   * Brought in by the Apple Health import, or typed in on the workout screen.
+   */
+  distanceKm?: number;
   intensity?: 'easy' | 'moderate' | 'hard';
   workoutId?: string;
   name?: string;

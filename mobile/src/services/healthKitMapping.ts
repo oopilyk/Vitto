@@ -44,7 +44,22 @@ export interface RawWorkoutSample {
   durationSeconds: number;
   startDate: Date;
   sourceName: string;
+  /** The workout's total distance as HealthKit reports it: a number and its unit string. */
+  totalDistance?: { quantity: number; unit: string };
 }
+
+/**
+ * HealthKit hands distance back in whatever unit the sample was stored in —
+ * metres for most workouts, occasionally kilometres or miles from third-party
+ * apps. Anything else is left out rather than guessed at.
+ */
+const KM_PER_UNIT: Record<string, number> = { m: 0.001, km: 1, mi: 1.609344, yd: 0.0009144, ft: 0.0003048 };
+
+const distanceKmOf = (total: RawWorkoutSample['totalDistance']): number | undefined => {
+  if (!total || !(total.quantity > 0)) return undefined;
+  const perUnit = KM_PER_UNIT[total.unit.trim().toLowerCase()];
+  return perUnit === undefined ? undefined : Math.round(total.quantity * perUnit * 1000) / 1000;
+};
 
 const STRENGTH_ACTIVITY_NAMES = new Set([
   'traditionalStrengthTraining',
@@ -67,6 +82,7 @@ export const mapWorkoutSample = (
   metadata: {
     workoutType: STRENGTH_ACTIVITY_NAMES.has(sample.activityName) ? 'strength' : 'cardio',
     durationMinutes: Math.max(1, Math.round(sample.durationSeconds / SECONDS_PER_MINUTE)),
+    ...((distance) => (distance === undefined ? {} : { distanceKm: distance }))(distanceKmOf(sample.totalDistance)),
     workoutId: sample.uuid,
     name: sample.activityName,
     notes: sample.sourceName ? `Imported from ${sample.sourceName}` : 'Imported from Apple Health',

@@ -138,6 +138,7 @@ export class HealthKitProvider implements HealthDataProvider {
           uuid: sample.uuid,
           activityName: workoutActivityName(sample.workoutActivityType),
           durationSeconds: sample.duration.quantity,
+          ...(sample.totalDistance ? { totalDistance: { quantity: sample.totalDistance.quantity, unit: sample.totalDistance.unit } } : {}),
           startDate: sample.startDate,
           sourceName: sample.sourceRevision.source.name,
         }),

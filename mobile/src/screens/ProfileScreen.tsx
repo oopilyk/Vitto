@@ -55,6 +55,7 @@ import {
   reminderError,
   normalizeReminderLabel,
   errorMessage} from '@vitto/core';
+import { BIG_LIFTS, formatPace, liftStanding, ordinal, overallStanding, personalRecords, runRecords } from '@vitto/core';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';
@@ -355,6 +356,42 @@ export function ProfileScreen({
   const burned = estimateCaloriesBurned(todaysEvents);
   const remaining = targets.calories - consumed.calories + burned;
   const streaks = calculateQualifyingStreaks(events, today);
+  // The board: heaviest ticked set per big lift, then the two run records, all
+  // in the units the profile is kept in.
+  const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const runs = runRecords(events, measurementSystemOf(profile));
+  // Each lift is also placed against people of the same sex, bodyweight and age.
+  // `liftStanding` works in kilograms, so a pounds profile converts back first.
+  const lifts = personalRecords(events, profile.weightUnit, BIG_LIFTS).map(({ exercise, record }) => ({
+    exercise,
+    record,
+    standing: record
+      ? liftStanding(exercise, convertWeightValue(record.weight, profile.weightUnit, 'kg'), profile)
+      : null,
+  }));
+  const overall = overallStanding(lifts.map((lift) => lift.standing));
+  const board: { label: string; value: string | null; unit?: string; meta: string; note?: string }[] = [
+    ...lifts.map(({ exercise, record, standing }) => ({
+      label: exercise,
+      value: record ? String(record.weight) : null,
+      unit: profile.weightUnit,
+      meta: record ? `× ${record.reps} · ${shortDate(record.occurredAt)}` : 'not yet lifted',
+      ...(standing ? { note: `${ordinal(standing.percentile)} · ${standing.label}` } : {}),
+    })),
+    {
+      label: runs.unit === 'mi' ? 'Fastest mile' : 'Fastest km',
+      value: runs.fastest ? formatPace(runs.fastest.paceMinutes) : null,
+      unit: `/${runs.unit}`,
+      meta: runs.fastest ? `${runs.fastest.distance} ${runs.unit} · ${shortDate(runs.fastest.occurredAt)}` : 'no runs yet',
+    },
+    {
+      label: 'Longest run',
+      value: runs.longest ? String(runs.longest.distance) : null,
+      unit: runs.unit,
+      meta: runs.longest ? `${runs.longest.durationMinutes} min · ${shortDate(runs.longest.occurredAt)}` : 'no runs yet',
+    },
+  ];
+  const onBoard = board.filter((tile) => tile.value !== null).length;
   const counts = [
     [events.filter((event) => event.type === 'MEAL').length, 'meals logged'],
     [events.filter((event) => event.type === 'WORKOUT').length, 'workouts'],
@@ -529,6 +566,34 @@ export function ProfileScreen({
               </View>
             ))}
           </View>
+        </Card>
+
+        <Card
+          title="Personal records"
+          hint={
+            onBoard === 0
+              ? 'Your best on each big lift and on the road, read from the workouts you log'
+              : `Your best on each big lift and on the road · ${onBoard} of ${board.length} on the board`
+          }
+        >
+          <View style={styles.records} accessibilityLabel="Personal records">
+            {board.map(({ label, value, unit, meta, note }) => (
+              <View key={label} style={[styles.record, value === null && styles.recordEmpty]}>
+                <Text style={styles.recordLift}>{label}</Text>
+                <Text style={[styles.recordValue, value === null && styles.recordValueEmpty]}>
+                  {value ?? '—'}
+                  {value !== null && unit ? <Text style={styles.recordUnit}> {unit}</Text> : null}
+                </Text>
+                <Text style={styles.recordMeta}>{meta}</Text>
+                {note ? <Text style={styles.recordRank}>{note}</Text> : null}
+              </View>
+            ))}
+          </View>
+          {overall ? (
+            <Text style={styles.recordFootnote}>
+              {`Across your logged lifts you sit around the ${ordinal(overall.percentile)} percentile — ${overall.label.toLowerCase()}. Placed against people who lift, of your sex, bodyweight and age, using published training standards. It is an estimate, not a survey of everyone.`}
+            </Text>
+          ) : null}
         </Card>
 
         <Card title="Your companion" hint="Changes take effect straight away">
@@ -1266,6 +1331,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   countValue: { fontSize: 20, fontWeight: '700', color: colors.ink },
+  records: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  record: {
+    flexBasis: '30%',
+    flexGrow: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.paper,
+  },
+  recordEmpty: { borderStyle: 'dashed' },
+  recordLift: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint },
+  recordValue: { fontSize: 22, fontWeight: '700', color: colors.ink, marginTop: 6 },
+  recordValueEmpty: { color: colors.faint },
+  recordUnit: { fontFamily: fonts.mono, fontSize: 11, fontWeight: '400', color: colors.faint },
+  recordMeta: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
+  recordRank: { fontFamily: fonts.mono, fontSize: 10, color: colors.mintDeep, marginTop: 4 },
+  recordFootnote: { fontSize: 11, color: colors.faint, lineHeight: 16, marginTop: 14 },
   countLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 3 },
   plan: {
     marginTop: 16,

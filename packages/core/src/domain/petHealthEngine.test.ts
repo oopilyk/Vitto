@@ -99,6 +99,53 @@ describe('PetHealthEngine', () => {
     expect(beating.reaction.delta.pushingStrength).toBeGreaterThan(matching.reaction.delta.pushingStrength ?? 0);
   });
 
+  it('pays a run for the ground it covers and the time it takes, not for sets it never had', () => {
+    const pet = createPet('user-1', 'Miso');
+    const engine = new PetHealthEngine();
+    const run = (durationMinutes: number, distanceKm?: number): HealthEvent => ({
+      id: `r-${durationMinutes}-${distanceKm ?? 0}`, userId: 'user-1', occurredAt: '2026-08-28T07:00:00Z',
+      type: 'WORKOUT', source: 'manual',
+      metadata: { workoutType: 'cardio', durationMinutes, ...(distanceKm !== undefined ? { distanceKm } : {}) },
+    });
+    const xp = (event: HealthEvent) => engine.apply(pet, event, { history: [] }).reaction.delta.xp ?? 0;
+
+    // Further beats shorter over the same time, and longer beats briefer over
+    // the same ground. Both signals count, neither alone decides it.
+    expect(xp(run(30, 6))).toBeGreaterThan(xp(run(30, 2)));
+    expect(xp(run(50, 5))).toBeGreaterThan(xp(run(25, 5)));
+
+    // The regression this replaced: a run carries no ticked sets, so the
+    // set-based formula scored a 10 km run at the bare floor — below four sets
+    // of curls. It has to beat a token gym session now.
+    const tokenSession = strengthWorkout('w-token', '2026-08-28T07:00:00Z', statsWith({ completedSets: 4, totalReps: 32, exerciseCount: 1 }));
+    expect(xp(run(55, 10))).toBeGreaterThan(xp(tokenSession));
+
+    // A session with no distance recorded still earns its time, so an imported
+    // elliptical hour is not worth nothing.
+    expect(xp(run(40))).toBeGreaterThan(xp(run(10)));
+    // And it is capped, so an all-day ride cannot run away with the budget.
+    expect(xp(run(600, 200))).toBe(40);
+  });
+
+  it('builds endurance from a run rather than the lifts', () => {
+    const pet = createPet('user-1', 'Miso');
+    const engine = new PetHealthEngine();
+    const run = (durationMinutes: number, distanceKm: number): HealthEvent => ({
+      id: 'r', userId: 'user-1', occurredAt: '2026-08-28T07:00:00Z', type: 'WORKOUT', source: 'manual',
+      metadata: { workoutType: 'cardio', durationMinutes, distanceKm },
+    });
+    const long = engine.apply(pet, run(55, 10), { history: [] }).reaction;
+    const short = engine.apply(pet, run(15, 2), { history: [] }).reaction;
+    expect(long.delta.endurance).toBeGreaterThan(short.delta.endurance ?? 0);
+    // The push/pull/leg axes stay flat: running does not move the lifts.
+    expect(long.delta.pushingStrength).toBe(0);
+    expect(long.delta.legStrength).toBe(0);
+    expect(long.delta.strength).toBe(1);
+    // The pet counts minutes, never kilometres — it cannot know if the user reads miles.
+    expect(long.message).toContain('55 minutes');
+    expect(long.message).not.toMatch(/km|mile/i);
+  });
+
   it('leaves a cardio workout on its token strength gain and leans on endurance', () => {
     const pet = createPet('user-1', 'Miso');
     const cardio: HealthEvent = {

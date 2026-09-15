@@ -35,6 +35,17 @@ describe('mapWorkoutSample', () => {
     expect(event.metadata.notes).toBe('Imported from Strong');
   });
 
+  it('carries a run\'s distance across in kilometres, whatever unit HealthKit stored it in', () => {
+    const at = new Date('2026-08-28T07:00:00.000Z');
+    const base = { uuid: 'hk-run', activityName: 'running', durationSeconds: 1800, startDate: at, sourceName: 'Watch' };
+    expect(mapWorkoutSample('user-1', { ...base, totalDistance: { quantity: 5000, unit: 'm' } }).metadata.distanceKm).toBe(5);
+    expect(mapWorkoutSample('user-1', { ...base, totalDistance: { quantity: 3.1, unit: 'mi' } }).metadata.distanceKm).toBeCloseTo(4.989, 3);
+    // No distance, a zero one, or a unit it does not know: the field is left off, not set to nonsense.
+    expect(mapWorkoutSample('user-1', base).metadata).not.toHaveProperty('distanceKm');
+    expect(mapWorkoutSample('user-1', { ...base, totalDistance: { quantity: 0, unit: 'm' } }).metadata).not.toHaveProperty('distanceKm');
+    expect(mapWorkoutSample('user-1', { ...base, totalDistance: { quantity: 9, unit: 'furlong' } }).metadata).not.toHaveProperty('distanceKm');
+  });
+
   it('falls back to "cardio" for activity names outside the known strength set', () => {
     const event = mapWorkoutSample('user-1', {
       uuid: 'hk-workout-2',
