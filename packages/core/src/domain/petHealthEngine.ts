@@ -244,6 +244,11 @@ export class PetHealthEngine {
           // earns its time.
           const minutes = Math.min(CARDIO_MINUTES_CAP, Math.max(0, Math.round(metadata.durationMinutes)));
           const km = Math.min(CARDIO_DISTANCE_CAP_KM, Math.max(0, metadata.distanceKm ?? 0));
+          // Not all cardio covers ground. Burpees and jump rope are counted in
+          // reps like any other bodyweight movement, so a session of them would
+          // otherwise be paid for its clock alone.
+          const cardioReps = Math.max(0, metadata.stats?.totalReps ?? 0);
+          const repBonus = Math.min(6, Math.floor(cardioReps / 25));
           delta = {
             health: minutes >= 30 ? 2 : 1,
             energy: Math.min(8, 3 + Math.floor(minutes / 15)),
@@ -254,7 +259,7 @@ export class PetHealthEngine {
             pushingStrength: 0,
             pullingStrength: 0,
             legStrength: 0,
-            endurance: Math.min(8, 2 + Math.floor(minutes / 20) + Math.floor(km / 4)),
+            endurance: Math.min(8, 2 + Math.floor(minutes / 20) + Math.floor(km / 4) + Math.floor(cardioReps / 60)),
             recovery: mobility,
             mind: 1,
             xp: Math.min(
@@ -262,6 +267,7 @@ export class PetHealthEngine {
               WORKOUT_XP_BASE +
                 Math.floor(minutes * CARDIO_XP_PER_MINUTE) +
                 Math.round(km * CARDIO_XP_PER_KM) +
+                repBonus +
                 hardBonus,
             ),
           };

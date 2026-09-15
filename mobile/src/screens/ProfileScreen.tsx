@@ -38,7 +38,7 @@ import {
   reminderError,
   normalizeReminderLabel,
   errorMessage} from '@vitto/core';
-import { BIG_LIFTS, formatPace, liftStanding, ordinal, overallStanding, personalRecords, runRecords } from '@vitto/core';
+import { BIG_LIFTS, MAX_BIO_LENGTH, formatPace, liftStanding, normalizeBio, ordinal, overallStanding, personalRecords, runRecords } from '@vitto/core';
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';
@@ -53,6 +53,12 @@ interface Props {
   onClose: () => void;
   /** Opens Settings — about you, your goal, your training. Omitted where it is not wired up (tests). */
   onOpenSettings?: () => void;
+  /**
+   * Opens the Friends screen, which owns claiming a username. Offered here only
+   * as a way to go and set one; this screen never writes it. Absent offline,
+   * where there is nobody to be a friend of.
+   */
+  onOpenFriends?: () => void;
   onSignOut?: () => void;
   /**
    * Every achievement earned so far, badges and trophies. The card lists ALL
@@ -203,6 +209,7 @@ export function ProfileScreen({
   events,
   onSave,
   onClose,
+  onOpenFriends,
   onOpenSettings,
   onSignOut,
   achievements,
@@ -409,6 +416,61 @@ export function ProfileScreen({
         contentContainerStyle={[styles.body, { paddingBottom: (dirty ? 110 : 40) + HOME_INDICATOR_INSET }]}
         keyboardShouldPersistTaps="handled"
       >
+        {/*
+          Who you are, above everything the app measures about you. The handle
+          and the note are the only things on this screen another person ever
+          sees, so they are grouped together and away from the body metrics.
+        */}
+        <Card title="You">
+          <View style={styles.identity}>
+            <View style={styles.identityAvatar}>
+              <Text style={styles.identityInitial}>
+                {(profile.displayName?.trim() || profile.username || '?').slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <TextInput
+                style={[layout.input, styles.identityName]}
+                value={profile.displayName ?? ''}
+                onChangeText={(value) => update('displayName', value)}
+                placeholder="Your name"
+                placeholderTextColor={colors.faint}
+                maxLength={40}
+                accessibilityLabel="Your display name"
+              />
+              {profile.username ? (
+                <Text style={styles.identityHandle}>{`@${profile.username}`}</Text>
+              ) : onOpenFriends ? (
+                <Pressable accessibilityRole="button" onPress={onOpenFriends} hitSlop={6}>
+                  <Text style={styles.identityHandleUnset}>Pick a username in Friends</Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.identityHandleUnset}>No username yet</Text>
+              )}
+            </View>
+          </View>
+
+          {/* "Bio", not "About" — the body-metrics card that used to live on this
+              screen was called "About you", and it now lives in Settings. Two
+              things by that name on one screen would be nothing but confusing. */}
+          <Group label="BIO">
+            <TextInput
+              style={[layout.input, styles.bio]}
+              value={profile.bio ?? ''}
+              onChangeText={(value) => update('bio', value.slice(0, MAX_BIO_LENGTH))}
+              onBlur={() => update('bio', normalizeBio(profile.bio ?? ''))}
+              placeholder="A line about you — what you are training for, what you are working on."
+              placeholderTextColor={colors.faint}
+              multiline
+              maxLength={MAX_BIO_LENGTH}
+              accessibilityLabel="Your bio"
+            />
+            <Text style={styles.bioCount}>
+              {`${(profile.bio ?? '').length} / ${MAX_BIO_LENGTH} · friends can see your name, handle and this note`}
+            </Text>
+          </Group>
+        </Card>
+
         <Card title="Today">
           <View style={styles.rings}>
             <NutrientRing
@@ -905,6 +967,23 @@ const styles = StyleSheet.create({
   historyName: { fontSize: 13, fontWeight: '500', color: colors.ink },
   historyTime: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
   empty: { fontSize: 13, color: colors.faint, paddingVertical: 12 },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  identityAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  identityInitial: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
+  identityName: { fontSize: 16 },
+  identityHandle: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 6 },
+  identityHandleUnset: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, marginTop: 6 },
+  bio: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19 },
+  bioCount: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 6, lineHeight: 13 },
   link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
   foldToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
   foldChevron: { fontSize: 12, color: colors.coral },

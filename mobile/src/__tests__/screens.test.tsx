@@ -434,13 +434,97 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  /** The footer stats line, joined — it renders as several text children. */
+  it('logs a run by distance and time, with no set table and no zeroed summary', async () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text, TextInput } = require('react-native');
+    const logged: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen weightUnit="lb" templates={[]} onFinish={async (m: any) => { logged.push(m); }} onClose={() => {}} />,
+      );
+    });
+    const press = (label: string) =>
+      tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
+
+    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Add Running')!.props.onPress());
+    const done = tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Done'));
+    act(() => done!.props.onPress());
+
+    // No set row, no reps box, nothing to add a set to.
+    const placeholders = tree.root.findAllByType(TextInput).map((n: any) => n.props.placeholder);
+    expect(placeholders).not.toContain('reps');
+    expect(placeholders).not.toContain('BW');
+    const labels = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
+    expect(labels).not.toContain('+ Add set');
+    expect(labels.some((t) => t.includes('Logged by distance and time'))).toBe(true);
+
+    // Miles, because the profile is in pounds.
+    const distanceField = tree.root.findAllByProps({ accessibilityLabel: 'Distance in miles' })
+      .find((n: any) => typeof n.props.onChangeText === 'function');
+    expect(distanceField).toBeTruthy();
+    act(() => distanceField!.props.onChangeText('6.2'));
+
+    // The summary reports the run, not three zeroes.
+    const line = tree.root.findAllByType(Text)
+      .map((t: any) => t.props.children)
+      .find((c: any) => typeof c === 'string' && c.includes('mi'));
+    expect(line).toContain('6.2 mi');
+    expect(line).not.toContain('set');
+    expect(line).not.toContain('volume');
+
+    const finish = tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => String(t.props.children).startsWith('Finish')));
+    await act(async () => { finish!.props.onPress(); await Promise.resolve(); });
+
+    expect(logged).toHaveLength(1);
+    expect(logged[0].workoutType).toBe('cardio');
+    expect(logged[0].exercises[0]).toMatchObject({ name: 'Running', sets: [] });
+    // 6.2 miles stored as kilometres.
+    expect(logged[0].distanceKm).toBeCloseTo(9.978, 2);
+    tree.unmount();
+  });
+
+  it('keeps the set table for cardio that is counted in reps, and its distance box away', () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text, TextInput } = require('react-native');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen weightUnit="lb" templates={[]} onFinish={async () => {}} onClose={() => {}} />,
+      );
+    });
+    const press = (label: string) =>
+      tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
+    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Add Burpees')!.props.onPress());
+    const done = tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Done'));
+    act(() => done!.props.onPress());
+
+    // Burpees are cardio, but they are reps: the set table stays.
+    const placeholders = tree.root.findAllByType(TextInput).map((n: any) => n.props.placeholder);
+    expect(placeholders).toContain('reps');
+    const labels = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
+    expect(labels).toContain('+ Add set');
+    expect(labels.some((t) => t.includes('Logged by distance'))).toBe(false);
+    // And they go nowhere, so there is no distance box to fill in.
+    expect(tree.root.findAllByProps({ accessibilityLabel: 'Distance in miles' })).toHaveLength(0);
+    tree.unmount();
+  });
+
+  /** The footer stats line: one joined string built from whatever the session has. */
   const statsLine = (tree: renderer.ReactTestRenderer): string => {
     const { Text: T } = require('react-native');
     const node = tree.root
       .findAllByType(T)
-      .find((n: any) => Array.isArray(n.props.children) && n.props.children.some((c: any) => c === ' reps · '));
-    return node ? node.props.children.map((c: any) => (typeof c === 'string' ? c : String(c))).join('') : '';
+      .find((n: any) => typeof n.props.children === 'string' && / reps · /.test(n.props.children));
+    return node ? node.props.children : '';
   };
 
   it('loads a saved routine with last time\'s sets pre-filled and already counted', () => {
@@ -1374,6 +1458,64 @@ describe('profile screen', () => {
       .findAll((node) => typeof node.props.onPress === 'function')
       .find((node) => node.findAllByType(Text).some((t: any) => t.props.children === label));
   };
+
+  it('shows who you are, and saves a name and a bio through the normal save bar', async () => {
+    const { Text } = require('react-native');
+    const { MAX_BIO_LENGTH } = require('@vitto/core');
+    const saved: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={{ ...profile, displayName: 'Kyle', username: 'kyle', bio: 'Training for a half.' }}
+          breed="shiba" onBreedChange={() => {}} events={[]}
+          onSave={async (next: any) => { saved.push(next); }} onClose={() => {}} />,
+      );
+    });
+    const flat = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
+    // The handle reads back as a handle, and the avatar takes the name's initial.
+    expect(flat).toContain('@kyle');
+    expect(flat).toContain('K');
+
+    const bioField = tree.root.findAllByProps({ accessibilityLabel: 'Your bio' })
+      .find((n: any) => typeof n.props.onChangeText === 'function');
+    expect(bioField!.props.value).toBe('Training for a half.');
+    // Typing past the column's limit is refused at the field, not by the database.
+    act(() => bioField!.props.onChangeText('x'.repeat(MAX_BIO_LENGTH + 40)));
+    const nameField = tree.root.findAllByProps({ accessibilityLabel: 'Your display name' })
+      .find((n: any) => typeof n.props.onChangeText === 'function');
+    act(() => nameField!.props.onChangeText('Kyle L'));
+
+    const save = tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Save changes'));
+    await act(async () => { save!.props.onPress(); await Promise.resolve(); });
+
+    expect(saved).toHaveLength(1);
+    expect(saved[0].displayName).toBe('Kyle L');
+    expect(saved[0].bio).toHaveLength(MAX_BIO_LENGTH);
+    // The handle is never written from here — Friends owns it.
+    expect(saved[0].username).toBe('kyle');
+    tree.unmount();
+  });
+
+  it('points at Friends when there is no username yet', () => {
+    const { Text } = require('react-native');
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen profile={profile} breed="shiba" onBreedChange={() => {}} events={[]}
+          onSave={async () => {}} onClose={() => {}} onOpenFriends={() => { opened += 1; }} />,
+      );
+    });
+    const link = tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => String(t.props.children).includes('Pick a username')));
+    act(() => link!.props.onPress());
+    expect(opened).toBe(1);
+    tree.unmount();
+  });
 
   it('puts the heaviest ticked set on each big lift on the board, in the profile\'s unit', () => {
     const { Text } = require('react-native');

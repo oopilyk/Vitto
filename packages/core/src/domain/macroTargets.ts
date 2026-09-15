@@ -54,6 +54,17 @@ export interface BodyProfile {
    */
   displayName?: string;
   /**
+   * The unique handle claimed at sign-up, shown as "@name".
+   *
+   * Read-only here: it is set during registration and changed on the Friends
+   * screen, which owns the uniqueness check and the taken-name error. Loading it
+   * onto the profile lets the Profile screen SHOW who you are without becoming a
+   * second place that can write it.
+   */
+  username?: string;
+  /** A short self-description, at most `MAX_BIO_LENGTH` characters. */
+  bio?: string;
+  /**
    * Onboarding-v2 fields. All optional and undefaulted: an account created
    * before onboarding-v2 has none of them, and "unset" is a real state the
    * flow can resume from.
@@ -139,6 +150,13 @@ export const withMeasurementSystem = <T extends Pick<BodyProfile, 'heightUnit' |
  * such as `screenTimeBudgetMinutes` are intentionally absent — undefined means
  * "not set", which is a real state, not a missing default.
  */
+/** Matches the `bio` column's CHECK constraint, so the app cannot write a row the database rejects. */
+export const MAX_BIO_LENGTH = 280;
+
+/** Trimmed, collapsed, and capped — what actually gets stored. */
+export const normalizeBio = (bio: string): string =>
+  bio.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_BIO_LENGTH);
+
 export const PROFILE_SURVEY_DEFAULTS = {
   goalPace: 'steady' as GoalPace,
   trainingDaysPerWeek: 3,

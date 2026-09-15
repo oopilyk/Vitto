@@ -127,6 +127,24 @@ describe('PetHealthEngine', () => {
     expect(xp(run(600, 200))).toBe(40);
   });
 
+  it('pays rep-counted cardio for its reps, not its clock alone', () => {
+    // Burpees are cardio but go nowhere, so minutes and kilometres alone would
+    // score a hard round of them at the bare floor.
+    const pet = createPet('user-1', 'Miso');
+    const engine = new PetHealthEngine();
+    const burpees = (totalReps: number): HealthEvent => ({
+      id: `b-${totalReps}`, userId: 'user-1', occurredAt: '2026-08-28T07:00:00Z', type: 'WORKOUT', source: 'manual',
+      metadata: {
+        workoutType: 'cardio', durationMinutes: 20,
+        stats: statsWith({ completedSets: 5, totalReps, exerciseCount: 1, muscleGroups: ['cardio'], durationMinutes: 20 }),
+      },
+    });
+    const xp = (event: HealthEvent) => engine.apply(pet, event, { history: [] }).reaction.delta.xp ?? 0;
+    expect(xp(burpees(120))).toBeGreaterThan(xp(burpees(20)));
+    expect(engine.apply(pet, burpees(120), { history: [] }).reaction.delta.endurance)
+      .toBeGreaterThan(engine.apply(pet, burpees(20), { history: [] }).reaction.delta.endurance ?? 0);
+  });
+
   it('builds endurance from a run rather than the lifts', () => {
     const pet = createPet('user-1', 'Miso');
     const engine = new PetHealthEngine();

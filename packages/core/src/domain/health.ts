@@ -52,7 +52,20 @@ export interface WorkoutMetadata {
 /** What a set's `weight` number means. Matches `BodyProfile['weightUnit']`. */
 export type WeightUnit = 'kg' | 'lb';
 export interface WorkoutSet { id: string; reps: number; weight?: number; unit?: WeightUnit; rpe?: number; completed: boolean; previous?: { reps: number; weight?: number; unit?: WeightUnit }; }
-export interface WorkoutExercise { id: string; name: string; muscleGroup: string; bodyweight?: boolean; sets: WorkoutSet[]; }
+export interface WorkoutExercise {
+  id: string;
+  name: string;
+  muscleGroup: string;
+  bodyweight?: boolean;
+  /**
+   * Logged as ground covered and time rather than as sets — a run, a ride, a
+   * swim. Such an exercise carries no sets at all; the session's `distanceKm`
+   * and `durationMinutes` are its whole record. Absent means it is counted in
+   * sets, which is everything else including burpees and jump rope.
+   */
+  distance?: boolean;
+  sets: WorkoutSet[];
+}
 export interface WorkoutStats {
   durationMinutes: number;
   exerciseCount: number;

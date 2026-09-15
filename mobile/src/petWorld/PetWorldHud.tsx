@@ -232,11 +232,6 @@ export function PetWorldHud({
                 {`   ·   🔥 ${streaks.currentStreak}`}
               </Text>
             ) : null}
-            {foodTags.length > 0 ? (
-              <Text style={styles.metaTag} accessibilityLabel={`Effects: ${foodTags.join(', ')}`}>
-                {`   ·   ${foodTags.join(' · ')}`}
-              </Text>
-            ) : null}
             {partnerName ? (
               <Text style={[styles.metaSoft, night && styles.metaSoftNight]}>
                 {'   ·   '}
@@ -244,6 +239,25 @@ export function PetWorldHud({
               </Text>
             ) : null}
           </Text>
+          {/*
+            The food effects get their own row rather than being appended to the
+            line above. Strung into that sentence with "·" separators baked into
+            the text, a wrap put the separator at the START of the next line and
+            the row read as broken punctuation. As separate chips the line breaks
+            between tags instead, and never in front of one.
+          */}
+          {foodTags.length > 0 ? (
+            <View
+              style={styles.metaTags}
+              accessibilityLabel={`Effects: ${foodTags.join(', ')}`}
+            >
+              {foodTags.map((tag) => (
+                <Text key={tag} style={[styles.metaTag, night && styles.metaTagNight]}>
+                  {tag}
+                </Text>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.sideRight} pointerEvents="box-none">
@@ -397,8 +411,30 @@ const styles = StyleSheet.create({
   metaFlame: { color: '#b25a35', fontWeight: '700' },
   /** Alive but not yet re-earned today — dimmed, not the same as a banked day. */
   metaFlameAtRisk: { color: '#b25a35', opacity: 0.55, fontWeight: '600' },
-  // Food effect tags — warm gold, so they read as a state the pet is in.
-  metaTag: { color: '#9a7b28', fontWeight: '700' },
+  // Food effect tags — warm gold, so they read as a state the pet is in. Each is
+  // its own chip so a narrow screen wraps between them, not inside a separator.
+  metaTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 5,
+  },
+  metaTag: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: '#8a6d1f',
+    backgroundColor: 'rgba(214,183,96,0.28)',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  metaTagNight: { color: '#e4c878', backgroundColor: 'rgba(228,200,120,0.16)' },
 
   rail: { alignItems: 'flex-end', gap: 12 },
   disc: {

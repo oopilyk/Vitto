@@ -35,11 +35,29 @@ export const exerciseLibrary = [
   ['Plank', 'core', 'bodyweight'], ['Crunches', 'core', 'bodyweight'], ['Hanging Leg Raise', 'core', 'bodyweight'],
   ['Russian Twist', 'core', 'bodyweight'], ['Ab Wheel Rollout', 'core', 'bodyweight'], ['Dead Bug', 'core', 'bodyweight'],
   ['Mountain Climbers', 'core', 'bodyweight'], ['Cable Crunch', 'core'],
-  // Cardio
-  ['Running', 'cardio', 'bodyweight'], ['Walking', 'cardio', 'bodyweight'], ['Cycling', 'cardio', 'bodyweight'],
-  ['Rowing', 'cardio', 'bodyweight'], ['Elliptical', 'cardio', 'bodyweight'], ['Stair Climber', 'cardio', 'bodyweight'],
-  ['Jump Rope', 'cardio', 'bodyweight'], ['Swimming', 'cardio', 'bodyweight'], ['Burpees', 'cardio', 'bodyweight'],
+  // Cardio, split by how it is actually counted. The ones marked `distance` go
+  // somewhere and are logged as ground covered plus time; the rest are reps like
+  // any other bodyweight movement, and keep their sets.
+  ['Running', 'cardio', 'distance'], ['Walking', 'cardio', 'distance'], ['Cycling', 'cardio', 'distance'],
+  ['Rowing', 'cardio', 'distance'], ['Elliptical', 'cardio', 'distance'], ['Stair Climber', 'cardio', 'distance'],
+  ['Swimming', 'cardio', 'distance'],
+  ['Jump Rope', 'cardio', 'bodyweight'], ['Burpees', 'cardio', 'bodyweight'],
 ] as const;
+
+/**
+ * Exercises logged as a distance and a time rather than as sets.
+ *
+ * Read off the library so there is one source of truth: adding a rowing machine
+ * is a row in the table above, not a second list to remember. Note this is a
+ * property of the EXERCISE, not of the muscle group — burpees and jump rope are
+ * cardio too, and they are counted in reps like anything else.
+ */
+const DISTANCE_EXERCISES: ReadonlySet<string> = new Set(
+  exerciseLibrary.filter(([, , kind]) => kind === 'distance').map(([name]) => name),
+);
+
+/** Whether this exercise is logged by distance and time instead of sets. */
+export const tracksDistance = (name: string): boolean => DISTANCE_EXERCISES.has(name);
 
 /**
  * A starting load, in whichever unit the lifter uses, by what the exercise is.
@@ -86,7 +104,27 @@ const newSet = (bodyweight: boolean, unit: WeightUnit, muscleGroup: string): Wor
  * the lifter's own unit — the set records what its number means, so a workout
  * logged in pounds still reads as pounds later.
  */
-export const createExercise = (name: string, muscleGroup: string, bodyweight = false, unit: WeightUnit = 'kg'): WorkoutExercise => ({ id: newId(), name, muscleGroup, bodyweight, sets: [newSet(bodyweight, unit, muscleGroup)] });
+/**
+ * A run is a distance and a time, both of which the session already records, so
+ * asking it for sets produced nonsense: one bodyweight set of eight reps, and a
+ * summary reading "1 set · 8 reps · 0 lb volume" for a ten-mile run. A
+ * distance exercise therefore starts with no sets and carries `distance` so the
+ * screen knows to draw no set table for it.
+ *
+ * Burpees and jump rope are cardio but are NOT distance work, so they keep their
+ * sets and are counted in reps like any other bodyweight movement.
+ */
+export const createExercise = (name: string, muscleGroup: string, bodyweight = false, unit: WeightUnit = 'kg'): WorkoutExercise => {
+  const distance = tracksDistance(name);
+  return {
+    id: newId(),
+    name,
+    muscleGroup,
+    bodyweight,
+    ...(distance ? { distance: true } : {}),
+    sets: distance ? [] : [newSet(bodyweight, unit, muscleGroup)],
+  };
+};
 
 export const calculateWorkoutStats = (exercises: WorkoutExercise[], durationMinutes: number): WorkoutStats => {
   const volumeByMuscleGroup: Record<string, number> = {};

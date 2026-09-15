@@ -58,6 +58,15 @@ describe('templateFromSession', () => {
     expect(routine.exercises.map((e) => e.name)).toEqual(['Bench Press']);
   });
 
+  it('keeps a run in the routine, even though it has no sets to keep', () => {
+    const run = createExercise('Running', 'cardio', true, 'lb');
+    expect(run.sets).toEqual([]);
+    const routine = templateFromSession('Conditioning', [...push(), run], undefined, NOW);
+    expect(routine.exercises.map((e) => e.name)).toContain('Running');
+    // And it survives the round trip back into a session.
+    expect(sessionFromTemplate(routine).find((e) => e.name === 'Running')!.sets).toEqual([]);
+  });
+
   it('tidies the name', () => {
     expect(templateFromSession('  push   day  ', push(), undefined, NOW).name).toBe('push day');
   });

@@ -189,10 +189,30 @@ export function WorkoutScreen({
 
   const stats = calculateWorkoutStats(exercises, Math.max(1, Number(duration) || 1));
   const cardio = stats.muscleGroups.includes('cardio');
+  // Only a session that actually goes somewhere gets a distance box: a round of
+  // burpees is cardio and has none.
+  const goesSomewhere = exercises.some((exercise) => exercise.distance);
   const distanceUnit = weightUnit === 'lb' ? 'mi' : 'km';
-  const distanceKm = cardio && Number(distance) > 0
+  const distanceKm = goesSomewhere && Number(distance) > 0
     ? Math.round(Number(distance) * (distanceUnit === 'mi' ? KM_PER_MILE : 1) * 1000) / 1000
     : undefined;
+
+  /**
+   * The footer line, from whatever this session actually has. A run has no sets,
+   * reps or volume to report, and printing three zeroes for one read as the log
+   * having failed to record it.
+   */
+  const summary = [
+    ...(stats.completedSets > 0
+      ? [
+          `${stats.completedSets} ${stats.completedSets === 1 ? 'set' : 'sets'}`,
+          `${stats.totalReps} reps`,
+          ...(stats.totalVolume > 0 ? [`${stats.totalVolume} ${weightUnit} volume`] : []),
+        ]
+      : []),
+    ...(goesSomewhere && Number(distance) > 0 ? [`${Number(distance)} ${distanceUnit}`] : []),
+    `${stats.durationMinutes} min`,
+  ].join(' · ');
 
   const finish = async () => {
     if (!exercises.length) {
@@ -299,7 +319,7 @@ export function WorkoutScreen({
                 />
                 {/* Only a cardio session has a distance; it feeds the run records
                     on the profile (fastest mile, longest run). */}
-                {cardio ? (
+                {goesSomewhere ? (
                   <TextInput
                     style={[layout.input, styles.minutes]}
                     value={distance}
@@ -448,6 +468,13 @@ export function WorkoutScreen({
                   <Text style={styles.exerciseRemove}>Remove</Text>
                 </Pressable>
               </View>
+              {exercise.distance ? (
+                // A run, ride or swim: the distance and time at the top of the
+                // screen are its whole record. Burpees and jump rope are cardio
+                // too but go nowhere, so they keep the set table below.
+                <Text style={styles.cardioNote}>Logged by distance and time — set them at the top.</Text>
+              ) : (
+              <>
               <View style={styles.setHead}>
                 <Text style={[styles.setHeadLabel, styles.setIndex]}>#</Text>
                 <Text style={[styles.setHeadLabel, styles.setInputHead]}>
@@ -507,6 +534,8 @@ export function WorkoutScreen({
                   />
                 ) : null}
               </View>
+              </>
+              )}
             </View>
           ))}
 
@@ -535,10 +564,7 @@ export function WorkoutScreen({
             </View>
           ) : (
             <View style={styles.footer}>
-              <Text style={styles.stats}>
-                {stats.completedSets} {stats.completedSets === 1 ? 'set' : 'sets'} ·{' '}
-                {stats.totalReps} reps · {stats.totalVolume} {weightUnit} volume
-              </Text>
+              <Text style={styles.stats}>{summary}</Text>
               {exercises.length > 0 ? (
                 <View style={styles.sessionActions}>
                   {/* An ad-hoc session you decide afterwards is worth keeping. */}
@@ -595,7 +621,7 @@ export function WorkoutScreen({
                         <Text style={styles.libraryName}>{exerciseName}</Text>
                         <Text style={styles.libraryMuscle}>
                           {muscle}
-                          {bodyweight === 'bodyweight' ? ' · bodyweight' : ''}
+                          {bodyweight === 'bodyweight' ? ' · bodyweight' : bodyweight === 'distance' ? ' · distance' : ''}
                         </Text>
                       </View>
                       {/* Stays open after a tap so a whole day goes in at once,
@@ -721,6 +747,7 @@ const styles = StyleSheet.create({
   setIndex: { width: 18, fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
   // minWidth 0 lets the field shrink; without it the row runs off the screen.
   setInput: { flex: 1, minWidth: 0, paddingVertical: 9, paddingHorizontal: 6, textAlign: 'center' },
+  cardioNote: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 10, lineHeight: 15 },
   setActions: { flexDirection: 'row', gap: 18, marginTop: 4 },
 
   notes: { marginTop: 16, minHeight: 80, textAlignVertical: 'top' },

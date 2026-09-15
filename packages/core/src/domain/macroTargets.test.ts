@@ -1,20 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  FOCUS_AREAS,
-  PROFILE_SURVEY_DEFAULTS,
-  calculateMacroTargets,
-  measurementSystemOf,
-  measurementSystemForLocale,
-  unitsFor,
-  withMeasurementSystem,
-  convertHeightToFeetAndInches,
-  convertWeightValue,
-  feetAndInchesToCm,
-  planForGoal,
-  weightGoalProgress,
-  withSurveyDefaults,
-  type BodyProfile,
-} from './macroTargets';
+import { FOCUS_AREAS, MAX_BIO_LENGTH, PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, convertHeightToFeetAndInches, convertWeightValue, feetAndInchesToCm, measurementSystemForLocale, measurementSystemOf, normalizeBio, planForGoal, type BodyProfile, unitsFor, weightGoalProgress, withMeasurementSystem, withSurveyDefaults } from './macroTargets';
 
 const baseProfile: BodyProfile = {
   age: 30,
@@ -277,5 +262,20 @@ describe('measurementSystemForLocale', () => {
   it('is not fooled by a language subtag that looks like a region', () => {
     // 'us' lower-case is a language code, not the United States.
     expect(measurementSystemForLocale('us-DE')).toBe('metric');
+  });
+});
+
+describe('normalizeBio', () => {
+  it('tidies spacing without eating the shape of what was written', () => {
+    expect(normalizeBio('  lifting   and   running  ')).toBe('lifting and running');
+    // Paragraph breaks survive; a wall of blank lines does not.
+    expect(normalizeBio('one\n\ntwo')).toBe('one\n\ntwo');
+    expect(normalizeBio('one\n\n\n\n\ntwo')).toBe('one\n\ntwo');
+  });
+
+  it('never returns more than the column will accept', () => {
+    const long = 'a'.repeat(MAX_BIO_LENGTH + 50);
+    expect(normalizeBio(long)).toHaveLength(MAX_BIO_LENGTH);
+    expect(normalizeBio('')).toBe('');
   });
 });

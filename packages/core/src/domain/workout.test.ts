@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateWorkoutStats, createExercise, exerciseLibrary, startingWeight } from './workout';
+import { calculateWorkoutStats, createExercise, exerciseLibrary, startingWeight, tracksDistance } from './workout';
 import { axisForMuscleGroup } from './strengthProgression';
 import type { WorkoutExercise } from './health';
 
@@ -62,5 +62,45 @@ describe('exerciseLibrary', () => {
     expect(startingWeight('back', 'lb')).toBe(45);
     expect(startingWeight('triceps', 'lb')).toBe(15);
     expect(startingWeight('legs', 'kg')).toBe(20);
+  });
+});
+
+describe('distance work is not logged as sets', () => {
+  it('gives a run no sets at all, and a lift its usual first set', () => {
+    // The bug this replaced: a run arrived as one bodyweight set of eight reps,
+    // and the session summarised a ten-mile run as "1 set, 8 reps, 0 volume".
+    expect(createExercise('Running', 'cardio', true, 'lb').sets).toEqual([]);
+    expect(createExercise('Cycling', 'cardio', true, 'kg').sets).toEqual([]);
+    expect(createExercise('Running', 'cardio', true, 'lb').distance).toBe(true);
+    expect(createExercise('Bench Press', 'chest', false, 'kg').sets).toHaveLength(1);
+    expect(createExercise('Push Ups', 'chest', true, 'kg').sets).toHaveLength(1);
+  });
+
+  it('keeps sets for the cardio that is actually counted in reps', () => {
+    // Burpees and jump rope are cardio, but they go nowhere — counting them in
+    // reps is the only thing that makes sense.
+    for (const name of ['Burpees', 'Jump Rope']) {
+      expect(tracksDistance(name)).toBe(false);
+      const exercise = createExercise(name, 'cardio', true, 'kg');
+      expect(exercise.sets).toHaveLength(1);
+      expect(exercise.distance).toBeUndefined();
+    }
+    for (const name of ['Running', 'Walking', 'Cycling', 'Rowing', 'Elliptical', 'Stair Climber', 'Swimming']) {
+      expect(tracksDistance(name)).toBe(true);
+    }
+    // A lift is never distance work, whatever it is called.
+    expect(tracksDistance('Bench Press')).toBe(false);
+  });
+
+  it('counts a run as an exercise even though it contributes no sets or volume', () => {
+    const run = createExercise('Running', 'cardio', true, 'kg');
+    const stats = calculateWorkoutStats([run], 55);
+    expect(stats.exerciseCount).toBe(1);
+    expect(stats.muscleGroups).toEqual(['cardio']);
+    expect(stats.completedSets).toBe(0);
+    expect(stats.totalReps).toBe(0);
+    expect(stats.totalVolume).toBe(0);
+    // The session is still 55 minutes long, which is what pays for a run.
+    expect(stats.durationMinutes).toBe(55);
   });
 });

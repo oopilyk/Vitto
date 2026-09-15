@@ -178,6 +178,9 @@ export class SupabaseRepository {
       focusAreas: Array.isArray(data.focus_areas) ? data.focus_areas : undefined,
       screenTimeBudgetMinutes: data.screen_time_budget_minutes ?? undefined,
       displayName: usableDisplayName(data.display_name),
+      // Read-only on this screen: the Friends flow owns writing it.
+      username: data.username ?? undefined,
+      bio: data.bio ?? undefined,
       goalTargetDate: data.goal_target_date ?? undefined,
       stepGoal: data.step_goal ?? undefined,
       trainingTypes: Array.isArray(data.training_types) ? data.training_types : undefined,
@@ -220,6 +223,12 @@ export class SupabaseRepository {
       screen_time_budget_minutes: profile.screenTimeBudgetMinutes || null,
       // Blank means "no name" (the partner then sees a fallback), never ''.
       display_name: profile.displayName?.trim() || null,
+      // `username` is deliberately absent: it is claimed at sign-up and changed
+      // on the Friends screen, which owns the uniqueness error. Saving it from
+      // here would make two writers for one unique column.
+      // Dropped and retried by saveDroppingMissingColumns on a database that has
+      // not run 20260915120000 yet.
+      bio: profile.bio?.trim() || null,
     };
 
     await saveDroppingMissingColumns(payload, (row) =>

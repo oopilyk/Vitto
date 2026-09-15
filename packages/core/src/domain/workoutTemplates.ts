@@ -71,7 +71,10 @@ export const templateFromSession = (
       ...exercise,
       sets: anyTicked ? exercise.sets.filter((set) => set.completed) : exercise.sets,
     }))
-    .filter((exercise) => exercise.sets.length > 0);
+    // An exercise that never had sets is a run, logged by distance and time, and
+    // belongs in the routine. One that HAD sets and lost every one of them to the
+    // filter above was skipped, and does not.
+    .filter((exercise, index) => exercise.sets.length > 0 || exercises[index]!.sets.length === 0);
   return {
     id: existingId ?? newId(),
     name: normalizeTemplateName(name),

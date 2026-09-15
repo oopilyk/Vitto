@@ -29,11 +29,17 @@ const DAY_TINT = '#b1a07f';
 export const NIGHT_TINT = '#6f5265';
 
 /**
- * The living-room art's round rug sits a touch higher than the pet stands on the
- * stage, so the pet read as standing just in front of it. A small negative lift
- * (see `EnvironmentBackdrop`) lowers the art until the rug meets the pet's feet.
+ * Raised a little (see `EnvironmentBackdrop`) so the room sits higher on the
+ * screen and less of it hides behind the action row; the strip that uncovers
+ * along the bottom is painted in the art's own floor tone so it reads as the
+ * rug's floor continuing. Was -0.04 (lowered to meet the pet's feet on the rug)
+ * before the product owner asked for the room to sit higher.
  */
-const MAIN_LIFT = -0.04;
+const MAIN_LIFT = 0.03;
+
+/** The art's own bottom-edge floor, sampled from the PNGs, for the strip the lift uncovers. */
+const DAY_FLOOR = '#c28d73';
+const NIGHT_FLOOR = '#473a6d';
 
 interface MainControlsProps {
   /** Walks the pet into the tapped scene. */
@@ -47,7 +53,11 @@ export function mainEnvironment({ onNavigate, trophies = [] }: MainControlsProps
   return {
     // The shelf rides inside the backdrop so its positions are art-relative.
     background: (
-      <EnvironmentBackdrop source={night ? MAIN_NIGHT : MAIN_DAY} lift={MAIN_LIFT}>
+      <EnvironmentBackdrop
+        source={night ? MAIN_NIGHT : MAIN_DAY}
+        lift={MAIN_LIFT}
+        floorColor={night ? NIGHT_FLOOR : DAY_FLOOR}
+      >
         <TrophyShelf trophies={trophies} night={night} />
       </EnvironmentBackdrop>
     ),

@@ -1524,6 +1524,7 @@ export default function App() {
               profile={profile}
               events={events}
               onSave={persistProfile}
+              onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
               onClose={() => navigation.goBack()}
               onOpenSettings={() => navigation.navigate('Settings')}
               onSignOut={isSupabaseConfigured && session ? logOut : undefined}
