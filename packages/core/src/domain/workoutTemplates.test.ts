@@ -18,44 +18,42 @@ const push = () => {
 };
 
 describe('templateFromSession', () => {
-  it('remembers the exercises and sets, unticked, with last time carried as previous', () => {
+  it('remembers the exercises and sets, ready to log, with last time carried as previous', () => {
     const exercises = push();
     exercises[0].sets[0].weight = 135;
-    exercises[0].sets[0].completed = true;
-    exercises[0].sets[1].completed = true;
-    exercises[1].sets[0].completed = true;
 
     const routine = templateFromSession('Push', exercises, undefined, NOW);
 
     expect(routine.name).toBe('Push');
     expect(routine.exercises.map((e) => e.name)).toEqual(['Bench Press', 'Shoulder Press']);
     const first = routine.exercises[0].sets[0];
-    expect(first.completed).toBe(false);
+    // A set on the list is a set you did, so it comes back counted rather than
+    // waiting to be ticked off.
+    expect(first.completed).toBe(true);
     expect(first.weight).toBe(135);
     expect(first.previous).toEqual({ reps: 8, weight: 135, unit: 'lb' });
     // Fresh ids: a routine never shares set ids with the session it came from.
     expect(first.id).not.toBe(exercises[0].sets[0].id);
   });
 
-  it('drops sets you skipped this time, once anything was ticked', () => {
-    const exercises = push();
-    exercises[0].sets[0].completed = true; // bench set 1 done, set 2 skipped
-    exercises[1].sets[0].completed = true;
-
-    const routine = templateFromSession('Push', exercises, undefined, NOW);
-    expect(routine.exercises[0].sets).toHaveLength(1);
-  });
-
-  it('keeps everything when nothing was ticked, so a routine can be saved before it is trained', () => {
+  it('keeps every set, because every set on the list was done', () => {
     const routine = templateFromSession('Push', push(), undefined, NOW);
     expect(routine.exercises[0].sets).toHaveLength(2);
     expect(routine.exercises).toHaveLength(2);
   });
 
-  it('drops an exercise whose every set was skipped', () => {
+  it('still drops the skipped sets of a session logged under the old tick-to-count rule', () => {
+    // Sessions stored before a set counted on sight carry genuinely unticked
+    // sets. Those were not trained and must not be written into the routine.
     const exercises = push();
-    exercises[0].sets[0].completed = true;
-    // Shoulder press: nothing ticked.
+    exercises[0].sets[1].completed = false; // bench set 2 skipped back then
+    const routine = templateFromSession('Push', exercises, undefined, NOW);
+    expect(routine.exercises[0].sets).toHaveLength(1);
+  });
+
+  it('drops an exercise from an old session where every set was skipped', () => {
+    const exercises = push();
+    exercises[1].sets[0].completed = false; // shoulder press: nothing done
     const routine = templateFromSession('Push', exercises, undefined, NOW);
     expect(routine.exercises.map((e) => e.name)).toEqual(['Bench Press']);
   });
@@ -66,11 +64,13 @@ describe('templateFromSession', () => {
 });
 
 describe('sessionFromTemplate', () => {
-  it('starts a fresh, unticked session with new ids each time', () => {
+  it('starts a fresh session, already counted, with new ids each time', () => {
     const routine = templateFromSession('Push', push(), undefined, NOW);
     const a = sessionFromTemplate(routine);
     const b = sessionFromTemplate(routine);
-    expect(a[0].sets.every((set) => !set.completed)).toBe(true);
+    // Loading Push and doing four of its five exercises means deleting the
+    // fifth, not leaving it untouched and trusting it not to count.
+    expect(a[0].sets.every((set) => set.completed)).toBe(true);
     expect(a[0].id).not.toBe(b[0].id);
     expect(a[0].sets[0].id).not.toBe(routine.exercises[0].sets[0].id);
     expect(a[0].sets[0].weight).toBe(routine.exercises[0].sets[0].weight);

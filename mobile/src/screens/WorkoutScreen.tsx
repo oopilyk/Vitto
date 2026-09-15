@@ -187,23 +187,12 @@ export function WorkoutScreen({
 
   // ---- logging ------------------------------------------------------------
 
-  /** Every set ticked at once: the "I did the whole routine as written" tap. */
-  const tickAll = () =>
-    setExercises((current) =>
-      current.map((exercise) => ({
-        ...exercise,
-        sets: exercise.sets.map((set) => ({ ...set, completed: true })),
-      })),
-    );
-
   const stats = calculateWorkoutStats(exercises, Math.max(1, Number(duration) || 1));
   const cardio = stats.muscleGroups.includes('cardio');
   const distanceUnit = weightUnit === 'lb' ? 'mi' : 'km';
   const distanceKm = cardio && Number(distance) > 0
     ? Math.round(Number(distance) * (distanceUnit === 'mi' ? KM_PER_MILE : 1) * 1000) / 1000
     : undefined;
-  // Only ticked sets count toward the workout, so show the entered total too.
-  const totalSets = exercises.reduce((count, exercise) => count + exercise.sets.length, 0);
 
   const finish = async () => {
     if (!exercises.length) {
@@ -465,11 +454,6 @@ export function WorkoutScreen({
                   {exercise.bodyweight ? 'body' : weightUnit}
                 </Text>
                 <Text style={[styles.setHeadLabel, styles.setInputHead]}>reps</Text>
-                {/* No "done" column while defining a routine — there is nothing
-                    to tick off a workout you have not done yet. */}
-                {routineMode ? null : (
-                  <Text style={[styles.setHeadLabel, styles.setDoneHead]}>done</Text>
-                )}
               </View>
               {exercise.sets.map((set, index) => (
                 <View key={set.id} style={styles.setRow}>
@@ -495,19 +479,8 @@ export function WorkoutScreen({
                       patchSet(exercise.id, set.id, { reps: Number(value) || 0 })
                     }
                   />
-                  {routineMode ? null : (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Mark set ${index + 1} of ${exercise.name} done`}
-                      accessibilityState={{ selected: set.completed }}
-                      onPress={() => patchSet(exercise.id, set.id, { completed: !set.completed })}
-                      style={[styles.done, set.completed && styles.doneOn]}
-                    >
-                      <Text style={[styles.doneMark, set.completed && styles.doneMarkOn]}>
-                        {set.completed ? '✓' : '○'}
-                      </Text>
-                    </Pressable>
-                  )}
+                  {/* No tick: a set on the list is a set you did. One you did
+                      not do comes off with "Remove set" below. */}
                 </View>
               ))}
               <View style={styles.setActions}>
@@ -563,17 +536,11 @@ export function WorkoutScreen({
           ) : (
             <View style={styles.footer}>
               <Text style={styles.stats}>
-                {stats.completedSets} of {totalSets} sets done · {stats.totalReps} reps ·{' '}
-                {stats.totalVolume} {weightUnit} volume
+                {stats.completedSets} {stats.completedSets === 1 ? 'set' : 'sets'} ·{' '}
+                {stats.totalReps} reps · {stats.totalVolume} {weightUnit} volume
               </Text>
-              {totalSets > 0 && stats.completedSets === 0 ? (
-                <Text style={styles.statsHint}>Tap the circle on a set to count it.</Text>
-              ) : null}
               {exercises.length > 0 ? (
                 <View style={styles.sessionActions}>
-                  {stats.completedSets < totalSets ? (
-                    <TextButton label="Tick all sets" onPress={tickAll} />
-                  ) : null}
                   {/* An ad-hoc session you decide afterwards is worth keeping. */}
                   {onSaveTemplate ? (
                     <TextButton
@@ -751,29 +718,15 @@ const styles = StyleSheet.create({
   setHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   setHeadLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, textAlign: 'center' },
   setInputHead: { flex: 1, minWidth: 0 },
-  setDoneHead: { width: 38 },
   setIndex: { width: 18, fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
   // minWidth 0 lets the field shrink; without it the row runs off the screen.
   setInput: { flex: 1, minWidth: 0, paddingVertical: 9, paddingHorizontal: 6, textAlign: 'center' },
   setActions: { flexDirection: 'row', gap: 18, marginTop: 4 },
-  done: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneOn: { backgroundColor: colors.mint, borderColor: colors.mintDeep },
-  doneMark: { fontSize: 16, color: colors.faint },
-  doneMarkOn: { color: colors.mintDeep },
 
   notes: { marginTop: 16, minHeight: 80, textAlignVertical: 'top' },
   empty: { marginTop: 14, fontSize: 13, color: colors.faint, textAlign: 'center' },
   footer: { marginTop: 24, gap: 14 },
   stats: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted },
-  statsHint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: -6 },
   sessionActions: { flexDirection: 'row', gap: 18, marginTop: -4 },
   pressed: { opacity: 0.75 },
 

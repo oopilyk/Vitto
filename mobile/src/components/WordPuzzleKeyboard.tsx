@@ -100,7 +100,17 @@ const styles = StyleSheet.create({
   wideKey: { flexGrow: 1.6 },
   pressed: { opacity: 0.7 },
   dim: { opacity: 0.45 },
-  keyLabel: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  /**
+   * The same face the tiles use, for the same reason their colours are shared:
+   * a letter must not read one way on its key and another way in the board.
+   *
+   * It is also what makes the I key legible. The system sans draws a capital I
+   * as a bare vertical stroke, and the top row is the narrowest on the keyboard
+   * (ten keys against nine and seven), so on a phone that stroke sits between a
+   * round U and O and reads as an empty key. The serif face draws it with
+   * crossbars, which is unmistakable at any width.
+   */
+  keyLabel: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
   keyGlyph: { fontSize: 7, lineHeight: 9 },
   actionLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.6, color: colors.inkSoft },
 });

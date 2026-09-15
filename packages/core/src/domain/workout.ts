@@ -60,12 +60,25 @@ const STARTING_WEIGHT: Record<'barbell' | 'dumbbell', Record<WeightUnit, number>
 export const startingWeight = (muscleGroup: string, unit: WeightUnit): number =>
   STARTING_WEIGHT[BARBELL_GROUPS.has(muscleGroup) ? 'barbell' : 'dumbbell'][unit];
 
+/**
+ * A set starts done.
+ *
+ * The log used to ask for a set to be ticked off before it counted, which meant
+ * a lifter could type a whole session in, finish it, and be told they had
+ * trained nothing — no volume, no XP, no personal record. The row itself is now
+ * the claim: if it is on the list you did it, and a set you did not do gets
+ * deleted instead (`Remove set`).
+ *
+ * `completed` stays on the type and every reader still honours it, because
+ * sessions logged under the old rule are stored with genuinely unticked sets
+ * and those must not be counted retroactively.
+ */
 const newSet = (bodyweight: boolean, unit: WeightUnit, muscleGroup: string): WorkoutSet => ({
   id: newId(),
   reps: 8,
   weight: bodyweight ? undefined : startingWeight(muscleGroup, unit),
   unit,
-  completed: false,
+  completed: true,
 });
 
 /**

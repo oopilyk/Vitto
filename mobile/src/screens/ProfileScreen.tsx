@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   type LayoutChangeEvent,
   Image,
@@ -14,37 +14,20 @@ import {
 import {
 
   measurementSystemOf,
-  withMeasurementSystem,
-  type MeasurementSystem,
   ACHIEVEMENTS,
   type AchievementId,
   type TrophyId,  type BodyProfile,
   type BrainTrainingMetadata,
-  FOCUS_AREAS,
-  type FocusArea,
   type HealthEvent,
   type MealMetadata,
-  type PetBreed,
-  type PetInvite,
-  type PetMember,
   type ScreenTimeMetadata,
-  activeMembers,
   calculateMacroTargets,
   calculateQualifyingStreaks,
-  convertHeightToFeetAndInches,
   convertWeightValue,
   estimateCaloriesBurned,
-  feetAndInchesToCm,
-  formatInviteCode,
   getActiveDateKeys,
   getEventsForDay,
   getMealsForDay,
-  isInviteOpen,
-  isSharedPet,
-  memberDisplayName,
-  memberRole,
-  normalizeInviteCode,
-  planForGoal,
   sumMealMacros,
   type Reminder,
   type Weekday,
@@ -59,29 +42,18 @@ import { BIG_LIFTS, formatPace, liftStanding, ordinal, overallStanding, personal
 import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';
-import { BreedPicker } from '../components/BreedPicker';
 import { ChoiceRow, Field, Kicker, NumberField, PrimaryButton, TextButton } from '../components/ui';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { colors, fonts, layout, text } from '../theme';
 
 interface Props {
   profile: BodyProfile;
-  breed: PetBreed | undefined;
-  onBreedChange: (breed: PetBreed) => void;
   events: HealthEvent[];
   onSave: (profile: BodyProfile) => Promise<void>;
   onClose: () => void;
-  /** Land with the "Join a partner's pet" code field already open — the "+" tile's way in. */
-  openJoin?: boolean;
+  /** Opens Settings — about you, your goal, your training. Omitted where it is not wired up (tests). */
+  onOpenSettings?: () => void;
   onSignOut?: () => void;
-  /** Omitted for a signed-out/local-only session -- friends require an account. */
-  onOpenFriends?: () => void;
-  /**
-   * Deletes the account for good. Owns its own confirmation (see App), so this
-   * is called only once the user has actually agreed. Absent offline.
-   */
-  onDeleteAccount?: () => Promise<void>;
-  deletingAccount?: boolean;
   /**
    * Every achievement earned so far, badges and trophies. The card lists ALL
    * of them either way -- a locked one with its rule showing is the only place
@@ -128,31 +100,6 @@ interface Props {
     onSetHere: () => void;
     onClear: () => void;
   };
-  /**
-   * Care partners: two accounts raising one pet. Absent entirely in local mode
-   * and when signed out, which is what hides the card. Every action rejects
-   * with a readable message, shown inline under the control that raised it.
-   */
-  carePartner?: {
-    petName: string;
-    selfUserId: string;
-    /**
-     * Which slot the pet on screen is in. Your own pet is the one you invite a
-     * partner TO and can never leave; the joint pet is the one you were invited
-     * to and CAN leave. The card is a different card for each.
-     */
-    isOwnPet: boolean;
-    /** The joint slot is free, so a code can be entered from either pet's card. */
-    canJoin: boolean;
-    members: PetMember[];
-    invite: PetInvite | null;
-    busy: boolean;
-    onCreateInvite: () => Promise<void>;
-    onRevokeInvite: () => Promise<void>;
-    /** Resolves true once joined, false when the user backed out of the confirm; rejects on failure. */
-    onRedeemInvite: (code: string) => Promise<boolean>;
-    onLeave: () => Promise<void>;
-  };
 }
 
 /** The same art the living-room shelf uses, so the list and the shelf cannot disagree. */
@@ -163,19 +110,10 @@ const TROPHY_ART: Record<TrophyId, ReturnType<typeof require>> = {
   book: require('../../assets/trophies/book.png'),
 };
 
-/** Longest a display name can be; matches the server-side `left(..., 40)` so what is typed is what the partner sees. */
-const DISPLAY_NAME_MAX_LENGTH = 40;
-/** Six characters plus the hyphen `formatInviteCode` shows, so a pasted formatted code fits. */
-const INVITE_INPUT_MAX_LENGTH = 7;
-
-const FOCUS_LABEL: Record<FocusArea, string> = {
-  nutrition: 'Eat better',
-  training: 'Get stronger',
-  movement: 'Move more',
-  mind: 'Sharpen my mind',
-};
 
 const HISTORY_PAGE_SIZE = 20;
+/** Achievement rows shown before "Show all". */
+const ACHIEVEMENTS_PREVIEW = 5;
 const MINUTES_PER_DAY = 24 * 60;
 
 /** "2h 05m" for the screen-time card; whole minutes in, so no rounding surprises. */
@@ -261,17 +199,12 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function ProfileScreen({
-  openJoin,
   profile: initial,
-  breed,
-  onBreedChange,
   events,
   onSave,
   onClose,
+  onOpenSettings,
   onSignOut,
-  onOpenFriends,
-  onDeleteAccount,
-  deletingAccount,
   achievements,
   appleHealthStatus,
   onConnectAppleHealth,
@@ -281,25 +214,8 @@ export function ProfileScreen({
   screenTimeAccess,
   reminders,
   gym,
-  carePartner,
 }: Props) {
   const [profile, setProfile] = useState(initial);
-  // The invite-code entry, revealed on demand; raw text, normalised on submit.
-  const [showJoin, setShowJoin] = useState(openJoin === true);
-  // Arriving from the "+" under the level ring: this screen is a long scroll
-  // and the care-partner card is most of the way down it, so opening the join
-  // field alone left the person at the top with nothing to see. Scroll to the
-  // card once its position is known -- once, so later re-layouts (keyboard,
-  // the save bar appearing) do not yank the view back.
-  const scrollRef = useRef<ScrollView>(null);
-  const scrolledToPartner = useRef(false);
-  const onPartnerCardLayout = (event: LayoutChangeEvent) => {
-    if (!openJoin || scrolledToPartner.current) return;
-    scrolledToPartner.current = true;
-    scrollRef.current?.scrollTo({ y: Math.max(0, event.nativeEvent.layout.y - 12), animated: true });
-  };
-  const [joinCode, setJoinCode] = useState('');
-  const [partnerError, setPartnerError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE);
@@ -332,24 +248,10 @@ export function ProfileScreen({
     setError(null);
   };
 
-  const metric = profile.weightUnit === 'kg';
-  const toKg = (value: number) => (metric ? value : value / 2.20462);
-  const round = (value: number) => Math.round(value * 10) / 10;
-  /** A kg figure from the domain, shown in the user's unit — see the same helper in onboarding. */
-  const weightLabel = (kg: number) =>
-    metric ? `${kg} kg` : `${round(convertWeightValue(kg, 'kg', 'lb'))} lb`;
-  const displayedWeight = metric ? round(profile.weightKg) : round(convertWeightValue(profile.weightKg, 'kg', 'lb'));
-  const displayedTarget = profile.targetWeightKg
-    ? metric
-      ? round(profile.targetWeightKg)
-      : round(convertWeightValue(profile.targetWeightKg, 'kg', 'lb'))
-    : undefined;
-  const displayedHeight = convertHeightToFeetAndInches(profile.heightCm);
   const digits = (value: string, decimals = false) =>
     value.replace(decimals ? /[^0-9.]/g : /[^0-9]/g, '');
 
   const targets = calculateMacroTargets(profile);
-  const plan = planForGoal(profile);
   const today = new Date();
   const todaysEvents = getEventsForDay(events, today);
   const consumed = sumMealMacros(getMealsForDay(events, today));
@@ -473,30 +375,11 @@ export function ProfileScreen({
     }
   };
 
-  /** Runs one partner action, keeping its failure next to the card rather than in the global banner. */
-  const runPartnerAction = async (action: () => Promise<void>, fallback: string) => {
-    setPartnerError(null);
-    try {
-      await action();
-    } catch (cause) {
-      setPartnerError(cause instanceof Error && cause.message ? cause.message : fallback);
-    }
-  };
-
-  const joinWithCode = () =>
-    runPartnerAction(async () => {
-      if (!carePartner) return;
-      const code = normalizeInviteCode(joinCode);
-      if (code.length !== 6) throw new Error('Enter the six-character code your partner shared.');
-      // A cancelled confirm keeps the code where it was typed.
-      if (await carePartner.onRedeemInvite(code)) setJoinCode('');
-    }, 'Could not join that pet.');
-
   const earnedCount = ACHIEVEMENTS.filter((achievement) => (achievements ?? []).includes(achievement.id)).length;
-  const shared = carePartner ? isSharedPet(carePartner.members) : false;
-  const isOwner = carePartner ? memberRole(carePartner.members, carePartner.selfUserId) === 'owner' : false;
-  const openInvite =
-    carePartner?.invite && isInviteOpen(carePartner.invite, new Date()) ? carePartner.invite : null;
+  // Sixteen rows is most of a screen: the first few show by default and one
+  // tap shows the lot.
+  const [showAchievements, setShowAchievements] = useState(false);
+  const visibleAchievements = showAchievements ? ACHIEVEMENTS : ACHIEVEMENTS.slice(0, ACHIEVEMENTS_PREVIEW);
 
   return (
     <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -506,11 +389,23 @@ export function ProfileScreen({
           <Text style={styles.backLabel}>Pet</Text>
         </Pressable>
         <Text style={styles.topTitle}>Profile</Text>
-        <View style={styles.back} />
+        {onOpenSettings ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open settings"
+            onPress={onOpenSettings}
+            hitSlop={8}
+            style={[styles.back, styles.settings]}
+          >
+            <Text style={styles.backLabel}>Settings</Text>
+            <Text style={styles.backMark}>→</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.back} />
+        )}
       </View>
 
       <ScrollView
-        ref={scrollRef}
         contentContainerStyle={[styles.body, { paddingBottom: (dirty ? 110 : 40) + HOME_INDICATOR_INSET }]}
         keyboardShouldPersistTaps="handled"
       >
@@ -596,15 +491,11 @@ export function ProfileScreen({
           ) : null}
         </Card>
 
-        <Card title="Your companion" hint="Changes take effect straight away">
-          <BreedPicker value={breed} onChange={onBreedChange} size={88} />
-        </Card>
-
         <Card
           title="Achievements"
           hint={`${earnedCount} of ${ACHIEVEMENTS.length} unlocked · trophies also appear on your living-room shelf`}
         >
-          {ACHIEVEMENTS.map((achievement) => {
+          {visibleAchievements.map((achievement) => {
             const earned = (achievements ?? []).includes(achievement.id);
             const art = achievement.kind === 'trophy' ? TROPHY_ART[achievement.id as TrophyId] : null;
             return (
@@ -634,347 +525,20 @@ export function ProfileScreen({
               </View>
             );
           })}
-        </Card>
-
-        {carePartner ? (
-          <Card
-            onLayout={onPartnerCardLayout}
-            title={carePartner.isOwnPet ? 'Care partner' : 'Joint pet'}
-            hint={
-              !carePartner.isOwnPet
-                ? `You're helping raise ${carePartner.petName}. Leaving frees your joint slot; they keep the pet.`
-                : shared
-                  ? `You both care for ${carePartner.petName}. They only ever see that you did, never what you logged.`
-                  : `Raise ${carePartner.petName} with one other person. They see when you care, never what you ate or did.`
-            }
-          >
-            {activeMembers(carePartner.members).map((member) => (
-              <View key={member.userId} style={styles.memberRow}>
-                <View style={styles.dot} />
-                <Text style={styles.memberName}>
-                  {member.userId === carePartner.selfUserId
-                    ? 'You'
-                    : memberDisplayName(carePartner.members, member.userId)}
-                </Text>
-                <Text style={styles.memberRole}>· {member.role}</Text>
-              </View>
-            ))}
-
-            {/* Leaving is only ever offered for the joint pet. Your own pet is
-                not something you walk away from -- and under the one-owned,
-                one-joint rule the server no longer hands an owner's pet to the
-                partner, so there would be nowhere for it to go. */}
-            {!carePartner.isOwnPet ? (
-              <View style={styles.partnerActions}>
-                <TextButton
-                  label={`Leave ${carePartner.petName}`}
-                  onPress={() => void runPartnerAction(carePartner.onLeave, 'Could not leave this pet.')}
-                  disabled={carePartner.busy}
-                />
-              </View>
-            ) : (
-              <>
-                {isOwner && !shared ? (
-                  openInvite ? (
-                    <Group label="Invite code · share it with your partner">
-                      <Text style={styles.inviteCode} selectable>
-                        {formatInviteCode(openInvite.code)}
-                      </Text>
-                      <Text style={styles.cardHint}>
-                        Expires{' '}
-                        {new Date(openInvite.expiresAt).toLocaleDateString([], {
-                          day: 'numeric',
-                          month: 'long',
-                        })}
-                        . One use only.
-                      </Text>
-                      <View style={styles.partnerActions}>
-                        <TextButton
-                          label="New code"
-                          onPress={() =>
-                            void runPartnerAction(carePartner.onCreateInvite, 'Could not create a code.')
-                          }
-                          disabled={carePartner.busy}
-                        />
-                        <TextButton
-                          label="Cancel code"
-                          onPress={() =>
-                            void runPartnerAction(carePartner.onRevokeInvite, 'Could not cancel the code.')
-                          }
-                          disabled={carePartner.busy}
-                        />
-                      </View>
-                    </Group>
-                  ) : (
-                    <View style={styles.partnerActions}>
-                      <PrimaryButton
-                        label="Invite a care partner"
-                        busy={carePartner.busy}
-                        onPress={() =>
-                          void runPartnerAction(carePartner.onCreateInvite, 'Could not create a code.')
-                        }
-                      />
-                    </View>
-                  )
-                ) : null}
-
-                {/* Joining adds a second pet; it never touches this one. Hidden
-                    once the joint slot is taken -- the way to free it is on the
-                    joint pet's own card. */}
-                {!carePartner.canJoin ? null : showJoin ? (
-                  <Group label="Join a partner's pet">
-                    <Field label="Invite code" hint="becomes your joint pet">
-                      <TextInput
-                        style={[layout.input, styles.inviteInput]}
-                        value={joinCode}
-                        onChangeText={(value) => {
-                          setJoinCode(value);
-                          setPartnerError(null);
-                        }}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                        maxLength={INVITE_INPUT_MAX_LENGTH}
-                        placeholder="ABC-DEF"
-                        placeholderTextColor={colors.faint}
-                      />
-                    </Field>
-                    <View style={styles.partnerActions}>
-                      <PrimaryButton
-                        label="Join"
-                        busy={carePartner.busy}
-                        disabled={normalizeInviteCode(joinCode).length !== 6}
-                        onPress={() => void joinWithCode()}
-                      />
-                    </View>
-                  </Group>
-                ) : (
-                  <View style={styles.partnerActions}>
-                    <TextButton label="Have a code?" onPress={() => setShowJoin(true)} />
-                  </View>
-                )}
-              </>
-            )}
-
-            {partnerError ? <Text style={styles.partnerError}>{partnerError}</Text> : null}
-          </Card>
-        ) : null}
-
-        <Card title="About you" hint="Private to you · used to tune your daily fuel targets">
-          <Field label="Your name" hint="shown to your care partner">
-            <TextInput
-              style={layout.input}
-              value={profile.displayName ?? ''}
-              placeholder="—"
-              placeholderTextColor={colors.faint}
-              maxLength={DISPLAY_NAME_MAX_LENGTH}
-              onChangeText={(value) => update('displayName', value === '' ? undefined : value)}
-            />
-          </Field>
-          <View style={styles.grid}>
-            <Field label="Age">
-              <TextInput
-                style={layout.input}
-                keyboardType="number-pad"
-                value={String(profile.age)}
-                onChangeText={(value) => update('age', Number(digits(value)) || 0)}
-              />
-            </Field>
-            <Field label={`Weight (${profile.weightUnit})`}>
-              <TextInput
-                style={layout.input}
-                keyboardType="decimal-pad"
-                value={String(displayedWeight)}
-                onChangeText={(value) => update('weightKg', toKg(Number(digits(value, true)) || 0))}
-              />
-            </Field>
-          </View>
-
-          {profile.heightUnit === 'cm' ? (
-            <Field label="Height (cm)">
-              <TextInput
-                style={layout.input}
-                keyboardType="number-pad"
-                value={String(profile.heightCm)}
-                onChangeText={(value) => update('heightCm', Number(digits(value)) || 0)}
-              />
-            </Field>
-          ) : (
-            <View style={styles.grid}>
-              <Field label="Height (ft)">
-                <TextInput
-                  style={layout.input}
-                  keyboardType="number-pad"
-                  value={String(displayedHeight.feet)}
-                  onChangeText={(value) =>
-                    update('heightCm', feetAndInchesToCm(Number(digits(value)) || 0, displayedHeight.inches))
-                  }
-                />
-              </Field>
-              <Field label="Height (in)">
-                <TextInput
-                  style={layout.input}
-                  keyboardType="number-pad"
-                  value={String(displayedHeight.inches)}
-                  onChangeText={(value) =>
-                    update('heightCm', feetAndInchesToCm(displayedHeight.feet, Number(digits(value)) || 0))
-                  }
-                />
-              </Field>
-            </View>
-          )}
-
-          {/* One toggle for every unit, matching the one at sign-up: weight and
-              height always move together. Restored in the onboarding-v2 merge —
-              that branch removed it on a US-only assumption the product owner
-              reversed. */}
-          <Group label="Units">
-            <ChoiceRow
-              options={[
-                { value: 'metric' as const, label: 'Metric', detail: 'kg · cm' },
-                { value: 'imperial' as const, label: 'Imperial', detail: 'lb · ft/in' },
-              ]}
-              value={measurementSystemOf(profile)}
-              onChange={(value: MeasurementSystem) => {
-                // One update, not two: both unit fields move together.
-                setProfile((current) => withMeasurementSystem(current, value));
-                setError(null);
-              }}
-            />
-          </Group>
-
-          <Group label="Sex">
-            <ChoiceRow
-              options={[
-                { value: 'other' as const, label: 'Prefer not to say' },
-                { value: 'female' as const, label: 'Female' },
-                { value: 'male' as const, label: 'Male' },
-              ]}
-              value={profile.sex}
-              onChange={(value) => update('sex', value)}
-            />
-          </Group>
-        </Card>
-
-        <Card title="Your goal" hint="Sets how far your daily calories sit from maintenance">
-          <ChoiceRow
-            options={[
-              { value: 'lose' as const, label: 'Lose fat' },
-              { value: 'maintain' as const, label: 'Maintain' },
-              { value: 'gain' as const, label: 'Build muscle' },
-            ]}
-            value={profile.goal}
-            onChange={(value) => update('goal', value)}
-          />
-
-          {profile.goal !== 'maintain' ? (
-            <>
-              <View style={styles.grid}>
-                <Field label={`Target (${profile.weightUnit})`} hint="optional">
-                  <TextInput
-                    style={layout.input}
-                    keyboardType="decimal-pad"
-                    placeholder="—"
-                    placeholderTextColor={colors.faint}
-                    value={displayedTarget === undefined ? '' : String(displayedTarget)}
-                    onChangeText={(value) => {
-                      const next = digits(value, true);
-                      update('targetWeightKg', next === '' ? undefined : toKg(Number(next)));
-                    }}
-                  />
-                </Field>
-                <Field label="Timeline (weeks)" hint="optional">
-                  <TextInput
-                    style={layout.input}
-                    keyboardType="number-pad"
-                    placeholder="—"
-                    placeholderTextColor={colors.faint}
-                    value={profile.goalWeeks === undefined ? '' : String(profile.goalWeeks)}
-                    onChangeText={(value) => {
-                      const next = digits(value);
-                      update('goalWeeks', next === '' ? undefined : Number(next));
-                    }}
-                  />
-                </Field>
-              </View>
-
-              {plan ? (
-                <View style={styles.plan}>
-                  <Text style={styles.planText}>
-                    {weightLabel(plan.totalKg)} over {plan.achievableWeeks} weeks —{' '}
-                    <Text style={styles.planValue}>{weightLabel(plan.kgPerWeek)}</Text> per week,{' '}
-                    <Text style={styles.planValue}>{Math.abs(plan.dailyAdjustment)} kcal</Text>{' '}
-                    {profile.goal === 'lose' ? 'below' : 'above'} maintenance.
-                  </Text>
-                  {plan.capped ? (
-                    <Text style={styles.planWarning}>Capped to a safe rate.</Text>
-                  ) : null}
-                </View>
-              ) : (
-                <Group label="Pace">
-                  <ChoiceRow
-                    options={[
-                      { value: 'gentle' as const, label: 'Gentle' },
-                      { value: 'steady' as const, label: 'Steady' },
-                      { value: 'focused' as const, label: 'Focused' },
-                    ]}
-                    value={profile.goalPace}
-                    onChange={(value) => update('goalPace', value)}
-                  />
-                </Group>
-              )}
-            </>
+          {ACHIEVEMENTS.length > ACHIEVEMENTS_PREVIEW ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showAchievements }}
+              onPress={() => setShowAchievements((open) => !open)}
+              hitSlop={8}
+              style={styles.foldToggle}
+            >
+              <Text style={styles.link}>
+                {showAchievements ? 'Show fewer' : `Show all ${ACHIEVEMENTS.length}`}
+              </Text>
+              <Text style={styles.foldChevron}>{showAchievements ? '▴' : '▾'}</Text>
+            </Pressable>
           ) : null}
-        </Card>
-
-        <Card title="Your training" hint="Training days lift calories; lifting raises protein">
-          <Group label="Everyday activity">
-            <ChoiceRow
-              options={[
-                { value: 'low' as const, label: 'Mostly sitting' },
-                { value: 'moderate' as const, label: 'On my feet some' },
-                { value: 'high' as const, label: 'On my feet all day' },
-              ]}
-              value={profile.activity}
-              onChange={(value) => update('activity', value)}
-            />
-          </Group>
-          <Field label="Training days per week">
-            <TextInput
-              style={[layout.input, styles.narrowInput]}
-              keyboardType="number-pad"
-              value={String(profile.trainingDaysPerWeek)}
-              onChangeText={(value) =>
-                update('trainingDaysPerWeek', Math.max(0, Math.min(7, Number(digits(value)) || 0)))
-              }
-            />
-          </Field>
-          <Group label="Style">
-            <ChoiceRow
-              options={[
-                { value: 'strength' as const, label: 'Strength' },
-                { value: 'cardio' as const, label: 'Cardio' },
-                { value: 'mixed' as const, label: 'Both' },
-              ]}
-              value={profile.trainingStyle}
-              onChange={(value) => update('trainingStyle', value)}
-            />
-          </Group>
-        </Card>
-
-        <Card title="What you want from Vitto" hint="Your dashboard leads with these">
-          <ChoiceRow
-            stacked
-            options={FOCUS_AREAS.map((area) => ({ value: area, label: FOCUS_LABEL[area] }))}
-            value={profile.focusAreas}
-            onChange={(area) =>
-              update(
-                'focusAreas',
-                profile.focusAreas.includes(area)
-                  ? profile.focusAreas.filter((item) => item !== area)
-                  : [...profile.focusAreas, area],
-              )
-            }
-          />
         </Card>
 
         <Card
@@ -1212,34 +776,12 @@ export function ProfileScreen({
           </View>
         ) : null}
 
-        {onOpenFriends ? (
-          <View style={styles.friends}>
-            <Kicker>Friends</Kicker>
-            <Text style={text.body}>Add friends by username and see how their pets are doing.</Text>
-            <TextButton label="Open friends" onPress={onOpenFriends} />
-          </View>
-        ) : null}
-
         {onSignOut ? (
           <View style={styles.signOut}>
             <TextButton label="Log out" onPress={onSignOut} />
           </View>
         ) : null}
 
-        {onDeleteAccount ? (
-          <View style={styles.deleteAccount}>
-            <TextButton
-              label={deletingAccount ? 'Deleting...' : 'Delete account'}
-              tone="coral"
-              disabled={deletingAccount}
-              onPress={() => void onDeleteAccount()}
-            />
-            <Text style={styles.deleteAccountHint}>
-              Permanently deletes your account, your pet and everything you have logged. A pet you
-              share stays with your care partner. This cannot be undone.
-            </Text>
-          </View>
-        ) : null}
       </ScrollView>
 
       {dirty ? (
@@ -1276,6 +818,7 @@ const styles = StyleSheet.create({
   backMark: { fontSize: 18, color: colors.coral },
   backLabel: { fontFamily: fonts.mono, fontSize: 12, color: colors.muted },
   topTitle: { ...text.heading, fontSize: 16 },
+  settings: { justifyContent: 'flex-end' },
   body: { padding: 16, gap: 14 },
   card: {
     backgroundColor: colors.card,
@@ -1307,7 +850,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   grid: { flexDirection: 'row', gap: 12 },
-  narrowInput: { maxWidth: 120 },
   rings: { flexDirection: 'row', gap: 6, marginTop: 10 },
   targetLine: {
     fontFamily: fonts.mono,
@@ -1351,17 +893,6 @@ const styles = StyleSheet.create({
   recordRank: { fontFamily: fonts.mono, fontSize: 10, color: colors.mintDeep, marginTop: 4 },
   recordFootnote: { fontSize: 11, color: colors.faint, lineHeight: 16, marginTop: 14 },
   countLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 3 },
-  plan: {
-    marginTop: 16,
-    padding: 13,
-    borderRadius: 12,
-    backgroundColor: '#eef3ec',
-    borderWidth: 1,
-    borderColor: 'rgba(132,160,138,0.35)',
-  },
-  planText: { fontSize: 12, lineHeight: 19, color: colors.inkSoft },
-  planValue: { fontWeight: '700', color: colors.ink },
-  planWarning: { fontFamily: fonts.mono, fontSize: 10, color: '#9a6b5c', marginTop: 6 },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1375,8 +906,9 @@ const styles = StyleSheet.create({
   historyTime: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
   empty: { fontSize: 13, color: colors.faint, paddingVertical: 12 },
   link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
+  foldToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  foldChevron: { fontSize: 12, color: colors.coral },
   appleHealth: { gap: 8, paddingVertical: 14, ...layout.hairline },
-  friends: { gap: 8, paddingVertical: 14, ...layout.hairline },
   trophyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1408,23 +940,8 @@ const styles = StyleSheet.create({
   trophyRule: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 3, lineHeight: 14 },
   trophyState: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.8, color: colors.faint },
   trophyStateEarned: { color: colors.mintDeep },
-  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
-  memberName: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  memberRole: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint },
-  partnerActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, marginTop: 14 },
-  inviteCode: { fontFamily: fonts.mono, fontSize: 30, letterSpacing: 4, color: colors.ink, marginTop: 10 },
-  inviteInput: { fontFamily: fonts.mono, letterSpacing: 3 },
-  partnerError: { ...text.error, fontSize: 12, marginTop: 12 },
   screenLogged: { marginTop: 14 },
   screenActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, marginTop: 14 },
-  deleteAccount: { marginTop: 18, alignItems: 'center', gap: 8, paddingHorizontal: 24 },
-  deleteAccountHint: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    lineHeight: 15,
-    color: colors.muted,
-    textAlign: 'center',
-  },
   signOut: { alignItems: 'center', paddingVertical: 10 },
   saveBar: {
     position: 'absolute',

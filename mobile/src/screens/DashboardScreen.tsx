@@ -40,11 +40,13 @@ interface Props {
   onSyncSteps: () => void;
   onTrainMind: () => void;
   onOpenProfile: () => void;
+  /** Opens Settings from the account menu. Absent where the route is not wired up. */
+  onOpenSettings?: () => void;
   /** Opens the full stat sheet — the level ring on the pet is the way in. */
   onOpenStats: () => void;
   /** Opens the day's detail (nutrition, care, movement, mind). */
   onOpenToday: () => void;
-  /** Opens the friends list. Absent when signed out/offline — see `PetWorldHud`. */
+  /** Opens the friends list from the account menu. Absent when signed out/offline — see `PetWorldHud`. */
   onOpenFriends?: () => void;
   /** Letter shown in the account button — the signed-in email's initial. */
   accountInitial?: string;
@@ -106,6 +108,7 @@ export function DashboardScreen({
   onSyncSteps,
   onTrainMind,
   onOpenProfile,
+  onOpenSettings,
   onOpenStats,
   onOpenToday,
   onOpenFriends,
@@ -198,6 +201,7 @@ export function DashboardScreen({
           formLabel={formLabel}
           accountInitial={accountInitial}
           onOpenProfile={onOpenProfile}
+          onOpenSettings={onOpenSettings}
           onOpenStats={onOpenStats}
           onOpenToday={onOpenToday}
           onOpenFriends={onOpenFriends}

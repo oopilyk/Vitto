@@ -19,6 +19,7 @@ import {
   relationToUser,
 } from '@vitto/core';
 import { friendsService } from '../services/friendsService';
+import { CarePartnerCard, type CarePartnerProps } from '../components/CarePartnerCard';
 import { FriendListRow } from '../components/FriendListRow';
 import { ErrorText, Field, PrimaryButton } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
@@ -29,6 +30,14 @@ interface Props {
   currentUserId: string;
   onClose: () => void;
   onOpenFriendPet: (friendUserId: string, friendUserIds: string[]) => void;
+  /**
+   * Care partners: two accounts raising one pet. Absent in local mode and when
+   * signed out, which hides the card. Moved here from Profile -- the other
+   * people in the pet's life all live on this screen now.
+   */
+  carePartner?: CarePartnerProps;
+  /** Land with the "Join a partner's pet" code field already open. */
+  openJoin?: boolean;
 }
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
@@ -38,7 +47,7 @@ const SEARCH_DEBOUNCE_MS = 350;
 const nameFor = (profile: FriendProfileSummary | undefined, fallbackId: string): string =>
   profile?.displayName || (profile?.username ? `@${profile.username}` : fallbackId);
 
-export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet }: Props) {
+export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePartner, openJoin }: Props) {
   const palette = friendsPalette(isNightTime());
 
   const [loading, setLoading] = useState(true);
@@ -193,6 +202,8 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet }: Props
           contentContainerStyle={[styles.body, { paddingBottom: 40 + HOME_INDICATOR_INSET }]}
           keyboardShouldPersistTaps="handled"
         >
+          {carePartner ? <CarePartnerCard carePartner={carePartner} openJoin={openJoin} palette={palette} /> : null}
+
           {loadError ? (
             <View style={[styles.card, { backgroundColor: palette.rowBg, borderColor: palette.divider }]}>
               <ErrorText>{loadError}</ErrorText>
@@ -336,11 +347,18 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet }: Props
               <ErrorText>{actionError}</ErrorText>
 
               <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>Your friends</Text>
+                <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>
+                  Your friends{sortedFriends.length > 0 ? ` · ${sortedFriends.length}` : ''}
+                </Text>
                 {sortedFriends.length === 0 ? (
-                  <Text style={[styles.empty, { color: palette.secondaryText }]}>
-                    No friends yet -- tap + to add one by username.
-                  </Text>
+                  <View style={[styles.card, { backgroundColor: palette.rowBg, borderColor: palette.divider }]}>
+                    <Text style={[styles.emptyTitle, { color: palette.primaryText }]}>No friends yet</Text>
+                    <Text style={[styles.emptyBody, { color: palette.secondaryText }]}>
+                      Add friends by username to see how their pets are doing. They see your pet the same way —
+                      never what you logged.
+                    </Text>
+                    {showAdd ? null : <PrimaryButton label="Add a friend" onPress={() => setShowAdd(true)} />}
+                  </View>
                 ) : (
                   sortedFriends.map((friend) => (
                     <FriendListRow
@@ -414,6 +432,8 @@ const styles = StyleSheet.create({
   section: { gap: 8 },
   sectionLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase' },
   empty: { fontSize: 13, paddingVertical: 6 },
+  emptyTitle: { fontSize: 16, fontWeight: '600' },
+  emptyBody: { fontSize: 13, lineHeight: 19, marginBottom: 4 },
   banner: {
     borderRadius: 16,
     borderWidth: 1,

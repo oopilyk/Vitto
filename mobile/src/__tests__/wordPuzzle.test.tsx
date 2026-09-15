@@ -177,3 +177,54 @@ describe('wordPuzzle screen', () => {
     tree.unmount();
   });
 });
+
+describe('word puzzle keyboard', () => {
+  const { WordPuzzleKeyboard } = require('../components/WordPuzzleKeyboard');
+  const { fonts } = require('../theme');
+
+  const render = () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WordPuzzleKeyboard marks={{}} onKey={() => {}} onEnter={() => {}} onBackspace={() => {}} />,
+      );
+    });
+    return tree;
+  };
+
+  it('offers all twenty-six letters, each one tappable', () => {
+    const tree = render();
+    const typed: string[] = [];
+    let keys!: renderer.ReactTestRenderer;
+    act(() => {
+      keys = renderer.create(
+        <WordPuzzleKeyboard marks={{}} onKey={(l: string) => typed.push(l)} onEnter={() => {}} onBackspace={() => {}} />,
+      );
+    });
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+    const shown = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
+    for (const letter of alphabet) {
+      expect(shown).toContain(letter.toUpperCase());
+      const key = keys.root
+        .findAll((n: any) => String(n.props.accessibilityLabel ?? '').startsWith(`${letter.toUpperCase()},`))
+        .find((n: any) => typeof n.props.onPress === 'function');
+      expect(key).toBeTruthy();
+      act(() => key!.props.onPress());
+    }
+    expect(typed).toEqual(alphabet);
+    tree.unmount();
+    keys.unmount();
+  });
+
+  it('draws the keys in the serif face, so a capital I is not a bare stroke', () => {
+    // The system sans draws I with no crossbars, and the top row is the
+    // narrowest on the keyboard, so on a phone that key read as empty.
+    const tree = render();
+    const iKey = tree.root
+      .findAllByType(Text)
+      .find((t: any) => t.props.children === 'I');
+    const style = Object.assign({}, ...[iKey!.props.style].flat().filter(Boolean));
+    expect(style.fontFamily).toBe(fonts.display);
+    tree.unmount();
+  });
+});

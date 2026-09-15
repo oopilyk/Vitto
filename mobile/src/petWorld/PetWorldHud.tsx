@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   AILMENT_MESSAGE,
@@ -29,8 +30,9 @@ const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
  *                name. Directly beneath it, un-boxed on the scene, the pet's
  *                state line ("Miso is feeling bright.") and one quiet meta line
  *                (day count, streak, partner) — no separate chips or boxes.
- *   secondary  — the account / friends / today rail down the right edge, and
- *                the pet switcher (only when there are two pets) under the ring.
+ *   secondary  — the account disc (a menu: Profile, Settings, Friends) and the
+ *                today pill down the right edge, and the pet switcher (only when
+ *                there are two pets) under the ring.
  *
  * The pet's condition is expressed as the pet's own line, not a badge; adding a
  * second joint pet lives in Profile's care-partner card, not here; and the full
@@ -53,13 +55,15 @@ interface PetWorldHudProps {
   formLabel: string;
   accountInitial?: string;
   onOpenProfile: () => void;
+  /** Opens Settings (the body profile form). Optional; hidden from the menu when absent. */
+  onOpenSettings?: () => void;
   onOpenStats: () => void;
   onOpenToday: () => void;
   /**
    * Opens the friends list. Optional so the HUD still renders offline / signed
-   * out (when there is nowhere for it to go) -- the button is only shown when a
-   * handler is passed, per the product owner's "every main page gets a friends
-   * button" note.
+   * out (when there is nowhere for it to go) -- the menu row is only shown when
+   * a handler is passed. Friends used to have its own disc on the rail; it now
+   * lives in the account menu with Profile and Settings.
    */
   onOpenFriends?: () => void;
   /** `own` marks the adopted pet; the other one is the joint pet. Only shown as
@@ -83,6 +87,7 @@ export function PetWorldHud({
   formLabel,
   accountInitial,
   onOpenProfile,
+  onOpenSettings,
   onOpenStats,
   onOpenToday,
   onOpenFriends,
@@ -121,12 +126,29 @@ export function PetWorldHud({
 
   const showSwitcher = pets && pets.length > 1 && onSelectPet;
 
+  // The account menu. Closed on any choice and on a tap anywhere else.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const choose = (open: () => void) => () => {
+    setMenuOpen(false);
+    open();
+  };
+  const menuItems: { label: string; onPress: () => void; icon?: boolean }[] = [
+    { label: 'Profile', onPress: choose(onOpenProfile) },
+    ...(onOpenSettings ? [{ label: 'Settings', onPress: choose(onOpenSettings) }] : []),
+    ...(onOpenFriends ? [{ label: 'Friends', onPress: choose(onOpenFriends), icon: true }] : []),
+  ];
+
   return (
     // `box-none`: the HUD layer spans the whole screen and sits on top of the
     // environment's action row, so without this its empty space swallows every
     // tap meant for the buttons underneath. Its own controls stay tappable
     // because they are real press targets.
     <View style={styles.fill} pointerEvents="box-none">
+      {menuOpen ? (
+        // A real press target under everything, so a tap on the scene closes
+        // the menu instead of poking the pet.
+        <Pressable accessibilityLabel="Close account menu" onPress={() => setMenuOpen(false)} style={styles.backdrop} />
+      ) : null}
       <View style={styles.topRow} pointerEvents="box-none">
         <View style={styles.sideLeft}>
           <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
@@ -225,47 +247,27 @@ export function PetWorldHud({
         </View>
 
         <View style={styles.sideRight} pointerEvents="box-none">
-          {/* Account and friends as matched discs; today as a pill of the same
+          {/* The account disc opens the menu; today is a pill of the same
               height, coral-outlined so it reads as "your daily goals" rather
               than another nav button. */}
           <View style={styles.rail} pointerEvents="box-none">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Open your profile"
-              onPress={onOpenProfile}
+              accessibilityLabel="Open account menu"
+              accessibilityState={{ expanded: menuOpen }}
+              onPress={() => setMenuOpen((open) => !open)}
               hitSlop={8}
               style={({ pressed }) => [
                 retro.panel,
                 night && retro.panelNight,
                 styles.disc,
-                pressed && retroPressed,
+                (pressed || menuOpen) && retroPressed,
               ]}
             >
               <Text style={[styles.discInitial, night && retro.labelNight]}>
                 {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
               </Text>
             </Pressable>
-
-            {onOpenFriends ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open friends"
-                onPress={onOpenFriends}
-                hitSlop={8}
-                style={({ pressed }) => [
-                  retro.panel,
-                  night && retro.panelNight,
-                  styles.disc,
-                  pressed && retroPressed,
-                ]}
-              >
-                <Image
-                  source={FRIENDS_ICON}
-                  resizeMode="contain"
-                  style={[styles.discIcon, { tintColor: night ? world.nightText : world.ink }]}
-                />
-              </Pressable>
-            ) : null}
 
             <Pressable
               accessibilityRole="button"
@@ -287,6 +289,37 @@ export function PetWorldHud({
               </Text>
             </Pressable>
           </View>
+
+          {menuOpen ? (
+            <View
+              accessibilityRole="menu"
+              style={[retro.panel, night && retro.panelNight, styles.menu]}
+            >
+              {menuItems.map((item, index) => (
+                <Pressable
+                  key={item.label}
+                  accessibilityRole="menuitem"
+                  accessibilityLabel={`Open ${item.label.toLowerCase()}`}
+                  onPress={item.onPress}
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    index > 0 && styles.menuItemDivider,
+                    index > 0 && night && styles.menuItemDividerNight,
+                    pressed && styles.menuItemPressed,
+                  ]}
+                >
+                  <Text style={[retro.label, styles.menuLabel, night && retro.labelNight]}>{item.label}</Text>
+                  {item.icon ? (
+                    <Image
+                      source={FRIENDS_ICON}
+                      resizeMode="contain"
+                      style={[styles.menuIcon, { tintColor: night ? world.nightText : world.ink }]}
+                    />
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -376,7 +409,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   discInitial: { fontFamily: fonts.mono, fontSize: 19, fontWeight: '700', color: world.ink },
-  discIcon: { width: 26, height: 26 },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  // Hangs off the bottom of the account disc, wider than the side column so
+  // the labels do not wrap; it overlaps the identity plate, which is fine —
+  // it is only up while the menu is.
+  menu: {
+    position: 'absolute',
+    top: DISC + 8,
+    right: 0,
+    width: 168,
+    paddingVertical: 4,
+    zIndex: 10,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  menuItemDivider: { borderTopWidth: 1, borderTopColor: 'rgba(67,55,44,0.18)' },
+  menuItemDividerNight: { borderTopColor: 'rgba(239,229,208,0.16)' },
+  menuItemPressed: { opacity: 0.6 },
+  menuLabel: { fontSize: 12, letterSpacing: 1.2 },
+  menuIcon: { width: 18, height: 18 },
   pill: {
     height: DISC,
     borderRadius: DISC / 2,

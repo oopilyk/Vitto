@@ -30,17 +30,20 @@ const sameName = (a: string, b: string): boolean =>
   normalizeTemplateName(a).toLowerCase() === normalizeTemplateName(b).toLowerCase();
 
 /**
- * A set as a routine remembers it: fresh id, unticked, and what was done last
- * time carried as `previous` so the row can show it. Weight and reps are kept
- * as the starting values — most people repeat or nudge, so pre-filling beats a
- * blank.
+ * A set as a routine remembers it: fresh id, and what was done last time carried
+ * as `previous` so the row can show it. Weight and reps are kept as the starting
+ * values — most people repeat or nudge, so pre-filling beats a blank.
+ *
+ * Loaded already done, to match the rule everywhere else: the row is the claim.
+ * Loading Push and doing four of its five exercises means deleting the fifth,
+ * not leaving it untouched and hoping it does not count.
  */
 const rememberSet = (set: WorkoutSet): WorkoutSet => ({
   id: newId(),
   reps: set.reps,
   weight: set.weight,
   unit: set.unit,
-  completed: false,
+  completed: true,
   previous: { reps: set.reps, weight: set.weight, unit: set.unit },
 });
 
@@ -51,10 +54,10 @@ const rememberExercise = (exercise: WorkoutExercise): WorkoutExercise => ({
 });
 
 /**
- * Turns a finished (or half-built) session into a routine. Only ticked sets
- * are kept when any were ticked — a set you skipped this week is not part of
- * the routine — but a session with nothing ticked keeps everything, so "save
- * this as a routine" works before you have trained it once.
+ * Turns a finished (or half-built) session into a routine. Every set on the
+ * list is kept, since every set on the list was done. The filter below only
+ * still bites on a session stored under the old tick-to-count rule, where a
+ * genuinely skipped set should not become part of the routine.
  */
 export const templateFromSession = (
   name: string,

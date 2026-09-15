@@ -31,35 +31,64 @@ const renderHud = (props: Partial<React.ComponentProps<typeof PetWorldHud>>) => 
   return tree;
 };
 
-describe('PetWorldHud friends button', () => {
-  it('is hidden when no onOpenFriends handler is passed', () => {
+/** The friends row lives in the account menu, so the disc has to be opened first. */
+const openMenu = (tree: renderer.ReactTestRenderer) => {
+  const [disc] = findByAccessibilityLabel(tree, 'Open account menu').filter(
+    (node: any) => typeof node.props.onPress === 'function',
+  );
+  act(() => disc.props.onPress());
+};
+
+const pressable = (nodes: any[]) => nodes.filter((node: any) => typeof node.props.onPress === 'function');
+
+describe('PetWorldHud account menu', () => {
+  it('has no friends button on the rail and no friends row without a handler', () => {
     const tree = renderHud({});
+    expect(findByAccessibilityLabel(tree, 'Open friends')).toHaveLength(0);
+    openMenu(tree);
+    expect(pressable(findByAccessibilityLabel(tree, 'Open profile'))).toHaveLength(1);
+    expect(findByAccessibilityLabel(tree, 'Open friends')).toHaveLength(0);
+    expect(findByAccessibilityLabel(tree, 'Open settings')).toHaveLength(0);
+    tree.unmount();
+  });
+
+  it('lists Profile, Settings and Friends and fires the handler chosen', () => {
+    const opened = jest.fn();
+    const settings = jest.fn();
+    const tree = renderHud({ onOpenFriends: opened, onOpenSettings: settings });
+    openMenu(tree);
+    expect(pressable(findByAccessibilityLabel(tree, 'Open settings'))).toHaveLength(1);
+    const [friends] = pressable(findByAccessibilityLabel(tree, 'Open friends'));
+    expect(friends).toBeTruthy();
+    act(() => friends.props.onPress());
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(settings).not.toHaveBeenCalled();
+    // Choosing closes the menu.
     expect(findByAccessibilityLabel(tree, 'Open friends')).toHaveLength(0);
     tree.unmount();
   });
 
-  it('is shown and fires onOpenFriends when the handler is passed', () => {
-    const opened = jest.fn();
-    const tree = renderHud({ onOpenFriends: opened });
-    const [button] = findByAccessibilityLabel(tree, 'Open friends');
-    expect(button).toBeTruthy();
-    act(() => button.props.onPress());
-    expect(opened).toHaveBeenCalledTimes(1);
+  it('closes when the scene behind it is tapped', () => {
+    const tree = renderHud({ onOpenFriends: () => {} });
+    openMenu(tree);
+    const [backdrop] = pressable(findByAccessibilityLabel(tree, 'Close account menu'));
+    act(() => backdrop.props.onPress());
+    expect(findByAccessibilityLabel(tree, 'Open friends')).toHaveLength(0);
+    expect(findByAccessibilityLabel(tree, 'Close account menu')).toHaveLength(0);
     tree.unmount();
   });
 
   it('takes a dark chrome variant at night', () => {
-    const dayButton = findByAccessibilityLabel(renderHud({ onOpenFriends: () => {} }), 'Open friends')[0];
-    const nightButton = findByAccessibilityLabel(
-      renderHud({ onOpenFriends: () => {}, night: true }),
-      'Open friends',
-    )[0];
+    const dayTree = renderHud({});
+    const nightTree = renderHud({ night: true });
+    const [dayDisc] = pressable(findByAccessibilityLabel(dayTree, 'Open account menu'));
+    const [nightDisc] = pressable(findByAccessibilityLabel(nightTree, 'Open account menu'));
 
     const flatten = (style: unknown) =>
       Object.assign({}, ...(Array.isArray(style) ? style : [style]).filter(Boolean));
-    // The night variant paints a different pill background than the day one.
-    expect(flatten(dayButton.props.style({ pressed: false })).backgroundColor).not.toBe(
-      flatten(nightButton.props.style({ pressed: false })).backgroundColor,
+    // The night variant paints a different panel background than the day one.
+    expect(flatten(dayDisc.props.style({ pressed: false })).backgroundColor).not.toBe(
+      flatten(nightDisc.props.style({ pressed: false })).backgroundColor,
     );
   });
 });

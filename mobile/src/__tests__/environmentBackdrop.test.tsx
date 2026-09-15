@@ -192,3 +192,52 @@ describe('stageMetrics — the pet as a share of the room', () => {
     }
   });
 });
+
+describe('backdropKey', () => {
+  const { backdropKey } = require('../petWorld/EnvironmentBackdrop');
+
+  it('gives each scene its own identity, and the same scene a stable one', () => {
+    // Native resolves a bundled require to an opaque number; web to an object
+    // carrying a uri. Both have to separate one scene's art from another's.
+    expect(backdropKey(11)).toBe(backdropKey(11));
+    expect(backdropKey(11)).not.toBe(backdropKey(12));
+    expect(backdropKey({ uri: 'gym-day.png' })).not.toBe(backdropKey({ uri: 'kitchen-day.png' }));
+    expect(backdropKey({ uri: 'gym-day.png' })).toBe(backdropKey({ uri: 'gym-day.png' }));
+    // Day and night art of the same room are different pictures, so different keys.
+    expect(backdropKey({ uri: 'gym-day.png' })).not.toBe(backdropKey({ uri: 'gym-night.png' }));
+  });
+
+  it('never returns the same key for two different sources it cannot resolve', () => {
+    expect(backdropKey({ width: 3, height: 4 } as any)).not.toBe(backdropKey({ width: 9, height: 16 } as any));
+  });
+});
+
+describe('switching scenes', () => {
+  const { EnvironmentBackdrop } = require('../petWorld/EnvironmentBackdrop');
+  const { Image } = require('react-native');
+  const renderer = require('react-test-renderer');
+
+  it('never paints the room you came from once the source changes', () => {
+    // The regression: one Image instance was reused across every scene, so on
+    // iOS the previously decoded picture stayed up until the new one loaded.
+    let tree!: any;
+    renderer.act(() => {
+      tree = renderer.create(<EnvironmentBackdrop source={{ uri: 'kitchen-day.png', width: 3, height: 4 }} />);
+    });
+    const layout = (t: any) => {
+      const host = t.root.findAll((n: any) => typeof n.props.onLayout === 'function')[0];
+      renderer.act(() => host.props.onLayout({ nativeEvent: { layout: { width: 400, height: 800 } } }));
+    };
+    layout(tree);
+    expect(tree.root.findAllByType(Image)[0].props.source.uri).toBe('kitchen-day.png');
+
+    renderer.act(() => {
+      tree.update(<EnvironmentBackdrop source={{ uri: 'gym-day.png', width: 3, height: 4 }} />);
+    });
+    const images = tree.root.findAllByType(Image);
+    // Exactly one, showing only the new scene — no leftover from the old one.
+    expect(images).toHaveLength(1);
+    expect(images[0].props.source.uri).toBe('gym-day.png');
+    tree.unmount();
+  });
+});

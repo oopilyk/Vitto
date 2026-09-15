@@ -41,6 +41,7 @@ import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { FourCornersScreen } from './src/screens/FourCornersScreen';
 import { PetJeopardyScreen } from './src/screens/PetJeopardyScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
 import { deviceMeasurementSystem } from './src/services/deviceLocale';
@@ -77,12 +78,14 @@ type RootStackParamList = {
   Dashboard: undefined;
   // Reached from the dashboard's account button rather than a tab, so it pushes
   // and backs out the same way every other screen off the dashboard does.
-  /** `join` opens the care-partner code field straight away — the "+" tile's destination. */
-  Profile: { join?: boolean } | undefined;
+  Profile: undefined;
+  // The body profile form -- about you, goal, training -- pushed from Profile's top bar.
+  Settings: undefined;
   // A drill-down off the dashboard, so it pushes rather than presenting as a modal.
   PetStats: undefined;
-  // Reached from Profile, same as Profile itself is reached from the dashboard.
-  Friends: undefined;
+  // Reached from the dashboard's account menu. `join` opens the care-partner
+  // code field straight away (the card moved here from Profile).
+  Friends: { join?: boolean } | undefined;
   // The full ordered accepted-friends list, so the sequential browser can move
   // between friends without going back to `FriendsScreen`.
   FriendPet: { friendUserId: string; friendUserIds: string[] };
@@ -1481,6 +1484,7 @@ export default function App() {
               onSyncSteps={() => void syncSteps()}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenProfile={() => navigation.navigate('Profile')}
+              onOpenSettings={() => navigation.navigate('Settings')}
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
@@ -1514,22 +1518,15 @@ export default function App() {
           )}
         </RootStack.Screen>
         <RootStack.Screen name="Profile">
-          {({ navigation, route }) => (
+          {({ navigation }) => (
             <ProfileScreen
-              openJoin={route.params?.join === true}
               achievements={achievementsNow}
               profile={profile}
-              breed={pet.breed}
-              onBreedChange={(next) => void changeBreed(next)}
               events={events}
               onSave={persistProfile}
               onClose={() => navigation.goBack()}
+              onOpenSettings={() => navigation.navigate('Settings')}
               onSignOut={isSupabaseConfigured && session ? logOut : undefined}
-              onDeleteAccount={isOnline ? deleteAccount : undefined}
-              deletingAccount={isDeletingAccount}
-              onOpenFriends={
-                isSupabaseConfigured && session ? () => navigation.navigate('Friends') : undefined
-              }
               appleHealthStatus={
                 Platform.OS === 'ios'
                   ? isAppleHealthConnected
@@ -1569,6 +1566,36 @@ export default function App() {
                       onClear: () => void clearGym(),
                     }
               }
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Settings">
+          {({ navigation }) => (
+            <SettingsScreen
+              profile={profile}
+              breed={pet.breed}
+              onBreedChange={(next) => void changeBreed(next)}
+              onSave={persistProfile}
+              onClose={() => navigation.goBack()}
+              onDeleteAccount={isOnline ? deleteAccount : undefined}
+              deletingAccount={isDeletingAccount}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="PetStats">
+          {({ navigation }) => (
+            <PetStatsScreen pet={livePet} events={events} onClose={() => navigation.goBack()} />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Friends">
+          {({ navigation, route }) => (
+            <FriendsScreen
+              currentUserId={userId}
+              onClose={() => navigation.goBack()}
+              onOpenFriendPet={(friendUserId, friendUserIds) =>
+                navigation.navigate('FriendPet', { friendUserId, friendUserIds })
+              }
+              openJoin={route.params?.join === true}
               carePartner={
                 isOnline
                   ? {
@@ -1585,22 +1612,6 @@ export default function App() {
                       onLeave: leavePet,
                     }
                   : undefined
-              }
-            />
-          )}
-        </RootStack.Screen>
-        <RootStack.Screen name="PetStats">
-          {({ navigation }) => (
-            <PetStatsScreen pet={livePet} events={events} onClose={() => navigation.goBack()} />
-          )}
-        </RootStack.Screen>
-        <RootStack.Screen name="Friends">
-          {({ navigation }) => (
-            <FriendsScreen
-              currentUserId={userId}
-              onClose={() => navigation.goBack()}
-              onOpenFriendPet={(friendUserId, friendUserIds) =>
-                navigation.navigate('FriendPet', { friendUserId, friendUserIds })
               }
             />
           )}

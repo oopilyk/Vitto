@@ -84,7 +84,31 @@ const MAX_LIFT = 0.15;
 interface Sized {
   width?: number;
   height?: number;
+  uri?: string;
 }
+
+/**
+ * A stable identity for a scene's art, used as the `<Image>`'s `key`.
+ *
+ * Every environment renders this same component in the same slot, so React
+ * reuses one `Image` instance across a scene change and only swaps its `source`.
+ * On iOS the underlying view goes on painting the image it has already decoded
+ * until the new one arrives, so walking from the kitchen to the gym showed the
+ * KITCHEN for a beat — with the gym's tint and the gym's buttons already around
+ * it — before snapping to the gym. Keying by the source remounts the view, so a
+ * scene can only ever be blank or correct, never the room you just left.
+ *
+ * A bundled `require` resolves to an opaque number on native and to an object
+ * carrying a uri on web, hence both branches.
+ */
+export const backdropKey = (source: ImageSourcePropType): string => {
+  if (typeof source === 'number') return `asset:${source}`;
+  if (typeof source === 'object' && source !== null) {
+    const { uri } = source as Sized;
+    if (typeof uri === 'string') return `uri:${uri}`;
+  }
+  return `src:${JSON.stringify(source)}`;
+};
 
 /**
  * The asset's own width/height ratio, so art drawn at a different shape fits its
@@ -242,6 +266,9 @@ export function EnvironmentBackdrop({
             <View style={[styles.floor, { height: bottom + 1, backgroundColor: floorColor }]} />
           ) : null}
           <Image
+            // Remounted per scene: see `backdropKey`. Without this the previous
+            // room stays on screen until the new art decodes.
+            key={backdropKey(source)}
             source={source}
             style={[styles.art, { width, height, left, bottom }]}
             // The box is already the image's own ratio, so this only guards against

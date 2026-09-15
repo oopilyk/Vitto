@@ -439,17 +439,16 @@ describe('screens render', () => {
     const { Text: T } = require('react-native');
     const node = tree.root
       .findAllByType(T)
-      .find((n: any) => Array.isArray(n.props.children) && n.props.children.some((c: any) => c === ' sets done · '));
+      .find((n: any) => Array.isArray(n.props.children) && n.props.children.some((c: any) => c === ' reps · '));
     return node ? node.props.children.map((c: any) => (typeof c === 'string' ? c : String(c))).join('') : '';
   };
 
-  it('loads a saved routine with last time\'s sets pre-filled but unticked', () => {
+  it('loads a saved routine with last time\'s sets pre-filled and already counted', () => {
     const { WorkoutScreen } = require('../screens/WorkoutScreen');
     const { Text: RNT, TextInput: RNI } = require('react-native');
     const { templateFromSession, createExercise } = require('@vitto/core');
     const bench = createExercise('Bench Press', 'chest', false, 'lb');
     bench.sets[0].weight = 135;
-    bench.sets[0].completed = true;
     const push = templateFromSession('Push', [bench]);
 
     let tree!: renderer.ReactTestRenderer;
@@ -472,7 +471,7 @@ describe('screens render', () => {
     expect(chip).toBeTruthy();
     act(() => chip!.props.onPress());
 
-    // The session is the routine: name, exercise, last time's weight, nothing ticked.
+    // The session is the routine: name, exercise, last time's weight, counted.
     const nameField = tree.root.findAllByType(RNI).find((n: any) => n.props.placeholder === 'Workout name');
     expect(nameField!.props.value).toBe('Push');
     const texts = tree.root
@@ -482,11 +481,13 @@ describe('screens render', () => {
     expect(texts).toContain('Bench Press');
     const weightField = tree.root.findAllByType(RNI).find((n: any) => n.props.placeholder === 'lb');
     expect(weightField!.props.value).toBe('135');
-    expect(statsLine(tree)).toMatch(/^0 of 1 sets done/);
+    expect(statsLine(tree)).toMatch(/^1 set · /);
+    // There is nothing to tick any more; a set you did not do comes off instead.
+    expect(tree.root.findAll((n: any) => String(n.props.accessibilityLabel ?? '').startsWith('Mark set'))).toHaveLength(0);
     tree.unmount();
   });
 
-  it('"Tick all sets" then Finish logs the routine and writes today back into it', async () => {
+  it('loading a routine and finishing logs every set of it, and writes today back in', async () => {
     const { WorkoutScreen } = require('../screens/WorkoutScreen');
     const { templateFromSession, createExercise } = require('@vitto/core');
     const push = templateFromSession('Push', [createExercise('Bench Press', 'chest', false, 'lb')]);
@@ -525,10 +526,8 @@ describe('screens render', () => {
         .find((n: any) => typeof n.props.onPress === 'function')!
         .props.onPress();
     });
-    act(() => {
-      press('Tick all sets');
-    });
-    expect(statsLine(tree)).toMatch(/^1 of 1 sets done/);
+    // No ticking step: loading the routine is the claim that you did it.
+    expect(statsLine(tree)).toMatch(/^1 set · /);
     await act(async () => {
       await press('Finish workout');
     });
@@ -537,10 +536,10 @@ describe('screens render', () => {
     expect(finished[0].name).toBe('Push');
     expect(finished[0].stats.completedSets).toBe(1);
     // The routine was updated in place (same id), with today's set carried as
-    // "previous" and nothing left ticked for next time.
+    // "previous" and ready to log again next time.
     expect(saved).toHaveLength(1);
     expect(saved[0].id).toBe(push.id);
-    expect(saved[0].exercises[0].sets[0].completed).toBe(false);
+    expect(saved[0].exercises[0].sets[0].completed).toBe(true);
     expect(saved[0].exercises[0].sets[0].previous.weight).toBe(45);
     tree.unmount();
   });
@@ -1082,12 +1081,20 @@ describe('screens render', () => {
       );
     });
 
+    // The disc opens a menu; Profile is its first row.
     const account = tree.root
-      .findAllByProps({ accessibilityLabel: 'Open your profile' })
+      .findAllByProps({ accessibilityLabel: 'Open account menu' })
       .find((node: any) => typeof node.props.onPress === 'function');
     expect(account).toBeTruthy();
     act(() => account!.props.onPress());
+    const profileRow = tree.root
+      .findAllByProps({ accessibilityLabel: 'Open profile' })
+      .find((node: any) => typeof node.props.onPress === 'function');
+    expect(profileRow).toBeTruthy();
+    act(() => profileRow!.props.onPress());
     expect(opened).toBe(1);
+    // Choosing a row closes the menu.
+    expect(tree.root.findAllByProps({ accessibilityLabel: 'Open profile' })).toHaveLength(0);
     // Shows the signed-in initial, uppercased.
     expect(JSON.stringify(tree.toJSON())).toContain('K');
     tree.unmount();
@@ -1352,8 +1359,6 @@ describe('profile screen', () => {
       tree = renderer.create(
         <ProfileScreen
           profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
           events={[]}
           onSave={onSave}
           onClose={() => {}}
@@ -1389,7 +1394,7 @@ describe('profile screen', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <ProfileScreen profile={{ ...profile, weightUnit: 'lb' }} breed="shiba" onBreedChange={() => {}} events={[bench as any]} onSave={async () => {}} onClose={() => {}} />,
+        <ProfileScreen profile={{ ...profile, weightUnit: 'lb' }} events={[bench as any]} onSave={async () => {}} onClose={() => {}} />,
       );
     });
     const texts = tree.root.findAllByType(Text).map((t: any) => t.props.children);
@@ -1403,6 +1408,55 @@ describe('profile screen', () => {
     expect(flat.filter((t) => t === 'not yet lifted')).toHaveLength(3);
     expect(flat.filter((t) => t === 'no runs yet')).toHaveLength(2);
     tree.unmount();
+  });
+
+  it('carries a ticked set all the way from the workout screen to the records board', async () => {
+    // End to end on the real components: log a bench press the way a user does,
+    // take the metadata the screen actually emits, and feed it to the profile.
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text, TextInput } = require('react-native');
+    const logged: any[] = [];
+    let workout!: renderer.ReactTestRenderer;
+    act(() => {
+      workout = renderer.create(
+        <WorkoutScreen weightUnit="kg" templates={[]} onFinish={async (m: any) => { logged.push(m); }} onClose={() => {}} />,
+      );
+    });
+    const press = (label: string) =>
+      workout.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
+
+    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Add Bench Press')!.props.onPress());
+    const done = workout.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Done'));
+    act(() => done!.props.onPress());
+
+    const weightField = workout.root.findAllByType(TextInput).find((n: any) => n.props.placeholder === 'kg');
+    act(() => weightField!.props.onChangeText('100'));
+    // No ticking: the set is on the list, so it counts.
+    const finish = workout.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => String(t.props.children).startsWith('Finish')));
+    await act(async () => { finish!.props.onPress(); await Promise.resolve(); });
+    workout.unmount();
+
+    expect(logged).toHaveLength(1);
+    // The exercise list with its ticked set is what the records read.
+    expect(logged[0].exercises[0].name).toBe('Bench Press');
+    expect(logged[0].exercises[0].sets[0]).toMatchObject({ weight: 100, completed: true });
+
+    const event = { id: 'w', userId: 'u', type: 'WORKOUT', source: 'manual', occurredAt: '2026-09-15T10:00:00Z', metadata: logged[0] };
+    let profileTree!: renderer.ReactTestRenderer;
+    act(() => {
+      profileTree = renderer.create(
+        <ProfileScreen profile={{ ...profile, sex: 'male', age: 30, weightKg: 80 }}          onBreedChange={() => {}} events={[event as any]} onSave={async () => {}} onClose={() => {}} />,
+      );
+    });
+    const flat = profileTree.root.findAllByType(Text).map((t: any) => t.props.children).flat(2).map(String);
+    expect(flat).toContain('100');
+    expect(flat.some((t) => t.includes('Intermediate'))).toBe(true);
+    profileTree.unmount();
   });
 
   it('places each lift against people of the same sex, bodyweight and age', () => {
@@ -1419,8 +1473,7 @@ describe('profile screen', () => {
       let tree!: renderer.ReactTestRenderer;
       act(() => {
         tree = renderer.create(
-          <ProfileScreen profile={{ ...profile, ...who }} breed="shiba" onBreedChange={() => {}}
-            events={[bench(weight) as any]} onSave={async () => {}} onClose={() => {}} />,
+          <ProfileScreen profile={{ ...profile, ...who }}            events={[bench(weight) as any]} onSave={async () => {}} onClose={() => {}} />,
         );
       });
       const flat = tree.root.findAllByType(Text).map((t: any) => t.props.children).flat(2).map(String);
@@ -1452,8 +1505,7 @@ describe('profile screen', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <ProfileScreen profile={{ ...profile, weightUnit: 'lb' }} breed="shiba" onBreedChange={() => {}}
-          events={[run('1', 10, 62), run('2', 3.218688, 16)] as any} onSave={async () => {}} onClose={() => {}} />,
+        <ProfileScreen profile={{ ...profile, weightUnit: 'lb' }}          events={[run('1', 10, 62), run('2', 3.218688, 16)] as any} onSave={async () => {}} onClose={() => {}} />,
       );
     });
     const flat = tree.root.findAllByType(Text).map((t: any) => t.props.children).flat(2).map(String);
@@ -1464,34 +1516,6 @@ describe('profile screen', () => {
     tree.unmount();
   });
 
-  it('hides the save bar until something changes, then saves', async () => {
-    const saved: unknown[] = [];
-    const tree = render(async (next: unknown) => {
-      saved.push(next);
-    });
-
-    expect(findButton(tree, 'Save changes')).toBeUndefined();
-
-    // Changing the goal should reveal the save bar.
-    act(() => findButton(tree, 'Build muscle')!.props.onPress());
-    expect(findButton(tree, 'Save changes')).toBeTruthy();
-
-    await act(async () => {
-      await findButton(tree, 'Save changes')!.props.onPress();
-    });
-    expect(saved).toHaveLength(1);
-    tree.unmount();
-  });
-
-  it('discards edits back to the saved profile', () => {
-    const tree = render();
-    act(() => findButton(tree, 'Build muscle')!.props.onPress());
-    expect(findButton(tree, 'Discard')).toBeTruthy();
-
-    act(() => findButton(tree, 'Discard')!.props.onPress());
-    expect(findButton(tree, 'Save changes')).toBeUndefined();
-    tree.unmount();
-  });
 });
 
 describe('pet stats screen', () => {
@@ -2106,18 +2130,23 @@ describe('care partners', () => {
       .findAll((node) => typeof node.props.onPress === 'function')
       .find((node) => node.findAllByType(RNText).some((t: any) => t.props.children === label));
 
-  const renderProfile = (carePartner?: Record<string, unknown>) => {
+  const { CarePartnerCard } = require('../components/CarePartnerCard');
+  const renderCard = (carePartner: Record<string, unknown>, openJoin = false) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<CarePartnerCard carePartner={carePartner} openJoin={openJoin} />);
+    });
+    return tree;
+  };
+  const renderProfile = () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <ProfileScreen
           profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
           events={[]}
           onSave={async () => {}}
           onClose={() => {}}
-          carePartner={carePartner}
         />,
       );
     });
@@ -2140,16 +2169,18 @@ describe('care partners', () => {
     ...overrides,
   });
 
-  it('shows no care partner card at all without the prop (local mode)', () => {
+  it('no longer sits on Profile -- the card moved to Friends', () => {
     const tree = renderProfile();
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).not.toContain('Care partner');
-    expect(rendered).not.toContain('Have a code?');
+    expect(rendered).not.toContain('I have a code');
+    expect(rendered).not.toContain('Open friends');
+    expect(rendered).not.toContain('Delete account');
     tree.unmount();
   });
 
   it('shows the open invite code, formatted, with a way to cancel it', () => {
-    const tree = renderProfile(partnerProps({ invite: openInvite }));
+    const tree = renderCard(partnerProps({ invite: openInvite }));
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).toContain('ABC-DEF');
     expect(findButton(tree, 'Cancel code')).toBeTruthy();
@@ -2160,25 +2191,25 @@ describe('care partners', () => {
   });
 
   it('offers a code when there is none, and hides the code UI once shared', () => {
-    const solo = renderProfile(partnerProps());
+    const solo = renderCard(partnerProps());
     expect(findButton(solo, 'Invite a care partner')).toBeTruthy();
     solo.unmount();
 
     // Your own pet, now shared: no more invites. Joining is a separate question
     // (it is about the joint slot), so it stays until that slot is taken.
-    const shared = renderProfile(partnerProps({ members: [owner, alex] }));
+    const shared = renderCard(partnerProps({ members: [owner, alex] }));
     expect(findButton(shared, 'Invite a care partner')).toBeUndefined();
-    expect(findButton(shared, 'Have a code?')).toBeTruthy();
+    expect(findButton(shared, 'I have a code')).toBeTruthy();
     shared.unmount();
 
-    const slotTaken = renderProfile(partnerProps({ canJoin: false }));
-    expect(findButton(slotTaken, 'Have a code?')).toBeUndefined();
+    const slotTaken = renderCard(partnerProps({ canJoin: false }));
+    expect(findButton(slotTaken, 'I have a code')).toBeUndefined();
     slotTaken.unmount();
   });
 
   it('normalises a typed code and hands it to onRedeemInvite', async () => {
     const redeemed: string[] = [];
-    const tree = renderProfile(
+    const tree = renderCard(
       partnerProps({
         onRedeemInvite: async (code: string) => {
           redeemed.push(code);
@@ -2187,7 +2218,7 @@ describe('care partners', () => {
       }),
     );
 
-    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    act(() => findButton(tree, 'I have a code')!.props.onPress());
     const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
     expect(input).toBeTruthy();
     act(() => input!.props.onChangeText('abc-def'));
@@ -2201,8 +2232,8 @@ describe('care partners', () => {
   });
 
   it('keeps the typed code when the join confirm is cancelled', async () => {
-    const tree = renderProfile(partnerProps({ onRedeemInvite: async () => false }));
-    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    const tree = renderCard(partnerProps({ onRedeemInvite: async () => false }));
+    act(() => findButton(tree, 'I have a code')!.props.onPress());
     const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
     act(() => input!.props.onChangeText('ABC-DEF'));
     await act(async () => {
@@ -2214,14 +2245,14 @@ describe('care partners', () => {
   });
 
   it('shows a rejected join inline, beside the code field', async () => {
-    const tree = renderProfile(
+    const tree = renderCard(
       partnerProps({
         onRedeemInvite: async () => {
           throw new Error('That code has already been used.');
         },
       }),
     );
-    act(() => findButton(tree, 'Have a code?')!.props.onPress());
+    act(() => findButton(tree, 'I have a code')!.props.onPress());
     const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
     act(() => input!.props.onChangeText('ABCDEF'));
     await act(async () => {
@@ -2233,7 +2264,7 @@ describe('care partners', () => {
 
   it('lists both carers on the joint pet and offers to leave it', async () => {
     let left = 0;
-    const tree = renderProfile(
+    const tree = renderCard(
       partnerProps({
         isOwnPet: false,
         canJoin: false,
@@ -2246,7 +2277,9 @@ describe('care partners', () => {
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).toContain('You');
     expect(rendered).toContain('Alex');
-    expect(rendered).toContain('partner');
+    // Roles are spelled out as labels beside each seat.
+    expect(rendered).toContain('Partner');
+    expect(rendered).toContain('Owner');
     const leave = findButton(tree, 'Leave Miso');
     expect(leave).toBeTruthy();
     await act(async () => {
@@ -2256,42 +2289,11 @@ describe('care partners', () => {
     tree.unmount();
   });
 
-  it('arrives with the join field open and scrolls to the care-partner card when asked', () => {
-    const { ScrollView: RNScrollView } = require('react-native');
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <ProfileScreen
-          openJoin
-          profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
-          events={[]}
-          onSave={async () => {}}
-          onClose={() => {}}
-          carePartner={partnerProps()}
-        />,
-      );
-    });
-    // The code field is already open: no "Have a code?" step in the way.
-    expect(findButton(tree, 'Have a code?')).toBeUndefined();
+  it('arrives with the join field open when asked', () => {
+    const tree = renderCard(partnerProps(), true);
+    // The code field is already open: no "I have a code" step in the way.
+    expect(findButton(tree, 'I have a code')).toBeUndefined();
     expect(findButton(tree, 'Join')).toBeTruthy();
-
-    // The card reports where it landed, and the screen scrolls there once.
-    const scrollView = tree.root.findByType(RNScrollView);
-    const scrollTo = jest.fn();
-    (scrollView.instance as any).scrollTo = scrollTo;
-    // The care-partner card is the one Card given an onLayout.
-    const card = tree.root.findAll(
-      (node: any) =>
-        typeof node.props.onLayout === 'function' &&
-        JSON.stringify(node.props.style ?? {}).includes('borderRadius'),
-    )[0];
-    expect(card).toBeTruthy();
-    act(() => card.props.onLayout({ nativeEvent: { layout: { x: 0, y: 900, width: 0, height: 0 } } }));
-    act(() => card.props.onLayout({ nativeEvent: { layout: { x: 0, y: 950, width: 0, height: 0 } } }));
-    expect(scrollTo).toHaveBeenCalledTimes(1);
-    expect(scrollTo).toHaveBeenCalledWith({ y: 888, animated: true });
     tree.unmount();
   });
 
@@ -2302,8 +2304,6 @@ describe('care partners', () => {
       tree = renderer.create(
         <ProfileScreen
           profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
           events={[]}
           onSave={async () => {}}
           onClose={() => {}}
@@ -2311,6 +2311,18 @@ describe('care partners', () => {
         />,
       );
     });
+    // Folded by default: the first five rows show, the rest wait behind "Show all".
+    const folded = JSON.stringify(tree.toJSON());
+    expect(folded).toContain(ACHIEVEMENTS[0].title);
+    expect(folded).toContain(ACHIEVEMENTS[4].title);
+    expect(folded).not.toContain(ACHIEVEMENTS[5].title);
+    const showAll = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) =>
+        node.findAllByType(RNText).some((t: any) => String(t.props.children).startsWith('Show all')),
+      );
+    expect(showAll).toBeTruthy();
+    act(() => showAll!.props.onPress());
     const rendered = JSON.stringify(tree.toJSON());
 
     // Locked ones are listed too — the rule text is the only place the goals
@@ -2452,106 +2464,8 @@ describe('care partners', () => {
     tree.unmount();
   });
 
-  it('changes both units together from the one Units toggle', () => {
-    const { measurementSystemOf } = require('@vitto/core');
-    let saved: any = null;
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <ProfileScreen
-          profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
-          events={[]}
-          onSave={async (next: any) => {
-            saved = next;
-          }}
-          onClose={() => {}}
-        />,
-      );
-    });
-    expect(measurementSystemOf(profile)).toBe('metric');
-
-    // The imperial chip: one press, and height follows weight.
-    const imperial = tree.root
-      .findAll((node: any) => typeof node.props.onPress === 'function')
-      .find((node: any) =>
-        node.findAllByType(RNText).some((text: any) => text.props.children === 'Imperial'),
-      );
-    expect(imperial).toBeTruthy();
-    act(() => imperial!.props.onPress());
-
-    const rendered = JSON.stringify(tree.toJSON());
-    // Both the weight field label and the height fields switch over.
-    expect(rendered).toContain('Weight (lb)');
-    expect(rendered).toContain('Height (ft)');
-    expect(rendered).not.toContain('Weight (kg)');
-    tree.unmount();
-  });
-
-  it('shows plan weights in the user\'s own unit', () => {
-    const imperial = { ...profile, weightUnit: 'lb' as const, heightUnit: 'ft' as const, goal: 'lose' as const, targetWeightKg: 65 };
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <ProfileScreen
-          profile={imperial}
-          breed="shiba"
-          onBreedChange={() => {}}
-          events={[]}
-          onSave={async () => {}}
-          onClose={() => {}}
-        />,
-      );
-    });
-    const rendered = JSON.stringify(tree.toJSON());
-    // The plan is computed in kg internally; nothing may say "kg" to someone
-    // working in pounds.
-    expect(rendered).toContain('lb');
-    expect(rendered).not.toMatch(/\d\s?kg/);
-    tree.unmount();
-  });
-
-  it('offers Delete account under Log out, and says what it destroys', async () => {
-    let deleted = 0;
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <ProfileScreen
-          profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
-          events={[]}
-          onSave={async () => {}}
-          onClose={() => {}}
-          onSignOut={() => {}}
-          onDeleteAccount={async () => {
-            deleted += 1;
-          }}
-        />,
-      );
-    });
-    const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('Delete account');
-    // The warning has to name the shared-pet outcome, which is the surprising part.
-    expect(rendered).toContain('cannot be undone');
-    expect(rendered).toContain('care partner');
-
-    await act(async () => {
-      await findButton(tree, 'Delete account')!.props.onPress();
-    });
-    expect(deleted).toBe(1);
-    tree.unmount();
-  });
-
-  it('hides Delete account offline, where there is no account to delete', () => {
-    const tree = renderProfile();
-    expect(JSON.stringify(tree.toJSON())).not.toContain('Delete account');
-    tree.unmount();
-  });
-
   it('never offers to leave your own pet, even once it is shared', () => {
-    const tree = renderProfile(partnerProps({ members: [owner, alex] }));
+    const tree = renderCard(partnerProps({ members: [owner, alex] }));
     expect(findButton(tree, 'Leave Miso')).toBeUndefined();
     tree.unmount();
   });
@@ -2562,8 +2476,6 @@ describe('care partners', () => {
       tree = renderer.create(
         <ProfileScreen
           profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
           events={[]}
           onSave={async () => {}}
           onClose={() => {}}
@@ -2639,36 +2551,6 @@ describe('care partners', () => {
   it('says reminders will stay silent when notifications are denied', () => {
     const tree = renderReminders({ permission: 'denied' });
     expect(JSON.stringify(tree.toJSON())).toContain('Notifications are turned off');
-    tree.unmount();
-  });
-
-  it('has a display-name field that rides the ordinary save bar', async () => {
-    const saved: any[] = [];
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <ProfileScreen
-          profile={profile}
-          breed="shiba"
-          onBreedChange={() => {}}
-          events={[]}
-          onSave={async (next: unknown) => {
-            saved.push(next);
-          }}
-          onClose={() => {}}
-        />,
-      );
-    });
-    expect(findButton(tree, 'Save changes')).toBeUndefined();
-    const nameInput = tree.root
-      .findAllByType(RNTextInput)
-      .find((node: any) => node.props.maxLength === 40);
-    expect(nameInput).toBeTruthy();
-    act(() => nameInput!.props.onChangeText('Kyle'));
-    await act(async () => {
-      await findButton(tree, 'Save changes')!.props.onPress();
-    });
-    expect(saved[0].displayName).toBe('Kyle');
     tree.unmount();
   });
 
@@ -2926,6 +2808,39 @@ describe('friends screen', () => {
     friendsService.loadFriendsOverview.mockResolvedValue([]);
     friendsService.loadMyFriendRequests.mockResolvedValue([]);
     friendsService.getMyUsername.mockResolvedValue(null);
+  });
+
+  it('hosts the care-partner card above the friends list', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen
+          currentUserId="user-1"
+          onClose={() => {}}
+          onOpenFriendPet={() => {}}
+          carePartner={{
+            petName: 'Miso',
+            selfUserId: 'user-1',
+            isOwnPet: true,
+            canJoin: true,
+            members: [{ userId: 'user-1', role: 'owner', joinedAt: '2026-09-01T00:00:00Z', displayName: 'Kyle' }],
+            invite: null,
+            busy: false,
+            onCreateInvite: async () => {},
+            onRevokeInvite: async () => {},
+            onRedeemInvite: async () => true,
+            onLeave: async () => {},
+          }}
+        />,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Care partner');
+    expect(rendered).toContain('Invite a care partner');
+    expect(rendered).toContain('Your friends');
+    tree.unmount();
   });
 
   it('shows the empty state and the username gate for a user with no username yet', async () => {
