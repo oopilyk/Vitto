@@ -2952,6 +2952,93 @@ describe('friends screen', () => {
     friendsService.getMyUsername.mockResolvedValue(null);
   });
 
+  it('announces a saved username so the rest of the app does not wait for a reload', async () => {
+    const { TextInput, Text } = require('react-native');
+    friendsService.setMyUsername.mockResolvedValue(undefined);
+    const announced: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen
+          currentUserId="user-1"
+          onClose={() => {}}
+          onOpenFriendPet={() => {}}
+          onUsernameChange={(name: string) => announced.push(name)}
+        />,
+      );
+    });
+    openAddPanel(tree);
+
+    const field = tree.root.findAllByType(TextInput).find((n: any) => n.props.placeholder?.includes('lowercase'));
+    act(() => field!.props.onChangeText('  Kylipoo  '));
+    const save = tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Save username'));
+    await act(async () => { save!.props.onPress(); await Promise.resolve(); });
+
+    // Normalised, and handed up exactly once.
+    expect(friendsService.setMyUsername).toHaveBeenCalledWith('  Kylipoo  ');
+    expect(announced).toEqual(['kylipoo']);
+    // The field for choosing one is gone, because there is now a username.
+    expect(tree.root.findAllByType(TextInput).some((n: any) => n.props.placeholder?.includes('lowercase'))).toBe(false);
+    tree.unmount();
+  });
+
+  it('says nothing and keeps the field open when the name is taken', async () => {
+    const { TextInput, Text } = require('react-native');
+    friendsService.setMyUsername.mockRejectedValue(new Error('That username is taken.'));
+    const announced: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}}
+          onUsernameChange={(name: string) => announced.push(name)} />,
+      );
+    });
+    openAddPanel(tree);
+    const field = tree.root.findAllByType(TextInput).find((n: any) => n.props.placeholder?.includes('lowercase'));
+    act(() => field!.props.onChangeText('kylipoo'));
+    const save = tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Save username'));
+    await act(async () => { save!.props.onPress(); await Promise.resolve(); });
+
+    expect(announced).toEqual([]);
+    const shown = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
+    expect(shown).toContain('That username is taken.');
+    tree.unmount();
+  });
+
+  it('names a search result by its handle, not its display name', async () => {
+    const { TextInput, Text } = require('react-native');
+    friendsService.getMyUsername.mockResolvedValue('me');
+    friendsService.searchUsersByUsername.mockResolvedValue([
+      { id: 'user-9', username: 'testy', displayName: 'Kyle' },
+    ]);
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <FriendsScreen currentUserId="user-1" onClose={() => {}} onOpenFriendPet={() => {}} />,
+      );
+    });
+    openAddPanel(tree);
+    const search = tree.root.findAllByType(TextInput).find((n: any) => n.props.placeholder === 'Search a username');
+    jest.useFakeTimers();
+    act(() => search!.props.onChangeText('testy'));
+    act(() => { jest.advanceTimersByTime(400); });
+    jest.useRealTimers();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const shown = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
+    // You searched a handle, so the handle is what confirms the match.
+    expect(shown).toContain('@testy');
+    expect(shown).not.toContain('Kyle');
+    tree.unmount();
+  });
+
   it('hosts the care-partner card above the friends list', async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
@@ -3021,12 +3108,12 @@ describe('friends screen', () => {
       );
     });
 
-    expect(JSON.stringify(tree.toJSON())).toContain('Friend Two');
+    expect(JSON.stringify(tree.toJSON())).toContain('@friend_two');
 
     const row = tree.root.findAll(
       (node: any) =>
         typeof node.props.accessibilityLabel === 'string' &&
-        node.props.accessibilityLabel.startsWith("Open Friend Two's pet") &&
+        node.props.accessibilityLabel.startsWith("Open @friend_two's pet") &&
         typeof node.props.onPress === 'function',
     )[0];
     expect(row).toBeTruthy();
@@ -3048,7 +3135,7 @@ describe('friends screen', () => {
     });
 
     const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('Friend Two');
+    expect(rendered).toContain('@friend_two');
     expect(rendered).toContain('No pet yet');
     tree.unmount();
   });
@@ -3352,7 +3439,7 @@ describe('friend pet screen', () => {
       );
     });
 
-    expect(JSON.stringify(tree.toJSON())).toContain('Friend Two');
+    expect(JSON.stringify(tree.toJSON())).toContain('@friend_two');
     expect(friendsService.loadFriendPet).toHaveBeenCalledWith('user-2');
 
     // Prev is disabled/hidden at the first friend.
@@ -3372,7 +3459,7 @@ describe('friend pet screen', () => {
     });
 
     expect(friendsService.loadFriendPet).toHaveBeenCalledWith('user-3');
-    expect(JSON.stringify(tree.toJSON())).toContain('Friend Three');
+    expect(JSON.stringify(tree.toJSON())).toContain('@friend_three');
 
     // Next is disabled/hidden at the last friend; Prev is now enabled.
     const prevAfter = findByAccessibilityLabel(tree, 'Previous friend');
@@ -3387,7 +3474,7 @@ describe('friend pet screen', () => {
       await Promise.resolve();
     });
 
-    expect(JSON.stringify(tree.toJSON())).toContain('Friend Two');
+    expect(JSON.stringify(tree.toJSON())).toContain('@friend_two');
     tree.unmount();
   });
 
@@ -3415,7 +3502,7 @@ describe('friend pet screen', () => {
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).not.toContain('Go to the gym');
     expect(rendered).not.toContain('Log workout');
-    expect(rendered).toContain('Visiting Friend Two');
+    expect(rendered).toContain('Visiting @friend_two');
     expect(rendered).toContain('GYM');
     tree.unmount();
   });

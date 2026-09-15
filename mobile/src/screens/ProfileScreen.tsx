@@ -422,22 +422,16 @@ export function ProfileScreen({
           sees, so they are grouped together and away from the body metrics.
         */}
         <Card title="You">
+          {/* The handle IS the identity: unique, chosen, and the only name other
+              people ever see you by. The free-text name below is a separate
+              thing, kept for yourself. */}
           <View style={styles.identity}>
             <View style={styles.identityAvatar}>
               <Text style={styles.identityInitial}>
-                {(profile.displayName?.trim() || profile.username || '?').slice(0, 1).toUpperCase()}
+                {(profile.username || profile.displayName?.trim() || '?').slice(0, 1).toUpperCase()}
               </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <TextInput
-                style={[layout.input, styles.identityName]}
-                value={profile.displayName ?? ''}
-                onChangeText={(value) => update('displayName', value)}
-                placeholder="Your name"
-                placeholderTextColor={colors.faint}
-                maxLength={40}
-                accessibilityLabel="Your display name"
-              />
               {profile.username ? (
                 <Text style={styles.identityHandle}>{`@${profile.username}`}</Text>
               ) : onOpenFriends ? (
@@ -447,8 +441,26 @@ export function ProfileScreen({
               ) : (
                 <Text style={styles.identityHandleUnset}>No username yet</Text>
               )}
+              <Text style={styles.identityHandleHint}>
+                {profile.username
+                  ? 'How friends and care partners see you'
+                  : 'Friends find you by your username'}
+              </Text>
             </View>
           </View>
+
+          <Group label="NAME">
+            <TextInput
+              style={layout.input}
+              value={profile.displayName ?? ''}
+              onChangeText={(value) => update('displayName', value)}
+              placeholder="Your name"
+              placeholderTextColor={colors.faint}
+              maxLength={40}
+              accessibilityLabel="Your display name"
+            />
+            <Text style={styles.bioCount}>Just for you — nobody else is shown this.</Text>
+          </Group>
 
           {/* "Bio", not "About" — the body-metrics card that used to live on this
               screen was called "About you", and it now lives in Settings. Two
@@ -466,7 +478,7 @@ export function ProfileScreen({
               accessibilityLabel="Your bio"
             />
             <Text style={styles.bioCount}>
-              {`${(profile.bio ?? '').length} / ${MAX_BIO_LENGTH} · friends can see your name, handle and this note`}
+              {`${(profile.bio ?? '').length} / ${MAX_BIO_LENGTH} · friends see your username and this note`}
             </Text>
           </Group>
         </Card>
@@ -979,9 +991,9 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
   },
   identityInitial: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
-  identityName: { fontSize: 16 },
-  identityHandle: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 6 },
-  identityHandleUnset: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, marginTop: 6 },
+  identityHandle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
+  identityHandleUnset: { fontFamily: fonts.mono, fontSize: 13, color: colors.coral },
+  identityHandleHint: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 5, lineHeight: 13 },
   bio: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19 },
   bioCount: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 6, lineHeight: 13 },
   link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },

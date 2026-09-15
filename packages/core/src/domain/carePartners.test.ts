@@ -1,31 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HEALTH_EVENT_TYPES, type HealthEvent } from './health';
-import {
-  CARE_LOG_LABEL,
-  INVITE_CODE_ALPHABET,
-  INVITE_CODE_LENGTH,
-  INVITE_TTL_MS,
-  PARTNER_FALLBACK_NAME,
-  activeMembers,
-  careLogLabel,
-  formatInviteCode,
-  generateInviteCode,
-  inviteErrorMessage,
-  isOwnPet,
-  canJoinAnotherPet,
-  inviteExpiresAt,
-  isInviteOpen,
-  isSharedPet,
-  memberDisplayName,
-  memberRole,
-  mergeCareDiary,
-  normalizeInviteCode,
-  partnerActivityMessage,
-  partnerEntriesSince,
-  type CareLogEntry,
-  type PetInvite,
-  type PetMember,
-} from './carePartners';
+import { CARE_LOG_LABEL, INVITE_CODE_ALPHABET, INVITE_CODE_LENGTH, INVITE_TTL_MS, PARTNER_FALLBACK_NAME, activeMembers, canJoinAnotherPet, careLogLabel, formatInviteCode, generateInviteCode, inviteErrorMessage, inviteExpiresAt, isInviteOpen, isOwnPet, isSharedPet, memberDisplayName, memberRole, mergeCareDiary, normalizeInviteCode, partnerActivityMessage, partnerEntriesSince, type CareLogEntry, type PetInvite, type PetMember } from './carePartners';
 
 const ME = 'user-me';
 const ALEX = 'user-alex';
@@ -315,5 +290,27 @@ describe('pet slots', () => {
     expect(canJoinAnotherPet([mine, theirs], 'user-1')).toBe(false);
     // Joined from onboarding, never adopted: still one joint slot, still full.
     expect(canJoinAnotherPet([theirs], 'user-1')).toBe(false);
+  });
+});
+
+describe('memberDisplayName prefers the handle', () => {
+  const member = (over: Partial<PetMember> = {}): PetMember => ({
+    userId: 'user-2', role: 'partner', joinedAt: '2026-09-01T00:00:00Z', displayName: 'Alex', ...over,
+  });
+
+  it('names a partner by their username, not their free-text name', () => {
+    // One person should not read as "Alex" here and "@alex_r" on the friends
+    // list. The handle is the identity everywhere.
+    expect(memberDisplayName([member({ username: 'alex_r' })], 'user-2')).toBe('@alex_r');
+  });
+
+  it('falls back to the display name for someone who has not claimed a handle', () => {
+    expect(memberDisplayName([member({ username: null })], 'user-2')).toBe('Alex');
+    expect(memberDisplayName([member()], 'user-2')).toBe('Alex');
+  });
+
+  it('falls back again when there is neither, and for a stranger', () => {
+    expect(memberDisplayName([member({ displayName: null, username: null })], 'user-2')).toBe(PARTNER_FALLBACK_NAME);
+    expect(memberDisplayName([], 'nobody')).toBe(PARTNER_FALLBACK_NAME);
   });
 });

@@ -125,7 +125,7 @@ describe('SupabaseRepository.savePet', () => {
 });
 
 describe('SupabaseRepository.saveProfile', () => {
-  beforeEach(() => update.mockReset());
+  beforeEach(() => upsert.mockReset());
 
   const profile = withSurveyDefaults({
     age: 30, sex: 'other', heightCm: 170, heightUnit: 'cm', weightKg: 70, weightUnit: 'kg', activity: 'moderate', goal: 'maintain',
@@ -136,11 +136,11 @@ describe('SupabaseRepository.saveProfile', () => {
     [0, null],
     [150, 150],
   ])('writes a screen-time budget of %s as %s so the 1..1440 check never rejects the row', async (budget, column) => {
-    update.mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    upsert.mockResolvedValue({ error: null });
 
     await new SupabaseRepository().saveProfile({ ...profile, screenTimeBudgetMinutes: budget });
 
-    expect(update.mock.calls[0][0].screen_time_budget_minutes).toBe(column);
+    expect(upsert.mock.calls[0][0].screen_time_budget_minutes).toBe(column);
   });
 
   it.each([
@@ -149,11 +149,34 @@ describe('SupabaseRepository.saveProfile', () => {
     ['   ', null],
     ['  Alex ', 'Alex'],
   ])('writes a display name of %j as %j', async (displayName, column) => {
-    update.mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    upsert.mockResolvedValue({ error: null });
 
     await new SupabaseRepository().saveProfile({ ...profile, displayName });
 
-    expect(update.mock.calls[0][0].display_name).toBe(column);
+    expect(upsert.mock.calls[0][0].display_name).toBe(column);
+  });
+
+  it('creates the row when the account has none, instead of writing nothing at all', async () => {
+    // The regression: this used to be `.update().eq('id')`, and PostgREST does
+    // not call "matched zero rows" an error. An account with no profiles row
+    // therefore saved nothing and was told it had worked.
+    upsert.mockResolvedValue({ error: null });
+
+    await new SupabaseRepository().saveProfile(profile);
+
+    expect(upsert.mock.calls[0][0].id).toBe('user-1');
+    expect(upsert.mock.calls[0][1]).toEqual({ onConflict: 'id' });
+  });
+
+  it('refuses to drop the conflict key when retrying a missing column', async () => {
+    // Dropping `id` would turn the retry into a blind insert, so a database that
+    // claims the primary key is missing is a real error, not something to work around.
+    upsert.mockResolvedValue({
+      error: { code: 'PGRST204', message: "Could not find the 'id' column of 'profiles' in the schema cache" },
+    });
+
+    await expect(new SupabaseRepository().saveProfile(profile)).rejects.toMatchObject({ code: 'PGRST204' });
+    expect(upsert).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -295,7 +318,9 @@ describe('SupabaseRepository.loadPetMembers', () => {
   it('reads through get_pet_members and maps rows to camelCase', async () => {
     rpc.mockResolvedValueOnce({
       data: [
-        { user_id: 'user-1', role: 'owner', joined_at: '2026-08-01T00:00:00Z', left_at: null, display_name: null },
+        { user_id: 'user-1', role: 'owner', joined_at: '2026-08-01T00:00:00Z', left_at: null, display_name: null, username: 'kylipoo' },
+        // No `username` key at all: a database that has not run the migration
+        // adding it, which must still map cleanly rather than throwing.
         { user_id: 'user-2', role: 'partner', joined_at: '2026-09-01T00:00:00Z', left_at: '2026-09-05T00:00:00Z', display_name: 'Alex' },
       ],
       error: null,
@@ -305,8 +330,8 @@ describe('SupabaseRepository.loadPetMembers', () => {
 
     expect(rpc).toHaveBeenCalledWith('get_pet_members', { p_pet_id: 'pet-1' });
     expect(members).toEqual([
-      { userId: 'user-1', role: 'owner', joinedAt: '2026-08-01T00:00:00Z', leftAt: undefined, displayName: null },
-      { userId: 'user-2', role: 'partner', joinedAt: '2026-09-01T00:00:00Z', leftAt: '2026-09-05T00:00:00Z', displayName: 'Alex' },
+      { userId: 'user-1', role: 'owner', joinedAt: '2026-08-01T00:00:00Z', leftAt: undefined, displayName: null, username: 'kylipoo' },
+      { userId: 'user-2', role: 'partner', joinedAt: '2026-09-01T00:00:00Z', leftAt: '2026-09-05T00:00:00Z', displayName: 'Alex', username: null },
     ]);
   });
 

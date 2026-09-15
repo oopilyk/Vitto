@@ -14,7 +14,7 @@ import { requireSupabase } from './config';
 
 type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
-type PetMemberRow = { user_id: string; role: PetMember['role']; joined_at: string; left_at: string | null; display_name: string | null };
+type PetMemberRow = { user_id: string; role: PetMember['role']; joined_at: string; left_at: string | null; display_name: string | null; username?: string | null };
 type PetInviteRow = { id: string; pet_id: string; code: string; created_at: string; expires_at: string; redeemed_at: string | null; revoked_at: string | null };
 type CareLogRow = { id: string; pet_id: string; user_id: string; type: CareLogEntry['type']; occurred_at: string };
 
@@ -26,6 +26,9 @@ const toPetMember = (row: PetMemberRow): PetMember => ({
   joinedAt: row.joined_at,
   leftAt: row.left_at ?? undefined,
   displayName: row.display_name ?? null,
+  // Absent on a database that has not run 20260915130000 yet, which simply
+  // leaves the member named by their display name as before.
+  username: row.username ?? null,
 });
 
 const toPetInvite = (row: PetInviteRow): PetInvite => ({
@@ -92,7 +95,10 @@ const saveDroppingMissingColumns = async (
     const { error } = await write(row);
     if (!error) return;
     const column = missingColumn(error);
-    if (!column || !(column in row)) throw error;
+    // `id` is the upsert's conflict key. Dropping it would turn a retry into a
+    // blind insert, so a database that somehow reports it missing is a real
+    // error rather than something to work around.
+    if (!column || column === 'id' || !(column in row)) throw error;
     const { [column]: _absent, ...remaining } = row;
     row = remaining;
   }
@@ -231,8 +237,12 @@ export class SupabaseRepository {
       bio: profile.bio?.trim() || null,
     };
 
-    await saveDroppingMissingColumns(payload, (row) =>
-      client.from('profiles').update(row).eq('id', user.id),
+    // Upsert rather than update: an update that matches no row is not an error
+    // in PostgREST, so an account with no `profiles` row saved nothing at all and
+    // was told it had worked. `id` is included so the row can be created, and is
+    // what the table's RLS check tests, so this still only ever writes your own.
+    await saveDroppingMissingColumns({ ...payload, id: user.id }, (row) =>
+      client.from('profiles').upsert(row, { onConflict: 'id' }),
     );
   }
 

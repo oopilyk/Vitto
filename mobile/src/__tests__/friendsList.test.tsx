@@ -115,7 +115,9 @@ describe('FriendListRow', () => {
     expect(avatar.props.pet).toBe(baseFriend.pet);
 
     const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('Friend Two');
+    // Named by handle, like everywhere else a person appears.
+    expect(rendered).toContain('@friend_two');
+    expect(rendered).not.toContain('Friend Two');
     // A fresh pet with no recent activity reads as "At home".
     expect(rendered).toContain('At home');
     tree.unmount();
@@ -149,7 +151,7 @@ describe('FriendListRow', () => {
       );
     });
     const [row] = tree.root.findAll(
-      (node: any) => node.props.accessibilityLabel === "Open Friend Two's pet",
+      (node: any) => node.props.accessibilityLabel === "Open @friend_two's pet",
     );
     act(() => row.props.onPress());
     expect(onPress).toHaveBeenCalledTimes(1);

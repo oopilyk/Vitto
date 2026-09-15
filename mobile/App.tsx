@@ -250,14 +250,42 @@ export default function App() {
   const [unlockQueue, setUnlockQueue] = useState<AchievementId[]>([]);
   /** Saved workout routines — device-local, like reminders. */
   const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
+
+  /**
+   * Which account the "already announced" list belongs to. Signed out is its own
+   * scope rather than nobody's, so a local pet's unlocks are remembered too.
+   */
+  const achievementScope = session?.user.id ?? 'local';
+
+  /**
+   * Re-read on every account change, not once on mount.
+   *
+   * Read once, the list was seeded from whatever was on screen at launch — and
+   * at launch you are signed OUT, so it seeded from an empty history. Signing in
+   * then found every achievement the account had ever earned "new" and popped
+   * the lot. Setting it back to null first is what makes the announcer wait
+   * rather than compare the incoming account against the outgoing one's list.
+   */
   useEffect(() => {
+    let cancelled = false;
+    setSeenAchievements(null);
+    setUnlockQueue([]);
+    seenEverStored.current = false;
     void repository
-      .loadSeenAchievements()
+      .loadSeenAchievements(achievementScope)
       .then((stored) => {
+        if (cancelled) return;
         seenEverStored.current = stored !== null;
         setSeenAchievements(new Set(stored ?? []));
       })
-      .catch(() => setSeenAchievements(new Set()));
+      .catch(() => {
+        if (!cancelled) setSeenAchievements(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [achievementScope]);
+  useEffect(() => {
     void repository.loadGymLocation().then(setGym).catch(() => setGym(null));
     void repository.loadWorkoutTemplates().then(setWorkoutTemplates).catch(() => setWorkoutTemplates([]));
     void repository
@@ -483,8 +511,13 @@ export default function App() {
           setPets(petResult.value);
         }
         if (eventsResult.status === 'fulfilled') setEvents(eventsResult.value);
-        if (profileResult.status === 'fulfilled' && profileResult.value) {
-          setProfile(profileResult.value);
+        if (profileResult.status === 'fulfilled') {
+          // Reset when this account has no stored profile yet, rather than
+          // leaving the PREVIOUS account's name, handle, bio and body metrics on
+          // screen. `loadProfile` returns null for a row that has not been
+          // through onboarding, and signing into such an account used to inherit
+          // whoever was signed in before.
+          setProfile(profileResult.value ?? DEFAULT_PROFILE);
         }
 
         const failure = [petResult, eventsResult, profileResult].find(
@@ -1300,6 +1333,10 @@ export default function App() {
       .then(async () => {
         setSession(null);
         clearPetState();
+        // Identity goes with the session. Left behind, the next account to sign
+        // in on this device sees the last one's name and @handle until its own
+        // profile loads — and keeps them for good if it has none yet.
+        setProfile(DEFAULT_PROFILE);
         setEvents([]);
         setWordPuzzleProgress(null);
         setIsAppleHealthConnected(false);
@@ -1308,8 +1345,8 @@ export default function App() {
         setForcedTrophies(null);
         setUnlockQueue([]);
         setWorkoutTemplates([]);
-        setSeenAchievements(new Set());
-        seenEverStored.current = false;
+        // `seenAchievements` and the unlock queue are reset by the scope effect
+        // above, which re-runs as the session drops back to 'local'.
         await repository.clear();
       })
       .catch(() => setError('Could not sign out.'));
@@ -1355,7 +1392,7 @@ export default function App() {
       seenEverStored.current = true;
       const seeded = new Set(achievementsNow);
       setSeenAchievements(seeded);
-      void repository.saveSeenAchievements([...seeded]).catch(() => undefined);
+      void repository.saveSeenAchievements(achievementScope, [...seeded]).catch(() => undefined);
       return;
     }
 
@@ -1363,11 +1400,11 @@ export default function App() {
     if (fresh.length === 0) return;
     const next = new Set([...seenAchievements, ...fresh]);
     setSeenAchievements(next);
-    void repository.saveSeenAchievements([...next]).catch(() => undefined);
+    void repository.saveSeenAchievements(achievementScope, [...next]).catch(() => undefined);
     setUnlockQueue((queue) => [...queue, ...fresh]);
     // `repository` is a stable module-level instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataReady, achievementsNow, seenAchievements]);
+  }, [dataReady, achievementsNow, seenAchievements, achievementScope]);
 
   /** Saves (or replaces by name) a routine, then persists the list. */
   const saveWorkoutTemplate = async (template: WorkoutTemplate) => {
@@ -1386,7 +1423,7 @@ export default function App() {
   const replayAchievements = () => {
     seenEverStored.current = true;
     setSeenAchievements(new Set());
-    void repository.saveSeenAchievements([]).catch(() => undefined);
+    void repository.saveSeenAchievements(achievementScope, []).catch(() => undefined);
   };
 
   if (!authReady || !dataReady) {
@@ -1593,6 +1630,9 @@ export default function App() {
             <FriendsScreen
               currentUserId={userId}
               onClose={() => navigation.goBack()}
+              // Local only: friendsService has already written it. This just
+              // stops the Profile card showing a stale handle until a reload.
+              onUsernameChange={(username) => setProfile((current) => ({ ...current, username }))}
               onOpenFriendPet={(friendUserId, friendUserIds) =>
                 navigation.navigate('FriendPet', { friendUserId, friendUserIds })
               }

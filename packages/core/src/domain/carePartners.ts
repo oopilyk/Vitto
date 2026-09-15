@@ -23,6 +23,8 @@ export interface PetMember {
   leftAt?: string;
   /** Already sanitised server-side (never an email, never blank); null when unusable. */
   displayName: string | null;
+  /** The handle, which is what a person is actually called here. Null until claimed. */
+  username?: string | null;
 }
 
 export interface PetInvite {
@@ -135,8 +137,21 @@ export const canJoinAnotherPet = (pets: { userId: string }[], selfUserId: string
  * Resolves through left members too, so a diary row written by someone who has
  * since left still reads as them rather than as a stranger.
  */
-export const memberDisplayName = (members: PetMember[], userId: string): string =>
-  members.find((member) => member.userId === userId)?.displayName ?? PARTNER_FALLBACK_NAME;
+/**
+ * What to call another person: their handle first, their free-text name only if
+ * they have not claimed one.
+ *
+ * The handle is the identity — unique, chosen, and the same thing a friend sees.
+ * A display name is neither unique nor reliable (it is seeded from the sign-up
+ * email, which is why the server throws away anything with an "@" in it), so
+ * naming a partner by it meant one person went by two different names depending
+ * on which screen you were looking at.
+ */
+export const memberDisplayName = (members: PetMember[], userId: string): string => {
+  const member = members.find((candidate) => candidate.userId === userId);
+  if (member?.username) return `@${member.username}`;
+  return member?.displayName ?? PARTNER_FALLBACK_NAME;
+};
 
 /**
  * The only thing a partner ever sees about a care moment. Kept upbeat and

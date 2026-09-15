@@ -370,7 +370,14 @@ export class FriendsService {
     } = await client.auth.getUser();
     if (!user) throw new Error('Sign in before choosing a username.');
 
-    const { error } = await client.from('profiles').update({ username: normalized }).eq('id', user.id);
+    // Upsert, not update. PostgREST reports NO error when an update matches zero
+    // rows, so on an account whose `profiles` row is missing — created before the
+    // signup trigger existed, or lost since — this wrote nothing, returned
+    // nothing, and the screen said the username was saved. Keyed on `id`, which
+    // is what the row's own RLS check tests, so this can only ever write your own.
+    const { error } = await client
+      .from('profiles')
+      .upsert({ id: user.id, username: normalized }, { onConflict: 'id' });
     if (error) throw new Error(mapSetUsernameError(error));
   }
 }

@@ -38,16 +38,32 @@ interface Props {
   carePartner?: CarePartnerProps;
   /** Land with the "Join a partner's pet" code field already open. */
   openJoin?: boolean;
+  /**
+   * Announces a username claimed here, so the rest of the app can show it
+   * without waiting for a reload. This screen writes it; nobody else does.
+   */
+  onUsernameChange?: (username: string) => void;
 }
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
 /** Waits for a pause in typing before hitting the search RPC. */
 const SEARCH_DEBOUNCE_MS = 350;
 
+/**
+ * How another person is named anywhere in the app: by their handle.
+ *
+ * The handle is the identity — unique, chosen, and the thing you typed to find
+ * them. A display name is neither unique nor reliable, so leading with it meant
+ * two accounts could both read as "Kyle" and the person you searched for was
+ * named differently once you were friends. It is only the fallback for someone
+ * who has not claimed a handle yet.
+ */
 const nameFor = (profile: FriendProfileSummary | undefined, fallbackId: string): string =>
-  profile?.displayName || (profile?.username ? `@${profile.username}` : fallbackId);
+  (profile?.username ? `@${profile.username}` : profile?.displayName) || fallbackId;
 
-export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePartner, openJoin }: Props) {
+const handleFor = (profile: FriendProfileSummary): string => nameFor(profile, profile.id);
+
+export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePartner, openJoin, onUsernameChange }: Props) {
   const palette = friendsPalette(isNightTime());
 
   const [loading, setLoading] = useState(true);
@@ -58,7 +74,14 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
 
   // 'loading' while the initial fetch is in flight, `null` once loaded with no
   // username set (gates the add panel only), or the username itself.
-  const [username, setUsername] = useState<string | 'loading' | null>('loading');
+  const [username, setUsername] = useState<string | null>(null);
+  /**
+   * Whether `username` has been read yet. Separate from the value because the
+   * old sentinel was the literal string 'loading', which is itself a valid
+   * username — and because `typeof 'loading' === 'string'`, a failed load left
+   * the app believing a username was set and hid the field for choosing one.
+   */
+  const [usernameLoaded, setUsernameLoaded] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
   const [settingUsername, setSettingUsername] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -85,6 +108,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
       setFriends(loadedFriends);
       setRequests(loadedRequests);
       setUsername(myUsername);
+      setUsernameLoaded(true);
 
       // Only incoming/outgoing need a separate profile fetch now -- accepted
       // friends carry their profile in the overview row.
@@ -142,8 +166,14 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
     setUsernameError(null);
     try {
       await friendsService.setMyUsername(usernameInput);
-      setUsername(usernameInput.trim().toLowerCase());
+      const saved = usernameInput.trim().toLowerCase();
+      setUsername(saved);
+      setUsernameLoaded(true);
       setUsernameInput('');
+      // The Profile screen reads the handle off the loaded profile, which this
+      // screen does not own. Without telling it, a freshly chosen username only
+      // showed up there after a reload.
+      onUsernameChange?.(saved);
     } catch (cause) {
       setUsernameError(errorMessage(cause, 'Could not save your username.'));
     } finally {
@@ -172,7 +202,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
     [friends],
   );
   const acceptedIds = sortedFriends.map((friend) => friend.friendId);
-  const hasUsername = typeof username === 'string';
+  const hasUsername = usernameLoaded && username !== null;
 
   return (
     <View style={[layout.screen, { backgroundColor: palette.screenBg }]}>
@@ -267,7 +297,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                         return (
                           <View key={result.id} style={[styles.searchRow, { borderBottomColor: palette.divider }]}>
                             <Text style={[styles.searchName, { color: palette.primaryText }]}>
-                              {nameFor(result, result.id)}
+                              {handleFor(result)}
                             </Text>
                             {relation === 'none' ? (
                               <Pressable

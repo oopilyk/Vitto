@@ -26,7 +26,15 @@ const gymKey = 'vitto.gym';
  * nothing or fire twice. Losing them on reinstall is the accepted trade.
  */
 const remindersKey = 'vitto.reminders';
-/** Achievement ids the user has already been shown unlocking — see App's unlock queue. */
+/**
+ * Achievement ids already shown unlocking, keyed by account — see App's unlock
+ * queue.
+ *
+ * Keyed, because this is device storage and a device can see more than one
+ * account. Held as one flat list it belonged to nobody in particular: the app
+ * seeded it from whatever was on screen at launch (signed out, that is nothing),
+ * and signing in then announced the new account's ENTIRE history at once.
+ */
 const seenAchievementsKey = 'vitto.achievements.seen';
 /** Saved workout routines ("Push", "Pull", "Legs") — personal setup, kept on-device like reminders. */
 const workoutTemplatesKey = 'vitto.workout.templates';
@@ -142,15 +150,29 @@ export class LocalRepository {
    * announcing a year of milestones at once; that decision needs to know the
    * difference between "seen nothing" and "never asked".
    */
-  async loadSeenAchievements(): Promise<string[] | null> {
+  async loadSeenAchievements(scope: string): Promise<string[] | null> {
     const value = await AsyncStorage.getItem(seenAchievementsKey);
     if (value === null) return null;
     const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+    // A bare array is the pre-scope format, written when this was one list for
+    // the whole device. It belongs to whoever was signed in at the time, which
+    // is not knowable, so it is treated as "never asked" for every scope: the
+    // caller then seeds silently, which announces nothing it should not.
+    if (Array.isArray(parsed)) return null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const stored = (parsed as Record<string, unknown>)[scope];
+    return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : null;
   }
 
-  async saveSeenAchievements(ids: readonly string[]): Promise<void> {
-    await AsyncStorage.setItem(seenAchievementsKey, JSON.stringify([...ids]));
+  async saveSeenAchievements(scope: string, ids: readonly string[]): Promise<void> {
+    const value = await AsyncStorage.getItem(seenAchievementsKey);
+    const parsed = value === null ? null : (JSON.parse(value) as unknown);
+    const byScope =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? { ...(parsed as Record<string, string[]>) }
+        : {};
+    byScope[scope] = [...ids];
+    await AsyncStorage.setItem(seenAchievementsKey, JSON.stringify(byScope));
   }
 
   async loadWorkoutTemplates(): Promise<WorkoutTemplate[]> {

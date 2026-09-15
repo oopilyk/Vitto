@@ -26,8 +26,15 @@ const PLACE_GLYPH: Record<SocialPetStatus['place'], string> = {
   study: '📚',
 };
 
+/**
+ * What a friend is called, everywhere they appear: their handle.
+ *
+ * Kept as the one helper so the friends list, a friend's pet screen and the
+ * visiting banner cannot disagree. The free-text name is only the fallback for
+ * someone who has not claimed a handle yet.
+ */
 export const displayName = (profile: FriendProfileSummary): string =>
-  profile.displayName || `@${profile.username}`;
+  (profile.username ? `@${profile.username}` : profile.displayName) || profile.id;
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;

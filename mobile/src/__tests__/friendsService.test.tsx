@@ -15,6 +15,7 @@ const select = passThrough();
 const eq = passThrough();
 const order = passThrough();
 const limit = passThrough();
+const upsert = passThrough();
 const rpc = jest.fn();
 const from = jest.fn((_table: string) => chain);
 const getUser = jest.fn(async () => ({ data: { user: { id: 'me' } } }));
@@ -24,6 +25,7 @@ Object.assign(chain, {
   eq,
   order,
   limit,
+  upsert,
   then: (onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) =>
     Promise.resolve(responses.shift() ?? { data: null, error: null }).then(onFulfilled, onRejected),
 });
@@ -32,13 +34,14 @@ configureCore({
 });
 
 beforeEach(() => {
-  for (const fn of [select, eq, order, limit, rpc, from, getUser]) fn.mockReset();
+  for (const fn of [select, eq, order, limit, upsert, rpc, from, getUser]) fn.mockReset();
   getUser.mockResolvedValue({ data: { user: { id: 'me' } } });
   from.mockImplementation(() => chain);
   select.mockImplementation(() => chain);
   eq.mockImplementation(() => chain);
   order.mockImplementation(() => chain);
   limit.mockImplementation(() => chain);
+  upsert.mockImplementation(() => chain);
   responses.length = 0;
 });
 
@@ -362,5 +365,31 @@ describe('FriendsService.loadFriendPet', () => {
     responses.push({ data: null, error: { message: 'permission denied' } });
 
     await expect(service.loadFriendPet('friend-1')).rejects.toThrow('permission denied');
+  });
+});
+
+
+describe('setMyUsername', () => {
+  const service = new FriendsService();
+
+  it('creates the profile row when there is none, instead of silently writing nothing', async () => {
+    // The regression: this used to be `.update().eq('id')`. PostgREST does not
+    // treat "matched zero rows" as an error, so an account whose profiles row
+    // was missing got a success and no username.
+    await service.setMyUsername('Kylipoo');
+    expect(from).toHaveBeenCalledWith('profiles');
+    expect(upsert).toHaveBeenCalledWith({ id: 'me', username: 'kylipoo' }, { onConflict: 'id' });
+    // Never scoped with a bare eq() that an absent row would simply not match.
+    expect(eq).not.toHaveBeenCalled();
+  });
+
+  it('still reports a taken username rather than claiming success', async () => {
+    responses.push({ data: null, error: { code: '23505', message: 'duplicate key' } });
+    await expect(service.setMyUsername('kylipoo')).rejects.toThrow('That username is taken.');
+  });
+
+  it('refuses a malformed username before reaching the network', async () => {
+    await expect(service.setMyUsername('no spaces')).rejects.toThrow('Usernames are 3-20 characters');
+    expect(from).not.toHaveBeenCalled();
   });
 });

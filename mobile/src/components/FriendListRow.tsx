@@ -12,9 +12,14 @@ interface Props {
 
 const AVATAR_SIZE = 48;
 
+/**
+ * A friend is named by their handle here, as everywhere else. See the same
+ * helper in `FriendPetCard`: the handle is the identity, and a free-text
+ * display name is only the fallback for someone who has not claimed one.
+ */
 const rowName = (friend: FriendOverview): string => {
   const { displayName, username } = friend.profile;
-  return displayName || (username ? `@${username}` : friend.friendId);
+  return (username ? `@${username}` : displayName) || friend.friendId;
 };
 
 /**
@@ -43,7 +48,9 @@ export function FriendListRow({ friend, palette, onPress }: Props) {
       <PetSpriteAvatar
         pet={friend.pet}
         size={AVATAR_SIZE}
-        placeholderInitial={rowName(friend).replace('@', '').charAt(0)}
+        // Upper-cased: handles are stored lower case, and a lone lowercase
+        // letter in an avatar disc reads as a typo rather than an initial.
+        placeholderInitial={rowName(friend).replace('@', '').charAt(0).toUpperCase()}
         backgroundColor={palette.avatarPlaceholderBg}
       />
       <View style={styles.body}>
