@@ -210,15 +210,29 @@ export function PetWorldHud({
             </Text>
           </View>
 
-          {/* The line people actually glance up for — a sentence, so it reads
-              like one: mono, regular weight, straight on the scene (no box). */}
-          <Text style={[styles.feeling, night && styles.feelingNight]} numberOfLines={2}>
+          {/*
+            The pet's line and its meta sit on a plaque of their own — the same
+            cream-with-ink-border-and-hard-shadow panel as the room sign above
+            and the pet tabs beside it, so it belongs to the HUD rather than
+            floating over the scene.
+
+            The plaque is OPAQUE, and that is the point. The text used to be
+            painted straight onto the art (and then onto a translucent scrim),
+            so its contrast depended on whatever the picture behind it happened
+            to be — bright cloud outdoors, mid-brown wall in the study — and
+            no single text colour survives both. On an opaque surface the only
+            thing that matters is the panel's own colour, which the HUD
+            controls: ink on cream by day, cream on charcoal at night, both
+            measured (see hudContrast.test).
+          */}
+          <View style={[retro.panel, night && retro.panelNight, styles.readout]}>
+          <Text style={[styles.feeling, night && retro.labelNight]} numberOfLines={2}>
             {feeling}
           </Text>
           {/* One quiet meta line: day count, then the streak as a bare
               fire+number, then the partner. */}
           <Text
-            style={[styles.meta, night && styles.metaNight]}
+            style={[styles.meta, night && retro.captionNight]}
             accessibilityLabel={
               streaks.currentStreak > 0
                 ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` +
@@ -228,7 +242,7 @@ export function PetWorldHud({
           >
             {dayLabel}
             {streaks.currentStreak > 0 ? (
-              <Text style={[styles.metaFlame, streakAtRisk && styles.metaFlameAtRisk]}>
+              <Text style={[styles.metaFlame, night && styles.metaFlameNight, streakAtRisk && styles.metaFlameAtRisk]}>
                 {`   ·   🔥 ${streaks.currentStreak}`}
               </Text>
             ) : null}
@@ -258,6 +272,7 @@ export function PetWorldHud({
               ))}
             </View>
           ) : null}
+          </View>
         </View>
 
         <View style={styles.sideRight} pointerEvents="box-none">
@@ -378,39 +393,41 @@ const styles = StyleSheet.create({
     color: world.ink,
   },
 
+  /** The plaque itself; shape only — colour, border and shadow come from `retro.panel`. */
+  readout: {
+    marginTop: 10,
+    alignSelf: 'center',
+    maxWidth: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 9,
+  },
   feeling: {
     fontFamily: fonts.mono,
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 18,
     letterSpacing: 0.2,
-    color: '#241a11', // near-black warm brown — reads on the tan HUD band
+    color: world.ink,
     textAlign: 'center',
-    marginTop: 10,
-    textShadowColor: 'rgba(247,240,224,0.55)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
-  feelingNight: { color: '#f4ecda', textShadowColor: 'rgba(0,0,0,0.55)' },
   meta: {
     fontFamily: fonts.mono,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.8,
-    color: '#4a3c2b',
+    color: world.inkSoft,
     textAlign: 'center',
     marginTop: 5,
     textTransform: 'uppercase',
-    textShadowColor: 'rgba(247,240,224,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
   },
-  metaNight: { color: '#cdbfa6', textShadowColor: 'rgba(0,0,0,0.5)' },
-  metaSoft: { color: '#6e5c43', fontWeight: '400' },
+  metaSoft: { color: '#7d6d5e', fontWeight: '400' },
   metaSoftNight: { color: '#a99a83' },
-  metaFlame: { color: '#b25a35', fontWeight: '700' },
+  metaFlame: { color: world.accentDeep, fontWeight: '700' },
+  metaFlameNight: { color: world.nightAccent },
   /** Alive but not yet re-earned today — dimmed, not the same as a banked day. */
-  metaFlameAtRisk: { color: '#b25a35', opacity: 0.55, fontWeight: '600' },
+  metaFlameAtRisk: { opacity: 0.6, fontWeight: '600' },
   // Food effect tags — warm gold, so they read as a state the pet is in. Each is
   // its own chip so a narrow screen wraps between them, not inside a separator.
   metaTags: {
@@ -427,8 +444,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    color: '#8a6d1f',
-    backgroundColor: 'rgba(214,183,96,0.28)',
+    color: '#7a5f16',
+    backgroundColor: 'rgba(214,183,96,0.35)',
     borderRadius: 5,
     paddingHorizontal: 6,
     paddingVertical: 2,
