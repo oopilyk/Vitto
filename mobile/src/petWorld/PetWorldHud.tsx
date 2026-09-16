@@ -120,9 +120,11 @@ export function PetWorldHud({
   const foodTags = activeFoodEffects(events, today).map((effect) => effect.label.toUpperCase());
 
   const evolved = hasEvolved(pet);
-  const dayLabel = evolved
-    ? `DAY ${daysWithPet(pet, today)} · ${formLabel.toUpperCase()}`
-    : `DAY ${daysWithPet(pet, today)}`;
+  // Separate tokens, not one joined string: the row below lays them out, and a
+  // wrap then falls between tokens rather than inside a separator.
+  const dayToken = `DAY ${daysWithPet(pet, today)}`;
+  const formToken = evolved ? formLabel.toUpperCase() : null;
+  const dayLabel = formToken ? `${dayToken} · ${formToken}` : dayToken;
 
   const showSwitcher = pets && pets.length > 1 && onSelectPet;
 
@@ -226,33 +228,50 @@ export function PetWorldHud({
             measured (see hudContrast.test).
           */}
           <View style={[retro.panel, night && retro.panelNight, styles.readout]}>
-          <Text style={[styles.feeling, night && retro.labelNight]} numberOfLines={2}>
+          {/* The whole sentence, however long. Capped at two lines it ended in
+              "Get some …", which is the one line people glance up for. */}
+          <Text style={[styles.feeling, night && retro.labelNight]}>
             {feeling}
           </Text>
-          {/* One quiet meta line: day count, then the streak as a bare
-              fire+number, then the partner. */}
-          <Text
-            style={[styles.meta, night && retro.captionNight]}
+          {/*
+            The meta as a row of tokens with a gap, not a sentence with "·"
+            between the parts. Joined into one string, a narrow plaque wrapped
+            it after the dot and left "DAY 19 · RUNNER ·" on one line and the
+            flame alone on the next. Tokens wrap cleanly between themselves and
+            need no punctuation at all.
+          */}
+          <View
+            style={styles.metaRow}
             accessibilityLabel={
               streaks.currentStreak > 0
                 ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` +
                   (streakAtRisk ? ', not yet logged today.' : '.')
-                : undefined
+                : dayLabel
             }
           >
-            {dayLabel}
+            <Text style={[styles.meta, night && retro.captionNight]}>{dayToken}</Text>
+            {formToken ? (
+              <Text style={[styles.meta, night && retro.captionNight]}>{formToken}</Text>
+            ) : null}
             {streaks.currentStreak > 0 ? (
-              <Text style={[styles.metaFlame, night && styles.metaFlameNight, streakAtRisk && styles.metaFlameAtRisk]}>
-                {`   ·   🔥 ${streaks.currentStreak}`}
+              <Text
+                style={[
+                  styles.meta,
+                  styles.metaFlame,
+                  night && styles.metaFlameNight,
+                  streakAtRisk && styles.metaFlameAtRisk,
+                ]}
+              >
+                {`🔥 ${streaks.currentStreak}`}
               </Text>
             ) : null}
-            {partnerName ? (
-              <Text style={[styles.metaSoft, night && styles.metaSoftNight]}>
-                {'   ·   '}
-                <Text>Raised with {partnerName}</Text>
-              </Text>
-            ) : null}
-          </Text>
+          </View>
+          {/* A sentence, so it gets its own line rather than a slot in the row. */}
+          {partnerName ? (
+            <Text style={[styles.metaPartner, night && styles.metaPartnerNight]}>
+              {`Raised with ${partnerName}`}
+            </Text>
+          ) : null}
           {/*
             The food effects get their own row rather than being appended to the
             line above. Strung into that sentence with "·" separators baked into
@@ -412,6 +431,15 @@ const styles = StyleSheet.create({
     color: world.ink,
     textAlign: 'center',
   },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    columnGap: 12,
+    rowGap: 2,
+    marginTop: 6,
+  },
   meta: {
     fontFamily: fonts.mono,
     fontSize: 10,
@@ -419,11 +447,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: world.inkSoft,
     textAlign: 'center',
-    marginTop: 5,
     textTransform: 'uppercase',
   },
-  metaSoft: { color: '#7d6d5e', fontWeight: '400' },
-  metaSoftNight: { color: '#a99a83' },
+  metaPartner: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 0.4,
+    color: '#7d6d5e',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  metaPartnerNight: { color: '#a99a83' },
   metaFlame: { color: world.accentDeep, fontWeight: '700' },
   metaFlameNight: { color: world.nightAccent },
   /** Alive but not yet re-earned today — dimmed, not the same as a banked day. */
