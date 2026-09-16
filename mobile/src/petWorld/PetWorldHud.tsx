@@ -76,6 +76,12 @@ interface PetWorldHudProps {
   /** Switches the chrome to a dark-panel/bright-text treatment so it stays
    * legible over the night backgrounds. */
   night?: boolean;
+  /**
+   * Whether a night's sleep can reach the app, which changes what an exhausted
+   * pet asks for. See `AilmentAdvice` — sleep has no manual entry, so without
+   * Apple Health "get some rest" is an instruction with nowhere to carry it out.
+   */
+  canLogSleep?: boolean;
 }
 
 export function PetWorldHud({
@@ -96,6 +102,7 @@ export function PetWorldHud({
   onSelectPet,
   partnerName,
   night,
+  canLogSleep,
 }: PetWorldHudProps) {
   const today = new Date();
   const streaks = calculateStreakStatus(events, today);
@@ -110,7 +117,7 @@ export function PetWorldHud({
   // while the reaction is up: it is the fun part, and the toast already carries
   // the rest. An ailment still outranks both.
   const feeling = condition.primary
-    ? AILMENT_MESSAGE[condition.primary](pet.name)
+    ? AILMENT_MESSAGE[condition.primary](pet.name, { canLogSleep })
     : reaction?.effects?.[0]
       ? reaction.effects[0].reaction
       : (reaction?.message ?? `${pet.name} is feeling ${pet.mood}.`);

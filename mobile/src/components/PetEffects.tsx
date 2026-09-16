@@ -69,7 +69,7 @@ export function Confetti({ active, headOffset }: EffectProps) {
   if (!active) return null;
 
   return (
-    <View style={[styles.layer, { marginTop: -(headOffset + CONFETTI_CLEARANCE) }]} pointerEvents="none">
+    <View style={[styles.layer, { transform: [{ translateY: -(headOffset + CONFETTI_CLEARANCE) }] }]} pointerEvents="none">
       {CONFETTI.map((piece, index) => (
         <Animated.View
           key={piece.key}
@@ -177,7 +177,7 @@ export function GlyphStream({
   const travel = direction === 'up' ? -riseDistance : riseDistance;
 
   return (
-    <View style={[styles.layer, { marginTop: -(headOffset + GLYPH_CLEARANCE) }]} pointerEvents="none">
+    <View style={[styles.layer, { transform: [{ translateY: -(headOffset + GLYPH_CLEARANCE) }] }]} pointerEvents="none">
       {glyphs.map((glyph, index) => (
         <Animated.Text
           key={index}
@@ -298,7 +298,7 @@ export function RainCloud({ active, headOffset }: EffectProps) {
   if (!active) return null;
 
   return (
-    <View style={[styles.layer, { marginTop: -(headOffset + CLOUD_CLEARANCE) }]} pointerEvents="none">
+    <View style={[styles.layer, { transform: [{ translateY: -(headOffset + CLOUD_CLEARANCE) }] }]} pointerEvents="none">
       <View style={styles.cloud}>
         <Svg width={54} height={30} viewBox="0 0 54 30">
           <Path d={CLOUD_PATH} fill={colors.slateDeep} fillOpacity={0.38} />
@@ -375,7 +375,7 @@ export function DizzyOrbit({ active, headOffset }: EffectProps) {
   if (!active) return null;
 
   return (
-    <View style={[styles.layer, { marginTop: -(headOffset + ORBIT_CLEARANCE) }]} pointerEvents="none">
+    <View style={[styles.layer, { transform: [{ translateY: -(headOffset + ORBIT_CLEARANCE) }] }]} pointerEvents="none">
       {ORBIT_GLYPHS.map((orbit) => (
         <Animated.Text
           key={orbit.key}
@@ -539,8 +539,25 @@ export function PetAura({ color, size }: PetAuraProps) {
 const styles = StyleSheet.create({
   aura: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   // Sits at the stage centre; marginTop lifts it clear of the pet's head.
+  /**
+   * The box every overlay is centred in. It FILLS the avatar's stage, which is
+   * what puts its centre on the pet's centre — the anchor `headOffset` is
+   * measured from.
+   *
+   * It used to be `position: 'absolute'` with no insets and no size. An absolute
+   * box with only absolutely-positioned children collapses to nothing and sits
+   * at its static position, which is after the sprite in the stage's column — so
+   * the z's came out somewhere below the pet's feet instead of above its head.
+   */
   layer: {
+    // Written out rather than spread from `StyleSheet.absoluteFillObject`: that
+    // static is undefined under the test renderer, so the spread silently
+    // contributed nothing and the box collapsed again.
     position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 4,

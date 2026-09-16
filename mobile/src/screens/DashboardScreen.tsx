@@ -80,6 +80,11 @@ interface Props {
    */
   isWalking?: boolean;
   atGym?: boolean;
+  /**
+   * Whether a night's sleep can reach the app at all (Apple Health, connected).
+   * Changes what an exhausted pet asks for — see `AilmentAdvice`.
+   */
+  canLogSleep?: boolean;
   /** Trophies on the living-room shelf. Derived by App from the event history (or forced, in dev). */
   trophies?: readonly TrophyId[];
   /**
@@ -120,6 +125,7 @@ export function DashboardScreen({
   partnerName,
   isWalking,
   atGym,
+  canLogSleep,
   trophies,
   celebration,
   onCelebrationComplete,
@@ -194,6 +200,7 @@ export function DashboardScreen({
       hudOverlay={
         <PetWorldHud
           pet={pet}
+          canLogSleep={canLogSleep}
           events={events}
           reaction={reaction}
           careToast={careToast}

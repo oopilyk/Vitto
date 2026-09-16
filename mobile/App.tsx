@@ -1525,6 +1525,10 @@ export default function App() {
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
+              // Sleep has no manual entry: a SLEEP event is only ever created by
+              // the HealthKit import. Telling an exhausted pet's owner to "get
+              // some rest" anywhere else asks for the one thing they cannot do.
+              canLogSleep={Platform.OS === 'ios' && isAppleHealthConnected}
               isWalking={walkingNow}
               atGym={atGymNow}
               trophies={trophiesNow}

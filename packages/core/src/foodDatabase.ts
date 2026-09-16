@@ -32,6 +32,7 @@ interface FdcNutrient {
 interface FdcFood {
   fdcId: number;
   description: string;
+  dataType?: string;
   brandOwner?: string;
   servingSize?: number;
   servingSizeUnit?: string;
@@ -41,9 +42,32 @@ interface FdcFood {
 const KJ_PER_KCAL = 4.184;
 const REFERENCE_GRAMS = 100;
 const GRAM_UNITS: ReadonlySet<string> = new Set(['g', 'gram', 'grams']);
-/** Whole-food datasets first so a search for "apple" beats a branded apple drink. */
-const FDC_DATA_TYPES = 'Foundation,SR Legacy,Survey (FNDDS),Branded';
-const FDC_PAGE_SIZE = '15';
+/**
+ * The USDA datasets to search.
+ *
+ * `Survey (FNDDS)` is deliberately NOT here. Asking for it makes USDA return a
+ * bare nginx `400 Bad Request` for roughly half of otherwise identical requests
+ * — measured at 7 failures in 8 with that value alone, and 0 in 14 without it,
+ * across every encoding of the parentheses. It is their infrastructure, not the
+ * request: nothing client-side makes it reliable, and while it was listed every
+ * other search failed with "Food search failed. Try again in a moment."
+ *
+ * Losing it costs the generic "as consumed" entries, which is why results are
+ * re-ranked below rather than left in USDA's own order.
+ */
+const FDC_DATA_TYPES = 'Foundation,SR Legacy,Branded';
+const FDC_PAGE_SIZE = '25';
+
+/**
+ * Whole-food datasets first.
+ *
+ * The parameter above never did this — its order is a filter, not a ranking, and
+ * USDA sorts purely by text relevance. So "chicken" came back as five identical
+ * branded packets called CHICKEN before a single entry for the actual bird. The
+ * sort is stable, so USDA's relevance ordering still decides within a dataset.
+ */
+const FDC_DATA_TYPE_RANK: Record<string, number> = { Foundation: 0, 'SR Legacy': 1, Branded: 2 };
+const dataTypeRank = (food: FdcFood): number => FDC_DATA_TYPE_RANK[food.dataType ?? ''] ?? 1;
 
 const findNutrient = (
   nutrients: FdcNutrient[],
@@ -165,7 +189,8 @@ const searchFdc = async (query: string): Promise<FoodSearchResult[]> => {
   if (!response.ok) throw new Error('Food search failed. Try again in a moment.');
   const data = (await response.json()) as { foods?: FdcFood[] };
 
-  return dedupeResults((data.foods ?? []).map(toSearchResult)).slice(0, 10);
+  const ranked = [...(data.foods ?? [])].sort((a, b) => dataTypeRank(a) - dataTypeRank(b));
+  return dedupeResults(ranked.map(toSearchResult)).slice(0, 10);
 };
 
 /**

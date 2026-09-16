@@ -2069,6 +2069,30 @@ describe('pet sprite', () => {
     });
   });
 
+  it.each([['Zzz'], ['HungerPangs'], ['RainCloud'], ['DizzyOrbit'], ['Confetti']])(
+    'lifts %s out of the pet rather than leaving it at the bottom of the stage',
+    (name) => {
+      // Every overlay shares one layer, so they all shared one bug: a zero-size
+      // absolute box with no insets sits at its STATIC position, which is after
+      // the sprite in the stage's column.
+      const effects = require('../components/PetEffects');
+      const { StyleSheet } = require('react-native');
+      let tree!: renderer.ReactTestRenderer;
+      const Effect = effects[name];
+      act(() => {
+        tree = renderer.create(<Effect active headOffset={80} />);
+      });
+      const boxes = tree.root
+        .findAll((node: any) => node.props.style !== undefined)
+        .map((node: any) => StyleSheet.flatten(node.props.style))
+        .filter((style: any) => style?.position === 'absolute' && style.top === 0 && style.bottom === 0);
+      expect(boxes.length).toBeGreaterThan(0);
+      const lift = boxes[0].transform?.find((t: any) => 'translateY' in t);
+      expect(lift?.translateY).toBeLessThan(-80);
+      tree.unmount();
+    },
+  );
+
   it('sends the hearts up out of the top of the pet', () => {
     const { HeartStream } = require('../components/PetEffects');
     let tree!: renderer.ReactTestRenderer;
@@ -2080,12 +2104,28 @@ describe('pet sprite', () => {
     const hearts = tree.root.findAllByType(RNText).filter((node: any) => node.props.children === '♥');
     expect(hearts.length).toBeGreaterThan(0);
 
-    // `headOffset` is the top of the pet's head, so the layer must sit strictly
-    // past it — an effect level with the anchor would still touch the sprite.
-    const layer = tree.root.findAll((node: any) =>
-      [node.props.style].flat(2).some((entry: any) => typeof entry?.marginTop === 'number' && entry.marginTop < -80),
-    );
-    expect(layer.length).toBeGreaterThan(0);
+    // Two things have to hold for an overlay to come out of the pet at all.
+    //
+    // It must be lifted strictly past `headOffset`, which is the top of the
+    // head — level with the anchor would still touch the sprite. And it must be
+    // lifted by a TRANSFORM on a box that fills the stage. The box used to be a
+    // zero-size absolute with no insets, which sits at its static position
+    // (after the sprite) rather than on the pet, and a margin on a box pinned
+    // top and bottom stretches it instead of moving it — so the z's surfaced
+    // below the pet's feet.
+    const layers = tree.root.findAll((node: any) => {
+      const style = [node.props.style].flat(2).filter(Boolean);
+      const lift = style.flatMap((entry: any) => entry?.transform ?? []).find((t: any) => 'translateY' in t);
+      return Boolean(lift) && lift.translateY < -80;
+    });
+    expect(layers.length).toBeGreaterThan(0);
+
+    // Flattened, because `styles.layer` resolves to a registered id, not an object.
+    const { StyleSheet } = require('react-native');
+    const box = StyleSheet.flatten(layers[0]!.props.style);
+    // Pinned to all four edges, so its centre is the pet's centre.
+    expect(box).toMatchObject({ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 });
+    expect(box.marginTop).toBeUndefined();
     tree.unmount();
   });
 

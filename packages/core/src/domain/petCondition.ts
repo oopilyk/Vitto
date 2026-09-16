@@ -42,10 +42,29 @@ export interface PetCondition {
   severity: number;
 }
 
-export const AILMENT_MESSAGE: Record<PetAilment, (name: string) => string> = {
+/** What the app can actually accept right now, so the copy only asks for that. */
+export interface AilmentAdvice {
+  /**
+   * Whether a night's sleep can reach the app at all — which means Apple Health,
+   * connected, on a device that tracked some. Sleep is the ONLY input with no
+   * manual entry anywhere: `SLEEP` events are created in exactly one place, the
+   * HealthKit import. Without it, "get some rest" asked for the one thing the
+   * user could not do, while a workout or a step sync were right there.
+   */
+  canLogSleep?: boolean;
+}
+
+/**
+ * The headline for an unwell pet. Every line names something the user can go and
+ * do, because the line is the whole instruction — the stat bars are a screen away.
+ */
+export const AILMENT_MESSAGE: Record<PetAilment, (name: string, advice?: AilmentAdvice) => string> = {
   dying: (name) => `${name} is fading. Care for them now.`,
   starving: (name) => `${name} is starving. Log a meal.`,
-  exhausted: (name) => `${name} is running on empty. Get some rest.`,
+  exhausted: (name, advice) =>
+    advice?.canLogSleep
+      ? `${name} is running on empty. Get some rest.`
+      : `${name} is running on empty. Log a workout or some steps.`,
   sad: (name) => `${name} is lonely and low. Spend some time together.`,
   foggy: (name) => `${name}'s mind is foggy. Try the Mind Gym.`,
 };

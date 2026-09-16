@@ -136,6 +136,68 @@ describe('searchFoodsByName — falling back to OpenFoodFacts', () => {
   });
 });
 
+describe('searchFoodsByName — the USDA request', () => {
+  const fdcFood = (fdcId: number, description: string, dataType: string) => ({
+    fdcId, description, dataType, foodNutrients: energyRows(100, 418),
+  });
+
+  it('never asks for Survey (FNDDS), which USDA 400s on about half the time', async () => {
+    // Measured: 7 failures in 8 requests with that value, 0 in 14 without it,
+    // across every encoding of its parentheses. While it was listed, every other
+    // search died with "Food search failed. Try again in a moment."
+    const calls = mockFetchByHost({ usda: () => ({ ok: true, body: { foods: [] } }) });
+    await searchFoodsByName('chicken');
+    // `+` for the space, which is how URLSearchParams encodes it.
+    const url = decodeURIComponent(String(calls.mock.calls[0]![0])).replace(/\+/g, ' ');
+    expect(url).not.toContain('FNDDS');
+    expect(url).toContain('dataType=Foundation,SR Legacy,Branded');
+  });
+
+  it('puts whole foods above branded packets, whatever order USDA returns them in', async () => {
+    // USDA ranks on text relevance alone, so "chicken" came back as a wall of
+    // identical branded packets called CHICKEN before the actual bird.
+    mockFetchByHost({
+      usda: () => ({
+        ok: true,
+        body: {
+          foods: [
+            fdcFood(1, 'CHICKEN', 'Branded'),
+            fdcFood(2, 'Chicken, broilers, breast, roasted', 'SR Legacy'),
+            fdcFood(3, 'CHICKEN BITES', 'Branded'),
+            fdcFood(4, 'Chicken, breast, raw', 'Foundation'),
+          ],
+        },
+      }),
+    });
+
+    const results = await searchFoodsByName('chicken');
+    expect(results.map((result) => result.name)).toEqual([
+      'Chicken, breast, raw',
+      'Chicken, broilers, breast, roasted',
+      'CHICKEN',
+      'CHICKEN BITES',
+    ]);
+  });
+
+  it('keeps USDA\'s own relevance order within one dataset', async () => {
+    mockFetchByHost({
+      usda: () => ({
+        ok: true,
+        body: {
+          foods: [
+            fdcFood(1, 'Chicken, first', 'SR Legacy'),
+            fdcFood(2, 'Chicken, second', 'SR Legacy'),
+            fdcFood(3, 'Chicken, third', 'SR Legacy'),
+          ],
+        },
+      }),
+    });
+    expect((await searchFoodsByName('chicken')).map((r) => r.name)).toEqual([
+      'Chicken, first', 'Chicken, second', 'Chicken, third',
+    ]);
+  });
+});
+
 describe('searchFoodsByName — Energy unit selection', () => {
   it('reads the kcal Energy row and ignores the kJ row', async () => {
     mockFetchOnce({
