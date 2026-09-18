@@ -106,6 +106,14 @@ export interface PetReaction {
    * MEAL, and only when the plate earned any. See `foodEffects.ts`.
    */
   effects?: FoodEffect[];
+  /**
+   * `message` was written for this exact moment — the model looked at the
+   * plate and reacted to it — rather than picked from the stock lines. The HUD
+   * shows an authored line over a food effect's generic one-liner.
+   */
+  authored?: boolean;
+  /** Set when this moment ended a silence of at least a few days: how many. */
+  returnedAfterDays?: number;
 }
 
 // Pet stats are whole numbers everywhere they are stored (integer columns) and shown,

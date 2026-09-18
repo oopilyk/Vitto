@@ -83,3 +83,24 @@ describe('parseMealAnalysisResponse', () => {
     expect(analysis.grade).toBe('C');
   });
 });
+
+describe('parseMealAnalysisResponse — the pet\'s reaction', () => {
+  const base = {
+    noFoodDetected: false, foodDescription: '1 bowl of oats', grade: 'A', summary: 'Balanced.', confidence: 0.9,
+    detectedFoods: ['oats'], macros: { calories: 300, proteinGrams: 10, carbsGrams: 50, fatGrams: 6 },
+    nutrients: { protein: false, vegetables: false, fruit: false, wholeGrains: true, fiber: true, treats: false },
+  };
+
+  it('carries the model\'s one-liner through, trimmed and capped to one HUD line', () => {
+    expect(parseMealAnalysisResponse({ analysis: { ...base, petReaction: '  Yum, that was nourishing!  ' } }).petReaction)
+      .toBe('Yum, that was nourishing!');
+    const long = parseMealAnalysisResponse({ analysis: { ...base, petReaction: 'x'.repeat(400) } }).petReaction;
+    expect(long).toHaveLength(140);
+  });
+
+  it('leaves it off entirely when the model sent nothing usable', () => {
+    expect(parseMealAnalysisResponse({ analysis: base })).not.toHaveProperty('petReaction');
+    expect(parseMealAnalysisResponse({ analysis: { ...base, petReaction: '   ' } })).not.toHaveProperty('petReaction');
+    expect(parseMealAnalysisResponse({ analysis: { ...base, petReaction: 42 } })).not.toHaveProperty('petReaction');
+  });
+});

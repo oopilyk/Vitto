@@ -12,8 +12,21 @@ Deno.serve(async (request) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Authentication required.' }, 401);
 
-    const { storagePath } = await request.json();
+    const { storagePath, pet } = await request.json();
     if (typeof storagePath !== 'string' || !storagePath.startsWith(`${user.id}/`)) return json({ error: 'Invalid image path.' }, 400);
+    // Optional. With it the model also writes the pet's one-line reaction to the
+    // plate, in character; without it (the web app) the analysis is unchanged.
+    // Only the pet's name, personality and how it feels are sent — nothing
+    // about the person.
+    const petContext =
+      pet && typeof pet === 'object' && typeof pet.name === 'string'
+        ? {
+            name: String(pet.name).slice(0, 40),
+            personality: typeof pet.personality === 'string' ? pet.personality.slice(0, 20) : 'friendly',
+            mood: typeof pet.mood === 'string' ? pet.mood.slice(0, 20) : 'content',
+            ailments: Array.isArray(pet.ailments) ? pet.ailments.filter((a: unknown) => typeof a === 'string').slice(0, 5) : [],
+          }
+        : null;
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const { data: image, error: downloadError } = await admin.storage.from('meal-images').download(storagePath);
     if (downloadError) throw downloadError;
@@ -30,6 +43,7 @@ Deno.serve(async (request) => {
             type: 'OBJECT',
             properties: {
               noFoodDetected: { type: 'BOOLEAN' },
+              petReaction: { type: 'STRING' },
               foodDescription: { type: 'STRING' },
               grade: { type: 'STRING', enum: ['A', 'B', 'C', 'D'] },
               summary: { type: 'STRING' },
@@ -77,10 +91,23 @@ Deno.serve(async (request) => {
               'When noFoodDetected is false, macros.calories must be a realistic non-zero estimate for the portions described in foodDescription — ' +
               'derive it from the estimated grams of protein, carbs and fat (4/4/9 kcal per gram) and sanity-check it against the portions. ' +
               'Also return proteinGrams, carbsGrams, fatGrams as non-negative numbers, detectedFoods (string[]), grade (A-D), confidence (0-1), ' +
-              'and nutrients booleans: protein, vegetables, fruit, wholeGrains, fiber, treats.',
+              'and nutrients booleans: protein, vegetables, fruit, wholeGrains, fiber, treats. ' +
+              'petReaction: if the user message describes a pet, write ONE sentence of at most 90 characters, in the first person AS THAT PET, ' +
+              'reacting to how nourishing this plate is — delighted by a balanced plate ("Yum, that was nourishing!"), gently let down by junk ("Ugh, greasy…"). ' +
+              'Match the pet\'s personality and mood: energetic is excitable, chill is laid back, competitive wants more, supportive is warm. ' +
+              'If the pet is listed as dying or exhausted it sounds weak and brief; if foggy it sounds muddled. ' +
+              'Never mention calories, weight, diets or health outcomes, and never shame the person. ' +
+              'If no pet is described, or no food was detected, set petReaction to "".',
           }],
         },
-        contents: [{ parts: [{ text: 'Identify and grade this meal for general balanced nutrition.' }, { inlineData: { mimeType: image.type || 'image/jpeg', data: encodedImage } }] }],
+        contents: [{ parts: [
+          { text: 'Identify and grade this meal for general balanced nutrition.' +
+            (petContext
+              ? ` The pet about to eat it is ${petContext.name}, a ${petContext.personality} pet who is currently ${petContext.mood}` +
+                (petContext.ailments.length > 0 ? ` and ${petContext.ailments.join(', ')}` : '') + '.'
+              : '') },
+          { inlineData: { mimeType: image.type || 'image/jpeg', data: encodedImage } },
+        ] }],
       }),
     });
     if (!response.ok) {

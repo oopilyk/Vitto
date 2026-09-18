@@ -251,6 +251,12 @@ export interface MealMetadata {
 
 export interface MealAnalysis {
   foodDescription?: string;
+  /**
+   * The pet's own one-line reaction to this plate, in its voice, written by the
+   * same model call that graded it. Only a photographed meal has one; a searched
+   * or scanned meal gets the engine's stock line instead.
+   */
+  petReaction?: string;
   grade: 'A' | 'B' | 'C' | 'D';
   summary: string;
   confidence: number;

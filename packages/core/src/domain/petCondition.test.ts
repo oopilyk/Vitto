@@ -102,9 +102,11 @@ describe('assessCondition', () => {
     expect(assessCondition(healthyPet({ health: 0, nutrition: 0, energy: 0, happiness: 0 })).severity).toBe(1);
   });
 
-  it('has a message for every ailment that names the pet', () => {
+  it('has a first-person line for every ailment — it is the pet talking', () => {
     for (const ailment of AILMENT_PRECEDENCE) {
-      expect(AILMENT_MESSAGE[ailment]('Miso')).toContain('Miso');
+      const line = AILMENT_MESSAGE[ailment]('Miso');
+      expect(line).toMatch(/\b(I|I'm|my|me)\b/i);
+      expect(line).not.toContain('Miso');
     }
   });
 
@@ -155,18 +157,16 @@ describe('AILMENT_MESSAGE asks only for what the app can accept', () => {
   it('sends an exhausted pet to sleep only when sleep can actually reach the app', () => {
     // A SLEEP event is created in exactly one place, the HealthKit import, so
     // without it "get some rest" is an instruction with nowhere to carry it out.
-    expect(AILMENT_MESSAGE.exhausted('Blue', { canLogSleep: true })).toBe(
-      'Blue is running on empty. Get some rest.',
-    );
+    expect(AILMENT_MESSAGE.exhausted('Blue', { canLogSleep: true })).toBe("I'm running on empty. Let me rest.");
     const unreachable = AILMENT_MESSAGE.exhausted('Blue', { canLogSleep: false });
     expect(unreachable).not.toContain('rest');
-    expect(unreachable).toBe('Blue is running on empty. Log a workout or some steps.');
+    expect(unreachable).toBe("I'm running on empty. Take me for a walk or a workout?");
     // No advice at all is the conservative case: assume sleep cannot be logged.
     expect(AILMENT_MESSAGE.exhausted('Blue')).toBe(unreachable);
   });
 
   it('names an action the user can take for every other ailment too', () => {
-    const actions = { dying: 'Care for', starving: 'Log a meal', sad: 'Spend some time', foggy: 'Mind Gym' };
+    const actions = { dying: 'look after me', starving: 'Feed me', sad: 'Spend some time', foggy: 'Mind Gym' };
     for (const [ailment, action] of Object.entries(actions)) {
       expect(AILMENT_MESSAGE[ailment as keyof typeof actions]('Blue')).toContain(action);
     }

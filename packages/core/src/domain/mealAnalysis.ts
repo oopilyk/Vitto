@@ -1,3 +1,5 @@
+import type { PetAilment } from './petCondition';
+import type { PetPersonality } from './pet';
 import type { MealAnalysis } from './health';
 import { withEstimatedCalories } from './macros';
 
@@ -62,6 +64,18 @@ const hasNutritionSignal = (analysis: MealAnalysis): boolean =>
   analysis.macros.carbsGrams > 0 ||
   analysis.macros.fatGrams > 0;
 
+/** One HUD line. The model is asked for ~90 characters; this is the hard stop. */
+const MAX_PET_REACTION_LENGTH = 140;
+
+/** What the model is told about the pet so its reaction can be in character. */
+export interface MealPetContext {
+  name: string;
+  personality?: PetPersonality;
+  mood: string;
+  /** Worst first, as `assessCondition` reports them. */
+  ailments: readonly PetAilment[];
+}
+
 interface AnalyzeMealResponse {
   analysis?: unknown;
   noFoodDetected?: unknown;
@@ -92,7 +106,10 @@ export const parseMealAnalysisResponse = (payload: unknown): MealAnalysis => {
     ? analysisRecord.detectedFoods.filter((item): item is string => typeof item === 'string')
     : [];
 
+  const petReaction =
+    typeof analysisRecord.petReaction === 'string' ? analysisRecord.petReaction.trim().slice(0, MAX_PET_REACTION_LENGTH) : '';
   const analysis: MealAnalysis = {
+    ...(petReaction ? { petReaction } : {}),
     foodDescription:
       typeof analysisRecord.foodDescription === 'string' && analysisRecord.foodDescription.trim()
         ? analysisRecord.foodDescription

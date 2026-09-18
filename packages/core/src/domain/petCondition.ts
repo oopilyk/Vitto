@@ -59,14 +59,16 @@ export interface AilmentAdvice {
  * do, because the line is the whole instruction — the stat bars are a screen away.
  */
 export const AILMENT_MESSAGE: Record<PetAilment, (name: string, advice?: AilmentAdvice) => string> = {
-  dying: (name) => `${name} is fading. Care for them now.`,
-  starving: (name) => `${name} is starving. Log a meal.`,
-  exhausted: (name, advice) =>
+  // First person: it is the pet talking, and "feed me" lands harder than "log a
+  // meal". `name` is kept for callers and for a fallback that may want it.
+  dying: () => "I'm fading. Please look after me.",
+  starving: () => "I'm so hungry. Feed me?",
+  exhausted: (_name, advice) =>
     advice?.canLogSleep
-      ? `${name} is running on empty. Get some rest.`
-      : `${name} is running on empty. Log a workout or some steps.`,
-  sad: (name) => `${name} is lonely and low. Spend some time together.`,
-  foggy: (name) => `${name}'s mind is foggy. Try the Mind Gym.`,
+      ? "I'm running on empty. Let me rest."
+      : "I'm running on empty. Take me for a walk or a workout?",
+  sad: () => 'I feel lonely. Spend some time with me?',
+  foggy: () => "My head's all foggy. Mind Gym?",
 };
 
 /** Comfortably clear of every threshold, and above THRIVING_NEED. */

@@ -1,5 +1,5 @@
 import { decode } from 'base64-arraybuffer';
-import { type MealAnalysis, newId, parseMealAnalysisResponse } from '@vitto/core';
+import { type MealAnalysis, type MealPetContext, newId, parseMealAnalysisResponse } from '@vitto/core';
 import { supabase } from './supabaseClient';
 
 const bucket = 'meal-images';
@@ -17,8 +17,12 @@ export interface PickedImage {
  * picker returns the bytes itself (`base64: true`), which avoids reading the file
  * back off disk: expo-file-system's modern `File` API needs native code that is not
  * in every Expo Go build, and its legacy reader is deprecated.
+ *
+ * `pet` is optional and only ever adds: with it, the function also returns the
+ * pet's reaction to the plate in its own voice. Without it (the web app, tests)
+ * the analysis is exactly what it always was.
  */
-export const analyzeMealImage = async (image: PickedImage): Promise<MealAnalysis> => {
+export const analyzeMealImage = async (image: PickedImage, pet?: MealPetContext): Promise<MealAnalysis> => {
   if (!supabase) throw new Error('Supabase is not configured.');
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sign in before analyzing a meal.');
@@ -35,7 +39,7 @@ export const analyzeMealImage = async (image: PickedImage): Promise<MealAnalysis
   if (uploadError) throw uploadError;
 
   const { data, error } = await supabase.functions.invoke('analyze-meal', {
-    body: { storagePath: path },
+    body: { storagePath: path, ...(pet ? { pet } : {}) },
   });
   if (error) {
     // supabase-js hangs the failed Response off `context`, and the function puts the

@@ -127,6 +127,46 @@ describe('PetHealthEngine', () => {
     expect(xp(run(600, 200))).toBe(40);
   });
 
+  it('remarks on the owner coming back after days away, and stays quiet about a normal gap', () => {
+    const engine = new PetHealthEngine();
+    const lastCared = (daysAgo: number) => ({
+      ...createPet('user-1', 'Miso'),
+      lastEventAt: new Date(Date.parse('2026-08-28T12:00:00Z') - daysAgo * 86_400_000).toISOString(),
+    });
+    const back = engine.apply(lastCared(5), event).reaction;
+    expect(back.returnedAfterDays).toBe(5);
+    expect(back.message).toMatch(/^It's been 5 days\. I trained/);
+    const usual = engine.apply(lastCared(1), event).reaction;
+    expect(usual.returnedAfterDays).toBeUndefined();
+    expect(usual.message).not.toContain("It's been");
+    // A brand-new pet has no history to have been away from.
+    expect(engine.apply(createPet('user-1', 'Miso'), event).reaction.returnedAfterDays).toBeUndefined();
+  });
+
+  it('speaks the plate reaction the model wrote, and marks the line as authored', () => {
+    const pet = createPet('user-1', 'Miso');
+    const analysis = {
+      foodDescription: 'Grilled salmon and greens', grade: 'A' as const, summary: '', confidence: 1, detectedFoods: [],
+      macros: { calories: 500, proteinGrams: 40, carbsGrams: 20, fatGrams: 20 },
+      nutrients: { protein: true, vegetables: true, fruit: false, wholeGrains: false, fiber: true, treats: false },
+    };
+    const meal = (petReaction?: string): HealthEvent => ({
+      id: 'm', userId: 'user-1', occurredAt: '2026-08-28T12:00:00Z', type: 'MEAL', source: 'manual',
+      metadata: { protein: true, vegetables: true, fruit: false, wholeGrains: false, fiber: true, treats: false,
+        analysis: petReaction === undefined ? analysis : { ...analysis, petReaction } },
+    });
+    const engine = new PetHealthEngine();
+    const spoken = engine.apply(pet, meal('Yum, that was nourishing!')).reaction;
+    expect(spoken.message).toBe('Yum, that was nourishing!');
+    expect(spoken.authored).toBe(true);
+    // A searched or scanned meal has no model line: the stock one, not authored.
+    const stock = engine.apply(pet, meal()).reaction;
+    expect(stock.message).toContain('loved the variety');
+    expect(stock.authored).toBeUndefined();
+    // Blank from the model is treated as absent, never shown as an empty plaque.
+    expect(engine.apply(pet, meal('   ')).reaction.authored).toBeUndefined();
+  });
+
   it('pays rep-counted cardio for its reps, not its clock alone', () => {
     // Burpees are cardio but go nowhere, so minutes and kilometres alone would
     // score a hard round of them at the bare floor.

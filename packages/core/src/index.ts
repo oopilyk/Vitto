@@ -14,6 +14,8 @@ export * from './domain/strengthProgression';
 export * from './domain/personalRecords';
 export * from './domain/runRecords';
 export * from './domain/strengthStandards';
+export * from './domain/petVoice';
+export * from './domain/bond';
 export * from './domain/petStats';
 export * from './domain/decay';
 export * from './domain/devAccess';

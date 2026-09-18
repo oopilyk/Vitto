@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   AILMENT_MESSAGE,
+  bondFor,
+  petVoice,
   activeFoodEffects,
   type CareToast,
   type HealthEvent,
@@ -116,11 +118,21 @@ export function PetWorldHud({
   // A food effect's own line ("That was hot!") beats the meal's stock reaction
   // while the reaction is up: it is the fun part, and the toast already carries
   // the rest. An ailment still outranks both.
-  const feeling = condition.primary
+  // A line the model wrote for this exact plate beats a food effect's generic
+  // one-liner; the generic one still beats the engine's stock line.
+  const baseFeeling = condition.primary
     ? AILMENT_MESSAGE[condition.primary](pet.name, { canLogSleep })
-    : reaction?.effects?.[0]
-      ? reaction.effects[0].reaction
-      : (reaction?.message ?? `${pet.name} is feeling ${pet.mood}.`);
+    : reaction?.authored
+      ? reaction.message
+      : reaction?.effects?.[0]
+        ? reaction.effects[0].reaction
+        : (reaction?.message ?? `I'm feeling ${pet.mood}.`);
+  // Then said the way THIS pet would say it: its personality, filtered through
+  // whatever is wrong with it right now. See `petVoice`.
+  // How it feels about you, from your own care history. Derived on every
+  // render like the ailments are, and never stored.
+  const bond = bondFor(events, today, { adoptedAt: pet.adoptedAt });
+  const feeling = petVoice(baseFeeling, { personality: pet.personality, ailments: condition.ailments, bond: bond.stage });
 
   // Tags the pet is wearing right now, from recent meals — derived, so they
   // expire on their own and survive a reload.
@@ -259,6 +271,21 @@ export function PetWorldHud({
             <Text style={[styles.meta, night && retro.captionNight]}>{dayToken}</Text>
             {formToken ? (
               <Text style={[styles.meta, night && retro.captionNight]}>{formToken}</Text>
+            ) : null}
+            {/* The relationship, only when it has something to say: neutral is
+                the default and would just be noise. Sulking and wary read in
+                coral, so a cooling bond is noticed before it bottoms out. */}
+            {bond.stage !== 'neutral' ? (
+              <Text
+                style={[
+                  styles.meta,
+                  night && retro.captionNight,
+                  (bond.stage === 'sulking' || bond.stage === 'wary') && styles.metaBondCool,
+                ]}
+                accessibilityLabel={`${pet.name} is ${bond.stage} toward you`}
+              >
+                {bond.stage.toUpperCase()}
+              </Text>
             ) : null}
             {streaks.currentStreak > 0 ? (
               <Text
@@ -465,6 +492,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   metaPartnerNight: { color: '#a99a83' },
+  metaBondCool: { color: world.accentDeep },
   metaFlame: { color: world.accentDeep, fontWeight: '700' },
   metaFlameNight: { color: world.nightAccent },
   /** Alive but not yet re-earned today — dimmed, not the same as a banked day. */

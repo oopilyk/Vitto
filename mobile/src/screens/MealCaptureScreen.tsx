@@ -11,7 +11,7 @@ import {
   View, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
 import { analyzeMealImage, type PickedImage } from '../services/mealAnalysis';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
@@ -21,11 +21,13 @@ interface Props {
   onFeedStart: (imageUrl: string | null, grade: MealAnalysis['grade']) => void;
   onAnalyzingChange: (analyzing: boolean) => void;
   onClose: () => void;
+  /** Who is about to eat this, so the photo analysis can come back with their reaction. */
+  petContext?: MealPetContext;
 }
 
 type Mode = 'photo' | 'search' | 'scan';
 
-export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose }: Props) {
+export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext }: Props) {
   const [mode, setMode] = useState<Mode>('photo');
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
@@ -86,7 +88,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     onAnalyzingChange(true);
     setError(null);
     try {
-      setAnalysis(await analyzeMealImage(image));
+      setAnalysis(await analyzeMealImage(image, petContext));
     } catch (cause) {
       setError(errorMessage(cause, 'Meal analysis failed.'));
     } finally {

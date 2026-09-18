@@ -164,6 +164,8 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
 const MIND_FULL = 100;
 
 const CARDIO_STRENGTH_GAIN = 1;
+/** Days of silence after which the pet remarks on the owner coming back. */
+const RETURN_AFTER_DAYS = 3;
 /** Workout XP: a floor for showing up, then two a set, a little for reps and breadth, capped. */
 const WORKOUT_XP_BASE = 8;
 const WORKOUT_XP_CAP = 40;
@@ -222,6 +224,8 @@ export class PetHealthEngine {
   apply(pet: PetState, event: HealthEvent, context: PetHealthContext = {}): EngineResult {
     let delta: PetDelta;
     let message: string;
+    /** True when `message` was written for this exact moment (a plate the model saw). */
+    let authored = false;
     let eventLabel: string;
     let foodEffects: FoodEffect[] = [];
 
@@ -274,7 +278,7 @@ export class PetHealthEngine {
           // Minutes, not distance: the engine stores kilometres and has no idea
           // whether this user reads miles, and a pet announcing the wrong unit is
           // worse than one that does not mention it.
-          message = `${pet.name} kept pace with you for ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} and feels lighter on its feet.`;
+          message = `I kept pace with you for ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} and feel lighter on my feet.`;
           break;
         }
 
@@ -312,16 +316,16 @@ export class PetHealthEngine {
           : { energy: 6, happiness: 5, strength: 4, endurance: 2, xp: 18 + hardBonus };
         message = hasWorkoutStats
           ? sets > 0
-            ? `${pet.name} pushed through ${sets} ${sets === 1 ? 'set' : 'sets'} with you and feels stronger.`
-            : `${pet.name} showed up to train with you.`
-          : `${pet.name} trained for ${metadata.durationMinutes} minutes and feels stronger.`;
+            ? `I pushed through ${sets} ${sets === 1 ? 'set' : 'sets'} with you and feel stronger.`
+            : 'I showed up to train with you.'
+          : `I trained for ${metadata.durationMinutes} minutes and feel stronger.`;
         break;
       }
       case 'STEP_ACTIVITY': {
         const metadata = event.metadata as unknown as StepMetadata;
         const milestone = metadata.steps >= 8000;
         delta = { energy: milestone ? 7 : 3, happiness: 4, endurance: milestone ? 3 : 1, xp: milestone ? 16 : 8 };
-        message = milestone ? `${pet.name} explored somewhere new today.` : `${pet.name} enjoyed a little walk with you.`;
+        message = milestone ? 'I explored somewhere new today.' : 'I enjoyed a little walk with you.';
         eventLabel = milestone ? 'Explored the wilds' : 'Went for a walk';
         break;
       }
@@ -343,8 +347,8 @@ export class PetHealthEngine {
           xp: brainTrainingXp(metadata),
         };
         message = sharp
-          ? `${pet.name} feels clear-headed after thinking that through with you.`
-          : `${pet.name} liked puzzling over that together.`;
+          ? 'I feel clear-headed after thinking that through with you.'
+          : 'I liked puzzling over that together.';
         eventLabel = BRAIN_GAME_LABEL[metadata.game];
         break;
       }
@@ -356,7 +360,11 @@ export class PetHealthEngine {
         // a little sleepy. Small by design — flavour, not a second nutrition engine.
         foodEffects = detectFoodEffects(meal);
         if (foodEffects.length > 0) delta = mergeDelta(delta, foodEffectsDelta(foodEffects));
-        message = meal.treats ? `${pet.name} savored the treat. Balance feels good.` : `${pet.name} loved the variety in that meal.`;
+        // A plate the model looked at comes with the pet's own reaction to it,
+        // written for that plate; a searched or scanned meal gets the stock line.
+        const spoken = meal.analysis?.petReaction?.trim();
+        authored = Boolean(spoken);
+        message = spoken || (meal.treats ? 'I savored the treat. Balance feels good.' : 'I loved the variety in that meal.');
         eventLabel = 'Shared a meal';
         break;
       }
@@ -366,13 +374,13 @@ export class PetHealthEngine {
         const hours = Math.round((minutes / 60) * 10) / 10;
         if (minutes >= SLEEP_FULL_MINUTES) {
           delta = { energy: 14, recovery: 5, health: 2, happiness: 3, xp: 16 };
-          message = `${pet.name} slept soundly for ${hours}h and woke up bright.`;
+          message = `I slept soundly for ${hours}h and woke up bright.`;
         } else if (minutes >= SLEEP_SHORT_MINUTES) {
           delta = { energy: 9, recovery: 3, happiness: 1, xp: 11 };
-          message = `${pet.name} got ${hours}h — enough to take the edge off.`;
+          message = `I got ${hours}h — enough to take the edge off.`;
         } else {
           delta = { energy: 4, recovery: 1, xp: 6 };
-          message = `${pet.name} only managed ${hours}h. A longer night would help.`;
+          message = `I only managed ${hours}h. A longer night would help.`;
         }
         eventLabel = 'Rested up';
         break;
@@ -391,20 +399,36 @@ export class PetHealthEngine {
 
         const spent = `${formatMinutes(minutes)} on the screen — ${band.verdict}`;
         message = underBudget
-          ? `${pet.name} liked that: ${spent}, and under your ${formatMinutes(budget as number)} budget.`
-          : `${pet.name} saw you check in: ${spent}.`;
+          ? `I liked that: ${spent}, and under your ${formatMinutes(budget as number)} budget.`
+          : `I saw you check in: ${spent}.`;
         eventLabel = band.id === 'light' ? 'Unplugged' : 'Screen check-in';
         break;
       }
       default:
         delta = { happiness: 2, xp: 5 };
-        message = `${pet.name} noticed you taking care of yourself.`;
+        message = 'I noticed you taking care of yourself.';
         eventLabel = 'A healthy moment';
     }
 
+    // Coming back after days away is worth saying out loud. `lastEventAt` is
+    // the decay anchor, so it is exactly the moment the pet was last cared for.
+    const since = pet.lastEventAt ? Date.parse(pet.lastEventAt) : NaN;
+    const daysAway = Number.isFinite(since)
+      ? Math.floor((Date.parse(event.occurredAt) - since) / 86_400_000)
+      : 0;
+    const returnedAfterDays = daysAway >= RETURN_AFTER_DAYS ? daysAway : 0;
+    if (returnedAfterDays) message = `It's been ${returnedAfterDays} days. ${message}`;
+
     return {
       pet: applyDelta(pet, delta, event.occurredAt),
-      reaction: { message, eventLabel, delta, ...(foodEffects.length > 0 ? { effects: foodEffects } : {}) },
+      reaction: {
+        message,
+        eventLabel,
+        delta,
+        ...(authored ? { authored } : {}),
+        ...(returnedAfterDays ? { returnedAfterDays } : {}),
+        ...(foodEffects.length > 0 ? { effects: foodEffects } : {}),
+      },
     };
   }
 }
