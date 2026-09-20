@@ -56,11 +56,21 @@ export const MOTIVATION_OPTIONS: Choice<Motivation>[] = [
   { value: 'competition', label: 'A bit of competition' },
 ];
 
+/**
+ * Four temperaments with real distance between them, so the pet reads as
+ * somebody from the first message. The original set (energetic, chill,
+ * competitive, supportive) is still valid in the data but no longer offered:
+ * every one of them landed as a mild variation of "friendly".
+ *
+ * `savage` roasts you; it does not bully you. The difference is enforced in the
+ * prompt, not left to the model's discretion — see `PERSONALITY_VOICE`.
+ */
 export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
-  { value: 'energetic', label: 'Energetic', detail: 'Always ready to go' },
-  { value: 'chill', label: 'Chill', detail: 'Calm, steady, unbothered' },
-  { value: 'competitive', label: 'Competitive', detail: 'Loves a challenge' },
-  { value: 'supportive', label: 'Supportive', detail: 'In your corner, every day' },
+  { value: 'feisty', label: 'Feisty', detail: 'Scrappy, mouthy, spoiling for a fight' },
+  { value: 'cute', label: 'Cute', detail: 'Tiny, adoring, a bit of a baby' },
+  { value: 'sweet', label: 'Sweet', detail: 'Warm, kind, endlessly in your corner' },
+  { value: 'savage', label: 'Savage', detail: 'Deadpan, merciless, swears a little' },
+  { value: 'hype', label: 'Hype', detail: 'All swagger. Your personal hype man' },
 ];
 
 export const STEP_GOAL_PRESETS = [5000, 7500, 10000, 12500] as const;

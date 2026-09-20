@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -39,6 +39,9 @@ import { FriendPetScreen } from './src/screens/FriendPetScreen';
 import {  type ForcedTrophies,TodayScreen, type ForcedAmbient } from './src/screens/TodayScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { FourCornersScreen } from './src/screens/FourCornersScreen';
+import { CompanionChatScreen } from './src/screens/CompanionChatScreen';
+import { CompanionDebugScreen } from './src/screens/CompanionDebugScreen';
+import { companionService } from './src/services/companionService';
 import { PetJeopardyScreen } from './src/screens/PetJeopardyScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -92,6 +95,10 @@ type RootStackParamList = {
   // The day's detail — nutrition, care, movement, mind — which used to sit under
   // the pet. Pushed like PetStats, so the dashboard stays the pet and nothing else.
   Today: undefined;
+  // Talking to the pet. Pushed from the message button on the dashboard.
+  Companion: undefined;
+  // DEV ONLY, reached from Today's dev panel: what the pet is about to be told.
+  CompanionDebug: undefined;
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -134,6 +141,9 @@ const CARE_TOAST_VISIBLE_MS = 3200;
 /** How long typing can go on before the profile is written. */
 const PROFILE_SAVE_DEBOUNCE_MS = 600;
 const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
+/** Only a moment logged about now is worth the pet remarking on. */
+const COMPANION_FRESH_MS = 6 * 60 * 60 * 1000;
+
 
 /**
  * Units start from the device's locale, so an American phone opens the survey on
@@ -346,6 +356,13 @@ export default function App() {
   const [reaction, setReaction] = useState<PetReaction | null>(null);
   const [toast, setToast] = useState<CareToast | null>(null);
   /**
+   * Things the pet has said unprompted and that have not been read yet. Only the
+   * count is kept: the messages themselves are stored by the edge function and
+   * read in the conversation, and putting several sentences on the pet's plaque
+   * buried the scene behind them.
+   */
+  const [unreadCompanion, setUnreadCompanion] = useState(0);
+  /**
    * A full-screen reward moment (currently only a level-up). Presentation only,
    * never persisted: raised by `recordEvent` off the engine's own result, and
    * cleared when the user taps Continue. Refresh / navigation / re-open never
@@ -372,7 +389,7 @@ export default function App() {
   const [name, setName] = useState('Miso');
   // Chosen at adoption; changeable later from the profile.
   const [breed, setBreed] = useState<PetBreed>('bichon');
-  const [personality, setPersonality] = useState<PetPersonality>('supportive');
+  const [personality, setPersonality] = useState<PetPersonality>('sweet');
   const [error, setError] = useState<string | null>(null);
   // Persisted on `profiles` now (onboarding-v2). Derived rather than its own
   // state so a `loadProfile` after sign-in is what fills it. `updateProfile`
@@ -749,6 +766,40 @@ export default function App() {
     [shared, events, careLog, members, userId],
   );
 
+  /**
+   * Lets the AI companion perceive something the person just logged, then asks
+   * whether it has anything to say about it.
+   *
+   * Strictly best-effort and never awaited by the save: the moment is already
+   * recorded and the pet already fed. If this fails the only thing lost is a
+   * remark. Old events are not forwarded at all — a Health backfill replays days
+   * of history through `recordEvent`, and the pet reacting to each one would be
+   * both nonsense and a bill.
+   */
+  const tellCompanion = async (event: HealthEvent<unknown>, fedPet: PetState, levelledUp: boolean) => {
+    const age = Date.now() - Date.parse(event.occurredAt);
+    if (!(age >= 0 && age < COMPANION_FRESH_MS)) return;
+    const history = events;
+    const stepsBefore = history
+      .filter((past) => past.type === 'STEP_ACTIVITY' && isSameDay(past.occurredAt, new Date()))
+      .reduce((most, past) => Math.max(most, (past.metadata as StepMetadata).steps ?? 0), 0);
+    const perceived = toCompanionEvent(event as HealthEvent, {
+      stepGoal,
+      previousSteps: stepsBefore,
+      personalRecords: event.type === 'WORKOUT' ? newPersonalRecords(history, event as HealthEvent, profile.weightUnit) : undefined,
+    });
+    if (!perceived) return;
+    try {
+      const life = buildLifeContext({ pet: fedPet, events: [event as HealthEvent, ...history], profile, stepGoal });
+      await companionService.record(fedPet.id, life, perceived);
+      if (levelledUp) await companionService.record(fedPet.id, life, { type: 'LEVEL_UP', metadata: { level: fedPet.level } });
+      const { message } = await companionService.checkIn(fedPet.id, life);
+      if (message) setUnreadCompanion((count) => count + 1);
+    } catch {
+      // Nothing to surface: the care moment itself succeeded.
+    }
+  };
+
   const recordEvent = async (event: HealthEvent<unknown>) => {
     if (!pet) return;
     careMomentInFlight.current = true;
@@ -833,9 +884,48 @@ export default function App() {
       }
       setEvents((current) => [storedEvent, ...current]);
       setError(null);
+      if (remote) void tellCompanion(storedEvent, nextPet, detectLevelUp(pet, nextPet) !== null);
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save this care moment.'));
       throw cause;
+    } finally {
+      releasePetWrite();
+    }
+  };
+
+  /**
+   * DEV ONLY. Re-rolls the pet's temperament in place so all eight can be heard
+   * without adopting a new pet. Saved exactly like a breed change — versioned,
+   * one conflict retry — because it is the same column family on the same row.
+   * The companion's already-drifted traits are deliberately left alone: the
+   * temperament is the baseline it started from, not a reset button (the debug
+   * screen's "forget everything" is the reset).
+   */
+  const changePersonality = async (next: PetPersonality) => {
+    if (!pet) return;
+    const nextPet = { ...pet, personality: next };
+    setPet(nextPet);
+    setPersonality(next);
+    careMomentInFlight.current = true;
+    try {
+      if (isSupabaseConfigured && session) {
+        let base = pet;
+        let saved = await remoteRepository.savePetIfUnchanged(nextPet, base.version ?? 0);
+        if (saved.status === 'conflict') {
+          const fresh = await remoteRepository.loadPet();
+          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          base = fresh;
+          saved = await remoteRepository.savePetIfUnchanged({ ...fresh, personality: next }, fresh.version ?? 0);
+          if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
+        }
+        const stored = { ...base, personality: next, version: saved.version };
+        setPet(stored);
+        await repository.savePet(stored);
+        return;
+      }
+      await repository.savePet(nextPet);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not change their temperament.'));
     } finally {
       releasePetWrite();
     }
@@ -1426,6 +1516,34 @@ export default function App() {
     void repository.saveSeenAchievements(achievementScope, []).catch(() => undefined);
   };
 
+  // When the app opens on an account, ask the companion whether it has anything
+  // to say: it may have been left alone for days, or be waiting to ask how an
+  // interview went. Usually a rule says no and no model is called at all. Read
+  // through a ref so the day's numbers ticking does not re-ask; once per account
+  // and pet is the point.
+  const companionInputs = useRef({ pet, events, profile, stepGoal });
+  companionInputs.current = { pet, events, profile, stepGoal };
+  const companionPetId = pet?.id;
+  const companionUserId = isSupabaseConfigured ? session?.user.id : undefined;
+  useEffect(() => {
+    if (!dataReady || !companionUserId || !companionPetId) return;
+    let cancelled = false;
+    const { pet: current, events: history, profile: body, stepGoal: goal } = companionInputs.current;
+    if (!current) return;
+    const at = new Date();
+    const life = buildLifeContext({ pet: applyTimeDecay(current, at), events: history, profile: body, stepGoal: goal, now: at });
+    void companionService
+      .record(current.id, life, { type: 'USER_OPENED_APP' })
+      .then(() => companionService.checkIn(current.id, life))
+      .then(({ message }) => {
+        if (!cancelled && message) setUnreadCompanion((count) => count + 1);
+      })
+      .catch(() => undefined); // offline, or the function is not deployed yet: the pet just says nothing
+    return () => {
+      cancelled = true;
+    };
+  }, [dataReady, companionUserId, companionPetId]);
+
   if (!authReady || !dataReady) {
     return (
       <View style={[layout.screen, styles.center]}>
@@ -1516,6 +1634,8 @@ export default function App() {
               events={events}
               reaction={reaction}
               careToast={toast}
+              unreadMessages={unreadCompanion}
+              onOpenChat={isOnline ? () => navigation.navigate('Companion') : undefined}
               onLogMeal={() => navigation.navigate('MealCapture')}
               onLogWorkout={() => navigation.navigate('Workout')}
               onSyncSteps={() => void syncSteps()}
@@ -1670,6 +1790,32 @@ export default function App() {
             />
           )}
         </RootStack.Screen>
+        <RootStack.Screen name="Companion">
+          {({ navigation }) => (
+            <CompanionChatScreen
+              pet={livePet}
+              life={buildLifeContext({ pet: livePet, events, profile, stepGoal })}
+              onClose={() => {
+                // Opening the conversation is reading it.
+                setUnreadCompanion(0);
+                navigation.goBack();
+              }}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="CompanionDebug">
+          {({ navigation }) => (
+            <CompanionDebugScreen
+              pet={livePet}
+              events={events}
+              profile={profile}
+              stepGoal={stepGoal}
+              onChangePersonality={(next) => void changePersonality(next)}
+              onOpenChat={() => navigation.replace('Companion')}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
         <RootStack.Screen name="Today">
           {({ navigation }) => (
             <TodayScreen
@@ -1696,6 +1842,7 @@ export default function App() {
               forcedTrophies={isDev ? forcedTrophies : undefined}
               onForceTrophies={isDev ? setForcedTrophies : undefined}
               onReplayAchievements={isDev ? replayAchievements : undefined}
+              onOpenCompanionDebug={isDev && isOnline ? () => navigation.navigate('CompanionDebug') : undefined}
               ambientDebug={
                 isDev
                   ? {

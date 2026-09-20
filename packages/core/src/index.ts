@@ -54,3 +54,10 @@ export * from './data/triviaQuestions';
 export * from './data/jeopardyQuestions';
 export * from './auth';
 export * from './supabaseRepository';
+export * from './domain/companionBridge';
+/**
+ * The AI companion, namespaced on purpose: it is a closed module that also runs
+ * inside the Supabase edge function, and it has its own `clamp` and `WEEKDAYS`
+ * that would collide with core's under a flat `export *`.
+ */
+export * as companion from './companion';

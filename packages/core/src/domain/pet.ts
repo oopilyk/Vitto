@@ -9,7 +9,25 @@ export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
  * later must not tie personality to the account. Only stored today — dialogue,
  * reactions and social presentation can read it when those systems exist.
  */
-export type PetPersonality = 'energetic' | 'chill' | 'competitive' | 'supportive';
+/**
+ * The pet's temperament, chosen when it is adopted. It is the baseline, not the
+ * whole character: the AI companion starts from here and then drifts with how
+ * its person actually talks to it (see `companion/personality.ts`).
+ *
+ * The first five are what onboarding offers now. The last four are the original
+ * set, kept valid because pets adopted under them still carry them — they are
+ * not offered any more, and each reads as a quieter version of one of the four.
+ */
+export type PetPersonality =
+  | 'feisty'
+  | 'cute'
+  | 'sweet'
+  | 'savage'
+  | 'hype'
+  | 'energetic'
+  | 'chill'
+  | 'competitive'
+  | 'supportive';
 
 /** Which drawn companion the pet is. Optional: pets adopted before the picker have none. */
 export type PetBreed =

@@ -33,6 +33,10 @@ interface Props {
   reaction: PetReaction | null;
   /** Confirmation of the care moment just logged — see `CareToastBanner`. */
   careToast?: CareToast | null;
+  /** Unread things the pet has said; shown as a dot on the message button. */
+  unreadMessages?: number;
+  /** Opens the conversation with the pet. Absent offline, where there is no companion. */
+  onOpenChat?: () => void;
   /** Opens the meal-capture modal — now the Kitchen's job to call, once the
    * user has actually chosen to pick food, not the top-level Feed tap. */
   onLogMeal: () => void;
@@ -108,6 +112,8 @@ export function DashboardScreen({
   events,
   reaction,
   careToast,
+  unreadMessages,
+  onOpenChat,
   onLogMeal,
   onLogWorkout,
   onSyncSteps,
@@ -204,6 +210,8 @@ export function DashboardScreen({
           events={events}
           reaction={reaction}
           careToast={careToast}
+          unreadMessages={unreadMessages}
+          onOpenChat={onOpenChat}
           environment={environment}
           formLabel={formLabel}
           accountInitial={accountInitial}

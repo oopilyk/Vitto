@@ -4,3 +4,8 @@ dist/
 .env.local
 supabase/.temp/
 /ios/
+
+# The standalone AI companion prototype: its own git repo, its own secrets and a
+# 1 GB node_modules. Its character logic has been ported into packages/core and
+# supabase/functions/companion; the folder stays local as reference only.
+/vittoAI/

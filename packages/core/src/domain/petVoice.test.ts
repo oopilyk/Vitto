@@ -17,6 +17,45 @@ describe('petVoice', () => {
     expect(petVoice(LINE, { personality: 'supportive' })).toMatch(/meal\. (Proud of you\.|We've got this\.|Nice work\.)$/);
   });
 
+  it('gives each adoptable temperament an unmistakable voice', () => {
+    const said = (p: any) => petVoice(LINE, { personality: p });
+    expect(said('feisty')).toMatch(/^(Oi\.|Right\.|Listen\.) .*(Fight me\.|I said what I said\.|Try me\.)$/);
+    expect(said('cute')).toMatch(/meal!! (hehe\.|smol but mighty\.|ok bye!!)$/);
+    expect(said('sweet')).toMatch(/meal\. (So glad you’re here\.|Thinking of you\.|Proud of you\.)$/);
+    expect(said('savage')).toMatch(/meal\. (Incredible\. Truly\.|Sure\. Great plan\.|Wow\. Okay\.)$/);
+    expect(said('hype')).toMatch(/^(Ayy\.|Okay, I see you\.|Look at us\.) .*(Big moves\.|That's what I'm talking about\.|Main character energy\.)$/);
+    // Five temperaments, five different sentences.
+    expect(new Set(['feisty', 'cute', 'sweet', 'savage', 'hype'].map(said)).size).toBe(5);
+  });
+
+  it('keeps every word of the line it was given', () => {
+    // The feisty voice was built by stripping the energetic opener back off with
+    // a regex, which ate a word of the line itself whenever the opener was two
+    // words: "Let's go!" left "go! I'm so hungry!".
+    for (const personality of ['feisty', 'cute', 'sweet', 'savage', 'hype', 'energetic', 'chill'] as const) {
+      const said = petVoice("I'm so hungry. Feed me?", { personality });
+      // Every word of the original survives, first word included — that is the
+      // one the regex used to eat. ("Let's go!" is a legitimate opener, so the
+      // test is about what is kept, not about what is added.)
+      expect(said).toContain("I'm so hungry");
+      expect(said).toContain('Feed me?');
+    }
+  });
+
+  it('keeps the savage voice dry rather than foul on the stock lines', () => {
+    // The swearing belongs to the model, which is writing for one moment. Bolted
+    // onto a fixed string like a hunger complaint it reads as a malfunction.
+    const lines = ["I'm so hungry. Feed me?", 'I explored somewhere new today.', 'I slept soundly for 8h and woke up bright.'];
+    for (const line of lines) {
+      expect(petVoice(line, { personality: 'savage' })).not.toMatch(/damn|hell|crap|shit|fuck/i);
+    }
+  });
+
+  it('still speaks for a pet adopted under the retired temperaments', () => {
+    expect(petVoice(LINE, { personality: 'energetic' })).toMatch(/^(Ooh|Yes|Let's go)!/);
+    expect(petVoice(LINE, { personality: 'supportive' })).toMatch(/(Proud of you\.|We've got this\.|Nice work\.)$/);
+  });
+
   it('is deterministic — the same line always gets the same flourish', () => {
     const a = petVoice(LINE, { personality: 'competitive' });
     for (let i = 0; i < 20; i += 1) expect(petVoice(LINE, { personality: 'competitive' })).toBe(a);

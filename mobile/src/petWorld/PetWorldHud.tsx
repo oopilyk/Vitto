@@ -68,6 +68,15 @@ interface PetWorldHudProps {
    * lives in the account menu with Profile and Settings.
    */
   onOpenFriends?: () => void;
+  /**
+   * How many things the pet has said that have not been read yet. Shown as a
+   * dot on the message button, never as text on the plaque: what the model
+   * writes is a few sentences long, and putting that on the plaque pushed the
+   * pet off screen and buried the day's stats under it.
+   */
+  unreadMessages?: number;
+  /** Opens the conversation. Absent offline, which also hides the button. */
+  onOpenChat?: () => void;
   /** `own` marks the adopted pet; the other one is the joint pet. Only shown as
    *  a switcher, and only when there really are two — adding one lives in
    *  Profile's care-partner card, not on the world screen. */
@@ -99,6 +108,8 @@ export function PetWorldHud({
   onOpenStats,
   onOpenToday,
   onOpenFriends,
+  unreadMessages = 0,
+  onOpenChat,
   pets,
   activePetId,
   onSelectPet,
@@ -219,6 +230,7 @@ export function PetWorldHud({
           ) : null}
         </View>
 
+        {/* Inert: a tap anywhere here reaches the pet behind it. */}
         <View style={styles.center} pointerEvents="none">
           {/* One plate: the room as a kicker over the pet's name. Replaces the
               two separate name / room plates that used to stack here. */}
@@ -370,6 +382,28 @@ export function PetWorldHud({
                 TODAY
               </Text>
             </Pressable>
+
+            {/* Talking to the pet. A disc like the others rather than anything on
+                the plaque, with a dot when it has said something you have not
+                read — the message itself waits in the conversation. */}
+            {onOpenChat ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unreadMessages > 0
+                    ? `Talk to ${pet.name}, ${unreadMessages} unread`
+                    : `Talk to ${pet.name}`
+                }
+                onPress={onOpenChat}
+                hitSlop={8}
+                style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.disc, pressed && retroPressed]}
+              >
+                <Text style={[styles.chatMark, night && retro.labelNight]}>💬</Text>
+                {unreadMessages > 0 ? (
+                  <View testID="companion-unread" style={[styles.unreadDot, night && styles.unreadDotNight]} pointerEvents="none" />
+                ) : null}
+              </Pressable>
+            ) : null}
           </View>
 
           {menuOpen ? (
@@ -492,6 +526,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   metaPartnerNight: { color: '#a99a83' },
+  chatMark: { fontSize: 18, lineHeight: 22 },
+  /** Sits on the disc's edge, outlined so it reads over the panel border. */
+  unreadDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    backgroundColor: world.accent,
+    borderColor: world.surface,
+  },
+  unreadDotNight: { backgroundColor: world.nightAccent, borderColor: world.nightSurface },
   metaBondCool: { color: world.accentDeep },
   metaFlame: { color: world.accentDeep, fontWeight: '700' },
   metaFlameNight: { color: world.nightAccent },

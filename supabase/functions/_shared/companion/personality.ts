@@ -1,0 +1,185 @@
+// GENERATED FILE -- DO NOT EDIT BY HAND.
+// Source: packages/core/src/companion/personality.ts
+// Regenerate with: node scripts/syncCompanion.mjs
+
+import { TRAITS, type CompanionEventType, type PersonalityTraits, type ToneSignal, type Trait } from './types.ts';
+import { clamp, hashString } from './util.ts';
+
+const TRAIT_MIN = 0.05;
+const TRAIT_MAX = 0.95;
+/** Max change to any single trait from one interaction. Personality drifts, it does not flip. */
+export const MAX_TRAIT_STEP = 0.02;
+
+/** How the person's conversational tone pulls each trait, per signal, per exchange. */
+const TONE_INFLUENCE: Record<ToneSignal, Partial<Record<Trait, number>>> = {
+  joking: { playful: 0.012, sarcastic: 0.004 },
+  sarcastic: { sarcastic: 0.012, playful: 0.004 },
+  competitive: { competitive: 0.012, energetic: 0.004 },
+  affectionate: { affectionate: 0.012, shy: -0.006 },
+  calm: { calm: 0.01, energetic: -0.004 },
+  energetic: { energetic: 0.01, calm: -0.004 },
+  curious: { curious: 0.01 },
+  reserved: { shy: 0.006, playful: -0.004 },
+};
+
+/** Real life shapes the pet too, more slowly than conversation does. */
+const EVENT_INFLUENCE: Partial<Record<CompanionEventType, Partial<Record<Trait, number>>>> = {
+  WORKOUT_COMPLETED: { energetic: 0.005, competitive: 0.003 },
+  STEP_GOAL_REACHED: { energetic: 0.004 },
+  SLEEP_GOAL_REACHED: { calm: 0.005 },
+  BRAIN_GAME_PLAYED: { curious: 0.005, calm: 0.002 },
+  HEALTHY_MEAL_LOGGED: { calm: 0.002 },
+};
+
+/**
+ * The temperament the owner picked at onboarding, as a starting lean. It is a
+ * nudge, not a cage: the trait vector drifts from here with how they talk and
+ * live, which is the whole point of the companion.
+ */
+const TEMPERAMENT_LEAN: Record<string, Partial<Record<Trait, number>>> = {
+  // The four offered at adoption, pushed far enough apart that two pets with
+  // different temperaments never sound like each other on day one.
+  feisty: { competitive: 0.88, energetic: 0.8, playful: 0.72, shy: 0.08, calm: 0.15 },
+  cute: { affectionate: 0.88, playful: 0.8, shy: 0.55, sarcastic: 0.08, energetic: 0.65 },
+  sweet: { affectionate: 0.9, calm: 0.72, curious: 0.62, sarcastic: 0.06, competitive: 0.15 },
+  savage: { sarcastic: 0.92, playful: 0.66, competitive: 0.6, affectionate: 0.3, shy: 0.05 },
+  hype: { energetic: 0.88, playful: 0.82, competitive: 0.7, affectionate: 0.66, shy: 0.05, calm: 0.2 },
+  // The original set, kept for pets adopted under it.
+  energetic: { energetic: 0.82, playful: 0.7 },
+  chill: { calm: 0.82, shy: 0.3 },
+  competitive: { competitive: 0.82, energetic: 0.66 },
+  supportive: { affectionate: 0.82, calm: 0.62 },
+};
+
+const round = (n: number) => Math.round(n * 1000) / 1000;
+
+/** Mulberry32: a tiny seeded PRNG, so a pet's starting self is reproducible. */
+const seeded = (seed: number) => {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+/**
+ * A pet's starting traits.
+ *
+ * Seeded from the pet's id rather than `Math.random()`: the state row is created
+ * on first contact, and two devices racing to create it must arrive at the same
+ * individual. Every pet gets two clear tendencies so it reads as someone from
+ * day one; the onboarding temperament, when there is one, picks which.
+ */
+export const initialTraits = (seedKey: string, temperament?: string): PersonalityTraits => {
+  const random = seeded(hashString(seedKey));
+  const traits = {} as PersonalityTraits;
+  for (const trait of TRAITS) traits[trait] = round(0.25 + random() * 0.5);
+  const lean = temperament ? TEMPERAMENT_LEAN[temperament] : undefined;
+  if (lean) {
+    for (const [trait, value] of Object.entries(lean) as [Trait, number][]) traits[trait] = value;
+    return traits;
+  }
+  const order = [...TRAITS].sort((a, b) => hashString(seedKey + a) - hashString(seedKey + b));
+  traits[order[0]!] = round(0.7 + random() * 0.2);
+  traits[order[1]!] = round(0.65 + random() * 0.2);
+  return traits;
+};
+
+/**
+ * Moves a pet's traits onto a new temperament, keeping what it has learned.
+ *
+ * Traits are seeded once, from the temperament chosen at adoption. Change the
+ * temperament later and the voice guidance follows but the traits do not, so a
+ * pet switched from sweet to savage is told in one breath to be deadpan and
+ * "openly affectionate; calm and steady" — and averages out to nobody.
+ *
+ * Which temperament the traits were seeded from is not stored, and does not
+ * need to be: the seed is deterministic and drift is at most MAX_TRAIT_STEP a
+ * nudge, while the leans sit far apart, so the seed the traits are closest to
+ * is the one they came from. If that is not the current temperament, the
+ * accumulated drift is carried over onto the new seed.
+ */
+export const rebaseTraits = (traits: PersonalityTraits, seedKey: string, temperament?: string): PersonalityTraits => {
+  if (!temperament || !TEMPERAMENT_LEAN[temperament]) return traits;
+  const distance = (seed: PersonalityTraits) => TRAITS.reduce((sum, trait) => sum + Math.abs(traits[trait] - seed[trait]), 0);
+  let origin = initialTraits(seedKey);
+  let best = distance(origin);
+  let originName: string | undefined;
+  for (const name of Object.keys(TEMPERAMENT_LEAN)) {
+    const seed = initialTraits(seedKey, name);
+    const d = distance(seed);
+    if (d < best) { best = d; origin = seed; originName = name; }
+  }
+  if (originName === temperament) return traits;
+  const target = initialTraits(seedKey, temperament);
+  const next = {} as PersonalityTraits;
+  for (const trait of TRAITS) next[trait] = round(clamp(target[trait] + (traits[trait] - origin[trait]), TRAIT_MIN, TRAIT_MAX));
+  return next;
+};
+
+const applyDeltas = (traits: PersonalityTraits, deltas: Partial<Record<Trait, number>>): PersonalityTraits => {
+  const next = { ...traits };
+  for (const [trait, delta] of Object.entries(deltas) as [Trait, number][]) {
+    next[trait] = round(clamp(next[trait] + clamp(delta, -MAX_TRAIT_STEP, MAX_TRAIT_STEP), TRAIT_MIN, TRAIT_MAX));
+  }
+  return next;
+};
+
+export const applyToneSignals = (traits: PersonalityTraits, signals: readonly ToneSignal[]): PersonalityTraits => {
+  const deltas: Partial<Record<Trait, number>> = {};
+  for (const signal of new Set(signals)) {
+    for (const [trait, delta] of Object.entries(TONE_INFLUENCE[signal] ?? {}) as [Trait, number][]) {
+      deltas[trait] = (deltas[trait] ?? 0) + delta;
+    }
+  }
+  return applyDeltas(traits, deltas);
+};
+
+export const applyEventInfluence = (traits: PersonalityTraits, type: CompanionEventType): PersonalityTraits =>
+  applyDeltas(traits, EVENT_INFLUENCE[type] ?? {});
+
+export const dominantTraits = (traits: PersonalityTraits): Trait[] =>
+  (Object.entries(traits) as [Trait, number][])
+    .filter(([, value]) => value >= 0.6)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([trait]) => trait);
+
+const FLAVORS: Record<Trait, string> = {
+  playful: 'a bouncy, mischievous little thing',
+  sarcastic: 'a dry-witted creature with one eyebrow permanently raised',
+  affectionate: 'a warm, cuddly companion',
+  competitive: 'a scrappy competitor with something to prove',
+  shy: 'a soft-spoken creature that watches before it speaks',
+  curious: 'a wide-eyed explorer who has to know everything',
+  energetic: 'a restless bundle of energy',
+  calm: 'a serene, steady presence',
+};
+
+export const personalityFlavor = (traits: PersonalityTraits): string => {
+  const [top] = dominantTraits(traits);
+  return top ? FLAVORS[top] : 'still finding its shape';
+};
+
+const TRAIT_DESCRIPTORS: Record<Trait, [low: string, high: string]> = {
+  playful: ['fairly serious', 'very playful, loves games and silliness'],
+  sarcastic: ['earnest and sincere', 'dry and sarcastic'],
+  affectionate: ['reserved with affection', 'openly affectionate'],
+  competitive: ['easygoing about winning', 'competitive, keeps score'],
+  shy: ['bold and outgoing', 'a bit shy'],
+  curious: ['content and incurious', 'intensely curious about their life'],
+  energetic: ['low-key', 'high energy'],
+  calm: ['easily worked up', 'calm and steady'],
+};
+
+export const describePersonality = (traits: PersonalityTraits): string => {
+  const parts: string[] = [];
+  for (const trait of TRAITS) {
+    const value = traits[trait];
+    if (value >= 0.65) parts.push(TRAIT_DESCRIPTORS[trait][1]);
+    else if (value <= 0.3) parts.push(TRAIT_DESCRIPTORS[trait][0]);
+  }
+  return parts.length ? parts.join('; ') : 'balanced, still figuring itself out';
+};

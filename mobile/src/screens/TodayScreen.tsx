@@ -79,6 +79,8 @@ interface Props {
   onForceTrophies?: (state: ForcedTrophies | null) => void;
   /** Forgets which achievement unlocks have been shown, so every earned one pops again. */
   onReplayAchievements?: () => void;
+  /** DEV: the companion's prompt, memories and triggers. Needs an account. */
+  onOpenCompanionDebug?: () => void;
   /**
    * What the sensors are actually reporting. Both ambient hooks fail quietly by
    * design, so on a device "permission denied", "no such sensor" and "you are
@@ -175,6 +177,7 @@ export function TodayScreen({
   forcedTrophies,
   onForceTrophies,
   onReplayAchievements,
+  onOpenCompanionDebug,
   ambientDebug,
 }: Props) {
   const night = isNightTime();
@@ -524,6 +527,9 @@ export function TodayScreen({
               value={forcedTrophies ?? 'live'}
               onChange={(next) => onForceTrophies(next === 'live' ? null : next)}
             />
+            {onOpenCompanionDebug ? (
+              <TextButton label="Companion debug" onPress={onOpenCompanionDebug} />
+            ) : null}
             {onReplayAchievements ? (
               <View style={{ marginTop: 12 }}>
                 <TextButton label="Replay achievement unlocks" onPress={onReplayAchievements} />

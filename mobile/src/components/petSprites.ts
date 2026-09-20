@@ -176,7 +176,7 @@ const sheetFrom = (layout: SheetLayout, label: string, source: ImageSourcePropTy
  * set. Every bichon form is dialled back by the same factor so they stay a
  * family, and so the evolutions do not change size relative to the base.
  */
-const BICHON_ART_SCALE = 0.9;
+const BICHON_ART_SCALE = 1.0;
 
 /**
  * The bichon's runner evolution: a show-cut bichon on longer legs, fuller

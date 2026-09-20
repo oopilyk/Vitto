@@ -42,6 +42,23 @@ const COMPETITIVE_TAGS = ['Beat that tomorrow.', 'New record next?', 'Top that.'
 const SUPPORTIVE_TAGS = ['Proud of you.', "We've got this.", 'Nice work.'] as const;
 const ENERGETIC_OPENERS = ['Ooh!', 'Yes!', "Let's go!"] as const;
 const CHILL_TAGS = ['No rush.', 'All good.', 'Easy does it.'] as const;
+
+const FEISTY_OPENERS = ['Oi.', 'Right.', 'Listen.'] as const;
+const FEISTY_TAGS = ['Fight me.', 'I said what I said.', 'Try me.'] as const;
+const CUTE_TAGS = ['hehe.', 'smol but mighty.', 'ok bye!!'] as const;
+const HYPE_OPENERS = ['Ayy.', 'Okay, I see you.', 'Look at us.'] as const;
+const HYPE_TAGS = ['Big moves.', "That's what I'm talking about.", 'Main character energy.'] as const;
+const SWEET_TAGS = ['So glad you’re here.', 'Thinking of you.', 'Proud of you.'] as const;
+/**
+ * Savage, on the stock lines: dry, never foul.
+ *
+ * The swearing the temperament is sold on belongs to the model, which is writing
+ * a sentence for one moment and can judge it. This layer restyles fixed strings
+ * like "I'm so hungry. Feed me?", and bolting a curse onto those reads as a
+ * malfunction rather than a character. See `PERSONALITY_VOICE` in the companion
+ * prompts for where the licence actually lives.
+ */
+const SAVAGE_TAGS = ['Incredible. Truly.', 'Sure. Great plan.', 'Wow. Okay.'] as const;
 /** Sulking: cool, not cruel. It still answers; it just is not thrilled you asked. */
 const SULKING_OPENERS = ["Oh. You're back.", 'Hm.', 'Fine.'] as const;
 const DEVOTED_TAGS = ['Love you.', 'Missed you.', 'Stay a while?'] as const;
@@ -49,12 +66,14 @@ const DEVOTED_TAGS = ['Love you.', 'Missed you.', 'Stay a while?'] as const;
 const SENTENCE = /[^.!?…]+[.!?…]*/g;
 const sentencesOf = (text: string): string[] => (text.match(SENTENCE) ?? [text]).map((s) => s.trim()).filter(Boolean);
 
-/** First sentence gets an exclamation, and an opener goes in front. */
-const energetically = (text: string): string => {
+/** Turns the first sentence's full stop into an exclamation, leaving the rest alone. */
+const exclaimFirst = (text: string): string => {
   const [first = text, ...rest] = sentencesOf(text);
-  const lifted = /[.]$/.test(first) ? `${first.slice(0, -1)}!` : first;
-  return [pick(text, ENERGETIC_OPENERS), lifted, ...rest].join(' ');
+  return [/[.]$/.test(first) ? `${first.slice(0, -1)}!` : first, ...rest].join(' ');
 };
+
+/** First sentence gets an exclamation, and an opener goes in front. */
+const energetically = (text: string): string => `${pick(text, ENERGETIC_OPENERS)} ${exclaimFirst(text)}`;
 
 /** No exclamations, and a settling word at the end. */
 const calmly = (text: string): string => `${text.replace(/!/g, '.')} ${pick(text, CHILL_TAGS)}`;
@@ -104,6 +123,18 @@ export const petVoice = (line: string, { personality, ailments = [], bond }: Voi
 
 const withPersonality = (text: string, personality?: PetPersonality): string => {
   switch (personality) {
+    // The four offered at adoption.
+    case 'feisty':
+      return `${pick(text, FEISTY_OPENERS)} ${exclaimFirst(text)} ${pick(text, FEISTY_TAGS)}`;
+    case 'cute':
+      return `${text.replace(/\.$/, '!!')} ${pick(text, CUTE_TAGS)}`;
+    case 'sweet':
+      return `${text} ${pick(text, SWEET_TAGS)}`;
+    case 'savage':
+      return `${text.replace(/!/g, '.')} ${pick(text, SAVAGE_TAGS)}`;
+    case 'hype':
+      return `${pick(text, HYPE_OPENERS)} ${exclaimFirst(text)} ${pick(text, HYPE_TAGS)}`;
+    // The original set. Still worn by pets adopted before the four above.
     case 'energetic':
       return energetically(text);
     case 'chill':
