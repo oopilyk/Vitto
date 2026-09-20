@@ -383,9 +383,10 @@ export function PetWorldHud({
               </Text>
             </Pressable>
 
-            {/* Talking to the pet. A disc like the others rather than anything on
-                the plaque, with a dot when it has said something you have not
-                read — the message itself waits in the conversation. */}
+            {/* Talking to the pet. A pill the twin of TODAY, in plain ink so
+                coral keeps meaning "your goals", with a dot when it has said
+                something you have not read — the message itself waits in the
+                conversation. */}
             {onOpenChat ? (
               <Pressable
                 accessibilityRole="button"
@@ -396,9 +397,9 @@ export function PetWorldHud({
                 }
                 onPress={onOpenChat}
                 hitSlop={8}
-                style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.disc, pressed && retroPressed]}
+                style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, pressed && retroPressed]}
               >
-                <Text style={[styles.chatMark, night && retro.labelNight]}>💬</Text>
+                <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>CHAT</Text>
                 {unreadMessages > 0 ? (
                   <View testID="companion-unread" style={[styles.unreadDot, night && styles.unreadDotNight]} pointerEvents="none" />
                 ) : null}
@@ -526,8 +527,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   metaPartnerNight: { color: '#a99a83' },
-  chatMark: { fontSize: 18, lineHeight: 22 },
-  /** Sits on the disc's edge, outlined so it reads over the panel border. */
+  /** Sits on the pill's corner, outlined so it reads over the panel border. */
   unreadDot: {
     position: 'absolute',
     top: -2,
