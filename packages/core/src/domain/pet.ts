@@ -24,6 +24,7 @@ export type PetPersonality =
   | 'sweet'
   | 'savage'
   | 'hype'
+  | 'menace'
   | 'energetic'
   | 'chill'
   | 'competitive'

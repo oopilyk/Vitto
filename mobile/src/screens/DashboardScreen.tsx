@@ -8,8 +8,11 @@ import {
   type HealthEvent,
   type PetReaction,
   type PetState,
+  assessCondition,
+  bondFor,
   getPetBuild,
   hasEvolved,
+  petVoice,
 } from '@vitto/core';
 import { LevelUpCelebration } from '../celebrations/LevelUpCelebration';
 import { StreakCelebration } from '../celebrations/StreakCelebration';
@@ -35,6 +38,7 @@ interface Props {
   careToast?: CareToast | null;
   /** Unread things the pet has said; shown as a dot on the message button. */
   unreadMessages?: number;
+  petSaid?: { id: string; text: string } | null;
   /** Opens the conversation with the pet. Absent offline, where there is no companion. */
   onOpenChat?: () => void;
   /** Opens the meal-capture modal — now the Kitchen's job to call, once the
@@ -113,6 +117,7 @@ export function DashboardScreen({
   reaction,
   careToast,
   unreadMessages,
+  petSaid,
   onOpenChat,
   onLogMeal,
   onLogWorkout,
@@ -180,6 +185,36 @@ export function DashboardScreen({
 
   const night = isNightTime();
 
+  // What the pet says over its head. Every log speaks: the reaction to it, in
+  // this pet's own voice, goes in the bubble for free and at once. If the
+  // companion then has something of its own to say about it, that arrives a
+  // moment later and takes the bubble over — whichever is newest wins. Without
+  // this the bubble was at the mercy of the companion's cooldown and daily cap,
+  // and most logs were met with silence.
+  const [said, setSaid] = useState<{ id: string; text: string } | null>(null);
+  const reactionCount = useRef(0);
+  useEffect(() => {
+    if (!reaction) return;
+    const line = reaction.authored ? reaction.message : (reaction.effects?.[0]?.reaction ?? reaction.message);
+    // Only the conditions that change how it can speak at all (fading, foggy):
+    // this is a reaction, not a complaint, so hunger must not restyle it as one.
+    const ailments = assessCondition(pet).ailments.filter((ailment) => ailment === 'dying' || ailment === 'foggy');
+    const bond = bondFor(events, new Date(), { adoptedAt: pet.adoptedAt });
+    reactionCount.current += 1;
+    setSaid({
+      id: `reaction-${reactionCount.current}`,
+      text: petVoice(line, { personality: pet.personality, ailments, bond: bond.stage }),
+    });
+    // The reaction object is the trigger; the pet and events are read as of then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reaction]);
+  useEffect(() => {
+    // Cleared (the conversation was opened): take the companion's line down, but
+    // leave a reaction that is still up — on mount this runs with nothing to say,
+    // right after the effect above may have spoken.
+    setSaid((current) => petSaid ?? (current?.id.startsWith('reaction-') ? current : null));
+  }, [petSaid]);
+
   // The underlying pet gives a little "huh?" bob just as the celebration veil
   // comes in — the "pet notices something is happening" beat of the sequence.
   // Once per celebration: `interaction.notice` is stable (see `usePetInteraction`).
@@ -203,6 +238,8 @@ export function DashboardScreen({
       atGym={atGym}
       onPetTap={interaction.notice}
       night={night}
+      petSaid={said}
+      onOpenChat={onOpenChat}
       hudOverlay={
         <PetWorldHud
           pet={pet}

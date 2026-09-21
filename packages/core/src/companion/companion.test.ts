@@ -334,7 +334,7 @@ describe('the keyless fallback', () => {
 
 describe('sounding like someone, not like software', () => {
   it('gives every offered temperament example replies, and no two alike', () => {
-    const offered = ['feisty', 'cute', 'sweet', 'savage', 'hype'];
+    const offered = ['feisty', 'cute', 'sweet', 'savage', 'hype', 'menace'];
     const examples = offered.map((name) => PERSONALITY_VOICE[name]!.split('\n').filter((line) => line.includes('->')));
     for (const lines of examples) expect(lines.length).toBeGreaterThanOrEqual(2);
     expect(new Set(examples.flat().map((line) => line.split('->')[1])).size).toBe(examples.flat().length);
@@ -344,6 +344,16 @@ describe('sounding like someone, not like software', () => {
     expect(STABLE_SYSTEM_PROMPT).toMatch(/do NOT end with a question/);
     expect(STABLE_SYSTEM_PROMPT).toMatch(/Match their energy/);
     expect(STABLE_SYSTEM_PROMPT).not.toMatch(/ask follow-up questions/);
+  });
+
+  it('lets menace swear and boss, with the routes to real harm closed by name', () => {
+    const voice = PERSONALITY_VOICE.menace!;
+    expect(voice).toMatch(/never insult what they ARE/);
+    expect(voice).toMatch(/never tell them to eat less/);
+    expect(voice).toMatch(/body, weight, size, looks/);
+    expect(voice).toMatch(/drop the act/);
+    expect(sanitizeLifeContext({ pet: { temperament: 'menace' } } as never).pet.temperament).toBe('menace');
+    expect(initialTraits('u:p', 'menace').calm).toBeLessThan(0.1);
   });
 
   it('takes paragraph breaks and stitching dashes out of a reply', () => {

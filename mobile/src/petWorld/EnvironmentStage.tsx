@@ -15,6 +15,7 @@ import { useReducedMotion } from '../hooks/useReducedMotion';
 import { playPokeFeedback } from '../services/mealFeedback';
 import { PetNameBubble } from './PetNameBubble';
 import { stageMetrics } from './EnvironmentBackdrop';
+import { PetSpeechBubble } from './PetSpeechBubble';
 import { PetTapReaction, RAPID_TAP_WINDOW_MS } from './PetTapReaction';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
 import type { EnvironmentId, PetAvatarActivityProps } from './types';
@@ -80,6 +81,10 @@ interface EnvironmentStageProps {
   onPetTap?: () => void;
   /** Dark-mode the pet's name bubble so it stays legible on night backdrops. */
   night?: boolean;
+  /** The newest thing the pet said unprompted — spoken from over its head. */
+  petSaid?: { id: string; text: string } | null;
+  /** Opens the conversation; what a tap on the speech bubble does. */
+  onOpenChat?: () => void;
 }
 
 /**
@@ -99,6 +104,8 @@ export function EnvironmentStage({
   environments,
   onPetTap,
   night,
+  petSaid,
+  onOpenChat,
 }: EnvironmentStageProps) {
   const regions = environments[environment];
   const reduceMotion = useReducedMotion();
@@ -301,6 +308,16 @@ export function EnvironmentStage({
         />
       </View>
 
+      {/* `box-none`: only the bubble itself takes a tap; everywhere else still
+          reaches the pet. It rides where the name bubble does, a little higher,
+          so its tail lands on the pet's head in every scene and at every size. */}
+      <View
+        pointerEvents="box-none"
+        style={[StyleSheet.absoluteFill, styles.speechLayer, { paddingBottom: nameBubbleLift + 6 }]}
+      >
+        <PetSpeechBubble said={petSaid} petName={pet.name} onPress={onOpenChat} night={night} />
+      </View>
+
       <FadeSwap swapKey={environment} style={styles.controlsLayer} durationMs={transitionMs}>
         <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
           {regions.controls}
@@ -381,6 +398,12 @@ const styles = StyleSheet.create({
   // `paddingBottom` is set inline from `stageMetrics`.
   // Sits a little above the name bubble; `paddingBottom` is set inline (see above).
   reactionLayer: {
+    zIndex: 3,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  // Over the tap emotes: a sentence outranks a heart. `paddingBottom` is inline.
+  speechLayer: {
     zIndex: 3,
     alignItems: 'center',
     justifyContent: 'flex-end',

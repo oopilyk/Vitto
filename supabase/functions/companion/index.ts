@@ -77,6 +77,8 @@ const anthropic = Deno.env.get('ANTHROPIC_API_KEY')
  * same reason as there: a flag has to be turned back off before shipping.
  */
 const DEV_EMAILS = new Set(['kyleyli2005@gmail.com']);
+/** Stands in for "no cap" while staying a number every caller already handles. */
+const DEV_UNCAPPED = 100_000;
 
 // ---------------------------------------------------------------------------
 // Rows <-> domain. The pure logic works in epoch ms; Postgres in timestamptz.
@@ -402,9 +404,17 @@ Deno.serve(async (request) => {
     const now = Date.now();
     const companion = new Companion(admin, user.id, petId);
     const life = body?.life ? sanitizeLifeContext(body.life) : undefined;
-    const tier = await companion.tier(now);
-    const limits = limitsFor(tier);
-    const access = async () => accessFor(tier, (await companion.usage(now)).sent);
+    // A dev account is treated as paid, and then some: it gets the `plus` tier
+    // so everything a subscriber would see can be tested, and no daily ceiling,
+    // because testing is exactly the use that burns through one. Decided here,
+    // from the verified session's email — nothing the client sends can claim it.
+    const isDev = DEV_EMAILS.has((user.email ?? '').trim().toLowerCase());
+    const tier: CompanionTier = isDev ? 'plus' : await companion.tier(now);
+    const limits = isDev ? { ...limitsFor('plus'), messagesPerDay: DEV_UNCAPPED, proactivePerDay: DEV_UNCAPPED } : limitsFor(tier);
+    const access = async () => {
+      const resolved = accessFor(tier, (await companion.usage(now)).sent);
+      return isDev ? { ...resolved, messagesLeftToday: DEV_UNCAPPED, canChat: true } : resolved;
+    };
 
     if (action === 'state') {
       const state = tickMood(await companion.loadState(now, life?.pet.temperament), (await companion.events(now)).filter((e) => now - e.timestamp < 2 * DAY), life, now);
@@ -490,7 +500,7 @@ Deno.serve(async (request) => {
      * returns the system prompt verbatim.
      */
     if (action === 'debug') {
-      if (!DEV_EMAILS.has((user.email ?? '').trim().toLowerCase())) return json({ error: 'Not available.' }, 403);
+      if (!isDev) return json({ error: 'Not available.' }, 403);
       if (!life) return json({ error: 'Missing context.' }, 400);
       const events = await companion.events(now);
       const state = tickMood(await companion.loadState(now, life?.pet.temperament), events.filter((e) => now - e.timestamp < 2 * DAY), life, now);
@@ -522,7 +532,7 @@ Deno.serve(async (request) => {
 
     /** Forgets everything: a fresh stranger with the current temperament. */
     if (action === 'reset') {
-      if (!DEV_EMAILS.has((user.email ?? '').trim().toLowerCase())) return json({ error: 'Not available.' }, 403);
+      if (!isDev) return json({ error: 'Not available.' }, 403);
       for (const table of ['companion_messages', 'companion_memories', 'companion_events', 'companion_state']) {
         const { error } = await admin.from(table).delete().match({ user_id: user.id, pet_id: petId });
         if (error) throw error;

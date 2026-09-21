@@ -13,7 +13,7 @@ const QUIET_EVENTS = new Set(['USER_SENT_MESSAGE', 'USER_OPENED_APP', 'STEPS_LOG
 
 const BONDS = ['devoted', 'warm', 'neutral', 'wary', 'sulking'] as const;
 /** Mirrors `PetPersonality`. Anything else is dropped rather than reaching a prompt. */
-const TEMPERAMENTS = ['feisty', 'cute', 'sweet', 'savage', 'hype', 'energetic', 'chill', 'competitive', 'supportive'] as const;
+const TEMPERAMENTS = ['feisty', 'cute', 'sweet', 'savage', 'hype', 'menace', 'energetic', 'chill', 'competitive', 'supportive'] as const;
 const TIMES_OF_DAY = ['morning', 'afternoon', 'evening', 'night'] as const;
 
 /** One line, no control characters, bounded: client text is rendered into a prompt. */

@@ -43,6 +43,7 @@ const TEMPERAMENT_LEAN: Record<string, Partial<Record<Trait, number>>> = {
   cute: { affectionate: 0.88, playful: 0.8, shy: 0.55, sarcastic: 0.08, energetic: 0.65 },
   sweet: { affectionate: 0.9, calm: 0.72, curious: 0.62, sarcastic: 0.06, competitive: 0.15 },
   savage: { sarcastic: 0.92, playful: 0.66, competitive: 0.6, affectionate: 0.3, shy: 0.05 },
+  menace: { competitive: 0.9, energetic: 0.85, sarcastic: 0.7, playful: 0.5, affectionate: 0.35, shy: 0.03, calm: 0.06 },
   hype: { energetic: 0.88, playful: 0.82, competitive: 0.7, affectionate: 0.66, shy: 0.05, calm: 0.2 },
   // The original set, kept for pets adopted under it.
   energetic: { energetic: 0.82, playful: 0.7 },

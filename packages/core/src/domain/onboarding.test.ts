@@ -8,6 +8,7 @@ import {
   petSurvivalGuidance,
   suggestStepGoal,
   weeksUntil,
+  petPersonalityOptionsFor,
 } from './onboarding';
 
 describe('deriveEnergyGoal', () => {
@@ -72,5 +73,13 @@ describe('hasCompletedQuestionnaire', () => {
     expect(hasCompletedQuestionnaire({ targetWeightKg: undefined, motivations: [] })).toBe(false);
     expect(hasCompletedQuestionnaire({ targetWeightKg: 70, motivations: [] })).toBe(false);
     expect(hasCompletedQuestionnaire({ targetWeightKg: 70, motivations: ['pet'] })).toBe(true);
+  });
+});
+
+describe('temperaments by age', () => {
+  it('keeps the one that swears hard from anyone under 18', () => {
+    expect(petPersonalityOptionsFor(17).map((o) => o.value)).not.toContain('menace');
+    expect(petPersonalityOptionsFor(17).map((o) => o.value)).toContain('savage');
+    expect(petPersonalityOptionsFor(18).map((o) => o.value)).toContain('menace');
   });
 });

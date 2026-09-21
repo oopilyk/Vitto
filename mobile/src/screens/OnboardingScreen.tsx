@@ -13,7 +13,7 @@ import {
   measurementSystemOf,
   type MeasurementSystem,  DIETARY_OPTIONS,
   MOTIVATION_OPTIONS,
-  PET_PERSONALITY_OPTIONS,
+  petPersonalityOptionsFor,
   STEP_GOAL_PRESETS,
   TRAINING_TYPE_OPTIONS,
   calculateMacroTargets,
@@ -223,6 +223,9 @@ export function OnboardingScreen({
     if (stepId === 'motivation' && (profile.motivations?.length ?? 0) === 0)
       return 'Pick at least one thing that keeps you going.';
     if (stepId === 'namePet' && !name.trim()) return 'Give your companion a name.';
+    // They can go back and lower their age after choosing the adults-only one.
+    if (stepId === 'namePet' && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
+      return 'Pick a personality.';
     return null;
   };
 
@@ -611,8 +614,10 @@ export function OnboardingScreen({
             <Text style={styles.groupLabel}>Their personality</Text>
             <ChoiceRow
               stacked
-              options={PET_PERSONALITY_OPTIONS}
-              value={personality}
+              // By age: the one that swears hard is for adults only.
+              options={petPersonalityOptionsFor(profile.age)}
+              // An age corrected downwards after choosing it leaves nothing selected.
+              value={petPersonalityOptionsFor(profile.age).some((option) => option.value === personality) ? personality : ('' as typeof personality)}
               onChange={onPersonalityChange}
             />
           </View>

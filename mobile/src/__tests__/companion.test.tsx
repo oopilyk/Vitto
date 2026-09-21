@@ -1,5 +1,6 @@
 import renderer, { act } from 'react-test-renderer';
 import { Text, TextInput } from 'react-native';
+import { PetSpeechBubble, SPEECH_BUBBLE_MS } from '../petWorld/PetSpeechBubble';
 import { companion as ai, createPet } from '@vitto/core';
 
 jest.mock('../services/companionService', () => {
@@ -270,5 +271,33 @@ describe('the debug screen', () => {
     const tree = await open();
     expect(texts(tree)).toContain('Not available.');
     tree.unmount();
+  });
+});
+
+describe('the pet speaking from over its head', () => {
+  it('shows what it said, opens the chat on a tap, then lets it go', () => {
+    jest.useFakeTimers();
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    const said = { id: 'm1', text: 'there you are. took you long enough' };
+    act(() => { tree = renderer.create(<PetSpeechBubble said={said} petName="Blue" onPress={() => { opened += 1; }} />); });
+    const bubbles = () => tree.root.findAll((node) => node.props.testID === 'companion-bubble' && typeof node.props.onPress === 'function');
+    expect(bubbles().length).toBeGreaterThan(0);
+    expect(bubbles()[0]!.props.accessibilityLabel).toBe('Blue says: there you are. took you long enough');
+    act(() => { bubbles()[0]!.props.onPress(); });
+    expect(opened).toBe(1);
+    // Still up just short of thirty seconds, gone just after.
+    act(() => { jest.advanceTimersByTime(SPEECH_BUBBLE_MS - 500); });
+    expect(bubbles().length).toBeGreaterThan(0);
+    act(() => { jest.advanceTimersByTime(1000); });
+    expect(bubbles().length).toBe(0);
+    // The same message again is a re-render, not something new to say.
+    act(() => { tree.update(<PetSpeechBubble said={{ ...said }} petName="Blue" />); });
+    expect(bubbles().length).toBe(0);
+    // A new message speaks again.
+    act(() => { tree.update(<PetSpeechBubble said={{ id: 'm2', text: 'hi' }} petName="Blue" onPress={() => {}} />); });
+    expect(bubbles().length).toBeGreaterThan(0);
+    act(() => { tree.unmount(); });
+    jest.useRealTimers();
   });
 });

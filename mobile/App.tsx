@@ -362,6 +362,9 @@ export default function App() {
    * buried the scene behind them.
    */
   const [unreadCompanion, setUnreadCompanion] = useState(0);
+  // What the pet last said unprompted, for the bubble on the home screen. The
+  // id is what lets the bubble tell a new message from a re-render of an old one.
+  const [companionSaid, setCompanionSaid] = useState<{ id: string; text: string } | null>(null);
   /**
    * A full-screen reward moment (currently only a level-up). Presentation only,
    * never persisted: raised by `recordEvent` off the engine's own result, and
@@ -794,7 +797,10 @@ export default function App() {
       await companionService.record(fedPet.id, life, perceived);
       if (levelledUp) await companionService.record(fedPet.id, life, { type: 'LEVEL_UP', metadata: { level: fedPet.level } });
       const { message } = await companionService.checkIn(fedPet.id, life);
-      if (message) setUnreadCompanion((count) => count + 1);
+      if (message) {
+        setUnreadCompanion((count) => count + 1);
+        setCompanionSaid({ id: message.id, text: message.content });
+      }
     } catch {
       // Nothing to surface: the care moment itself succeeded.
     }
@@ -1536,7 +1542,10 @@ export default function App() {
       .record(current.id, life, { type: 'USER_OPENED_APP' })
       .then(() => companionService.checkIn(current.id, life))
       .then(({ message }) => {
-        if (!cancelled && message) setUnreadCompanion((count) => count + 1);
+        if (!cancelled && message) {
+          setUnreadCompanion((count) => count + 1);
+          setCompanionSaid({ id: message.id, text: message.content });
+        }
       })
       .catch(() => undefined); // offline, or the function is not deployed yet: the pet just says nothing
     return () => {
@@ -1635,6 +1644,7 @@ export default function App() {
               reaction={reaction}
               careToast={toast}
               unreadMessages={unreadCompanion}
+              petSaid={companionSaid}
               onOpenChat={isOnline ? () => navigation.navigate('Companion') : undefined}
               onLogMeal={() => navigation.navigate('MealCapture')}
               onLogWorkout={() => navigation.navigate('Workout')}
@@ -1798,6 +1808,7 @@ export default function App() {
               onClose={() => {
                 // Opening the conversation is reading it.
                 setUnreadCompanion(0);
+                setCompanionSaid(null);
                 navigation.goBack();
               }}
             />

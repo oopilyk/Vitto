@@ -62,8 +62,9 @@ export const MOTIVATION_OPTIONS: Choice<Motivation>[] = [
  * competitive, supportive) is still valid in the data but no longer offered:
  * every one of them landed as a mild variation of "friendly".
  *
- * `savage` roasts you; it does not bully you. The difference is enforced in the
- * prompt, not left to the model's discretion — see `PERSONALITY_VOICE`.
+ * `savage` roasts you and `menace` bosses you; neither bullies you. The difference
+ * is enforced in the prompt, not left to the model's discretion — see
+ * `PERSONALITY_VOICE`.
  */
 export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
   { value: 'feisty', label: 'Feisty', detail: 'Scrappy, mouthy, spoiling for a fight' },
@@ -71,7 +72,21 @@ export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
   { value: 'sweet', label: 'Sweet', detail: 'Warm, kind, endlessly in your corner' },
   { value: 'savage', label: 'Savage', detail: 'Deadpan, merciless, swears a little' },
   { value: 'hype', label: 'Hype', detail: 'All swagger. Your personal hype man' },
+  { value: 'menace', label: 'Menace', detail: 'Bossy, loud, swears like hell. 18+' },
 ];
+
+/** Temperaments that swear hard enough to be kept from anyone under 18. */
+export const MATURE_PERSONALITIES: readonly PetPersonality[] = ['menace'];
+export const MATURE_PERSONALITY_AGE = 18;
+
+/**
+ * The temperaments to offer somebody of this age. `savage` says "damn"; `menace`
+ * says a great deal worse, and the profile accepts ages from 13 — so it is not
+ * on the list until they are an adult. Offering is the gate: the database accepts
+ * the value for anyone, because a pet already wearing it must keep saving.
+ */
+export const petPersonalityOptionsFor = (age: number): Choice<PetPersonality>[] =>
+  PET_PERSONALITY_OPTIONS.filter((option) => age >= MATURE_PERSONALITY_AGE || !MATURE_PERSONALITIES.includes(option.value));
 
 export const STEP_GOAL_PRESETS = [5000, 7500, 10000, 12500] as const;
 

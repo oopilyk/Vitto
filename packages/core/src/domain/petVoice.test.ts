@@ -108,3 +108,29 @@ describe('petVoice', () => {
     expect(petVoice('I feel weird.', { ailments: ['dying', 'foggy'] })).toBe('I feel weird…');
   });
 });
+
+describe('menace', () => {
+  it('orders rather than asks, and keeps the words it was given', () => {
+    const line = petVoice("I'm so hungry. Feed me?", { personality: 'menace' });
+    expect(line).toContain("I'm so hungry. Feed me.");
+    expect(line).not.toContain('?');
+  });
+});
+
+describe('complaining in character', () => {
+  const hungry = "I'm so hungry. Feed me?";
+  it('sounds different for every offered temperament, and keeps the complaint whole', () => {
+    const lines = (['feisty', 'cute', 'sweet', 'savage', 'hype', 'menace'] as const)
+      .map((personality) => petVoice(hungry, { personality, ailments: ['starving'] }));
+    expect(new Set(lines).size).toBe(lines.length);
+    for (const line of lines) expect(line).toContain("I'm so hungry");
+    expect(lines[5]).toMatch(/Feed me\./);
+  });
+  it('never borrows an everyday flourish', () => {
+    expect(petVoice(hungry, { personality: 'sweet', ailments: ['starving'] })).not.toMatch(/Proud of you/);
+    expect(petVoice(hungry, { personality: 'hype', ailments: ['starving'] })).not.toMatch(/Big moves|Main character/);
+  });
+  it('stays plain when the pet is cool on you', () => {
+    expect(petVoice(hungry, { personality: 'menace', ailments: ['starving'], bond: 'wary' })).toBe(hungry);
+  });
+});

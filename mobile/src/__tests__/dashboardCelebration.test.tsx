@@ -77,3 +77,28 @@ describe('DashboardScreen level-up celebration', () => {
     jest.useRealTimers();
   });
 });
+
+describe('the pet speaking when something is logged', () => {
+  const props = {
+    pet, events: [], onLogMeal: () => {}, onLogWorkout: () => {}, onSyncSteps: () => {}, onTrainMind: () => {},
+    onOpenProfile: () => {}, onOpenStats: () => {}, onOpenToday: () => {}, interaction: idleInteraction,
+    celebration: null, onCelebrationComplete: () => {}, onOpenChat: () => {},
+  };
+  const bubbleLabel = (tree: renderer.ReactTestRenderer) =>
+    tree.root.findAll((node) => node.props.testID === 'companion-bubble' && typeof node.props.onPress === 'function')[0]?.props.accessibilityLabel as string | undefined;
+
+  it('says its reaction over its head on every log, with no help from the companion', () => {
+    jest.useFakeTimers();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => { tree = renderer.create(<DashboardScreen {...props} reaction={null} />); });
+    expect(bubbleLabel(tree)).toBeUndefined();
+    const reaction = { message: 'That hit the spot.', eventLabel: 'Meal', delta: {} } as never;
+    act(() => { tree.update(<DashboardScreen {...props} reaction={reaction} />); });
+    expect(bubbleLabel(tree)).toContain('That hit the spot');
+    // The companion's own line, arriving after, takes the bubble over.
+    act(() => { tree.update(<DashboardScreen {...props} reaction={reaction} petSaid={{ id: 'm1', text: 'ok that was a good one' }} />); });
+    expect(bubbleLabel(tree)).toBe('Miso says: ok that was a good one');
+    act(() => { tree.unmount(); });
+    jest.useRealTimers();
+  });
+});

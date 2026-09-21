@@ -136,7 +136,7 @@ export function CompanionDebugScreen({ pet, events, profile, stepGoal, onChangeP
               <Row k="Affection / trust" v={`${debug.state.affection.toFixed(2)} / ${debug.state.trust.toFixed(2)}`} />
               <Row k="Nickname" v={debug.state.userNickname ?? '—'} />
               <Row k="Stored" v={`${debug.counts.memories} memories · ${debug.counts.events} events · ${debug.counts.messages} messages`} />
-              <Row k="Today" v={`${debug.usage.sent} sent, ${debug.usage.proactive} unprompted · ${debug.access.messagesLeftToday} left (${debug.access.tier})`} />
+              <Row k="Today" v={`${debug.usage.sent} sent, ${debug.usage.proactive} unprompted · ${debug.access.messagesLeftToday >= 100_000 ? 'no cap' : `${debug.access.messagesLeftToday} left`} (${debug.access.tier})`} />
             </Section>
 
             <Section label="TRAITS">

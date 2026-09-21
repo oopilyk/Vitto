@@ -46,6 +46,10 @@ const CHILL_TAGS = ['No rush.', 'All good.', 'Easy does it.'] as const;
 const FEISTY_OPENERS = ['Oi.', 'Right.', 'Listen.'] as const;
 const FEISTY_TAGS = ['Fight me.', 'I said what I said.', 'Try me.'] as const;
 const CUTE_TAGS = ['hehe.', 'smol but mighty.', 'ok bye!!'] as const;
+// Aimed at the to-do list and never at the person: it orders you about, it does
+// not tell you what you are.
+const MENACE_OPENERS = ['Oi, dumbass.', 'Listen up.', 'Hey. You.'] as const;
+const MENACE_TAGS = ['Move your ass.', 'Now, not later.', "Don't make me say it twice.", 'Chop chop, dammit.'] as const;
 const HYPE_OPENERS = ['Ayy.', 'Okay, I see you.', 'Look at us.'] as const;
 const HYPE_TAGS = ['Big moves.', "That's what I'm talking about.", 'Main character energy.'] as const;
 const SWEET_TAGS = ['So glad you’re here.', 'Thinking of you.', 'Proud of you.'] as const;
@@ -62,6 +66,16 @@ const SAVAGE_TAGS = ['Incredible. Truly.', 'Sure. Great plan.', 'Wow. Okay.'] as
 /** Sulking: cool, not cruel. It still answers; it just is not thrilled you asked. */
 const SULKING_OPENERS = ["Oh. You're back.", 'Hm.', 'Fine.'] as const;
 const DEVOTED_TAGS = ['Love you.', 'Missed you.', 'Stay a while?'] as const;
+
+// Complaints get their own flourishes. The everyday tags ("Proud of you.", "Big
+// moves.") are wrong after "I'm so hungry", which is why an ailing pet used to
+// go plain — but being hungry is exactly when a temperament is most audible.
+const FEISTY_GRIPES = ['I will riot.', 'Do not test me.', 'This is an outrage.'] as const;
+const CUTE_GRIPES = ['pretty please?', "i'm just a baby.", 'tiny emergency.'] as const;
+const SWEET_GRIPES = ['Whenever you get a moment.', 'Thank you, really.', 'Only if you can.'] as const;
+const SAVAGE_GRIPES = ['No pressure. I will simply perish.', 'Take your time. Really.', "It's fine. I'm fine."] as const;
+const HYPE_GRIPE_OPENERS = ['Yo, champ.', 'Boss.', 'Real talk.'] as const;
+const HYPE_GRIPES = ['Help a legend out.', "Can't be great on empty.", 'We fix this, we are back.'] as const;
 
 const SENTENCE = /[^.!?…]+[.!?…]*/g;
 const sentencesOf = (text: string): string[] => (text.match(SENTENCE) ?? [text]).map((s) => s.trim()).filter(Boolean);
@@ -102,6 +116,26 @@ const foggily = (text: string): string => {
   return mumbled.replace(/\.$/, '…');
 };
 
+/** A complaint, the way this temperament makes one. The retired four stay plain. */
+const complaining = (text: string, personality?: PetPersonality): string => {
+  switch (personality) {
+    case 'feisty':
+      return `${pick(text, FEISTY_OPENERS)} ${text} ${pick(text, FEISTY_GRIPES)}`;
+    case 'cute':
+      return `${text.replace(/\.$/, '!!')} ${pick(text, CUTE_GRIPES)}`;
+    case 'sweet':
+      return `${text} ${pick(text, SWEET_GRIPES)}`;
+    case 'savage':
+      return `${text.replace(/!/g, '.')} ${pick(text, SAVAGE_GRIPES)}`;
+    case 'hype':
+      return `${pick(text, HYPE_GRIPE_OPENERS)} ${text} ${pick(text, HYPE_GRIPES)}`;
+    case 'menace':
+      return `${pick(text, MENACE_OPENERS)} ${text.replace(/\?/g, '.')} ${pick(text, MENACE_TAGS)}`;
+    default:
+      return text;
+  }
+};
+
 export const petVoice = (line: string, { personality, ailments = [], bond }: VoiceContext = {}): string => {
   const text = line.trim();
   if (!text) return text;
@@ -109,8 +143,10 @@ export const petVoice = (line: string, { personality, ailments = [], bond }: Voi
   // chipper, and a foggy one cannot manage a competitive quip.
   if (ailments.includes('dying')) return weakly(text);
   if (ailments.includes('foggy')) return foggily(text);
-  // Any other ailment: the line IS the complaint, and a flourish would undercut it.
-  if (ailments.length > 0) return text;
+  // Any other ailment: the line IS the complaint, so it is made the way this
+  // pet complains rather than dressed in an everyday flourish. A pet that is
+  // cool on you does not perform even that.
+  if (ailments.length > 0) return bond === 'sulking' || bond === 'wary' ? text : complaining(text, personality);
   // The relationship, before the temperament. A sulking pet does not perform
   // its personality for someone who has not been around; a wary one is merely
   // plain. Only once things are fine does the personality come through, and a
@@ -132,6 +168,9 @@ const withPersonality = (text: string, personality?: PetPersonality): string => 
       return `${text} ${pick(text, SWEET_TAGS)}`;
     case 'savage':
       return `${text.replace(/!/g, '.')} ${pick(text, SAVAGE_TAGS)}`;
+    case 'menace':
+      // No question marks: it does not ask.
+      return `${pick(text, MENACE_OPENERS)} ${text.replace(/\?/g, '.')} ${pick(text, MENACE_TAGS)}`;
     case 'hype':
       return `${pick(text, HYPE_OPENERS)} ${exclaimFirst(text)} ${pick(text, HYPE_TAGS)}`;
     // The original set. Still worn by pets adopted before the four above.
