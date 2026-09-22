@@ -1,3 +1,4 @@
+import type { PersonalityDials } from '../companion/types';
 import type { FoodEffect } from './foodEffects';
 import { newId } from './ids';
 
@@ -93,11 +94,18 @@ export interface PetState {
   /** Chosen at adoption (onboarding-v2). Optional: pets created before it have none. */
   personality?: PetPersonality;
   /**
-   * With `personality: 'custom'`: the character, in the person's own words
-   * ("a grumpy old pirate who secretly loves us"). It is the pet's voice in the
-   * companion prompt, under the rules there, which it cannot loosen.
+   * Their own notes on the character, in their words ("a grumpy old pirate who
+   * secretly loves us", "calls me chief"). On top of the temperament, or the
+   * whole character when the temperament is `custom`. Under the companion's
+   * rules, which it cannot loosen.
    */
   persona?: string;
+  /**
+   * The five sliders set at adoption (serious↔playful, gentle↔blunt, and so
+   * on), as 0..1. They start where the temperament puts them and are the seed
+   * the companion's traits then drift from. Absent on pets adopted before them.
+   */
+  dials?: PersonalityDials;
   adoptedAt: string;
   lastEventAt?: string;
   /**
@@ -290,6 +298,7 @@ export const createPet = (
   personality?: PetPersonality,
   id: string = newId(),
   persona?: string,
+  dials?: PersonalityDials,
 ): PetState => ({
   id,
   breed,
@@ -297,7 +306,8 @@ export const createPet = (
   name,
   species,
   ...(personality ? { personality } : {}),
-  ...(personality === 'custom' && persona ? { persona: persona.trim() } : {}),
+  ...(persona?.trim() ? { persona: persona.trim() } : {}),
+  ...(dials ? { dials } : {}),
   level: 1,
   xp: 0,
   health: 78,

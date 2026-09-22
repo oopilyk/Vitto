@@ -21,8 +21,10 @@ import {
   measurementSystemOf,
   planForGoal,
   withMeasurementSystem,
+  type PetState,
 } from '@vitto/core';
 import { BreedPicker } from '../components/BreedPicker';
+import { CharacterEditor, type Character } from '../components/CharacterEditor';
 import { ChoiceRow, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -33,6 +35,10 @@ interface Props {
   /** The pet's look. Saved straight away by the parent, outside the profile draft. */
   breed?: PetBreed;
   onBreedChange?: (breed: PetBreed) => void;
+  /** The pet whose character is edited below the breed. Absent when there is no pet to edit. */
+  pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
+  /** Saves base, sliders and notes together; the parent persists, like the breed. */
+  onCharacterChange?: (next: Character) => void;
   /**
    * Deletes the account for good. Owns its own confirmation (see App), so this
    * is called only once the user has actually agreed. Absent offline.
@@ -86,6 +92,8 @@ export function SettingsScreen({
   onClose,
   breed,
   onBreedChange,
+  pet,
+  onCharacterChange,
   onDeleteAccount,
   deletingAccount,
 }: Props) {
@@ -146,6 +154,11 @@ export function SettingsScreen({
         {onBreedChange ? (
           <Card title="Your companion" hint="Changes take effect straight away">
             <BreedPicker value={breed} onChange={onBreedChange} size={88} />
+            {pet && onCharacterChange ? (
+              <Group label="Personality">
+                <CharacterEditor pet={pet} age={profile.age} onSave={onCharacterChange} />
+              </Group>
+            ) : null}
           </Card>
         ) : null}
 

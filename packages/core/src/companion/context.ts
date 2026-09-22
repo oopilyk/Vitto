@@ -1,7 +1,8 @@
 import { selectRelevantMemories } from './memory';
 import { observePatterns } from './patterns';
 import { describePersonality, dominantTraits, personalityFlavor } from './personality';
-import type { CompanionEvent, CompanionMemory, CompanionMessage, CompanionState, LifeContext, PetContext } from './types';
+import { DIAL_KEYS } from './types';
+import type { CompanionEvent, CompanionMemory, CompanionMessage, CompanionState, LifeContext, PersonalityDials, PetContext } from './types';
 import { DAY, clamp, formatAgo } from './util';
 
 const RECENT_EVENT_WINDOW = 3 * DAY;
@@ -26,6 +27,17 @@ const list = (value: unknown, maxItems: number, maxLength: number): string[] =>
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 
+/** All five, each a number, or nothing: a partial set of dials is not a setting. */
+const dials = (value: unknown): PersonalityDials | undefined => {
+  const source = record(value);
+  const out = {} as PersonalityDials;
+  for (const key of DIAL_KEYS) {
+    const v = source[key];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+    out[key] = clamp(v, 0, 1);
+  }
+  return out;
+};
 /**
  * Validates the life context the phone sent.
  *
@@ -53,7 +65,8 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
         : {}),
       // Free text from the person, so it is the one field a prompt injection
       // could ride in on; the prompt says as much (see renderDynamicSystemPrompt).
-      ...(pet.temperament === 'custom' && text(pet.persona, 300) ? { persona: text(pet.persona, 300) } : {}),
+      ...(text(pet.persona, 300) ? { persona: text(pet.persona, 300) } : {}),
+      ...(dials(pet.dials) ? { dials: dials(pet.dials)! } : {}),
     },
     statuses: list(source.statuses, 4, 24),
     foodTags: list(source.foodTags, 4, 24),

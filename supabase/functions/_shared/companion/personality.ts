@@ -2,7 +2,7 @@
 // Source: packages/core/src/companion/personality.ts
 // Regenerate with: node scripts/syncCompanion.mjs
 
-import { TRAITS, type CompanionEventType, type PersonalityTraits, type ToneSignal, type Trait } from './types.ts';
+import { DIAL_KEYS, TRAITS, type CompanionEventType, type DialKey, type PersonalityDials, type PersonalityTraits, type ToneSignal, type Trait } from './types.ts';
 import { clamp, hashString } from './util.ts';
 
 const TRAIT_MIN = 0.05;
@@ -39,12 +39,12 @@ const EVENT_INFLUENCE: Partial<Record<CompanionEventType, Partial<Record<Trait, 
 const TEMPERAMENT_LEAN: Record<string, Partial<Record<Trait, number>>> = {
   // The four offered at adoption, pushed far enough apart that two pets with
   // different temperaments never sound like each other on day one.
-  feisty: { competitive: 0.88, energetic: 0.8, playful: 0.72, shy: 0.08, calm: 0.15 },
-  cute: { affectionate: 0.88, playful: 0.8, shy: 0.55, sarcastic: 0.08, energetic: 0.65 },
-  sweet: { affectionate: 0.9, calm: 0.72, curious: 0.62, sarcastic: 0.06, competitive: 0.15 },
-  savage: { sarcastic: 0.92, playful: 0.66, competitive: 0.6, affectionate: 0.3, shy: 0.05 },
-  menace: { competitive: 0.9, energetic: 0.85, sarcastic: 0.7, playful: 0.5, affectionate: 0.35, shy: 0.03, calm: 0.06 },
-  hype: { energetic: 0.88, playful: 0.82, competitive: 0.7, affectionate: 0.66, shy: 0.05, calm: 0.2 },
+  feisty: { competitive: 0.88, energetic: 0.8, playful: 0.72, shy: 0.08, calm: 0.15, blunt: 0.75 },
+  cute: { affectionate: 0.88, playful: 0.8, shy: 0.55, sarcastic: 0.08, energetic: 0.65, blunt: 0.1 },
+  sweet: { affectionate: 0.9, calm: 0.72, curious: 0.62, sarcastic: 0.06, competitive: 0.15, blunt: 0.12 },
+  savage: { sarcastic: 0.92, playful: 0.66, competitive: 0.6, affectionate: 0.3, shy: 0.05, blunt: 0.85 },
+  menace: { competitive: 0.9, energetic: 0.85, sarcastic: 0.7, playful: 0.5, affectionate: 0.35, shy: 0.03, calm: 0.06, blunt: 0.95 },
+  hype: { energetic: 0.88, playful: 0.82, competitive: 0.7, affectionate: 0.66, shy: 0.05, calm: 0.2, blunt: 0.45 },
   // The original set, kept for pets adopted under it.
   energetic: { energetic: 0.82, playful: 0.7 },
   chill: { calm: 0.82, shy: 0.3 },
@@ -73,7 +73,96 @@ const seeded = (seed: number) => {
  * individual. Every pet gets two clear tendencies so it reads as someone from
  * day one; the onboarding temperament, when there is one, picks which.
  */
-export const initialTraits = (seedKey: string, temperament?: string): PersonalityTraits => {
+/**
+ * Where each dial lands on the traits. One slider can set two traits when they
+ * are two ends of the same thing: calm ↔ energetic is one choice, not two.
+ */
+const DIAL_TO_TRAITS: Record<DialKey, (value: number) => Partial<Record<Trait, number>>> = {
+  playful: (v) => ({ playful: v }),
+  blunt: (v) => ({ blunt: v }),
+  energetic: (v) => ({ energetic: v, calm: 1 - v }),
+  sarcastic: (v) => ({ sarcastic: v }),
+  clingy: (v) => ({ affectionate: v }),
+};
+
+/**
+ * The dials as a temperament sets them, so the sliders start where the base
+ * already is: pick Savage and the sarcastic slider is already most of the way
+ * over. Neutral for `custom` and for the retired four, which never had a full lean.
+ */
+export const dialsFor = (temperament?: string): PersonalityDials => {
+  const lean = (temperament && TEMPERAMENT_LEAN[temperament]) || {};
+  const at = (trait: Trait, fallback: number) => lean[trait] ?? fallback;
+  return {
+    playful: at('playful', 0.5),
+    blunt: at('blunt', 0.5),
+    energetic: lean.energetic ?? (lean.calm !== undefined ? 1 - lean.calm : 0.5),
+    sarcastic: at('sarcastic', 0.5),
+    clingy: at('affectionate', 0.5),
+  };
+};
+
+const applyDials = (traits: PersonalityTraits, dials: PersonalityDials): PersonalityTraits => {
+  const next = { ...traits };
+  for (const key of DIAL_KEYS) {
+    for (const [trait, value] of Object.entries(DIAL_TO_TRAITS[key](clamp(dials[key], 0, 1))) as [Trait, number][]) {
+      next[trait] = round(clamp(value, TRAIT_MIN, TRAIT_MAX));
+    }
+  }
+  return next;
+};
+
+/** What the traits were seeded from. Stored beside them, so a change can be told from drift. */
+export interface TraitBasis {
+  temperament?: string | null;
+  dials?: PersonalityDials | null;
+}
+
+export const sameBasis = (a: TraitBasis, b: TraitBasis): boolean =>
+  (a.temperament ?? null) === (b.temperament ?? null) &&
+  (!a.dials && !b.dials || (!!a.dials && !!b.dials && DIAL_KEYS.every((k) => Math.abs(a.dials![k] - b.dials![k]) < 1e-6)));
+
+export const initialTraits = (seedKey: string, temperament?: string, dials?: PersonalityDials | null): PersonalityTraits => {
+  const base = seedTraits(seedKey, temperament);
+  return dials ? applyDials(base, dials) : base;
+};
+
+/** The two ends of each dial, in the person's words. Shared by the app's sliders and the prompt. */
+export const DIAL_LABELS: Record<DialKey, readonly [low: string, high: string]> = {
+  playful: ['serious', 'playful'],
+  blunt: ['gentle', 'blunt'],
+  energetic: ['calm', 'energetic'],
+  sarcastic: ['wholesome', 'sarcastic'],
+  clingy: ['independent', 'clingy'],
+};
+
+/**
+ * The dials as one line for the prompt, naming only the ones pushed away from
+ * the middle. The traits below already carry the same numbers; this restates
+ * the person's own choices in their own words, which is what the model should
+ * be loudest about.
+ */
+export const describeDials = (dials: PersonalityDials): string => {
+  const parts: string[] = [];
+  for (const key of DIAL_KEYS) {
+    const v = dials[key];
+    const [low, high] = DIAL_LABELS[key];
+    if (v >= 0.85) parts.push(`extremely ${high}`);
+    else if (v >= 0.65) parts.push(`quite ${high}`);
+    else if (v <= 0.15) parts.push(`extremely ${low}`);
+    else if (v <= 0.35) parts.push(`quite ${low}`);
+  }
+  return parts.join(', ');
+};
+
+/** A row written before a trait existed lacks it; it takes the seed's value, so it counts as no drift. */
+export const fillTraits = (traits: Partial<PersonalityTraits>, seed: PersonalityTraits): PersonalityTraits => {
+  const next = { ...seed };
+  for (const trait of TRAITS) if (typeof traits[trait] === 'number') next[trait] = traits[trait]!;
+  return next;
+};
+
+const seedTraits = (seedKey: string, temperament?: string): PersonalityTraits => {
   const random = seeded(hashString(seedKey));
   const traits = {} as PersonalityTraits;
   for (const trait of TRAITS) traits[trait] = round(0.25 + random() * 0.5);
@@ -102,7 +191,8 @@ export const initialTraits = (seedKey: string, temperament?: string): Personalit
  * seed the traits are closest to is the one they came from. Either way the
  * accumulated drift is carried over onto the new seed, so nothing learned is lost.
  */
-export const rebaseTraits = (traits: PersonalityTraits, seedKey: string, temperament?: string, from?: string | null): PersonalityTraits => {
+export const rebaseTraits = (traits: PersonalityTraits, seedKey: string, to: TraitBasis, from?: TraitBasis | null): PersonalityTraits => {
+  const temperament = to.temperament ?? undefined;
   // `custom` has no lean: its seed is the neutral one, and the person's words do the rest.
   if (!temperament || (!TEMPERAMENT_LEAN[temperament] && temperament !== 'custom')) return traits;
   // Told where the traits came from: no guessing. This is the normal path. The
@@ -110,9 +200,9 @@ export const rebaseTraits = (traits: PersonalityTraits, seedKey: string, tempera
   // months of drift can carry traits nearer to another temperament's seed than
   // their own, and guessing then would "correct" a pet that never changed.
   if (from !== undefined && from !== null) {
-    if (from === temperament) return traits;
-    const was = initialTraits(seedKey, from);
-    const will = initialTraits(seedKey, temperament);
+    if (sameBasis(from, to)) return traits;
+    const was = initialTraits(seedKey, from.temperament ?? undefined, from.dials);
+    const will = initialTraits(seedKey, temperament, to.dials);
     const moved = {} as PersonalityTraits;
     for (const trait of TRAITS) moved[trait] = round(clamp(will[trait] + (traits[trait] - was[trait]), TRAIT_MIN, TRAIT_MAX));
     return moved;
@@ -126,8 +216,8 @@ export const rebaseTraits = (traits: PersonalityTraits, seedKey: string, tempera
     const d = distance(seed);
     if (d < best) { best = d; origin = seed; originName = name; }
   }
-  if (originName === temperament) return traits;
-  const target = initialTraits(seedKey, temperament);
+  if (originName === temperament && !to.dials) return traits;
+  const target = initialTraits(seedKey, temperament, to.dials);
   const next = {} as PersonalityTraits;
   for (const trait of TRAITS) next[trait] = round(clamp(target[trait] + (traits[trait] - origin[trait]), TRAIT_MIN, TRAIT_MAX));
   return next;
@@ -170,6 +260,7 @@ const FLAVORS: Record<Trait, string> = {
   curious: 'a wide-eyed explorer who has to know everything',
   energetic: 'a restless bundle of energy',
   calm: 'a serene, steady presence',
+  blunt: 'a straight talker who does not soften anything',
 };
 
 export const personalityFlavor = (traits: PersonalityTraits): string => {
@@ -186,6 +277,7 @@ const TRAIT_DESCRIPTORS: Record<Trait, [low: string, high: string]> = {
   curious: ['content and incurious', 'intensely curious about their life'],
   energetic: ['low-key', 'high energy'],
   calm: ['easily worked up', 'calm and steady'],
+  blunt: ['gentle, careful with feelings', 'blunt, says it straight'],
 };
 
 export const describePersonality = (traits: PersonalityTraits): string => {

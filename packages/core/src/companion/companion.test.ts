@@ -5,7 +5,7 @@ import {
   levelFor, levelProgress, mockExtract, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
   planMemoryWrites, rankMemories, renderDynamicSystemPrompt, sanitizeEventMetadata, sanitizeLifeContext, turnsFromContext,
   type CompanionEvent, type CompanionMemory, type LifeContext,
-  PERSONALITY_VOICE, customVoice, humanizeReply, rebaseTraits,
+  PERSONALITY_VOICE, customVoice, describeDials, dialsFor, humanizeReply, rebaseTraits,
 } from './index';
 
 const NOW = new Date(2026, 8, 16, 20, 0).getTime(); // a Wednesday, 8pm local
@@ -375,8 +375,9 @@ describe('sounding like someone, not like software', () => {
     }));
     expect(prompt.trim()).toMatch(/Before you write: you are "A grumpy old pirate/);
     expect(voice).toMatch(/leave that bit out/);
-    // Without the marker the description is dropped, whatever was sent.
-    expect(sanitizeLifeContext({ pet: { temperament: 'sweet', persona: 'x'.repeat(20) } } as never).pet.persona).toBeUndefined();
+    // Notes ride on any base, not only on "your own"; the prompt then says they win.
+    expect(sanitizeLifeContext({ pet: { temperament: 'sweet', persona: 'x'.repeat(20) } } as never).pet.persona).toBe('x'.repeat(20));
+    expect(customVoice('calls me chief', { standalone: false })).toMatch(/^ON TOP OF THAT/);
     expect(sanitizeLifeContext({ pet: { temperament: 'custom', persona: 'x'.repeat(900) } } as never).pet.persona).toHaveLength(300);
   });
 
@@ -390,17 +391,48 @@ describe('sounding like someone, not like software', () => {
   it('moves traits onto a new temperament and keeps the drift', () => {
     const seed = 'user:pet';
     const sweet = initialTraits(seed, 'sweet');
-    expect(rebaseTraits(sweet, seed, 'sweet')).toBe(sweet);
+    expect(rebaseTraits(sweet, seed, { temperament: 'sweet' })).toBe(sweet);
     const drifted = { ...sweet, playful: sweet.playful + 0.04 };
-    const savage = rebaseTraits(drifted, seed, 'savage');
+    const savage = rebaseTraits(drifted, seed, { temperament: 'savage' });
     expect(savage.sarcastic).toBeGreaterThan(0.85);
     expect(savage.playful).toBeCloseTo(initialTraits(seed, 'savage').playful + 0.04, 2);
-    expect(rebaseTraits(savage, seed, 'savage')).toBe(savage);
-    expect(rebaseTraits(sweet, seed, undefined)).toBe(sweet);
+    expect(rebaseTraits(savage, seed, { temperament: 'savage' })).toBe(savage);
+    expect(rebaseTraits(sweet, seed, {})).toBe(sweet);
     // Told the origin, it never guesses: heavy drift towards another seed is
     // still this temperament's drift, and must survive untouched.
     const cuteish = { ...sweet, playful: 0.8, shy: 0.55, energetic: 0.65, calm: 0.3 };
-    expect(rebaseTraits(cuteish, seed, 'sweet', 'sweet')).toBe(cuteish);
-    expect(rebaseTraits(cuteish, seed, 'savage', 'sweet').sarcastic).toBeGreaterThan(0.85);
+    expect(rebaseTraits(cuteish, seed, { temperament: 'sweet' }, { temperament: 'sweet' })).toBe(cuteish);
+    expect(rebaseTraits(cuteish, seed, { temperament: 'savage' }, { temperament: 'sweet' }).sarcastic).toBeGreaterThan(0.85);
+  });
+
+  it('seeds the traits from the dials, and moves them when a dial moves', () => {
+    const seed = 'user:pet';
+    // Untouched sliders reproduce the base wherever the base has an opinion; a
+    // dial the base leaves alone sits at its midpoint rather than at the random seed.
+    const plain = initialTraits(seed, 'savage');
+    const dialed = initialTraits(seed, 'savage', dialsFor('savage'));
+    for (const trait of ['sarcastic', 'blunt', 'affectionate', 'playful', 'competitive', 'shy', 'curious'] as const) expect(dialed[trait]).toBe(plain[trait]);
+    expect(dialed.energetic).toBe(0.5);
+    expect(dialed.calm).toBe(0.5);
+    const gentle = { ...dialsFor('savage'), blunt: 0.05, clingy: 0.9 };
+    const traits = initialTraits(seed, 'savage', gentle);
+    expect(traits.blunt).toBeLessThanOrEqual(0.1);
+    expect(traits.affectionate).toBeCloseTo(0.9, 2);
+    expect(traits.sarcastic).toBeGreaterThan(0.85); // the base still shows where a dial was not moved
+    // One slider, two traits: energetic and calm are the same choice.
+    const wired = initialTraits(seed, 'sweet', { ...dialsFor('sweet'), energetic: 0.9 });
+    expect(wired.energetic).toBeCloseTo(0.9, 2);
+    expect(wired.calm).toBeCloseTo(0.1, 2);
+    // Moving a dial later carries the drift across, same as a temperament change.
+    const from = { temperament: 'savage', dials: dialsFor('savage') };
+    const drifted = { ...initialTraits(seed, 'savage', from.dials), curious: 0.8 };
+    const moved = rebaseTraits(drifted, seed, { temperament: 'savage', dials: gentle }, from);
+    expect(moved.blunt).toBeLessThanOrEqual(0.1);
+    expect(moved.curious).toBe(0.8);
+    expect(rebaseTraits(drifted, seed, from, from)).toBe(drifted);
+    // The prompt names only the dials pushed off-centre, in the person's words.
+    expect(describeDials(gentle)).toContain('extremely gentle');
+    expect(describeDials(gentle)).toContain('extremely clingy');
+    expect(describeDials(dialsFor('custom'))).toBe('');
   });
 });

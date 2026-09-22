@@ -244,3 +244,33 @@ describe('profile screen → settings', () => {
     tree.unmount();
   });
 });
+
+describe('SettingsScreen personality', () => {
+  it('edits base, sliders and notes together, saving once', () => {
+    const saved: unknown[] = [];
+    const pet = { name: 'Blue', personality: 'sweet' as const, dials: undefined, persona: undefined };
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <SettingsScreen profile={profile} onSave={async () => {}} onClose={() => {}} breed="bichon" onBreedChange={() => {}} pet={pet} onCharacterChange={(next) => saved.push(next)} />,
+      );
+    });
+    const button = (label: string) =>
+      tree.root.findAll((n) => typeof n.props.onPress === 'function' && n.findAllByType(Text).some((t: any) => t.props.children === label))[0];
+    const save = () => button('Save character');
+    // Nothing to save until something changes.
+    expect(save().props.accessibilityState).toEqual({ disabled: true });
+    act(() => button('Savage').props.onPress());
+    act(() => tree.root.findAll((n) => n.props.testID === 'dial-blunt-0' && typeof n.props.onPress === 'function')[0].props.onPress());
+    expect(save().props.accessibilityState).toEqual({ disabled: false });
+    act(() => save().props.onPress());
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ personality: 'savage', dials: { blunt: 0, sarcastic: 0.92 }, persona: '' });
+  });
+
+  it('keeps the editor off the screen when there is no pet to edit', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => { tree = renderer.create(<SettingsScreen profile={profile} onSave={async () => {}} onClose={() => {}} />); });
+    expect(tree.root.findAll((n) => n.props.testID === 'character-dials')).toHaveLength(0);
+  });
+});

@@ -124,3 +124,38 @@ describe('OnboardingScreen flow', () => {
     expect(button(without.tree, 'Have an invite code? Join a partner’s pet')).toBeUndefined();
   });
 });
+
+describe('OnboardingScreen character', () => {
+  const adult: BodyProfile = { ...baseProfile, targetWeightKg: 75, motivations: ['pet'] };
+  const atPet = (overrides: Overrides = {}, profile: BodyProfile = adult) => {
+    const mounted = mount(profile, overrides);
+    advanceToStep(mounted.tree, 'Their personality');
+    return mounted.tree;
+  };
+  const stop = (tree: renderer.ReactTestRenderer, key: string, n: number) =>
+    tree.root.findAll((node) => node.props.testID === `dial-${key}-${n}` && typeof node.props.onPress === 'function')[0];
+
+  it('shows the sliders once a base is picked, starting where that base sits', () => {
+    const dials: unknown[] = [];
+    const tree = atPet({ personality: 'savage', onDialsChange: (d: unknown) => dials.push(d) });
+    expect(strings(tree)).toContain('Fine-tune them');
+    // Savage sits far along "wholesome ↔ sarcastic" already.
+    expect(stop(tree, 'sarcastic', 6)).toBeTruthy();
+    act(() => stop(tree, 'blunt', 0).props.onPress());
+    expect(dials.at(-1)).toMatchObject({ blunt: 0 });
+  });
+
+  it('resets the sliders when the base changes, and keeps the notes field for adults only', () => {
+    const dials: unknown[] = [];
+    const picks: unknown[] = [];
+    const tree = atPet({ personality: 'sweet', onPersonalityChange: (p: unknown) => picks.push(p), onDialsChange: (d: unknown) => dials.push(d) });
+    act(() => button(tree, 'Feisty')!.props.onPress());
+    expect(picks).toEqual(['feisty']);
+    expect(dials.at(-1)).toMatchObject({ blunt: 0.75, sarcastic: 0.5 });
+    // The base profile is an adult, so the notes field is offered on any base.
+    expect(strings(tree).join(' ')).toMatch(/Anything else .* should know/);
+    const teen = atPet({ personality: 'sweet' }, { ...adult, age: 15 });
+    expect(strings(teen).join(' ')).not.toMatch(/Anything else/);
+    expect(strings(teen)).toContain('Fine-tune them');
+  });
+});

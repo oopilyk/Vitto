@@ -13,7 +13,9 @@ import {
   measurementSystemOf,
   type MeasurementSystem,  DIETARY_OPTIONS,
   MOTIVATION_OPTIONS,
+  MATURE_PERSONALITY_AGE,
   PERSONA_MAX_LENGTH,
+  companion,
   isValidPersona,
   petPersonalityOptionsFor,
   STEP_GOAL_PRESETS,
@@ -39,6 +41,7 @@ import {
   type TrainingType,
 } from '@vitto/core';
 import { BreedPicker } from '../components/BreedPicker';
+import { CharacterDials } from '../components/CharacterDials';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { ChoiceRow, ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
@@ -51,9 +54,12 @@ interface Props {
   onBreedChange: (breed: PetBreed) => void;
   personality: PetPersonality;
   onPersonalityChange: (value: PetPersonality) => void;
-  /** With `personality: 'custom'`: the character in their words. */
+  /** Their own notes on the character, on any base. Shown from MATURE_PERSONALITY_AGE. */
   persona?: string;
   onPersonaChange?: (value: string) => void;
+  /** The five sliders. Reset to the base's positions when the base changes. */
+  dials?: companion.PersonalityDials;
+  onDialsChange?: (value: companion.PersonalityDials) => void;
   stepGoal: number;
   onStepGoalChange: (value: number) => void;
   profile: BodyProfile;
@@ -142,6 +148,8 @@ export function OnboardingScreen({
   onPersonalityChange,
   persona = '',
   onPersonaChange = () => {},
+  dials,
+  onDialsChange = () => {},
   stepGoal,
   onStepGoalChange,
   profile,
@@ -189,8 +197,8 @@ export function OnboardingScreen({
   const petName = name.trim() || 'Miso';
 
   const previewPet = useMemo(
-    () => createPet('preview', petName, 'dog', breed, personality, undefined, persona),
-    [petName, breed, personality, persona],
+    () => createPet('preview', petName, 'dog', breed, personality, undefined, persona, dials),
+    [petName, breed, personality, persona, dials],
   );
 
   const setGoalWeightLb = (lb: number | undefined) => {
@@ -627,15 +635,28 @@ export function OnboardingScreen({
               options={petPersonalityOptionsFor(profile.age)}
               // An age corrected downwards after choosing it leaves nothing selected.
               value={petPersonalityOptionsFor(profile.age).some((option) => option.value === personality) ? personality : ('' as typeof personality)}
-              onChange={onPersonalityChange}
+              onChange={(next) => {
+                onPersonalityChange(next);
+                // The sliders show what the base means, and start from it.
+                onDialsChange(companion.dialsFor(next));
+              }}
             />
-            {personality === 'custom' ? (
-              <Field label="Who are they?" hint="a sentence or two">
+            {personality ? (
+              <View style={styles.dials}>
+                <Text style={styles.dialsLabel}>Fine-tune them</Text>
+                <CharacterDials dials={dials ?? companion.dialsFor(personality)} onChange={onDialsChange} testID="character-dials" />
+              </View>
+            ) : null}
+            {personality && profile.age >= MATURE_PERSONALITY_AGE ? (
+              <Field
+                label={personality === 'custom' ? 'Who are they?' : `Anything else ${name.trim() || 'they'} should know about how you want them to act?`}
+                hint={personality === 'custom' ? 'a sentence or two' : 'optional'}
+              >
                 <TextInput
                   style={[layout.input, styles.persona]}
                   value={persona}
                   onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
-                  placeholder="A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
+                  placeholder={personality === 'custom' ? 'A grumpy old pirate who secretly adores us and hands out sea shanties as rewards' : 'Calls me chief. Obsessed with the Ravens. Never impressed by anything.'}
                   placeholderTextColor={colors.faint}
                   multiline
                   maxLength={PERSONA_MAX_LENGTH}
@@ -754,6 +775,8 @@ const styles = StyleSheet.create({
   inviteInput: { fontFamily: fonts.mono, letterSpacing: 3 },
   peekPet: { alignItems: 'center', marginTop: 12 },
   persona: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19 },
+  dials: { marginTop: 14 },
+  dialsLabel: { fontSize: 12, fontWeight: '600', color: colors.inkSoft, marginBottom: 6 },
   personaCount: { fontSize: 12, color: colors.faint, textAlign: 'right', marginTop: 4 },
   peekStage: { height: 130, backgroundColor: 'transparent' },
   centerPet: { alignItems: 'center', marginTop: 10, marginBottom: 8 },

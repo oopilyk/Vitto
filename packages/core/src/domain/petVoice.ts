@@ -116,6 +116,49 @@ const foggily = (text: string): string => {
   return mumbled.replace(/\.$/, '…');
 };
 
+/**
+ * What each temperament says AROUND the fading line when it is dying, and around
+ * the mumble when its head has gone. `[before, after]`, either of which may be
+ * empty.
+ *
+ * The body transform still runs on the line itself — a dying pet really has lost
+ * its breath, and that is physical, not a mood. What changes is that the
+ * character is no longer erased by it: these parts are deliberately NOT weakened,
+ * so the personality punches through the state rather than dissolving into it. A
+ * dying menace is furious about dying; a dying sweet is worried about YOU.
+ *
+ * `menace` swears here, where no other temperament does. It is the one sold on
+ * swearing and it is age-gated at adoption, so the fixed-string layer can match
+ * what the model does. `savage` still stays clean in this layer (see SAVAGE_TAGS).
+ */
+const DYING_VOICE: Partial<Record<PetPersonality, readonly [string, string]>> = {
+  feisty: ['Oi.', "Don't you dare."],
+  cute: ['', "i'm scared…"],
+  sweet: ['', "It's okay. I know you're busy."],
+  savage: ['Well.', 'Great timing, really.'],
+  hype: ['Yo.', 'We were so close, champ.'],
+  menace: ['Fuck you, man.', 'Do something.'],
+};
+
+/** Same idea, for a head too foggy to hold the thread. Lower case, to match the mumble. */
+const FOGGY_VOICE: Partial<Record<PetPersonality, readonly [string, string]>> = {
+  feisty: ['', '…what was i even mad about.'],
+  cute: ['', '…huh?'],
+  sweet: ['', '…sorry, i lost it.'],
+  savage: ['', '…anyway.'],
+  hype: ['', '…lost the thread, champ.'],
+  menace: ['', '…the hell was i saying.'],
+};
+
+/** Drops the empty halves, so a temperament can supply one side or neither. */
+const wrap = (before: string, middle: string, after: string): string =>
+  [before, middle, after].filter(Boolean).join(' ');
+
+const voiceFor = (
+  table: Partial<Record<PetPersonality, readonly [string, string]>>,
+  personality: PetPersonality | undefined,
+): readonly [string, string] => (personality && table[personality]) || ['', ''];
+
 /** A complaint, the way this temperament makes one. The retired four stay plain. */
 const complaining = (text: string, personality?: PetPersonality): string => {
   switch (personality) {
@@ -139,10 +182,19 @@ const complaining = (text: string, personality?: PetPersonality): string => {
 export const petVoice = (line: string, { personality, ailments = [], bond }: VoiceContext = {}): string => {
   const text = line.trim();
   if (!text) return text;
-  // Condition outranks personality: an energetic pet on its last legs is not
-  // chipper, and a foggy one cannot manage a competitive quip.
-  if (ailments.includes('dying')) return weakly(text);
-  if (ailments.includes('foggy')) return foggily(text);
+  // Condition shapes the DELIVERY; personality still chooses the words around
+  // it. An energetic pet on its last legs is not chipper, but it is still that
+  // pet — before this, every temperament said the identical sentence from the
+  // moment its head went foggy (day 2 of neglect) until the end, which is most
+  // of the time anyone spends in a bad state. See neglect.sim.test.ts.
+  if (ailments.includes('dying')) {
+    const [before, after] = voiceFor(DYING_VOICE, personality);
+    return wrap(before, weakly(text), after);
+  }
+  if (ailments.includes('foggy')) {
+    const [before, after] = voiceFor(FOGGY_VOICE, personality);
+    return wrap(before, foggily(text), after);
+  }
   // Any other ailment: the line IS the complaint, so it is made the way this
   // pet complains rather than dressed in an everyday flourish. A pet that is
   // cool on you does not perform even that.

@@ -247,11 +247,20 @@ describe('the debug screen', () => {
     tree.unmount();
   });
 
-  it('switches temperament in place', async () => {
-    const picked: string[] = [];
-    const tree = await open({ onChangePersonality: (next: string) => picked.push(next) });
-    act(() => byLabel(tree, 'Feisty').props.onPress());
-    expect(picked).toEqual(['feisty']);
+  it('switches the character in place, once you save it', async () => {
+    const picked: unknown[] = [];
+    const tree = await open({ onChangePersonality: (...args: unknown[]) => picked.push(args) });
+    // Picking a base is a draft; nothing reaches the pet until Save. Same
+    // editor as Settings, so a slider dragged through five stops is one re-seed.
+    const chip = tree.root.findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Feisty'));
+    act(() => chip!.props.onPress());
+    expect(picked).toEqual([]);
+    const save = () => tree.root.findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Save character'));
+    act(() => save()!.props.onPress());
+    expect(picked).toHaveLength(1);
+    expect(picked[0]).toMatchObject([ 'feisty', '', expect.objectContaining({ blunt: 0.75 }) ]);
     tree.unmount();
   });
 

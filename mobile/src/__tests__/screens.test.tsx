@@ -1686,6 +1686,18 @@ describe('pet stats screen', () => {
       tree.root.findAllByType(StatBar).map((node: any) => [node.props.label, node.props.value]),
     );
 
+  it('leads with how they feel, in their name, and names the animal by its breed', () => {
+    const all = (tree: renderer.ReactTestRenderer) =>
+      tree.root.findAllByType(require('react-native').Text).map((n: any) => [n.props.children].flat().filter((c: unknown) => typeof c === 'string').join('')).join(' | ');
+    const hungry = render({ mood: 'hungry', breed: 'bunny', species: 'cat' });
+    expect(all(hungry)).toContain('Miso is hungry');
+    expect(all(hungry)).not.toContain('Feeling hungry');
+    // The stored species was defaulted for every pet; the breed is the truth.
+    expect(all(hungry)).toContain('Bunny');
+    expect(all(hungry)).not.toMatch(/Bunny · Cat|· Cat/);
+    expect(all(render({ mood: 'bright' }))).toContain('Miso is happy');
+  });
+
   it('surfaces the stats the dashboard never shows', () => {
     const tree = render({
       energy: 57,

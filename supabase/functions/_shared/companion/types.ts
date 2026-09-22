@@ -18,11 +18,21 @@
  */
 
 export const TRAITS = [
-  'playful', 'sarcastic', 'affectionate', 'competitive', 'shy', 'curious', 'energetic', 'calm',
+  'playful', 'sarcastic', 'affectionate', 'competitive', 'shy', 'curious', 'energetic', 'calm', 'blunt',
 ] as const;
 export type Trait = (typeof TRAITS)[number];
 /** Each trait is 0..1 and drifts slowly with experience. */
 export type PersonalityTraits = Record<Trait, number>;
+
+/**
+ * The five things a person can set about their pet's character, each 0..1,
+ * shown to them as a slider between two words. Fewer than the traits, and in
+ * their language rather than ours: "gentle ↔ blunt" is a choice somebody can
+ * make; "shy 0.35" is not. See `DIALS` for how each one lands on the traits.
+ */
+export const DIAL_KEYS = ['playful', 'blunt', 'energetic', 'sarcastic', 'clingy'] as const;
+export type DialKey = (typeof DIAL_KEYS)[number];
+export type PersonalityDials = Record<DialKey, number>;
 
 export const MOODS = [
   'happy', 'excited', 'sleepy', 'bored', 'proud', 'lonely', 'curious', 'annoyed', 'worried', 'hungry',
@@ -127,8 +137,10 @@ export interface LifeContext {
     build: string;
     /** The temperament chosen at adoption; the baseline its voice starts from. */
     temperament?: string;
-    /** With temperament `custom`: the character, as the person described it. */
+    /** Their own notes on how the pet acts, on top of (or instead of) the temperament. */
     persona?: string;
+    /** The five dials they set at adoption; the seed the traits grow from. */
+    dials?: PersonalityDials;
   };
   /** In-character conditions such as "Hungry", worst first. */
   statuses: string[];

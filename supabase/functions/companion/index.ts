@@ -5,12 +5,12 @@ import { z } from 'npm:zod@4.6.5';
 import {
   MAX_TURNS, MEMORY_CATEGORIES, STABLE_SYSTEM_PROMPT, TONE_SIGNALS, DAY,
   accessFor, applyCompanionEvent, customVoice, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
-  humanizeReply, levelIndex, limitsFor, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
+  fillTraits, humanizeReply, initialTraits, levelIndex, limitsFor, sameBasis, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
   planMemoryWrites, renderDynamicSystemPrompt, renderExtractionPrompt, renderProactiveInstruction, sanitizeEventMetadata,
   rebaseTraits, sanitizeLifeContext, summarizeRelationship, tickMood, turnsFromContext, COMPANION_EVENT_TYPES,
   PERSONALITY_VOICE,
   type CompanionEvent, type CompanionEventInput, type CompanionMemory, type CompanionMessage, type CompanionState,
-  type CompanionTier, type ExtractionResult, type LifeContext, type PetContext,
+  type CompanionTier, type ExtractionResult, type LifeContext, type PersonalityDials, type PetContext, type TraitBasis,
 } from '../_shared/companion/index.ts';
 
 /**
@@ -90,18 +90,23 @@ const iso = (value: number | null): string | null => (value === null ? null : ne
 type Row = Record<string, any>;
 
 /**
- * The temperament the traits grew from rides inside the same jsonb, under a key
- * no trait can have. It has to be recorded: drift accumulates, and after enough
- * of it the traits alone no longer say where they started.
+ * What the traits grew from — the temperament and the dials — rides inside the
+ * same jsonb, under keys no trait can have. It has to be recorded: drift
+ * accumulates, and after enough of it the traits alone no longer say where
+ * they started.
  */
 const BASIS_KEY = '_temperament';
-const traitsOf = (stored: Row): CompanionState['personalityTraits'] => {
-  const { [BASIS_KEY]: _basis, ...traits } = stored ?? {};
-  return traits as CompanionState['personalityTraits'];
+const DIALS_KEY = '_dials';
+const traitsOf = (stored: Row): Partial<CompanionState['personalityTraits']> => {
+  const { [BASIS_KEY]: _basis, [DIALS_KEY]: _dials, ...traits } = stored ?? {};
+  return traits as Partial<CompanionState['personalityTraits']>;
 };
+const basisOf = (stored: Row): TraitBasis | null =>
+  stored?.[BASIS_KEY] || stored?.[DIALS_KEY] ? { temperament: stored[BASIS_KEY] ?? null, dials: stored[DIALS_KEY] ?? null } : null;
 
 const toState = (row: Row): CompanionState => ({
-  personalityTraits: traitsOf(row.personality_traits),
+  // A row from before a trait existed lacks it; the caller fills it from the seed.
+  personalityTraits: traitsOf(row.personality_traits) as CompanionState['personalityTraits'],
   mood: row.mood,
   moodIntensity: row.mood_intensity,
   moodReason: row.mood_reason,
@@ -154,37 +159,46 @@ class Companion {
    * stored traits grew from (it was changed after adoption), the traits are
    * moved onto it, so the trait description and the voice never disagree.
    */
-  async loadState(now: number, temperament?: string): Promise<CompanionState> {
+  async loadState(now: number, temperament?: string, dials?: PersonalityDials | null): Promise<CompanionState> {
+    const seedKey = `${this.userId}:${this.petId}`;
     const { data } = await this.db.from('companion_state').select('*').match(this.owner).maybeSingle();
     if (data) {
-      const state = toState(data);
-      const recorded: string | null = data.personality_traits?.[BASIS_KEY] ?? null;
+      const recorded = basisOf(data.personality_traits);
       this.basis = recorded;
+      const loaded = toState(data);
+      // A trait added since this row was written takes its seed value, so it
+      // reads as no drift rather than as a jump.
+      const seed = initialTraits(seedKey, recorded?.temperament ?? temperament, recorded?.dials ?? dials);
+      const filled = fillTraits(loaded.personalityTraits, seed);
+      const state = { ...loaded, personalityTraits: filled };
       if (!temperament) return state;
-      const traits = rebaseTraits(state.personalityTraits, `${this.userId}:${this.petId}`, temperament, recorded);
-      this.basis = temperament;
-      if (traits === state.personalityTraits && recorded === temperament) return state;
-      // Moved onto the new temperament, or an older row getting its origin stamped.
+      const to: TraitBasis = { temperament, dials: dials ?? null };
+      const traits = rebaseTraits(filled, seedKey, to, recorded);
+      this.basis = to;
+      if (traits === filled && recorded && sameBasis(recorded, to) && Object.keys(loaded.personalityTraits).length === Object.keys(filled).length) return state;
+      // Moved onto a new basis, a new trait filled in, or an older row getting its origin stamped.
       const rebased = { ...state, personalityTraits: traits };
       await this.saveState(rebased);
       return rebased;
     }
-    // First contact. Seeded from the ids and the temperament picked at onboarding,
+    // First contact. Seeded from the ids and the character picked at onboarding,
     // so a second device racing this insert arrives at the same individual.
-    const { data: pet } = await this.db.from('pets').select('personality').eq('id', this.petId).maybeSingle();
-    const fresh = newCompanionState(`${this.userId}:${this.petId}`, now, pet?.personality ?? undefined);
-    this.basis = pet?.personality ?? null;
+    const { data: pet } = await this.db.from('pets').select('personality, personality_dials').eq('id', this.petId).maybeSingle();
+    const basis: TraitBasis = { temperament: temperament ?? pet?.personality ?? null, dials: dials ?? pet?.personality_dials ?? null };
+    const fresh = newCompanionState(seedKey, now, basis.temperament ?? undefined, basis.dials);
+    this.basis = basis;
     const { error } = await this.db.from('companion_state')
       .upsert({ ...this.owner, ...this.row(fresh), created_at: iso(now) }, { onConflict: 'user_id,pet_id', ignoreDuplicates: true });
     if (error) throw error;
     return fresh;
   }
 
-  /** The temperament the stored traits grew from; known once the state has been loaded. */
-  private basis: string | null = null;
+  /** What the stored traits grew from; known once the state has been loaded. */
+  private basis: TraitBasis | null = null;
   private row(state: CompanionState): Row {
     const row = fromState(state);
-    return this.basis ? { ...row, personality_traits: { ...state.personalityTraits, [BASIS_KEY]: this.basis } } : row;
+    if (!this.basis) return row;
+    return { ...row, personality_traits: { ...state.personalityTraits, [BASIS_KEY]: this.basis.temperament ?? null, [DIALS_KEY]: this.basis.dials ?? null } };
   }
 
   async saveState(state: CompanionState) {
@@ -441,7 +455,7 @@ Deno.serve(async (request) => {
     };
 
     if (action === 'state') {
-      const state = tickMood(await companion.loadState(now, life?.pet.temperament), (await companion.events(now)).filter((e) => now - e.timestamp < 2 * DAY), life, now);
+      const state = tickMood(await companion.loadState(now, life?.pet.temperament, life?.pet.dials), (await companion.events(now)).filter((e) => now - e.timestamp < 2 * DAY), life, now);
       await companion.saveState(state);
       return json({ state, messages: await companion.messages(50), access: await access() });
     }
@@ -454,7 +468,7 @@ Deno.serve(async (request) => {
       // from Tuesday as though it had just happened.
       const claimed = typeof body.event.timestamp === 'number' && Number.isFinite(body.event.timestamp) ? body.event.timestamp : now;
       const timestamp = Math.min(now, Math.max(now - 2 * DAY, claimed));
-      const state = await companion.record(await companion.loadState(now, life?.pet.temperament), { type, timestamp, metadata: sanitizeEventMetadata(body.event.metadata) }, life, now);
+      const state = await companion.record(await companion.loadState(now, life?.pet.temperament, life?.pet.dials), { type, timestamp, metadata: sanitizeEventMetadata(body.event.metadata) }, life, now);
       return json({ state });
     }
 
@@ -468,7 +482,7 @@ Deno.serve(async (request) => {
 
       // The event first, so the reply already reflects it (and any derived
       // "returned after absence"). Silent, because the reply IS the reaction.
-      const state = await companion.record(await companion.loadState(now, life?.pet.temperament), { type: 'USER_SENT_MESSAGE', metadata: { length: message.length } }, life, now, { silent: true });
+      const state = await companion.record(await companion.loadState(now, life?.pet.temperament, life?.pet.dials), { type: 'USER_SENT_MESSAGE', metadata: { length: message.length } }, life, now, { silent: true });
       const userMessage = await companion.appendMessage({ role: 'user', content: message });
 
       const loadedAt = Date.now();
@@ -496,7 +510,7 @@ Deno.serve(async (request) => {
     if (action === 'proactive') {
       if (!life) return json({ error: 'Missing context.' }, 400);
       const events = await companion.events(now);
-      const state = tickMood(await companion.loadState(now, life?.pet.temperament), events.filter((e) => now - e.timestamp < 2 * DAY), life, now);
+      const state = tickMood(await companion.loadState(now, life?.pet.temperament, life?.pet.dials), events.filter((e) => now - e.timestamp < 2 * DAY), life, now);
       const [memories, recentMessages] = await Promise.all([companion.memories(), companion.messages(40)]);
       // The rules decide WHETHER to speak. No rule fires, no model is called.
       const fire = pickProactiveTrigger({ state, events, memories, recentMessages, life, now });
@@ -527,7 +541,7 @@ Deno.serve(async (request) => {
       if (!isDev) return json({ error: 'Not available.' }, 403);
       if (!life) return json({ error: 'Missing context.' }, 400);
       const events = await companion.events(now);
-      const state = tickMood(await companion.loadState(now, life?.pet.temperament), events.filter((e) => now - e.timestamp < 2 * DAY), life, now);
+      const state = tickMood(await companion.loadState(now, life?.pet.temperament, life?.pet.dials), events.filter((e) => now - e.timestamp < 2 * DAY), life, now);
       const [memories, recentMessages] = await Promise.all([companion.memories(), companion.messages(40)]);
       const ctx = buildPetContext({ state, life, events, memories, messages: recentMessages, currentMessage: body?.message, now });
       const dynamic = renderDynamicSystemPrompt(ctx);
@@ -561,7 +575,7 @@ Deno.serve(async (request) => {
         const { error } = await admin.from(table).delete().match({ user_id: user.id, pet_id: petId });
         if (error) throw error;
       }
-      return json({ state: await companion.loadState(now, life?.pet.temperament) });
+      return json({ state: await companion.loadState(now, life?.pet.temperament, life?.pet.dials) });
     }
 
     return json({ error: 'Unknown action.' }, 400);

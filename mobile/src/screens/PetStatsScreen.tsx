@@ -49,12 +49,6 @@ const GROUP_COLOR: Record<PetStatGroup, string> = {
   mind: colors.lilacDeep,
 };
 
-const SPECIES_LABEL: Record<PetState['species'], string> = {
-  cat: 'Cat',
-  dog: 'Dog',
-  bunny: 'Bunny',
-};
-
 const CARE_LABEL = [
   ['MEAL', 'Meals'],
   ['WORKOUT', 'Workouts'],
@@ -143,11 +137,31 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** The mood, as a word a person would use about a friend. */
+const FEELING_WORD: Record<PetState['mood'], string> = {
+  bright: 'happy',
+  content: 'doing fine',
+  sleepy: 'sleepy',
+  hungry: 'hungry',
+};
+const FEELING_TINT: Record<PetState['mood'], { backgroundColor: string; borderColor: string }> = {
+  bright: { backgroundColor: colors.mint, borderColor: colors.mintDeep },
+  content: { backgroundColor: colors.sageSoft, borderColor: colors.sage },
+  sleepy: { backgroundColor: colors.lilac, borderColor: colors.lilacDeep },
+  hungry: { backgroundColor: colors.coralWash, borderColor: colors.coral },
+};
+const FEELING_INK: Record<PetState['mood'], string> = {
+  bright: colors.mintDeep,
+  content: colors.inkSoft,
+  sleepy: colors.lilacDeep,
+  hungry: colors.coralDeep,
+};
+
 const describeMood = (pet: PetState): string => {
-  if (pet.mood === 'hungry') return `Nutrition is under 35, so ${pet.name} is hungry.`;
-  if (pet.mood === 'sleepy') return `Energy is under 40, so ${pet.name} is sleepy.`;
-  if (pet.mood === 'bright') return `Energy and happiness are both 65 or more — ${pet.name} is bright.`;
-  return `Fed and rested, but not yet at 65 energy and happiness together.`;
+  if (pet.mood === 'hungry') return `Nutrition is under 35. A meal will sort it.`;
+  if (pet.mood === 'sleepy') return `Energy is under 40. Some rest will sort it.`;
+  if (pet.mood === 'bright') return `Energy and happiness are both 65 or more.`;
+  return `Fed and rested, not quite at 65 energy and happiness together yet.`;
 };
 
 export function PetStatsScreen({ pet, events, onClose }: Props) {
@@ -222,12 +236,18 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
           <View style={styles.identityText}>
             <Kicker>{PET_BUILD_LABEL[getPetBuild(pet)].toUpperCase()}</Kicker>
             <Text style={styles.petName}>{pet.name}</Text>
-            <Text style={styles.identityMeta}>
-              {sheet.label} · {SPECIES_LABEL[pet.species]}
-            </Text>
-            <Text style={styles.identityMeta}>
-              Day {daysWithPet(pet, now)} together
-            </Text>
+            {/* The breed is the animal. `pet.species` predates the breed picker and was
+                defaulted for every pet, which is how a bunny read as "Bunny · Cat". */}
+            <Text style={styles.identityMeta}>{`${sheet.label} · Day ${daysWithPet(pet, now)} together`}</Text>
+            {/* How they are doing, beside the face it belongs to and before any
+                number: it is the one thing a person opens this screen to know. */}
+            <View style={[styles.feeling, FEELING_TINT[pet.mood]]} accessibilityRole="summary">
+              <View style={[styles.feelingDot, { backgroundColor: FEELING_INK[pet.mood] }]} />
+              <Text style={[styles.feelingText, { color: FEELING_INK[pet.mood] }]} numberOfLines={1}>
+                {`${pet.name} is ${FEELING_WORD[pet.mood]}`}
+              </Text>
+            </View>
+            <Text style={styles.feelingWhy}>{describeMood(pet)}</Text>
           </View>
         </View>
 
@@ -238,10 +258,6 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
             <Fact label="build" value={PET_BUILD_LABEL[getPetBuild(pet)]} />
           </View>
           <StatBar label="XP" value={pet.xp} color={colors.coral} />
-          <View style={styles.moodRow}>
-            <Text style={styles.moodValue}>Feeling {pet.mood}</Text>
-            <Text style={styles.moodHint}>{describeMood(pet)}</Text>
-          </View>
         </Card>
 
         <Card
@@ -340,7 +356,7 @@ const styles = StyleSheet.create({
   backLabel: { fontFamily: fonts.mono, fontSize: 12, color: colors.muted },
   topTitle: { ...text.heading, fontSize: 16 },
   body: { padding: 16, gap: 14 },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 2, paddingTop: 6 },
+  identity: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, paddingHorizontal: 2, paddingTop: 6 },
   portrait: {
     width: 96,
     height: 96,
@@ -373,6 +389,21 @@ const styles = StyleSheet.create({
   factValue: { fontSize: 20, fontWeight: '700', color: colors.ink },
   factValueLong: { fontSize: 15 },
   factLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 3 },
+  // A pill, not a card: it hugs its words and sits under the name like a status.
+  feeling: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 10,
+    paddingHorizontal: 13,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  feelingDot: { width: 8, height: 8, borderRadius: 4 },
+  feelingText: { fontFamily: fonts.body, fontSize: 15, fontWeight: '500', letterSpacing: -0.2 },
+  feelingWhy: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.muted, marginTop: 7, lineHeight: 16 },
   moodRow: { marginTop: 18 },
   moodValue: { fontSize: 14, fontWeight: '600', color: colors.ink },
   moodHint: { fontSize: 12, color: colors.muted, marginTop: 5, lineHeight: 18 },

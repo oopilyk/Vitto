@@ -61,3 +61,5 @@ export * from './domain/companionBridge';
  * that would collide with core's under a flat `export *`.
  */
 export * as companion from './companion';
+/** The dials are set on the pet by the app, so the type is reachable without the namespace. */
+export type { PersonalityDials } from './companion/types';

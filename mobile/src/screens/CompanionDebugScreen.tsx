@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
-  PERSONA_MAX_LENGTH,
   PET_PERSONALITY_OPTIONS,
-  isValidPersona,
   assessCondition,
   bondFor,
   buildLifeContext,
@@ -14,16 +12,19 @@ import {
   type HealthEvent,
   type PetPersonality,
   type PetState,
+  companion,
+  type PersonalityDials,
 } from '@vitto/core';
 import { colors, fonts, layout } from '../theme';
 import { companionService, type CompanionDebug } from '../services/companionService';
+import { CharacterEditor } from '../components/CharacterEditor';
 
 interface Props {
   pet: PetState;
   events: HealthEvent[];
   profile: BodyProfile;
   stepGoal: number;
-  onChangePersonality: (next: PetPersonality, persona?: string) => void;
+  onChangePersonality: (next: PetPersonality, persona?: string, dials?: PersonalityDials) => void;
   onOpenChat: () => void;
   onClose: () => void;
 }
@@ -39,7 +40,6 @@ interface Props {
  */
 export function CompanionDebugScreen({ pet, events, profile, stepGoal, onChangePersonality, onOpenChat, onClose }: Props) {
   const [debug, setDebug] = useState<CompanionDebug | null>(null);
-  const [personaDraft, setPersonaDraft] = useState(pet.persona ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [spoken, setSpoken] = useState<string | null>(null);
@@ -91,46 +91,15 @@ export function CompanionDebugScreen({ pet, events, profile, stepGoal, onChangeP
       <ScrollView contentContainerStyle={styles.body}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Section label="TEMPERAMENT">
+        <Section label="CHARACTER">
           <Text style={styles.note}>
-            {`Switches ${pet.name} in place. Everything below updates; what the companion has already learned is kept.`}
+            {`Switches ${pet.name} in place. Everything below updates; what the companion has already learned is kept. Same editor as Settings, plus the retired temperaments.`}
           </Text>
-          <View style={styles.chips}>
-            {PET_PERSONALITY_OPTIONS.map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                on={pet.personality === option.value}
-                onPress={() => onChangePersonality(option.value)}
-              />
-            ))}
-          </View>
-          {pet.personality === 'custom' ? (
-            <View>
-              <TextInput
-                style={[layout.input, styles.persona]}
-                value={personaDraft}
-                onChangeText={(value) => setPersonaDraft(value.slice(0, PERSONA_MAX_LENGTH))}
-                placeholder="Who are they? A sentence or two."
-                placeholderTextColor={colors.faint}
-                multiline
-                maxLength={PERSONA_MAX_LENGTH}
-                accessibilityLabel="Their character"
-              />
-              <Pressable
-                accessibilityRole="button"
-                disabled={!isValidPersona(personaDraft) || personaDraft.trim() === (pet.persona ?? '')}
-                onPress={() => onChangePersonality('custom', personaDraft)}
-                style={({ pressed }) => [styles.action, (!isValidPersona(personaDraft) || personaDraft.trim() === (pet.persona ?? '')) && styles.buttonOff, pressed && styles.pressed]}
-              >
-                <Text style={styles.actionLabel}>Save character</Text>
-              </Pressable>
-            </View>
-          ) : null}
+          <CharacterEditor pet={pet} age={profile.age} onSave={(next) => onChangePersonality(next.personality, next.persona, next.dials)} />
           <Text style={styles.note}>Retired, still worn by older pets:</Text>
           <View style={styles.chips}>
             {(['energetic', 'chill', 'competitive', 'supportive'] as const).map((value) => (
-              <Chip key={value} label={value} on={pet.personality === value} onPress={() => onChangePersonality(value)} />
+              <Chip key={value} label={value} on={pet.personality === value} onPress={() => onChangePersonality(value, undefined, companion.dialsFor(value))} />
             ))}
           </View>
         </Section>

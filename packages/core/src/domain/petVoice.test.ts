@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { PetAilment } from './petCondition';
 import { petVoice } from './petVoice';
 
 const LINE = 'I loved the variety in that meal.';
@@ -132,5 +133,36 @@ describe('complaining in character', () => {
   });
   it('stays plain when the pet is cool on you', () => {
     expect(petVoice(hungry, { personality: 'menace', ailments: ['starving'], bond: 'wary' })).toBe(hungry);
+  });
+});
+
+describe('condition and temperament together', () => {
+  const OFFERED = ['feisty', 'cute', 'sweet', 'savage', 'hype', 'menace'] as const;
+  const distinct = (line: string, ailments: PetAilment[]) =>
+    new Set(OFFERED.map((personality) => petVoice(line, { personality, ailments })));
+
+  it('never makes two temperaments say the same thing, at any severity', () => {
+    // Before this, everything from "foggy" onwards collapsed to one sentence —
+    // which is most of the time a neglected pet spends alive.
+    expect(distinct("I'm feeling happy.", []).size).toBe(OFFERED.length);
+    expect(distinct("I'm so hungry. Feed me?", ['starving']).size).toBe(OFFERED.length);
+    expect(distinct("I'm so hungry. Feed me?", ['starving', 'foggy']).size).toBe(OFFERED.length);
+    expect(distinct("I'm fading. Please look after me.", ['dying', 'starving', 'foggy']).size).toBe(OFFERED.length);
+  });
+
+  it('keeps the body transform under the character', () => {
+    const dying = petVoice("I'm fading. Please look after me.", { personality: 'menace', ailments: ['dying'] });
+    expect(dying).toContain('Fuck you, man.');
+    expect(dying).toContain('fading…');
+    const foggy = petVoice("My head's all foggy. Mind Gym?", { personality: 'cute', ailments: ['foggy'] });
+    expect(foggy).toContain('uh…');
+    expect(foggy).toBe("my uh… head's all foggy. mind gym? …huh?");
+  });
+
+  it('leaves the retired four, and a written character, plain', () => {
+    const line = "I'm fading. Please look after me.";
+    for (const personality of ['energetic', 'chill', 'custom'] as const) {
+      expect(petVoice(line, { personality, ailments: ['dying'] })).toBe("I'm fading… please look after me…");
+    }
   });
 });

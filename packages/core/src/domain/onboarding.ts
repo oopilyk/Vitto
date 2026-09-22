@@ -73,7 +73,7 @@ export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
   { value: 'savage', label: 'Savage', detail: 'Deadpan, merciless, swears a little' },
   { value: 'hype', label: 'Hype', detail: 'All swagger. Your personal hype man' },
   { value: 'menace', label: 'Menace', detail: 'Bossy, loud, swears like hell. 16+' },
-  { value: 'custom', label: 'Your own', detail: 'Describe them in a sentence or two' },
+  { value: 'custom', label: 'Your own', detail: 'No base. Just the sliders and your notes' },
 ];
 
 export const PERSONA_MAX_LENGTH = 300;

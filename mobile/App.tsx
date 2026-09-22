@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -23,7 +23,6 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
-import { detectNewStreakDay } from './src/celebrations/detectNewStreakDay';
 import type { CelebrationEvent } from './src/celebrations/types';
 import { readCurrentLocation, useAtGym, useWalking } from './src/services/ambient';
 import {
@@ -394,6 +393,7 @@ export default function App() {
   const [breed, setBreed] = useState<PetBreed>('bichon');
   const [personality, setPersonality] = useState<PetPersonality>('sweet');
   const [persona, setPersona] = useState('');
+  const [dials, setDials] = useState<PersonalityDials | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   // Persisted on `profiles` now (onboarding-v2). Derived rather than its own
   // state so a `loadProfile` after sign-in is what fills it. `updateProfile`
@@ -872,18 +872,15 @@ export default function App() {
         );
       }
 
-      // A level-up already claims the celebration slot for this moment; a new
-      // streak day is the other thing worth taking over the screen for. Reads
-      // `events` from *before* this write lands — the exact before/after shape
-      // `detectNewStreakDay` needs to tell "today just became qualifying" apart
-      // from "today already was" (a second meal, a workout later the same day).
-      const streakDay = levelUp ? null : detectNewStreakDay(events, storedEvent, pet.id);
-      if (streakDay) setCelebration(streakDay);
-
-      // The celebration is the acknowledgement for a level-up or new streak
-      // day, so the banner/toast would only stack behind it and then flash on
-      // dismissal.
-      if (!levelUp && !streakDay) {
+      // A level-up is the one thing worth taking over the screen for. A new
+      // streak day used to as well, and was cut: it fired on the first log of
+      // every single day, which is the most routine moment in the app, and the
+      // flame on the HUD plaque already carries the count. The toast below
+      // still acknowledges it.
+      //
+      // The celebration is the acknowledgement for a level-up, so the
+      // banner/toast would only stack behind it and then flash on dismissal.
+      if (!levelUp) {
         if (nextReaction) showReaction(nextReaction);
         // Every logged moment is acknowledged, reaction or not — that is the
         // whole point of the toast being separate from the pet's mood line.
@@ -908,11 +905,11 @@ export default function App() {
    * temperament is the baseline it started from, not a reset button (the debug
    * screen's "forget everything" is the reset).
    */
-  const changePersonality = async (next: PetPersonality, persona?: string) => {
+  const changePersonality = async (next: PetPersonality, persona?: string, dials?: PersonalityDials) => {
     if (!pet) return;
-    // The description only means anything with `custom`; otherwise it is dropped
-    // so a later switch back starts clean.
-    const wearing = next === 'custom' ? { personality: next, persona: persona?.trim() || pet.persona } : { personality: next, persona: undefined };
+    // Notes ride on any base now, so they are kept across a base change unless
+    // new ones are given; the sliders are whatever the caller settled on.
+    const wearing = { personality: next, persona: persona === undefined ? pet.persona : persona.trim() || undefined, dials: dials ?? pet.dials };
     const nextPet = { ...pet, ...wearing };
     setPet(nextPet);
     setPersonality(next);
@@ -1110,7 +1107,7 @@ export default function App() {
       if (profile.weightKg < 30 || profile.weightKg > 300)
         throw new Error('Weight must be between 30 and 300 kg.');
 
-      const nextPet = createPet(userId, name.trim() || 'Miso', 'dog', breed, personality, undefined, persona);
+      const nextPet = createPet(userId, name.trim() || 'Miso', 'dog', breed, personality, undefined, persona, dials);
       if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
       await persistProfile(profile);
       await repository.savePet(nextPet);
@@ -1606,6 +1603,8 @@ export default function App() {
           onPersonalityChange={setPersonality}
           persona={persona}
           onPersonaChange={setPersona}
+          dials={dials}
+          onDialsChange={setDials}
           stepGoal={stepGoal}
           onStepGoalChange={setStepGoal}
           profile={profile}
@@ -1753,6 +1752,8 @@ export default function App() {
               profile={profile}
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}
+              pet={livePet}
+              onCharacterChange={(next) => void changePersonality(next.personality, next.persona, next.dials)}
               onSave={persistProfile}
               onClose={() => navigation.goBack()}
               onDeleteAccount={isOnline ? deleteAccount : undefined}
@@ -1827,7 +1828,7 @@ export default function App() {
               events={events}
               profile={profile}
               stepGoal={stepGoal}
-              onChangePersonality={(next, persona) => void changePersonality(next, persona)}
+              onChangePersonality={(next, persona, dials) => void changePersonality(next, persona, dials)}
               onOpenChat={() => navigation.replace('Companion')}
               onClose={() => navigation.goBack()}
             />

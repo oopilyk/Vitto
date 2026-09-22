@@ -4,6 +4,7 @@
 
 import { ABSENCE_THRESHOLD_MS, computeMood } from './mood.ts';
 import { applyEventInfluence, initialTraits } from './personality.ts';
+import type { PersonalityDials } from './types.ts';
 import { applyRelationshipEvent } from './relationship.ts';
 import { isReactionWorthy } from './triggers.ts';
 import type { CompanionEvent, CompanionEventInput, CompanionEventType, CompanionState, ExtractedMemory, LifeContext } from './types.ts';
@@ -17,8 +18,8 @@ const INTERACTION_EVENTS: ReadonlySet<CompanionEventType> = new Set<CompanionEve
   'SLEEP_LOGGED', 'SLEEP_GOAL_REACHED', 'POOR_SLEEP', 'BRAIN_GAME_PLAYED',
 ]);
 
-export const newCompanionState = (seedKey: string, now: number, temperament?: string): CompanionState => ({
-  personalityTraits: initialTraits(seedKey, temperament),
+export const newCompanionState = (seedKey: string, now: number, temperament?: string, dials?: PersonalityDials | null): CompanionState => ({
+  personalityTraits: initialTraits(seedKey, temperament, dials),
   mood: 'curious',
   moodIntensity: 0.6,
   moodReason: 'you just met and everything is new',

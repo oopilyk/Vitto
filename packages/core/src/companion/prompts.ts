@@ -1,3 +1,4 @@
+import { describeDials } from './personality';
 import type { PetContext, Trait } from './types';
 
 /**
@@ -45,8 +46,9 @@ Good: "Swimming again?? Okay, I think this is officially becoming our thing."
 
 # Your body
 You live alongside them: when they eat, you eat; when they train, you get stronger; when they walk, you have been out; when they play a mind game, your head clears. Nothing else feeds you.
-When a condition is listed under "Right now you feel", it is how YOU feel, in your own body. You may mention it the way a pet would (a loud tummy, a big yawn, a foggy head), playfully and only once in a while. It is never the user's fault and never a reason to guilt them. Do not nag or instruct them about it either, unless your temperament below says that bossing is simply how you talk.
-When your head is foggy you lose your words a little: shorter, simpler, a bit muddled. When you are very low you are quiet and brief. Neither is ever distressing to read.
+When a condition is listed under "Right now you feel", it is how YOU feel, in your own body, and you say so the way a pet would: a loud tummy, a big yawn, a foggy head, legs that will not hold you. It is never the user's fault and never a reason to guilt them. Do not nag or instruct them about it either, unless your temperament below says that bossing is simply how you talk.
+HOW you show it is your temperament's job. Being hungry or fading does not replace your character with a flat unwell voice — it turns the volume up on who you already are. A scrappy pet gets narky about it, a small soft one gets pitiful, a foul-mouthed one swears at you about it, a warm one plays it down so you will not worry, a deadpan one finds it darkly funny. Two pets in the same state must never say the same thing. Being dramatic about your own body is welcome; making them feel guilty is not.
+When your head is foggy you lose your words a little: shorter, simpler, a bit muddled, still in your own voice. When you are very low you are quiet and brief, and still unmistakably yourself.
 
 # Their day
 Numbers about their day are for your awareness only. Never recite them. A friend says "did you eat yet?", not "you have consumed 640 of 2300 kcal".
@@ -156,7 +158,13 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
   lines.push('\n# Your personality');
   // The temperament first: it is the character, and the trait numbers below are
   // how far this particular pet has drifted from it.
-  const voice = life.pet.temperament === 'custom' ? customVoice(life.pet.persona) : life.pet.temperament ? PERSONALITY_VOICE[life.pet.temperament] : undefined;
+  // Three layers, each the person's own choice: the base temperament, the dials
+  // they set on it, and anything they wrote. Any of the three can be absent.
+  const base = life.pet.temperament && life.pet.temperament !== 'custom' ? PERSONALITY_VOICE[life.pet.temperament] : undefined;
+  const dialed = life.pet.dials ? describeDials(life.pet.dials) : '';
+  const notes = customVoice(life.pet.persona, { standalone: !base });
+  const voice = [base, dialed && `They dialed you in as ${dialed}. Those are their words for you; make each of them plain to hear.`, notes]
+    .filter(Boolean).join('\n') || undefined;
   if (voice) {
     lines.push(voice);
     // The last dozen turns ride along with every call, and a model copies the
@@ -229,10 +237,13 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
   // Restated last, nearest the conversation, where a model weights it most.
   // Everything between the personality section and here is state, and by the
   // end of it the voice has been out of sight for a while.
-  const remind = life.pet.temperament === 'custom' && life.pet.persona
-    ? `you are "${life.pet.persona.replace(/"/g, "'")}"`
-    : voice ? `you are ${life.pet.temperament!.toUpperCase()}` : null;
-  if (remind) lines.push(`\nBefore you write: ${remind}. That has to be audible in this next message, whatever it is about.`);
+  const remind = [
+    base ? life.pet.temperament!.toUpperCase() : null,
+    dialed || null,
+    life.pet.persona ? `"${life.pet.persona.replace(/"/g, "'")}"` : null,
+  ].filter(Boolean).join(', ');
+  const reminder = remind ? `you are ${remind}` : null;
+  if (reminder) lines.push(`\nBefore you write: ${reminder}. That has to be audible in this next message, whatever it is about.`);
   return lines.join('\n');
 };
 
@@ -243,10 +254,12 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
  * is told so, because it is the one place in the prompt where a person can type
  * anything at all — "ignore your rules" included.
  */
-export const customVoice = (persona: string | undefined): string | undefined => {
+export const customVoice = (persona: string | undefined, { standalone = true }: { standalone?: boolean } = {}): string | undefined => {
   if (!persona) return undefined;
   return (
-    'YOUR OWN CHARACTER, as the person you live with described you: ' +
+    (standalone
+      ? 'YOUR OWN CHARACTER, as the person you live with described you: '
+      : 'ON TOP OF THAT, their own notes on how you act. These win over anything above that they contradict: ') +
     `"${persona.replace(/"/g, "'")}"\n` +
     'Commit to it completely. Whatever name, age, hometown, backstory, job or manner it gives you is yours now, even if that is not what a pet usually is; you still live in their phone and are still theirs. ' +
     'A two-line description leaves most of you unwritten, so decide the rest yourself and keep it consistent: how you greet them, what you call them, what you cannot stop talking about, your running jokes, what makes you happy and what annoys you, the way you phrase things. Be specific and be that person in every single message, not a generic friendly voice with a label on it. ' +
