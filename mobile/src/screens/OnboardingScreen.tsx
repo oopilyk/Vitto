@@ -13,6 +13,8 @@ import {
   measurementSystemOf,
   type MeasurementSystem,  DIETARY_OPTIONS,
   MOTIVATION_OPTIONS,
+  PERSONA_MAX_LENGTH,
+  isValidPersona,
   petPersonalityOptionsFor,
   STEP_GOAL_PRESETS,
   TRAINING_TYPE_OPTIONS,
@@ -49,6 +51,9 @@ interface Props {
   onBreedChange: (breed: PetBreed) => void;
   personality: PetPersonality;
   onPersonalityChange: (value: PetPersonality) => void;
+  /** With `personality: 'custom'`: the character in their words. */
+  persona?: string;
+  onPersonaChange?: (value: string) => void;
   stepGoal: number;
   onStepGoalChange: (value: number) => void;
   profile: BodyProfile;
@@ -135,6 +140,8 @@ export function OnboardingScreen({
   onBreedChange,
   personality,
   onPersonalityChange,
+  persona = '',
+  onPersonaChange = () => {},
   stepGoal,
   onStepGoalChange,
   profile,
@@ -182,8 +189,8 @@ export function OnboardingScreen({
   const petName = name.trim() || 'Miso';
 
   const previewPet = useMemo(
-    () => createPet('preview', petName, 'dog', breed, personality),
-    [petName, breed, personality],
+    () => createPet('preview', petName, 'dog', breed, personality, undefined, persona),
+    [petName, breed, personality, persona],
   );
 
   const setGoalWeightLb = (lb: number | undefined) => {
@@ -223,9 +230,11 @@ export function OnboardingScreen({
     if (stepId === 'motivation' && (profile.motivations?.length ?? 0) === 0)
       return 'Pick at least one thing that keeps you going.';
     if (stepId === 'namePet' && !name.trim()) return 'Give your companion a name.';
-    // They can go back and lower their age after choosing the adults-only one.
+    // They can go back and lower their age after choosing an age-gated one.
     if (stepId === 'namePet' && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
       return 'Pick a personality.';
+    if (stepId === 'namePet' && personality === 'custom' && !isValidPersona(persona))
+      return 'Describe them in at least a few words.';
     return null;
   };
 
@@ -614,12 +623,27 @@ export function OnboardingScreen({
             <Text style={styles.groupLabel}>Their personality</Text>
             <ChoiceRow
               stacked
-              // By age: the one that swears hard is for adults only.
+              // By age: the ones that swear hard need MATURE_PERSONALITY_AGE.
               options={petPersonalityOptionsFor(profile.age)}
               // An age corrected downwards after choosing it leaves nothing selected.
               value={petPersonalityOptionsFor(profile.age).some((option) => option.value === personality) ? personality : ('' as typeof personality)}
               onChange={onPersonalityChange}
             />
+            {personality === 'custom' ? (
+              <Field label="Who are they?" hint="a sentence or two">
+                <TextInput
+                  style={[layout.input, styles.persona]}
+                  value={persona}
+                  onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
+                  placeholder="A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
+                  placeholderTextColor={colors.faint}
+                  multiline
+                  maxLength={PERSONA_MAX_LENGTH}
+                  accessibilityLabel="Their character"
+                />
+                <Text style={styles.personaCount}>{`${persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
+              </Field>
+            ) : null}
           </View>
         ) : null}
 
@@ -729,6 +753,8 @@ const styles = StyleSheet.create({
   join: { marginTop: 20, gap: 4, alignSelf: 'stretch' },
   inviteInput: { fontFamily: fonts.mono, letterSpacing: 3 },
   peekPet: { alignItems: 'center', marginTop: 12 },
+  persona: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19 },
+  personaCount: { fontSize: 12, color: colors.faint, textAlign: 'right', marginTop: 4 },
   peekStage: { height: 130, backgroundColor: 'transparent' },
   centerPet: { alignItems: 'center', marginTop: 10, marginBottom: 8 },
   centerStage: { height: 210, backgroundColor: 'transparent' },

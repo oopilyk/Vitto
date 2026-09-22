@@ -173,6 +173,9 @@ const withPersonality = (text: string, personality?: PetPersonality): string => 
       return `${pick(text, MENACE_OPENERS)} ${text.replace(/\?/g, '.')} ${pick(text, MENACE_TAGS)}`;
     case 'hype':
       return `${pick(text, HYPE_OPENERS)} ${exclaimFirst(text)} ${pick(text, HYPE_TAGS)}`;
+    // A written character has no stock flourishes: its voice is the model's job.
+    case 'custom':
+      return text;
     // The original set. Still worn by pets adopted before the four above.
     case 'energetic':
       return energetically(text);

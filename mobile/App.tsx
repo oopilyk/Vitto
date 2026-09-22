@@ -393,6 +393,7 @@ export default function App() {
   // Chosen at adoption; changeable later from the profile.
   const [breed, setBreed] = useState<PetBreed>('bichon');
   const [personality, setPersonality] = useState<PetPersonality>('sweet');
+  const [persona, setPersona] = useState('');
   const [error, setError] = useState<string | null>(null);
   // Persisted on `profiles` now (onboarding-v2). Derived rather than its own
   // state so a `loadProfile` after sign-in is what fills it. `updateProfile`
@@ -907,9 +908,12 @@ export default function App() {
    * temperament is the baseline it started from, not a reset button (the debug
    * screen's "forget everything" is the reset).
    */
-  const changePersonality = async (next: PetPersonality) => {
+  const changePersonality = async (next: PetPersonality, persona?: string) => {
     if (!pet) return;
-    const nextPet = { ...pet, personality: next };
+    // The description only means anything with `custom`; otherwise it is dropped
+    // so a later switch back starts clean.
+    const wearing = next === 'custom' ? { personality: next, persona: persona?.trim() || pet.persona } : { personality: next, persona: undefined };
+    const nextPet = { ...pet, ...wearing };
     setPet(nextPet);
     setPersonality(next);
     careMomentInFlight.current = true;
@@ -921,10 +925,10 @@ export default function App() {
           const fresh = await remoteRepository.loadPet();
           if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
           base = fresh;
-          saved = await remoteRepository.savePetIfUnchanged({ ...fresh, personality: next }, fresh.version ?? 0);
+          saved = await remoteRepository.savePetIfUnchanged({ ...fresh, ...wearing }, fresh.version ?? 0);
           if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
         }
-        const stored = { ...base, personality: next, version: saved.version };
+        const stored = { ...base, ...wearing, version: saved.version };
         setPet(stored);
         await repository.savePet(stored);
         return;
@@ -1106,7 +1110,7 @@ export default function App() {
       if (profile.weightKg < 30 || profile.weightKg > 300)
         throw new Error('Weight must be between 30 and 300 kg.');
 
-      const nextPet = createPet(userId, name.trim() || 'Miso', 'dog', breed, personality);
+      const nextPet = createPet(userId, name.trim() || 'Miso', 'dog', breed, personality, undefined, persona);
       if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
       await persistProfile(profile);
       await repository.savePet(nextPet);
@@ -1600,6 +1604,8 @@ export default function App() {
           onBreedChange={setBreed}
           personality={personality}
           onPersonalityChange={setPersonality}
+          persona={persona}
+          onPersonaChange={setPersona}
           stepGoal={stepGoal}
           onStepGoalChange={setStepGoal}
           profile={profile}
@@ -1821,7 +1827,7 @@ export default function App() {
               events={events}
               profile={profile}
               stepGoal={stepGoal}
-              onChangePersonality={(next) => void changePersonality(next)}
+              onChangePersonality={(next, persona) => void changePersonality(next, persona)}
               onOpenChat={() => navigation.replace('Companion')}
               onClose={() => navigation.goBack()}
             />

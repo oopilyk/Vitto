@@ -184,6 +184,7 @@ export const buildLifeContext = (input: {
       level: pet.level,
       build: hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : 'Balanced',
       ...(pet.personality ? { temperament: pet.personality } : {}),
+      ...(pet.personality === 'custom' && pet.persona ? { persona: pet.persona } : {}),
     },
     statuses: assessCondition(pet).ailments.map((ailment) => STATUS_LABEL[ailment]),
     foodTags: activeFoodEffects(events, now).map((effect) => effect.label),

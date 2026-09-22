@@ -123,6 +123,8 @@ export interface LifeContext {
     build: string;
     /** The temperament chosen at adoption; the baseline its voice starts from. */
     temperament?: string;
+    /** With temperament `custom`: the character, as the person described it. */
+    persona?: string;
   };
   /** In-character conditions such as "Hungry", worst first. */
   statuses: string[];

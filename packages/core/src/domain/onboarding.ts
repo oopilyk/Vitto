@@ -72,18 +72,40 @@ export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
   { value: 'sweet', label: 'Sweet', detail: 'Warm, kind, endlessly in your corner' },
   { value: 'savage', label: 'Savage', detail: 'Deadpan, merciless, swears a little' },
   { value: 'hype', label: 'Hype', detail: 'All swagger. Your personal hype man' },
-  { value: 'menace', label: 'Menace', detail: 'Bossy, loud, swears like hell. 18+' },
+  { value: 'menace', label: 'Menace', detail: 'Bossy, loud, swears like hell. 16+' },
+  { value: 'custom', label: 'Your own', detail: 'Describe them in a sentence or two' },
 ];
 
-/** Temperaments that swear hard enough to be kept from anyone under 18. */
-export const MATURE_PERSONALITIES: readonly PetPersonality[] = ['menace'];
-export const MATURE_PERSONALITY_AGE = 18;
+export const PERSONA_MAX_LENGTH = 300;
+/** A custom persona needs at least a few words to be a character rather than a word. */
+export const PERSONA_MIN_LENGTH = 12;
+export const isValidPersona = (persona: string | undefined): persona is string =>
+  typeof persona === 'string' && persona.trim().length >= PERSONA_MIN_LENGTH && persona.trim().length <= PERSONA_MAX_LENGTH;
+
+/**
+ * Temperaments that swear hard enough to need an age behind them. `custom` is
+ * here because its description is free text: someone old enough can write a
+ * character that curses at them, and the prompt plays that straight.
+ *
+ * This is also the list a paywall should read: these are the two that need an
+ * entitlement as well as an age, and everything else stays open to everyone.
+ */
+export const MATURE_PERSONALITIES: readonly PetPersonality[] = ['menace', 'custom'];
+/**
+ * 16, to match the store rating these two force the app to.
+ *
+ * Frequent strong language is a 16+ app on the App Store — 18+ is for sexual
+ * content, gambling and graphic violence, not swearing. Gating in-app at 18
+ * inside a 16+ app would turn away people the rating already admits, so the two
+ * numbers are kept the same on purpose. Move this and the rating moves with it.
+ */
+export const MATURE_PERSONALITY_AGE = 16;
 
 /**
  * The temperaments to offer somebody of this age. `savage` says "damn"; `menace`
  * says a great deal worse, and the profile accepts ages from 13 — so it is not
- * on the list until they are an adult. Offering is the gate: the database accepts
- * the value for anyone, because a pet already wearing it must keep saving.
+ * on the list below MATURE_PERSONALITY_AGE. Offering is the gate: the database
+ * accepts the value for anyone, because a pet already wearing it must keep saving.
  */
 export const petPersonalityOptionsFor = (age: number): Choice<PetPersonality>[] =>
   PET_PERSONALITY_OPTIONS.filter((option) => age >= MATURE_PERSONALITY_AGE || !MATURE_PERSONALITIES.includes(option.value));

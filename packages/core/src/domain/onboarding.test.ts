@@ -8,6 +8,7 @@ import {
   petSurvivalGuidance,
   suggestStepGoal,
   weeksUntil,
+  MATURE_PERSONALITY_AGE,
   petPersonalityOptionsFor,
 } from './onboarding';
 
@@ -77,9 +78,14 @@ describe('hasCompletedQuestionnaire', () => {
 });
 
 describe('temperaments by age', () => {
-  it('keeps the one that swears hard from anyone under 18', () => {
-    expect(petPersonalityOptionsFor(17).map((o) => o.value)).not.toContain('menace');
-    expect(petPersonalityOptionsFor(17).map((o) => o.value)).toContain('savage');
-    expect(petPersonalityOptionsFor(18).map((o) => o.value)).toContain('menace');
+  it('keeps the ones that swear hard below the rating the app carries', () => {
+    // The boundary is MATURE_PERSONALITY_AGE itself, not a year either side.
+    expect(petPersonalityOptionsFor(MATURE_PERSONALITY_AGE - 1).map((o) => o.value)).not.toContain('menace');
+    expect(petPersonalityOptionsFor(MATURE_PERSONALITY_AGE).map((o) => o.value)).toContain('menace');
+    // A written character can be written foul-mouthed, so it is gated too.
+    expect(petPersonalityOptionsFor(MATURE_PERSONALITY_AGE - 1).map((o) => o.value)).not.toContain('custom');
+    expect(petPersonalityOptionsFor(MATURE_PERSONALITY_AGE).map((o) => o.value)).toContain('custom');
+    // Everything else stays open to the app's youngest accounts.
+    expect(petPersonalityOptionsFor(13).map((o) => o.value)).toEqual(['feisty', 'cute', 'sweet', 'savage', 'hype']);
   });
 });

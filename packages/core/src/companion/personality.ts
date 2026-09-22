@@ -92,14 +92,27 @@ export const initialTraits = (seedKey: string, temperament?: string): Personalit
  * pet switched from sweet to savage is told in one breath to be deadpan and
  * "openly affectionate; calm and steady" — and averages out to nobody.
  *
- * Which temperament the traits were seeded from is not stored, and does not
- * need to be: the seed is deterministic and drift is at most MAX_TRAIT_STEP a
- * nudge, while the leans sit far apart, so the seed the traits are closest to
- * is the one they came from. If that is not the current temperament, the
- * accumulated drift is carried over onto the new seed.
+ * `from` is the temperament the traits grew from, which the server records
+ * beside them. Without it (older rows) it is inferred once: the seed is
+ * deterministic and early drift is tiny while the leans sit far apart, so the
+ * seed the traits are closest to is the one they came from. Either way the
+ * accumulated drift is carried over onto the new seed, so nothing learned is lost.
  */
-export const rebaseTraits = (traits: PersonalityTraits, seedKey: string, temperament?: string): PersonalityTraits => {
-  if (!temperament || !TEMPERAMENT_LEAN[temperament]) return traits;
+export const rebaseTraits = (traits: PersonalityTraits, seedKey: string, temperament?: string, from?: string | null): PersonalityTraits => {
+  // `custom` has no lean: its seed is the neutral one, and the person's words do the rest.
+  if (!temperament || (!TEMPERAMENT_LEAN[temperament] && temperament !== 'custom')) return traits;
+  // Told where the traits came from: no guessing. This is the normal path. The
+  // inference below is only for rows written before the origin was recorded —
+  // months of drift can carry traits nearer to another temperament's seed than
+  // their own, and guessing then would "correct" a pet that never changed.
+  if (from !== undefined && from !== null) {
+    if (from === temperament) return traits;
+    const was = initialTraits(seedKey, from);
+    const will = initialTraits(seedKey, temperament);
+    const moved = {} as PersonalityTraits;
+    for (const trait of TRAITS) moved[trait] = round(clamp(will[trait] + (traits[trait] - was[trait]), TRAIT_MIN, TRAIT_MAX));
+    return moved;
+  }
   const distance = (seed: PersonalityTraits) => TRAITS.reduce((sum, trait) => sum + Math.abs(traits[trait] - seed[trait]), 0);
   let origin = initialTraits(seedKey);
   let best = distance(origin);

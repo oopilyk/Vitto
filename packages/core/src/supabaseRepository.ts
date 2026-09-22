@@ -12,7 +12,7 @@ import {
 } from './domain/carePartners';
 import { requireSupabase } from './config';
 
-type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null; persona: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 type PetMemberRow = { user_id: string; role: PetMember['role']; joined_at: string; left_at: string | null; display_name: string | null; username?: string | null };
 type PetInviteRow = { id: string; pet_id: string; code: string; created_at: string; expires_at: string; redeemed_at: string | null; revoked_at: string | null };
@@ -153,6 +153,7 @@ const petPayload = (pet: PetState) =>
     mind: pet.mind,
     mood: pet.mood,
     personality: pet.personality ?? null,
+    persona: pet.persona ?? null,
     adopted_at: pet.adoptedAt,
     last_event_at: pet.lastEventAt ?? null,
   });
@@ -247,7 +248,7 @@ export class SupabaseRepository {
   }
 
   private static toPetState(row: PetRow): PetState {
-    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
+    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, persona: row.persona ?? undefined, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
   }
 
   /**

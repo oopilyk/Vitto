@@ -1,13 +1,14 @@
--- `menace`: the bossy, foul-mouthed temperament.
+-- "Your own" temperament: the person describes the character themselves.
 --
--- Offered only at or above MATURE_PERSONALITY_AGE (see `petPersonalityOptionsFor` in
--- packages/core/src/domain/onboarding.ts). The check below still accepts it for
--- any pet: offering is the gate, and a pet already wearing it must keep saving.
--- What it may and may not say is enforced in the prompt (`PERSONALITY_VOICE.menace`):
--- it bosses what the person does, never what they are, and never towards eating less.
---
--- Dropped by definition rather than by name, as in 20260920130000, so this works
--- whether or not 20260920140000 (hype) has been applied first.
+-- `personality = 'custom'` marks it and `persona` holds the description, which
+-- reaches the companion prompt as the pet's voice — quoted as data, under the
+-- rules, which it cannot loosen (see `customVoice` in
+-- packages/core/src/companion/prompts.ts). Bounded here as well as in the app,
+-- because it is free text from a person and goes into a prompt.
+alter table public.pets
+  add column if not exists persona text
+    check (persona is null or char_length(persona) between 1 and 300);
+
 do $$
 declare
   victim text;
@@ -27,7 +28,7 @@ end $$;
 alter table public.pets
   add constraint pets_personality_check check (personality is null or personality in (
     -- offered at adoption
-    'feisty', 'cute', 'sweet', 'savage', 'hype', 'menace',
+    'feisty', 'cute', 'sweet', 'savage', 'hype', 'menace', 'custom',
     -- retired, still worn by pets adopted before them
     'energetic', 'chill', 'competitive', 'supportive'
   ));

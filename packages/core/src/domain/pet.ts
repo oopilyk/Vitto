@@ -25,6 +25,7 @@ export type PetPersonality =
   | 'savage'
   | 'hype'
   | 'menace'
+  | 'custom'
   | 'energetic'
   | 'chill'
   | 'competitive'
@@ -91,6 +92,12 @@ export interface PetState {
   mood: PetMood;
   /** Chosen at adoption (onboarding-v2). Optional: pets created before it have none. */
   personality?: PetPersonality;
+  /**
+   * With `personality: 'custom'`: the character, in the person's own words
+   * ("a grumpy old pirate who secretly loves us"). It is the pet's voice in the
+   * companion prompt, under the rules there, which it cannot loosen.
+   */
+  persona?: string;
   adoptedAt: string;
   lastEventAt?: string;
   /**
@@ -282,6 +289,7 @@ export const createPet = (
   breed: PetBreed = 'bichon',
   personality?: PetPersonality,
   id: string = newId(),
+  persona?: string,
 ): PetState => ({
   id,
   breed,
@@ -289,6 +297,7 @@ export const createPet = (
   name,
   species,
   ...(personality ? { personality } : {}),
+  ...(personality === 'custom' && persona ? { persona: persona.trim() } : {}),
   level: 1,
   xp: 0,
   health: 78,

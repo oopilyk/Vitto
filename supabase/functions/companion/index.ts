@@ -4,7 +4,7 @@ import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
 import {
   MAX_TURNS, MEMORY_CATEGORIES, STABLE_SYSTEM_PROMPT, TONE_SIGNALS, DAY,
-  accessFor, applyCompanionEvent, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
+  accessFor, applyCompanionEvent, customVoice, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
   humanizeReply, levelIndex, limitsFor, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
   planMemoryWrites, renderDynamicSystemPrompt, renderExtractionPrompt, renderProactiveInstruction, sanitizeEventMetadata,
   rebaseTraits, sanitizeLifeContext, summarizeRelationship, tickMood, turnsFromContext, COMPANION_EVENT_TYPES,
@@ -89,8 +89,19 @@ const iso = (value: number | null): string | null => (value === null ? null : ne
 // deno-lint-ignore no-explicit-any
 type Row = Record<string, any>;
 
+/**
+ * The temperament the traits grew from rides inside the same jsonb, under a key
+ * no trait can have. It has to be recorded: drift accumulates, and after enough
+ * of it the traits alone no longer say where they started.
+ */
+const BASIS_KEY = '_temperament';
+const traitsOf = (stored: Row): CompanionState['personalityTraits'] => {
+  const { [BASIS_KEY]: _basis, ...traits } = stored ?? {};
+  return traits as CompanionState['personalityTraits'];
+};
+
 const toState = (row: Row): CompanionState => ({
-  personalityTraits: row.personality_traits,
+  personalityTraits: traitsOf(row.personality_traits),
   mood: row.mood,
   moodIntensity: row.mood_intensity,
   moodReason: row.mood_reason,
@@ -147,8 +158,13 @@ class Companion {
     const { data } = await this.db.from('companion_state').select('*').match(this.owner).maybeSingle();
     if (data) {
       const state = toState(data);
-      const traits = rebaseTraits(state.personalityTraits, `${this.userId}:${this.petId}`, temperament);
-      if (traits === state.personalityTraits) return state;
+      const recorded: string | null = data.personality_traits?.[BASIS_KEY] ?? null;
+      this.basis = recorded;
+      if (!temperament) return state;
+      const traits = rebaseTraits(state.personalityTraits, `${this.userId}:${this.petId}`, temperament, recorded);
+      this.basis = temperament;
+      if (traits === state.personalityTraits && recorded === temperament) return state;
+      // Moved onto the new temperament, or an older row getting its origin stamped.
       const rebased = { ...state, personalityTraits: traits };
       await this.saveState(rebased);
       return rebased;
@@ -157,14 +173,22 @@ class Companion {
     // so a second device racing this insert arrives at the same individual.
     const { data: pet } = await this.db.from('pets').select('personality').eq('id', this.petId).maybeSingle();
     const fresh = newCompanionState(`${this.userId}:${this.petId}`, now, pet?.personality ?? undefined);
+    this.basis = pet?.personality ?? null;
     const { error } = await this.db.from('companion_state')
-      .upsert({ ...this.owner, ...fromState(fresh), created_at: iso(now) }, { onConflict: 'user_id,pet_id', ignoreDuplicates: true });
+      .upsert({ ...this.owner, ...this.row(fresh), created_at: iso(now) }, { onConflict: 'user_id,pet_id', ignoreDuplicates: true });
     if (error) throw error;
     return fresh;
   }
 
+  /** The temperament the stored traits grew from; known once the state has been loaded. */
+  private basis: string | null = null;
+  private row(state: CompanionState): Row {
+    const row = fromState(state);
+    return this.basis ? { ...row, personality_traits: { ...state.personalityTraits, [BASIS_KEY]: this.basis } } : row;
+  }
+
   async saveState(state: CompanionState) {
-    const { error } = await this.db.from('companion_state').update(fromState(state)).match(this.owner);
+    const { error } = await this.db.from('companion_state').update(this.row(state)).match(this.owner);
     if (error) throw error;
   }
 
@@ -520,7 +544,7 @@ Deno.serve(async (request) => {
         usage: await companion.usage(now),
         access: await access(),
         trigger: fire ? { key: fire.key, situation: fire.situation, priority: fire.priority } : null,
-        voice: life.pet.temperament ? (PERSONALITY_VOICE[life.pet.temperament] ?? null) : null,
+        voice: life.pet.temperament === 'custom' ? (customVoice(life.pet.persona) ?? null) : life.pet.temperament ? (PERSONALITY_VOICE[life.pet.temperament] ?? null) : null,
         memories: memories.slice(0, 40),
         recentEvents: ctx.recentEvents,
         patterns: ctx.userPatterns,

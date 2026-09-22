@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
+  PERSONA_MAX_LENGTH,
   PET_PERSONALITY_OPTIONS,
+  isValidPersona,
   assessCondition,
   bondFor,
   buildLifeContext,
@@ -21,7 +23,7 @@ interface Props {
   events: HealthEvent[];
   profile: BodyProfile;
   stepGoal: number;
-  onChangePersonality: (next: PetPersonality) => void;
+  onChangePersonality: (next: PetPersonality, persona?: string) => void;
   onOpenChat: () => void;
   onClose: () => void;
 }
@@ -37,6 +39,7 @@ interface Props {
  */
 export function CompanionDebugScreen({ pet, events, profile, stepGoal, onChangePersonality, onOpenChat, onClose }: Props) {
   const [debug, setDebug] = useState<CompanionDebug | null>(null);
+  const [personaDraft, setPersonaDraft] = useState(pet.persona ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [spoken, setSpoken] = useState<string | null>(null);
@@ -102,6 +105,28 @@ export function CompanionDebugScreen({ pet, events, profile, stepGoal, onChangeP
               />
             ))}
           </View>
+          {pet.personality === 'custom' ? (
+            <View>
+              <TextInput
+                style={[layout.input, styles.persona]}
+                value={personaDraft}
+                onChangeText={(value) => setPersonaDraft(value.slice(0, PERSONA_MAX_LENGTH))}
+                placeholder="Who are they? A sentence or two."
+                placeholderTextColor={colors.faint}
+                multiline
+                maxLength={PERSONA_MAX_LENGTH}
+                accessibilityLabel="Their character"
+              />
+              <Pressable
+                accessibilityRole="button"
+                disabled={!isValidPersona(personaDraft) || personaDraft.trim() === (pet.persona ?? '')}
+                onPress={() => onChangePersonality('custom', personaDraft)}
+                style={({ pressed }) => [styles.action, (!isValidPersona(personaDraft) || personaDraft.trim() === (pet.persona ?? '')) && styles.buttonOff, pressed && styles.pressed]}
+              >
+                <Text style={styles.actionLabel}>Save character</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <Text style={styles.note}>Retired, still worn by older pets:</Text>
           <View style={styles.chips}>
             {(['energetic', 'chill', 'competitive', 'supportive'] as const).map((value) => (
@@ -283,6 +308,8 @@ const styles = StyleSheet.create({
   section: { gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card },
   sectionLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.1, color: colors.muted },
   note: { fontSize: 11, lineHeight: 16, color: colors.muted },
+  persona: { minHeight: 84, paddingTop: 12, textAlignVertical: "top", lineHeight: 19, marginTop: 8, marginBottom: 8 },
+  buttonOff: { opacity: 0.4 },
   row: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   rowKey: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, width: 104 },
   rowValue: { flex: 1, fontSize: 12, lineHeight: 17, color: colors.ink },
