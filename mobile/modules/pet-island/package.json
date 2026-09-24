@@ -1,0 +1,7 @@
+{
+  "name": "vitto-pet-island",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Expo module: starts, refreshes and ends the pet's Live Activity (the Dynamic Island) via ActivityKit. iOS only; the widget it drives lives in targets/pet-island.",
+  "main": "index.ts"
+}

@@ -16,6 +16,10 @@ module.exports = ({ config }) => ({
   ios: {
     ...config.ios,
     bundleIdentifier: process.env.VITTO_IOS_BUNDLE_ID ?? config.ios?.bundleIdentifier,
+    // Signs the Dynamic Island widget target (targets/pet-island) as well as
+    // the app. Optional: unset, @bacons/apple-targets uses whatever team the
+    // main app target ends up with, which is what a personal team wants.
+    ...(process.env.VITTO_APPLE_TEAM_ID ? { appleTeamId: process.env.VITTO_APPLE_TEAM_ID } : {}),
   },
   android: {
     ...config.android,

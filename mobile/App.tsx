@@ -32,6 +32,7 @@ import {
   syncScheduledReminders,
 } from './src/services/reminders';
 import { forgetThisDevice, installNotificationHandler, onNotificationTap, registerForPush, setPushEnabled as setDevicePush } from './src/services/pushService';
+import { canShowIsland, clearPetIsland, islandSignature, syncPetIsland } from './src/services/petIsland';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
@@ -402,6 +403,11 @@ export default function App() {
   const [dials, setDials] = useState<PersonalityDials | undefined>(undefined);
   // null until the server has answered; Settings hides the control until then.
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
+  // The Dynamic Island. On until switched off; the choice is kept on the device.
+  const [islandEnabled, setIslandEnabled] = useState(true);
+  useEffect(() => {
+    void repository.loadIslandEnabled().then((stored) => { if (stored !== null) setIslandEnabled(stored); });
+  }, []);
   const [error, setError] = useState<string | null>(null);
   // Persisted on `profiles` now (onboarding-v2). Derived rather than its own
   // state so a `loadProfile` after sign-in is what fills it. `updateProfile`
@@ -1434,9 +1440,10 @@ export default function App() {
   };
 
   const logOut = () => {
-    // Before the session goes: this phone should stop hearing from a pet it no
-    // longer shows. Never blocks the sign-out.
+    // Before the session goes: this phone should stop hearing from, or showing,
+    // a pet it no longer has. Neither blocks the sign-out.
     void forgetThisDevice();
+    void clearPetIsland();
     void signOut()
       .then(async () => {
         setSession(null);
@@ -1576,6 +1583,33 @@ export default function App() {
     });
     return () => { cancelled = true; };
   }, [dataReady, companionUserId, companionPetId]);
+
+  // The pet on the Dynamic Island. Re-sent only when something the Island
+  // cannot work out for itself changes (a log, a mood, a new form) and on
+  // foreground; the bars between those moments slide on the Island's own clock.
+  // Decayed to the moment it is sent, from the STORED pet: the Island's bars
+  // are anchored on "the value right now", and a dev-forced ailment or form
+  // (which only ever exists in the on-screen projection) has no business there.
+  const island = pet ? islandSignature(pet) : null;
+  const islandPet = useRef(pet);
+  islandPet.current = pet;
+  const sendIsland = useCallback((enabled: boolean) => {
+    const current = islandPet.current;
+    if (!current) return;
+    const at = new Date();
+    void syncPetIsland(applyTimeDecay(current, at), enabled, at.getTime());
+  }, []);
+  useEffect(() => {
+    if (!dataReady || !island) return;
+    const timer = setTimeout(() => sendIsland(islandEnabled), 400);
+    return () => clearTimeout(timer);
+  }, [dataReady, island, islandEnabled, sendIsland]);
+  useEffect(() => {
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sendIsland(islandEnabled);
+    });
+    return () => foreground.remove();
+  }, [islandEnabled, sendIsland]);
 
   // Tapping the pet's notification opens the conversation it came from, rather
   // than dropping the person on the dashboard to go looking for it.
@@ -1788,6 +1822,11 @@ export default function App() {
               onBreedChange={(next) => void changeBreed(next)}
               pet={livePet}
               onCharacterChange={(next) => void changePersonality(next.personality, next.persona, next.dials)}
+              islandEnabled={canShowIsland() ? islandEnabled : null}
+              onIslandEnabledChange={(next) => {
+                setIslandEnabled(next);
+                void repository.saveIslandEnabled(next);
+              }}
               pushEnabled={pushEnabled}
               onPushEnabledChange={(next) => {
                 setPushEnabled(next); // optimistic: the control must answer the tap

@@ -13,7 +13,8 @@
         "NSCameraUsageDescription": "Vitto uses the camera to photograph meals and scan barcodes.",
         "NSPhotoLibraryUsageDescription": "Vitto reads meal photos you choose so it can grade the plate.",
         "NSMotionUsageDescription": "Vitto notices when you're walking so your pet can walk with you. Nothing is stored — it only ever looks at the last few seconds.",
-        "NSLocationWhenInUseUsageDescription": "Vitto checks whether you're at the gym you saved so your pet can join you. Your location is never stored or sent anywhere."
+        "NSLocationWhenInUseUsageDescription": "Vitto checks whether you're at the gym you saved so your pet can join you. Your location is never stored or sent anywhere.",
+        "NSSupportsLiveActivities": true
       }
     },
     "android": {
@@ -72,7 +73,8 @@
           "isAndroidBackgroundLocationEnabled": false
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "@bacons/apple-targets"
     ],
     "scheme": "vitto",
     "backgroundColor": "#f5f2eb",

@@ -39,6 +39,9 @@ interface Props {
   pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
   /** Saves base, sliders and notes together; the parent persists, like the breed. */
   onCharacterChange?: (next: Character) => void;
+  /** Whether the pet shows in the Dynamic Island. Null where the device cannot. */
+  islandEnabled?: boolean | null;
+  onIslandEnabledChange?: (next: boolean) => void;
   /** Whether this device hears from the pet. Null while unknown, or where push cannot work. */
   pushEnabled?: boolean | null;
   onPushEnabledChange?: (next: boolean) => void;
@@ -97,6 +100,8 @@ export function SettingsScreen({
   onBreedChange,
   pet,
   onCharacterChange,
+  islandEnabled,
+  onIslandEnabledChange,
   pushEnabled,
   onPushEnabledChange,
   onDeleteAccount,
@@ -162,6 +167,19 @@ export function SettingsScreen({
             {pet && onCharacterChange ? (
               <Group label="Personality">
                 <CharacterEditor pet={pet} age={profile.age} onSave={onCharacterChange} />
+              </Group>
+            ) : null}
+            {typeof islandEnabled === 'boolean' && onIslandEnabledChange ? (
+              <Group label="Dynamic Island">
+                <ChoiceRow
+                  options={[
+                    { value: 'on', label: 'On', detail: `${pet?.name ?? 'Your pet'} lives at the top of the screen` },
+                    { value: 'off', label: 'Off', detail: 'Only in the app' },
+                  ]}
+                  value={islandEnabled ? 'on' : 'off'}
+                  onChange={(next) => onIslandEnabledChange(next === 'on')}
+                />
+                <Text style={styles.cardHint}>How hungry and sleepy they are, live, and how long until they need you.</Text>
               </Group>
             ) : null}
             {typeof pushEnabled === 'boolean' && onPushEnabledChange ? (

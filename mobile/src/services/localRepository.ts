@@ -26,6 +26,7 @@ const gymKey = 'vitto.gym';
  * nothing or fire twice. Losing them on reinstall is the accepted trade.
  */
 const remindersKey = 'vitto.reminders';
+const islandKey = 'vitto.island';
 /**
  * Achievement ids already shown unlocking, keyed by account — see App's unlock
  * queue.
@@ -130,7 +131,17 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, seenAchievementsKey, workoutTemplatesKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, seenAchievementsKey, workoutTemplatesKey, islandKey, 'vitto.profile']);
+  }
+
+  /** Whether the pet shows in the Dynamic Island. Null until chosen, which reads as on. */
+  async loadIslandEnabled(): Promise<boolean | null> {
+    const value = await AsyncStorage.getItem(islandKey);
+    return value === null ? null : value === 'true';
+  }
+
+  async saveIslandEnabled(enabled: boolean): Promise<void> {
+    await AsyncStorage.setItem(islandKey, String(enabled));
   }
 
   async loadReminders(): Promise<Reminder[]> {

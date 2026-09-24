@@ -21,6 +21,7 @@ import {
   mindScoreLabel,
   statValue,
   toDateKey,
+  MOOD_WORD,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { SpriteFrame } from '../components/SpriteFrame';
@@ -137,13 +138,6 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** The mood, as a word a person would use about a friend. */
-const FEELING_WORD: Record<PetState['mood'], string> = {
-  bright: 'happy',
-  content: 'doing fine',
-  sleepy: 'sleepy',
-  hungry: 'hungry',
-};
 const FEELING_TINT: Record<PetState['mood'], { backgroundColor: string; borderColor: string }> = {
   bright: { backgroundColor: colors.mint, borderColor: colors.mintDeep },
   content: { backgroundColor: colors.sageSoft, borderColor: colors.sage },
@@ -244,7 +238,7 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
             <View style={[styles.feeling, FEELING_TINT[pet.mood]]} accessibilityRole="summary">
               <View style={[styles.feelingDot, { backgroundColor: FEELING_INK[pet.mood] }]} />
               <Text style={[styles.feelingText, { color: FEELING_INK[pet.mood] }]} numberOfLines={1}>
-                {`${pet.name} is ${FEELING_WORD[pet.mood]}`}
+                {`${pet.name} is ${MOOD_WORD[pet.mood]}`}
               </Text>
             </View>
             <Text style={styles.feelingWhy}>{describeMood(pet)}</Text>
