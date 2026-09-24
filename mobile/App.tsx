@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { NavigationContainer, DefaultTheme, type Theme as NavigationTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
 import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
@@ -31,6 +31,7 @@ import {
   requestReminderPermission,
   syncScheduledReminders,
 } from './src/services/reminders';
+import { forgetThisDevice, installNotificationHandler, onNotificationTap, registerForPush, setPushEnabled as setDevicePush } from './src/services/pushService';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
@@ -111,6 +112,11 @@ type RootStackParamList = {
   PetJeopardy: undefined;
 };
 const RootStack = createNativeStackNavigator<RootStackParamList>();
+/** Lets a notification tap reach the navigator from outside the tree. */
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+// Set once, at import: a notification can arrive before any component mounts.
+installNotificationHandler();
 
 const navigationTheme: NavigationTheme = {
   ...DefaultTheme,
@@ -394,6 +400,8 @@ export default function App() {
   const [personality, setPersonality] = useState<PetPersonality>('sweet');
   const [persona, setPersona] = useState('');
   const [dials, setDials] = useState<PersonalityDials | undefined>(undefined);
+  // null until the server has answered; Settings hides the control until then.
+  const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Persisted on `profiles` now (onboarding-v2). Derived rather than its own
   // state so a `loadProfile` after sign-in is what fills it. `updateProfile`
@@ -1426,6 +1434,9 @@ export default function App() {
   };
 
   const logOut = () => {
+    // Before the session goes: this phone should stop hearing from a pet it no
+    // longer shows. Never blocks the sign-out.
+    void forgetThisDevice();
     void signOut()
       .then(async () => {
         setSession(null);
@@ -1554,6 +1565,29 @@ export default function App() {
     };
   }, [dataReady, companionUserId, companionPetId]);
 
+  // Told where to reach this phone, once there is a pet worth being notified
+  // about. Asking at first launch, before anyone has met their pet, is asking
+  // for a "no" that iOS then makes permanent.
+  useEffect(() => {
+    if (!dataReady || !companionUserId || !companionPetId) return;
+    let cancelled = false;
+    void registerForPush().then(({ status, enabled }) => {
+      if (!cancelled && status === 'ready') setPushEnabled(enabled ?? true);
+    });
+    return () => { cancelled = true; };
+  }, [dataReady, companionUserId, companionPetId]);
+
+  // Tapping the pet's notification opens the conversation it came from, rather
+  // than dropping the person on the dashboard to go looking for it.
+  useEffect(() => {
+    return onNotificationTap((data) => {
+      if (data.screen !== 'companion' || !navigationRef.isReady()) return;
+      setUnreadCompanion(0);
+      setCompanionSaid(null);
+      navigationRef.navigate('Companion');
+    });
+  }, []);
+
   if (!authReady || !dataReady) {
     return (
       <View style={[layout.screen, styles.center]}>
@@ -1638,7 +1672,7 @@ export default function App() {
   const atGymNow = activeForcedAmbient ? activeForcedAmbient === 'gym' : gymState.atGym;
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
       <StatusBar barStyle="dark-content" />
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Dashboard">
@@ -1754,6 +1788,13 @@ export default function App() {
               onBreedChange={(next) => void changeBreed(next)}
               pet={livePet}
               onCharacterChange={(next) => void changePersonality(next.personality, next.persona, next.dials)}
+              pushEnabled={pushEnabled}
+              onPushEnabledChange={(next) => {
+                setPushEnabled(next); // optimistic: the control must answer the tap
+                void setDevicePush(next).then((status) => {
+                  if (status !== 'ready') setPushEnabled((current) => (current === next ? !next : current));
+                });
+              }}
               onSave={persistProfile}
               onClose={() => navigation.goBack()}
               onDeleteAccount={isOnline ? deleteAccount : undefined}

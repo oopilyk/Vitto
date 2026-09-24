@@ -12,7 +12,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Vitto uses the camera to photograph meals and scan barcodes.",
         "NSPhotoLibraryUsageDescription": "Vitto reads meal photos you choose so it can grade the plate.",
-        "NSMotionUsageDescription": "Vitto notices when you're walking so your pet can walk with you. Nothing is stored \u2014 it only ever looks at the last few seconds.",
+        "NSMotionUsageDescription": "Vitto notices when you're walking so your pet can walk with you. Nothing is stored — it only ever looks at the last few seconds.",
         "NSLocationWhenInUseUsageDescription": "Vitto checks whether you're at the gym you saved so your pet can join you. Your location is never stored or sent anywhere."
       }
     },
@@ -75,6 +75,12 @@
       "expo-notifications"
     ],
     "scheme": "vitto",
-    "backgroundColor": "#f5f2eb"
+    "backgroundColor": "#f5f2eb",
+    "extra": {
+      "eas": {
+        "projectId": "e8c23dd8-6a1d-4c7a-b6d7-e2594e3702d2"
+      }
+    },
+    "owner": "vitto1"
   }
 }

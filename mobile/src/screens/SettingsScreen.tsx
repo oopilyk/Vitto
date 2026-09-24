@@ -39,6 +39,9 @@ interface Props {
   pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
   /** Saves base, sliders and notes together; the parent persists, like the breed. */
   onCharacterChange?: (next: Character) => void;
+  /** Whether this device hears from the pet. Null while unknown, or where push cannot work. */
+  pushEnabled?: boolean | null;
+  onPushEnabledChange?: (next: boolean) => void;
   /**
    * Deletes the account for good. Owns its own confirmation (see App), so this
    * is called only once the user has actually agreed. Absent offline.
@@ -94,6 +97,8 @@ export function SettingsScreen({
   onBreedChange,
   pet,
   onCharacterChange,
+  pushEnabled,
+  onPushEnabledChange,
   onDeleteAccount,
   deletingAccount,
 }: Props) {
@@ -157,6 +162,19 @@ export function SettingsScreen({
             {pet && onCharacterChange ? (
               <Group label="Personality">
                 <CharacterEditor pet={pet} age={profile.age} onSave={onCharacterChange} />
+              </Group>
+            ) : null}
+            {typeof pushEnabled === 'boolean' && onPushEnabledChange ? (
+              <Group label="Notifications">
+                <ChoiceRow
+                  options={[
+                    { value: 'on', label: 'On', detail: `${pet?.name ?? 'Your pet'} can message you` },
+                    { value: 'off', label: 'Off', detail: 'Only in the app' },
+                  ]}
+                  value={pushEnabled ? 'on' : 'off'}
+                  onChange={(next) => onPushEnabledChange(next === 'on')}
+                />
+                <Text style={styles.cardHint}>Never between 10pm and 8am.</Text>
               </Group>
             ) : null}
           </Card>

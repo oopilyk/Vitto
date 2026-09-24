@@ -91,6 +91,23 @@ export const companionService = {
   debug: (petId: string, life: LifeContext, message?: string) =>
     invoke<CompanionDebug>({ action: 'debug', petId, life, message }),
 
+  /**
+   * Tells the server where to reach this device, and when not to. Upserts on
+   * the token, so calling it on every launch refreshes the timezone rather
+   * than piling up rows. See `pushService.ts`.
+   */
+  registerDevice: (device: {
+    token: string;
+    platform: 'ios' | 'android' | 'unknown';
+    utcOffsetMinutes: number;
+    enabled?: boolean;
+    quietStart?: number;
+    quietEnd?: number;
+  }) => invoke<{ ok: true; enabled: boolean }>({ action: 'registerDevice', ...device }),
+
+  /** Drops this device, so a signed-out phone stops hearing from the pet. */
+  forgetDevice: (token: string) => invoke<{ ok: true }>({ action: 'forgetDevice', token }),
+
   /** Forgets everything: a fresh stranger with the current temperament. Dev only. */
   reset: (petId: string, life: LifeContext) => invoke<{ state: CompanionState }>({ action: 'reset', petId, life }),
 };
