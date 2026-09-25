@@ -39,6 +39,8 @@ interface Props {
   pet: PetState;
   events: HealthEvent[];
   onClose: () => void;
+  /** Opens the shareable card. Absent where there is nothing to share it with. */
+  onShare?: () => void;
 }
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
@@ -158,7 +160,7 @@ const describeMood = (pet: PetState): string => {
   return `Fed and rested, not quite at 65 energy and happiness together yet.`;
 };
 
-export function PetStatsScreen({ pet, events, onClose }: Props) {
+export function PetStatsScreen({ pet, events, onClose, onShare }: Props) {
   const now = new Date();
   const sheet = sheetForPet(pet);
   const streaks = calculateQualifyingStreaks(events, now);
@@ -204,7 +206,19 @@ export function PetStatsScreen({ pet, events, onClose }: Props) {
           <Text style={styles.backLabel}>Pet</Text>
         </Pressable>
         <Text style={styles.topTitle}>Stats</Text>
-        <View style={styles.back} />
+        {onShare ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Share ${pet.name}`}
+            onPress={onShare}
+            hitSlop={8}
+            style={({ pressed }) => [styles.back, styles.shareButton, pressed && styles.sharePressed]}
+          >
+            <Text style={styles.shareLabel}>Share</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.back} />
+        )}
       </View>
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: 40 + HOME_INDICATOR_INSET }]}>
@@ -398,6 +412,9 @@ const styles = StyleSheet.create({
   feelingDot: { width: 8, height: 8, borderRadius: 4 },
   feelingText: { fontFamily: fonts.body, fontSize: 15, fontWeight: '500', letterSpacing: -0.2 },
   feelingWhy: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.muted, marginTop: 7, lineHeight: 16 },
+  shareButton: { justifyContent: 'flex-end' },
+  sharePressed: { opacity: 0.6 },
+  shareLabel: { fontFamily: fonts.mono, fontSize: 13, color: colors.coral },
   moodRow: { marginTop: 18 },
   moodValue: { fontSize: 14, fontWeight: '600', color: colors.ink },
   moodHint: { fontSize: 12, color: colors.muted, marginTop: 5, lineHeight: 18 },

@@ -212,6 +212,8 @@ export const buildLifeContext = (input: {
       localTime: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       weekday: WEEKDAYS[now.getDay()]!,
       timeOfDay: timeOfDayFor(now.getHours()),
+      // Negated: getTimezoneOffset counts minutes WEST of UTC.
+      utcOffsetMinutes: -now.getTimezoneOffset(),
     },
   };
 };

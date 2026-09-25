@@ -35,6 +35,7 @@ import { forgetThisDevice, installNotificationHandler, onNotificationTap, regist
 import { canShowIsland, clearPetIsland, islandSignature, syncPetIsland } from './src/services/petIsland';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
+import { ShareCardScreen } from './src/screens/ShareCardScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { FriendPetScreen } from './src/screens/FriendPetScreen';
 import {  type ForcedTrophies,TodayScreen, type ForcedAmbient } from './src/screens/TodayScreen';
@@ -87,6 +88,8 @@ type RootStackParamList = {
   Settings: undefined;
   // A drill-down off the dashboard, so it pushes rather than presenting as a modal.
   PetStats: undefined;
+  // The pet as one shareable image. Pushed from PetStats' top bar.
+  ShareCard: undefined;
   // Reached from the dashboard's account menu. `join` opens the care-partner
   // code field straight away (the card moved here from Profile).
   Friends: { join?: boolean } | undefined;
@@ -1843,7 +1846,17 @@ export default function App() {
         </RootStack.Screen>
         <RootStack.Screen name="PetStats">
           {({ navigation }) => (
-            <PetStatsScreen pet={livePet} events={events} onClose={() => navigation.goBack()} />
+            <PetStatsScreen
+              pet={livePet}
+              events={events}
+              onClose={() => navigation.goBack()}
+              onShare={() => navigation.navigate('ShareCard')}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="ShareCard">
+          {({ navigation }) => (
+            <ShareCardScreen pet={livePet} events={events} onClose={() => navigation.goBack()} />
           )}
         </RootStack.Screen>
         <RootStack.Screen name="Friends">

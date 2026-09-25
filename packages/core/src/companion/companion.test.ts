@@ -5,7 +5,7 @@ import {
   levelFor, levelProgress, mockExtract, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
   planMemoryWrites, rankMemories, renderDynamicSystemPrompt, sanitizeEventMetadata, sanitizeLifeContext, turnsFromContext,
   type CompanionEvent, type CompanionMemory, type LifeContext,
-  PERSONALITY_VOICE, customVoice, describeDials, dialsFor, humanizeReply, rebaseTraits,
+  PERSONALITY_VOICE, customVoice, describeDials, dialsFor, humanizeReply, inQuietHours, localDayStart, rebaseTraits,
 } from './index';
 
 const NOW = new Date(2026, 8, 16, 20, 0).getTime(); // a Wednesday, 8pm local
@@ -434,5 +434,47 @@ describe('sounding like someone, not like software', () => {
     expect(describeDials(gentle)).toContain('extremely gentle');
     expect(describeDials(gentle)).toContain('extremely clingy');
     expect(describeDials(dialsFor('custom'))).toBe('');
+  });
+});
+
+describe('reaching somebody at a civil hour', () => {
+  // 2026-09-24, 23:00 UTC. Evening in London, mid-afternoon in California.
+  const LATE_UTC = Date.UTC(2026, 8, 24, 23, 0);
+
+  it('reads the clock where the user is, not where the code runs', () => {
+    // Default quiet hours, 22:00 to 08:00 local.
+    expect(inQuietHours(LATE_UTC, 0, 22, 8)).toBe(true); // 23:00 in London
+    expect(inQuietHours(LATE_UTC, -420, 22, 8)).toBe(false); // 16:00 in California
+    // 08:00 next day in Tokyo: the hour quiet ENDS is already awake.
+    expect(inQuietHours(LATE_UTC, 540, 22, 8)).toBe(false);
+    expect(inQuietHours(LATE_UTC, 480, 22, 8)).toBe(true); // 07:00, still quiet
+    // The window wraps midnight; both ends belong to the same night.
+    expect(inQuietHours(Date.UTC(2026, 8, 25, 3, 0), 0, 22, 8)).toBe(true);
+    expect(inQuietHours(Date.UTC(2026, 8, 25, 9, 0), 0, 22, 8)).toBe(false);
+    // Equal bounds mean "never quiet", not "always quiet".
+    expect(inQuietHours(LATE_UTC, 0, 9, 9)).toBe(false);
+  });
+
+  it('starts the day where the user is', () => {
+    const start = localDayStart(LATE_UTC, -420);
+    expect(new Date(start + -420 * 60_000).toISOString()).toContain('2026-09-24T00:00');
+    expect(start).toBeLessThan(LATE_UTC);
+  });
+
+  it('holds an evening nudge until it is evening for THEM', () => {
+    const events = [event('WORKOUT_COMPLETED', 24 * 7), event('WORKOUT_COMPLETED', 24 * 14)];
+    const at = (utcOffsetMinutes: number) =>
+      pickProactiveTrigger({
+        state: { ...newCompanionState('k', LATE_UTC - 5 * DAY), lastInteractionAt: LATE_UTC - HOUR },
+        events,
+        memories: [],
+        recentMessages: [],
+        life: life({ ...life(), now: { ...life().now, utcOffsetMinutes } }),
+        now: LATE_UTC,
+      });
+    // The rules that wait for the evening must not fire at 4pm in California
+    // just because the server that runs them is on UTC.
+    expect(at(-420)?.key).not.toBe('streak_at_risk');
+    expect(at(-420)?.key).not.toBe('habit_deviation');
   });
 });

@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
+import { CHAT_MODEL, EXTRACT_MODEL, anthropic, generate } from '../_shared/model.ts';
+import { isExpoPushToken } from '../_shared/push.ts';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
 import {
@@ -40,8 +42,6 @@ const json = (body: unknown, status = 200) =>
 
 // The models the prototype was built and tuned on: a capable model for the voice
 // people actually read, a cheap one for the background classification pass.
-const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-sonnet-5';
-const EXTRACT_MODEL = Deno.env.get('COMPANION_EXTRACT_MODEL') ?? 'claude-haiku-4-5';
 const HISTORY_EVENTS = 500;
 const HISTORY_WINDOW_MS = 35 * DAY;
 
@@ -56,19 +56,6 @@ const ExtractionSchema = z.object({
   toneSignals: z.array(z.enum(TONE_SIGNALS)),
   suggestedNickname: z.string().nullable(),
 });
-
-/**
- * Bounded on purpose. The SDK's defaults are a TEN-MINUTE timeout and two
- * retries — half an hour in the worst case — while this function lives for
- * about 150 seconds. Left at the defaults, one stalled or rate-limited call
- * pinned the person's message until the platform killed the request, and the
- * templated fallback below never got the chance to answer. A reply that is
- * going to take longer than this is not worth waiting for in a chat.
- */
-const MODEL_TIMEOUT_MS = 20_000;
-const anthropic = Deno.env.get('ANTHROPIC_API_KEY')
-  ? new Anthropic({ timeout: MODEL_TIMEOUT_MS, maxRetries: 1 })
-  : null;
 
 /**
  * Who may use the `debug` and `reset` actions. Mirrors `devAccess.ts` in core,
@@ -191,6 +178,15 @@ class Companion {
       .upsert({ ...this.owner, ...this.row(fresh), created_at: iso(now) }, { onConflict: 'user_id,pet_id', ignoreDuplicates: true });
     if (error) throw error;
     return fresh;
+  }
+
+  /**
+   * Keeps the freshest description of their day where a scheduled job can read
+   * it. The notification job has no phone to ask and cannot build this itself;
+   * see the `notify` function for how it accounts for the staleness.
+   */
+  async rememberLife(life: LifeContext, now: number) {
+    await this.db.from('companion_state').update({ last_life: life, last_life_at: iso(now) }).match(this.owner);
   }
 
   /** What the stored traits grew from; known once the state has been loaded. */
@@ -317,45 +313,6 @@ class Companion {
 // ---------------------------------------------------------------------------
 // The model calls.
 // ---------------------------------------------------------------------------
-interface Generated { text: string; usage: unknown | null; degraded: boolean }
-
-const generate = async (ctx: PetContext, turns: Anthropic.MessageParam[], fallback: () => string): Promise<Generated> => {
-  if (!anthropic) return { text: fallback(), usage: null, degraded: true };
-  try {
-    const response = await anthropic.messages.create({
-      model: CHAT_MODEL,
-      // Deliberately small: replies are one to four sentences, and this is also
-      // the ceiling on what any single message can cost.
-      max_tokens: 400,
-      // Off on purpose. There is nothing here to reason about, and with thinking
-      // on (the default on this model) the thinking is billed as output AND
-      // counted against max_tokens, so a 400-token budget could be spent before
-      // a word of the reply was written.
-      thinking: { type: 'disabled' },
-      output_config: { effort: 'low' },
-      system: [
-        // Byte-identical for every user, so one cache entry serves everybody.
-        { type: 'text', text: STABLE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: renderDynamicSystemPrompt(ctx) },
-      ],
-      messages: turns,
-    });
-    const usage = { model: CHAT_MODEL, ...response.usage };
-    if (response.stop_reason === 'refusal') return { text: "…okay I'm gonna not touch that one.", usage, degraded: false };
-    const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();
-    return { text: humanizeReply(text) || '…', usage, degraded: false };
-  } catch (error) {
-    // A reply the person is waiting on must not become an error page. Log what
-    // kind of failure it was, then answer from the templated fallback.
-    if (error instanceof Anthropic.APIConnectionTimeoutError) console.error(`[companion] model timed out after ${MODEL_TIMEOUT_MS}ms`);
-    else if (error instanceof Anthropic.RateLimitError) console.error('[companion] rate limited');
-    else if (error instanceof Anthropic.AuthenticationError) console.error('[companion] ANTHROPIC_API_KEY rejected');
-    else if (error instanceof Anthropic.APIError) console.error(`[companion] API error ${error.status}: ${error.message}`);
-    else console.error('[companion] generation failed', error);
-    return { text: fallback(), usage: null, degraded: true };
-  }
-};
-
 const extract = async (ctx: PetContext, userText: string, replyText: string, existing: string[], askForNickname: boolean): Promise<ExtractionResult> => {
   if (!anthropic) return mockExtract(userText);
   try {
@@ -427,12 +384,48 @@ Deno.serve(async (request) => {
 
     const body = await request.json().catch(() => null);
     const action = body?.action;
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // Where to send a notification, and when not to. Handled before the pet
+    // check because a device belongs to a person, not to one of their pets.
+    // Written here with the service role rather than by the client: the table
+    // has no write policy, so nobody can point somebody else's push token at
+    // their own pet and have that phone light up with a stranger's messages.
+    if (action === 'registerDevice' || action === 'forgetDevice') {
+      const token = body?.token;
+      if (!isExpoPushToken(token)) return json({ error: 'Invalid device token.' }, 400);
+      if (action === 'forgetDevice') {
+        await admin.from('push_devices').delete().eq('token', token).eq('user_id', user.id);
+        return json({ ok: true });
+      }
+      const hour = (value: unknown, fallback: number) =>
+        typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 23 ? value : fallback;
+      const offset = typeof body?.utcOffsetMinutes === 'number' && Number.isFinite(body.utcOffsetMinutes)
+        ? Math.round(Math.max(-840, Math.min(840, body.utcOffsetMinutes)))
+        : 0;
+      const { data: saved, error } = await admin.from('push_devices').upsert({
+        token,
+        user_id: user.id,
+        platform: ['ios', 'android'].includes(body?.platform) ? body.platform : 'unknown',
+        utc_offset_minutes: offset,
+        // Only when the caller actually said so. Every launch re-registers to
+        // refresh the timezone, and defaulting this to true there would
+        // silently switch notifications back on for somebody who turned them
+        // off — the one bug that gets an app reported rather than uninstalled.
+        ...(typeof body?.enabled === 'boolean' ? { enabled: body.enabled } : {}),
+        quiet_start: hour(body?.quietStart, 22),
+        quiet_end: hour(body?.quietEnd, 8),
+        last_seen_at: iso(Date.now()),
+      }, { onConflict: 'token' }).select('enabled').single();
+      if (error) throw error;
+      return json({ ok: true, enabled: saved.enabled as boolean });
+    }
+
     const petId = body?.petId;
     if (typeof petId !== 'string' || !/^[0-9a-f-]{36}$/i.test(petId)) return json({ error: 'Invalid pet.' }, 400);
 
     // Being able to READ a pet is not enough: accepted friends can read each
     // other's pets. Only someone who actually cares for this pet may talk to it.
-    const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const { data: isMember } = await asUser.rpc('is_active_pet_member', { p_pet_id: petId });
     if (isMember !== true) {
       const { data: owned } = await admin.from('pets').select('id').eq('id', petId).eq('user_id', user.id).maybeSingle();
@@ -442,6 +435,10 @@ Deno.serve(async (request) => {
     const now = Date.now();
     const companion = new Companion(admin, user.id, petId);
     const life = body?.life ? sanitizeLifeContext(body.life) : undefined;
+    // Kept for the notification job, which has no phone to ask. Deliberately
+    // not awaited and never fatal: a failed cache write must not cost somebody
+    // their reply, and the next request writes it again.
+    if (life) companion.rememberLife(life, now).catch((error) => console.error('[companion] life cache failed', error));
     // A dev account is treated as paid, and then some: it gets the `plus` tier
     // so everything a subscriber would see can be tested, and no daily ceiling,
     // because testing is exactly the use that burns through one. Decided here,

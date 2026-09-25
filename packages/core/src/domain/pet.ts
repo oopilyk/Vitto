@@ -4,6 +4,14 @@ import { newId } from './ids';
 
 export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
 
+/** The mood as a word a person would use about a friend: "Blue is happy". */
+export const MOOD_WORD: Record<PetMood, string> = {
+  bright: 'happy',
+  content: 'doing fine',
+  sleepy: 'sleepy',
+  hungry: 'hungry',
+};
+
 /**
  * The companion's disposition, chosen at adoption. Lives on the pet, not the
  * user: a pet persists independently of the profile, and multi-pet / switching

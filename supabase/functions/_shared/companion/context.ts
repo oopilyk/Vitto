@@ -104,6 +104,9 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
       timeOfDay: (TIMES_OF_DAY as readonly string[]).includes(now.timeOfDay as string)
         ? (now.timeOfDay as LifeContext['now']['timeOfDay'])
         : 'afternoon',
+      ...(typeof now.utcOffsetMinutes === 'number' && Number.isFinite(now.utcOffsetMinutes)
+        ? { utcOffsetMinutes: Math.round(clamp(now.utcOffsetMinutes, -840, 840)) }
+        : {}),
     },
   };
 };

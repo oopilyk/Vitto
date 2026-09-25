@@ -74,6 +74,7 @@
         }
       ],
       "expo-notifications",
+      "expo-sharing",
       "@bacons/apple-targets"
     ],
     "scheme": "vitto",

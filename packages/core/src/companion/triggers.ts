@@ -29,9 +29,32 @@ export interface TriggerInput {
   now: number;
 }
 
-const sameLocalDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
+/**
+ * The user's own clock, not the machine's.
+ *
+ * These rules ask "is it evening?" and "has this already fired today?", and the
+ * answers have to be about the person, not about where the code runs. In the
+ * app those are the same thing; in the scheduled notification job the machine
+ * is on UTC, which would fire an evening nudge at lunchtime in California. The
+ * offset rides in the life context so both callers agree.
+ */
+const shift = (at: number, input: TriggerInput) => {
+  const offset = input.life.now.utcOffsetMinutes;
+  return offset === undefined ? null : new Date(at + offset * MINUTE);
+};
+const localHour = (at: number, input: TriggerInput): number =>
+  shift(at, input)?.getUTCHours() ?? new Date(at).getHours();
+/** Always YYYY-MM-DD: `importantEvent` compares it against a stored event date. */
+const localDayKey = (at: number, input: TriggerInput): string => {
+  const moved = shift(at, input);
+  if (moved) return moved.toISOString().slice(0, 10);
+  const here = new Date(at);
+  return `${here.getFullYear()}-${String(here.getMonth() + 1).padStart(2, '0')}-${String(here.getDate()).padStart(2, '0')}`;
+};
 const firedToday = (input: TriggerInput, key: string) =>
-  input.recentMessages.some((message) => message.triggerKey === key && sameLocalDay(message.createdAt, input.now));
+  input.recentMessages.some(
+    (message) => message.triggerKey === key && localDayKey(message.createdAt, input) === localDayKey(input.now, input),
+  );
 
 const EVENT_PRIORITY: Partial<Record<CompanionEventType, number>> = {
   LEVEL_UP: 8,
@@ -86,8 +109,7 @@ const eventReaction = (input: TriggerInput): TriggerFire | null => {
 const importantEvent = (input: TriggerInput): TriggerFire | null => {
   const [due] = dueImportantEvents(input.memories, input.now);
   if (!due) return null;
-  const today = new Date(input.now);
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayKey = localDayKey(input.now, input);
   return {
     key: 'important_event',
     situation: `You remember: "${due.content}" and it was ${due.eventDate === todayKey ? 'today' : 'yesterday'}. Ask how it went, like a friend who's been thinking about it.`,
@@ -116,7 +138,7 @@ const absence = (input: TriggerInput): TriggerFire | null => {
 
 const habitDeviation = (input: TriggerInput): TriggerFire | null => {
   const { expected, weekday } = expectedWorkoutMissing(input.events, input.now);
-  if (!expected || new Date(input.now).getHours() < 18) return null; // give them the day
+  if (!expected || localHour(input.now, input) < 18) return null; // give them the day
   if (firedToday(input, 'habit_deviation')) return null;
   return {
     key: 'habit_deviation',
@@ -128,7 +150,7 @@ const habitDeviation = (input: TriggerInput): TriggerFire | null => {
 };
 
 const streakAtRisk = (input: TriggerInput): TriggerFire | null => {
-  if (new Date(input.now).getHours() < 19) return null;
+  if (localHour(input.now, input) < 19) return null;
   const { careStreakDays, loggedSomethingToday } = input.life.today;
   if (loggedSomethingToday || careStreakDays < 3 || firedToday(input, 'streak_at_risk')) return null;
   return {
@@ -138,6 +160,35 @@ const streakAtRisk = (input: TriggerInput): TriggerFire | null => {
     markEventsReacted: [],
     markMemoryFollowedUp: null,
   };
+};
+
+/**
+ * Whether it is a rude hour to reach somebody, on THEIR clock.
+ *
+ * Lives here with the other "may the pet speak" rules rather than in the
+ * notification function, because it is pure, it is the rule most likely to be
+ * got wrong, and getting it wrong means waking someone at 3am. Wrapping past
+ * midnight is the normal shape (22 to 8 is the default), and `from === to`
+ * means no quiet hours at all rather than a silent day.
+ *
+ * @param utcOffsetMinutes Minutes east of UTC on the user's clock.
+ */
+export const inQuietHours = (
+  now: number,
+  utcOffsetMinutes: number,
+  from: number,
+  to: number,
+): boolean => {
+  if (from === to) return false;
+  const hour = new Date(now + utcOffsetMinutes * MINUTE).getUTCHours();
+  return from < to ? hour >= from && hour < to : hour >= from || hour < to;
+};
+
+/** Midnight on the user's clock, as a UTC timestamp. */
+export const localDayStart = (now: number, utcOffsetMinutes: number): number => {
+  const shifted = new Date(now + utcOffsetMinutes * MINUTE);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return shifted.getTime() - utcOffsetMinutes * MINUTE;
 };
 
 const TRIGGERS = [eventReaction, importantEvent, absence, habitDeviation, streakAtRisk];

@@ -9,3 +9,8 @@ supabase/.temp/
 # 1 GB node_modules. Its character logic has been ported into packages/core and
 # supabase/functions/companion; the folder stays local as reference only.
 /vittoAI/
+
+# Generated into the widget target by @bacons/apple-targets on every prebuild,
+# from expo-target.config.js and sprites/. The sprites themselves are committed.
+/mobile/targets/*/Assets.xcassets/
+/mobile/targets/*/Info.plist

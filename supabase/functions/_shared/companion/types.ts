@@ -167,7 +167,18 @@ export interface LifeContext {
     careStreakDays: number;
     loggedSomethingToday: boolean;
   };
-  now: { localTime: string; weekday: string; timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night' };
+  now: {
+    localTime: string;
+    weekday: string;
+    timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+    /**
+     * Minutes east of UTC on the user's clock (New York in summer is -240).
+     * Absent on contexts built before it existed, and on those the trigger
+     * rules fall back to the clock of whatever machine they run on — right on
+     * the phone, wrong by up to twelve hours in the notification job.
+     */
+    utcOffsetMinutes?: number;
+  };
 }
 
 /** The trimmed view of everything the pet has in mind for one model call. */
