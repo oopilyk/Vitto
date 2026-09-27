@@ -76,10 +76,16 @@ describe('the pet on the Dynamic Island', () => {
     const table = script.match(/export const IDLE_FRAME = \{([\s\S]*?)\};/)?.[1] ?? '';
     const exceptions = new Map<string, [number, number]>();
     for (const m of table.matchAll(/(\w+): \[(\d+), (\d+)\]/g)) exceptions.set(m[1]!, [Number(m[2]), Number(m[3])]);
+    // Column counts too: the cell is cut from width / columns, so a sheet with
+    // six columns cropped as four is a slice of two pets rather than one.
+    const columnsTable = script.match(/export const COLUMNS = \{([\s\S]*?)\};/)?.[1] ?? '';
+    const columns = new Map<string, number>();
+    for (const m of columnsTable.matchAll(/(\w+): (\d+)/g)) columns.set(m[1]!, Number(m[2]));
     for (const sheet of everySheet()) {
       const [row, column] = sheet.animations.idle[0]!;
       const expected = exceptions.get(spriteAssetName(sheet.label)) ?? [0, 0];
       expect({ sheet: sheet.label, idle: [row, column] }).toEqual({ sheet: sheet.label, idle: expected });
+      expect({ sheet: sheet.label, columns: sheet.columns ?? 4 }).toEqual({ sheet: sheet.label, columns: columns.get(spriteAssetName(sheet.label)) ?? 4 });
     }
   });
 

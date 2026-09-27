@@ -23,8 +23,19 @@ const root = path.join(here, '..');
 const source = path.join(root, 'assets/pet');
 const target = path.join(root, 'targets/pet-island/sprites');
 
-/** Sheets are a 4×11 grid of square cells. Mirrors CELL in petSprites.ts. */
-export const CELL = 128;
+/**
+ * Cells are square, but not one size: most sheets are 512px across in four
+ * columns (128px cells), the otter is six columns of 190, and the two runner
+ * sheets are drawn at 338 and 279. The cell is therefore taken from each
+ * sheet's own width and column count, never assumed — the first version of
+ * this script assumed 128 everywhere and cut a blank corner out of the runner.
+ */
+export const COLUMNS = {
+  otter: 6,
+  otterLifter: 6,
+  otterScholar: 6,
+};
+const DEFAULT_COLUMNS = 4;
 
 /**
  * [row, column] of the idle frame per sheet file. Every layout's idle starts at
@@ -38,8 +49,12 @@ const DEFAULT_IDLE = [0, 0];
 const crop = (file) => {
   const png = PNG.sync.read(fs.readFileSync(path.join(source, `${file}.png`)));
   const [row, column] = IDLE_FRAME[file] ?? DEFAULT_IDLE;
-  const out = new PNG({ width: CELL, height: CELL });
-  PNG.bitblt(png, out, column * CELL, row * CELL, CELL, CELL, 0, 0);
+  const cell = Math.floor(png.width / (COLUMNS[file] ?? DEFAULT_COLUMNS));
+  if ((column + 1) * cell > png.width || (row + 1) * cell > png.height) throw new Error(`${file}: idle cell [${row}, ${column}] is outside the sheet`);
+  // Kept at the sheet's own cell size rather than resampled: pixel art
+  // survives being scaled down by the renderer far better than by us.
+  const out = new PNG({ width: cell, height: cell });
+  PNG.bitblt(png, out, column * cell, row * cell, cell, cell, 0, 0);
   fs.writeFileSync(path.join(target, `${file}.png`), PNG.sync.write(out));
 };
 
