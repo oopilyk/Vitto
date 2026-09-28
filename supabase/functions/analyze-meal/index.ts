@@ -1,6 +1,25 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
+
+/**
+ * Meals a single account may have analysed in a rolling 24 hours.
+ *
+ * Every call sends an image to Gemini, so without a ceiling one signed-in
+ * account with a loop is an unbounded bill. Set well above real use -- nobody
+ * photographs sixty plates a day -- so it only ever catches abuse, never a
+ * hungry person. `meal_analyses` already stores `user_id` and `created_at`, so
+ * the count is one indexed query and needs no new table.
+ */
+const MEALS_PER_DAY = 60;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The most this will base64 into memory. The bucket refuses larger uploads
+ * (20260927120000), so this is the second of two locks: a bucket limit raised
+ * later should not silently become an edge-function OOM.
+ */
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 Deno.serve(async (request) => {
@@ -13,7 +32,20 @@ Deno.serve(async (request) => {
     if (!user) return json({ error: 'Authentication required.' }, 401);
 
     const { storagePath, pet } = await request.json();
-    if (typeof storagePath !== 'string' || !storagePath.startsWith(`${user.id}/`)) return json({ error: 'Invalid image path.' }, 400);
+    // The download below runs as the service role and so bypasses the storage
+    // policy that would otherwise confine a caller to their own folder. That
+    // makes this string the only thing standing between a caller and someone
+    // else's private photo, so it is checked strictly: the right prefix AND no
+    // traversal segment. `a/../b` satisfies startsWith and is not a path this
+    // app ever produces.
+    if (
+      typeof storagePath !== 'string' ||
+      !storagePath.startsWith(`${user.id}/`) ||
+      storagePath.includes('..') ||
+      storagePath.includes('\\')
+    ) {
+      return json({ error: 'Invalid image path.' }, 400);
+    }
     // Optional. With it the model also writes the pet's one-line reaction to the
     // plate, in character; without it (the web app) the analysis is unchanged.
     // Only the pet's name, personality and how it feels are sent — nothing
@@ -28,8 +60,21 @@ Deno.serve(async (request) => {
           }
         : null;
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // Checked before the image is fetched, let alone sent to the model: the
+    // point is to spend nothing on a request that is over the line.
+    const { count: analysedToday } = await admin
+      .from('meal_analyses')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte('created_at', new Date(Date.now() - DAY_MS).toISOString());
+    if ((analysedToday ?? 0) >= MEALS_PER_DAY) {
+      return json({ error: "That's a lot of meals for one day. Try again tomorrow." }, 429);
+    }
+
     const { data: image, error: downloadError } = await admin.storage.from('meal-images').download(storagePath);
     if (downloadError) throw downloadError;
+    if (image.size > MAX_IMAGE_BYTES) return json({ error: 'That image is too large to analyse.' }, 413);
     const imageBase64 = Array.from(new Uint8Array(await image.arrayBuffer()), (byte) => String.fromCharCode(byte)).join('');
     const encodedImage = btoa(imageBase64);
     const apiKey = Deno.env.get('GEMINI_API_KEY');

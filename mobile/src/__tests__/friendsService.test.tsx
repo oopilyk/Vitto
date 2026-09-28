@@ -260,25 +260,27 @@ describe('FriendsService.loadFriendsOverview', () => {
           error: null,
         });
       }
+      // The fallback composes from the per-friend RPCs, and the friend's pet is
+      // one of them now: a friend has no direct read on `pets` any more.
+      if (name === 'get_friend_pet') {
+        return Promise.resolve({ data: overviewPetRow(), error: null });
+      }
       return Promise.resolve({ data: null, error: null });
     });
-    // loadMyFriendRequests (friend_requests select), then loadFriendPet (pets select).
-    responses.push(
-      {
-        data: [
-          {
-            id: 'req-1',
-            requester_id: 'me',
-            addressee_id: 'friend-1',
-            status: 'accepted',
-            created_at: '2026-09-01T00:00:00.000Z',
-            responded_at: '2026-09-02T00:00:00.000Z',
-          },
-        ],
-        error: null,
-      },
-      { data: [overviewPetRow()], error: null },
-    );
+    // loadMyFriendRequests is the only table select left in this path.
+    responses.push({
+      data: [
+        {
+          id: 'req-1',
+          requester_id: 'me',
+          addressee_id: 'friend-1',
+          status: 'accepted',
+          created_at: '2026-09-01T00:00:00.000Z',
+          responded_at: '2026-09-02T00:00:00.000Z',
+        },
+      ],
+      error: null,
+    });
 
     const result = await service.loadFriendsOverview();
 
@@ -325,13 +327,36 @@ describe('FriendsService.loadFriendPet', () => {
   });
 
   it('returns null when the friend has no pet', async () => {
-    responses.push({ data: [], error: null });
+    rpc.mockResolvedValueOnce({ data: null, error: null });
 
     await expect(service.loadFriendPet('friend-1')).resolves.toBeNull();
   });
 
+  it('asks the RPC, never the pets table: a friend has no direct row access', async () => {
+    // The SELECT policy that used to allow `.from('pets')` is gone, because a
+    // policy grants a whole ROW and RLS cannot hide a column -- so reading the
+    // table showed a friend every column, free-text `persona` included.
+    rpc.mockResolvedValueOnce({ data: petRow(), error: null });
+
+    await service.loadFriendPet('friend-1');
+
+    expect(rpc).toHaveBeenCalledWith('get_friend_pet', { friend_id: 'friend-1' });
+    expect(from).not.toHaveBeenCalledWith('pets');
+  });
+
+  it('is never handed the columns a friend has no business seeing', async () => {
+    // Mirrors `friend_pet_json` in 20260927130000. If a column is added to the
+    // projection there, it should be a deliberate edit here too.
+    rpc.mockResolvedValueOnce({ data: petRow(), error: null });
+
+    await service.loadFriendPet('friend-1');
+
+    expect(Object.keys(petRow())).not.toContain('persona');
+    expect(Object.keys(petRow())).not.toContain('personality_dials');
+  });
+
   it('maps a single pet row to a PetState', async () => {
-    responses.push({ data: [petRow()], error: null });
+    rpc.mockResolvedValueOnce({ data: petRow(), error: null });
 
     const result = await service.loadFriendPet('friend-1');
 
@@ -340,29 +365,20 @@ describe('FriendsService.loadFriendPet', () => {
     expect(result?.pushingStrength).toBe(8);
   });
 
-  // Regression test: since 20260907140000_two_pets_per_user.sql, one user_id can
-  // legitimately own two `pets` rows (leave a shared pet, then adopt a new one).
-  // `.maybeSingle()` used to throw when the friends-view RLS policy matched more
-  // than one row; this asserts the fix picks the more-recently-created pet
-  // instead of throwing.
-  it('resolves with the more-recently-created pet rather than throwing when a friend has two pets', async () => {
-    responses.push({
-      data: [
-        petRow({ id: 'pet-new', created_at: '2026-09-05T00:00:00.000Z' }),
-        petRow({ id: 'pet-old', created_at: '2026-08-01T00:00:00.000Z' }),
-      ],
-      error: null,
-    });
+  // Since 20260907140000_two_pets_per_user.sql one user_id can legitimately own
+  // two `pets` rows (leave a shared pet, then adopt a new one). Picking the
+  // newest now happens inside `get_friend_pet`, which answers with one object
+  // rather than a list -- so the client just maps whatever it is handed.
+  it('maps the single pet the RPC picked, without re-sorting client-side', async () => {
+    rpc.mockResolvedValueOnce({ data: petRow({ id: 'pet-new', created_at: '2026-09-05T00:00:00.000Z' }), error: null });
 
     const result = await service.loadFriendPet('friend-1');
 
     expect(result?.id).toBe('pet-new');
-    expect(order).toHaveBeenCalledWith('created_at', { ascending: false });
-    expect(limit).toHaveBeenCalledWith(1);
   });
 
   it('surfaces a query error as a friendly Error', async () => {
-    responses.push({ data: null, error: { message: 'permission denied' } });
+    rpc.mockResolvedValueOnce({ data: null, error: { message: 'permission denied' } });
 
     await expect(service.loadFriendPet('friend-1')).rejects.toThrow('permission denied');
   });

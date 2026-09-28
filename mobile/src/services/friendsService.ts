@@ -294,22 +294,20 @@ export class FriendsService {
    * Since the two-pets-per-user migration (20260907140000), one `user_id` can
    * legitimately own two `pets` rows: a user can leave a pet they created --
    * that's a `pet_members` departure, not a `pets` row delete, so the old row
-   * and its `user_id` persist -- and then adopt a new one. `.maybeSingle()`
-   * would throw if the friends-view RLS policy matches more than one row for
-   * that `user_id`, so this orders by `created_at` (most recent first) and
-   * takes the first row instead of asserting exactly one exists.
+   * and its `user_id` persist -- so the RPC orders by `created_at` and takes
+   * the newest rather than asserting exactly one exists.
+   *
+   * An RPC rather than `.from('pets')`: a SELECT policy grants a whole ROW, and
+   * RLS cannot restrict columns, so reading the table directly showed a friend
+   * every column it happens to hold -- including the free-text `persona`. The
+   * definer function answers with a written-out column list instead (see
+   * 20260927130000_friend_pet_projection.sql), and the direct policy is gone.
    */
   async loadFriendPet(friendUserId: string): Promise<PetState | null> {
     const client = requireSupabase();
-    const { data, error } = await client
-      .from('pets')
-      .select('*')
-      .eq('user_id', friendUserId)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const { data, error } = await client.rpc('get_friend_pet', { friend_id: friendUserId });
     if (error) throw new Error(errorMessage(error, "Could not load your friend's pet."));
-    const rows = (data ?? []) as FriendPetRow[];
-    return rows.length > 0 ? toPetState(rows[0]) : null;
+    return data ? toPetState(data as FriendPetRow) : null;
   }
 
   /**
