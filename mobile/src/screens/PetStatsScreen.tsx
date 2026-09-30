@@ -23,7 +23,6 @@ import {
   toDateKey,
   MOOD_WORD,
   type EvolvedBuild,
-  BREED_CHANGE_COST,
   LEVEL_UP_COINS,
   coinsOf,
 } from '@vitto/core';
@@ -275,7 +274,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
           <StatBar label="XP" value={pet.xp} color={colors.coral} />
           <View style={styles.coinsRow} testID="coins">
             <Text style={styles.coinsValue}>{`${coinsOf(pet)} coins`}</Text>
-            <Text style={styles.coinsHint}>{`${LEVEL_UP_COINS} for every level-up. Switching animal costs ${BREED_CHANGE_COST}.`}</Text>
+            <Text style={styles.coinsHint}>{`${LEVEL_UP_COINS} for every level-up.`}</Text>
           </View>
         </Card>
 
