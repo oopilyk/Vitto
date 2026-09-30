@@ -24,6 +24,7 @@ import {
   type PetState,
 } from '@vitto/core';
 import { BreedPicker } from '../components/BreedPicker';
+import { sheetByBreed } from '../components/petSprites';
 import { CharacterEditor, type Character } from '../components/CharacterEditor';
 import { ChoiceRow, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text } from '../theme';
@@ -35,6 +36,13 @@ interface Props {
   /** The pet's look. Saved straight away by the parent, outside the profile draft. */
   breed?: PetBreed;
   onBreedChange?: (breed: PetBreed) => void;
+  /** The pet's coin balance, shown by the breed picker. */
+  coins?: number;
+  /**
+   * What switching the animal costs. Above zero, a pick waits for a confirm
+   * that names the price; zero (the dev account) switches on the tap.
+   */
+  breedChangeCost?: number;
   /** The pet whose character is edited below the breed. Absent when there is no pet to edit. */
   pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
   /** Saves base, sliders and notes together; the parent persists, like the breed. */
@@ -106,6 +114,8 @@ export function SettingsScreen({
   onClose,
   breed,
   onBreedChange,
+  coins = 0,
+  breedChangeCost = 0,
   pet,
   onCharacterChange,
   canCustomise = true,
@@ -119,6 +129,7 @@ export function SettingsScreen({
   onDeleteAccount,
   deletingAccount,
 }: Props) {
+  const [pendingBreed, setPendingBreed] = useState<PetBreed | null>(null);
   const [profile, setProfile] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,8 +190,39 @@ export function SettingsScreen({
           </Card>
         ) : null}
         {onBreedChange ? (
-          <Card title="Your companion" hint="Changes take effect straight away">
-            <BreedPicker value={breed} onChange={onBreedChange} size={88} />
+          <Card
+            title="Your companion"
+            hint={breedChangeCost > 0 ? `Switching animal costs ${breedChangeCost} coins. You have ${coins}.` : 'Changes take effect straight away'}
+          >
+            <BreedPicker
+              value={pendingBreed ?? breed}
+              onChange={(next) => {
+                if (breedChangeCost <= 0) {
+                  onBreedChange(next);
+                  return;
+                }
+                setPendingBreed(next === breed ? null : next);
+              }}
+              size={88}
+            />
+            {pendingBreed ? (
+              <View style={styles.switchConfirm} testID="breed-switch-confirm">
+                <Text style={styles.switchText}>
+                  {coins >= breedChangeCost
+                    ? `Switch to the ${sheetByBreed(pendingBreed).label} for ${breedChangeCost} coins? You'll have ${coins - breedChangeCost} left.`
+                    : `The ${sheetByBreed(pendingBreed).label} costs ${breedChangeCost} coins. You have ${coins}, so ${breedChangeCost - coins} more to go.`}
+                </Text>
+                <PrimaryButton
+                  label={`Switch · ${breedChangeCost} coins`}
+                  disabled={coins < breedChangeCost}
+                  onPress={() => {
+                    onBreedChange(pendingBreed);
+                    setPendingBreed(null);
+                  }}
+                />
+                <TextButton label="Keep them as they are" onPress={() => setPendingBreed(null)} />
+              </View>
+            ) : null}
             {pet && onCharacterChange ? (
               <Group label="Personality">
                 {canCustomise ? (
@@ -471,6 +513,8 @@ export function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
+  switchConfirm: { marginTop: 12, gap: 8 },
+  switchText: { ...text.body, color: colors.inkSoft, lineHeight: 19 },
   locked: {
     borderWidth: 1,
     borderColor: colors.border,

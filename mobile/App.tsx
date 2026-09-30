@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, createNavigationContainerRef, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -1014,10 +1014,21 @@ export default function App() {
   };
 
   const changeBreed = async (next: PetBreed) => {
-    if (!pet) return;
+    if (!pet || next === pet.breed) return;
+    // Switching the animal costs coins (the dev account switches free, to test
+    // the art). Charged against whichever copy of the pet is actually saved.
+    const freeSwitch = isDevAccount(session?.user.email);
+    const switched = (from: PetState): PetState | null => {
+      const paid = freeSwitch ? from : spendCoins(from, BREED_CHANGE_COST);
+      return paid ? { ...paid, breed: next } : null;
+    };
     // `pet` is the stored pet, so this saves a breed change and nothing else —
     // it cannot bake a decay projection into the row on its way past.
-    const nextPet = { ...pet, breed: next };
+    const nextPet = switched(pet);
+    if (!nextPet) {
+      setError(`Switching costs ${BREED_CHANGE_COST} coins, and ${pet.name} has ${coinsOf(pet)}.`);
+      return;
+    }
     setPet(nextPet);
     setBreed(next);
     // Held like a care moment: a foreground refresh landing between the
@@ -1025,22 +1036,25 @@ export default function App() {
     careMomentInFlight.current = true;
     try {
       if (isSupabaseConfigured && session) {
-        // Versioned, not upserted: a partner may hold this pet without having
-        // adopted it, and the insert half of an upsert is creator-only. One
-        // retry on conflict, re-applied to the fresh row so the partner's care
-        // in between is kept.
-        let base = pet;
-        let saved = await remoteRepository.savePetIfUnchanged(nextPet, base.version ?? 0);
-        if (saved.status === 'conflict') {
-          const fresh = await remoteRepository.loadPet();
-          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
-          base = fresh;
-          saved = await remoteRepository.savePetIfUnchanged({ ...fresh, breed: next }, fresh.version ?? 0);
-          if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
+        // The server checks and spends the coins and switches in one step
+        // (`switch_pet_breed`); an ordinary save cannot change the breed. What
+        // it returns is the truth, including the version it bumped.
+        try {
+          const result = await remoteRepository.switchBreed(pet.id, next);
+          const stored = { ...pet, breed: result.breed as PetBreed, coins: result.coins, version: result.version };
+          setPet(stored);
+          setBreed(stored.breed ?? next);
+          await repository.savePet(stored);
+        } catch (cause) {
+          // Put the old animal back, with the server's word on the balance.
+          setPet(pet);
+          setBreed(pet.breed ?? next);
+          if (cause instanceof NotEnoughCoinsError) {
+            setPet({ ...pet, coins: cause.coins });
+            throw new Error(`Switching costs ${BREED_CHANGE_COST} coins, and ${pet.name} has ${cause.coins}.`);
+          }
+          throw cause;
         }
-        const stored = { ...base, breed: next, version: saved.version };
-        setPet(stored);
-        await repository.savePet(stored);
         return;
       }
       await repository.savePet(nextPet);
@@ -1924,6 +1938,8 @@ export default function App() {
               profile={profile}
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}
+              coins={coinsOf(pet)}
+              breedChangeCost={isDev ? 0 : BREED_CHANGE_COST}
               pet={livePet}
               canCustomise={canCustomise}
               isPlus={canCustomise}

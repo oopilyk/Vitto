@@ -23,6 +23,9 @@ import {
   toDateKey,
   MOOD_WORD,
   type EvolvedBuild,
+  BREED_CHANGE_COST,
+  LEVEL_UP_COINS,
+  coinsOf,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { EvolutionCard } from '../components/EvolutionCard';
@@ -270,6 +273,10 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
             <Fact label="build" value={PET_BUILD_LABEL[getPetBuild(pet)]} />
           </View>
           <StatBar label="XP" value={pet.xp} color={colors.coral} />
+          <View style={styles.coinsRow} testID="coins">
+            <Text style={styles.coinsValue}>{`${coinsOf(pet)} coins`}</Text>
+            <Text style={styles.coinsHint}>{`${LEVEL_UP_COINS} for every level-up. Switching animal costs ${BREED_CHANGE_COST}.`}</Text>
+          </View>
         </Card>
 
         <EvolutionCard pet={pet} onChooseForm={onChooseForm} />
@@ -355,6 +362,9 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
 }
 
 const styles = StyleSheet.create({
+  coinsRow: { marginTop: 12, gap: 2 },
+  coinsValue: { fontFamily: fonts.mono, fontSize: 14, fontWeight: '700', color: colors.yellowDeep },
+  coinsHint: { fontSize: 12, color: colors.faint, lineHeight: 17 },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',

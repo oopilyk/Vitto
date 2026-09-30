@@ -185,6 +185,41 @@ describe('settings screen', () => {
     plus.unmount();
   });
 
+  it('asks before spending coins on a new animal, and will not overspend', () => {
+    const chosen: string[] = [];
+    const renderWith = (coins: number) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <SettingsScreen
+            profile={profile}
+            breed="bichon"
+            onBreedChange={(next) => chosen.push(next)}
+            coins={coins}
+            breedChangeCost={500}
+            onSave={async () => {}}
+            onClose={() => {}}
+          />,
+        );
+      });
+      return tree;
+    };
+    const rich = renderWith(620);
+    act(() => byLabel(rich, 'Choose the Shiba')!.props.onPress());
+    // Nothing is spent on the tap itself.
+    expect(chosen).toEqual([]);
+    expect(json(rich)).toContain("You'll have 120 left");
+    act(() => findButton(rich, 'Switch · 500 coins')!.props.onPress());
+    expect(chosen).toEqual(['shiba']);
+    rich.unmount();
+
+    const poor = renderWith(120);
+    act(() => byLabel(poor, 'Choose the Shiba')!.props.onPress());
+    expect(json(poor)).toContain('380 more to go');
+    expect(findButton(poor, 'Switch · 500 coins')!.props.disabled).toBe(true);
+    poor.unmount();
+  });
+
   it('hides the companion card when no breed handler is wired up', () => {
     expect(json(render())).not.toContain('Your companion');
   });

@@ -1,5 +1,6 @@
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
+import { coinsEarned, coinsOf } from './coins';
 import { clamp, lockEvolution, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { formatMinutes } from './careToast';
 import { type FoodEffect, detectFoodEffects, foodEffectsDelta } from './foodEffects';
@@ -144,6 +145,8 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
     ...pet,
     level: nextLevel,
     xp: nextXp % XP_PER_LEVEL,
+    // Earned with the XP, never spent here.
+    coins: coinsOf(pet) + coinsEarned(nextLevel - pet.level),
     health: clamp(pet.health + (delta.health ?? 0)),
     energy: nextEnergy,
     happiness: nextHappiness,

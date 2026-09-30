@@ -129,6 +129,8 @@ export interface PetState {
   earnedBuilds?: EvolvedBuild[];
   /** The form picked by hand once all three are earned; see `chooseForm`. */
   chosenBuild?: EvolvedBuild;
+  /** Coins earned by caring for the pet, spent on changes (see coins.ts). Absent reads as 0. */
+  coins?: number;
   adoptedAt: string;
   lastEventAt?: string;
   /**
