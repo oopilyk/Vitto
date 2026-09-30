@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -116,18 +116,24 @@ export function ChoiceRow<T extends string>({
   value,
   onChange,
   stacked,
+  expanded,
 }: {
   options: { value: T; label: string; detail?: string }[];
   value: T | T[] | undefined;
   onChange: (value: T) => void;
   stacked?: boolean;
+  /**
+   * Drops down under the selected option (stacked rows only): settings that
+   * belong to that choice, shown where the choice was made.
+   */
+  expanded?: (value: T) => ReactNode;
 }) {
   const selected = (option: T) => (Array.isArray(value) ? value.includes(option) : value === option);
   return (
     <View style={[styles.choices, stacked && styles.choicesStacked]}>
       {options.map((option) => (
+        <Fragment key={option.value}>
         <Pressable
-          key={option.value}
           accessibilityRole="button"
           accessibilityState={{ selected: selected(option.value) }}
           onPress={() => onChange(option.value)}
@@ -138,6 +144,12 @@ export function ChoiceRow<T extends string>({
           </Text>
           {option.detail ? <Text style={styles.choiceDetail}>{option.detail}</Text> : null}
         </Pressable>
+        {stacked && expanded && selected(option.value) ? (
+          <View style={styles.choiceExpanded} testID={`choice-expanded-${option.value}`}>
+            {expanded(option.value)}
+          </View>
+        ) : null}
+        </Fragment>
       ))}
     </View>
   );
@@ -178,6 +190,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   choiceWide: { width: '100%' },
+  // Hangs under the chosen option, inset so it reads as belonging to it.
+  choiceExpanded: { width: '100%', paddingLeft: 12, paddingRight: 4, paddingTop: 2, paddingBottom: 6, gap: 10 },
   choiceOn: { borderColor: colors.coral, backgroundColor: '#fbf1ee' },
   choiceLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
   choiceLabelOn: { color: colors.coralDeep },

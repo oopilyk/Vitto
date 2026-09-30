@@ -44,3 +44,16 @@ describe('character change allowance', () => {
     tree.unmount();
   });
 });
+
+describe('fine-tuning drops down under the chosen base', () => {
+  it('opens under the selected option and moves with the selection', () => {
+    const tree = render(null);
+    expect(tree.root.findAllByProps({ testID: 'choice-expanded-sweet' }).length).toBeGreaterThan(0);
+    const yourOwn = tree.root.findAll((n) => typeof n.props.onPress === 'function' && n.findAllByType(Text).some((t) => t.props.children === 'Your own'))[0]!;
+    act(() => yourOwn.props.onPress());
+    expect(tree.root.findAllByProps({ testID: 'choice-expanded-sweet' })).toHaveLength(0);
+    const dropdown = tree.root.findAllByProps({ testID: 'choice-expanded-custom' })[0]!;
+    expect(dropdown.findAll((n) => n.props.children === 'Who are they?').length).toBeGreaterThan(0);
+    tree.unmount();
+  });
+});

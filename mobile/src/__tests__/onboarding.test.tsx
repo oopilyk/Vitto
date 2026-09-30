@@ -158,17 +158,28 @@ describe('OnboardingScreen character', () => {
     expect(dials.at(-1)).toMatchObject({ blunt: 0 });
   });
 
-  it('resets the sliders when the base changes, and keeps the notes field for adults only', () => {
+  it('resets the sliders when the base changes, and offers notes only for "Your own"', () => {
     const dials: unknown[] = [];
     const picks: unknown[] = [];
-    const tree = atPet({ personality: 'sweet', onPersonalityChange: (p: unknown) => picks.push(p), onDialsChange: (d: unknown) => dials.push(d) });
+    const personas: unknown[] = [];
+    const tree = atPet({
+      personality: 'sweet',
+      onPersonalityChange: (p: unknown) => picks.push(p),
+      onDialsChange: (d: unknown) => dials.push(d),
+      onPersonaChange: (p: unknown) => personas.push(p),
+    });
     act(() => button(tree, 'Feisty')!.props.onPress());
     expect(picks).toEqual(['feisty']);
     expect(dials.at(-1)).toMatchObject({ blunt: 0.75, sarcastic: 0.5 });
-    // The base profile is an adult, so the notes field is offered on any base.
-    expect(strings(tree).join(' ')).toMatch(/Anything else .* should know/);
+    // A base temperament takes no notes, and picking one clears any.
+    expect(personas.at(-1)).toBe('');
+    expect(strings(tree)).not.toContain('Who are they?');
+    expect(strings(tree).join(' ')).not.toMatch(/Anything else/);
+    // "Your own" is where the notes live (for an adult).
+    const own = atPet({ personality: 'custom' });
+    expect(strings(own)).toContain('Who are they?');
     const teen = atPet({ personality: 'sweet' }, { ...adult, age: 15 });
-    expect(strings(teen).join(' ')).not.toMatch(/Anything else/);
+    expect(strings(teen)).not.toContain('Who are they?');
     expect(strings(teen)).toContain('Fine-tune them');
   });
 });

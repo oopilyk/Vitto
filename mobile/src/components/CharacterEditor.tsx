@@ -76,30 +76,39 @@ export function CharacterEditor({
         options={options}
         value={options.some((option) => option.value === draft.personality) ? draft.personality : undefined}
         onChange={(personality) =>
-          // A new base moves the sliders to where that base sits.
-          setDraft((current) => ({ ...current, personality, dials: companion.dialsFor(personality) }))
+          // A new base moves the sliders to where that base sits. Notes belong to
+          // "Your own" only, so any other base drops them.
+          setDraft((current) => ({
+            ...current,
+            personality,
+            dials: companion.dialsFor(personality),
+            persona: personality === 'custom' ? current.persona : '',
+          }))
         }
+        // The fine-tuning drops down under the base it tunes.
+        expanded={(personality) => (
+          <>
+            <Text style={styles.label}>Fine-tune</Text>
+            <CharacterDials dials={draft.dials} onChange={(dials) => setDraft((current) => ({ ...current, dials }))} testID="character-dials" />
+            {notesAllowed && personality === 'custom' ? (
+              <View>
+                <Text style={styles.label}>Who are they?</Text>
+                <TextInput
+                  style={[layout.input, styles.persona]}
+                  value={draft.persona}
+                  onChangeText={(persona) => setDraft((current) => ({ ...current, persona: persona.slice(0, PERSONA_MAX_LENGTH) }))}
+                  placeholder="A grumpy old pirate who secretly adores us."
+                  placeholderTextColor={colors.faint}
+                  multiline
+                  maxLength={PERSONA_MAX_LENGTH}
+                  accessibilityLabel="Their character"
+                />
+                <Text style={styles.count}>{`${draft.persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
+              </View>
+            ) : null}
+          </>
+        )}
       />
-      <Text style={styles.label}>Fine-tune</Text>
-      <CharacterDials dials={draft.dials} onChange={(dials) => setDraft((current) => ({ ...current, dials }))} testID="character-dials" />
-      {notesAllowed ? (
-        <View>
-          <Text style={styles.label}>
-            {draft.personality === 'custom' ? 'Who are they?' : `Anything else ${pet.name} should know about how you want them to act?`}
-          </Text>
-          <TextInput
-            style={[layout.input, styles.persona]}
-            value={draft.persona}
-            onChangeText={(persona) => setDraft((current) => ({ ...current, persona: persona.slice(0, PERSONA_MAX_LENGTH) }))}
-            placeholder={draft.personality === 'custom' ? 'A grumpy old pirate who secretly adores us.' : 'Optional. "Calls me chief. Never impressed by anything."'}
-            placeholderTextColor={colors.faint}
-            multiline
-            maxLength={PERSONA_MAX_LENGTH}
-            accessibilityLabel="Their character"
-          />
-          <Text style={styles.count}>{`${draft.persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
-        </View>
-      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: !savable }}

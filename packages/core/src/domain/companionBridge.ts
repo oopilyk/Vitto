@@ -184,7 +184,9 @@ export const buildLifeContext = (input: {
       level: pet.level,
       build: hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : 'Balanced',
       ...(pet.personality ? { temperament: pet.personality } : {}),
-      ...(pet.persona ? { persona: pet.persona } : {}),
+      // Notes are the character only for "Your own"; with a base temperament
+      // they are not offered any more, and old ones are no longer sent.
+      ...(pet.persona && pet.personality === 'custom' ? { persona: pet.persona } : {}),
       ...(pet.dials ? { dials: pet.dials } : {}),
     },
     statuses: assessCondition(pet).ailments.map((ailment) => STATUS_LABEL[ailment]),

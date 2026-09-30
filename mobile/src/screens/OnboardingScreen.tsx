@@ -654,32 +654,37 @@ export function OnboardingScreen({
                 onPersonalityChange(next);
                 // The sliders show what the base means, and start from it.
                 onDialsChange(companion.dialsFor(next));
+                // Notes belong to "Your own" only.
+                if (next !== 'custom') onPersonaChange('');
               }}
+              // The fine-tuning drops down under the base it tunes.
+              expanded={(chosen) => (
+                <>
+                  <View style={styles.dials}>
+                    <Text style={styles.dialsLabel}>Fine-tune them</Text>
+                    <CharacterDials dials={dials ?? companion.dialsFor(chosen)} onChange={onDialsChange} testID="character-dials" />
+                  </View>
+                  {chosen === 'custom' && profile.age >= MATURE_PERSONALITY_AGE ? (
+                    <Field
+                      label="Who are they?"
+                      hint="as much or as little as you like"
+                    >
+                      <TextInput
+                        style={[layout.input, styles.persona]}
+                        value={persona}
+                        onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
+                        placeholder="A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
+                        placeholderTextColor={colors.faint}
+                        multiline
+                        maxLength={PERSONA_MAX_LENGTH}
+                        accessibilityLabel="Their character"
+                      />
+                      <Text style={styles.personaCount}>{`${persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
+                    </Field>
+                  ) : null}
+                </>
+              )}
             />
-            ) : null}
-            {canCustomise && personality ? (
-              <View style={styles.dials}>
-                <Text style={styles.dialsLabel}>Fine-tune them</Text>
-                <CharacterDials dials={dials ?? companion.dialsFor(personality)} onChange={onDialsChange} testID="character-dials" />
-              </View>
-            ) : null}
-            {canCustomise && personality && profile.age >= MATURE_PERSONALITY_AGE ? (
-              <Field
-                label={personality === 'custom' ? 'Who are they?' : `Anything else ${name.trim() || 'they'} should know about how you want them to act?`}
-                hint={personality === 'custom' ? 'a sentence or two' : 'optional'}
-              >
-                <TextInput
-                  style={[layout.input, styles.persona]}
-                  value={persona}
-                  onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
-                  placeholder={personality === 'custom' ? 'A grumpy old pirate who secretly adores us and hands out sea shanties as rewards' : 'Calls me chief. Obsessed with the Ravens. Never impressed by anything.'}
-                  placeholderTextColor={colors.faint}
-                  multiline
-                  maxLength={PERSONA_MAX_LENGTH}
-                  accessibilityLabel="Their character"
-                />
-                <Text style={styles.personaCount}>{`${persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
-              </Field>
             ) : null}
           </View>
         ) : null}
