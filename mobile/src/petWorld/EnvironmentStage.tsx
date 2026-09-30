@@ -33,6 +33,13 @@ const FALLBACK_STAGE = { width: 393, height: 852 };
 /** The name bubble floats at roughly the pet's head, so it reads as coming from the pet. */
 const NAME_BUBBLE_HEAD_FRACTION = 0.86;
 
+/**
+ * Clear air between the speech bubble's tail and the pet's head, as a share of
+ * the pet's size. At 6px the tail sat on the ears and the two read as one
+ * cramped block; this keeps them visibly apart at every stage size.
+ */
+const SPEECH_BUBBLE_GAP_FRACTION = 0.12;
+
 /** How long the name bubble lingers after a tap on touch devices (no hover). */
 const NAME_BUBBLE_HOLD_MS = 2200;
 
@@ -309,11 +316,15 @@ export function EnvironmentStage({
       </View>
 
       {/* `box-none`: only the bubble itself takes a tap; everywhere else still
-          reaches the pet. It rides where the name bubble does, a little higher,
-          so its tail lands on the pet's head in every scene and at every size. */}
+          reaches the pet. It rides where the name bubble does, a gap higher, so
+          its tail points down at the pet's head in every scene and at every size. */}
       <View
         pointerEvents="box-none"
-        style={[StyleSheet.absoluteFill, styles.speechLayer, { paddingBottom: nameBubbleLift + 6 }]}
+        style={[
+          StyleSheet.absoluteFill,
+          styles.speechLayer,
+          { paddingBottom: nameBubbleLift + Math.round(metrics.petSize * SPEECH_BUBBLE_GAP_FRACTION) },
+        ]}
       >
         <PetSpeechBubble said={petSaid} petName={pet.name} onPress={onOpenChat} night={night} />
       </View>

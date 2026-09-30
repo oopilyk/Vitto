@@ -69,7 +69,7 @@ const toRecentActivitySignal = (row: RecentActivityRow): RecentActivitySignal =>
  */
 type FriendPetRow = Omit<
   PetState,
-  'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt'
+  'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'evolvedBuild'
 > & {
   user_id: string;
   last_event_at: string | null;
@@ -79,6 +79,8 @@ type FriendPetRow = Omit<
   mind: number | null;
   adopted_at: string | null;
   created_at: string | null;
+  /** Absent until 20260930120000 has run. */
+  evolved_build?: PetState['evolvedBuild'] | null;
 };
 
 const toPetState = (row: FriendPetRow): PetState => ({
@@ -90,6 +92,7 @@ const toPetState = (row: FriendPetRow): PetState => ({
   legStrength: row.leg_strength,
   mind: row.mind ?? 20,
   breed: row.breed ?? undefined,
+  evolvedBuild: row.evolved_build ?? undefined,
   // Read-only display of a friend's pet has no need for the exact adoption-date
   // repair `SupabaseRepository.loadPet` does for the owner's own pet -- falling
   // back to `created_at`, then now, is close enough for a view a friend cannot

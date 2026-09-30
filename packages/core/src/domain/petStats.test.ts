@@ -6,7 +6,9 @@ import {
   statValue,
   type PetStatKey,
 } from './petStats';
-import { applyForcedForm, EVOLUTION_LEVEL, getPetBuild, hasEvolved } from './pet';
+import { applyForcedForm, EVOLUTION_LEVEL, getPetBuild, hasEvolved, lockEvolution } from './pet';
+import { applyTimeDecay } from './decay';
+import { applyDelta } from './petHealthEngine';
 import { assessCondition } from './petCondition';
 import { DECAY_PER_DAY } from './decay';
 import type { HealthEvent, HealthEventType } from './health';
@@ -297,5 +299,49 @@ describe('applyForcedForm', () => {
     expect(getPetBuild(youngRunner)).toBe('runner');
     expect(hasEvolved(youngRunner)).toBe(false);
     expect(hasEvolved({ ...youngRunner, level: EVOLUTION_LEVEL })).toBe(true);
+  });
+});
+
+describe('evolution is for keeps', () => {
+  const at = (days: number) => new Date(Date.parse('2026-09-01T00:00:00Z') + days * 86_400_000);
+  const scholar = () => ({
+    ...createPet('u', 'Blue', 'dog', 'bear'),
+    level: EVOLUTION_LEVEL + 3,
+    mind: 65,
+    endurance: 20,
+    strength: 20,
+    adoptedAt: at(0).toISOString(),
+    lastEventAt: at(0).toISOString(),
+  });
+
+  it('keeps a scholar a scholar after its mind decays back to even', () => {
+    // Mind falls 5 a day; by day 10 it is 15, nowhere near scholar territory.
+    const decayed = applyTimeDecay(scholar(), at(10));
+    expect(decayed.mind).toBeLessThan(45);
+    expect(decayed.evolvedBuild).toBe('scholar');
+    expect(getPetBuild(decayed)).toBe('scholar');
+    expect(hasEvolved(decayed)).toBe(true);
+  });
+
+  it('locks in on the event that makes the pet evolve', () => {
+    const almost = { ...scholar(), mind: 40 };
+    expect(almost.evolvedBuild).toBeUndefined();
+    const evolved = applyDelta(almost, { mind: 20 }, at(1).toISOString());
+    expect(evolved.evolvedBuild).toBe('scholar');
+  });
+
+  it('still re-specialises when another stat clearly takes over', () => {
+    const locked = lockEvolution(scholar());
+    const runner = { ...locked, mind: 20, endurance: 70 };
+    expect(getPetBuild(runner)).toBe('runner');
+    expect(lockEvolution(runner).evolvedBuild).toBe('runner');
+  });
+
+  it('does not lock a pet that is too young to evolve', () => {
+    expect(lockEvolution({ ...scholar(), level: EVOLUTION_LEVEL - 1 }).evolvedBuild).toBeUndefined();
+  });
+
+  it('lets the dev preview show the base form over a locked evolution', () => {
+    expect(hasEvolved(applyForcedForm(lockEvolution(scholar()), 'base'))).toBe(false);
   });
 });

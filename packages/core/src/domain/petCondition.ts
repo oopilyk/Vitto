@@ -96,10 +96,19 @@ export const applyForcedAilment = (pet: PetState, status: ForcedPetStatus | null
   if (!status) return pet;
   const forced = { ...pet };
   for (const candidate of AILMENT_PRECEDENCE) {
-    // 'healthy' matches no ailment, so every stat lands on the clear value --
-    // which is the whole definition of a well pet, not a special case.
-    forced[AILMENT_STAT[candidate]] =
-      candidate === status ? AILMENT_THRESHOLDS[candidate] : FORCED_CLEAR_VALUE;
+    const stat = AILMENT_STAT[candidate];
+    if (candidate === status) {
+      forced[stat] = AILMENT_THRESHOLDS[candidate];
+    } else if (stat === 'mind') {
+      // Mind is also what decides the scholar build, so clearing `foggy` only
+      // lifts it past the threshold. Jumping it to the clear value turned any
+      // evolved pet into a scholar the moment another ailment was forced.
+      forced.mind = Math.max(pet.mind, AILMENT_THRESHOLDS.foggy + 1);
+    } else {
+      // 'healthy' matches no ailment, so every stat lands on the clear value --
+      // which is the whole definition of a well pet, not a special case.
+      forced[stat] = FORCED_CLEAR_VALUE;
+    }
   }
   return forced;
 };

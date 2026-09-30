@@ -2326,11 +2326,11 @@ describe('pet sprite', () => {
     const scholar = sheetForPet({ id: 'p', breed: 'bear', level: 12, mind: 80, endurance: 10, strength: 10 });
     expect(lifter.label).toBe('Bear · Lifter');
 
-    // Re-animated rather than derived, so it carries its own 4x17 sheet and map
-    // while the scholar still shares the base bear's.
+    // Re-animated rather than derived, so it carries its own 4x17 sheet and map,
+    // as the scholar now does too.
     expect(lifter.rows).toBe(17);
     expect(lifter.animations).not.toEqual(base.animations);
-    expect(scholar.animations).toEqual(base.animations);
+    expect(scholar.animations).not.toEqual(lifter.animations);
     // The flex is the strength build's whole point, so a level-up plays it.
     expect(lifter.animations.cheer).toHaveLength(12);
 
@@ -2350,6 +2350,56 @@ describe('pet sprite', () => {
     expect(lifter.videos.frameSize).toBe(768);
     // Nothing here draws its own stars, unlike the bichon's dizzy clip.
     expect(lifter.selfDrawn).toBeUndefined();
+  });
+
+  it('evolves the bear into its scholar, with clips for every band but rest', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const scholar = sheetForPet({ id: 'p', breed: 'bear', level: 12, mind: 80, endurance: 10, strength: 10 });
+    expect(scholar.label).toBe('Bear · Scholar');
+    expect(scholar.rows).toBe(16);
+    const { clips } = scholar.videos;
+    expect(Object.keys(clips).sort()).toEqual(['cheer', 'faint', 'idle', 'move', 'sad', 'unwell']);
+    // No sleeping clip, so rest (and exhausted) dozes on the sheet instead of
+    // holding a single frame that reads as nothing happening.
+    expect(scholar.animations.rest.length).toBeGreaterThan(1);
+    for (const band of ['sad', 'faint']) expect(clips[band].loop).toBe(false);
+    // Same box as the runner, so the bear's forms stand the same size.
+    const runner = sheetForPet({ id: 'p', breed: 'bear', level: 12, endurance: 80, strength: 10, mind: 10 });
+    expect(scholar.videos.cell).toEqual(runner.videos.cell);
+    expect(scholar.selfDrawn).toEqual(['foggy']);
+    for (const frames of Object.values(scholar.animations) as [number, number][][]) {
+      for (const [row, column] of frames) {
+        expect(row).toBeLessThan(16);
+        expect(column).toBeLessThan(4);
+      }
+    }
+  });
+
+  it('evolves the bear into its runner, with a clip for every band', () => {
+    const { sheetForPet, HOLDS_LAST_FRAME } = require('../components/petSprites');
+    const runner = sheetForPet({ id: 'p', breed: 'bear', level: 12, endurance: 80, strength: 10, mind: 10 });
+    expect(runner.label).toBe('Bear · Runner');
+    expect(runner.name).toBe('bear');
+    expect(runner.rows).toBe(16);
+
+    const { clips } = runner.videos;
+    expect(Object.keys(clips).sort()).toEqual(['cheer', 'faint', 'idle', 'move', 'rest', 'sad', 'unwell']);
+    // Settles into a pose and stays; looping would have it get up and do it again.
+    for (const band of ['sad', 'rest', 'faint']) expect(clips[band].loop).toBe(false);
+    for (const band of ['idle', 'cheer', 'move', 'unwell']) expect(clips[band].loop).toBe(true);
+    expect(HOLDS_LAST_FRAME.has('faint')).toBe(true);
+    // Its dizzy stars are drawn in, on the sheet and in the clip alike.
+    expect(runner.selfDrawn).toEqual(['foggy']);
+    expect(runner.videos.selfDrawn).toEqual(['foggy']);
+    // Clips and sheet are cut from the same box, or the bear would jump
+    // whenever it fell back from one to the other (Android, the island).
+    expect(runner.videos.cell).toEqual({ x: 8, y: -24, size: 754 });
+    for (const frames of Object.values(runner.animations) as [number, number][][]) {
+      for (const [row, column] of frames) {
+        expect(row).toBeLessThan(16);
+        expect(column).toBeLessThan(4);
+      }
+    }
   });
 
   it('plays the bichon lifter its own clips instead of sheet frames', () => {

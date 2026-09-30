@@ -63,9 +63,10 @@ export const NOTICE_MS = 900;
 export const ENVIRONMENT_TRANSITION_MS = 560;
 
 /**
- * How long the pet runs when a scene button is tapped -- a short dash that reads
- * as the pet running from one room to the next, then it settles back to idle in
- * the new room. Shorter than a step-sync `EXPLORE_DURATION_MS` run: this is a
- * transition flourish, not "went for a run with you".
+ * How long the pet runs when a scene button is tapped -- a dash that reads as
+ * the pet running from one room to the next, then it settles back to idle in
+ * the new room. Long enough for about one full stride of the video forms' run
+ * cycles (~2s); at 850ms it barely got going. Still shorter than a step-sync
+ * `EXPLORE_DURATION_MS` run: this is a transition, not "went for a run with you".
  */
-export const TRAVEL_DURATION_MS = 850;
+export const TRAVEL_DURATION_MS = 2000;

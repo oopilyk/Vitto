@@ -652,7 +652,7 @@ const BEAR_LAYOUT: SheetLayout = {
  * Bear · Lifter, 4x17. Its own sheet and its own map: this form was animated
  * separately rather than derived from the base bear art, so sharing
  * BEAR_LAYOUT would play the walk cycle as a cheer and the yawn as a stroll.
- * Cut from four clips by scripts/buildBearLifterSheet.mjs, which prints this
+ * Cut from four clips by scripts/buildVideoSheet.mjs, which prints this
  * frame map when it runs -- check the two against each other after any change.
  *
  * The flex is the whole point of the strength build, so it is `cheer`: the band
@@ -678,7 +678,7 @@ const BEAR_LIFTER_CLIPS = {
 
 const BEAR_LIFTER_VIDEOS: PetVideos = {
   frameSize: 768,
-  // The same box scripts/buildBearLifterSheet.mjs cuts its cells from, so a
+  // The same box scripts/buildVideoSheet.mjs cuts its cells from, so a
   // band with no clip falls back to the sheet without the bear moving.
   cell: { x: 26, y: 4, size: 720 },
   clips: {
@@ -718,11 +718,136 @@ const BEAR_LIFTER: PetSheet = {
   videos: BEAR_LIFTER_VIDEOS,
 };
 
-const BEAR_SCHOLAR = sheetFrom(BEAR_LAYOUT, 'Bear · Scholar', require('../../assets/pet/bearScholar.png'));
+/**
+ * Bear · Runner, 4x16: the bear in a headband with a gold medal round its neck.
+ * Animated as video like the lifter, so it too has its own sheet and map, cut
+ * from the clips by `node scripts/buildVideoSheet.mjs bearRunner` (which prints
+ * this frame map), and framed to the same share of its cell as the base bear so
+ * evolving does not resize it.
+ *
+ *   rows 0-2   standing, blinking (12)   rows 10-11  dizzy, ring of stars (8)
+ *   rows 3-5   medal held up, cheering   rows 12-13  slumped, hunched (8)
+ *              (12)                      rows 14-15  sits, then lies down (8)
+ *   rows 6-7   run cycle (8)
+ *   rows 8-9   lying on the floor (8)
+ */
+const BEAR_RUNNER_CLIPS = {
+  idle: { hevc: require('../../assets/pet/video/bearRunner/idle.mov'), webm: require('../../assets/pet/video/bearRunner/idle.webm') },
+  cheer: { hevc: require('../../assets/pet/video/bearRunner/cheer.mov'), webm: require('../../assets/pet/video/bearRunner/cheer.webm') },
+  run: { hevc: require('../../assets/pet/video/bearRunner/run.mov'), webm: require('../../assets/pet/video/bearRunner/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/bearRunner/dizzy.mov'), webm: require('../../assets/pet/video/bearRunner/dizzy.webm') },
+  tired: { hevc: require('../../assets/pet/video/bearRunner/tired.mov'), webm: require('../../assets/pet/video/bearRunner/tired.webm') },
+  'lie-down': { hevc: require('../../assets/pet/video/bearRunner/lie-down.mov'), webm: require('../../assets/pet/video/bearRunner/lie-down.webm') },
+};
+
+const BEAR_RUNNER_VIDEOS: PetVideos = {
+  frameSize: 768,
+  // The box scripts/buildVideoSheet.mjs cuts the cells from. It hangs 24px
+  // above the frame so the bear stands half a cell tall, like the base bear.
+  cell: { x: 8, y: -24, size: 754 },
+  clips: {
+    idle: { ...BEAR_RUNNER_CLIPS.idle, loop: true },
+    cheer: { ...BEAR_RUNNER_CLIPS.cheer, loop: true },
+    move: { ...BEAR_RUNNER_CLIPS.run, loop: true },
+    unwell: { ...BEAR_RUNNER_CLIPS.dizzy, loop: true },
+    // These three settle into a pose and stay there. Looping them would have
+    // the bear stand back up and slump, or lie down, over and over.
+    sad: { ...BEAR_RUNNER_CLIPS.tired, loop: false },
+    rest: { ...BEAR_RUNNER_CLIPS['lie-down'], loop: false },
+    faint: { ...BEAR_RUNNER_CLIPS['lie-down'], loop: false },
+  },
+  // The dizzy clip has its own spiral eyes and orbiting stars.
+  selfDrawn: ['foggy'],
+};
+
+const BEAR_RUNNER: PetSheet = {
+  name: 'bear',
+  label: 'Bear · Runner',
+  source: require('../../assets/pet/bearRunner.png'),
+  rows: 16,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2], [1, 3], [2, 0], [2, 1], [2, 2], [2, 3]],
+    cheer: [[3, 0], [3, 1], [3, 2], [3, 3], [4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3]],
+    // Eight frames across one 16-frame cycle of the source clip, so it loops.
+    move: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3]],
+    rest: [[8, 0], [8, 1], [8, 2], [8, 3], [9, 0], [9, 1], [9, 2], [9, 3]],
+    unwell: [[10, 0], [10, 1], [10, 2], [10, 3], [11, 0], [11, 1], [11, 2], [11, 3]],
+    sad: [[12, 0], [12, 1], [12, 2], [12, 3], [13, 0], [13, 1], [13, 2], [13, 3]],
+    // Ends lying still, the frame HOLDS_LAST_FRAME parks on.
+    faint: [[14, 0], [14, 1], [14, 2], [14, 3], [15, 0], [15, 1], [15, 2], [15, 3]],
+  },
+  // Its dizzy band draws its own stars, like the clip.
+  selfDrawn: ['foggy'],
+  // Paced to the 6fps GIFs each band was sampled from, so the sheet plays at
+  // the speed they were drawn.
+  frameMs: { idle: 400, cheer: 375, move: 333, rest: 250, unwell: 500, sad: 500 },
+  videos: BEAR_RUNNER_VIDEOS,
+};
+
+/**
+ * Bear · Scholar, 4x16: the bear with a first-place rosette and a rolled-up
+ * diploma. Animated as GIFs, cut into this sheet by `node scripts/buildVideoSheet.mjs
+ * bearScholar` (which prints this frame map), framed in the runner's box so the
+ * three bear forms stand the same size.
+ *
+ *   rows 0-2   standing, blinking (12)      rows 10-11  dizzy, ring of stars (8)
+ *   rows 3-5   diploma held up (12)         rows 12-13  slumps and cries (8)
+ *   rows 6-7   walk cycle (8)               rows 14-15  drops its scroll and
+ *   rows 8-9   dozing on its feet (8)                   falls flat, X eyes (8)
+ */
+const BEAR_SCHOLAR_CLIPS = {
+  idle: { hevc: require('../../assets/pet/video/bearScholar/idle.mov'), webm: require('../../assets/pet/video/bearScholar/idle.webm') },
+  cheer: { hevc: require('../../assets/pet/video/bearScholar/cheer.mov'), webm: require('../../assets/pet/video/bearScholar/cheer.webm') },
+  walk: { hevc: require('../../assets/pet/video/bearScholar/walk.mov'), webm: require('../../assets/pet/video/bearScholar/walk.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/bearScholar/dizzy.mov'), webm: require('../../assets/pet/video/bearScholar/dizzy.webm') },
+  cry: { hevc: require('../../assets/pet/video/bearScholar/cry.mov'), webm: require('../../assets/pet/video/bearScholar/cry.webm') },
+  collapse: { hevc: require('../../assets/pet/video/bearScholar/collapse.mov'), webm: require('../../assets/pet/video/bearScholar/collapse.webm') },
+};
+
+const BEAR_SCHOLAR_VIDEOS: PetVideos = {
+  frameSize: 768,
+  // The runner's box, which scripts/buildVideoSheet.mjs also cuts this sheet from.
+  cell: { x: 8, y: -24, size: 754 },
+  clips: {
+    idle: { ...BEAR_SCHOLAR_CLIPS.idle, loop: true },
+    cheer: { ...BEAR_SCHOLAR_CLIPS.cheer, loop: true },
+    move: { ...BEAR_SCHOLAR_CLIPS.walk, loop: true },
+    unwell: { ...BEAR_SCHOLAR_CLIPS.dizzy, loop: true },
+    // Settle into a pose and stay there, rather than starting over on a loop.
+    sad: { ...BEAR_SCHOLAR_CLIPS.cry, loop: false },
+    faint: { ...BEAR_SCHOLAR_CLIPS.collapse, loop: false },
+    // No sleeping clip: `rest` dozes on the sheet's eyes-closed frames.
+  },
+  selfDrawn: ['foggy'],
+};
+
+const BEAR_SCHOLAR: PetSheet = {
+  name: 'bear',
+  label: 'Bear · Scholar',
+  source: require('../../assets/pet/bearScholar.png'),
+  rows: 16,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2], [1, 3], [2, 0], [2, 1], [2, 2], [2, 3]],
+    cheer: [[3, 0], [3, 1], [3, 2], [3, 3], [4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3]],
+    // Eight frames across one 16-frame cycle of the walk, so it loops.
+    move: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3]],
+    // Dozing on its feet, eyes closed -- also what `exhausted` plays.
+    rest: [[8, 0], [8, 1], [8, 2], [8, 3], [9, 0], [9, 1], [9, 2], [9, 3]],
+    unwell: [[10, 0], [10, 1], [10, 2], [10, 3], [11, 0], [11, 1], [11, 2], [11, 3]],
+    sad: [[12, 0], [12, 1], [12, 2], [12, 3], [13, 0], [13, 1], [13, 2], [13, 3]],
+    // Ends flat out, the frame HOLDS_LAST_FRAME parks on.
+    faint: [[14, 0], [14, 1], [14, 2], [14, 3], [15, 0], [15, 1], [15, 2], [15, 3]],
+  },
+  // Its dizzy band draws its own stars, like the clip.
+  selfDrawn: ['foggy'],
+  // Paced to the 6fps GIFs each band was sampled from.
+  frameMs: { idle: 400, cheer: 170, move: 333, rest: 400, unwell: 500, sad: 500, faint: 250 },
+  videos: BEAR_SCHOLAR_VIDEOS,
+};
 
 const BEAR: PetSheet = {
   ...sheetFrom(BEAR_LAYOUT, 'Bear', require('../../assets/pet/bear.png')),
-  evolutions: { lifter: BEAR_LIFTER, scholar: BEAR_SCHOLAR },
+  evolutions: { runner: BEAR_RUNNER, lifter: BEAR_LIFTER, scholar: BEAR_SCHOLAR },
 };
 
 /**
@@ -814,7 +939,7 @@ export const sheetByBreed = (breed: PetBreed): PetSheet =>
  * form.
  */
 export const sheetForPet = (
-  pet: Pick<PetState, 'id' | 'breed'> & Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'>>,
+  pet: Pick<PetState, 'id' | 'breed'> & Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind' | 'evolvedBuild'>>,
 ): PetSheet => {
   const base = baseSheetForPet(pet);
   // Gated on level as well as build: a level-2 pet that has been walked a lot has
@@ -824,6 +949,7 @@ export const sheetForPet = (
     endurance: pet.endurance ?? 0,
     strength: pet.strength ?? 0,
     mind: pet.mind ?? 0,
+    evolvedBuild: pet.evolvedBuild,
   });
   return base.evolutions?.[build] ?? base;
 };

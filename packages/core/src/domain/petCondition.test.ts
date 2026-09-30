@@ -4,12 +4,13 @@ import {
   AILMENT_PRECEDENCE,
   AILMENT_THRESHOLDS,
   DECLINE_BANDS,
+  applyForcedAilment,
   assessCondition,
   assessDecline,
   type PetAilment,
   type PetDeclineStage,
 } from './petCondition';
-import { createPet, type PetState } from './pet';
+import { applyForcedForm, createPet, getPetBuild, type PetState } from './pet';
 
 /** A pet with nothing wrong: every stat comfortably above every threshold. */
 const healthyPet = (overrides: Partial<PetState> = {}): PetState => ({
@@ -169,6 +170,35 @@ describe('AILMENT_MESSAGE asks only for what the app can accept', () => {
     const actions = { dying: 'look after me', starving: 'Feed me', sad: 'Spend some time', foggy: 'Mind Gym' };
     for (const [ailment, action] of Object.entries(actions)) {
       expect(AILMENT_MESSAGE[ailment as keyof typeof actions]('Blue')).toContain(action);
+    }
+  });
+});
+
+describe('applyForcedAilment', () => {
+  const evolved = (): PetState => ({ ...createPet('u', 'Blue', 'dog', 'bear'), level: 14, endurance: 30, strength: 30, mind: 30 });
+
+  it('lands on exactly the forced ailment', () => {
+    for (const ailment of AILMENT_PRECEDENCE) {
+      expect(assessCondition(applyForcedAilment(evolved(), ailment)).primary).toBe(ailment);
+    }
+  });
+
+  it('does not turn a pet into a scholar by clearing foggy', () => {
+    // Mind decides the scholar build; clearing it to 70 used to flip any evolved
+    // pet to scholar whenever some other ailment was forced.
+    const runner = applyForcedForm(evolved(), 'runner');
+    for (const ailment of ['exhausted', 'starving', 'sad', 'dying', 'healthy'] as const) {
+      expect(getPetBuild(applyForcedAilment(runner, ailment))).toBe('runner');
+    }
+  });
+
+  it('keeps a forced foggy when a form is previewed first', () => {
+    // App applies the form, then the ailment; foggy is low mind, which the form
+    // would otherwise overwrite.
+    for (const form of ['runner', 'lifter'] as const) {
+      const pet = applyForcedAilment(applyForcedForm(evolved(), form), 'foggy');
+      expect(assessCondition(pet).primary).toBe('foggy');
+      expect(getPetBuild(pet)).toBe(form);
     }
   });
 });

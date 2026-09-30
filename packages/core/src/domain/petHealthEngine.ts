@@ -1,6 +1,6 @@
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
-import { clamp, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
+import { clamp, lockEvolution, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { formatMinutes } from './careToast';
 import { type FoodEffect, detectFoodEffects, foodEffectsDelta } from './foodEffects';
 import { workoutStrengthDelta } from './strengthProgression';
@@ -140,7 +140,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
   const nextEnergy = clamp(pet.energy + (delta.energy ?? 0));
   const nextNutrition = clamp(pet.nutrition + (delta.nutrition ?? 0));
   const nextHappiness = clamp(pet.happiness + (delta.happiness ?? 0));
-  return {
+  return lockEvolution({
     ...pet,
     level: nextLevel,
     xp: nextXp % XP_PER_LEVEL,
@@ -157,7 +157,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
     mind: clamp(pet.mind + (delta.mind ?? 0)),
     mood: determineMood(nextEnergy, nextNutrition, nextHappiness),
     lastEventAt: laterOf(pet.lastEventAt, occurredAt),
-  };
+  });
 };
 
 /** A cleared mind. `clamp`'s own ceiling, named where the engine leans on it. */

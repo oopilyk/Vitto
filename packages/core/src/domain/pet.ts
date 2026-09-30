@@ -114,6 +114,14 @@ export interface PetState {
    * the companion's traits then drift from. Absent on pets adopted before them.
    */
   dials?: PersonalityDials;
+  /**
+   * The specialism the pet evolved into, locked once earned. Evolving is for
+   * keeps: when the stats behind it drift back to even (a scholar skipping Mind
+   * Gym), `getPetBuild` falls back to this rather than devolving the pet. A
+   * different specialism clearly taking over still changes it -- that is
+   * re-specialising, not devolving. Set by `lockEvolution`, never by hand.
+   */
+  evolvedBuild?: EvolvedBuild;
   adoptedAt: string;
   lastEventAt?: string;
   /**
@@ -198,6 +206,7 @@ export const totalPetXp = (pet: Pick<PetState, 'level' | 'xp'>): number =>
  * promise a change that never visibly arrives, so add the art before the build.
  */
 export type PetBuild = 'balanced' | 'runner' | 'lifter' | 'scholar';
+export type EvolvedBuild = Exclude<PetBuild, 'balanced'>;
 
 /**
  * A specialism's stat has to be both substantial and clearly ahead of the other
@@ -212,12 +221,35 @@ const BUILD_LEAD_OVER_OTHERS = 12;
 const dominates = (stat: number, ...others: number[]): boolean =>
   stat >= BUILD_MIN_STAT && others.every((other) => stat - other >= BUILD_LEAD_OVER_OTHERS);
 
-export const getPetBuild = (pet: Pick<PetState, 'endurance' | 'strength' | 'mind'>): PetBuild => {
-  const { endurance, strength, mind } = pet;
+/** What the stats alone say right now, ignoring any locked evolution. */
+const liveBuild = ({ endurance, strength, mind }: Pick<PetState, 'endurance' | 'strength' | 'mind'>): PetBuild => {
   if (dominates(endurance, strength, mind)) return 'runner';
   if (dominates(strength, endurance, mind)) return 'lifter';
   if (dominates(mind, endurance, strength)) return 'scholar';
   return 'balanced';
+};
+
+/**
+ * The pet's build: the specialism its stats show, or -- once they have drifted
+ * back to even -- the one it already evolved into. A pet never devolves.
+ */
+export const getPetBuild = (
+  pet: Pick<PetState, 'endurance' | 'strength' | 'mind'> & Partial<Pick<PetState, 'evolvedBuild'>>,
+): PetBuild => {
+  const live = liveBuild(pet);
+  return live === 'balanced' ? (pet.evolvedBuild ?? 'balanced') : live;
+};
+
+/**
+ * Records the specialism an evolved pet has grown into, so it is kept when the
+ * stats drift. Run wherever stats move (every event, and before decay), which
+ * is what makes it impossible to decay out of an evolution between saves.
+ */
+export const lockEvolution = <T extends PetState>(pet: T): T => {
+  if (pet.level < EVOLUTION_LEVEL) return pet;
+  const live = liveBuild(pet);
+  if (live === 'balanced' || live === pet.evolvedBuild) return pet;
+  return { ...pet, evolvedBuild: live };
 };
 
 export const PET_BUILD_LABEL: Record<PetBuild, string> = {
@@ -295,6 +327,9 @@ export const applyForcedForm = (pet: PetState, form: ForcedPetForm | null): PetS
     endurance: statFor('endurance'),
     strength: statFor('strength'),
     mind: statFor('mind'),
+    // Pinned too, or a real pet's locked evolution would still show through
+    // (and a forced `foggy` after a forced form could not keep the form).
+    evolvedBuild: form === 'base' ? undefined : form,
   };
 };
 

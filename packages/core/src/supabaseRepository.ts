@@ -1,6 +1,6 @@
 import type { PersonalityDials } from './companion/types';
 import type { HealthEvent } from './domain/health';
-import type { PetState } from './domain/pet';
+import type { EvolvedBuild, PetState } from './domain/pet';
 import { withSurveyDefaults, type BodyProfile } from './domain/macroTargets';
 import {
   generateInviteCode,
@@ -13,7 +13,7 @@ import {
 } from './domain/carePartners';
 import { requireSupabase } from './config';
 
-type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null; persona: string | null; personality_dials: PersonalityDials | null };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality' | 'evolvedBuild'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null; persona: string | null; personality_dials: PersonalityDials | null; evolved_build?: EvolvedBuild | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 type PetMemberRow = { user_id: string; role: PetMember['role']; joined_at: string; left_at: string | null; display_name: string | null; username?: string | null };
 type PetInviteRow = { id: string; pet_id: string; code: string; created_at: string; expires_at: string; redeemed_at: string | null; revoked_at: string | null };
@@ -156,6 +156,7 @@ const petPayload = (pet: PetState) =>
     personality: pet.personality ?? null,
     persona: pet.persona ?? null,
     personality_dials: pet.dials ?? null,
+    evolved_build: pet.evolvedBuild ?? null,
     adopted_at: pet.adoptedAt,
     last_event_at: pet.lastEventAt ?? null,
   });
@@ -250,7 +251,7 @@ export class SupabaseRepository {
   }
 
   private static toPetState(row: PetRow): PetState {
-    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, persona: row.persona ?? undefined, dials: row.personality_dials ?? undefined, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
+    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, persona: row.persona ?? undefined, dials: row.personality_dials ?? undefined, evolvedBuild: row.evolved_build ?? undefined, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
   }
 
   /**
@@ -408,23 +409,31 @@ export class SupabaseRepository {
    */
   async savePetIfUnchanged(pet: PetState, expectedVersion: number): Promise<PetSaveResult> {
     const client = requireClient();
-    const { id: _id, user_id: _userId, ...payload } = petPayload(pet);
-    const { data, error } = await client
-      .from('pets')
-      .update(payload)
-      .eq('id', pet.id)
-      .eq('version', expectedVersion)
-      .select('version')
-      .maybeSingle();
-    if (error) {
-      if (missingColumn(error) === 'version') {
+    const { id: _id, user_id: _userId, ...full } = petPayload(pet);
+    let payload: Record<string, unknown> = full;
+    // Like `saveDroppingMissingColumns`: a column from a migration that has not
+    // run yet (evolved_build) is dropped and the write retried, not lost.
+    for (;;) {
+      const { data, error } = await client
+        .from('pets')
+        .update(payload)
+        .eq('id', pet.id)
+        .eq('version', expectedVersion)
+        .select('version')
+        .maybeSingle();
+      if (!error) {
+        if (!data) return { status: 'conflict' };
+        return { status: 'saved', version: (data as { version: number }).version };
+      }
+      const column = missingColumn(error);
+      if (column === 'version') {
         await this.savePet(pet);
         return { status: 'saved', version: expectedVersion };
       }
-      throw error;
+      if (!column || !(column in payload)) throw error;
+      const { [column]: _absent, ...remaining } = payload;
+      payload = remaining;
     }
-    if (!data) return { status: 'conflict' };
-    return { status: 'saved', version: (data as { version: number }).version };
   }
 
   /** All members, including ones who left, via `get_pet_members` (names already sanitised). */

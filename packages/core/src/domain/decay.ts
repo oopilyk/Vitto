@@ -1,5 +1,5 @@
 import { determineMood } from './petHealthEngine';
-import { clamp, type PetState } from './pet';
+import { clamp, lockEvolution, type PetState } from './pet';
 
 export const ONE_MINUTE_MS = 60 * 1000;
 export const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -95,7 +95,10 @@ export const VITAL_NEEDS = ['nutrition', 'energy', 'happiness'] as const;
  * stored pet, applies the delta, and sets `lastEventAt` to the event time --
  * that new anchor is what makes the next projection start from zero.
  */
-export const applyTimeDecay = (pet: PetState, asOf: Date): PetState => {
+export const applyTimeDecay = (stored: PetState, asOf: Date): PetState => {
+  // Locked from the stats as they stood before this decay, so a pet saved while
+  // evolved can never decay out of its evolution (mind drops 5 a day).
+  const pet = lockEvolution(stored);
   const anchor = new Date(pet.lastEventAt ?? pet.adoptedAt);
   const elapsedDays = Math.min(
     MAX_DECAY_DAYS,

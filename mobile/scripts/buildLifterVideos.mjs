@@ -3,6 +3,7 @@
  *
  *   node scripts/buildLifterVideos.mjs bichon
  *   node scripts/buildLifterVideos.mjs bear
+ *   node scripts/buildLifterVideos.mjs bearRunner
  *
  * The clips in `assets/source/video/<pet>-lifter/` are played as-is by
  * `PetVideo` — every frame, at their own frame rate, at full size. The only
@@ -30,7 +31,8 @@ import { keyBackground } from './keyBackground.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 /**
- * The lifters animated as video rather than drawn. `clips` are the file names
+ * The forms animated as video rather than drawn (the lifters, and now the
+ * bear runner). `clips` are the file names
  * in that pet's source folder, without the extension; which animation each one
  * plays is decided in petSprites.ts, not here.
  */
@@ -44,8 +46,21 @@ const PETS = {
     source: 'bear-lifter',
     output: 'bearLifter',
     clips: ['idle-flex', 'walk', 'states', 'pot'],
-    // The flexing arm closes a gap against the body.
-    key: { pocketArea: 200 },
+    // The flexing arm closes a gap against the body. No `closeGaps`: its arms
+    // hang a real gap from its sides, which should stay see-through.
+    key: { pocketArea: 200, pocketReach: 10, greyFringe: true },
+  },
+  bearRunner: {
+    source: 'bear-runner',
+    output: 'bearRunner',
+    clips: ['idle', 'cheer', 'run', 'dizzy', 'tired', 'lie-down'],
+    key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true },
+  },
+  bearScholar: {
+    source: 'bear-scholar',
+    output: 'bearScholar',
+    clips: ['idle', 'walk', 'cheer', 'dizzy', 'cry', 'collapse'],
+    key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true },
   },
 };
 
@@ -59,20 +74,29 @@ const sources = path.join(root, 'assets/source/video', pet.source);
 const output = path.join(root, 'assets/pet/video', pet.output);
 const CLIPS = pet.clips;
 
-const frameRate = (file) =>
-  execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=r_frame_rate', '-of', 'csv=p=0', file])
-    .toString()
-    .trim();
+/**
+ * Every clip ships at this rate, whatever it was generated at (8fps or 24fps).
+ * Resampled, not retimed: frames are dropped so a clip keeps its length and
+ * speed, and moves in the steppier way hand-drawn sprites do.
+ */
+const FPS = 6;
 
 fs.mkdirSync(output, { recursive: true });
 const work = fs.mkdtempSync(path.join(os.tmpdir(), `${pet.output}-video-`));
 
 try {
-  for (const clip of CLIPS) {
-    const source = path.join(sources, `${clip}.mp4`);
+  for (const entry of CLIPS) {
+    // A clip is a source file's name, or { name, from, frames: [first, last] }
+    // to cut one out of part of another source.
+    const { name: clip, from = clip, frames: range } = typeof entry === 'string' ? { name: entry } : entry;
+    // A pre-cut GIF of a clip wins over its video; keyBackground starts from
+    // the GIF's own transparency.
+    const gif = path.join(sources, `${from}.gif`);
+    const source = fs.existsSync(gif) ? gif : path.join(sources, `${from}.mp4`);
     const frames = path.join(work, clip);
     fs.mkdirSync(frames);
-    execFileSync('ffmpeg', ['-v', 'error', '-i', source, path.join(frames, '%04d.png')]);
+    const filter = range ? `fps=${FPS},select='between(n\\,${range[0]}\\,${range[1]})'` : `fps=${FPS}`;
+    execFileSync('ffmpeg', ['-v', 'error', '-i', source, '-vf', filter, '-fps_mode', 'vfr', '-pix_fmt', 'rgba', path.join(frames, '%04d.png')]);
     for (const file of fs.readdirSync(frames)) {
       const png = keyBackground(PNG.sync.read(fs.readFileSync(path.join(frames, file))), pet.key);
       fs.writeFileSync(path.join(frames, file), PNG.sync.write(png));
@@ -83,7 +107,7 @@ try {
     const prores = path.join(work, `${clip}.mov`);
     execFileSync('ffmpeg', [
       '-y', '-v', 'error',
-      '-framerate', frameRate(source), '-i', path.join(frames, '%04d.png'),
+      '-framerate', String(FPS), '-i', path.join(frames, '%04d.png'),
       '-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le',
       prores,
     ]);
@@ -92,7 +116,7 @@ try {
     const webm = path.join(output, `${clip}.webm`);
     execFileSync('ffmpeg', [
       '-y', '-v', 'error',
-      '-framerate', frameRate(source), '-i', path.join(frames, '%04d.png'),
+      '-framerate', String(FPS), '-i', path.join(frames, '%04d.png'),
       '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-crf', '18', '-b:v', '0', '-auto-alt-ref', '0',
       webm,
     ]);

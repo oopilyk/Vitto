@@ -1698,9 +1698,11 @@ export default function App() {
   // Applies to this projection only -- `recordEvent` decays from the STORED pet,
   // so a forced stat can never be written back. Gated again on `isDev` here so a
   // stale value could not survive switching to a non-dev account.
-  const livePet = applyForcedForm(
-    applyForcedAilment(applyTimeDecay(pet, now), isDev ? forcedAilment : null),
-    isDev ? forcedForm : null,
+  // Form first, ailment last: the form rewrites mind, and `foggy` IS low mind,
+  // so the other way round a previewed form silently cured a forced `foggy`.
+  const livePet = applyForcedAilment(
+    applyForcedForm(applyTimeDecay(pet, now), isDev ? forcedForm : null),
+    isDev ? forcedAilment : null,
   );
   // A forced cue (dev-only) wins over the sensors, the same way a forced status
   // wins over the pet's real stats above.
