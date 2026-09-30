@@ -156,6 +156,35 @@ describe('settings screen', () => {
     tree.unmount();
   });
 
+  it('shows personalities as a Plus feature on the free tier', () => {
+    const pet = { name: 'Blue', personality: 'menace' as const };
+    const renderWith = (canCustomise: boolean) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <SettingsScreen
+            profile={profile}
+            breed="bichon"
+            onBreedChange={() => {}}
+            pet={pet}
+            onCharacterChange={() => {}}
+            canCustomise={canCustomise}
+            onSave={async () => {}}
+            onClose={() => {}}
+          />,
+        );
+      });
+      return tree;
+    };
+    const free = renderWith(false);
+    expect(free.root.findAllByProps({ testID: 'personality-locked' }).length).toBeGreaterThan(0);
+    expect(json(free)).toContain('A Plus feature');
+    free.unmount();
+    const plus = renderWith(true);
+    expect(plus.root.findAllByProps({ testID: 'personality-locked' })).toHaveLength(0);
+    plus.unmount();
+  });
+
   it('hides the companion card when no breed handler is wired up', () => {
     expect(json(render())).not.toContain('Your companion');
   });

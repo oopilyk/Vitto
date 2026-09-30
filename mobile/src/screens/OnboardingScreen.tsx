@@ -52,6 +52,11 @@ interface Props {
   onNameChange: (value: string) => void;
   breed: PetBreed;
   onBreedChange: (breed: PetBreed) => void;
+  /**
+   * Whether they may choose a personality at all. Personalities are Plus; a
+   * free pet is adopted in the default voice. Defaults to true.
+   */
+  canCustomise?: boolean;
   personality: PetPersonality;
   onPersonalityChange: (value: PetPersonality) => void;
   /** Their own notes on the character, on any base. Shown from MATURE_PERSONALITY_AGE. */
@@ -144,6 +149,7 @@ export function OnboardingScreen({
   onNameChange,
   breed,
   onBreedChange,
+  canCustomise = true,
   personality,
   onPersonalityChange,
   persona = '',
@@ -239,10 +245,10 @@ export function OnboardingScreen({
       return 'Pick at least one thing that keeps you going.';
     if (stepId === 'namePet' && !name.trim()) return 'Give your companion a name.';
     // They can go back and lower their age after choosing an age-gated one.
-    if (stepId === 'namePet' && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
+    if (stepId === 'namePet' && canCustomise && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
       return 'Pick a personality.';
-    if (stepId === 'namePet' && personality === 'custom' && !isValidPersona(persona))
-      return 'Describe them in at least a few words.';
+    if (stepId === 'namePet' && canCustomise && personality === 'custom' && !isValidPersona(persona))
+      return 'Tell us who they are.';
     return null;
   };
 
@@ -629,6 +635,15 @@ export function OnboardingScreen({
               />
             </Field>
             <Text style={styles.groupLabel}>Their personality</Text>
+            {!canCustomise ? (
+              <View style={styles.locked} testID="personality-locked">
+                <Text style={styles.lockedTitle}>A Plus feature</Text>
+                <Text style={styles.lockedBody}>
+                  {`${name.trim() || 'Your companion'} starts with their own easygoing voice. With Plus you can pick a temperament, fine-tune it, or write them a whole character.`}
+                </Text>
+              </View>
+            ) : null}
+            {canCustomise ? (
             <ChoiceRow
               stacked
               // By age: the ones that swear hard need MATURE_PERSONALITY_AGE.
@@ -641,13 +656,14 @@ export function OnboardingScreen({
                 onDialsChange(companion.dialsFor(next));
               }}
             />
-            {personality ? (
+            ) : null}
+            {canCustomise && personality ? (
               <View style={styles.dials}>
                 <Text style={styles.dialsLabel}>Fine-tune them</Text>
                 <CharacterDials dials={dials ?? companion.dialsFor(personality)} onChange={onDialsChange} testID="character-dials" />
               </View>
             ) : null}
-            {personality && profile.age >= MATURE_PERSONALITY_AGE ? (
+            {canCustomise && personality && profile.age >= MATURE_PERSONALITY_AGE ? (
               <Field
                 label={personality === 'custom' ? 'Who are they?' : `Anything else ${name.trim() || 'they'} should know about how you want them to act?`}
                 hint={personality === 'custom' ? 'a sentence or two' : 'optional'}
@@ -775,6 +791,16 @@ const styles = StyleSheet.create({
   inviteInput: { fontFamily: fonts.mono, letterSpacing: 3 },
   peekPet: { alignItems: 'center', marginTop: 12 },
   persona: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19 },
+  locked: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 14,
+    gap: 4,
+    backgroundColor: colors.cardSoft,
+  },
+  lockedTitle: { ...text.heading, fontSize: 15, color: colors.ink },
+  lockedBody: { ...text.body, color: colors.muted, lineHeight: 19 },
   dials: { marginTop: 14 },
   dialsLabel: { fontSize: 12, fontWeight: '600', color: colors.inkSoft, marginBottom: 6 },
   personaCount: { fontSize: 12, color: colors.faint, textAlign: 'right', marginTop: 4 },

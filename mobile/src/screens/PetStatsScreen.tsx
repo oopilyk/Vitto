@@ -22,8 +22,10 @@ import {
   statValue,
   toDateKey,
   MOOD_WORD,
+  type EvolvedBuild,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
+import { EvolutionCard } from '../components/EvolutionCard';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { StatBar } from '../components/StatBar';
 import { sheetForPet } from '../components/petSprites';
@@ -41,6 +43,8 @@ interface Props {
   onClose: () => void;
   /** Opens the shareable card. Absent where there is nothing to share it with. */
   onShare?: () => void;
+  /** Wears another evolution, once all three are earned. */
+  onChooseForm?: (build: EvolvedBuild) => void;
 }
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
@@ -160,7 +164,7 @@ const describeMood = (pet: PetState): string => {
   return `Fed and rested, not quite at 65 energy and happiness together yet.`;
 };
 
-export function PetStatsScreen({ pet, events, onClose, onShare }: Props) {
+export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: Props) {
   const now = new Date();
   const sheet = sheetForPet(pet);
   const streaks = calculateQualifyingStreaks(events, now);
@@ -267,6 +271,8 @@ export function PetStatsScreen({ pet, events, onClose, onShare }: Props) {
           </View>
           <StatBar label="XP" value={pet.xp} color={colors.coral} />
         </Card>
+
+        <EvolutionCard pet={pet} onChooseForm={onChooseForm} />
 
         <Card
           title="Condition"

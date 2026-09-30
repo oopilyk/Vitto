@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { companion as ai, errorMessage, type PetState } from '@vitto/core';
+import { TextButton } from '../components/ui';
 import { PetSpriteAvatar } from '../components/PetSpriteAvatar';
 import { colors, fonts, layout } from '../theme';
 import {
@@ -17,6 +18,8 @@ interface Props {
   /** Built fresh by the caller from the same data the dashboard draws. */
   life: LifeContext;
   onClose: () => void;
+  /** Opens Vitto Plus from the daily-limit message. Absent for accounts that already have it. */
+  onOpenPlus?: () => void;
 }
 
 const LEVEL_LABEL: Record<ai.RelationshipLevel, string> = {
@@ -31,7 +34,7 @@ const LEVEL_LABEL: Record<ai.RelationshipLevel, string> = {
  * close the two of them are shows in the header. All of that is decided on the
  * server; this screen sends a message and draws what comes back.
  */
-export function CompanionChatScreen({ pet, life, onClose }: Props) {
+export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
   const [state, setState] = useState<CompanionState | null>(null);
   const [messages, setMessages] = useState<CompanionMessage[]>([]);
   const [access, setAccess] = useState<CompanionAccess | null>(null);
@@ -147,11 +150,13 @@ export function CompanionChatScreen({ pet, life, onClose }: Props) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {limitReached ? (
-        // The paywall seam, as the person meets it. Free today; this is where an
-        // upgrade prompt goes once there is something to upgrade to.
+        // The paywall seam, as the person meets it.
         <View style={styles.limit}>
           <Text style={styles.limitTitle}>{`${pet.name} is all talked out for today.`}</Text>
           <Text style={styles.limitBody}>{`You get ${limits.messagesPerDay} messages a day. It resets on its own — come back later.`}</Text>
+          {onOpenPlus ? (
+            <TextButton label={`Plus gets you ${ai.TIER_LIMITS.plus.messagesPerDay} a day`} tone="coral" onPress={onOpenPlus} />
+          ) : null}
         </View>
       ) : (
         <View style={styles.composer}>

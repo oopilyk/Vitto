@@ -39,6 +39,14 @@ interface Props {
   pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
   /** Saves base, sliders and notes together; the parent persists, like the breed. */
   onCharacterChange?: (next: Character) => void;
+  /** Personalities are Plus. False shows what the feature is instead of the editor. Defaults to true. */
+  canCustomise?: boolean;
+  /** Whether the account has Plus, for the Plus card's wording. */
+  isPlus?: boolean;
+  /** Opens the Plus screen. The Plus card and the locked note's link only show with it. */
+  onOpenPlus?: () => void;
+  /** Character changes left this month; null or absent for no limit. */
+  personalityChangesLeft?: number | null;
   /** Whether the pet shows in the Dynamic Island. Null where the device cannot. */
   islandEnabled?: boolean | null;
   onIslandEnabledChange?: (next: boolean) => void;
@@ -100,6 +108,10 @@ export function SettingsScreen({
   onBreedChange,
   pet,
   onCharacterChange,
+  canCustomise = true,
+  isPlus = false,
+  onOpenPlus,
+  personalityChangesLeft,
   islandEnabled,
   onIslandEnabledChange,
   pushEnabled,
@@ -161,12 +173,27 @@ export function SettingsScreen({
         contentContainerStyle={[styles.body, { paddingBottom: (dirty ? 110 : 40) + HOME_INDICATOR_INSET }]}
         keyboardShouldPersistTaps="handled"
       >
+        {onOpenPlus ? (
+          <Card title="Vitto Plus" hint={isPlus ? 'Personalities, a sharper voice and more to say are on.' : 'Personalities, a sharper voice and more to say.'}>
+            <TextButton label={isPlus ? 'Manage Plus' : 'See Plus'} tone="coral" onPress={onOpenPlus} />
+          </Card>
+        ) : null}
         {onBreedChange ? (
           <Card title="Your companion" hint="Changes take effect straight away">
             <BreedPicker value={breed} onChange={onBreedChange} size={88} />
             {pet && onCharacterChange ? (
               <Group label="Personality">
-                <CharacterEditor pet={pet} age={profile.age} onSave={onCharacterChange} />
+                {canCustomise ? (
+                  <CharacterEditor pet={pet} age={profile.age} onSave={onCharacterChange} changesLeft={personalityChangesLeft} />
+                ) : (
+                  <View style={styles.locked} testID="personality-locked">
+                    <Text style={styles.lockedTitle}>A Plus feature</Text>
+                    <Text style={styles.lockedBody}>
+                      {`${pet.name} talks in their own easygoing voice. With Plus you can pick a temperament, fine-tune it, or write them a whole character.`}
+                    </Text>
+                    {onOpenPlus ? <TextButton label="See Plus" tone="coral" onPress={onOpenPlus} /> : null}
+                  </View>
+                )}
               </Group>
             ) : null}
             {typeof islandEnabled === 'boolean' && onIslandEnabledChange ? (
@@ -444,6 +471,16 @@ export function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
+  locked: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 14,
+    gap: 4,
+    backgroundColor: colors.cardSoft,
+  },
+  lockedTitle: { ...text.heading, fontSize: 15, color: colors.ink },
+  lockedBody: { ...text.body, color: colors.muted, lineHeight: 19 },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',

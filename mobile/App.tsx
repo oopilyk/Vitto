@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Te
 import { NavigationContainer, DefaultTheme, createNavigationContainerRef, type Theme as NavigationTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -43,9 +43,10 @@ import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { FourCornersScreen } from './src/screens/FourCornersScreen';
 import { CompanionChatScreen } from './src/screens/CompanionChatScreen';
 import { CompanionDebugScreen } from './src/screens/CompanionDebugScreen';
-import { companionService } from './src/services/companionService';
+import { companionService, loadCompanionTier } from './src/services/companionService';
 import { PetJeopardyScreen } from './src/screens/PetJeopardyScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
+import { PlusScreen } from './src/screens/PlusScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
@@ -103,6 +104,8 @@ type RootStackParamList = {
   Companion: undefined;
   // DEV ONLY, reached from Today's dev panel: what the pet is about to be told.
   CompanionDebug: undefined;
+  // Vitto Plus: the perks and (test mode) the purchase. From Settings and the chat's limit.
+  Plus: undefined;
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -404,6 +407,47 @@ export default function App() {
   const [personality, setPersonality] = useState<PetPersonality>('sweet');
   const [persona, setPersona] = useState('');
   const [dials, setDials] = useState<PersonalityDials | undefined>(undefined);
+  // Personalities are a Plus feature. Loaded per account; the dev account counts
+  // as Plus. Only decides what the app shows -- the edge functions enforce the
+  // tier themselves, whatever the app sends.
+  const [companionTier, setCompanionTier] = useState<'free' | 'plus'>('free');
+  useEffect(() => {
+    if (!session) {
+      setCompanionTier('free');
+      return;
+    }
+    if (isDevAccount(session.user.email)) {
+      setCompanionTier('plus');
+      return;
+    }
+    let cancelled = false;
+    void loadCompanionTier().then((tier) => {
+      if (!cancelled) setCompanionTier(tier);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user.id, session?.user.email]);
+  const canCustomise = companionTier === 'plus';
+  // Character changes left this month, from the server (it caps them at 30).
+  // Null: not known, or not limited (the dev account) -- nothing is shown.
+  const [personalityChangesLeft, setPersonalityChangesLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!pet?.id || !session || !isSupabaseConfigured || isDevAccount(session.user.email)) {
+      setPersonalityChangesLeft(null);
+      return;
+    }
+    let cancelled = false;
+    void remoteRepository
+      .personalityChangesLeft(pet.id)
+      .then((left) => {
+        if (!cancelled) setPersonalityChangesLeft(left);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pet?.id, session?.user.id]);
   // null until the server has answered; Settings hides the control until then.
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
   // The Dynamic Island. On until switched off; the choice is kept on the device.
@@ -922,8 +966,21 @@ export default function App() {
    * temperament is the baseline it started from, not a reset button (the debug
    * screen's "forget everything" is the reset).
    */
+  const refreshPersonalityChangesLeft = async (petId: string) => {
+    if (!isSupabaseConfigured || !session || isDevAccount(session.user.email)) {
+      setPersonalityChangesLeft(null);
+      return;
+    }
+    setPersonalityChangesLeft(await remoteRepository.personalityChangesLeft(petId).catch(() => null));
+  };
+
   const changePersonality = async (next: PetPersonality, persona?: string, dials?: PersonalityDials) => {
     if (!pet) return;
+    // The server would keep the old character anyway; say so instead.
+    if (personalityChangesLeft === 0) {
+      setError(`No character changes left this month for ${pet.name}. They reset on the 1st.`);
+      return;
+    }
     // Notes ride on any base now, so they are kept across a base change unless
     // new ones are given; the sliders are whatever the caller settled on.
     const wearing = { personality: next, persona: persona === undefined ? pet.persona : persona.trim() || undefined, dials: dials ?? pet.dials };
@@ -945,6 +1002,7 @@ export default function App() {
         const stored = { ...base, ...wearing, version: saved.version };
         setPet(stored);
         await repository.savePet(stored);
+        void refreshPersonalityChangesLeft(pet.id);
         return;
       }
       await repository.savePet(nextPet);
@@ -988,6 +1046,38 @@ export default function App() {
       await repository.savePet(nextPet);
     } catch (cause) {
       setError(errorMessage(cause, 'Could not change your companion.'));
+    } finally {
+      releasePetWrite();
+    }
+  };
+
+  /** Wears a different evolution. Only possible once all three are earned (`chooseForm`). */
+  const changeForm = async (next: EvolvedBuild) => {
+    if (!pet) return;
+    const nextPet = chooseForm(pet, next);
+    if (nextPet === pet) return;
+    setPet(nextPet);
+    careMomentInFlight.current = true;
+    try {
+      if (isSupabaseConfigured && session) {
+        // Versioned, with one retry re-applied to the fresh row, like changeBreed.
+        let base = pet;
+        let saved = await remoteRepository.savePetIfUnchanged(nextPet, base.version ?? 0);
+        if (saved.status === 'conflict') {
+          const fresh = await remoteRepository.loadPet();
+          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          base = fresh;
+          saved = await remoteRepository.savePetIfUnchanged(chooseForm(fresh, next), fresh.version ?? 0);
+          if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
+        }
+        const stored = { ...chooseForm(base, next), version: saved.version };
+        setPet(stored);
+        await repository.savePet(stored);
+        return;
+      }
+      await repository.savePet(nextPet);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not change form.'));
     } finally {
       releasePetWrite();
     }
@@ -1124,7 +1214,10 @@ export default function App() {
       if (profile.weightKg < 30 || profile.weightKg > 300)
         throw new Error('Weight must be between 30 and 300 kg.');
 
-      const nextPet = createPet(userId, name.trim() || 'Miso', 'dog', breed, personality, undefined, persona, dials);
+      // A free pet is adopted without a character; choosing one is Plus.
+      const nextPet = canCustomise
+        ? createPet(userId, name.trim() || 'Miso', 'dog', breed, personality, undefined, persona, dials)
+        : createPet(userId, name.trim() || 'Miso', 'dog', breed);
       if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
       await persistProfile(profile);
       await repository.savePet(nextPet);
@@ -1670,6 +1763,7 @@ export default function App() {
           onNameChange={setName}
           breed={breed}
           onBreedChange={setBreed}
+          canCustomise={canCustomise}
           personality={personality}
           onPersonalityChange={setPersonality}
           persona={persona}
@@ -1700,10 +1794,15 @@ export default function App() {
   // stale value could not survive switching to a non-dev account.
   // Form first, ailment last: the form rewrites mind, and `foggy` IS low mind,
   // so the other way round a previewed form silently cured a forced `foggy`.
-  const livePet = applyForcedAilment(
+  const projected = applyForcedAilment(
     applyForcedForm(applyTimeDecay(pet, now), isDev ? forcedForm : null),
     isDev ? forcedAilment : null,
   );
+  // A free pet shows and speaks in the default voice. Display only, like the
+  // rest of this projection: the stored pet keeps its character for an upgrade.
+  const livePet: PetState = canCustomise
+    ? projected
+    : { ...projected, personality: undefined, persona: undefined, dials: undefined };
   // A forced cue (dev-only) wins over the sensors, the same way a forced status
   // wins over the pet's real stats above.
   const activeForcedAmbient = isDev ? forcedAmbient : null;
@@ -1826,6 +1925,10 @@ export default function App() {
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}
               pet={livePet}
+              canCustomise={canCustomise}
+              isPlus={canCustomise}
+              onOpenPlus={() => navigation.navigate('Plus')}
+              personalityChangesLeft={personalityChangesLeft}
               onCharacterChange={(next) => void changePersonality(next.personality, next.persona, next.dials)}
               islandEnabled={canShowIsland() ? islandEnabled : null}
               onIslandEnabledChange={(next) => {
@@ -1853,6 +1956,7 @@ export default function App() {
               events={events}
               onClose={() => navigation.goBack()}
               onShare={() => navigation.navigate('ShareCard')}
+              onChooseForm={(next) => void changeForm(next)}
             />
           )}
         </RootStack.Screen>
@@ -1902,11 +2006,25 @@ export default function App() {
             />
           )}
         </RootStack.Screen>
+        <RootStack.Screen name="Plus">
+          {({ navigation }) => (
+            <PlusScreen
+              petName={livePet.name}
+              isDevAccount={isDev}
+              onTierChange={(tier) => {
+                // The dev account stays Plus whatever the store says.
+                if (!isDev) setCompanionTier(tier);
+              }}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
         <RootStack.Screen name="Companion">
           {({ navigation }) => (
             <CompanionChatScreen
               pet={livePet}
               life={buildLifeContext({ pet: livePet, events, profile, stepGoal })}
+              onOpenPlus={canCustomise ? undefined : () => navigation.navigate('Plus')}
               onClose={() => {
                 // Opening the conversation is reading it.
                 setUnreadCompanion(0);

@@ -77,8 +77,11 @@ export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
 ];
 
 export const PERSONA_MAX_LENGTH = 300;
-/** A custom persona needs at least a few words to be a character rather than a word. */
-export const PERSONA_MIN_LENGTH = 12;
+/**
+ * Any non-empty note will do: "A fatty" is a character if that is who they want.
+ * The ceiling stays, because the persona rides in every chat prompt.
+ */
+export const PERSONA_MIN_LENGTH = 1;
 export const isValidPersona = (persona: string | undefined): persona is string =>
   typeof persona === 'string' && persona.trim().length >= PERSONA_MIN_LENGTH && persona.trim().length <= PERSONA_MAX_LENGTH;
 

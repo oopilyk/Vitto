@@ -74,6 +74,19 @@ const advanceToStep = (tree: renderer.ReactTestRenderer, marker: string, max = 1
   throw new Error(`never reached step "${marker}"`);
 };
 
+describe('personalities on the free tier', () => {
+  it('shows the Plus note instead of the picker, and does not ask for a choice', () => {
+    const { tree } = mount({ ...baseProfile, targetWeightKg: 75, motivations: ['pet'] }, { canCustomise: false, personality: '' as never });
+    advanceToStep(tree, 'Their personality');
+    expect(strings(tree)).toContain('A Plus feature');
+    expect(tree.root.findAll((n) => n.props.testID === 'character-dials')).toHaveLength(0);
+    // Nothing chosen is fine: the next press moves on rather than asking for one.
+    const next = button(tree, 'Continue');
+    act(() => next!.props.onPress());
+    expect(strings(tree)).not.toContain('Pick a personality.');
+  });
+});
+
 describe('OnboardingScreen flow', () => {
   it('starts a brand-new user at the welcome step of an 8-step flow', () => {
     const { tree } = mount(baseProfile);

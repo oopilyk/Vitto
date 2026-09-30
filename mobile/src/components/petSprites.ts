@@ -939,7 +939,8 @@ export const sheetByBreed = (breed: PetBreed): PetSheet =>
  * form.
  */
 export const sheetForPet = (
-  pet: Pick<PetState, 'id' | 'breed'> & Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind' | 'evolvedBuild'>>,
+  pet: Pick<PetState, 'id' | 'breed'> &
+    Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
 ): PetSheet => {
   const base = baseSheetForPet(pet);
   // Gated on level as well as build: a level-2 pet that has been walked a lot has
@@ -950,8 +951,16 @@ export const sheetForPet = (
     strength: pet.strength ?? 0,
     mind: pet.mind ?? 0,
     evolvedBuild: pet.evolvedBuild,
+    earnedBuilds: pet.earnedBuilds,
+    chosenBuild: pet.chosenBuild,
   });
   return base.evolutions?.[build] ?? base;
+};
+
+/** A breed's sheet for one particular evolution, whether or not the pet has it (the teaser silhouettes). */
+export const evolutionSheetFor = (pet: Pick<PetState, 'id' | 'breed'>, build: PetBuild): PetSheet => {
+  const base = baseSheetForPet(pet);
+  return build === 'balanced' ? base : base.evolutions?.[build] ?? base;
 };
 
 /**

@@ -127,3 +127,21 @@ export interface CompanionDebug {
   prompt: { stable: string; dynamic: string; turns: Array<{ role: string; content: string }> };
   tokens: { stable: number; dynamic: number; history: number };
 }
+
+/**
+ * The account's companion tier, for what the app SHOWS (personalities are
+ * Plus). Read from the owner's own `companion_entitlements` row. Only a UI hint:
+ * the edge functions decide the tier themselves from the same table, so a
+ * client claiming `plus` changes nothing it is sent. Free on any failure.
+ */
+export const loadCompanionTier = async (): Promise<ai.CompanionTier> => {
+  if (!supabase) return 'free';
+  try {
+    const { data, error } = await supabase.from('companion_entitlements').select('tier, expires_at').maybeSingle();
+    if (error || !data) return 'free';
+    const lapsed = data.expires_at && Date.parse(data.expires_at) < Date.now();
+    return !lapsed && data.tier === 'plus' ? 'plus' : 'free';
+  } catch {
+    return 'free';
+  }
+};

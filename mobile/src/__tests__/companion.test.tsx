@@ -179,7 +179,7 @@ describe('talking to the pet', () => {
   });
 
   it('warns as the allowance runs down', async () => {
-    companionService.load.mockResolvedValue({ state, messages: [], access: ai.accessFor('free', 27) });
+    companionService.load.mockResolvedValue({ state, messages: [], access: ai.accessFor('free', ai.TIER_LIMITS.free.messagesPerDay - 3) });
     const tree = await open();
     expect(texts(tree)).toContain('3 messages left today');
     tree.unmount();

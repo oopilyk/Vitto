@@ -14,11 +14,26 @@ import {
   STABLE_SYSTEM_PROMPT,
   humanizeReply,
   renderDynamicSystemPrompt,
+  type CompanionTier,
   type PetContext,
 } from './companion/index.ts';
 
+/** Plus: the model the voice was built and tuned on. */
 export const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-sonnet-5';
+/**
+ * Free: a much cheaper model for the same prompt. Free is the tier that costs
+ * money without paying any, so it is where the price per message matters most.
+ */
+export const FREE_CHAT_MODEL = Deno.env.get('COMPANION_FREE_CHAT_MODEL') ?? 'claude-haiku-4-5';
 export const EXTRACT_MODEL = Deno.env.get('COMPANION_EXTRACT_MODEL') ?? 'claude-haiku-4-5';
+
+export const chatModelFor = (tier: CompanionTier): string => (tier === 'plus' ? CHAT_MODEL : FREE_CHAT_MODEL);
+
+/**
+ * `effort` is not accepted by every model; sent to one that does not take it,
+ * the whole request fails. Only the Sonnet/Opus family gets it.
+ */
+const takesEffort = (model: string) => /sonnet|opus/.test(model);
 
 /**
  * Well inside an edge function's life. The SDK's own defaults (10 minutes, 3
@@ -43,16 +58,24 @@ export interface Generated {
   degraded: boolean;
 }
 
+/** The two system blocks every call in the pet's voice sends, in the order that keeps the cache. */
+const systemFor = (ctx: PetContext): Anthropic.TextBlockParam[] => [
+  // Byte-identical for every user, so one cache entry serves everybody.
+  { type: 'text', text: STABLE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+  { type: 'text', text: renderDynamicSystemPrompt(ctx) },
+];
+
 export const generate = async (
   ctx: PetContext,
   turns: Anthropic.MessageParam[],
   fallback: () => string,
   label = 'companion',
+  model = CHAT_MODEL,
 ): Promise<Generated> => {
   if (!anthropic) return { text: fallback(), usage: null, degraded: true };
   try {
     const response = await anthropic.messages.create({
-      model: CHAT_MODEL,
+      model,
       // Deliberately small: replies are one to four sentences, and this is also
       // the ceiling on what any single message can cost.
       max_tokens: 400,
@@ -61,15 +84,11 @@ export const generate = async (
       // counted against max_tokens, so a 400-token budget could be spent before
       // a word of the reply was written.
       thinking: { type: 'disabled' },
-      output_config: { effort: 'low' },
-      system: [
-        // Byte-identical for every user, so one cache entry serves everybody.
-        { type: 'text', text: STABLE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: renderDynamicSystemPrompt(ctx) },
-      ],
+      ...(takesEffort(model) ? { output_config: { effort: 'low' as const } } : {}),
+      system: systemFor(ctx),
       messages: turns,
     });
-    const usage = { model: CHAT_MODEL, ...response.usage };
+    const usage = { model, ...response.usage };
     if (response.stop_reason === 'refusal') return { text: "…okay I'm gonna not touch that one.", usage, degraded: false };
     const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();
     return { text: humanizeReply(text) || '…', usage, degraded: false };
@@ -82,5 +101,35 @@ export const generate = async (
     else if (error instanceof Anthropic.APIError) console.error(`[${label}] API error ${error.status}: ${error.message}`);
     else console.error(`[${label}] generation failed`, error);
     return { text: fallback(), usage: null, degraded: true };
+  }
+};
+
+/**
+ * One call that writes a pet's whole bank of push lines, in its voice (see
+ * pushLines.ts). Rare -- once per pet until the voice changes or a month passes
+ * -- so it is the one place a larger output budget is fine. Null on any failure;
+ * the caller keeps its old bank or falls back to stock lines.
+ */
+export const generatePushLines = async (
+  ctx: PetContext,
+  turns: Anthropic.MessageParam[],
+  instruction: string,
+  model: string,
+): Promise<{ text: string; usage: unknown } | null> => {
+  if (!anthropic) return null;
+  try {
+    const response = await anthropic.messages.create({
+      model,
+      max_tokens: 3000,
+      thinking: { type: 'disabled' },
+      ...(takesEffort(model) ? { output_config: { effort: 'low' as const } } : {}),
+      system: systemFor(ctx),
+      messages: [...turns, { role: 'user', content: instruction }],
+    });
+    const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
+    return { text, usage: { model, ...response.usage } };
+  } catch (error) {
+    console.error('[push-lines] generation failed', error instanceof Anthropic.APIError ? `${error.status}: ${error.message}` : error);
+    return null;
   }
 };

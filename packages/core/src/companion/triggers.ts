@@ -1,5 +1,6 @@
 import { dueImportantEvents } from './memory';
 import { expectedWorkoutMissing } from './patterns';
+import { eventLineKind, type PushLineKind } from './pushLines';
 import { humanizeEvent } from './prompts';
 import type { CompanionEvent, CompanionEventType, CompanionMemory, CompanionMessage, CompanionState, LifeContext } from './types';
 import { DAY, HOUR, MINUTE, formatAgo } from './util';
@@ -16,6 +17,13 @@ export interface TriggerFire {
   /** What to record once the message is stored, so the trigger does not fire again. */
   markEventsReacted: string[];
   markMemoryFollowedUp: string | null;
+  /**
+   * Which set of stock push lines speaks for this (see pushLines.ts), and the
+   * values its `{placeholders}` are filled from. Pushes are sent from a bank of
+   * lines written once in the pet's voice, not generated per push.
+   */
+  lineKind: PushLineKind;
+  lineVars?: Record<string, string | number>;
 }
 
 export interface TriggerInput {
@@ -103,6 +111,7 @@ const eventReaction = (input: TriggerInput): TriggerFire | null => {
     bypassCooldown: true,
     markEventsReacted: pending.map((event) => event.id),
     markMemoryFollowedUp: null,
+    lineKind: eventLineKind(top),
   };
 };
 
@@ -116,6 +125,7 @@ const importantEvent = (input: TriggerInput): TriggerFire | null => {
     priority: 6,
     markEventsReacted: [],
     markMemoryFollowedUp: due.id,
+    lineKind: 'important_event',
   };
 };
 
@@ -133,6 +143,8 @@ const absence = (input: TriggerInput): TriggerFire | null => {
     priority: 5,
     markEventsReacted: [],
     markMemoryFollowedUp: null,
+    lineKind: lastNudge ? 'absence_again' : 'absence',
+    lineVars: { days: Math.floor(gap / DAY) },
   };
 };
 
@@ -146,6 +158,8 @@ const habitDeviation = (input: TriggerInput): TriggerFire | null => {
     priority: 4,
     markEventsReacted: [],
     markMemoryFollowedUp: null,
+    lineKind: 'habit_deviation',
+    lineVars: { weekday },
   };
 };
 
@@ -159,6 +173,8 @@ const streakAtRisk = (input: TriggerInput): TriggerFire | null => {
     priority: 3,
     markEventsReacted: [],
     markMemoryFollowedUp: null,
+    lineKind: 'streak_at_risk',
+    lineVars: { streak: careStreakDays },
   };
 };
 

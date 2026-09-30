@@ -1,24 +1,27 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import type Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
 import {
   DAY,
+  PUSH_LINES_MAX_AGE_MS,
   buildPetContext,
   inQuietHours,
   limitsFor,
   localDayStart,
   mockProactive,
+  parsePushLines,
   pickProactiveTrigger,
-  renderProactiveInstruction,
+  pickPushLine,
+  pushVoiceKey,
+  renderPushLinesInstruction,
   tickMood,
-  turnsFromContext,
   type CompanionEvent,
   type CompanionMemory,
   type CompanionMessage,
   type CompanionState,
   type CompanionTier,
   type LifeContext,
+  type PushLineBank,
 } from '../_shared/companion/index.ts';
-import { generate } from '../_shared/model.ts';
+import { chatModelFor, generatePushLines } from '../_shared/model.ts';
 import { sendPush, type PushMessage } from '../_shared/push.ts';
 
 /**
@@ -27,7 +30,12 @@ import { sendPush, type PushMessage } from '../_shared/push.ts';
  * Nothing here decides WHAT is worth saying — `pickProactiveTrigger` in
  * packages/core already does that, and is unit-tested there. This is the
  * delivery half: find the people whose pet has something to say, respect the
- * hour where THEY are, generate it, and hand it to Expo.
+ * hour where THEY are, pick the line, and hand it to Expo.
+ *
+ * NO MODEL CALL PER PUSH. The words come from a bank of lines the pet wrote
+ * ahead of time in its own voice (see pushLines.ts): one model call per pet,
+ * rewritten only when the voice changes or the bank is a month old. Pushes are
+ * the cheapest thing the pet says and were costing as much as a chat reply.
  *
  * Run by cron, not by users (see README.md for the schedule). It authenticates
  * on a shared secret rather than a user session, because there is no user.
@@ -40,8 +48,8 @@ import { sendPush, type PushMessage } from '../_shared/push.ts';
  *     (absence, a remembered event, a workout habit read from the event log);
  *   * `streak_at_risk` is re-checked against today's REAL events before it can
  *     fire, so nobody gets nudged about a streak they already kept;
- *   * the model is told how old the day's figures are, so it does not recite
- *     numbers as though it just looked at them.
+ *   * stock lines never state figures about the day, only the few values a
+ *     trigger fills in (days away, the weekday, the streak), which are current.
  */
 
 const json = (body: unknown, status = 200) =>
@@ -54,8 +62,6 @@ const MAX_DEVICES = 500;
 const CONCURRENCY = 5;
 /** Older than this and the app has plainly not picked the event up itself. */
 const IN_APP_GRACE_MS = 6 * 60 * 60 * 1000;
-/** Past this, the day's figures are described as remembered rather than current. */
-const STALE_AFTER_MS = 3 * 60 * 60 * 1000;
 const HISTORY_WINDOW_MS = 3 * DAY;
 
 interface Device {
@@ -114,10 +120,40 @@ interface Candidate {
   petId: string;
   state: CompanionState;
   life: LifeContext;
-  lifeAgeMs: number;
   devices: Device[];
   tier: CompanionTier;
+  /** The stored bank of push lines, and what it was written under. */
+  pushLines: PushLineBank | null;
+  pushLinesKey: string | null;
+  pushLinesAt: number | null;
 }
+
+/**
+ * The pet's bank of push lines: the stored one while it still matches the pet's
+ * voice, otherwise rewritten now (one model call) and stored. An old bank beats
+ * no bank if the rewrite fails.
+ */
+const bankFor = async (
+  db: SupabaseClient,
+  candidate: Candidate,
+  build: () => ReturnType<typeof buildPetContext>,
+  now: number,
+): Promise<{ bank: PushLineBank | null; usage: unknown }> => {
+  const key = pushVoiceKey(candidate.life, candidate.tier);
+  const fresh = candidate.pushLines && candidate.pushLinesKey === key
+    && candidate.pushLinesAt !== null && now - candidate.pushLinesAt < PUSH_LINES_MAX_AGE_MS;
+  if (fresh) return { bank: candidate.pushLines, usage: null };
+
+  const written = await generatePushLines(build(), [], renderPushLinesInstruction(), chatModelFor(candidate.tier));
+  const bank = written ? parsePushLines(written.text) : null;
+  if (!bank) {
+    console.error(`[notify] could not write push lines for ${candidate.petId}; ${candidate.pushLines ? 'keeping the old ones' : 'using stock lines'}`);
+    return { bank: candidate.pushLines, usage: written?.usage ?? null };
+  }
+  await db.from('companion_state').update({ push_lines: bank, push_lines_key: key, push_lines_at: iso(now) })
+    .match({ user_id: candidate.userId, pet_id: candidate.petId });
+  return { bank, usage: written?.usage ?? null };
+};
 
 /** One person's pet, considered. Returns the push to send, or null for silence. */
 const consider = async (db: SupabaseClient, candidate: Candidate, now: number): Promise<PushMessage[]> => {
@@ -159,19 +195,19 @@ const consider = async (db: SupabaseClient, candidate: Candidate, now: number): 
     if (events.some((event) => event.timestamp >= dayStart && LOGGING_EVENTS.has(event.type))) return [];
   }
 
-  const stale = candidate.lifeAgeMs > STALE_AFTER_MS;
-  const situation = stale
-    ? `${fire.situation}\n\n[The figures about their day are from ${Math.round(candidate.lifeAgeMs / 3_600_000)} hours ago and may have moved on. Speak from how you feel and what you remember, and do not state any number about their day as though you just checked.]`
-    : fire.situation;
-
-  const ctx = buildPetContext({ state, life: candidate.life, events, memories, messages: recentMessages, currentMessage: situation, now });
-  const turns: Anthropic.MessageParam[] = [...turnsFromContext(ctx), { role: 'user', content: renderProactiveInstruction(situation) }];
-  const generated = await generate(ctx, turns, () => mockProactive(fire.situation), 'notify');
+  const { bank, usage } = await bankFor(
+    db,
+    candidate,
+    () => buildPetContext({ state, life: candidate.life, events, memories, messages: recentMessages, currentMessage: '', now }),
+    now,
+  );
+  const alreadySent = recentMessages.filter((message) => message.source === 'proactive').map((message) => message.content);
+  const text = pickPushLine(bank, fire.lineKind, fire.lineVars, alreadySent, now / 60_000) ?? mockProactive(fire.situation);
 
   // Stored before it is sent, so the message is in the conversation when the
   // notification is tapped, and so a failed send cannot produce it twice.
   const { data: saved, error } = await db.from('companion_messages').insert({
-    ...owner, role: 'pet', content: generated.text, source: 'proactive', trigger_key: fire.key, usage: generated.usage,
+    ...owner, role: 'pet', content: text, source: 'proactive', trigger_key: fire.key, usage,
   }).select('id').single();
   if (error) throw error;
 
@@ -190,7 +226,7 @@ const consider = async (db: SupabaseClient, candidate: Candidate, now: number): 
   return devices.map((device) => ({
     to: device.token,
     title: candidate.life.pet.name,
-    body: generated.text,
+    body: text,
     data: { screen: 'companion', petId, messageId: saved.id, trigger: fire.key },
   }));
 };
@@ -259,9 +295,11 @@ Deno.serve(async (request) => {
       petId: row.pet_id,
       state: toState(row),
       life: row.last_life as LifeContext,
-      lifeAgeMs: row.last_life_at ? now - Date.parse(row.last_life_at) : Number.POSITIVE_INFINITY,
       devices: byUser.get(row.user_id)!,
       tier: tiers.get(row.user_id) ?? 'free',
+      pushLines: (row.push_lines as PushLineBank | null) ?? null,
+      pushLinesKey: row.push_lines_key ?? null,
+      pushLinesAt: row.push_lines_at ? Date.parse(row.push_lines_at) : null,
     }));
 
     const batches = await pool(candidates, CONCURRENCY, (candidate) => consider(db, candidate, now));

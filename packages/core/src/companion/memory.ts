@@ -141,3 +141,26 @@ export const planMemoryWrites = (
   }
   return { writes, createdImportance };
 };
+
+/**
+ * Whether a message could hold something worth remembering, decided without a
+ * model. Extraction is a second model call per message; most messages ("lol",
+ * "ok", "how are you") carry nothing, so it only runs when this says they might.
+ * Errs towards yes: a missed memory is worse than a wasted call, so anything
+ * with a name, a date, a plan, a feeling or a like/dislike gets through.
+ */
+export const worthRemembering = (message: string): boolean => {
+  const text = message.trim();
+  if (text.length < 12) return false;
+  if (/\b(i|i'm|im|i've|ive|i'll|ill|my|me|we|we're|our)\b/i.test(text) && text.split(/\s+/).length >= 4) {
+    if (/\b(love|like|hate|enjoy|prefer|favou?rite|allergic|vegan|vegetarian|can't stand|cant stand)\b/i.test(text)) return true;
+    if (/\b(want|trying|plan|planning|going to|gonna|goal|started|quit|stopped|training for|signed up|learning)\b/i.test(text)) return true;
+    if (/\b(feel|feeling|felt|stressed|anxious|sad|happy|excited|nervous|lonely|tired|sick|injured|hurt)\b/i.test(text)) return true;
+    if (/\b(work|job|school|class|exam|test|interview|date|wedding|birthday|trip|holiday|vacation|flight|appointment|surgery|race|marathon|game|match)\b/i.test(text)) return true;
+    if (/\b(mom|mum|dad|brother|sister|wife|husband|girlfriend|boyfriend|partner|friend|son|daughter|kid|dog|cat|boss|coach)\b/i.test(text)) return true;
+    if (/\b(called|name is|named|call me)\b/i.test(text)) return true;
+  }
+  if (/\b(today|tomorrow|tonight|yesterday|next week|this weekend|on (mon|tue|wed|thu|fri|sat|sun)\w*|in \d+ (days|weeks))\b/i.test(text)) return true;
+  if (/\b(\d{1,2}(st|nd|rd|th)|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(text)) return true;
+  return false;
+};

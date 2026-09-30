@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
-import { CHAT_MODEL, EXTRACT_MODEL, anthropic, generate } from '../_shared/model.ts';
+import { EXTRACT_MODEL, anthropic, chatModelFor, generate } from '../_shared/model.ts';
 import { isExpoPushToken } from '../_shared/push.ts';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
@@ -9,7 +9,7 @@ import {
   accessFor, applyCompanionEvent, customVoice, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
   fillTraits, humanizeReply, initialTraits, levelIndex, limitsFor, sameBasis, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
   planMemoryWrites, renderDynamicSystemPrompt, renderExtractionPrompt, renderProactiveInstruction, sanitizeEventMetadata,
-  rebaseTraits, sanitizeLifeContext, summarizeRelationship, tickMood, turnsFromContext, COMPANION_EVENT_TYPES,
+  lifeForTier, rebaseTraits, sanitizeLifeContext, summarizeRelationship, worthRemembering, tickMood, turnsFromContext, COMPANION_EVENT_TYPES,
   PERSONALITY_VOICE,
   type CompanionEvent, type CompanionEventInput, type CompanionMemory, type CompanionMessage, type CompanionState,
   type CompanionTier, type ExtractionResult, type LifeContext, type PersonalityDials, type PetContext, type TraitBasis,
@@ -33,7 +33,7 @@ import {
  * Secrets: ANTHROPIC_API_KEY. Without it the function still works, on a keyless
  * templated fallback, so the feature can be wired up and tested before the key
  * is set, and a Claude outage degrades to stock replies instead of an error.
- * Optional: COMPANION_CHAT_MODEL, COMPANION_EXTRACT_MODEL.
+ * Optional: COMPANION_CHAT_MODEL (Plus), COMPANION_FREE_CHAT_MODEL, COMPANION_EXTRACT_MODEL.
  */
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
@@ -346,7 +346,12 @@ const learnFrom = async (companion: Companion, ctx: PetContext, userText: string
     const state = await companion.loadState(now);
     const close = levelIndex(state.relationshipLevel) >= levelIndex('CLOSE_FRIEND');
     const known = (await companion.memories()).map((m) => m.content).slice(0, 60);
-    const found = await extract(ctx, userText, replyText, known, close && !state.userNickname);
+    // Extraction is a second model call per message, and most messages carry
+    // nothing to remember. The rest still teach tone (the regex read is free),
+    // so the personality keeps drifting either way.
+    const found = worthRemembering(userText)
+      ? await extract(ctx, userText, replyText, known, close && !state.userNickname)
+      : { memories: [], toneSignals: mockExtract(userText).toneSignals };
 
     const created = await companion.writeMemories(found.memories.slice(0, 6), now, 'extraction');
     let next = state;
@@ -434,11 +439,7 @@ Deno.serve(async (request) => {
 
     const now = Date.now();
     const companion = new Companion(admin, user.id, petId);
-    const life = body?.life ? sanitizeLifeContext(body.life) : undefined;
-    // Kept for the notification job, which has no phone to ask. Deliberately
-    // not awaited and never fatal: a failed cache write must not cost somebody
-    // their reply, and the next request writes it again.
-    if (life) companion.rememberLife(life, now).catch((error) => console.error('[companion] life cache failed', error));
+    const sentLife = body?.life ? sanitizeLifeContext(body.life) : undefined;
     // A dev account is treated as paid, and then some: it gets the `plus` tier
     // so everything a subscriber would see can be tested, and no daily ceiling,
     // because testing is exactly the use that burns through one. Decided here,
@@ -446,6 +447,16 @@ Deno.serve(async (request) => {
     const isDev = DEV_EMAILS.has((user.email ?? '').trim().toLowerCase());
     const tier: CompanionTier = isDev ? 'plus' : await companion.tier(now);
     const limits = isDev ? { ...limitsFor('plus'), messagesPerDay: DEV_UNCAPPED, proactivePerDay: DEV_UNCAPPED } : limitsFor(tier);
+    // Personalities are Plus: a free pet speaks in the default voice whatever
+    // temperament, dials or persona the phone sent.
+    const life = sentLife ? lifeForTier(sentLife, tier) : undefined;
+    const model = chatModelFor(tier);
+    // Kept for the notification job, which has no phone to ask. Deliberately
+    // not awaited and never fatal: a failed cache write must not cost somebody
+    // their reply, and the next request writes it again. Cached with the tier
+    // already applied, so the job speaks exactly as this does (the dev account
+    // included, which only this function can recognise).
+    if (life) companion.rememberLife(life, now).catch((error) => console.error('[companion] life cache failed', error));
     const access = async () => {
       const resolved = accessFor(tier, (await companion.usage(now)).sent);
       return isDev ? { ...resolved, messagesLeftToday: DEV_UNCAPPED, canChat: true } : resolved;
@@ -487,7 +498,7 @@ Deno.serve(async (request) => {
       const ctx = buildPetContext({ state, life, events, memories, messages: history, currentMessage: message, now });
       const turns = turnsFromContext(ctx);
       const askedAt = Date.now();
-      const generated = await generate(ctx, turns, () => mockReply(ctx, message));
+      const generated = await generate(ctx, turns, () => mockReply(ctx, message), 'companion', model);
       console.log(`[companion] chat: reads ${askedAt - loadedAt}ms, model ${Date.now() - askedAt}ms, degraded=${generated.degraded}`);
       const reply = await companion.appendMessage({ role: 'pet', content: generated.text, usage: generated.usage });
 
@@ -517,7 +528,7 @@ Deno.serve(async (request) => {
       }
       const ctx = buildPetContext({ state, life, events, memories, messages: recentMessages, currentMessage: fire.situation, now });
       const turns: Anthropic.MessageParam[] = [...turnsFromContext(ctx), { role: 'user', content: renderProactiveInstruction(fire.situation) }];
-      const generated = await generate(ctx, turns, () => mockProactive(fire.situation));
+      const generated = await generate(ctx, turns, () => mockProactive(fire.situation), 'companion', model);
       const message = await companion.appendMessage({ role: 'pet', content: generated.text, source: 'proactive', triggerKey: fire.key, usage: generated.usage });
       await companion.markReacted(fire.markEventsReacted, now);
       if (fire.markMemoryFollowedUp) await companion.markFollowedUp(fire.markMemoryFollowedUp, now);
@@ -549,7 +560,7 @@ Deno.serve(async (request) => {
       const estimate = (text: string) => Math.round(text.length / 4);
       const historyTokens = turns.reduce((total, turn) => total + estimate(turn.content) + 4, 0);
       return json({
-        provider: anthropic ? CHAT_MODEL : 'mock (no ANTHROPIC_API_KEY set)',
+        provider: anthropic ? model : 'mock (no ANTHROPIC_API_KEY set)',
         state,
         counts: { memories: memories.length, events: events.length, messages: recentMessages.length },
         usage: await companion.usage(now),

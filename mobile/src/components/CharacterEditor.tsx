@@ -45,12 +45,18 @@ export function CharacterEditor({
   age,
   onSave,
   saving,
+  changesLeft,
 }: {
   pet: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
   /** Gates the notes field and the temperaments that swear (see MATURE_PERSONALITY_AGE). */
   age: number;
   onSave: (next: Character) => void;
   saving?: boolean;
+  /**
+   * Character changes left this month (the server caps them; see the
+   * personality_change_limit migration). Null or absent: no limit shown.
+   */
+  changesLeft?: number | null;
 }) {
   const stored = characterOf(pet);
   const [draft, setDraft] = useState<Character>(stored);
@@ -60,7 +66,8 @@ export function CharacterEditor({
   const options = petPersonalityOptionsFor(age);
   const notesAllowed = options.some((option) => option.value === 'custom');
   const notesOk = draft.personality === 'custom' ? isValidPersona(draft.persona) : !draft.persona.trim() || isValidPersona(draft.persona);
-  const savable = !saving && notesOk && !same(draft, stored);
+  const outOfChanges = changesLeft === 0;
+  const savable = !saving && notesOk && !same(draft, stored) && !outOfChanges;
 
   return (
     <View style={styles.wrap}>
@@ -102,6 +109,13 @@ export function CharacterEditor({
       >
         <Text style={styles.saveLabel}>{saving ? 'Saving…' : 'Save character'}</Text>
       </Pressable>
+      {typeof changesLeft === 'number' ? (
+        <Text style={[styles.note, outOfChanges && styles.noteOut]} testID="changes-left">
+          {outOfChanges
+            ? 'No character changes left this month. They reset on the 1st.'
+            : `${changesLeft} character change${changesLeft === 1 ? '' : 's'} left this month.`}
+        </Text>
+      ) : null}
       <Text style={styles.note}>What they have learned about you is kept. Only the starting point moves.</Text>
     </View>
   );
@@ -109,6 +123,7 @@ export function CharacterEditor({
 
 const styles = StyleSheet.create({
   wrap: { gap: 10 },
+  noteOut: { color: colors.coral },
   label: { fontSize: 12, fontWeight: '600', color: colors.inkSoft, marginTop: 6 },
   persona: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19, marginTop: 6 },
   count: { fontSize: 11, color: colors.faint, textAlign: 'right', marginTop: 4 },

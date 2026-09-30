@@ -1,4 +1,4 @@
-import type { CompanionTier } from './types';
+import type { CompanionTier, LifeContext } from './types';
 
 /**
  * Who may talk to the pet, and how much.
@@ -22,7 +22,9 @@ export interface TierLimits {
 }
 
 export const TIER_LIMITS: Record<CompanionTier, TierLimits> = {
-  free: { messagesPerDay: 30, proactivePerDay: 6, maxMessageLength: 600 },
+  // Free is the tier that costs money without paying any, so its ceiling is the
+  // one that bounds the bill; Plus keeps the generous one.
+  free: { messagesPerDay: 10, proactivePerDay: 2, maxMessageLength: 600 },
   plus: { messagesPerDay: 200, proactivePerDay: 12, maxMessageLength: 1200 },
 };
 
@@ -40,4 +42,17 @@ export const accessFor = (tier: CompanionTier | null | undefined, messagesSentTo
   const resolved: CompanionTier = tier === 'plus' ? 'plus' : 'free';
   const left = Math.max(0, limitsFor(resolved).messagesPerDay - Math.max(0, messagesSentToday));
   return { tier: resolved, messagesLeftToday: left, canChat: left > 0 };
+};
+
+/**
+ * Personalities are a Plus feature. A free pet speaks in the default voice: no
+ * temperament, no dials, no persona. Applied on the server to whatever the phone
+ * sends, so a modified client cannot talk its way into a paid feature; the app
+ * applies the same rule to what it shows. The stored pet keeps its choices, so
+ * they come back on upgrade.
+ */
+export const lifeForTier = <T extends Pick<LifeContext, 'pet'>>(life: T, tier: CompanionTier | null | undefined): T => {
+  if (tier === 'plus') return life;
+  const { temperament: _temperament, persona: _persona, dials: _dials, ...pet } = life.pet;
+  return { ...life, pet };
 };

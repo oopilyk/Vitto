@@ -122,6 +122,13 @@ export interface PetState {
    * re-specialising, not devolving. Set by `lockEvolution`, never by hand.
    */
   evolvedBuild?: EvolvedBuild;
+  /**
+   * Every specialism the pet has ever evolved into, in the order earned. Once it
+   * holds all three the pet may wear whichever it likes (`chosenBuild`).
+   */
+  earnedBuilds?: EvolvedBuild[];
+  /** The form picked by hand once all three are earned; see `chooseForm`. */
+  chosenBuild?: EvolvedBuild;
   adoptedAt: string;
   lastEventAt?: string;
   /**
@@ -234,10 +241,72 @@ const liveBuild = ({ endurance, strength, mind }: Pick<PetState, 'endurance' | '
  * back to even -- the one it already evolved into. A pet never devolves.
  */
 export const getPetBuild = (
-  pet: Pick<PetState, 'endurance' | 'strength' | 'mind'> & Partial<Pick<PetState, 'evolvedBuild'>>,
+  pet: Pick<PetState, 'endurance' | 'strength' | 'mind'> &
+    Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
 ): PetBuild => {
+  // A pet that has earned every form wears the one picked for it.
+  if (pet.chosenBuild && canSwitchForm(pet)) return pet.chosenBuild;
   const live = liveBuild(pet);
   return live === 'balanced' ? (pet.evolvedBuild ?? 'balanced') : live;
+};
+
+export const EVOLVED_BUILDS: readonly EvolvedBuild[] = ['runner', 'lifter', 'scholar'];
+
+/** Whether every evolution has been earned, which is what unlocks switching between them. */
+export const canSwitchForm = (pet: Partial<Pick<PetState, 'earnedBuilds'>>): boolean =>
+  EVOLVED_BUILDS.every((build) => pet.earnedBuilds?.includes(build));
+
+/** The pet wearing `build`, if it may; unchanged otherwise. */
+export const chooseForm = <T extends PetState>(pet: T, build: EvolvedBuild): T =>
+  canSwitchForm(pet) ? { ...pet, chosenBuild: build } : pet;
+
+/** The stat each evolution is grown from. */
+export const BUILD_STAT: Record<EvolvedBuild, 'endurance' | 'strength' | 'mind'> = {
+  runner: 'endurance',
+  lifter: 'strength',
+  scholar: 'mind',
+};
+
+export interface EvolutionProgress {
+  build: EvolvedBuild;
+  /** Earned at some point, so it is kept for good. */
+  earned: boolean;
+  /** 0..1 across the three requirements below; 1 once earned. */
+  progress: number;
+  level: { have: number; need: number };
+  stat: { key: 'endurance' | 'strength' | 'mind'; have: number; need: number };
+  /** How far the stat is ahead of the higher of the other two. */
+  lead: { have: number; need: number };
+}
+
+/**
+ * How close the pet is to one evolution, requirement by requirement. The three
+ * requirements are the real rule (`EVOLUTION_LEVEL`, `BUILD_MIN_STAT`,
+ * `BUILD_LEAD_OVER_OTHERS`), each counted as a share done, so the bar can never
+ * be full while the pet still would not evolve.
+ */
+export const evolutionProgress = (
+  pet: Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'> & Partial<Pick<PetState, 'earnedBuilds' | 'evolvedBuild'>>,
+  build: EvolvedBuild,
+): EvolutionProgress => {
+  const key = BUILD_STAT[build];
+  const have = pet[key];
+  const rival = Math.max(...EVOLVED_BUILDS.filter((other) => other !== build).map((other) => pet[BUILD_STAT[other]]));
+  const earned = Boolean(pet.earnedBuilds?.includes(build) || pet.evolvedBuild === build);
+  const share = (value: number, need: number) => Math.max(0, Math.min(1, value / need));
+  const parts = [
+    share(pet.level, EVOLUTION_LEVEL),
+    share(have, BUILD_MIN_STAT),
+    share(have - rival, BUILD_LEAD_OVER_OTHERS),
+  ];
+  return {
+    build,
+    earned,
+    progress: earned ? 1 : parts.reduce((total, part) => total + part, 0) / parts.length,
+    level: { have: pet.level, need: EVOLUTION_LEVEL },
+    stat: { key, have: Math.round(have), need: BUILD_MIN_STAT },
+    lead: { have: Math.round(have - rival), need: BUILD_LEAD_OVER_OTHERS },
+  };
 };
 
 /**
@@ -246,10 +315,18 @@ export const getPetBuild = (
  * is what makes it impossible to decay out of an evolution between saves.
  */
 export const lockEvolution = <T extends PetState>(pet: T): T => {
-  if (pet.level < EVOLUTION_LEVEL) return pet;
-  const live = liveBuild(pet);
-  if (live === 'balanced' || live === pet.evolvedBuild) return pet;
-  return { ...pet, evolvedBuild: live };
+  // A pet locked before `earnedBuilds` existed has earned its locked form.
+  const known = pet.evolvedBuild && !pet.earnedBuilds?.includes(pet.evolvedBuild)
+    ? { ...pet, earnedBuilds: [...(pet.earnedBuilds ?? []), pet.evolvedBuild] }
+    : pet;
+  if (known.level < EVOLUTION_LEVEL) return known;
+  const live = liveBuild(known);
+  if (live === 'balanced' || (live === known.evolvedBuild && known.earnedBuilds?.includes(live))) return known;
+  return {
+    ...known,
+    evolvedBuild: live,
+    earnedBuilds: known.earnedBuilds?.includes(live) ? known.earnedBuilds : [...(known.earnedBuilds ?? []), live],
+  };
 };
 
 export const PET_BUILD_LABEL: Record<PetBuild, string> = {
@@ -265,7 +342,8 @@ export const PET_BUILD_LABEL: Record<PetBuild, string> = {
  * on the dashboard and the sheet the avatar draws can never disagree about it.
  */
 export const hasEvolved = (
-  pet: Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'>,
+  pet: Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'> &
+    Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
 ): boolean => pet.level >= EVOLUTION_LEVEL && getPetBuild(pet) !== 'balanced';
 
 /**
@@ -330,6 +408,8 @@ export const applyForcedForm = (pet: PetState, form: ForcedPetForm | null): PetS
     // Pinned too, or a real pet's locked evolution would still show through
     // (and a forced `foggy` after a forced form could not keep the form).
     evolvedBuild: form === 'base' ? undefined : form,
+    // A picked form would override the preview, so the preview drops it.
+    chosenBuild: undefined,
   };
 };
 

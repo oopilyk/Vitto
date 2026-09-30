@@ -6,7 +6,7 @@ import {
   statValue,
   type PetStatKey,
 } from './petStats';
-import { applyForcedForm, EVOLUTION_LEVEL, getPetBuild, hasEvolved, lockEvolution } from './pet';
+import { applyForcedForm, canSwitchForm, chooseForm, EVOLUTION_LEVEL, evolutionProgress, getPetBuild, hasEvolved, lockEvolution } from './pet';
 import { applyTimeDecay } from './decay';
 import { applyDelta } from './petHealthEngine';
 import { assessCondition } from './petCondition';
@@ -343,5 +343,52 @@ describe('evolution is for keeps', () => {
 
   it('lets the dev preview show the base form over a locked evolution', () => {
     expect(hasEvolved(applyForcedForm(lockEvolution(scholar()), 'base'))).toBe(false);
+  });
+});
+
+describe('evolution progress and switching', () => {
+  const pet = (over: Partial<PetState> = {}): PetState => ({
+    ...createPet('u', 'Blue', 'dog', 'bear'),
+    level: 1, endurance: 20, strength: 20, mind: 20,
+    ...over,
+  });
+
+  it('counts each requirement, and is only full when the pet would evolve', () => {
+    const start = evolutionProgress(pet(), 'runner');
+    expect(start.progress).toBeGreaterThan(0);
+    expect(start.progress).toBeLessThan(0.5);
+    expect(start.level).toEqual({ have: 1, need: EVOLUTION_LEVEL });
+    expect(start.stat).toEqual({ key: 'endurance', have: 20, need: 45 });
+    // Stat and level met but not far enough ahead: not full.
+    const close = evolutionProgress(pet({ level: 12, endurance: 50, strength: 45 }), 'runner');
+    expect(close.progress).toBeLessThan(1);
+    expect(close.lead).toEqual({ have: 5, need: 12 });
+    expect(evolutionProgress(pet({ level: 12, endurance: 60 }), 'runner').progress).toBe(1);
+  });
+
+  it('remembers every form earned', () => {
+    let blue = lockEvolution(pet({ level: 12, endurance: 60 }));
+    expect(blue.earnedBuilds).toEqual(['runner']);
+    blue = lockEvolution({ ...blue, endurance: 20, strength: 60 });
+    expect(blue.earnedBuilds).toEqual(['runner', 'lifter']);
+    expect(evolutionProgress(blue, 'runner').earned).toBe(true);
+    expect(canSwitchForm(blue)).toBe(false);
+    // Picking is refused until all three are earned.
+    expect(chooseForm(blue, 'runner')).toBe(blue);
+  });
+
+  it('carries a form locked before the list existed', () => {
+    expect(lockEvolution(pet({ level: 12, evolvedBuild: 'scholar' })).earnedBuilds).toEqual(['scholar']);
+  });
+
+  it('wears the picked form once all three are earned, whatever the stats say', () => {
+    const blue = pet({ level: 14, strength: 70, earnedBuilds: ['runner', 'lifter', 'scholar'], evolvedBuild: 'lifter' });
+    expect(canSwitchForm(blue)).toBe(true);
+    expect(getPetBuild(blue)).toBe('lifter');
+    const scholar = chooseForm(blue, 'scholar');
+    expect(getPetBuild(scholar)).toBe('scholar');
+    expect(hasEvolved(scholar)).toBe(true);
+    // The dev preview still wins over the pick.
+    expect(getPetBuild(applyForcedForm(scholar, 'runner'))).toBe('runner');
   });
 });
