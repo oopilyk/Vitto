@@ -9,6 +9,7 @@ import {
   assessDecline,
 } from '@vitto/core';
 import { FRAME_MS, HOLDS_LAST_FRAME, type PetAnimation, SPRITE_ART_TOP, sheetForPet } from './petSprites';
+import { PetVideo, videoClipFor } from './PetVideo';
 import { SpriteFrame } from './SpriteFrame';
 import {
   Confetti,
@@ -203,6 +204,8 @@ export function PetAvatar({
   const sleeping = isSleeping(pet.energy, condition, activity);
   const animation = sleeping ? 'rest' : animationFor(activity, pet.mood, condition);
   const frames = sheet.animations[animation];
+  // A form animated as video plays its clip for this animation instead of the frames.
+  const clip = videoClipFor(sheet, animation);
   const size = sizeOverride ?? PET_SIZE;
 
   // Step through the band's cells; each animation restarts from its first frame.
@@ -334,7 +337,7 @@ export function PetAvatar({
   const overlays = new Set(activityOutranksCondition ? [] : condition.overlays);
   // Drop the overlays this sheet's art already draws, so a pet whose sprite has
   // its own spiral eyes does not also get the stand-in particles on top.
-  for (const ailment of sheet.selfDrawn ?? []) overlays.delete(ailment);
+  for (const ailment of (clip ? sheet.videos?.selfDrawn : sheet.selfDrawn) ?? []) overlays.delete(ailment);
 
   // The aura is the pool of light the pet stands in, so draining colour out of it
   // as health falls is the quietest way to show a gradual decline. An ailment
@@ -361,13 +364,18 @@ export function PetAvatar({
         accessibilityLabel={`${pet.name}, ${STATUS_TEXT[activity](pet.name)}`}
         style={[styles.window, { transform: bobTransform }]}
       >
-        <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
+        {clip && sheet.videos ? (
+          <PetVideo key={animation} videos={sheet.videos} clip={clip} size={size} artScale={sheet.artScale} />
+        ) : (
+          <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
+        )}
         {/* Inside the window on purpose: the wash is a tinted copy of the frame
             stacked on it, so it must share the sprite's exact position. It ramps
             in from the first sign of decline rather than snapping on at `dying`,
             so a pet losing health looks like it is losing health the whole way —
             but a care moment stands it down, same as every other ailment cue. */}
-        {decline.intensity > 0 && !activityOutranksCondition ? (
+        {/* A clip has no frame for the wash to copy, so it goes without. */}
+        {decline.intensity > 0 && !activityOutranksCondition && !clip ? (
           <Fading
             active
             severity={decline.intensity}

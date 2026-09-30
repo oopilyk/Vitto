@@ -1939,12 +1939,13 @@ describe('pet sprite', () => {
     const { CELL, SHEET_COLUMNS, sheetByBreed } = require('../components/petSprites');
     const size = 200;
 
-    const styleFor = (sheet: any) => {
+    const stylesFor = (sheet: any, frame = [0, 0]) => {
       let tree!: renderer.ReactTestRenderer;
-      act(() => { tree = renderer.create(<SpriteFrame sheet={sheet} frame={[0, 0]} size={size} />); });
-      const style = tree.root.findAllByType(Image)[0].props.style;
+      act(() => { tree = renderer.create(<SpriteFrame sheet={sheet} frame={frame} size={size} />); });
+      const image = tree.root.findAllByType(Image)[0];
+      const styles = { clip: image.parent!.props.style, image: image.props.style };
       tree.unmount();
-      return style;
+      return styles;
     };
 
     // The bichon was drawn about a third larger for its cell than the other
@@ -1955,27 +1956,25 @@ describe('pet sprite', () => {
     expect(shiba.artScale).toBeUndefined();
 
     // A sheet with no artScale still maps one cell onto the whole window.
-    const plain = styleFor(shiba);
-    expect(plain.width).toBe(size * SHEET_COLUMNS);
-    expect(plain.marginLeft).toBe(0);
-    expect(plain.marginTop).toBe(0);
+    const plain = stylesFor(shiba);
+    expect(plain.image.width).toBe(size * SHEET_COLUMNS);
+    expect(plain.clip).toMatchObject({ width: size, height: size, marginLeft: 0, marginTop: 0 });
 
     // The scaled one is drawn smaller, centred, and pushed down so the cell floor
-    // still sits on the window floor rather than leaving the pet hovering.
-    const scaled = styleFor(bichon);
+    // still sits on the window floor rather than leaving the pet hovering. The
+    // clip is that one smaller cell, so the neighbouring cells stay hidden.
+    const scaled = stylesFor(bichon);
     const cell = size * bichon.artScale;
-    expect(scaled.width).toBe(cell * SHEET_COLUMNS);
-    expect(scaled.width).toBeLessThan(plain.width);
-    expect(scaled.marginLeft).toBeCloseTo((size - cell) / 2);
-    expect(scaled.marginTop).toBeCloseTo(size - cell);
+    expect(scaled.image.width).toBe(cell * SHEET_COLUMNS);
+    expect(scaled.image.width).toBeLessThan(plain.image.width);
+    expect(scaled.clip).toMatchObject({ width: cell, height: cell, overflow: 'hidden' });
+    expect(scaled.clip.marginLeft).toBeCloseTo((size - cell) / 2);
+    expect(scaled.clip.marginTop).toBeCloseTo(size - cell);
 
     // Row and column offsets still land on the right cell once scaled.
-    let tree!: renderer.ReactTestRenderer;
-    act(() => { tree = renderer.create(<SpriteFrame sheet={bichon} frame={[3, 2]} size={size} />); });
-    const offset = tree.root.findAllByType(Image)[0].props.style;
-    tree.unmount();
-    expect(offset.marginLeft).toBeCloseTo((size - cell) / 2 - 2 * CELL * (cell / CELL));
-    expect(offset.marginTop).toBeCloseTo(size - cell - 3 * CELL * (cell / CELL));
+    const offset = stylesFor(bichon, [3, 2]).image;
+    expect(offset.marginLeft).toBeCloseTo(-2 * cell);
+    expect(offset.marginTop).toBeCloseTo(-3 * cell);
   });
 
   it('gives every bichon form the same scale, so evolving does not resize the pet', () => {
@@ -2318,6 +2317,78 @@ describe('pet sprite', () => {
       expect(derived.animations).toEqual(base.animations);
     }
     expect(lifter.source).not.toBe(scholar.source);
+  });
+
+  it('plays the bear lifter its own clips, and falls back to its sheet where it has none', () => {
+    const { sheetForPet } = require('../components/petSprites');
+    const base = sheetForPet({ id: 'p', breed: 'bear', level: 5 });
+    const lifter = sheetForPet({ id: 'p', breed: 'bear', level: 12, strength: 80, endurance: 10, mind: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'bear', level: 12, mind: 80, endurance: 10, strength: 10 });
+    expect(lifter.label).toBe('Bear · Lifter');
+
+    // Re-animated rather than derived, so it carries its own 4x17 sheet and map
+    // while the scholar still shares the base bear's.
+    expect(lifter.rows).toBe(17);
+    expect(lifter.animations).not.toEqual(base.animations);
+    expect(scholar.animations).toEqual(base.animations);
+    // The flex is the strength build's whole point, so a level-up plays it.
+    expect(lifter.animations.cheer).toHaveLength(12);
+
+    // Four clips for seven bands. The other three fall back to sheet frames,
+    // which only works because the sheet still carries every band.
+    const { clips } = lifter.videos;
+    expect(Object.keys(clips).sort()).toEqual(['cheer', 'idle', 'move', 'rest']);
+    for (const band of ['unwell', 'sad', 'faint']) {
+      expect(clips[band]).toBeUndefined();
+      expect(lifter.animations[band].length).toBeGreaterThan(1);
+    }
+    // Lies down and stays; looping would have it settle again on a timer.
+    expect(clips.rest.loop).toBe(false);
+    // Clips and sheet are cut from the same box, or the bear jumps at the
+    // moment an animation without a clip falls back to a frame.
+    expect(lifter.videos.cell).toEqual({ x: 26, y: 4, size: 720 });
+    expect(lifter.videos.frameSize).toBe(768);
+    // Nothing here draws its own stars, unlike the bichon's dizzy clip.
+    expect(lifter.selfDrawn).toBeUndefined();
+  });
+
+  it('plays the bichon lifter its own clips instead of sheet frames', () => {
+    const lifter = { ...pet, breed: 'bichon', level: 12, strength: 80, endurance: 10, mind: 10 };
+    const sheet = sheetForPet(lifter);
+    expect(sheet.label).toBe('Bichon · Lifter');
+    const { clips } = sheet.videos;
+    // The food-logging celebration is the jump clip; a hurt pet stays on the
+    // clip's last frame rather than getting hurt again on a loop.
+    expect(clips.cheer).not.toBe(clips.idle);
+    expect(clips.cheer.loop).toBe(true);
+    expect(clips.faint.loop).toBe(false);
+
+    const clipShown = (overrides: Record<string, unknown>) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <PetAvatar
+            pet={lifter}
+            isAnalyzingMeal={false}
+            isEating={false}
+            feedingImage={null}
+            feedingGrade={null}
+            isCelebrating={false}
+            isWorkingOut={false}
+            isExploring={false}
+            {...overrides}
+          />,
+        );
+      });
+      const videos = tree.root.findAll((node: any) => node.props.testID === 'pet-video' && typeof node.type === 'function');
+      const source = videos[0]?.props.player.source;
+      tree.unmount();
+      return source;
+    };
+    // jest runs as iOS, which plays the HEVC encoding.
+    expect(clipShown({})).toBe(clips.idle.hevc);
+    expect(clipShown({ isCelebrating: true })).toBe(clips.cheer.hevc);
+    expect(clipShown({ isExploring: true })).toBe(clips.move.hevc);
   });
 
   it('keeps the otter grid shape and timings on its derived sheets', () => {

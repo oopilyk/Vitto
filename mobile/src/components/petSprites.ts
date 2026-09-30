@@ -124,6 +124,36 @@ export interface PetSheet {
    * into, never chosen.
    */
   evolutions?: Partial<Record<PetBuild, PetSheet>>;
+  /**
+   * Animation clips that play instead of this sheet's frames, where a form was
+   * animated as video rather than drawn as a sheet. Played by `PetVideo` on iOS
+   * and web; everywhere else (Android, the still previews, the Dynamic Island)
+   * the sheet above still stands in.
+   */
+  videos?: PetVideos;
+}
+
+export interface PetVideoClip {
+  /** HEVC with alpha: what iOS and Safari play transparent. */
+  hevc: number;
+  /** VP9 with alpha: what Chrome, Firefox and Edge play transparent. */
+  webm: number;
+  /** Loops, or plays once and stays on its last frame. */
+  loop: boolean;
+}
+
+export interface PetVideos {
+  clips: Partial<Record<PetAnimation, PetVideoClip>>;
+  /** Pixel size of the (square) video frame. */
+  frameSize: number;
+  /**
+   * The square region of the video frame, in video pixels, that lines up with
+   * one sheet cell. It is what makes a clip stand where the sheet's art stands
+   * and at the same size: the video is scaled so this region fills the cell.
+   */
+  cell: { x: number; y: number; size: number };
+  /** Like `PetSheet.selfDrawn`, for what the clips draw themselves. */
+  selfDrawn?: readonly PetAilment[];
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +206,7 @@ const sheetFrom = (layout: SheetLayout, label: string, source: ImageSourcePropTy
  * set. Every bichon form is dialled back by the same factor so they stay a
  * family, and so the evolutions do not change size relative to the base.
  */
-const BICHON_ART_SCALE = 1.0;
+const BICHON_ART_SCALE = 0.78;
 
 /**
  * The bichon's runner evolution: a show-cut bichon on longer legs, fuller
@@ -253,7 +283,55 @@ const BICHON_ANIMATIONS: PetSheet['animations'] = {
 
 const BICHON_LAYOUT: SheetLayout = { name: 'bichon', animations: BICHON_ANIMATIONS, artScale: BICHON_ART_SCALE };
 
-const BICHON_LIFTER = sheetFrom(BICHON_LAYOUT, 'Bichon · Lifter', require('../../assets/pet/bichonLifter.png'));
+/**
+ * The bichon lifter's animation clips: muscled up, red sweatband, blue bow.
+ * `scripts/buildBichonLifterVideos.mjs` makes these from the originals in
+ * `assets/source/video/bichon-lifter/`, changing nothing but the background
+ * (off-white → transparent). Every frame and the frame rate are the originals'.
+ *
+ * `cell` was measured off the clips: the standing dog fills the same share of
+ * that square as the base bichon fills its cell, with its feet on the same
+ * floor line, and the widest pose (the flex) and the highest (top of a jump)
+ * both stay inside it.
+ */
+/**
+ * Both encodings of one clip. Metro needs each `require` spelled out, so this
+ * is a table rather than a template.
+ */
+const BICHON_LIFTER_CLIPS = {
+  idle: { hevc: require('../../assets/pet/video/bichonLifter/idle.mov'), webm: require('../../assets/pet/video/bichonLifter/idle.webm') },
+  'idle-flex': { hevc: require('../../assets/pet/video/bichonLifter/idle-flex.mov'), webm: require('../../assets/pet/video/bichonLifter/idle-flex.webm') },
+  jump: { hevc: require('../../assets/pet/video/bichonLifter/jump.mov'), webm: require('../../assets/pet/video/bichonLifter/jump.webm') },
+  walk: { hevc: require('../../assets/pet/video/bichonLifter/walk.mov'), webm: require('../../assets/pet/video/bichonLifter/walk.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/bichonLifter/dizzy.mov'), webm: require('../../assets/pet/video/bichonLifter/dizzy.webm') },
+  hurt: { hevc: require('../../assets/pet/video/bichonLifter/hurt.mov'), webm: require('../../assets/pet/video/bichonLifter/hurt.webm') },
+};
+const clip = (name: keyof typeof BICHON_LIFTER_CLIPS) => BICHON_LIFTER_CLIPS[name];
+
+const BICHON_LIFTER_VIDEOS: PetVideos = {
+  frameSize: 768,
+  cell: { x: 92, y: 104, size: 576 },
+  clips: {
+    // Stands about for most of the clip, then rears up into a double-bicep flex.
+    idle: { ...clip('idle-flex'), loop: true },
+    rest: { ...clip('idle'), loop: true },
+    // The celebration after logging food (and while eating).
+    cheer: { ...clip('jump'), loop: true },
+    move: { ...clip('walk'), loop: true },
+    unwell: { ...clip('dizzy'), loop: true },
+    // Yelp → dazed → wince → pout, played once. Looping it would have the pet
+    // get hurt over and over.
+    sad: { ...clip('hurt'), loop: false },
+    faint: { ...clip('hurt'), loop: false },
+  },
+  // The dizzy clip has its own spiral eyes and orbiting stars.
+  selfDrawn: ['foggy'],
+};
+
+const BICHON_LIFTER: PetSheet = {
+  ...sheetFrom(BICHON_LAYOUT, 'Bichon · Lifter', require('../../assets/pet/bichonLifter.png')),
+  videos: BICHON_LIFTER_VIDEOS,
+};
 const BICHON_SCHOLAR = sheetFrom(BICHON_LAYOUT, 'Bichon · Scholar', require('../../assets/pet/bichonScholar.png'));
 
 const BICHON: PetSheet = {
@@ -570,7 +648,76 @@ const BEAR_LAYOUT: SheetLayout = {
   },
 };
 
-const BEAR_LIFTER = sheetFrom(BEAR_LAYOUT, 'Bear · Lifter', require('../../assets/pet/bearLifter.png'));
+/**
+ * Bear · Lifter, 4x17. Its own sheet and its own map: this form was animated
+ * separately rather than derived from the base bear art, so sharing
+ * BEAR_LAYOUT would play the walk cycle as a cheer and the yawn as a stroll.
+ * Cut from four clips by scripts/buildBearLifterSheet.mjs, which prints this
+ * frame map when it runs -- check the two against each other after any change.
+ *
+ * The flex is the whole point of the strength build, so it is `cheer`: the band
+ * the app plays on a level-up or a new personal record.
+ *
+ *   rows 0-2   standing idle (12)    rows 11-12  yawning (8)
+ *   rows 3-5   rears into a flex     rows 13-14  sitting, subdued (8)
+ *              and holds it (12)     rows 15-16  curled up on the floor (8)
+ *   rows 6-8   walk cycle (12)
+ *   rows 9-10  sitting with the honey pot (8)
+ */
+/**
+ * Four clips for seven bands: `unwell`, `sad` and `faint` have no video and
+ * fall back to the sheet's yawning, sitting and curled-up frames, which is what
+ * `clips` being partial is for. Android falls back for all of them.
+ */
+const BEAR_LIFTER_CLIPS = {
+  'idle-flex': { hevc: require('../../assets/pet/video/bearLifter/idle-flex.mov'), webm: require('../../assets/pet/video/bearLifter/idle-flex.webm') },
+  walk: { hevc: require('../../assets/pet/video/bearLifter/walk.mov'), webm: require('../../assets/pet/video/bearLifter/walk.webm') },
+  states: { hevc: require('../../assets/pet/video/bearLifter/states.mov'), webm: require('../../assets/pet/video/bearLifter/states.webm') },
+  pot: { hevc: require('../../assets/pet/video/bearLifter/pot.mov'), webm: require('../../assets/pet/video/bearLifter/pot.webm') },
+};
+
+const BEAR_LIFTER_VIDEOS: PetVideos = {
+  frameSize: 768,
+  // The same box scripts/buildBearLifterSheet.mjs cuts its cells from, so a
+  // band with no clip falls back to the sheet without the bear moving.
+  cell: { x: 26, y: 4, size: 720 },
+  clips: {
+    // Stands about, then rears up into a double-bicep flex — the strength
+    // build's whole personality, so it is what you see most of the time.
+    idle: { ...BEAR_LIFTER_CLIPS['idle-flex'], loop: true },
+    // The celebration after logging food (and while eating).
+    cheer: { ...BEAR_LIFTER_CLIPS.pot, loop: true },
+    move: { ...BEAR_LIFTER_CLIPS.walk, loop: true },
+    // Stands, sits, then lies down and stays there. Played once: looping it
+    // would have the bear get up and settle again on a timer.
+    rest: { ...BEAR_LIFTER_CLIPS.states, loop: false },
+  },
+};
+
+const BEAR_LIFTER: PetSheet = {
+  // Still the bear breed -- `name` identifies the animal, not the sheet.
+  name: 'bear',
+  label: 'Bear · Lifter',
+  source: require('../../assets/pet/bearLifter.png'),
+  rows: 17,
+  animations: {
+    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2], [1, 3], [2, 0], [2, 1], [2, 2], [2, 3]],
+    cheer: [[3, 0], [3, 1], [3, 2], [3, 3], [4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3]],
+    // Twelve frames across one 25-frame cycle of the source clip, so it loops.
+    move: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3], [8, 0], [8, 1], [8, 2], [8, 3]],
+    rest: [[9, 0], [9, 1], [9, 2], [9, 3], [10, 0], [10, 1], [10, 2], [10, 3]],
+    unwell: [[11, 0], [11, 1], [11, 2], [11, 3], [12, 0], [12, 1], [12, 2], [12, 3]],
+    sad: [[13, 0], [13, 1], [13, 2], [13, 3], [14, 0], [14, 1], [14, 2], [14, 3]],
+    faint: [[15, 0], [15, 1], [15, 2], [15, 3], [16, 0], [16, 1], [16, 2], [16, 3]],
+  },
+  // `rest` is a real loop here rather than the single frame most sheets hold,
+  // so the shared 700ms would crawl; `cheer` is paced to the clip it came from.
+  // No `selfDrawn`: nothing in these bands draws its own stars, so DizzyOrbit
+  // keeps carrying `foggy` as it does for the base bear.
+  frameMs: { cheer: 150, rest: 250 },
+  videos: BEAR_LIFTER_VIDEOS,
+};
+
 const BEAR_SCHOLAR = sheetFrom(BEAR_LAYOUT, 'Bear · Scholar', require('../../assets/pet/bearScholar.png'));
 
 const BEAR: PetSheet = {

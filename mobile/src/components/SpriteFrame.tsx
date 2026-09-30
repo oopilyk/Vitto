@@ -32,20 +32,24 @@ export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
   const rows = sheet.rows ?? SHEET_ROWS;
   const [row, column] = frame;
 
+  // The clip is the scaled cell, not the whole window: with the cell smaller
+  // than the window, clipping at the window lets the neighbouring cells show.
   return (
-    <View style={{ width: size, height: size, overflow: 'hidden' }}>
-      <Image
-        source={sheet.source}
-        tintColor={tintColor}
-        onLoad={onLoad}
-        resizeMode="stretch"
-        style={{
-          width: CELL * columns * scale,
-          height: CELL * rows * scale,
-          marginLeft: inset / 2 - column * CELL * scale,
-          marginTop: inset - row * CELL * scale,
-        }}
-      />
+    <View style={{ width: size, height: size }}>
+      <View style={{ width: cell, height: cell, marginLeft: inset / 2, marginTop: inset, overflow: 'hidden' }}>
+        <Image
+          source={sheet.source}
+          tintColor={tintColor}
+          onLoad={onLoad}
+          resizeMode="stretch"
+          style={{
+            width: CELL * columns * scale,
+            height: CELL * rows * scale,
+            marginLeft: -column * CELL * scale,
+            marginTop: -row * CELL * scale,
+          }}
+        />
+      </View>
     </View>
   );
 }
