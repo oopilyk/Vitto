@@ -309,6 +309,45 @@ describe('onboarding', () => {
     check(); // the plan
   });
 
+  it('claims a username after your name, and shows why when it cannot', async () => {
+    const claimed: string[] = [];
+    let taken = true;
+    const { tree } = mount(baseProfile, {
+      onClaimUsername: async (username: string) => {
+        if (taken) throw new Error('That username is taken.');
+        claimed.push(username);
+      },
+    });
+    press(tree, 'Get started');
+    tapLabel(tree, 'Choose the Shiba');
+    press(tree, 'Choose the shiba');
+    press(tree, 'Let’s go!');
+    press(tree, 'Shuffle');
+    press(tree, 'Next');
+    press(tree, 'Skip');
+    expect(has(tree, 'pick a username')).toBe(true);
+    // Nothing typed, nothing to claim; and the field keeps to what a username can hold.
+    expect(button(tree, 'Next')!.props.disabled).toBe(true);
+    type(tree, 'Your username', 'Kyle Li!');
+    expect(byLabel(tree, 'Your username')!.props.value).toBe('kyleli');
+    await act(async () => {
+      await button(tree, 'Next')!.props.onPress();
+    });
+    expect(has(tree, 'That username is taken.')).toBe(true);
+    taken = false;
+    await act(async () => {
+      await button(tree, 'Next')!.props.onPress();
+    });
+    expect(claimed).toEqual(['kyleli']);
+    expect(has(tree, 'Let’s learn a bit about you!')).toBe(true);
+  });
+
+  it('does not ask for a username someone already has', () => {
+    const { tree } = mount({ ...baseProfile, username: 'kyle' }, { onClaimUsername: async () => {} });
+    meetPet(tree);
+    expect(has(tree, 'Let’s learn a bit about you!')).toBe(true);
+  });
+
   it('the join-a-partner affordance only appears when onRedeemInvite is passed', () => {
     const withInvite = mount(baseProfile, { onRedeemInvite: async () => true });
     expect(button(withInvite.tree, 'Have an invite code? Join a partner’s pet')).toBeTruthy();

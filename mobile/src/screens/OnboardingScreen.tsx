@@ -36,6 +36,8 @@ import {
   feetAndInchesToCm,
   hasCompletedQuestionnaire,
   normalizeInviteCode,
+  normalizeUsername,
+  usernameError,
   petSurvivalGuidance,
   suggestStepGoal,
   weeksUntil,
@@ -46,7 +48,7 @@ import {
   type TrainingType,
 } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
-import { PET_SHEETS, sheetByBreed } from '../components/petSprites';
+import { PET_SHEETS, sheetByBreed, portraitFrame } from '../components/petSprites';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { billingService, PLUS_PLANS, TRIAL_DAYS, TRIAL_REMINDER_DAY, type PlusPlan } from '../services/billingService';
@@ -86,6 +88,11 @@ interface Props {
    * their plan (the point it is worth most). Absent: no Plus pages.
    */
   paywall?: { onTierChange: (tier: 'free' | 'plus') => void; isDevAccount?: boolean };
+  /**
+   * Claims a username (unique, how friends find you); rejects with a readable
+   * message, e.g. when it is taken. Absent offline, which skips the step.
+   */
+  onClaimUsername?: (username: string) => Promise<void>;
   /** Asks the OS for notifications; resolves to whether they are on. Absent where push cannot work. */
   onEnableNotifications?: () => Promise<boolean>;
 }
@@ -180,6 +187,7 @@ type StepId =
   | 'meetPet'
   | 'namePet'
   | 'yourName'
+  | 'username'
   | 'aboutIntro'
   | 'age'
   | 'sex'
@@ -209,6 +217,8 @@ const FULL_SEQUENCE: StepId[] = [
   'meetPet',
   'namePet',
   'yourName',
+  // The handle friends find you by: unique, so the server has the last word.
+  'username',
   // Then, gently, about you. One question a screen.
   'aboutIntro',
   'age',
@@ -280,9 +290,9 @@ const FONT = {
 };
 
 /**
- * Onboarding's palette: clean white, soft greys and one friendly green for
+ * Onboarding's palette: clean white, soft greys and the app's coral for
  * "go" and "chosen", in the manner of the best pet apps. Dark mode keeps the
- * shapes and the green and swaps the greys for the app's dark surfaces.
+ * shapes and the coral and swaps the greys for the app's dark surfaces.
  */
 const palette = () =>
   getColorScheme() === 'dark'
@@ -294,9 +304,10 @@ const palette = () =>
         softEdge: colors.border,
         border: colors.hairline,
         input: colors.card,
-        green: '#6dbb5e',
-        greenEdge: '#4b8a3f',
-        greenPale: '#1f3320',
+        // The app's coral: "go" and "chosen", as everywhere else in Vitto.
+        green: colors.coral,
+        greenEdge: '#a8432f',
+        greenPale: colors.selectedFill,
       }
     : {
         bg: '#ffffff',
@@ -306,9 +317,9 @@ const palette = () =>
         softEdge: '#d9d9d9',
         border: '#ebebeb',
         input: '#f7f7f7',
-        green: '#6dbb5e',
-        greenEdge: '#55994a',
-        greenPale: '#eef8eb',
+        green: colors.coral,
+        greenEdge: '#b34a35',
+        greenPale: colors.selectedFill,
       };
 
 /** The smallest pet worth showing; with less room than this the pet steps aside. */
@@ -349,6 +360,7 @@ export function OnboardingScreen({
   onSignOut,
   onRedeemInvite,
   paywall,
+  onClaimUsername,
   onEnableNotifications,
 }: Props) {
   useFonts({ Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_700Bold });
@@ -357,6 +369,7 @@ export function OnboardingScreen({
   // the questions, and buying Plus mid-flow must not reshuffle the steps behind them.
   const answeredAtStart = useRef(hasCompletedQuestionnaire(profile)).current;
   const offerPlus = useRef(Boolean(paywall) && !canCustomise).current;
+  const hadUsername = useRef(Boolean(profile.username)).current;
 
   // What they have actually picked. The props carry the app's starting values
   // (a breed, a name, 10,000 steps...); none of those count as an answer, so
@@ -379,6 +392,8 @@ export function OnboardingScreen({
       // After the offer, so buying Plus there opens it up.
       if (step === 'personality') return canCustomise;
       if (step === 'notifications') return Boolean(onEnableNotifications);
+      // Asked once: someone who already has one is not asked again.
+      if (step === 'username') return Boolean(onClaimUsername) && !hadUsername;
       return true;
     });
   const sequence = sequenceFor(goalChoice);
@@ -392,6 +407,8 @@ export function OnboardingScreen({
   const [commitDays, setCommitDays] = useState<number | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
+  const [handle, setHandle] = useState('');
+  const [claiming, setClaiming] = useState(false);
   const [plusBusy, setPlusBusy] = useState<PlusPlan | null>(null);
   const [plusTestMode, setPlusTestMode] = useState<boolean | null>(null);
 
@@ -529,6 +546,17 @@ export function OnboardingScreen({
     setStepError(failure);
     if (failure) return;
     thump();
+    if (stepId === 'username' && onClaimUsername) {
+      setClaiming(true);
+      try {
+        await onClaimUsername(normalizeUsername(handle));
+      } catch (cause) {
+        setStepError(cause instanceof Error ? cause.message : 'Could not save that username.');
+        return;
+      } finally {
+        setClaiming(false);
+      }
+    }
     if (!isLast) {
       goNext();
       return;
@@ -693,6 +721,8 @@ export function OnboardingScreen({
         return { label: 'Next', disabled: !named };
       case 'yourName':
         return { label: 'Next', disabled: !profile.displayName?.trim() || !picked.yourName };
+      case 'username':
+        return { label: 'Next', disabled: usernameError(handle) !== null };
       case 'body':
         return { label: 'Next', disabled: !bodyComplete };
       case 'target':
@@ -755,7 +785,7 @@ export function OnboardingScreen({
                   const size = Math.min(n === 1 ? 150 : 112, Math.max(0, petRoom(n === 1 ? 150 : 112, showJoin ? 360 : 230)));
                   return size > 0 ? (
                     <View key={option} style={[styles.welcomePet, n === 1 && styles.welcomePetMiddle]}>
-                      <SpriteFrame sheet={sheetByBreed(option)} frame={sheetByBreed(option).animations.idle[0]!} size={size} />
+                      <SpriteFrame sheet={sheetByBreed(option)} frame={portraitFrame(sheetByBreed(option))} size={size} />
                     </View>
                   ) : null;
                 })}
@@ -800,7 +830,7 @@ export function OnboardingScreen({
               <View style={[styles.fill, styles.centred]}>
                 {picked.choosePet ? (
                   <>
-                    {pet(petRoom(170, (short ? 50 : 80) + tile * 2 + 8 + 50))}
+                    {pet(petRoom(170, (short ? 50 : 80) + tile * 2 + 8 + 50), undefined, true)}
                     <Text style={styles.chosenName}>{`The ${animal}`}</Text>
                   </>
                 ) : (
@@ -831,7 +861,7 @@ export function OnboardingScreen({
                         pressed && styles.pressed,
                       ]}
                     >
-                      <SpriteFrame sheet={sheet} frame={sheet.animations.idle[0]!} size={Math.round(tile * 0.86)} />
+                      <SpriteFrame sheet={sheet} frame={portraitFrame(sheet)} size={Math.round(tile * 0.86)} />
                     </Pressable>
                   );
                 })}
@@ -892,6 +922,28 @@ export function OnboardingScreen({
                 returnKeyType="done"
                 accessibilityLabel="Your name"
               />
+            </View>
+          ) : null}
+
+          {stepId === 'username' ? (
+            <View style={[styles.fill, styles.centred]}>
+              {pet(petRoom(140, 96 + 80 + 50), `Now pick a username, so your friends can find us!`)}
+              <FInput
+                value={handle}
+                onChangeText={(value) => {
+                  setHandle(value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20));
+                  setStepError(null);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={20}
+                placeholder="@username"
+                returnKeyType="done"
+                accessibilityLabel="Your username"
+              />
+              <Text style={styles.hint}>
+                {handle && usernameError(handle) ? usernameError(handle) : 'Letters, numbers and underscores. Friends see this, not your name.'}
+              </Text>
             </View>
           ) : null}
 
@@ -1319,7 +1371,7 @@ export function OnboardingScreen({
               {!short ? (
                 <Text
                   style={styles.sub}
-                >{`A smarter, more in-character ${petName} who remembers your week and checks in on you more.`}</Text>
+                >{`A sharper, more in-character ${petName} who remembers your week and checks in on you more.`}</Text>
               ) : null}
               <PerkCompare free="10 messages a day" plus="100 a day, sharper voice" />
             </View>
@@ -1411,7 +1463,7 @@ export function OnboardingScreen({
               <Text style={styles.title}>{`Get reminders from ${petName}`}</Text>
               <View style={styles.notification}>
                 <View style={styles.notificationIcon}>
-                  <SpriteFrame sheet={sheetByBreed(breed)} frame={sheetByBreed(breed).animations.idle[0]!} size={58} />
+                  <SpriteFrame sheet={sheetByBreed(breed)} frame={portraitFrame(sheetByBreed(breed))} size={58} />
                 </View>
                 <View style={styles.notificationText}>
                   <Text style={styles.notificationTitle}>{`From ${PetName}`}</Text>
@@ -1505,7 +1557,7 @@ export function OnboardingScreen({
             </>
           ) : footer ? (
             <>
-              <FButton label={footer.label} busy={busy} disabled={footer.disabled} onPress={() => void advance()} />
+              <FButton label={footer.label} busy={busy || claiming} disabled={footer.disabled} onPress={() => void advance()} />
               {stepId === 'yourName' && footer.disabled ? (
                 <Pressable accessibilityRole="button" onPress={() => goNext()} style={styles.linkRow}>
                   <Text style={styles.linkLarge}>Skip</Text>
@@ -1549,7 +1601,7 @@ function Grid({ columns, children }: { columns: number; children: ReactNode }) {
   );
 }
 
-/** A big rounded answer: grey edge, green edge and a tick once chosen. It shrinks to fit a long list. */
+/** A big rounded answer: grey edge, coral edge and a tick once chosen. It shrinks to fit a long list. */
 function FChoice({
   label,
   detail,

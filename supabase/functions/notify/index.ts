@@ -144,7 +144,7 @@ const bankFor = async (
     && candidate.pushLinesAt !== null && now - candidate.pushLinesAt < PUSH_LINES_MAX_AGE_MS;
   if (fresh) return { bank: candidate.pushLines, usage: null };
 
-  const written = await generatePushLines(build(), [], renderPushLinesInstruction(), chatModelFor(candidate.tier));
+  const written = await generatePushLines(build(), [], renderPushLinesInstruction(), chatModelFor(candidate.tier, candidate.life.pet.temperament));
   const bank = written ? parsePushLines(written.text) : null;
   if (!bank) {
     console.error(`[notify] could not write push lines for ${candidate.petId}; ${candidate.pushLines ? 'keeping the old ones' : 'using stock lines'}`);

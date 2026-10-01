@@ -58,6 +58,7 @@ import { PlusScreen } from './src/screens/PlusScreen';
 import { ChooseCompanionScreen } from './src/screens/ChooseCompanionScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { PreferencesScreen } from './src/screens/PreferencesScreen';
+import { friendsService } from './src/services/friendsService';
 import { EditProfileScreen } from './src/screens/EditProfileScreen';
 import { ScreenTimeScreen } from './src/screens/ScreenTimeScreen';
 import { RemindersScreen } from './src/screens/RemindersScreen';
@@ -1878,6 +1879,15 @@ function VittoApp() {
           error={error}
           onSignOut={isSupabaseConfigured && session ? logOut : undefined}
           onRedeemInvite={isSupabaseConfigured && session ? redeemInvite : undefined}
+          onClaimUsername={
+            isSupabaseConfigured && session
+              ? async (username) => {
+                  await friendsService.setMyUsername(username);
+                  // Local only: friendsService has already written it.
+                  setProfile((current) => ({ ...current, username }));
+                }
+              : undefined
+          }
           onEnableNotifications={
             Platform.OS === 'web' || !session
               ? undefined

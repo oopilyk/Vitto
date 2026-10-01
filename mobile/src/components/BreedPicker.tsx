@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { PetBreed } from '@vitto/core';
-import { PET_SHEETS } from './petSprites';
+import { PET_SHEETS, portraitFrame } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -53,7 +53,7 @@ export function BreedPicker({ value, onChange, size = 84, locked, lockedNote, cu
               <View style={ready ? undefined : styles.hidden}>
                 <SpriteFrame
                   sheet={sheet}
-                  frame={sheet.animations.idle[0]}
+                  frame={portraitFrame(sheet)}
                   size={size}
                   onLoad={() => markLoaded(sheet.name)}
                 />

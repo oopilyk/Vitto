@@ -10,16 +10,22 @@
  * cache entry, both callers benefit.
  */
 import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
-import {
-  STABLE_SYSTEM_PROMPT,
-  humanizeReply,
-  renderDynamicSystemPrompt,
-  type CompanionTier,
-  type PetContext,
-} from './companion/index.ts';
+import { humanizeReply, type CompanionTier, type PetContext } from './companion/index.ts';
+import { chatRequest, systemFor, takesEffort } from './chatRequest.ts';
 
-/** Plus: the model the voice was built and tuned on. */
-export const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-sonnet-5';
+/**
+ * Plus chat with a built-in personality. The personalities are written out in
+ * full in the prompt (voice, examples, limits), which a smaller model follows
+ * well, so Plus runs on the cheaper model too. See evals/companion-voice for
+ * the side-by-side check against the Sonnet replies it replaced.
+ */
+export const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-haiku-4-5';
+/**
+ * Plus with a character the person wrote themselves ("Your own"). There is no
+ * written-out voice to lean on, only their notes, and inventing a voice from
+ * those and holding it is where the stronger model earns its price.
+ */
+export const CUSTOM_CHARACTER_MODEL = Deno.env.get('COMPANION_CUSTOM_MODEL') ?? 'claude-sonnet-5';
 /**
  * Free: a much cheaper model for the same prompt. Free is the tier that costs
  * money without paying any, so it is where the price per message matters most.
@@ -27,13 +33,12 @@ export const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-sonnet
 export const FREE_CHAT_MODEL = Deno.env.get('COMPANION_FREE_CHAT_MODEL') ?? 'claude-haiku-4-5';
 export const EXTRACT_MODEL = Deno.env.get('COMPANION_EXTRACT_MODEL') ?? 'claude-haiku-4-5';
 
-export const chatModelFor = (tier: CompanionTier): string => (tier === 'plus' ? CHAT_MODEL : FREE_CHAT_MODEL);
-
 /**
- * `effort` is not accepted by every model; sent to one that does not take it,
- * the whole request fails. Only the Sonnet/Opus family gets it.
+ * The model a pet speaks with. `temperament` is the one the phone sent, after
+ * lifeForTier: a free pet never has one, so free is always the free model.
  */
-const takesEffort = (model: string) => /sonnet|opus/.test(model);
+export const chatModelFor = (tier: CompanionTier, temperament?: string): string =>
+  tier !== 'plus' ? FREE_CHAT_MODEL : temperament === 'custom' ? CUSTOM_CHARACTER_MODEL : CHAT_MODEL;
 
 /**
  * Well inside an edge function's life. The SDK's own defaults (10 minutes, 3
@@ -58,13 +63,6 @@ export interface Generated {
   degraded: boolean;
 }
 
-/** The two system blocks every call in the pet's voice sends, in the order that keeps the cache. */
-const systemFor = (ctx: PetContext): Anthropic.TextBlockParam[] => [
-  // Byte-identical for every user, so one cache entry serves everybody.
-  { type: 'text', text: STABLE_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-  { type: 'text', text: renderDynamicSystemPrompt(ctx) },
-];
-
 export const generate = async (
   ctx: PetContext,
   turns: Anthropic.MessageParam[],
@@ -74,20 +72,7 @@ export const generate = async (
 ): Promise<Generated> => {
   if (!anthropic) return { text: fallback(), usage: null, degraded: true };
   try {
-    const response = await anthropic.messages.create({
-      model,
-      // Deliberately small: replies are one to four sentences, and this is also
-      // the ceiling on what any single message can cost.
-      max_tokens: 400,
-      // Off on purpose. There is nothing here to reason about, and with thinking
-      // on (the default on this model) the thinking is billed as output AND
-      // counted against max_tokens, so a 400-token budget could be spent before
-      // a word of the reply was written.
-      thinking: { type: 'disabled' },
-      ...(takesEffort(model) ? { output_config: { effort: 'low' as const } } : {}),
-      system: systemFor(ctx),
-      messages: turns,
-    });
+    const response = await anthropic.messages.create(chatRequest(ctx, turns, model));
     const usage = { model, ...response.usage };
     if (response.stop_reason === 'refusal') return { text: "…okay I'm gonna not touch that one.", usage, degraded: false };
     const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();

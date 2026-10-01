@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native';
 import type { PetState } from '@vitto/core';
-import { sheetForPet } from './petSprites';
+import { sheetForPet, portraitFrame } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -44,7 +44,7 @@ export function PetSpriteAvatar({ pet, size = DEFAULT_SIZE, placeholderInitial, 
   return (
     <View style={[styles.circle, circle, styles.center]}>
       <View style={{ marginTop: size * 0.08 }}>
-        <SpriteFrame sheet={sheet} frame={sheet.animations.idle[0]} size={spriteSize} />
+        <SpriteFrame sheet={sheet} frame={portraitFrame(sheet)} size={spriteSize} />
       </View>
     </View>
   );

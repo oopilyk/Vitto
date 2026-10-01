@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import { type BodyProfile, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { NavGroup, NavRow, SettingsPage } from '../components/settingsKit';
-import { sheetByBreed } from '../components/petSprites';
+import { sheetByBreed, portraitFrame } from '../components/petSprites';
 import { colors, themedStyles } from '../theme';
 
 interface Props {
@@ -98,7 +98,7 @@ export function SettingsScreen({
             leading={
               breed ? (
                 <View style={styles.art}>
-                  <SpriteFrame sheet={sheetByBreed(breed)} frame={sheetByBreed(breed).animations.idle[0]} size={60} />
+                  <SpriteFrame sheet={sheetByBreed(breed)} frame={portraitFrame(sheetByBreed(breed))} size={60} />
                 </View>
               ) : undefined
             }

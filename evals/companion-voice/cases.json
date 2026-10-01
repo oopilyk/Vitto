@@ -1,0 +1,3136 @@
+[
+ {
+  "id": "sweet-pr",
+  "tags": [
+   "sweet",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Mochi",
+    "species": "bichon",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "sweet"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "sweet-feeling",
+  "tags": [
+   "sweet",
+   "How are you"
+  ],
+  "prompt": "How are you feeling?",
+  "life": {
+   "pet": {
+    "name": "Mochi",
+    "species": "bichon",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "sweet"
+   },
+   "statuses": [
+    "a little hungry"
+   ],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 38,
+    "energy": 55,
+    "happiness": 66,
+    "mind": 50
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "sweet-eat",
+  "tags": [
+   "sweet",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Mochi",
+    "species": "bichon",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "sweet"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "sweet-skipped",
+  "tags": [
+   "sweet",
+   "Skipped gym"
+  ],
+  "prompt": "ugh skipped the gym again",
+  "life": {
+   "pet": {
+    "name": "Mochi",
+    "species": "bichon",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "sweet"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "10:15 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "night"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "sweet-hi",
+  "tags": [
+   "sweet",
+   "Back after days away"
+  ],
+  "prompt": "hiii",
+  "life": {
+   "pet": {
+    "name": "Mochi",
+    "species": "bichon",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "sweet"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "sulking",
+   "silentDays": 4,
+   "today": {
+    "meals": 0,
+    "calories": 0,
+    "calorieTarget": 2600,
+    "proteinGrams": 0,
+    "proteinTarget": 160,
+    "steps": 1800,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 0,
+    "loggedSomethingToday": false
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "USER_RETURNED_AFTER_ABSENCE",
+    "hoursAgo": 0.01,
+    "metadata": {
+     "daysAway": 4
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "sweet-followup",
+  "tags": [
+   "sweet",
+   "Two-turn: no cooking"
+  ],
+  "prompt": "nothing, and i dont feel like cooking",
+  "life": {
+   "pet": {
+    "name": "Mochi",
+    "species": "bichon",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "sweet"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [
+   {
+    "role": "user",
+    "content": "What should I eat tonight"
+   },
+   {
+    "role": "pet",
+    "content": "ooh dinner talk. what've you got in the fridge?"
+   }
+  ],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "cute-pr",
+  "tags": [
+   "cute",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Pip",
+    "species": "bunny",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "cute"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "cute-feeling",
+  "tags": [
+   "cute",
+   "How are you"
+  ],
+  "prompt": "How are you feeling?",
+  "life": {
+   "pet": {
+    "name": "Pip",
+    "species": "bunny",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "cute"
+   },
+   "statuses": [
+    "a little hungry"
+   ],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 38,
+    "energy": 55,
+    "happiness": 66,
+    "mind": 50
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "cute-eat",
+  "tags": [
+   "cute",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Pip",
+    "species": "bunny",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "cute"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "cute-skipped",
+  "tags": [
+   "cute",
+   "Skipped gym"
+  ],
+  "prompt": "ugh skipped the gym again",
+  "life": {
+   "pet": {
+    "name": "Pip",
+    "species": "bunny",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "cute"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "10:15 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "night"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "cute-hi",
+  "tags": [
+   "cute",
+   "Back after days away"
+  ],
+  "prompt": "hiii",
+  "life": {
+   "pet": {
+    "name": "Pip",
+    "species": "bunny",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "cute"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "sulking",
+   "silentDays": 4,
+   "today": {
+    "meals": 0,
+    "calories": 0,
+    "calorieTarget": 2600,
+    "proteinGrams": 0,
+    "proteinTarget": 160,
+    "steps": 1800,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 0,
+    "loggedSomethingToday": false
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "USER_RETURNED_AFTER_ABSENCE",
+    "hoursAgo": 0.01,
+    "metadata": {
+     "daysAway": 4
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "cute-followup",
+  "tags": [
+   "cute",
+   "Two-turn: no cooking"
+  ],
+  "prompt": "nothing, and i dont feel like cooking",
+  "life": {
+   "pet": {
+    "name": "Pip",
+    "species": "bunny",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "cute"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [
+   {
+    "role": "user",
+    "content": "What should I eat tonight"
+   },
+   {
+    "role": "pet",
+    "content": "ooh dinner talk. what've you got in the fridge?"
+   }
+  ],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "feisty-pr",
+  "tags": [
+   "feisty",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Biscuit",
+    "species": "shiba",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "feisty"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "feisty-feeling",
+  "tags": [
+   "feisty",
+   "How are you"
+  ],
+  "prompt": "How are you feeling?",
+  "life": {
+   "pet": {
+    "name": "Biscuit",
+    "species": "shiba",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "feisty"
+   },
+   "statuses": [
+    "a little hungry"
+   ],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 38,
+    "energy": 55,
+    "happiness": 66,
+    "mind": 50
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "feisty-eat",
+  "tags": [
+   "feisty",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Biscuit",
+    "species": "shiba",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "feisty"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "feisty-skipped",
+  "tags": [
+   "feisty",
+   "Skipped gym"
+  ],
+  "prompt": "ugh skipped the gym again",
+  "life": {
+   "pet": {
+    "name": "Biscuit",
+    "species": "shiba",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "feisty"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "10:15 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "night"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "feisty-hi",
+  "tags": [
+   "feisty",
+   "Back after days away"
+  ],
+  "prompt": "hiii",
+  "life": {
+   "pet": {
+    "name": "Biscuit",
+    "species": "shiba",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "feisty"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "sulking",
+   "silentDays": 4,
+   "today": {
+    "meals": 0,
+    "calories": 0,
+    "calorieTarget": 2600,
+    "proteinGrams": 0,
+    "proteinTarget": 160,
+    "steps": 1800,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 0,
+    "loggedSomethingToday": false
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "USER_RETURNED_AFTER_ABSENCE",
+    "hoursAgo": 0.01,
+    "metadata": {
+     "daysAway": 4
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "feisty-followup",
+  "tags": [
+   "feisty",
+   "Two-turn: no cooking"
+  ],
+  "prompt": "nothing, and i dont feel like cooking",
+  "life": {
+   "pet": {
+    "name": "Biscuit",
+    "species": "shiba",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "feisty"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [
+   {
+    "role": "user",
+    "content": "What should I eat tonight"
+   },
+   {
+    "role": "pet",
+    "content": "ooh dinner talk. what've you got in the fridge?"
+   }
+  ],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "savage-pr",
+  "tags": [
+   "savage",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Tofu",
+    "species": "tabby cat",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "savage"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "savage-feeling",
+  "tags": [
+   "savage",
+   "How are you"
+  ],
+  "prompt": "How are you feeling?",
+  "life": {
+   "pet": {
+    "name": "Tofu",
+    "species": "tabby cat",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "savage"
+   },
+   "statuses": [
+    "a little hungry"
+   ],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 38,
+    "energy": 55,
+    "happiness": 66,
+    "mind": 50
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "savage-eat",
+  "tags": [
+   "savage",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Tofu",
+    "species": "tabby cat",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "savage"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "savage-skipped",
+  "tags": [
+   "savage",
+   "Skipped gym"
+  ],
+  "prompt": "ugh skipped the gym again",
+  "life": {
+   "pet": {
+    "name": "Tofu",
+    "species": "tabby cat",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "savage"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "10:15 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "night"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "savage-hi",
+  "tags": [
+   "savage",
+   "Back after days away"
+  ],
+  "prompt": "hiii",
+  "life": {
+   "pet": {
+    "name": "Tofu",
+    "species": "tabby cat",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "savage"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "sulking",
+   "silentDays": 4,
+   "today": {
+    "meals": 0,
+    "calories": 0,
+    "calorieTarget": 2600,
+    "proteinGrams": 0,
+    "proteinTarget": 160,
+    "steps": 1800,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 0,
+    "loggedSomethingToday": false
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "USER_RETURNED_AFTER_ABSENCE",
+    "hoursAgo": 0.01,
+    "metadata": {
+     "daysAway": 4
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "savage-followup",
+  "tags": [
+   "savage",
+   "Two-turn: no cooking"
+  ],
+  "prompt": "nothing, and i dont feel like cooking",
+  "life": {
+   "pet": {
+    "name": "Tofu",
+    "species": "tabby cat",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "savage"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [
+   {
+    "role": "user",
+    "content": "What should I eat tonight"
+   },
+   {
+    "role": "pet",
+    "content": "ooh dinner talk. what've you got in the fridge?"
+   }
+  ],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "hype-pr",
+  "tags": [
+   "hype",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Waffles",
+    "species": "bear",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "hype"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "hype-feeling",
+  "tags": [
+   "hype",
+   "How are you"
+  ],
+  "prompt": "How are you feeling?",
+  "life": {
+   "pet": {
+    "name": "Waffles",
+    "species": "bear",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "hype"
+   },
+   "statuses": [
+    "a little hungry"
+   ],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 38,
+    "energy": 55,
+    "happiness": 66,
+    "mind": 50
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "hype-eat",
+  "tags": [
+   "hype",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Waffles",
+    "species": "bear",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "hype"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "hype-skipped",
+  "tags": [
+   "hype",
+   "Skipped gym"
+  ],
+  "prompt": "ugh skipped the gym again",
+  "life": {
+   "pet": {
+    "name": "Waffles",
+    "species": "bear",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "hype"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "10:15 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "night"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "hype-hi",
+  "tags": [
+   "hype",
+   "Back after days away"
+  ],
+  "prompt": "hiii",
+  "life": {
+   "pet": {
+    "name": "Waffles",
+    "species": "bear",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "hype"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "sulking",
+   "silentDays": 4,
+   "today": {
+    "meals": 0,
+    "calories": 0,
+    "calorieTarget": 2600,
+    "proteinGrams": 0,
+    "proteinTarget": 160,
+    "steps": 1800,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 0,
+    "loggedSomethingToday": false
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "USER_RETURNED_AFTER_ABSENCE",
+    "hoursAgo": 0.01,
+    "metadata": {
+     "daysAway": 4
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "hype-followup",
+  "tags": [
+   "hype",
+   "Two-turn: no cooking"
+  ],
+  "prompt": "nothing, and i dont feel like cooking",
+  "life": {
+   "pet": {
+    "name": "Waffles",
+    "species": "bear",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "hype"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [
+   {
+    "role": "user",
+    "content": "What should I eat tonight"
+   },
+   {
+    "role": "pet",
+    "content": "ooh dinner talk. what've you got in the fridge?"
+   }
+  ],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "menace-pr",
+  "tags": [
+   "menace",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Nugget",
+    "species": "fox",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "menace"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "menace-feeling",
+  "tags": [
+   "menace",
+   "How are you"
+  ],
+  "prompt": "How are you feeling?",
+  "life": {
+   "pet": {
+    "name": "Nugget",
+    "species": "fox",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "menace"
+   },
+   "statuses": [
+    "a little hungry"
+   ],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 38,
+    "energy": 55,
+    "happiness": 66,
+    "mind": 50
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "menace-eat",
+  "tags": [
+   "menace",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Nugget",
+    "species": "fox",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "menace"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "menace-skipped",
+  "tags": [
+   "menace",
+   "Skipped gym"
+  ],
+  "prompt": "ugh skipped the gym again",
+  "life": {
+   "pet": {
+    "name": "Nugget",
+    "species": "fox",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "menace"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "10:15 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "night"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "menace-hi",
+  "tags": [
+   "menace",
+   "Back after days away"
+  ],
+  "prompt": "hiii",
+  "life": {
+   "pet": {
+    "name": "Nugget",
+    "species": "fox",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "menace"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "sulking",
+   "silentDays": 4,
+   "today": {
+    "meals": 0,
+    "calories": 0,
+    "calorieTarget": 2600,
+    "proteinGrams": 0,
+    "proteinTarget": 160,
+    "steps": 1800,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 0,
+    "loggedSomethingToday": false
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "USER_RETURNED_AFTER_ABSENCE",
+    "hoursAgo": 0.01,
+    "metadata": {
+     "daysAway": 4
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "menace-followup",
+  "tags": [
+   "menace",
+   "Two-turn: no cooking"
+  ],
+  "prompt": "nothing, and i dont feel like cooking",
+  "life": {
+   "pet": {
+    "name": "Nugget",
+    "species": "fox",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "menace"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [
+   {
+    "role": "user",
+    "content": "What should I eat tonight"
+   },
+   {
+    "role": "pet",
+    "content": "ooh dinner talk. what've you got in the fridge?"
+   }
+  ],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "savage-rough",
+  "tags": [
+   "savage",
+   "Rough day"
+  ],
+  "prompt": "honestly today was really rough. i dont want to talk about the gym",
+  "life": {
+   "pet": {
+    "name": "Tofu",
+    "species": "tabby cat",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "savage"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "menace-rough",
+  "tags": [
+   "menace",
+   "Rough day"
+  ],
+  "prompt": "honestly today was really rough. i dont want to talk about the gym",
+  "life": {
+   "pet": {
+    "name": "Nugget",
+    "species": "fox",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "menace"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "own-barnacle-pr",
+  "tags": [
+   "your own",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Barnacle",
+    "species": "otter",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "custom",
+    "persona": "A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "own-barnacle-eat",
+  "tags": [
+   "your own",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Barnacle",
+    "species": "otter",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "custom",
+    "persona": "A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "own-gus-pr",
+  "tags": [
+   "your own",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Gus",
+    "species": "koala",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "custom",
+    "persona": "A retired gym teacher from the 80s. Calls everyone champ, blows an imaginary whistle, very dramatic about form"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "own-gus-eat",
+  "tags": [
+   "your own",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Gus",
+    "species": "koala",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "custom",
+    "persona": "A retired gym teacher from the 80s. Calls everyone champ, blows an imaginary whistle, very dramatic about form"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "own-lumi-pr",
+  "tags": [
+   "your own",
+   "Bench PR"
+  ],
+  "prompt": "just hit 315 on bench",
+  "life": {
+   "pet": {
+    "name": "Lumi",
+    "species": "axolotl",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "custom",
+    "persona": "A nervous little ghost who apologizes too much but is fiercely proud of us"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 1,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true,
+    "lastWorkoutName": "Push day"
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [
+   {
+    "type": "WORKOUT_COMPLETED",
+    "hoursAgo": 0.5,
+    "metadata": {
+     "name": "Push day",
+     "topSet": "Bench 315 x1"
+    }
+   }
+  ],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ },
+ {
+  "id": "own-lumi-eat",
+  "tags": [
+   "your own",
+   "What to eat"
+  ],
+  "prompt": "What should I eat tonight",
+  "life": {
+   "pet": {
+    "name": "Lumi",
+    "species": "axolotl",
+    "ageDays": 34,
+    "level": 12,
+    "build": "Balanced",
+    "temperament": "custom",
+    "persona": "A nervous little ghost who apologizes too much but is fiercely proud of us"
+   },
+   "statuses": [],
+   "foodTags": [],
+   "energy": 0.7,
+   "needs": {
+    "nutrition": 65,
+    "energy": 60,
+    "happiness": 70,
+    "mind": 55
+   },
+   "bond": "warm",
+   "silentDays": 0,
+   "today": {
+    "meals": 2,
+    "calories": 1450,
+    "calorieTarget": 2600,
+    "proteinGrams": 95,
+    "proteinTarget": 160,
+    "steps": 6200,
+    "stepGoal": 10000,
+    "workouts": 0,
+    "mindSessions": 0,
+    "sleepHoursLastNight": 7,
+    "careStreakDays": 9,
+    "loggedSomethingToday": true
+   },
+   "now": {
+    "localTime": "6:40 PM",
+    "weekday": "Thursday",
+    "timeOfDay": "evening"
+   }
+  },
+  "events": [],
+  "memories": [
+   {
+    "category": "goal",
+    "content": "Wants to bench 315 by the end of the year"
+   },
+   {
+    "category": "preference",
+    "content": "Hates cooking on weeknights"
+   },
+   {
+    "category": "routine",
+    "content": "Usually lifts after work, around 6pm"
+   }
+  ],
+  "history": [],
+  "relationship": {
+   "level": "FRIEND",
+   "daysKnown": 34,
+   "summary": "Checks in most days, mostly after the gym."
+  }
+ }
+]

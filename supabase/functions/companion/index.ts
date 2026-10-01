@@ -33,7 +33,8 @@ import {
  * Secrets: ANTHROPIC_API_KEY. Without it the function still works, on a keyless
  * templated fallback, so the feature can be wired up and tested before the key
  * is set, and a Claude outage degrades to stock replies instead of an error.
- * Optional: COMPANION_CHAT_MODEL (Plus), COMPANION_FREE_CHAT_MODEL, COMPANION_EXTRACT_MODEL.
+ * Optional: COMPANION_CHAT_MODEL (Plus), COMPANION_CUSTOM_MODEL (Plus, "Your own" characters),
+ * COMPANION_FREE_CHAT_MODEL, COMPANION_EXTRACT_MODEL.
  */
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
@@ -450,7 +451,7 @@ Deno.serve(async (request) => {
     // Personalities are Plus: a free pet speaks in the default voice whatever
     // temperament, dials or persona the phone sent.
     const life = sentLife ? lifeForTier(sentLife, tier) : undefined;
-    const model = chatModelFor(tier);
+    const model = chatModelFor(tier, life?.pet.temperament);
     // Kept for the notification job, which has no phone to ask. Deliberately
     // not awaited and never fatal: a failed cache write must not cost somebody
     // their reply, and the next request writes it again. Cached with the tier

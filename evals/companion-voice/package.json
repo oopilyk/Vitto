@@ -1,0 +1,9 @@
+{
+  "name": "companion-voice-eval",
+  "private": true,
+  "type": "module",
+  "description": "Blind pairwise eval of the pet's chat voice: Haiku 4.5 vs Sonnet 5 on the Plus prompt.",
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.126.0"
+  }
+}

@@ -498,7 +498,10 @@ const TABBY_CAT_LAYOUT: SheetLayout = {
   rows: 10,
   animations: {
     idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0]],
-    cheer: [[2, 0], [2, 1], [2, 2], [2, 3], [3, 0], [3, 1], [3, 2]],
+    // The happy band (rows 5-7: standing tall, mouth open), played there and
+    // back so the loop never jumps. Rows 2-3 are a paw-lick, which read as a
+    // grooming cut rather than joy.
+    cheer: [[5, 0], [5, 1], [5, 2], [5, 3], [6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [6, 3], [6, 2], [6, 1], [6, 0], [5, 3], [5, 2], [5, 1]],
     // The run band, not the nine-frame walk: `move` is what plays while the pet
     // explores, and the dogs map it to their run bands too.
     move: [[4, 0], [4, 1], [4, 2], [4, 3]],
@@ -929,6 +932,28 @@ export const PET_SHEETS: PetSheet[] = [
 
 export const sheetByBreed = (breed: PetBreed): PetSheet =>
   PET_SHEETS.find((sheet) => sheet.name === breed) ?? PET_SHEETS[0];
+
+/**
+ * The frame a pet is shown in when it is not animating (pickers, avatars, the
+ * share card, notifications): eyes open, looking out. Several idle cycles open
+ * mid-blink, which reads as asleep on a still, so `idle[0]` will not do.
+ * Picked by eye from each sheet's idle row; a sheet not listed (the evolved
+ * forms) falls back to its first idle frame.
+ */
+const PORTRAIT: Partial<Record<string, Frame>> = {
+  bichon: [0, 2],
+  shiba: [0, 2],
+  otter: [0, 0],
+  tabbyCat: [0, 0],
+  bunny: [0, 2],
+  fox: [0, 0],
+  koala: [0, 2],
+  bear: [0, 2],
+  axolotl: [0, 0],
+  dino: [0, 1],
+};
+
+export const portraitFrame = (sheet: PetSheet): Frame => PORTRAIT[sheet.name] ?? sheet.animations.idle[0]!;
 
 /**
  * The sheet a pet is drawn from, evolutions included.

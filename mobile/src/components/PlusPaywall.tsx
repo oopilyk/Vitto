@@ -56,7 +56,7 @@ const COMPARISON: { feature: string; detail: string; free: string; plus: string 
   },
   {
     feature: 'Voice',
-    detail: 'Stronger AI, more in character',
+    detail: 'Their personality in every reply',
     free: 'Standard',
     plus: 'Sharper',
   },

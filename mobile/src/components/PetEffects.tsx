@@ -61,7 +61,14 @@ export function Confetti({ active, headOffset }: EffectProps) {
       ]),
     );
     progress.forEach((value) => value.setValue(0));
-    const burst = Animated.parallel(animations);
+    // Bursts again and again for as long as the celebration lasts: a short
+    // one gets its single burst, a pet celebrating on a page keeps raining.
+    const burst = Animated.loop(
+      Animated.sequence([
+        Animated.parallel(animations),
+        Animated.parallel(progress.map((value) => Animated.timing(value, { toValue: 0, duration: 0, useNativeDriver: true }))),
+      ]),
+    );
     burst.start();
     return () => burst.stop();
   }, [active, progress]);

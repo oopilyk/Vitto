@@ -15,7 +15,7 @@ import {
   type PetState,
 } from '@vitto/core';
 import { SpriteFrame } from './SpriteFrame';
-import { sheetForPet } from './petSprites';
+import { sheetForPet, portraitFrame } from './petSprites';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -121,7 +121,7 @@ export const PetShareCard = forwardRef<View, PetShareCardProps>(function PetShar
       </Svg>
 
       <View style={styles.pet}>
-        <SpriteFrame sheet={sheet} frame={sheet.animations.idle[0]!} size={176} onLoad={arrived} />
+        <SpriteFrame sheet={sheet} frame={portraitFrame(sheet)} size={176} onLoad={arrived} />
       </View>
 
       <View style={styles.footer}>

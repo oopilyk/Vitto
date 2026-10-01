@@ -1,0 +1,30 @@
+{
+  "flow": "companion-voice",
+  "description": "Plus pet chat replies: Haiku 4.5 (v1) judged blind against frozen Sonnet 5 replies (baseline).",
+  "metrics": [
+    {
+      "id": "win",
+      "label": "Haiku win rate",
+      "kind": "continuous",
+      "higher_is_better": true
+    },
+    {
+      "id": "both_bad",
+      "label": "Both bad",
+      "kind": "binary",
+      "higher_is_better": false
+    }
+  ],
+  "perf_fields": [
+    "words",
+    "latency_s",
+    "cost_usd"
+  ],
+  "harness_paths": [
+    "evals/companion-voice/app.mjs",
+    "evals/companion-voice/cases.json",
+    "supabase/functions/_shared/chatRequest.ts",
+    "supabase/functions/_shared/companion/prompts.ts",
+    "supabase/functions/_shared/companion/context.ts"
+  ]
+}

@@ -11,7 +11,7 @@ import {
   type PetState,
 } from '@vitto/core';
 import { SpriteFrame } from './SpriteFrame';
-import { evolutionSheetFor } from './petSprites';
+import { evolutionSheetFor, portraitFrame } from './petSprites';
 import { Kicker } from './ui';
 import { colors, fonts, text, themedStyles } from '../theme';
 
@@ -73,7 +73,7 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
       <Text style={styles.hint}>{hint}</Text>
       {all.map((entry) => {
         const sheet = evolutionSheetFor(pet, entry.build);
-        const frame = sheet.animations.idle[0]!;
+        const frame = portraitFrame(sheet);
         const isWorn = entry.earned && wearing === entry.build;
         const needs = stillNeeded(entry);
         const status = isWorn ? 'Wearing' : entry.earned ? (switchable ? 'Tap to wear' : 'Earned') : `${Math.round(entry.progress * 100)}%`;

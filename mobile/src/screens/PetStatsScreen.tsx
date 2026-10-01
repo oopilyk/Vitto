@@ -30,7 +30,7 @@ import { ActivityCalendar } from '../components/ActivityCalendar';
 import { EvolutionCard } from '../components/EvolutionCard';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { StatBar } from '../components/StatBar';
-import { sheetForPet } from '../components/petSprites';
+import { sheetForPet, portraitFrame } from '../components/petSprites';
 import { Kicker } from '../components/ui';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
@@ -245,7 +245,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
 
         <View style={styles.identity}>
           <View style={styles.portrait}>
-            <SpriteFrame sheet={sheet} frame={sheet.animations.idle[0]} size={96} />
+            <SpriteFrame sheet={sheet} frame={portraitFrame(sheet)} size={96} />
           </View>
           <View style={styles.identityText}>
             <Kicker>{PET_BUILD_LABEL[getPetBuild(pet)].toUpperCase()}</Kicker>
