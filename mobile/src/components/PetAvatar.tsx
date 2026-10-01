@@ -358,6 +358,10 @@ export function PetAvatar({
         <Animated.Image source={{ uri: feedingImage }} style={[styles.food, foodStyle]} />
       ) : null}
 
+      {/* The pet's own cell: the sprite and every effect anchored to its head
+          share it, so "above the head" is above the head wherever the stage puts
+          the pet (centred here, standing on the floor in a room). */}
+      <View style={[styles.cell, { width: size, height: size }]} pointerEvents="box-none">
       {/* A window one cell wide, with the whole sheet slid behind it. */}
       <Animated.View
         accessibilityRole="image"
@@ -385,6 +389,14 @@ export function PetAvatar({
           />
         ) : null}
       </Animated.View>
+      {/* At most two of these; `assessCondition` clears them all while dying. */}
+      <HungerPangs active={overlays.has('starving')} headOffset={headOffset} />
+      <Zzz active={overlays.has('exhausted') || sleeping} headOffset={headOffset} />
+      <RainCloud active={overlays.has('sad')} headOffset={headOffset} />
+      <DizzyOrbit active={overlays.has('foggy')} headOffset={headOffset} />
+      <Confetti active={isCelebrating} headOffset={headOffset} />
+      <HeartStream active={showHearts} headOffset={headOffset} />
+      </View>
 
       {activity === 'analyzing' ? (
         <View style={styles.thought}>
@@ -401,15 +413,7 @@ export function PetAvatar({
           </Text>
         </View>
       ) : null}
-      {/* At most two of these; `assessCondition` clears them all while dying. */}
-      <HungerPangs active={overlays.has('starving')} headOffset={headOffset} />
-      <Zzz active={overlays.has('exhausted') || sleeping} headOffset={headOffset} />
-      <RainCloud active={overlays.has('sad')} headOffset={headOffset} />
-      <DizzyOrbit active={overlays.has('foggy')} headOffset={headOffset} />
-
-      <Confetti active={isCelebrating} headOffset={headOffset} />
       <Dumbbell active={Boolean(atGym)} size={size} />
-      <HeartStream active={showHearts} headOffset={headOffset} />
 
       {hideStatusCaption ? null : (
         <Text style={styles.status}>
@@ -428,6 +432,8 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  // Effects rise out of the top of this box, so it must not clip them.
+  cell: { alignItems: 'center', justifyContent: 'center', overflow: 'visible', zIndex: 1 },
   window: { overflow: 'hidden', zIndex: 1 },
   // Centred on the pet; the flight transform carries it in from off to the side.
   food: { position: 'absolute', width: 76, height: 76, borderRadius: 38, zIndex: 3 },
