@@ -1,5 +1,6 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { SettingsPage, ToggleRow } from '../components/settingsKit';
+import { themedStyles } from '../theme';
 
 interface Props {
   petName?: string;
@@ -38,6 +39,6 @@ export function NotificationsScreen({ petName, pushEnabled, onPushEnabledChange,
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   body: { marginTop: 16, gap: 16 },
-});
+}));

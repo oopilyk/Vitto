@@ -3,7 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Defs, Ellipse, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { SpriteFrame } from './SpriteFrame';
 import type { PetSheet } from './petSprites';
-import { colors } from '../theme';
+import { colors, themedStyles } from '../theme';
 
 /**
  * How far above the head each effect parks, in points.
@@ -19,12 +19,12 @@ const ORBIT_CLEARANCE = 24;
 const CLOUD_CLEARANCE = 36;
 const CONFETTI_CLEARANCE = 10;
 
-const CONFETTI_COLORS = [colors.coral, colors.mintDeep, colors.yellowDeep, colors.lilacDeep, '#84a08a'];
+const CONFETTI_COLORS = () => ([colors.coral, colors.mintDeep, colors.yellowDeep, colors.lilacDeep, '#84a08a']);
 
 /** Fixed, not random, so pieces do not jump around between renders. */
 const CONFETTI = Array.from({ length: 16 }, (_, index) => ({
   key: index,
-  color: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
+  color: CONFETTI_COLORS()[index % CONFETTI_COLORS().length],
   // Fan out across the full circle, biased upward by the rise below.
   drift: Math.cos((index / 16) * Math.PI * 2) * (58 + (index % 5) * 16),
   rise: 66 + (index % 4) * 20,
@@ -536,7 +536,7 @@ export function PetAura({ color, size }: PetAuraProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   aura: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   // Sits at the stage centre; marginTop lifts it clear of the pet's head.
   /**
@@ -578,4 +578,4 @@ const styles = StyleSheet.create({
   // Stacked directly on the sprite inside the avatar's window, so it inherits
   // the same position and never needs its own bounds.
   fade: { position: 'absolute', top: 0, left: 0, zIndex: 2 },
-});
+}));

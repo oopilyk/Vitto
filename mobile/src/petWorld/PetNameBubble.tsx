@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text } from 'react-native';
-import { fonts } from '../theme';
+import { Animated, Text } from 'react-native';
+import { fonts, themedStyles } from '../theme';
 
 /**
  * The pet's name in a small, low-opacity retro textbox that floats just above
@@ -52,7 +52,7 @@ export function PetNameBubble({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   bubble: {
     alignSelf: 'center',
     paddingHorizontal: 12,
@@ -77,4 +77,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   nameNight: { color: '#efe5d0' },
-});
+}));

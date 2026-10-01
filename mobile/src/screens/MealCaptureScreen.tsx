@@ -14,7 +14,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
 import { analyzeMealImage, type PickedImage } from '../services/mealAnalysis';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
   onComplete: (metadata: MealMetadata) => Promise<void>;
@@ -409,7 +409,7 @@ function AnalysisCard({ analysis }: { analysis: MealAnalysis }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   locked: {
     gap: 10,
     padding: 16,
@@ -458,8 +458,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#b9c4b7',
-    backgroundColor: '#eef2ec',
+    borderColor: colors.border,
+    backgroundColor: colors.sageSoft,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -527,8 +527,8 @@ const styles = StyleSheet.create({
     minWidth: 72,
   },
   searchButtonLabel: { color: '#fff', fontFamily: fonts.mono, fontSize: 12 },
-  result: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#e8e5de' },
-  resultOn: { backgroundColor: '#fbf1ee' },
+  result: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  resultOn: { backgroundColor: colors.selectedFill },
   resultName: { fontSize: 14, color: colors.ink },
   resultMeta: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },
@@ -536,4 +536,4 @@ const styles = StyleSheet.create({
   servingsInput: { width: 90 },
   scanner: { height: 280, borderRadius: 16, overflow: 'hidden', backgroundColor: '#000' },
   scanHint: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint, marginTop: 12, textAlign: 'center' },
-});
+}));

@@ -33,7 +33,7 @@ import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
 import { retro, retroPressed } from '../petWorld/retroStyle';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 
 const FOUR_CORNERS_BG_DAY = require('../../assets/environments/4-corners-day.png');
 const FOUR_CORNERS_BG_NIGHT = require('../../assets/environments/4-corners-night.png');
@@ -410,7 +410,7 @@ const SLOT_POSITION: Record<FourCorner, { top?: number; bottom?: number; left?: 
   bottomRight: { bottom: 0, right: 0 },
 };
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   screen: { flex: 1, backgroundColor: DAY_SKY, paddingTop: 56 },
   screenNight: { backgroundColor: NIGHT_SKY },
   centred: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
@@ -479,4 +479,4 @@ const styles = StyleSheet.create({
   petStage: { flex: 1, alignSelf: 'stretch', backgroundColor: 'transparent', overflow: 'visible' },
 
   footer: { paddingHorizontal: 18, paddingBottom: 24 },
-});
+}));

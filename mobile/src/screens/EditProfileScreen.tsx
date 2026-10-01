@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { type BodyProfile, MAX_BIO_LENGTH, normalizeBio } from '@vitto/core';
 import { FormField, SaveBar, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
   profile: BodyProfile;
@@ -97,7 +97,7 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   identity: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 16 },
   avatar: {
     width: 64,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#efe7d8',
+    backgroundColor: colors.tile,
   },
   avatarInitial: { fontFamily: fonts.display, fontSize: 28, color: colors.ink },
   identityText: { flex: 1, gap: 4 },
@@ -113,4 +113,4 @@ const styles = StyleSheet.create({
   handleUnset: { fontSize: 16, color: colors.muted },
   handleLink: { fontSize: 14, fontWeight: '600', color: colors.coral },
   bio: { minHeight: 96, paddingTop: 12, textAlignVertical: 'top', lineHeight: 20 },
-});
+}));

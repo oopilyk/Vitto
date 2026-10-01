@@ -10,7 +10,7 @@ import {
 import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
 import { retro, retroPressed } from '../petWorld/retroStyle';
 import { isNightTime } from '../petWorld/timeOfDay';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { MindGameCard, MindFeatureCard } from './MindGameCard';
 import { MindTodayPanel } from './MindTodayPanel';
 import { availableMindGames, featuredMindGame, isMindGamePlayed, type MindRouteHandlers } from './hub';
@@ -128,7 +128,7 @@ export function MindHub({ pet, events, routes, onStartStage, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   screen: { flex: 1, backgroundColor: DAY_TINT },
   screenNight: { backgroundColor: NIGHT_TINT },
 
@@ -176,4 +176,4 @@ const styles = StyleSheet.create({
   // highlight — the same reason the bar's type is, and it is never ink-on-art.
   section: { ...retro.kicker, color: world.nightText, marginTop: 26, marginBottom: 12 },
   card: { marginBottom: 12 },
-});
+}));

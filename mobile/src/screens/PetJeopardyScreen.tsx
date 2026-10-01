@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Modal, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, Modal, View, type LayoutChangeEvent } from 'react-native';
 import {
   type BrainTrainingMetadata,
   type JeopardyGame,
@@ -47,6 +47,7 @@ import {
 } from '../petJeopardy/board';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
+import { themedStyles } from '../theme';
 
 interface Props {
   pet: PetState;
@@ -439,7 +440,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
 /** The same sheet presentation the other mind games use (MindGym, WordPuzzle, Four Corners). */
 const SHEET = { animationType: 'slide', presentationStyle: 'pageSheet' } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   petLayer: {
     position: 'absolute',
     top: 0,
@@ -452,4 +453,4 @@ const styles = StyleSheet.create({
   petStage: { flex: 1, alignSelf: 'stretch', backgroundColor: 'transparent', overflow: 'visible' },
 
   footer: { paddingHorizontal: 18, paddingBottom: 18 },
-});
+}));

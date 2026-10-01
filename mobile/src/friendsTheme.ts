@@ -1,5 +1,5 @@
 import type { SocialHealthTone } from '@vitto/core';
-import { colors } from './theme';
+import { colors, getColorScheme } from './theme';
 
 /**
  * Friends & Social Pets -- the day/night palette for the friends surfaces.
@@ -32,16 +32,17 @@ export interface FriendsPalette {
   avatarPlaceholderBg: string;
 }
 
+/** Day: the app's own palette, read live (getters) so it is the light one whenever this is used. */
 export const FRIENDS_LIGHT: FriendsPalette = {
-  screenBg: colors.paper,
-  rowBg: colors.card,
-  primaryText: colors.ink,
-  secondaryText: colors.muted,
-  divider: colors.hairline,
-  bannerBg: colors.card,
-  bannerText: colors.ink,
-  bannerBorder: colors.border,
-  avatarPlaceholderBg: colors.sageSoft,
+  get screenBg() { return colors.paper; },
+  get rowBg() { return colors.card; },
+  get primaryText() { return colors.ink; },
+  get secondaryText() { return colors.muted; },
+  get divider() { return colors.hairline; },
+  get bannerBg() { return colors.card; },
+  get bannerText() { return colors.ink; },
+  get bannerBorder() { return colors.border; },
+  get avatarPlaceholderBg() { return colors.sageSoft; },
 };
 
 export const FRIENDS_DARK: FriendsPalette = {
@@ -56,8 +57,9 @@ export const FRIENDS_DARK: FriendsPalette = {
   avatarPlaceholderBg: '#2c2b33',
 };
 
+/** Night, or the app in dark mode, gets the dark list; otherwise the day one. */
 export const friendsPalette = (isNight: boolean): FriendsPalette =>
-  isNight ? FRIENDS_DARK : FRIENDS_LIGHT;
+  isNight || getColorScheme() === 'dark' ? FRIENDS_DARK : FRIENDS_LIGHT;
 
 /**
  * The colour a `SocialHealthInfo.tone` reads as in a status line. `neutral`

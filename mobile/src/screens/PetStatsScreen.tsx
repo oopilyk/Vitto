@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   type BrainTrainingMetadata,
   DECAY_PERIOD_MS,
@@ -32,7 +32,7 @@ import { SpriteFrame } from '../components/SpriteFrame';
 import { StatBar } from '../components/StatBar';
 import { sheetForPet } from '../components/petSprites';
 import { Kicker } from '../components/ui';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
   /**
@@ -52,11 +52,11 @@ interface Props {
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
 
 /** One colour per group, so a bar's tint says which part of the pet it belongs to. */
-const GROUP_COLOR: Record<PetStatGroup, string> = {
+const GROUP_COLOR = (): Record<PetStatGroup, string> => ({
   condition: colors.coral,
   body: colors.mintDeep,
   mind: colors.lilacDeep,
-};
+});
 
 const CARE_LABEL = [
   ['MEAL', 'Meals'],
@@ -146,18 +146,18 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-const FEELING_TINT: Record<PetState['mood'], { backgroundColor: string; borderColor: string }> = {
+const FEELING_TINT = (): Record<PetState['mood'], { backgroundColor: string; borderColor: string }> => ({
   bright: { backgroundColor: colors.mint, borderColor: colors.mintDeep },
   content: { backgroundColor: colors.sageSoft, borderColor: colors.sage },
   sleepy: { backgroundColor: colors.lilac, borderColor: colors.lilacDeep },
   hungry: { backgroundColor: colors.coralWash, borderColor: colors.coral },
-};
-const FEELING_INK: Record<PetState['mood'], string> = {
+});
+const FEELING_INK = (): Record<PetState['mood'], string> => ({
   bright: colors.mintDeep,
   content: colors.inkSoft,
   sleepy: colors.lilacDeep,
   hungry: colors.coralDeep,
-};
+});
 
 const describeMood = (pet: PetState): string => {
   if (pet.mood === 'hungry') return `Nutrition is under 35. A meal will sort it.`;
@@ -193,7 +193,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
         key={descriptor.key}
         label={descriptor.label}
         value={statValue(pet, descriptor.key)}
-        color={GROUP_COLOR[group]}
+        color={GROUP_COLOR()[group]}
         hint={descriptor.hint}
       />
     ));
@@ -255,9 +255,9 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
             <Text style={styles.identityMeta}>{`${sheet.label} · Day ${daysWithPet(pet, now)} together`}</Text>
             {/* How they are doing, beside the face it belongs to and before any
                 number: it is the one thing a person opens this screen to know. */}
-            <View style={[styles.feeling, FEELING_TINT[pet.mood]]} accessibilityRole="summary">
-              <View style={[styles.feelingDot, { backgroundColor: FEELING_INK[pet.mood] }]} />
-              <Text style={[styles.feelingText, { color: FEELING_INK[pet.mood] }]} numberOfLines={1}>
+            <View style={[styles.feeling, FEELING_TINT()[pet.mood]]} accessibilityRole="summary">
+              <View style={[styles.feelingDot, { backgroundColor: FEELING_INK()[pet.mood] }]} />
+              <Text style={[styles.feelingText, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
                 {`${pet.name} is ${MOOD_WORD[pet.mood]}`}
               </Text>
             </View>
@@ -360,7 +360,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   coinsRow: { marginTop: 12, gap: 2 },
   coinsValue: { fontFamily: fonts.mono, fontSize: 14, fontWeight: '700', color: colors.yellowDeep },
   coinsHint: { fontSize: 12, color: colors.faint, lineHeight: 17 },
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee9e1',
+    borderBottomColor: colors.divider,
   },
   tableLabel: { flex: 1, fontSize: 13, color: colors.ink },
   tableLabelHead: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, letterSpacing: 0.8 },
@@ -482,4 +482,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   testBannerBody: { fontSize: 12, color: colors.card, marginTop: 6, lineHeight: 17 },
-});
+}));

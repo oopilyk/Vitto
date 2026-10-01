@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Pressable, Text, View } from 'react-native';
+import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
@@ -86,7 +86,7 @@ export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): Envi
   };
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   mealSlot: {
     position: 'absolute',
     top: '32%',
@@ -112,4 +112,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: '#fff',
   },
-});
+}));

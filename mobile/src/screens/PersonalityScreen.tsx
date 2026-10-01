@@ -1,9 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { CharacterEditor, type Character } from '../components/CharacterEditor';
 import { SettingsPage } from '../components/settingsKit';
 import { TextButton } from '../components/ui';
-import { colors } from '../theme';
+import { colors, themedStyles } from '../theme';
 
 interface Props {
   pet: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
@@ -46,7 +46,7 @@ export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpe
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   body: { marginTop: 16 },
   locked: {
     gap: 6,
@@ -56,4 +56,4 @@ const styles = StyleSheet.create({
   },
   lockedTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
   lockedBody: { fontSize: 14, color: colors.muted, lineHeight: 20 },
-});
+}));

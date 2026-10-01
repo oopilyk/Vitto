@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Text, View, type LayoutChangeEvent } from 'react-native';
 import { retro } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { AnswerTile, type AnswerTileState } from './AnswerTile';
 
 export interface StageReveal {
@@ -136,7 +136,7 @@ export function QuestionStage({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
   headRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   chip: { paddingVertical: 5, paddingHorizontal: 10 },
@@ -155,4 +155,4 @@ const styles = StyleSheet.create({
   verdictNight: { color: world.nightText },
   answers: { gap: 10, paddingBottom: 16 },
   footer: { paddingBottom: 20 },
-});
+}));

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { type HealthEvent, type MealMetadata, calorieEstimate } from '@vitto/core';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 const LOGGED_VIA_ICON: Record<NonNullable<MealMetadata['loggedVia']>, string> = {
   ai: '✣',
@@ -76,8 +76,8 @@ export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { borderBottomWidth: 1, borderBottomColor: '#e5e2db' },
+const styles = themedStyles(() => ({
+  row: { borderBottomWidth: 1, borderBottomColor: colors.divider },
   summary: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   icon: {
     width: 32,
@@ -109,4 +109,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.muted,
   },
-});
+}));

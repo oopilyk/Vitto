@@ -4,7 +4,7 @@ import { JEOPARDY_PICKS_PER_ROUND, type JeopardyGame } from '@vitto/core';
 import { PrimaryButton } from '../components/ui';
 import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
 import { retro, retroPressed } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 
 /**
  * The frame every Pet Jeopardy stage sits in: the scene behind it, the bar
@@ -106,7 +106,7 @@ export function JeopardyUnavailable({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   screen: { flex: 1, backgroundColor: DAY_TINT, paddingTop: 56 },
   screenNight: { backgroundColor: NIGHT_TINT },
   centred: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 },
@@ -150,4 +150,4 @@ const styles = StyleSheet.create({
     borderColor: world.barHairline,
   },
   closeMark: { fontFamily: fonts.mono, fontSize: 15, fontWeight: '700', color: world.nightText },
-});
+}));

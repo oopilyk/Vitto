@@ -1,6 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, fonts, layout, text } from '../theme';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 export function Kicker({ children }: { children: ReactNode }) {
   return <Text style={text.kicker}>{children}</Text>;
@@ -24,12 +24,17 @@ export function PrimaryButton({
       disabled={disabled || busy}
       style={({ pressed }) => [
         layout.primaryButton,
-        (disabled || busy) && styles.disabled,
+        // Busy keeps its colour (the spinner says what is happening); not-yet-pressable goes neutral.
+        busy ? styles.busy : disabled && styles.disabledButton,
         pressed && styles.pressed,
       ]}
     >
-      <Text style={layout.primaryLabel}>{label}</Text>
-      {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.arrow}>→</Text>}
+      <Text style={[layout.primaryLabel, disabled && !busy && styles.disabledLabel]}>{label}</Text>
+      {busy ? (
+        <ActivityIndicator color={colors.onCoral} size="small" />
+      ) : (
+        <Text style={[styles.arrow, disabled && styles.disabledLabel]}>→</Text>
+      )}
     </Pressable>
   );
 }
@@ -50,8 +55,8 @@ export function TextButton({
       <Text
         style={[
           styles.textButton,
-          { color: tone === 'coral' ? colors.coral : colors.muted },
-          disabled && styles.disabled,
+          // Disabled reads as a quiet grey rather than a faded colour, which all but vanishes on dark.
+          { color: disabled ? colors.onDisabled : tone === 'coral' ? colors.coral : colors.muted },
         ]}
       >
         {label}
@@ -163,10 +168,13 @@ export function ErrorText({ children }: { children: ReactNode }) {
   return children ? <Text style={[text.error, styles.errorSpacing]}>{children}</Text> : null;
 }
 
-const styles = StyleSheet.create({
-  arrow: { color: '#fff', fontSize: 17 },
+const styles = themedStyles(() => ({
+  arrow: { color: colors.onCoral, fontSize: 17 },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
+  busy: { opacity: 0.85 },
+  disabledButton: { backgroundColor: colors.disabledFill },
+  disabledLabel: { color: colors.onDisabled },
   textButton: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 0.5 },
   // `flexBasis: 'auto'`, not 130: a Field sits in two kinds of parent. In a
   // two-up row the basis is width, and 130 was a sensible floor. In the usual
@@ -192,7 +200,7 @@ const styles = StyleSheet.create({
   choiceWide: { width: '100%' },
   // Hangs under the chosen option, inset so it reads as belonging to it.
   choiceExpanded: { width: '100%', paddingLeft: 12, paddingRight: 4, paddingTop: 2, paddingBottom: 6, gap: 10 },
-  choiceOn: { borderColor: colors.coral, backgroundColor: '#fbf1ee' },
+  choiceOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
   choiceLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
   choiceLabelOn: { color: colors.coralDeep },
   choiceDetail: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 4, lineHeight: 14 },
@@ -206,4 +214,4 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   errorSpacing: { marginTop: 12 },
-});
+}));

@@ -1,8 +1,9 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { type BodyProfile, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { NavGroup, NavRow, SettingsPage } from '../components/settingsKit';
 import { sheetByBreed } from '../components/petSprites';
+import { colors, themedStyles } from '../theme';
 
 interface Props {
   profile: BodyProfile;
@@ -28,6 +29,9 @@ interface Props {
   onOpenPersonality?: () => void;
   onOpenNotifications?: () => void;
   onOpenPreferences?: () => void;
+  /** The appearance choice, for its row's value ("System", "Dark"...). */
+  appearanceLabel?: string;
+  onOpenAppearance?: () => void;
   /** Opens the page that deletes the account. Absent offline. */
   onOpenDeleteAccount?: () => void;
 }
@@ -60,6 +64,8 @@ export function SettingsScreen({
   onOpenPersonality,
   onOpenNotifications,
   onOpenPreferences,
+  appearanceLabel,
+  onOpenAppearance,
   onOpenDeleteAccount,
 }: Props) {
   const preferenceSummary = [profile.displayName, profile.age ? `${profile.age}` : null, GOAL_LABEL[profile.goal]]
@@ -114,6 +120,12 @@ export function SettingsScreen({
         ) : null}
       </NavGroup>
 
+      {onOpenAppearance ? (
+        <NavGroup title="App">
+          <NavRow title="Appearance" value={appearanceLabel} onPress={onOpenAppearance} testID="open-appearance" />
+        </NavGroup>
+      ) : null}
+
       {onOpenDeleteAccount ? (
         <NavGroup title="Account">
           <NavRow title="Delete account" onPress={onOpenDeleteAccount} danger testID="open-delete-account" />
@@ -123,15 +135,15 @@ export function SettingsScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   // The sprite is drawn larger than its tile and cropped: its cell has empty margins.
   art: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#efe7d8',
+    backgroundColor: colors.tile,
     alignItems: 'center',
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
-});
+}));

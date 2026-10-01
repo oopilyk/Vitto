@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import {
   AILMENT_MESSAGE,
   bondFor,
@@ -14,7 +14,7 @@ import {
   assessCondition,
   hasEvolved,
 } from '@vitto/core';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
 import { LevelRing } from './LevelRing';
 import { retro, retroPressed } from './retroStyle';
@@ -452,7 +452,7 @@ const TOP_INSET = 56;
 const SIDE_COLUMN = 96;
 const DISC = 52;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   fill: { flex: 1 },
   topRow: {
     flexDirection: 'row',
@@ -623,4 +623,4 @@ const styles = StyleSheet.create({
   petTabKicker: { fontSize: 8, letterSpacing: 1.2, marginBottom: 1 },
   petTabName: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', color: world.inkSoft },
   petTabTextOn: { color: world.accentDeep },
-});
+}));

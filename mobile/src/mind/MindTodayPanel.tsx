@@ -1,9 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 
 /**
  * A lightweight "how has Mind gone today" strip for the hub's top, not a
@@ -63,7 +63,7 @@ export function MindTodayPanel({ pet, today, night }: MindTodayPanelProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   panel: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -86,4 +86,4 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   figureValueNight: { color: world.nightText },
-});
+}));

@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { LetterMark } from '@vitto/core';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 import { MARK_APPEARANCE } from './WordPuzzleGrid';
 
 /**
@@ -36,7 +36,7 @@ export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disable
             </Pressable>
           ) : null}
           {row.split('').map((letter) => {
-            const appearance = marks[letter] ? MARK_APPEARANCE[marks[letter]!] : null;
+            const appearance = marks[letter] ? MARK_APPEARANCE()[marks[letter]!] : null;
             return (
               <Pressable
                 key={letter}
@@ -81,7 +81,7 @@ export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disable
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   keyboard: { gap: 6 },
   row: { flexDirection: 'row', gap: 5, justifyContent: 'center' },
   key: {
@@ -113,4 +113,4 @@ const styles = StyleSheet.create({
   keyLabel: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
   keyGlyph: { fontSize: 7, lineHeight: 9 },
   actionLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.6, color: colors.inkSoft },
-});
+}));

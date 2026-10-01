@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   type BrainTrainingMetadata,
   type HealthEvent,
@@ -21,7 +21,7 @@ import { WordPuzzleGrid } from '../components/WordPuzzleGrid';
 import { WordPuzzleKeyboard } from '../components/WordPuzzleKeyboard';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { type WordPuzzleProgress } from '../services/localRepository';
-import { colors, fonts, text } from '../theme';
+import { colors, fonts, text, themedStyles } from '../theme';
 
 interface Props {
   events: HealthEvent[];
@@ -324,7 +324,7 @@ function ScoreCard({ score, outcome }: { score: number; outcome?: WordPuzzleRoun
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   sheet: { flex: 1, backgroundColor: colors.paper, paddingTop: 20 },
   header: {
     flexDirection: 'row',
@@ -389,4 +389,4 @@ const styles = StyleSheet.create({
   scoreCaption: { fontFamily: fonts.mono, fontSize: 7, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.6 },
   scoreLabel: { fontSize: 17, fontWeight: '600', color: colors.ink },
   scoreMeta: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 6 },
-});
+}));

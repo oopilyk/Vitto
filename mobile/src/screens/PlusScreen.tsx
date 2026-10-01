@@ -1,6 +1,6 @@
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView } from 'react-native';
 import { PAYWALL_BOTTOM_INSET, PlusPaywall } from '../components/PlusPaywall';
-import { layout } from '../theme';
+import { layout, themedStyles } from '../theme';
 
 interface Props {
   /** The dev account is Plus whatever the store says; the paywall says so instead of selling it. */
@@ -22,6 +22,6 @@ export function PlusScreen({ isDevAccount, onTierChange, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   body: { paddingHorizontal: 16, paddingTop: 62 },
-});
+}));

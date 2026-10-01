@@ -1,5 +1,6 @@
 import { Image, StyleSheet, View } from 'react-native';
 import { TROPHY_IDS, TROPHY_LABEL, type TrophyId } from '@vitto/core';
+import { themedStyles } from '../theme';
 
 /**
  * The living room's empty wall shelf, filled one trophy at a time.
@@ -125,8 +126,8 @@ export function TrophyShelf({ trophies, night }: { trophies: readonly TrophyId[]
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   slot: { position: 'absolute', alignItems: 'center', justifyContent: 'flex-end' },
   art: { width: '100%', height: '100%' },
   wash: { backgroundColor: NIGHT_WASH },
-});
+}));

@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { type FriendOverview, deriveSocialPetStatus } from '@vitto/core';
 import { PetSpriteAvatar } from './PetSpriteAvatar';
 import { type FriendsPalette, healthToneColor } from '../friendsTheme';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
   friend: FriendOverview;
@@ -74,7 +74,7 @@ export function FriendListRow({ friend, palette, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -89,4 +89,4 @@ const styles = StyleSheet.create({
   name: { fontSize: 15, fontWeight: '600' },
   status: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.2 },
   visit: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.5, color: colors.coral },
-});
+}));

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import {
   type WeightUnit,
   type WorkoutExercise,
@@ -18,7 +18,7 @@ import {
 } from '@vitto/core';
 import { KM_PER_MILE } from '@vitto/core';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
   onFinish: (metadata: WorkoutMetadata) => Promise<void>;
@@ -661,7 +661,7 @@ export function WorkoutScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   sheet: { flex: 1, backgroundColor: colors.paper, paddingTop: 20 },
   header: {
     flexDirection: 'row',
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee9e1',
+    borderBottomColor: colors.divider,
   },
   libraryName: { fontSize: 14, color: colors.ink },
   libraryMuscle: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 2 },
@@ -806,4 +806,4 @@ const styles = StyleSheet.create({
   },
   libraryMinusMark: { fontSize: 16, color: colors.faint, lineHeight: 18 },
   exerciseRemove: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
-});
+}));

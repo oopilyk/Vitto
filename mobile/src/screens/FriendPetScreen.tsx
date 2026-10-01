@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import {
   type FriendProfileSummary,
   type PetState,
@@ -20,7 +20,7 @@ import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { ENVIRONMENT_LABEL } from '../petWorld/types';
 import { placeToEnvironment, visitEnvironments } from '../petWorld/visitEnvironments';
 import { friendsPalette, healthToneColor } from '../friendsTheme';
-import { colors, fonts, layout, text, world } from '../theme';
+import { colors, fonts, layout, text, world, themedStyles } from '../theme';
 
 interface Props {
   friendUserIds: string[];
@@ -381,7 +381,7 @@ function Visit({ pet, profile, status, night, onClose, pager }: VisitProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   center: { alignItems: 'center', justifyContent: 'center' },
   topbar: {
     flexDirection: 'row',
@@ -467,4 +467,4 @@ const styles = StyleSheet.create({
   messageBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
   messageTitle: { ...text.title, fontSize: 20, textAlign: 'center' },
   messageBodyText: { ...text.body, textAlign: 'center' },
-});
+}));

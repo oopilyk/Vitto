@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import type { HealthEvent, PetState } from '@vitto/core';
 import { PetShareCard } from '../components/PetShareCard';
 import { sharePetCard } from '../services/shareCard';
 import { Kicker } from '../components/ui';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
   pet: PetState;
@@ -67,29 +67,31 @@ export function ShareCardScreen({ pet, events, onClose }: Props) {
           accessibilityState={{ disabled: !ready || busy }}
           disabled={!ready || busy}
           onPress={() => void share()}
-          style={({ pressed }) => [styles.action, (!ready || busy) && styles.actionOff, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.action, busy ? styles.actionBusy : !ready && styles.actionOff, pressed && styles.pressed]}
         >
-          <Text style={styles.actionLabel}>{busy ? 'Getting it ready…' : `Share ${pet.name}`}</Text>
+          <Text style={[styles.actionLabel, !ready && !busy && styles.actionLabelOff]}>{busy ? 'Getting it ready…' : `Share ${pet.name}`}</Text>
         </Pressable>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   screen: { backgroundColor: colors.paper },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 20,
+    // Clear of the status bar and the notch, like every other pushed screen.
+    paddingTop: 58,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 64 },
-  backLabel: { fontSize: 20, color: colors.coral },
-  backText: { fontFamily: fonts.mono, fontSize: 13, color: colors.coral },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 64, minHeight: 44 },
+  backLabel: { fontSize: 18, color: colors.coral },
+  backText: { fontSize: 15, fontWeight: '500', color: colors.inkSoft },
   title: { ...text.heading },
   body: { padding: 20, gap: 14, alignItems: 'stretch', paddingBottom: 48 },
   stage: { alignItems: 'center', marginBottom: 6 },
@@ -97,7 +99,9 @@ const styles = StyleSheet.create({
   note: { fontSize: 13, lineHeight: 19, color: colors.inkSoft },
   error: { fontSize: 13, color: colors.danger },
   action: { marginTop: 4, paddingVertical: 14, alignItems: 'center', borderRadius: 14, backgroundColor: colors.coral },
-  actionOff: { opacity: 0.4 },
-  actionLabel: { fontFamily: fonts.mono, fontSize: 14, fontWeight: '700', color: '#fff' },
+  actionOff: { backgroundColor: colors.disabledFill },
+  actionBusy: { opacity: 0.85 },
+  actionLabel: { fontFamily: fonts.mono, fontSize: 14, fontWeight: '700', color: colors.onCoral },
+  actionLabelOff: { color: colors.onDisabled },
   pressed: { opacity: 0.85 },
-});
+}));

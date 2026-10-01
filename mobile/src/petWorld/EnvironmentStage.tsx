@@ -19,6 +19,7 @@ import { PetSpeechBubble } from './PetSpeechBubble';
 import { PetTapReaction, RAPID_TAP_WINDOW_MS } from './PetTapReaction';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
 import type { EnvironmentId, PetAvatarActivityProps } from './types';
+import { themedStyles } from '../theme';
 
 /**
  * The pet's size and floor position come from `stageMetrics`, as a share of the
@@ -388,7 +389,7 @@ function FadeSwap({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   stage: { flex: 1 },
   // Explicit stacking order (rather than relying on JSX sibling order alone,
   // which React Native Web can get wrong across nested Animated.View/transform
@@ -424,4 +425,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     justifyContent: 'flex-end',
   },
-});
+}));

@@ -5,7 +5,6 @@ import {
   Easing,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   View,
   useWindowDimensions,
@@ -14,7 +13,7 @@ import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, getColorScheme, world, themedStyles } from '../theme';
 import { PixelConfetti } from './PixelConfetti';
 
 /**
@@ -69,7 +68,7 @@ function useReducedMotion(): boolean | null {
 export function StreakCelebration({ pet, streak, night, onComplete }: Props) {
   const reduceMotion = useReducedMotion();
   const { width, height } = useWindowDimensions();
-  const c = night ? nightColors : dayColors;
+  const c = night || getColorScheme() === 'dark' ? nightColors : dayColors;
 
   const [phase, setPhase] = useState<Phase>('enter');
   const [celebrating, setCelebrating] = useState(false);
@@ -366,7 +365,7 @@ const nightColors = {
   speckle: 'rgba(239,229,208,0.10)',
 };
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   root: {
     ...FILL,
     zIndex: 20,
@@ -431,4 +430,4 @@ const styles = StyleSheet.create({
     color: world.ink,
   },
   continueMark: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: world.ink },
-});
+}));

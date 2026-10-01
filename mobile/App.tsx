@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { NavigationContainer, DefaultTheme, createNavigationContainerRef, type Theme as NavigationTheme } from '@react-navigation/native';
+import { ActivityIndicator, Alert, AppState, Platform, StatusBar, Text, View } from 'react-native';
+import {
+  NavigationContainer,
+  DarkTheme,
+  DefaultTheme,
+  createNavigationContainerRef,
+  type NavigationState,
+  type Theme as NavigationTheme,
+} from '@react-navigation/native';
+import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
 import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
@@ -60,12 +68,13 @@ import { LiftProgressScreen } from './src/screens/LiftProgressScreen';
 import { PersonalityScreen } from './src/screens/PersonalityScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
+import { APPEARANCE_LABEL, AppearanceScreen } from './src/screens/AppearanceScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
 import { deviceMeasurementSystem } from './src/services/deviceLocale';
 import { hasNativeUUID, randomUUID } from './src/services/uuid';
 import { lockWebViewport } from './src/web/lockWebViewport';
-import { colors, fonts, layout } from './src/theme';
+import { colors, fonts, getColorScheme, layout, setActiveColorScheme, themedStyles } from './src/theme';
 
 // Prefer the platform's crypto-backed ids, but keep the domain's pure fallback if
 // this client has no native crypto module.
@@ -133,6 +142,7 @@ type RootStackParamList = {
   Personality: undefined;
   Notifications: undefined;
   DeleteAccount: undefined;
+  Appearance: undefined;
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -152,17 +162,17 @@ const navigationRef = createNavigationContainerRef<RootStackParamList>();
 // Set once, at import: a notification can arrive before any component mounts.
 installNotificationHandler();
 
-const navigationTheme: NavigationTheme = {
-  ...DefaultTheme,
+const navigationTheme = (): NavigationTheme => ({
+  ...(getColorScheme() === 'dark' ? DarkTheme : DefaultTheme),
   colors: {
-    ...DefaultTheme.colors,
+    ...(getColorScheme() === 'dark' ? DarkTheme : DefaultTheme).colors,
     background: colors.paper,
     card: colors.card,
     text: colors.ink,
     border: colors.hairline,
     primary: colors.coral,
   },
-};
+});
 
 /**
  * How long a care moment's message stays up. It has to clear on its own: the
@@ -254,7 +264,27 @@ const confirmDialog = (title: string, message: string, confirmLabel: string): Pr
   });
 };
 
+/**
+ * The app, in the appearance the user picked. The scheme is set before
+ * anything below renders, so every colour read and every themed sheet in this
+ * pass answers in it; see `setActiveColorScheme`.
+ */
 export default function App() {
+  const appearance = useAppearanceState();
+  setActiveColorScheme(appearance.scheme);
+  return (
+    <AppearanceContext.Provider value={appearance}>
+      <VittoApp />
+    </AppearanceContext.Provider>
+  );
+}
+
+function VittoApp() {
+  const { scheme, preference, setPreference } = useAppearance();
+  const statusBarStyle = scheme === 'dark' ? 'light-content' : 'dark-content';
+  // Where the user is, kept so the navigator can re-mount in a new scheme
+  // (every screen then re-reads its styles) without losing their place.
+  const navigationState = useRef<NavigationState | undefined>(undefined);
   const [session, setSession] = useState<Session | null>(null);
   // Dev tool, display only — see `applyForcedAilment`. Never persisted, and reset
   // by a sign-out along with the rest of the session's state.
@@ -1797,7 +1827,7 @@ export default function App() {
   if (isSupabaseConfigured && !session) {
     return (
       <View style={layout.screen}>
-          <StatusBar barStyle="dark-content" />
+          <StatusBar barStyle={statusBarStyle} />
           <AuthScreen />
       </View>
     );
@@ -1809,7 +1839,7 @@ export default function App() {
   if (petLoadFailed) {
     return (
       <View style={[layout.screen, styles.center, styles.loadFailed]}>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle={statusBarStyle} />
         <Text style={styles.loadFailedTitle}>Could not reach your pet</Text>
         <Text style={styles.loadFailedBody}>
           {error ?? 'Your account data did not load. Check your connection and try again.'}
@@ -1825,7 +1855,7 @@ export default function App() {
   if (!pet) {
     return (
       <View style={layout.screen}>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle={statusBarStyle} />
         <OnboardingScreen
           name={name}
           onNameChange={setName}
@@ -1879,8 +1909,16 @@ export default function App() {
   const atGymNow = activeForcedAmbient ? activeForcedAmbient === 'gym' : gymState.atGym;
 
   return (
-    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-      <StatusBar barStyle="dark-content" />
+    <NavigationContainer
+      key={scheme}
+      ref={navigationRef}
+      theme={navigationTheme()}
+      initialState={navigationState.current}
+      onStateChange={(state) => {
+        navigationState.current = state;
+      }}
+    >
+      <StatusBar barStyle={statusBarStyle} />
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Dashboard">
           {({ navigation }) => (
@@ -2055,8 +2093,17 @@ export default function App() {
               onOpenPersonality={() => navigation.navigate('Personality')}
               onOpenNotifications={() => navigation.navigate('Notifications')}
               onOpenPreferences={() => navigation.navigate('Preferences')}
+              appearanceLabel={
+                preference === 'system' ? `System · ${scheme === 'dark' ? 'Dark' : 'Light'}` : APPEARANCE_LABEL[preference]
+              }
+              onOpenAppearance={() => navigation.navigate('Appearance')}
               onOpenDeleteAccount={isOnline ? () => navigation.navigate('DeleteAccount') : undefined}
             />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Appearance">
+          {({ navigation }) => (
+            <AppearanceScreen preference={preference} scheme={scheme} onChange={setPreference} onClose={() => navigation.goBack()} />
           )}
         </RootStack.Screen>
         <RootStack.Screen name="Preferences">
@@ -2379,7 +2426,7 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   center: { alignItems: 'center', justifyContent: 'center' },
   loadFailed: { paddingHorizontal: 32, gap: 12 },
   loadFailedTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, textAlign: 'center' },
@@ -2389,11 +2436,11 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 34,
-    backgroundColor: '#f7e2dd',
+    backgroundColor: colors.coralWash,
     borderWidth: 1,
-    borderColor: '#e0b3a8',
+    borderColor: colors.dangerBorder,
     borderRadius: 12,
     padding: 13,
   },
-  bannerText: { fontFamily: fonts.mono, fontSize: 11, color: '#8c4433', lineHeight: 16 },
-});
+  bannerText: { fontFamily: fonts.mono, fontSize: 11, color: colors.coralDeep, lineHeight: 16 },
+}));

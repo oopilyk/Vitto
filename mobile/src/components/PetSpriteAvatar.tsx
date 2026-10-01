@@ -1,8 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { sheetForPet } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
   /** The friend's pet, or `null` when they have not adopted one. */
@@ -50,8 +50,8 @@ export function PetSpriteAvatar({ pet, size = DEFAULT_SIZE, placeholderInitial, 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   circle: { overflow: 'hidden' },
   center: { alignItems: 'center', justifyContent: 'center' },
   initial: { fontFamily: fonts.display, color: colors.inkSoft, fontWeight: '700' },
-});
+}));

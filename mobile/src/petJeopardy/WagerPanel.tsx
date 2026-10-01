@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { isValidJeopardyWager } from '@vitto/core';
 import { PrimaryButton } from '../components/ui';
 import { RETRO_BORDER_WIDTH, RETRO_RADIUS, retro, retroPressed } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { WAGER_STEP } from './board';
 
 interface WagerPanelProps {
@@ -141,7 +141,7 @@ function Preset({ label, night, onPress }: { label: string; night: boolean; onPr
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { flex: 1, paddingHorizontal: 18, paddingTop: 14 },
   panel: { paddingVertical: 20, paddingHorizontal: 18, alignItems: 'center' },
   heading: { fontFamily: fonts.display, fontSize: 24, color: world.ink, marginTop: 8, letterSpacing: -0.5 },
@@ -167,4 +167,4 @@ const styles = StyleSheet.create({
   presets: { flexDirection: 'row', gap: 8, marginTop: 18, flexWrap: 'wrap', justifyContent: 'center' },
   preset: { paddingVertical: 8, paddingHorizontal: 14 },
   confirm: { marginTop: 'auto', paddingBottom: 28 },
-});
+}));

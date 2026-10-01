@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   measurementSystemOf,
   type MeasurementSystem,
@@ -43,14 +43,13 @@ import {
   ChipGroup,
   FieldRow,
   FormField,
-  SELECTED_FILL,
   SETTINGS_MAX_WIDTH,
   SegmentedControl,
   SelectionList,
   SelectionTiles,
   TextField,
 } from '../components/settingsKit';
-import { colors, fonts, layout } from '../theme';
+import { colors, fonts, layout, themedStyles } from '../theme';
 
 interface Props {
   name: string;
@@ -759,13 +758,13 @@ function RecapRow({ label, value }: { label: string; value: string }) {
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 6 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   backButton: { width: 44, height: 36, justifyContent: 'center' },
   backMark: { fontSize: 22, color: colors.ink },
   progress: { flex: 1, flexDirection: 'row', gap: 4 },
-  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#e4e0d6' },
+  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.track },
   progressSegmentOn: { backgroundColor: colors.coral },
   signOut: { minWidth: 44, height: 36, justifyContent: 'center', alignItems: 'flex-end' },
   signOutLabel: { fontSize: 13, fontWeight: '500', color: colors.muted },
@@ -797,7 +796,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: SELECTED_FILL,
+    backgroundColor: colors.selectedFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -811,7 +810,7 @@ const styles = StyleSheet.create({
   planLabel: { fontSize: 13, fontWeight: '600', color: colors.inkSoft },
   planBig: { fontSize: 32, fontWeight: '800', color: colors.ink, marginTop: 4, letterSpacing: -0.5 },
   planText: { fontSize: 14, lineHeight: 20, color: colors.inkSoft, marginTop: 4 },
-  planWarning: { fontSize: 12, color: '#9a6b5c', marginTop: 8, lineHeight: 17 },
+  planWarning: { fontSize: 12, color: colors.caution, marginTop: 8, lineHeight: 17 },
 
   locked: { borderRadius: 16, padding: 16, gap: 4, backgroundColor: colors.cardSoft },
   lockedTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
@@ -849,4 +848,4 @@ const styles = StyleSheet.create({
     borderTopColor: colors.hairline,
   },
   footerInner: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center', gap: 8 },
-});
+}));

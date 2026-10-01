@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Image, type ImageSourcePropType, Pressable, StyleSheet, View } from 'react-native';
-import { world } from '../theme';
+import { Animated, Image, type ImageSourcePropType, Pressable, View } from 'react-native';
+import { world, themedStyles } from '../theme';
 
 /**
  * One icon on the bottom hotbar (`EnvironmentActionRow`). Warm-cream glyph art
@@ -99,7 +99,7 @@ export function EnvironmentButton({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   slot: { width: SLOT_SIZE, height: SLOT_SIZE, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.6, transform: [{ scale: 0.9 }] },
   iconBox: { width: ICON_SIZE, height: ICON_SIZE, alignItems: 'center', justifyContent: 'center' },
@@ -121,4 +121,4 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: world.accent,
   },
-});
+}));

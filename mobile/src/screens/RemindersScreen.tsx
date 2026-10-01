@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import {
   type Reminder,
   type Weekday,
@@ -12,7 +12,7 @@ import {
 } from '@vitto/core';
 import { FieldRow, FormField, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
 import { ChoiceRow, TextButton } from '../components/ui';
-import { colors, fonts, text } from '../theme';
+import { colors, fonts, text, themedStyles } from '../theme';
 
 export interface RemindersProps {
   items: Reminder[];
@@ -127,8 +127,8 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
   );
 }
 
-const styles = StyleSheet.create({
-  warning: { marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: '#fbf5f3', borderWidth: 1, borderColor: '#ecd2cc' },
+const styles = themedStyles(() => ({
+  warning: { marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: colors.dangerWash, borderWidth: 1, borderColor: colors.dangerBorder },
   warningText: { fontSize: 13, color: colors.inkSoft, lineHeight: 19 },
   empty: { fontSize: 14, color: colors.muted, lineHeight: 20 },
   list: { borderRadius: 16, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, overflow: 'hidden' },
@@ -140,4 +140,4 @@ const styles = StyleSheet.create({
   rowMeta: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 3 },
   actions: { flexDirection: 'row', alignItems: 'center' },
   error: { ...text.error, fontSize: 13 },
-});
+}));

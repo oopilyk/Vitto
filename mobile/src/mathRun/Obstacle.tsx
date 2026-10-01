@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import type { MathRunObstacleKind } from '@vitto/core';
 import { OBSTACLE_SIZE } from './track';
+import { themedStyles } from '../theme';
 
 /**
  * The five obstacles, drawn from plain views so they sit in the same flat,
@@ -90,7 +91,7 @@ export function Obstacle({ kind }: { kind: MathRunObstacleKind }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   frame: { width: OBSTACLE_SIZE, height: OBSTACLE_SIZE, justifyContent: 'flex-end' },
 
   log: { height: 22, flexDirection: 'row', alignItems: 'center' },
@@ -146,4 +147,4 @@ const styles = StyleSheet.create({
   bushLobeLeft: { left: 0, width: 26, height: 24, backgroundColor: LEAF_DARK },
   bushLobeRight: { right: 0, width: 26, height: 22, backgroundColor: LEAF_LIGHT },
   bushLobeTop: { left: 9, bottom: 6, width: 26, height: 26, backgroundColor: LEAF },
-});
+}));

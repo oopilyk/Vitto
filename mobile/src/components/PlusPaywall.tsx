@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Platform, Pressable, Switch, Text, View } from 'react-native';
 import { companion as ai } from '@vitto/core';
 import {
   billingService,
@@ -11,7 +11,7 @@ import {
 } from '../services/billingService';
 import { cancelTrialReminder, scheduleTrialReminder } from '../services/pushService';
 import { PrimaryButton, TextButton } from './ui';
-import { colors, fonts, text } from '../theme';
+import { colors, fonts, text, themedStyles } from '../theme';
 
 interface Props {
   /** The dev account is Plus whatever the store says; the paywall says so instead of selling it. */
@@ -316,7 +316,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
 
 const APP_ICON = require('../../assets/icon.png');
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { gap: 14 },
   bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   close: {
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   continueFreeLabel: { fontSize: 15, fontWeight: '600', color: colors.inkSoft },
-});
+}));
 
 /** Bottom padding that clears the iPhone home indicator. */
 export const PAYWALL_BOTTOM_INSET = Platform.OS === 'ios' ? 24 : 12;

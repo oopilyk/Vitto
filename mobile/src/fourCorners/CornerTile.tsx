@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { FourCorner } from '@vitto/core';
 import { RETRO_BORDER_WIDTH, RETRO_RADIUS, retro, retroPressed, retroShadow } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { cornerLabel, isLeftCorner, isTopCorner } from './corners';
 
 /**
@@ -109,7 +109,7 @@ const cornerRadius = (corner: FourCorner) => ({
   borderBottomRightRadius: !isTopCorner(corner) && !isLeftCorner(corner) ? 0 : RETRO_RADIUS * 2.5,
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   tile: {
     position: 'absolute',
     // A share of the board rather than a fixed width, so two tiles plus the
@@ -134,4 +134,4 @@ const styles = StyleSheet.create({
   },
   answerNight: { color: world.nightText },
   mark: { letterSpacing: 1.1 },
-});
+}));

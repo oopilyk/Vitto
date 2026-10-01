@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { fonts, world } from '../theme';
+import { Pressable, Text, View } from 'react-native';
+import { fonts, world, themedStyles } from '../theme';
 import { retroPressed } from './retroStyle';
 
 const SIZE = 90;
@@ -64,7 +64,7 @@ export function LevelRing({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: {
     width: SIZE,
     height: SIZE,
@@ -116,4 +116,4 @@ const styles = StyleSheet.create({
     color: world.ink,
   },
   levelNight: { color: world.nightText },
-});
+}));

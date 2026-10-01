@@ -1,5 +1,5 @@
 import { type ImageSourcePropType, Platform, StyleSheet, View } from 'react-native';
-import { world } from '../theme';
+import { world, themedStyles } from '../theme';
 import { EnvironmentButton } from './EnvironmentButton';
 import type { EnvironmentId } from './types';
 
@@ -103,7 +103,7 @@ export function EnvironmentActionRow({ current, onNavigate, night }: Environment
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   hairline: {
     position: 'absolute',
@@ -120,4 +120,4 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: ICON_EDGE_PADDING,
   },
-});
+}));

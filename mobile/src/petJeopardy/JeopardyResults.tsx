@@ -13,7 +13,7 @@ import { ErrorText, PrimaryButton, TextButton } from '../components/ui';
 import { PixelConfetti } from '../celebrations/PixelConfetti';
 import { retro } from '../petWorld/retroStyle';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { isJeopardyWin } from './board';
 
 interface JeopardyResultsProps {
@@ -105,7 +105,7 @@ function Reward({ value, unit, night }: { value: string; unit: string; night: bo
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
   scorePanel: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 },
   score: { fontFamily: fonts.display, fontSize: 30, color: world.ink, marginTop: 8, letterSpacing: -0.6 },
@@ -125,4 +125,4 @@ const styles = StyleSheet.create({
   rewardValueNight: { color: world.nightText },
   actions: { width: '100%', marginTop: 'auto', paddingBottom: 28 },
   again: { alignItems: 'center', marginTop: 16 },
-});
+}));

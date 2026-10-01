@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import {
   type FriendProfileSummary,
   type PetState,
@@ -7,7 +7,7 @@ import {
 } from '@vitto/core';
 import { PetAvatar } from './PetAvatar';
 import { FRIENDS_LIGHT, type FriendsPalette, healthToneColor } from '../friendsTheme';
-import { colors, fonts, text } from '../theme';
+import { colors, fonts, text, themedStyles } from '../theme';
 
 interface FriendPetCardProps {
   profile: FriendProfileSummary;
@@ -100,7 +100,7 @@ export function FriendPetCard({ profile, pet, status, palette = FRIENDS_LIGHT }:
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   container: { flex: 1 },
   name: { ...text.heading, fontSize: 18, textAlign: 'center', marginTop: 16 },
   statusRow: {
@@ -121,4 +121,4 @@ const styles = StyleSheet.create({
   healthChipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3 },
   place: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.3, textAlign: 'center', marginTop: 10 },
   lastActive: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, textAlign: 'center', marginTop: 6 },
-});
+}));

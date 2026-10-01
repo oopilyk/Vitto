@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, TextInput, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, Easing, Text, TextInput, View, type LayoutChangeEvent } from 'react-native';
 import {
   type BrainTrainingMetadata,
   MATH_RUN_LIVES,
@@ -19,7 +19,7 @@ import { PetAvatar } from '../components/PetAvatar';
 import { PrimaryButton, TextButton } from '../components/ui';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
-import { colors, fonts, layout } from '../theme';
+import { colors, fonts, layout, themedStyles } from '../theme';
 import { Obstacle } from './Obstacle';
 import {
   FALLBACK_TRACK_WIDTH,
@@ -54,7 +54,7 @@ interface Props {
 /** The track's own palette — a pale sky over dry grass, in the app's muted register. */
 const SKY = '#e3ebf1';
 const GROUND = '#cfd9c7';
-const GROUND_MARK = colors.mintDeep;
+const GROUND_MARK = () => (colors.mintDeep);
 
 /** Under Reduce Motion the obstacle waits this far along the track and the countdown does the work. */
 const STILL_PROGRESS = 0.55;
@@ -392,7 +392,7 @@ export function MathRunGame({ pet, onFinish, run: initialRun, rng = Math.random 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   scoreboard: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 14 },
   scoreItem: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted },
   scoreValue: { fontSize: 16, fontWeight: '700', color: colors.ink },
@@ -415,11 +415,11 @@ const styles = StyleSheet.create({
     height: GROUND_HEIGHT,
     backgroundColor: GROUND,
     borderTopWidth: 2,
-    borderTopColor: GROUND_MARK,
+    borderTopColor: GROUND_MARK(),
     overflow: 'hidden',
   },
   groundMarks: { flexDirection: 'row', position: 'absolute', left: 0, top: 14 },
-  groundMark: { width: 14, height: 3, borderRadius: 2, backgroundColor: GROUND_MARK, marginRight: GROUND_TILE - 14, opacity: 0.6 },
+  groundMark: { width: 14, height: 3, borderRadius: 2, backgroundColor: GROUND_MARK(), marginRight: GROUND_TILE - 14, opacity: 0.6 },
   petLayer: { position: 'absolute', left: PET_LEFT, bottom: GROUND_HEIGHT - 12 },
   petStage: { width: PET_SIZE, height: PET_SIZE, backgroundColor: 'transparent', overflow: 'visible' },
   obstacle: {
@@ -444,9 +444,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sageSoft,
     gap: 14,
   },
-  problemRight: { borderColor: '#8fae91', backgroundColor: '#dcecdb' },
-  problemWrong: { borderColor: '#d8a396', backgroundColor: '#f5e3de' },
+  problemRight: { borderColor: colors.mintDeep, backgroundColor: colors.mint },
+  problemWrong: { borderColor: colors.coral, backgroundColor: colors.coralWash },
   prompt: { fontFamily: fonts.display, fontSize: 42, color: colors.ink, textAlign: 'center' },
   answerInput: { textAlign: 'center', fontSize: 20, fontWeight: '600' },
   actions: { marginTop: 24, gap: 16 },
-});
+}));

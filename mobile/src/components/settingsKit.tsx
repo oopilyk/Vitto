@@ -11,7 +11,7 @@ import {
   View,
   type TextInputProps,
 } from 'react-native';
-import { layout, text } from '../theme';
+import { layout, text, themedStyles } from '../theme';
 import { PrimaryButton, TextButton } from './ui';
 import { colors, fonts } from '../theme';
 
@@ -24,9 +24,6 @@ import { colors, fonts } from '../theme';
  * says "you can touch this"; and coral is spent on what is selected or primary,
  * never on every outline.
  */
-
-/** The selected tint: a soft coral wash, never just a coral outline. */
-export const SELECTED_FILL = '#fbeee9';
 
 /**
  * A section of a settings page: an optional small eyebrow, a title, a line of
@@ -465,7 +462,7 @@ export function DangerButton({ label, onPress, disabled }: { label: string; onPr
 const RADIUS_CONTROL = 12;
 const RADIUS_SURFACE = 16;
 
-export const kit = StyleSheet.create({
+export const kit = themedStyles(() => ({
   section: { paddingVertical: 28 },
   sectionRuled: { borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.hairline },
   eyebrow: {
@@ -495,14 +492,14 @@ export const kit = StyleSheet.create({
     fontSize: 16,
     color: colors.ink,
   },
-  inputFocused: { borderColor: colors.coral, backgroundColor: '#ffffff' },
+  inputFocused: { borderColor: colors.coral, backgroundColor: colors.inputFocus },
 
   segmentTrack: {
     flexDirection: 'row',
     padding: 3,
     gap: 3,
     borderRadius: RADIUS_CONTROL,
-    backgroundColor: '#ebe4d6',
+    backgroundColor: colors.track,
   },
   segment: {
     flex: 1,
@@ -514,8 +511,8 @@ export const kit = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentOn: {
-    backgroundColor: colors.card,
-    shadowColor: '#3a2e22',
+    backgroundColor: colors.raised,
+    shadowColor: colors.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
@@ -533,12 +530,12 @@ export const kit = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, paddingVertical: 12 },
   rowRuled: { borderTopWidth: 1, borderTopColor: colors.hairline },
-  rowOn: { backgroundColor: SELECTED_FILL },
+  rowOn: { backgroundColor: colors.selectedFill },
   rowText: { flex: 1 },
   rowLabel: { fontSize: 16, fontWeight: '500', color: colors.ink },
   rowLabelOn: { fontWeight: '700', color: colors.coralDeep },
   rowDetail: { fontSize: 13, color: colors.muted, lineHeight: 18, marginTop: 2 },
-  rowExpanded: { backgroundColor: SELECTED_FILL, paddingHorizontal: 16, paddingBottom: 16, gap: 14 },
+  rowExpanded: { backgroundColor: colors.selectedFill, paddingHorizontal: 16, paddingBottom: 16, gap: 14 },
   radio: {
     width: 22,
     height: 22,
@@ -558,7 +555,7 @@ export const kit = StyleSheet.create({
     justifyContent: 'center',
   },
   markOn: { backgroundColor: colors.coral, borderColor: colors.coral },
-  markTick: { color: '#ffffff', fontSize: 12, fontWeight: '800', lineHeight: 14 },
+  markTick: { color: colors.onCoral, fontSize: 12, fontWeight: '800', lineHeight: 14 },
 
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: {
@@ -574,7 +571,7 @@ export const kit = StyleSheet.create({
     borderColor: colors.hairline,
     backgroundColor: colors.card,
   },
-  tileOn: { backgroundColor: SELECTED_FILL, borderColor: '#efc9bd' },
+  tileOn: { backgroundColor: colors.selectedFill, borderColor: colors.selectedBorder },
   tileCheck: { width: 20, height: 20 },
   tileLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.ink },
 
@@ -585,8 +582,8 @@ export const kit = StyleSheet.create({
     padding: 18,
     borderRadius: RADIUS_SURFACE,
     borderWidth: 1,
-    borderColor: '#ecd2cc',
-    backgroundColor: '#fbf5f3',
+    borderColor: colors.dangerBorder,
+    backgroundColor: colors.dangerWash,
   },
   dangerTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
   dangerDescription: { fontSize: 13, color: colors.muted, lineHeight: 19, marginTop: 4 },
@@ -600,7 +597,7 @@ export const kit = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dangerButtonPressed: { backgroundColor: '#f6dcd6' },
+  dangerButtonPressed: { backgroundColor: colors.dangerPressed },
   dangerButtonLabel: { fontSize: 15, fontWeight: '600', color: colors.danger },
 
   pressed: { opacity: 0.7 },
@@ -642,7 +639,7 @@ export const kit = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipOn: { backgroundColor: SELECTED_FILL, borderColor: '#efc9bd' },
+  chipOn: { backgroundColor: colors.selectedFill, borderColor: colors.selectedBorder },
   chipLabel: { fontSize: 14, fontWeight: '500', color: colors.inkSoft },
   chipLabelOn: { color: colors.coralDeep, fontWeight: '700' },
 
@@ -661,4 +658,4 @@ export const kit = StyleSheet.create({
   navTitleDanger: { color: colors.danger, fontWeight: '600' },
   navValue: { fontSize: 13, color: colors.muted, marginTop: 2 },
   navChevron: { fontSize: 24, color: colors.faint, fontWeight: '300', marginTop: -2 },
-});
+}));

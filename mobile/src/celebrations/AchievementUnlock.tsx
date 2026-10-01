@@ -14,7 +14,7 @@ import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
 import { playCelebrationSound } from '../services/mealFeedback';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 import { PixelConfetti } from './PixelConfetti';
 
 /**
@@ -187,7 +187,7 @@ export function AchievementUnlock({ id, pet, profile, night, onComplete }: Props
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   veil: { backgroundColor: 'rgba(20,18,38,0.55)' },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 6 },
   plate: { paddingHorizontal: 22, paddingVertical: 16, alignItems: 'center', maxWidth: 360, width: '100%' },
@@ -206,4 +206,4 @@ const styles = StyleSheet.create({
   titleNight: { color: '#f7f5ff' },
   describe: { marginTop: 6, textAlign: 'center' },
   hint: { marginTop: 12, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase' },
-});
+}));

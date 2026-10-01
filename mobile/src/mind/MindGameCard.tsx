@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { MindCategory, MindGameEntry } from './types';
 import { retro, retroPressed } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 
 /**
  * The two card treatments the Mind hub renders its roster with. Both are pure
@@ -143,7 +143,7 @@ export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameC
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   card: {
     minHeight: 48,
     paddingHorizontal: 14,
@@ -254,4 +254,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.4,
   },
-});
+}));

@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata } from '@vitto/core';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { SettingsPage } from '../components/settingsKit';
 import { formatMinutes } from '../services/minutes';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 const PAGE_SIZE = 20;
 
@@ -85,7 +85,7 @@ export function ActivityHistoryScreen({ events, onClose }: { events: HealthEvent
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   empty: { fontSize: 14, color: colors.muted, marginTop: 20 },
   day: { marginTop: 22, gap: 8 },
   dayHeading: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: colors.faint, marginLeft: 4 },
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee9e1',
+    borderBottomColor: colors.divider,
   },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral },
   rowText: { flex: 1 },
@@ -112,4 +112,4 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
   },
   moreLabel: { fontSize: 14, fontWeight: '600', color: colors.inkSoft },
-});
+}));

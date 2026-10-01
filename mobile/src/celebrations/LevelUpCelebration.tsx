@@ -5,7 +5,6 @@ import {
   Easing,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   View,
   useWindowDimensions,
@@ -14,7 +13,7 @@ import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 import { PixelConfetti } from './PixelConfetti';
 
 /**
@@ -344,7 +343,7 @@ function Starfield({ count }: { count: number }) {
 const BACKDROP = '#171334';
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   root: {
     ...FILL,
     zIndex: 20,
@@ -416,4 +415,4 @@ const styles = StyleSheet.create({
   },
   continueMark: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: colors.ink },
   flash: { ...FILL, backgroundColor: '#fdf6e3' },
-});
+}));

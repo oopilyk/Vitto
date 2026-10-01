@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { type LayoutChangeEvent, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { type LayoutChangeEvent, Image, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   ACHIEVEMENTS,
   type AchievementId,
@@ -31,7 +31,7 @@ import { NavGroup, NavRow } from '../components/settingsKit';
 import { StrengthMap } from '../components/StrengthMap';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { formatMinutes } from '../services/minutes';
-import { colors, fonts, layout } from '../theme';
+import { colors, fonts, layout, themedStyles } from '../theme';
 
 interface Props {
   profile: BodyProfile;
@@ -453,7 +453,7 @@ export function ProfileScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#efe7d8',
+    backgroundColor: colors.tile,
   },
   avatarInitial: { fontFamily: fonts.display, fontSize: 34, color: colors.ink },
   stats: { flex: 1, flexDirection: 'row', justifyContent: 'space-around' },
@@ -596,4 +596,4 @@ const styles = StyleSheet.create({
   trophyRule: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 3, lineHeight: 14 },
   trophyState: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.8, color: colors.faint },
   trophyStateEarned: { color: colors.mintDeep },
-});
+}));

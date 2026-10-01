@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Image, Pressable, Text, View, type ImageSourcePropType } from 'react-native';
 import {
   MUSCLE_GROUP_LABEL,
   STANDARD_LIFT_LABEL,
@@ -11,7 +11,7 @@ import {
   type HealthEvent,
   type MuscleGroup,
 } from '@vitto/core';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 /** One colour per rank, Bronze -> Grand Champion; the top is the red you want to see. */
 export const TIER_COLOR: readonly string[] = ['#a8693a', '#97a1ab', '#d1a01a', '#3aa99f', '#4a8fe0', '#8d58d4', '#d8343a'];
@@ -200,7 +200,7 @@ export function StrengthMap({ profile, events }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { gap: 14 },
   headline: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
   bodies: { flexDirection: 'row', gap: 8 },
@@ -255,4 +255,4 @@ const styles = StyleSheet.create({
   },
   toggleLabel: { fontSize: 14, fontWeight: '600', color: colors.inkSoft },
   toggleMark: { fontSize: 16, fontWeight: '600', color: colors.muted },
-});
+}));

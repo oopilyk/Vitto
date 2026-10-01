@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text } from 'react-native';
+import { Animated, Easing, Text } from 'react-native';
 import { RETRO_RADIUS, retroShadow } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { ON_FILL_TEXT } from './board';
 
 interface PointsFlourishProps {
@@ -61,7 +61,7 @@ export function PointsFlourish({ label, reduceMotion }: PointsFlourishProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   chip: {
     paddingVertical: 4,
     paddingHorizontal: 10,
@@ -78,4 +78,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: ON_FILL_TEXT,
   },
-});
+}));

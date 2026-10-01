@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Pressable, Text, View } from 'react-native';
+import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
@@ -72,7 +72,7 @@ export function outsideEnvironment(props: OutsideEnvironmentControlsProps): Envi
   };
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   stepsSlot: {
     position: 'absolute',
     top: '32%',
@@ -93,4 +93,4 @@ const styles = StyleSheet.create({
   },
   stepsPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
   stepsLabel: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 0.8, color: '#fff' },
-});
+}));

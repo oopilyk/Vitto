@@ -1,7 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { JEOPARDY_PICKS_PER_ROUND, JEOPARDY_VALUES, type JeopardyGame } from '@vitto/core';
 import { retro } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { ValueTile } from './ValueTile';
 
 interface JeopardyBoardProps {
@@ -74,7 +74,7 @@ export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { flex: 1, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 },
   scoreStrip: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 14, gap: 2 },
   score: { fontFamily: fonts.display, fontSize: 20, color: world.ink, letterSpacing: -0.4 },
@@ -92,4 +92,4 @@ const styles = StyleSheet.create({
     color: world.ink,
   },
   categoryLabelNight: { color: world.nightText },
-});
+}));

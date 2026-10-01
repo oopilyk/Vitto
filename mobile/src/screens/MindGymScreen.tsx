@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
@@ -8,7 +8,7 @@ import { MathRunGame } from '../mathRun/MathRunGame';
 import { MindHub } from '../mind/MindHub';
 import type { MindRouteHandlers } from '../mind/hub';
 import type { MindStage } from '../mind/types';
-import { colors, fonts, text } from '../theme';
+import { colors, fonts, text, themedStyles } from '../theme';
 
 /**
  * The Mind section: a game room to choose from, and the sheet the four
@@ -314,7 +314,7 @@ export function MindGymScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   sheet: { flex: 1, backgroundColor: colors.paper, paddingTop: 20 },
   header: {
     flexDirection: 'row',
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     marginBottom: 7,
   },
-  optionOn: { borderColor: colors.coral, backgroundColor: '#fbf1ee' },
+  optionOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
   optionLabel: { fontSize: 14, color: colors.inkSoft },
   optionLabelOn: { color: colors.ink },
   resultCard: {
@@ -385,10 +385,10 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e2db',
+    borderColor: colors.divider,
     backgroundColor: colors.card,
   },
   reviewPrompt: { fontSize: 13, fontWeight: '500', color: colors.ink },
   reviewDetail: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 4, lineHeight: 15 },
   actions: { marginTop: 24, gap: 16 },
-});
+}));

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Platform, Text, View } from 'react-native';
 import type { CareToast } from '@vitto/core';
-import { fonts } from '../theme';
+import { fonts, themedStyles } from '../theme';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
 
 /**
@@ -83,7 +83,7 @@ export function CareToastBanner({ toast, night }: { toast?: CareToast | null; ni
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   slot: {
     position: 'absolute',
     left: 0,
@@ -126,4 +126,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-});
+}));

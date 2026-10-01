@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import type { PetBreed } from '@vitto/core';
 import { BreedPicker } from '../components/BreedPicker';
 import { sheetByBreed } from '../components/petSprites';
 import { PrimaryButton, TextButton } from '../components/ui';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
   /** The animal the pet is now. */
@@ -102,7 +102,7 @@ export function ChooseCompanionScreen({ breed, coins, cost, onChoose, onClose }:
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -133,4 +133,4 @@ const styles = StyleSheet.create({
   short: { ...text.body, color: colors.inkSoft, textAlign: 'center' },
   confirm: { gap: 8, marginTop: 4 },
   confirmText: { ...text.body, color: colors.inkSoft, textAlign: 'center' },
-});
+}));

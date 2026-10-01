@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   PERSONALITY_PREVIEW,
@@ -11,7 +11,7 @@ import {
   type PetPersonality,
   type PetState,
 } from '@vitto/core';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 import { CharacterDials } from './CharacterDials';
 import { SelectionList, TextField } from './settingsKit';
 
@@ -158,7 +158,9 @@ export function CharacterEditor({
         ]}
         testID="save-character"
       >
-        <Text style={styles.saveLabel}>{busy ? 'Saving…' : justSaved ? '✓ Saved' : 'Save character'}</Text>
+        <Text style={[styles.saveLabel, !justSaved && !busy && !savable && styles.saveLabelOff]}>
+          {busy ? 'Saving…' : justSaved ? '✓ Saved' : 'Save character'}
+        </Text>
       </Pressable>
       {justSaved ? (
         <View style={styles.savedBanner} testID="character-saved">
@@ -239,7 +241,7 @@ export function PersonalityPreview({ personality, dials, persona, name }: { pers
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { gap: 14 },
   preview: { gap: 10, padding: 14, borderRadius: 12, backgroundColor: colors.card },
   previewAbout: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
@@ -286,8 +288,9 @@ const styles = StyleSheet.create({
   persona: { minHeight: 96, paddingTop: 12, paddingBottom: 12, textAlignVertical: 'top', lineHeight: 21, marginTop: 8 },
   count: { fontSize: 11, color: colors.faint, textAlign: 'right', marginTop: 4 },
   save: { minHeight: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.coral },
-  saveOff: { opacity: 0.35 },
-  saveLabel: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  saveOff: { backgroundColor: colors.disabledFill },
+  saveLabel: { fontSize: 16, fontWeight: '700', color: colors.onCoral },
+  saveLabelOff: { color: colors.onDisabled },
   pressed: { opacity: 0.8 },
   note: { fontSize: 13, lineHeight: 18, color: colors.muted },
-});
+}));

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { PetBreed } from '@vitto/core';
 import { PET_SHEETS } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
   value: PetBreed | undefined;
@@ -69,7 +69,7 @@ export function BreedPicker({ value, onChange, size = 84, locked, lockedNote, cu
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
   // A pale disc where the portrait will be — "loading", not "missing".
   placeholder: { position: 'absolute', backgroundColor: colors.sageSoft },
@@ -87,10 +87,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.cardSoft,
   },
-  optionOn: { borderColor: colors.coral, backgroundColor: '#fbf1ee' },
+  optionOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
   label: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 4 },
   labelOn: { color: colors.coralDeep },
   // Greyed right down: the animal is still recognisable, but plainly not on offer.
   optionLocked: { opacity: 0.38 },
   note: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 2 },
-});
+}));

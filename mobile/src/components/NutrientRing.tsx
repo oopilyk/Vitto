@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 interface NutrientRingProps {
   value: number;
@@ -31,7 +31,7 @@ export function NutrientRing({
     <View style={styles.wrap}>
       <View style={{ width: size, height: size }}>
         <Svg viewBox="0 0 100 100" width={size} height={size}>
-          <Circle cx="50" cy="50" r={RADIUS} stroke="#e2e5df" strokeWidth={9} fill="none" />
+          <Circle cx="50" cy="50" r={RADIUS} stroke={colors.track} strokeWidth={9} fill="none" />
           <Circle
             cx="50"
             cy="50"
@@ -57,10 +57,10 @@ export function NutrientRing({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { alignItems: 'center', flex: 1 },
   center: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
   value: { fontSize: 20, fontWeight: '700', color: colors.ink },
   unit: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 1 },
   label: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 9, letterSpacing: 0.5 },
-});
+}));

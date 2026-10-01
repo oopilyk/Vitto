@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   PET_PERSONALITY_OPTIONS,
   assessCondition,
@@ -15,7 +15,7 @@ import {
   companion,
   type PersonalityDials,
 } from '@vitto/core';
-import { colors, fonts, layout } from '../theme';
+import { colors, fonts, layout, themedStyles } from '../theme';
 import { companionService, type CompanionDebug } from '../services/companionService';
 import { CharacterEditor } from '../components/CharacterEditor';
 
@@ -264,7 +264,7 @@ const Chip = ({ label, on, onPress }: { label: string; on: boolean; onPress: () 
   </Pressable>
 );
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   screen: { backgroundColor: colors.paper },
   topbar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -302,4 +302,4 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
   spoken: { fontSize: 13, lineHeight: 19, color: colors.ink, fontStyle: 'italic' },
   error: { fontSize: 12, color: colors.danger },
-});
+}));

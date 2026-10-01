@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import {
   errorMessage,
   isUsernameAvailable,
@@ -9,7 +9,7 @@ import {
   usernameError,
 } from '@vitto/core';
 import { ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 export function AuthScreen() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
@@ -150,11 +150,11 @@ export function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   body: { padding: 22, paddingTop: 90, paddingBottom: 60 },
   headline: { ...text.display, marginTop: 18 },
   intro: { ...text.body, marginTop: 12, color: colors.muted },
   message: { fontFamily: fonts.mono, fontSize: 11, color: colors.mintDeep, marginTop: 12 },
   hint: { fontFamily: fonts.mono, fontSize: 10, color: colors.danger, marginTop: 6 },
   actions: { marginTop: 30, gap: 18 },
-});
+}));

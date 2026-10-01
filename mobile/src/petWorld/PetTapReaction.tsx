@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text } from 'react-native';
+import { Animated, Text } from 'react-native';
 import type { PetMood } from '@vitto/core';
-import { fonts } from '../theme';
+import { fonts, themedStyles } from '../theme';
 
 /** What one tap makes the pet emote — a glyph and, sometimes, a short word. */
 export interface TapReaction {
@@ -126,7 +126,7 @@ export function PetTapReaction({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { alignItems: 'center' },
   emote: { fontSize: 34 },
   caption: {
@@ -140,4 +140,4 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   captionNight: { color: '#f2efff', textShadowColor: 'rgba(0,0,0,0.4)' },
-});
+}));

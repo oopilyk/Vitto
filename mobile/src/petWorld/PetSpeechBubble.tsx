@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import { fonts, world } from '../theme';
+import { Animated, Pressable, Text, View } from 'react-native';
+import { fonts, world, themedStyles } from '../theme';
 import { RETRO_BORDER_WIDTH, retro } from './retroStyle';
 
 /** How long the bubble stays up before it goes; the unread dot on CHAT outlives it. */
@@ -87,7 +87,7 @@ const TAIL = 16;
 // at that line (half-diagonal, less the slanted border, less the mask's height).
 const TAIL_MOUTH = Math.floor(2 * (TAIL * 0.707 - RETRO_BORDER_WIDTH * 1.414 - RETRO_BORDER_WIDTH));
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   // Wide, but never wider than a narrow phone leaves beside the side rails.
   wrap: { alignItems: 'center', width: '78%', maxWidth: 290 },
   // Hugs a short line rather than stretching to the wrap's full width.
@@ -111,4 +111,4 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   tailMaskNight: { backgroundColor: world.nightSurface },
-});
+}));

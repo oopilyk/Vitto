@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import type { BodyProfile, HealthEvent } from '@vitto/core';
 import { FieldRow, FormField, SaveBar, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
 import { TextButton } from '../components/ui';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { formatMinutes, joinMinutes } from '../services/minutes';
-import { colors, text } from '../theme';
+import { colors, text, themedStyles } from '../theme';
 
 export interface ScreenTimeAccess {
   granted: boolean;
@@ -202,11 +202,11 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   logged: { padding: 16, borderRadius: 16, backgroundColor: colors.cardSoft, gap: 4 },
   loggedValue: { fontSize: 28, fontWeight: '800', color: colors.ink },
   loggedVerdict: { fontSize: 14, color: colors.inkSoft },
   actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18 },
   hint: { fontSize: 13, color: colors.muted, lineHeight: 19 },
   error: { ...text.error, fontSize: 13 },
-});
+}));

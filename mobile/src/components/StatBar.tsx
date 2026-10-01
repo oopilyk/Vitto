@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Text, View } from 'react-native';
+import { colors, fonts, themedStyles } from '../theme';
 
 interface StatBarProps {
   label: string;
@@ -35,7 +35,7 @@ export function StatBar({ label, value, color, hint, max = 100 }: StatBarProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   row: { marginTop: 14 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, letterSpacing: 0.5 },
@@ -44,10 +44,10 @@ const styles = StyleSheet.create({
   track: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#deded7',
+    backgroundColor: colors.track,
     marginTop: 6,
     overflow: 'hidden',
   },
   fill: { height: '100%', borderRadius: 3 },
   hint: { fontSize: 11, color: colors.faint, marginTop: 6, lineHeight: 16 },
-});
+}));

@@ -1,7 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { SettingsPage } from '../components/settingsKit';
 import { PrimaryButton, TextButton } from '../components/ui';
-import { colors, text } from '../theme';
+import { colors, text, themedStyles } from '../theme';
 
 export interface GymProps {
   saved: boolean;
@@ -45,10 +45,10 @@ export function GymScreen({ gym, onClose }: { gym: GymProps; onClose: () => void
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   status: { marginTop: 20, padding: 16, borderRadius: 16, backgroundColor: colors.cardSoft, gap: 4 },
   statusTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
   statusBody: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
   actions: { marginTop: 20, gap: 8, alignItems: 'stretch' },
   error: { ...text.error, fontSize: 13, marginTop: 12 },
-});
+}));

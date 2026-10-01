@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import {
   type PetInvite,
   type PetMember,
@@ -12,7 +12,7 @@ import {
   normalizeInviteCode,
 } from '@vitto/core';
 import { FRIENDS_LIGHT, type FriendsPalette } from '../friendsTheme';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 import { PrimaryButton, TextButton } from './ui';
 
 /**
@@ -243,7 +243,7 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   card: { borderWidth: 1, borderRadius: 18, padding: 18 },
   title: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase' },
   lead: { fontSize: 15, lineHeight: 21, marginTop: 8 },
@@ -290,4 +290,4 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 6 },
   privacy: { fontSize: 11, lineHeight: 16, marginTop: 16 },
   error: { ...text.error, fontSize: 12, marginTop: 12 },
-});
+}));

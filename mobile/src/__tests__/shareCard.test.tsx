@@ -42,6 +42,10 @@ describe('the shareable card', () => {
     expect(menace).toContain('hungry');
     // A healthy pet speaks in the same words the stats screen uses.
     expect(shareCardLine({ ...pet, personality: 'sweet', mood: 'bright' }, cared, NOW)).toContain('happy');
+    // MOOD_WORD reads "Blue is doing fine"; in the pet's own mouth it must not become "I'm feeling doing fine".
+    const fine = shareCardLine({ ...pet, personality: 'sweet', mood: 'content' }, cared, NOW);
+    expect(fine).not.toContain('feeling doing');
+    expect(fine).toContain('doing fine');
     // A pet that has been left alone does not perform its personality, the same
     // way the plaque goes plain. The card is honest, not a highlight reel.
     expect(shareCardLine({ ...pet, personality: 'menace', mood: 'hungry', nutrition: 10 }, [], NOW))

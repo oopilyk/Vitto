@@ -1,7 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { JeopardyCell } from '@vitto/core';
 import { RETRO_BORDER_WIDTH, RETRO_RADIUS, retroPressed, retroShadow } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { cellLabel, valueTone } from './board';
 
 interface ValueTileProps {
@@ -47,7 +47,7 @@ export function ValueTile({ cell, categoryLabel, night, onPress }: ValueTileProp
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   tile: {
     // Flex rather than a height: the nine squares split whatever the board has
     // left after the header and the score strip, so the grid fits a 667pt phone
@@ -66,4 +66,4 @@ const styles = StyleSheet.create({
   value: { fontFamily: fonts.display, fontSize: 26, letterSpacing: -0.5 },
   spentBody: { alignItems: 'center' },
   spentMark: { fontFamily: fonts.mono, fontSize: 13, fontWeight: '700', letterSpacing: 0.8 },
-});
+}));

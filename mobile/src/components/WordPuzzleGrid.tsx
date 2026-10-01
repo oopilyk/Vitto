@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import type { LetterMark } from '@vitto/core';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 /**
  * One appearance table for both the board and the keyboard, so a letter never reads
@@ -11,10 +11,10 @@ import { colors, fonts } from '../theme';
  * for a screen reader. The hues are the app's own tokens rather than the traffic-light
  * palette every other word game uses.
  */
-export const MARK_APPEARANCE: Record<
+export const MARK_APPEARANCE = (): Record<
   LetterMark,
   { background: string; foreground: string; glyph: string; label: string }
-> = {
+> => ({
   correct: {
     background: colors.mint,
     foreground: colors.mintDeep,
@@ -33,7 +33,7 @@ export const MARK_APPEARANCE: Record<
     glyph: '×',
     label: 'not in the word',
   },
-};
+});
 
 interface Props {
   length: number;
@@ -57,7 +57,7 @@ export function WordPuzzleGrid({ length, maxGuesses, guesses, marks, entry }: Pr
             {Array.from({ length }, (_, column) => {
               const letter = (guess ?? pending)[column] ?? '';
               const mark = guess ? marks[row]?.[column] : undefined;
-              const appearance = mark ? MARK_APPEARANCE[mark] : null;
+              const appearance = mark ? MARK_APPEARANCE()[mark] : null;
               const spoken = letter
                 ? `${letter.toUpperCase()}, ${appearance ? appearance.label : 'not submitted yet'}`
                 : 'Empty tile';
@@ -95,7 +95,7 @@ export function WordPuzzleGrid({ length, maxGuesses, guesses, marks, entry }: Pr
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   grid: { gap: 7, alignSelf: 'center', width: '100%', maxWidth: 340 },
   row: { flexDirection: 'row', gap: 7, justifyContent: 'center' },
   tile: {
@@ -115,4 +115,4 @@ const styles = StyleSheet.create({
   letter: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, lineHeight: 26 },
   // The shape marker sits under the letter so feedback survives a colourblind reading.
   glyph: { fontSize: 8, lineHeight: 10, marginTop: 1 },
-});
+}));

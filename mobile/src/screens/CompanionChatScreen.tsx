@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { companion as ai, errorMessage, type PetState } from '@vitto/core';
 import { TextButton } from '../components/ui';
 import { PetSpriteAvatar } from '../components/PetSpriteAvatar';
-import { colors, fonts, layout } from '../theme';
+import { colors, fonts, layout, themedStyles } from '../theme';
 import {
   CompanionLimitError,
   companionService,
@@ -190,7 +190,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   screen: { backgroundColor: colors.paper },
   topbar: {
     flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingTop: 58, paddingBottom: 12,
@@ -221,4 +221,4 @@ const styles = StyleSheet.create({
   limitTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
   limitBody: { fontSize: 13, lineHeight: 19, color: colors.inkSoft, marginTop: 6 },
   remaining: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, textAlign: 'center', paddingBottom: 8 },
-});
+}));

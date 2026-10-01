@@ -4,7 +4,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -29,7 +28,7 @@ import { ChoiceRow, TextButton } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { retro } from '../petWorld/retroStyle';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
-import { fonts, layout, world } from '../theme';
+import { fonts, getColorScheme, layout, world, themedStyles } from '../theme';
 
 /**
  * Today: a daily game recap, not an event log and not a nutrition dashboard. It
@@ -181,7 +180,8 @@ export function TodayScreen({
   ambientDebug,
 }: Props) {
   const night = isNightTime();
-  const c = night ? nightColors : dayColors;
+  // Dark mode takes the night palette, whatever the hour.
+  const c = night || getColorScheme() === 'dark' ? nightColors : dayColors;
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {
     if (!onRefresh) return;
@@ -717,7 +717,7 @@ const nightColors: Palette = {
   track: 'rgba(239,229,208,0.14)',
 };
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -846,4 +846,4 @@ const styles = StyleSheet.create({
   devHint: { fontSize: 11, lineHeight: 16, marginTop: 10 },
   devReadout: { fontFamily: fonts.mono, fontSize: 11, marginTop: 6 },
   devButtons: { flexDirection: 'row', gap: 16 },
-});
+}));

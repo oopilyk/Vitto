@@ -1,7 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { SettingsPage } from '../components/settingsKit';
 import { PrimaryButton } from '../components/ui';
-import { colors } from '../theme';
+import { colors, themedStyles } from '../theme';
 
 interface Props {
   status: 'disconnected' | 'connected';
@@ -35,9 +35,9 @@ export function AppleHealthScreen({ status, onConnect, onSync, syncing, onClose 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   status: { marginTop: 20, padding: 16, borderRadius: 16, backgroundColor: colors.cardSoft, gap: 4 },
   statusTitle: { fontSize: 18, fontWeight: '700', color: colors.ink },
   statusBody: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
   actions: { marginTop: 20 },
-});
+}));

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import {
   type BodyProfile,
   FOCUS_AREAS,
@@ -22,7 +22,7 @@ import {
   SettingsSection,
   TextField,
 } from '../components/settingsKit';
-import { colors } from '../theme';
+import { colors, themedStyles } from '../theme';
 
 interface Props {
   profile: BodyProfile;
@@ -293,10 +293,10 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   fieldSpacer: { flex: 1 },
   plan: { padding: 14, borderRadius: 12, backgroundColor: colors.cardSoft },
   planText: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
   planValue: { fontWeight: '700', color: colors.ink },
-  planWarning: { fontSize: 12, color: '#9a6b5c', marginTop: 6 },
-});
+  planWarning: { fontSize: 12, color: colors.caution, marginTop: 6 },
+}));

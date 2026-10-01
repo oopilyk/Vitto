@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { RETRO_BORDER_WIDTH, retro, retroPressed } from '../petWorld/retroStyle';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 import { ON_FILL_TEXT, answerLabel } from './board';
 
 /**
@@ -76,7 +76,7 @@ export function AnswerTile({ answer, state, mark, night, disabled, onPress }: An
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   tile: {
     minHeight: 56,
     justifyContent: 'center',
@@ -97,4 +97,4 @@ const styles = StyleSheet.create({
   },
   answerNight: { color: world.nightText },
   mark: { letterSpacing: 1.1 },
-});
+}));

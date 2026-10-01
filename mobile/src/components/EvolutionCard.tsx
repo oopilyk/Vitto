@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import {
   EVOLUTION_LEVEL,
   EVOLVED_BUILDS,
@@ -13,7 +13,7 @@ import {
 import { SpriteFrame } from './SpriteFrame';
 import { evolutionSheetFor } from './petSprites';
 import { Kicker } from './ui';
-import { colors, fonts, text } from '../theme';
+import { colors, fonts, text, themedStyles } from '../theme';
 
 interface Props {
   pet: PetState;
@@ -122,7 +122,7 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -164,4 +164,4 @@ const styles = StyleSheet.create({
   fill: { height: '100%', borderRadius: 4, backgroundColor: colors.coral },
   fillEarned: { backgroundColor: colors.mintDeep },
   needs: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint, lineHeight: 15 },
-});
+}));

@@ -4,7 +4,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -24,7 +23,7 @@ import { FriendListRow } from '../components/FriendListRow';
 import { ErrorText, Field, PrimaryButton } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { friendsPalette } from '../friendsTheme';
-import { colors, fonts, layout } from '../theme';
+import { colors, fonts, layout, themedStyles } from '../theme';
 
 interface Props {
   currentUserId: string;
@@ -437,7 +436,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   center: { alignItems: 'center', justifyContent: 'center' },
   topbar: {
     flexDirection: 'row',
@@ -499,4 +498,4 @@ const styles = StyleSheet.create({
   },
   searchName: { fontSize: 14, fontWeight: '600', flexShrink: 1 },
   searchStatusText: { fontFamily: fonts.mono, fontSize: 11 },
-});
+}));

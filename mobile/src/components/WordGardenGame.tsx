@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import {
   type BrainTrainingMetadata,
   type WordGardenFind,
@@ -16,7 +16,7 @@ import {
   wordGardenStage,
   wordGardenVerdictMessage,
 } from '@vitto/core';
-import { colors, fonts, text } from '../theme';
+import { colors, fonts, text, themedStyles } from '../theme';
 import { PrimaryButton, TextButton } from './ui';
 
 interface Props {
@@ -242,7 +242,7 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   stageRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
   stageName: { fontSize: 17, fontWeight: '600', color: colors.ink },
   stageHint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
@@ -328,4 +328,4 @@ const styles = StyleSheet.create({
   foundBloom: { color: colors.mintDeep, fontWeight: '700' },
   foundRun: { color: colors.coralDeep },
   actions: { marginTop: 24, gap: 16 },
-});
+}));

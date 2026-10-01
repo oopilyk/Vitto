@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { type LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import { type LayoutChangeEvent, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import {
   type BodyProfile,
@@ -13,7 +13,7 @@ import {
 } from '@vitto/core';
 import { ChipGroup, SettingsPage } from '../components/settingsKit';
 import { TIER_COLOR } from '../components/StrengthMap';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
   profile: Pick<BodyProfile, 'sex' | 'weightKg' | 'weightUnit'>;
@@ -249,7 +249,7 @@ export function LiftProgressScreen({ profile, events, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   picker: { marginTop: 16, marginHorizontal: -24, paddingLeft: 24 },
   empty: { marginTop: 24, padding: 20, borderRadius: 16, backgroundColor: colors.cardSoft, gap: 4 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   summaryUnit: { fontFamily: fonts.mono, fontSize: 14, fontWeight: '400', color: colors.faint, letterSpacing: 0 },
   change: { fontSize: 14, color: colors.muted },
   changeUp: { color: colors.mintDeep, fontWeight: '600' },
-  changeDown: { color: '#9a6b5c', fontWeight: '600' },
+  changeDown: { color: colors.caution, fontWeight: '600' },
   summaryRight: { alignItems: 'flex-end', gap: 6, paddingTop: 4 },
   tierPill: {
     fontFamily: fonts.mono,
@@ -301,4 +301,4 @@ const styles = StyleSheet.create({
   sessionDate: { fontSize: 15, fontWeight: '600', color: colors.ink },
   sessionSet: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 2 },
   sessionMax: { fontSize: 15, fontWeight: '700', color: colors.ink },
-});
+}));

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, StyleSheet, type StyleProp, Text, View, type ViewStyle } from 'react-native';
+import { Animated, Easing, Image, type StyleProp, Text, View, type ViewStyle } from 'react-native';
 import {
   type MealAnalysis,
   type PetAilment,
@@ -22,7 +22,7 @@ import {
   RainCloud,
   Zzz,
 } from './PetEffects';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 export type PetActivity = 'idle' | 'analyzing' | 'eating' | 'workout' | 'exploring' | 'celebrating';
 
@@ -96,13 +96,13 @@ const AURA_BY_MOOD: Record<PetState['mood'], string> = {
  * as "something is wrong". `exhausted` reuses the sleepy tone deliberately: it is
  * the same dulled-out read, just further along.
  */
-const AURA_BY_AILMENT: Record<PetAilment, string> = {
+const AURA_BY_AILMENT = (): Record<PetAilment, string> => ({
   dying: colors.slate,
   starving: colors.yellow,
   exhausted: AURA_BY_MOOD.sleepy,
   sad: colors.periwinkle,
   foggy: colors.lilac,
-};
+});
 
 /** The body pose each ailment puts the pet in. `starving` has no art of its own. */
 const ANIMATION_BY_AILMENT: Record<PetAilment, PetAnimation> = {
@@ -347,7 +347,7 @@ export function PetAvatar({
   const baseAura = activityOutranksCondition
     ? AURA_BY_MOOD[pet.mood]
     : condition.primary
-      ? AURA_BY_AILMENT[condition.primary]
+      ? AURA_BY_AILMENT()[condition.primary]
       : mixHex(AURA_BY_MOOD[pet.mood], colors.slate, decline.intensity * 0.7);
 
   return (
@@ -420,7 +420,7 @@ export function PetAvatar({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   stage: {
     height: 320,
     backgroundColor: colors.sage,
@@ -459,4 +459,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#55705d',
   },
-});
+}));

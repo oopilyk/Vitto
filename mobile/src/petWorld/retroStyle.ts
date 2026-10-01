@@ -1,5 +1,4 @@
-import { StyleSheet } from 'react-native';
-import { fonts, world } from '../theme';
+import { fonts, world, themedStyles } from '../theme';
 
 /**
  * The pet-world's pixel-UI design language, in one place. Warm parchment
@@ -27,7 +26,7 @@ export const retroShadow = {
   elevation: 4,
 } as const;
 
-export const retro = StyleSheet.create({
+export const retro = themedStyles(() => ({
   panel: {
     backgroundColor: world.surface,
     borderWidth: RETRO_BORDER_WIDTH,
@@ -85,7 +84,7 @@ export const retro = StyleSheet.create({
     color: world.inkSoft,
   },
   subtleNight: { color: world.nightTextSoft },
-});
+}));
 
 /** The "button depresses into its own shadow" press move — identical across
  *  every retro control. */

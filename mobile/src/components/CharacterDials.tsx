@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { companion } from '@vitto/core';
-import { colors, fonts } from '../theme';
+import { colors, fonts, themedStyles } from '../theme';
 
 type DialKey = companion.DialKey;
 type PersonalityDials = companion.PersonalityDials;
@@ -65,7 +65,7 @@ export function CharacterDials({
 
 const STOP = 14;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   wrap: { gap: 10, marginTop: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   end: { width: 82, fontFamily: fonts.mono, fontSize: 11, color: colors.muted },
@@ -83,4 +83,4 @@ const styles = StyleSheet.create({
   stop: { width: STOP, height: STOP, borderRadius: STOP / 2, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
   stopMid: { borderColor: colors.faint },
   stopOn: { backgroundColor: colors.coral, borderColor: colors.coralDeep, transform: [{ scale: 1.25 }] },
-});
+}));

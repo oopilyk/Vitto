@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType, type LayoutChangeEvent } from 'react-native';
+import { themedStyles } from '../theme';
 
 /**
  * A scene's full-bleed art, sized so you can actually see the scene.
@@ -286,7 +287,7 @@ export function EnvironmentBackdrop({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   art: { position: 'absolute' },
   floor: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-});
+}));

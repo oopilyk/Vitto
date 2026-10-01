@@ -19,7 +19,7 @@ import {
   searchCountries,
   toCountryGuessMetadata,
 } from '@vitto/core';
-import { colors, fonts, layout, text } from '../theme';
+import { colors, fonts, layout, text, themedStyles } from '../theme';
 import { PrimaryButton, TextButton } from './ui';
 
 interface Props {
@@ -205,7 +205,7 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   scoreboard: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 14 },
   scoreItem: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted },
   scoreValue: { fontSize: 16, fontWeight: '700', color: colors.ink },
@@ -218,8 +218,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sageSoft,
     marginBottom: 14,
   },
-  mysterySolved: { borderColor: '#8fae91', backgroundColor: '#dcecdb' },
-  mysteryLost: { borderColor: '#d8a396', backgroundColor: '#f5e3de' },
+  mysterySolved: { borderColor: colors.mintDeep, backgroundColor: colors.mint },
+  mysteryLost: { borderColor: colors.coral, backgroundColor: colors.coralWash },
   mysteryFlag: { fontSize: 54, lineHeight: 64 },
   mysteryTitle: { fontFamily: fonts.display, fontSize: 24, color: colors.ink, marginTop: 6, textAlign: 'center' },
   mysteryHint: { ...text.body, fontSize: 13, color: colors.muted, marginTop: 6, textAlign: 'center' },
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
     backgroundColor: colors.card,
   },
-  guessRowRight: { borderColor: '#8fae91', backgroundColor: '#dcecdb' },
+  guessRowRight: { borderColor: colors.mintDeep, backgroundColor: colors.mint },
   guessIndex: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, width: 12 },
   guessFlag: { fontSize: 18 },
   guessName: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.ink },
@@ -267,4 +267,4 @@ const styles = StyleSheet.create({
   suggestionName: { fontSize: 14, color: colors.ink },
   notice: { fontFamily: fonts.mono, fontSize: 11, color: colors.danger, marginTop: 6, minHeight: 16 },
   actions: { marginTop: 20, gap: 16 },
-});
+}));

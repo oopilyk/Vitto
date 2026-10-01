@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
-import { colors } from '../theme';
+import { Animated, Easing, View } from 'react-native';
+import { colors, themedStyles } from '../theme';
 
 /**
  * A one-shot pixel-confetti burst for a full-screen celebration — bigger and
@@ -11,7 +11,7 @@ import { colors } from '../theme';
  * Fixed (not random) piece layout so it can't jump between renders, matching the
  * house pattern in `PetEffects.tsx`.
  */
-const PALETTE = [colors.coral, colors.mintDeep, colors.yellowDeep, colors.lilacDeep, '#e7d9a0'];
+const PALETTE = () => ([colors.coral, colors.mintDeep, colors.yellowDeep, colors.lilacDeep, '#e7d9a0']);
 const PIECE_COUNT = 22;
 
 const PIECES = Array.from({ length: PIECE_COUNT }, (_, i) => {
@@ -19,7 +19,7 @@ const PIECES = Array.from({ length: PIECE_COUNT }, (_, i) => {
   const spread = 120 + (i % 5) * 34;
   return {
     key: i,
-    color: PALETTE[i % PALETTE.length],
+    color: PALETTE()[i % PALETTE().length],
     size: 7 + (i % 3) * 3,
     dx: Math.cos(angle) * spread,
     rise: 150 + (i % 4) * 46,
@@ -92,11 +92,11 @@ export function PixelConfetti({ fire }: { fire: boolean }) {
 
 const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   field: {
     ...FILL,
     alignItems: 'center',
     justifyContent: 'center',
   },
   piece: { position: 'absolute' },
-});
+}));

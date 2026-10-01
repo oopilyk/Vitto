@@ -1,6 +1,6 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { getRecentDays, toDateKey } from '@vitto/core';
-import { colors } from '../theme';
+import { colors, themedStyles } from '../theme';
 
 interface ActivityCalendarProps {
   activeDateKeys: Set<string>;
@@ -26,8 +26,8 @@ export function ActivityCalendar({ activeDateKeys, weeks = 12 }: ActivityCalenda
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => ({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 14 },
-  cell: { width: 12, height: 12, borderRadius: 3, backgroundColor: '#e4e2db' },
+  cell: { width: 12, height: 12, borderRadius: 3, backgroundColor: colors.track },
   cellActive: { backgroundColor: colors.coral },
-});
+}));
