@@ -429,6 +429,23 @@ describe('lift progress', () => {
     tree.unmount();
   });
 
+  it('keeps the headline numbers but locks the graph and sessions behind Plus', () => {
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <LiftProgressScreen profile={lifter} events={[bench('10', 185, 5), bench('20', 205, 5)]} locked onOpenPlus={() => (opened += 1)} onClose={() => {}} />,
+      );
+    });
+    const rendered = json(tree);
+    expect(rendered).toMatch(/23[89]/);
+    expect(tree.root.findAll((n) => n.props.testID === 'lift-progress-chart')).toHaveLength(0);
+    expect(rendered).not.toContain('Bench Press · 205 lb × 5');
+    act(() => findButton(tree, 'See Plus')!.props.onPress());
+    expect(opened).toBe(1);
+    tree.unmount();
+  });
+
   it('says so when a lift has nothing logged', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

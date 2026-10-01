@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { type LayoutChangeEvent, Text, View } from 'react-native';
+import { type LayoutChangeEvent, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import {
   type BodyProfile,
@@ -19,6 +19,9 @@ interface Props {
   profile: Pick<BodyProfile, 'sex' | 'weightKg' | 'weightUnit'>;
   events: readonly HealthEvent[];
   onClose: () => void;
+  /** The graph and sessions are Plus. Locked, the page keeps the headline numbers and offers Plus. */
+  locked?: boolean;
+  onOpenPlus?: () => void;
 }
 
 const LIFTS = Object.keys(STANDARD_LIFT_LABEL) as StandardLift[];
@@ -42,7 +45,7 @@ const niceStep = (span: number) => {
  * dashed line to aim at. Estimated from every logged set the way the ranks
  * are, so a heavy triple counts as much as a true single.
  */
-export function LiftProgressScreen({ profile, events, onClose }: Props) {
+export function LiftProgressScreen({ profile, events, onClose, locked = false, onOpenPlus }: Props) {
   const histories = useMemo(
     () =>
       Object.fromEntries(LIFTS.map((lift) => [lift, liftHistory(events, lift)])) as Record<StandardLift, ReturnType<typeof liftHistory>>,
@@ -129,120 +132,140 @@ export function LiftProgressScreen({ profile, events, onClose }: Props) {
             </View>
           </View>
 
-          <View
-            style={styles.chart}
-            onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
-            accessibilityLabel={`${STANDARD_LIFT_LABEL[lift]} estimated max over ${points.length} sessions`}
-            testID="lift-progress-chart"
-          >
-            {width > 0 ? (
-              <Svg width={width} height={CHART_HEIGHT}>
-                {ticks.map((value) => (
-                  <Line
-                    key={`g${value}`}
-                    x1={PAD.left}
-                    x2={width - PAD.right}
-                    y1={y(value)}
-                    y2={y(value)}
-                    stroke={colors.hairline}
-                    strokeWidth={1}
-                  />
-                ))}
-                {ticks.map((value) => (
-                  <SvgText
-                    fontFamily={fonts.mono}
-                    key={`t${value}`}
-                    x={PAD.left - 8}
-                    y={y(value) + 4}
-                    fontSize={10}
-                    fill={colors.faint}
-                    textAnchor="end"
-                  >
-                    {String(value)}
-                  </SvgText>
-                ))}
-                {target !== null ? (
-                  <>
-                    <Line
-                      x1={PAD.left}
-                      x2={width - PAD.right}
-                      y1={y(target)}
-                      y2={y(target)}
-                      stroke={TIER_COLOR[nextTier]}
-                      strokeWidth={1.5}
-                      strokeDasharray="5 4"
-                    />
-                    <SvgText
-                      fontFamily={fonts.mono}
-                      x={width - PAD.right}
-                      y={y(target) - 6}
-                      fontSize={10}
-                      fontWeight="700"
-                      fill={TIER_COLOR[nextTier]}
-                      textAnchor="end"
-                    >
-                      {`${STRENGTH_TIERS[nextTier]} ${target}`}
-                    </SvgText>
-                  </>
-                ) : null}
-                {points.length > 1 ? (
-                  <Path d={path} stroke={lineColor} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
-                ) : null}
-                {points.map((point, index) => (
-                  <Circle
-                    key={`${point.occurredAt}-${index}`}
-                    cx={x(point.occurredAt)}
-                    cy={y(show(point.oneRepMaxKg))}
-                    r={index === points.length - 1 ? 5 : 3.5}
-                    fill={index === points.length - 1 ? lineColor : colors.card}
-                    stroke={lineColor}
-                    strokeWidth={2}
-                  />
-                ))}
-                <SvgText fontFamily={fonts.mono} x={PAD.left} y={CHART_HEIGHT - 8} fontSize={10} fill={colors.faint} textAnchor="start">
-                  {shortDate(first!.occurredAt)}
-                </SvgText>
-                {points.length > 1 ? (
-                  <SvgText
-                    fontFamily={fonts.mono}
-                    x={width - PAD.right}
-                    y={CHART_HEIGHT - 8}
-                    fontSize={10}
-                    fill={colors.faint}
-                    textAnchor="end"
-                  >
-                    {shortDate(latest!.occurredAt)}
-                  </SvgText>
-                ) : null}
-              </Svg>
-            ) : null}
-          </View>
-          {nextKg !== null ? (
-            <Text style={styles.toNext}>
-              {`${Math.max(1, show(nextKg) - show(best!))} ${unit} more to `}
-              <Text style={{ color: TIER_COLOR[nextTier], fontWeight: '700' }}>{STRENGTH_TIERS[nextTier]}</Text>
-            </Text>
+          {locked ? (
+            <View style={styles.locked} testID="lift-progress-locked">
+              <Text style={styles.lockedTitle}>Your progress graph is part of Plus</Text>
+              <Text style={styles.lockedBody}>
+                See every lift's estimated max over time, how far you are from the next rank, and each session it came from.
+              </Text>
+              {onOpenPlus ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onOpenPlus}
+                  style={({ pressed }) => [styles.lockedButton, pressed && styles.pressed]}
+                >
+                  <Text style={styles.lockedButtonLabel}>See Plus</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : (
-            <Text style={styles.toNext}>Top rank. Nothing left to chase but your own best.</Text>
-          )}
+            <>
+              <View
+                style={styles.chart}
+                onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
+                accessibilityLabel={`${STANDARD_LIFT_LABEL[lift]} estimated max over ${points.length} sessions`}
+                testID="lift-progress-chart"
+              >
+                {width > 0 ? (
+                  <Svg width={width} height={CHART_HEIGHT}>
+                    {ticks.map((value) => (
+                      <Line
+                        key={`g${value}`}
+                        x1={PAD.left}
+                        x2={width - PAD.right}
+                        y1={y(value)}
+                        y2={y(value)}
+                        stroke={colors.hairline}
+                        strokeWidth={1}
+                      />
+                    ))}
+                    {ticks.map((value) => (
+                      <SvgText
+                        fontFamily={fonts.mono}
+                        key={`t${value}`}
+                        x={PAD.left - 8}
+                        y={y(value) + 4}
+                        fontSize={10}
+                        fill={colors.faint}
+                        textAnchor="end"
+                      >
+                        {String(value)}
+                      </SvgText>
+                    ))}
+                    {target !== null ? (
+                      <>
+                        <Line
+                          x1={PAD.left}
+                          x2={width - PAD.right}
+                          y1={y(target)}
+                          y2={y(target)}
+                          stroke={TIER_COLOR[nextTier]}
+                          strokeWidth={1.5}
+                          strokeDasharray="5 4"
+                        />
+                        <SvgText
+                          fontFamily={fonts.mono}
+                          x={width - PAD.right}
+                          y={y(target) - 6}
+                          fontSize={10}
+                          fontWeight="700"
+                          fill={TIER_COLOR[nextTier]}
+                          textAnchor="end"
+                        >
+                          {`${STRENGTH_TIERS[nextTier]} ${target}`}
+                        </SvgText>
+                      </>
+                    ) : null}
+                    {points.length > 1 ? (
+                      <Path d={path} stroke={lineColor} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+                    ) : null}
+                    {points.map((point, index) => (
+                      <Circle
+                        key={`${point.occurredAt}-${index}`}
+                        cx={x(point.occurredAt)}
+                        cy={y(show(point.oneRepMaxKg))}
+                        r={index === points.length - 1 ? 5 : 3.5}
+                        fill={index === points.length - 1 ? lineColor : colors.card}
+                        stroke={lineColor}
+                        strokeWidth={2}
+                      />
+                    ))}
+                    <SvgText fontFamily={fonts.mono} x={PAD.left} y={CHART_HEIGHT - 8} fontSize={10} fill={colors.faint} textAnchor="start">
+                      {shortDate(first!.occurredAt)}
+                    </SvgText>
+                    {points.length > 1 ? (
+                      <SvgText
+                        fontFamily={fonts.mono}
+                        x={width - PAD.right}
+                        y={CHART_HEIGHT - 8}
+                        fontSize={10}
+                        fill={colors.faint}
+                        textAnchor="end"
+                      >
+                        {shortDate(latest!.occurredAt)}
+                      </SvgText>
+                    ) : null}
+                  </Svg>
+                ) : null}
+              </View>
+              {nextKg !== null ? (
+                <Text style={styles.toNext}>
+                  {`${Math.max(1, show(nextKg) - show(best!))} ${unit} more to `}
+                  <Text style={{ color: TIER_COLOR[nextTier], fontWeight: '700' }}>{STRENGTH_TIERS[nextTier]}</Text>
+                </Text>
+              ) : (
+                <Text style={styles.toNext}>Top rank. Nothing left to chase but your own best.</Text>
+              )}
 
-          <Text style={styles.sessionsTitle}>Sessions</Text>
-          <View style={styles.sessions}>
-            {[...points]
-              .reverse()
-              .slice(0, SESSIONS_SHOWN)
-              .map((point, index) => (
-                <View key={`${point.occurredAt}-${index}`} style={[styles.session, index > 0 && styles.sessionRuled]}>
-                  <View style={styles.sessionText}>
-                    <Text style={styles.sessionDate}>{shortDate(point.occurredAt)}</Text>
-                    <Text
-                      style={styles.sessionSet}
-                    >{`${point.from.exercise} · ${point.from.weight} ${point.from.unit} × ${point.from.reps}`}</Text>
-                  </View>
-                  <Text style={styles.sessionMax}>{`${show(point.oneRepMaxKg)} ${unit}`}</Text>
-                </View>
-              ))}
-          </View>
+              <Text style={styles.sessionsTitle}>Sessions</Text>
+              <View style={styles.sessions}>
+                {[...points]
+                  .reverse()
+                  .slice(0, SESSIONS_SHOWN)
+                  .map((point, index) => (
+                    <View key={`${point.occurredAt}-${index}`} style={[styles.session, index > 0 && styles.sessionRuled]}>
+                      <View style={styles.sessionText}>
+                        <Text style={styles.sessionDate}>{shortDate(point.occurredAt)}</Text>
+                        <Text
+                          style={styles.sessionSet}
+                        >{`${point.from.exercise} · ${point.from.weight} ${point.from.unit} × ${point.from.reps}`}</Text>
+                      </View>
+                      <Text style={styles.sessionMax}>{`${show(point.oneRepMaxKg)} ${unit}`}</Text>
+                    </View>
+                  ))}
+              </View>
+            </>
+          )}
         </>
       )}
     </SettingsPage>
@@ -284,6 +307,19 @@ const styles = themedStyles(() => ({
     overflow: 'hidden',
   },
   toNext: { fontSize: 14, color: colors.inkSoft, textAlign: 'center', marginTop: 12 },
+  locked: { marginTop: 20, padding: 20, borderRadius: 16, backgroundColor: colors.cardSoft, gap: 8 },
+  lockedTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  lockedBody: { fontSize: 14, color: colors.muted, lineHeight: 20 },
+  lockedButton: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: colors.coral,
+  },
+  lockedButtonLabel: { fontSize: 15, fontWeight: '700', color: colors.onCoral },
+  pressed: { opacity: 0.85 },
   sessionsTitle: {
     fontFamily: fonts.mono,
     fontSize: 11,

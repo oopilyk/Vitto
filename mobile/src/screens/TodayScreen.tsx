@@ -53,6 +53,9 @@ interface Props {
   onOpenWordPuzzle?: () => void;
   /** "Full history →" — Profile lists the user's own events. */
   onOpenProfile: () => void;
+  /** Insights ("Miso noticed") are Plus. Locked, a found insight shows as a teaser that opens Plus. Defaults to unlocked. */
+  insightsUnlocked?: boolean;
+  onOpenPlus?: () => void;
   onClose: () => void;
   /**
    * Shared pets: the user's own events merged with the partner's care-log
@@ -162,6 +165,8 @@ export function TodayScreen({
   onTrainMind,
   onOpenWordPuzzle,
   onOpenProfile,
+  insightsUnlocked = true,
+  onOpenPlus,
   onClose,
   onRefresh,
   forcedAilment,
@@ -449,12 +454,25 @@ export function TodayScreen({
           </Pressable>
         </View>
 
-        {topInsight ? (
+        {topInsight && insightsUnlocked ? (
           <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.softPanel]}>
             <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
             <Text style={[styles.softHeadline, { color: c.ink }]}>{topInsight.headline}</Text>
             <Text style={[styles.softDetail, { color: c.soft }]}>{topInsight.detail}</Text>
           </View>
+        ) : topInsight ? (
+          // Plus: say there is something to see, never what it is.
+          <Pressable
+            accessibilityRole="button"
+            onPress={onOpenPlus}
+            disabled={!onOpenPlus}
+            style={[retro.panelQuiet, night && retro.panelQuietNight, styles.softPanel]}
+            testID="insight-locked"
+          >
+            <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
+            <Text style={[styles.softHeadline, { color: c.ink }]}>{`${petName} spotted a pattern in your habits`}</Text>
+            <Text style={[styles.softDetail, { color: world.accent }]}>See what it is with Plus →</Text>
+          </Pressable>
         ) : null}
 
         {screenTimeToday ? (

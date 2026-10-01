@@ -55,6 +55,18 @@ const COMPARISON: { feature: string; detail: string; free: string; plus: string 
     plus: `${ai.TIER_LIMITS.plus.messagesPerDay} a day`,
   },
   {
+    feature: 'Lift progress',
+    detail: 'Your estimated max over time',
+    free: '—',
+    plus: 'Included',
+  },
+  {
+    feature: 'Insights',
+    detail: 'Patterns your pet notices',
+    free: '—',
+    plus: 'Included',
+  },
+  {
     feature: 'Voice',
     detail: 'Their personality in every reply',
     free: 'Standard',

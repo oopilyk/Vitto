@@ -2085,7 +2085,15 @@ function VittoApp() {
           )}
         </RootStack.Screen>
         <RootStack.Screen name="LiftProgress">
-          {({ navigation }) => <LiftProgressScreen profile={profile} events={events} onClose={() => navigation.goBack()} />}
+          {({ navigation }) => (
+            <LiftProgressScreen
+              profile={profile}
+              events={events}
+              locked={!canCustomise}
+              onOpenPlus={() => navigation.navigate('Plus')}
+              onClose={() => navigation.goBack()}
+            />
+          )}
         </RootStack.Screen>
         <RootStack.Screen name="ActivityHistory">
           {({ navigation }) => <ActivityHistoryScreen events={events} onClose={() => navigation.goBack()} />}
@@ -2283,6 +2291,8 @@ function VittoApp() {
         <RootStack.Screen name="Today">
           {({ navigation }) => (
             <TodayScreen
+              insightsUnlocked={canCustomise}
+              onOpenPlus={() => navigation.navigate('Plus')}
               pet={livePet}
               events={events}
               profile={profile}
