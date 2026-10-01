@@ -2011,26 +2011,41 @@ describe('pet sprite', () => {
     expect(bichon.artScale).toBeLessThan(1);
     expect(shiba.artScale).toBeUndefined();
 
-    // A sheet with no artScale still maps one cell onto the whole window.
+    // A sheet with no artScale still maps one cell onto the whole window,
+    // clipped a pixel inside each edge so a neighbouring frame can never bleed in.
     const plain = stylesFor(shiba);
     expect(plain.image.width).toBe(size * SHEET_COLUMNS);
-    expect(plain.clip).toMatchObject({ width: size, height: size, marginLeft: 0, marginTop: 0 });
+    expect(plain.clip).toMatchObject({ width: size - 2, height: size - 2, marginLeft: 1, marginTop: 1 });
 
     // The scaled one is drawn smaller, centred, and pushed down so the cell floor
     // still sits on the window floor rather than leaving the pet hovering. The
     // clip is that one smaller cell, so the neighbouring cells stay hidden.
     const scaled = stylesFor(bichon);
-    const cell = size * bichon.artScale;
+    const cell = Math.round(size * bichon.artScale);
     expect(scaled.image.width).toBe(cell * SHEET_COLUMNS);
     expect(scaled.image.width).toBeLessThan(plain.image.width);
-    expect(scaled.clip).toMatchObject({ width: cell, height: cell, overflow: 'hidden' });
-    expect(scaled.clip.marginLeft).toBeCloseTo((size - cell) / 2);
-    expect(scaled.clip.marginTop).toBeCloseTo(size - cell);
+    expect(scaled.clip).toMatchObject({ width: cell - 2, height: cell - 2, overflow: 'hidden' });
+    expect(scaled.clip.marginLeft).toBe(Math.round((size - cell) / 2) + 1);
+    expect(scaled.clip.marginTop).toBe(size - cell + 1);
 
     // Row and column offsets still land on the right cell once scaled.
     const offset = stylesFor(bichon, [3, 2]).image;
-    expect(offset.marginLeft).toBeCloseTo(-2 * cell);
-    expect(offset.marginTop).toBeCloseTo(-3 * cell);
+    expect(offset.marginLeft).toBe(-2 * cell - 1);
+    expect(offset.marginTop).toBe(-3 * cell - 1);
+
+    // Every measure is a whole pixel at any size, so a cell edge never falls
+    // between pixels (where smoothing would show the next frame).
+    for (const odd of [93.6, 101.3, 157.92]) {
+      act(() => {});
+      let tree!: renderer.ReactTestRenderer;
+      act(() => { tree = renderer.create(<SpriteFrame sheet={bichon} frame={[1, 3]} size={odd} />); });
+      const image = tree.root.findAllByType(Image)[0];
+      const clip = image.parent!.props.style;
+      for (const value of [clip.width, clip.height, image.props.style.width, image.props.style.marginLeft, image.props.style.marginTop]) {
+        expect(Number.isInteger(value)).toBe(true);
+      }
+      tree.unmount();
+    }
   });
 
   it('gives every bichon form the same scale, so evolving does not resize the pet', () => {

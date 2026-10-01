@@ -1,5 +1,5 @@
 import { Image, View } from 'react-native';
-import { CELL, SHEET_COLUMNS, SHEET_ROWS, type PetSheet } from './petSprites';
+import { SHEET_COLUMNS, SHEET_ROWS, type PetSheet } from './petSprites';
 
 interface Props {
   /** Fires once the sheet's image has arrived — a caller can show a placeholder until then. */
@@ -15,6 +15,9 @@ interface Props {
   tintColor?: string;
 }
 
+/** Pixels trimmed from each side of a cell's clip; see SpriteFrame. */
+const GUARD = 1;
+
 /**
  * One cell of a sprite sheet: a window `size` across with the whole sheet slid
  * behind it. Used both by the animated avatar and by the still previews in pickers.
@@ -25,8 +28,12 @@ export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
   // the pet shrinks while the window it is measured at stays the same. Pinned to
   // the window's floor and centred horizontally, because the bottom of a cell is
   // the ground the pet stands on — anchoring anywhere else leaves it hovering.
-  const cell = size * (sheet.artScale ?? 1);
-  const scale = cell / CELL;
+  // Whole pixels throughout. A fractional cell (a 0.72x pet, a 0.78 artScale)
+  // puts the cell edges between pixels, and the sheet is smoothed when it is
+  // scaled, so a sliver of the neighbouring frame bleeds in along the edge and
+  // flickers as the frames change. Rounding the cell makes every offset an exact
+  // multiple of it.
+  const cell = Math.round(size * (sheet.artScale ?? 1));
   const inset = size - cell;
   const columns = sheet.columns ?? SHEET_COLUMNS;
   const rows = sheet.rows ?? SHEET_ROWS;
@@ -34,19 +41,30 @@ export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
 
   // The clip is the scaled cell, not the whole window: with the cell smaller
   // than the window, clipping at the window lets the neighbouring cells show.
+  // It also stops GUARD px short of the cell on every side, so smoothing at a
+  // cell's edge (worst while the pet is scaled or bobbing) never reaches the
+  // screen. Every cell has empty margin around the art, so nothing is lost.
   return (
     <View style={{ width: size, height: size }}>
-      <View style={{ width: cell, height: cell, marginLeft: inset / 2, marginTop: inset, overflow: 'hidden' }}>
+      <View
+        style={{
+          width: cell - GUARD * 2,
+          height: cell - GUARD * 2,
+          marginLeft: Math.round(inset / 2) + GUARD,
+          marginTop: inset + GUARD,
+          overflow: 'hidden',
+        }}
+      >
         <Image
           source={sheet.source}
           tintColor={tintColor}
           onLoad={onLoad}
           resizeMode="stretch"
           style={{
-            width: CELL * columns * scale,
-            height: CELL * rows * scale,
-            marginLeft: -column * CELL * scale,
-            marginTop: -row * CELL * scale,
+            width: cell * columns,
+            height: cell * rows,
+            marginLeft: -column * cell - GUARD,
+            marginTop: -row * cell - GUARD,
           }}
         />
       </View>

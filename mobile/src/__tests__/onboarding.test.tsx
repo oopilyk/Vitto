@@ -1,11 +1,10 @@
-import type { ComponentProps } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 import { PROFILE_SURVEY_DEFAULTS, type BodyProfile } from '@vitto/core';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 
-// The welcome step's pet animates on real timers, which could fire after the
-// environment is torn down and take the whole run with them.
+// The pet animates on real timers, and taps advance after a short beat.
 jest.useFakeTimers();
 
 jest.mock('../services/billingService', () => {
@@ -14,9 +13,13 @@ jest.mock('../services/billingService', () => {
 });
 jest.mock('../services/pushService', () => ({ scheduleTrialReminder: jest.fn(), cancelTrialReminder: jest.fn() }));
 
+const mockHaptics = { selectionAsync: jest.fn(() => Promise.resolve()), impactAsync: jest.fn(() => Promise.resolve()), notificationAsync: jest.fn(() => Promise.resolve()) };
 jest.mock('expo-haptics', () => ({
-  impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: (...args: unknown[]) => mockHaptics.selectionAsync(...(args as [])),
+  impactAsync: (...args: unknown[]) => mockHaptics.impactAsync(...(args as [])),
+  notificationAsync: (...args: unknown[]) => mockHaptics.notificationAsync(...(args as [])),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
+  NotificationFeedbackType: { Success: 'success', Error: 'error' },
 }));
 
 const baseProfile: BodyProfile = {
@@ -33,134 +36,233 @@ const baseProfile: BodyProfile = {
 
 type Overrides = Partial<ComponentProps<typeof OnboardingScreen>>;
 
-const mount = (profile: BodyProfile, overrides: Overrides = {}) => {
+/** The screen with its answers actually applied, the way App holds them. */
+function Harness({ initial, overrides, log }: { initial: BodyProfile; overrides: Overrides; log: [string, unknown][] }) {
+  const [profile, setProfile] = useState(initial);
+  const [name, setName] = useState('Miso');
+  const [personality, setPersonality] = useState<ComponentProps<typeof OnboardingScreen>['personality']>('sweet');
+  const [stepGoal, setStepGoal] = useState(10000);
+  return (
+    <OnboardingScreen
+      name={name}
+      onNameChange={setName}
+      breed="shiba"
+      onBreedChange={() => {}}
+      personality={personality}
+      onPersonalityChange={setPersonality}
+      stepGoal={stepGoal}
+      onStepGoalChange={setStepGoal}
+      onSetUnits={() => {}}
+      profile={profile}
+      onUpdate={(key, value) => {
+        log.push([key as string, value]);
+        setProfile((current) => ({ ...current, [key]: value }));
+      }}
+      onAdopt={() => {}}
+      error={null}
+      {...overrides}
+    />
+  );
+}
+
+const mount = (profile: BodyProfile = baseProfile, overrides: Overrides = {}) => {
   const updates: [string, unknown][] = [];
   let tree!: renderer.ReactTestRenderer;
   act(() => {
-    tree = renderer.create(
-      <OnboardingScreen
-        name="Miso"
-        onNameChange={() => {}}
-        breed="shiba"
-        onBreedChange={() => {}}
-        personality="supportive"
-        onPersonalityChange={() => {}}
-        stepGoal={10000}
-        onStepGoalChange={() => {}}
-        onSetUnits={() => {}}
-        profile={profile}
-        onUpdate={(key, value) => updates.push([key as string, value])}
-        onAdopt={() => {}}
-        error={null}
-        {...overrides}
-      />,
-    );
+    tree = renderer.create(<Harness initial={profile} overrides={overrides} log={updates} />);
   });
   return { tree, updates };
 };
 
 const strings = (tree: renderer.ReactTestRenderer) =>
-  tree.root
-    .findAllByType(Text)
-    .map((n) =>
-      [n.props.children]
-        .flat()
-        .filter((c) => typeof c === 'string' || typeof c === 'number')
-        .join(''),
-    );
+  tree.root.findAllByType(Text).map((n) => [n.props.children].flat().filter((c) => typeof c === 'string' || typeof c === 'number').join(''));
+const has = (tree: renderer.ReactTestRenderer, text: string) => strings(tree).some((s) => s.includes(text));
 
 const button = (tree: renderer.ReactTestRenderer, label: string) =>
-  tree.root
-    .findAll((n) => typeof n.props.onPress === 'function')
-    .find((n) => n.findAllByType(Text).some((t: any) => t.props.children === label));
+  tree.root.findAll((n) => typeof n.props.onPress === 'function').find((n) => n.findAllByType(Text).some((t: any) => t.props.children === label));
 
-const advanceToStep = (tree: renderer.ReactTestRenderer, marker: string, max = 12) => {
-  for (let i = 0; i < max; i += 1) {
-    if (strings(tree).some((s) => s.includes(marker))) return;
-    const next = button(tree, 'Continue') ?? button(tree, 'Get started');
-    if (!next) break;
-    act(() => next.props.onPress());
-  }
-  throw new Error(`never reached step "${marker}"`);
+const byLabel = (tree: renderer.ReactTestRenderer, label: string) =>
+  tree.root.findAll((n) => n.props.accessibilityLabel === label && typeof (n.props.onPress ?? n.props.onChangeText) === 'function')[0];
+const tapLabel = (tree: renderer.ReactTestRenderer, label: string) => {
+  act(() => byLabel(tree, label)!.props.onPress());
+  act(() => {
+    jest.advanceTimersByTime(250);
+  });
+};
+const type = (tree: renderer.ReactTestRenderer, label: string, text: string) => {
+  act(() => byLabel(tree, label)!.props.onChangeText(text));
 };
 
-describe('the Plus paywall in onboarding', () => {
-  it('is step 3 for someone without Plus, and closing it moves on', async () => {
-    const { tree } = mount(baseProfile, { canCustomise: false, paywall: { onTierChange: () => {} } });
-    expect(strings(tree)).toContain('Step 1 of 9');
-    advanceToStep(tree, 'Vitto Plus');
-    expect(strings(tree)).toContain('Step 3 of 9');
-    // Its own button and close replace the usual Continue.
-    expect(button(tree, 'Continue')).toBeUndefined();
-    // Skipping is labelled, top and bottom.
-    const skip = tree.root.findAll((n) => n.props.accessibilityLabel === 'Skip' && typeof n.props.onPress === 'function')[0]!;
-    expect(tree.root.findAll((n) => n.props.testID === 'continue-free').length).toBeGreaterThan(0);
-    await act(async () => skip.props.onPress());
-    expect(strings(tree)).toContain('Step 4 of 9');
-    act(() => tree.unmount());
+/** Presses, then lets any tap-to-advance beat pass. */
+const press = (tree: renderer.ReactTestRenderer, label: string) => {
+  const target = button(tree, label);
+  if (!target) throw new Error(`no button "${label}" on: ${strings(tree).join(' | ')}`);
+  act(() => target.props.onPress());
+  act(() => {
+    jest.advanceTimersByTime(250);
+  });
+};
+
+/** From the welcome screen to the first question about you. */
+const meetPet = (tree: renderer.ReactTestRenderer) => {
+  press(tree, 'Get started');
+  tapLabel(tree, 'Choose the Shiba');
+  press(tree, 'Choose the shiba');
+  press(tree, 'Let’s go!'); // meet them
+  type(tree, "Your companion's name", 'Miso');
+  press(tree, 'Next'); // name
+  press(tree, 'Skip'); // your name
+};
+
+describe('onboarding', () => {
+  it('opens on the pets, and meets yours before asking anything about you, with nothing chosen for you', () => {
+    const { tree } = mount();
+    expect(has(tree, 'A companion that grows with you.')).toBe(true);
+    press(tree, 'Get started');
+    expect(has(tree, 'Choose your companion!')).toBe(true);
+    // No animal is picked until one is tapped.
+    expect(button(tree, 'Choose your companion')!.props.disabled).toBe(true);
+    tapLabel(tree, 'Choose the Shiba');
+    mockHaptics.notificationAsync.mockClear();
+    press(tree, 'Choose the shiba');
+    // The one they chose, celebrating, with the big buzz.
+    expect(has(tree, 'You chose the shiba!')).toBe(true);
+    expect(tree.root.findAll((n) => n.props.testID === 'meet-pet').length).toBeGreaterThan(0);
+    expect(mockHaptics.notificationAsync).toHaveBeenCalled();
+    press(tree, 'Let’s go!');
+    expect(has(tree, 'What do you want to call me?')).toBe(true);
+    // The name starts empty, not as the app's placeholder name.
+    expect(byLabel(tree, "Your companion's name")!.props.value).toBe('');
+    expect(button(tree, 'Next')!.props.disabled).toBe(true);
+    press(tree, 'Shuffle');
+    expect(button(tree, 'Next')!.props.disabled).toBe(false);
+    press(tree, 'Next');
+    expect(has(tree, 'what’s your name?')).toBe(true);
+    press(tree, 'Skip');
+    expect(has(tree, 'Let’s learn a bit about you!')).toBe(true);
   });
 
-  it('is not shown to someone who already has Plus', () => {
-    const { tree } = mount(baseProfile, { canCustomise: true, paywall: { onTierChange: () => {} } });
-    expect(strings(tree)).toContain('Step 1 of 8');
-    act(() => tree.unmount());
-  });
-});
-
-describe('personalities on the free tier', () => {
-  it('shows the Plus note instead of the picker, and does not ask for a choice', () => {
-    const { tree } = mount({ ...baseProfile, targetWeightKg: 75, motivations: ['pet'] }, { canCustomise: false, personality: '' as never });
-    advanceToStep(tree, 'Their personality');
-    expect(strings(tree)).toContain('A Plus feature');
-    expect(tree.root.findAll((n) => n.props.testID === 'character-dials')).toHaveLength(0);
-    // Nothing chosen is fine: the next press moves on rather than asking for one.
-    const next = button(tree, 'Continue');
-    act(() => next!.props.onPress());
-    expect(strings(tree)).not.toContain('Pick a personality.');
-  });
-});
-
-describe('OnboardingScreen flow', () => {
-  it('starts a brand-new user at the welcome step of an 8-step flow', () => {
-    const { tree } = mount(baseProfile);
-    expect(strings(tree)).toEqual(expect.arrayContaining(['Step 1 of 8']));
-    expect(strings(tree).join(' ')).toContain('A companion that grows with you.');
+  it('asks one question a screen, moving on with a haptic tick as soon as one is tapped', () => {
+    const { tree, updates } = mount();
+    meetPet(tree);
+    press(tree, 'Next'); // about you intro
+    expect(has(tree, 'How old are you?')).toBe(true);
+    // The pet you chose stays on screen through the questions.
+    expect(byLabel(tree, 'Say hi to Miso')).toBeTruthy();
+    mockHaptics.selectionAsync.mockClear();
+    press(tree, '18-24');
+    expect(mockHaptics.selectionAsync).toHaveBeenCalled();
+    expect(updates).toContainEqual(['age', 21]);
+    expect(has(tree, 'What’s your sex?')).toBe(true);
+    press(tree, 'Prefer not to answer');
+    expect(updates).toContainEqual(['sex', 'other']);
+    // Height and weight in the user's own units, empty until typed.
+    expect(byLabel(tree, 'Weight in lb')!.props.value).toBe('');
+    expect(byLabel(tree, 'Height in feet')).toBeTruthy();
+    expect(button(tree, 'Next')!.props.disabled).toBe(true);
+    type(tree, 'Height in feet', '5');
+    type(tree, 'Height in inches', '10');
+    type(tree, 'Weight in lb', '180');
+    expect(button(tree, 'Next')!.props.disabled).toBe(false);
   });
 
-  it('offers no metric unit options — American only', () => {
-    const { tree } = mount(baseProfile);
-    advanceToStep(tree, 'A few basics.');
-    const all = strings(tree).join(' ');
-    expect(all).toContain('Weight (lb)');
-    expect(all).toContain('Height (ft)');
-    expect(all).not.toContain('Kilograms');
-    expect(all).not.toContain('Centimeters');
+  it('skips the target weight for someone holding steady, and asks it, unfilled, for everyone else', () => {
+    const toGoal = (tree: renderer.ReactTestRenderer) => {
+      meetPet(tree);
+      press(tree, 'Next');
+      press(tree, '25-34');
+      press(tree, 'Male');
+      type(tree, 'Height in feet', '5');
+      type(tree, 'Weight in lb', '180');
+      press(tree, 'Next');
+    };
+    const steady = mount();
+    toGoal(steady.tree);
+    press(steady.tree, 'Stay where I am');
+    expect(has(steady.tree, 'how active is your day?')).toBe(true);
+    // Nothing chosen for them here either.
+    expect(steady.tree.root.findAll((n) => n.props.accessibilityState?.selected === true)).toHaveLength(0);
+
+    const cutting = mount();
+    toGoal(cutting.tree);
+    press(cutting.tree, 'Lose fat');
+    expect(has(cutting.tree, 'What weight are you aiming for?')).toBe(true);
+    expect(byLabel(cutting.tree, 'Goal weight in lb')!.props.value).toBe('');
+    expect(button(cutting.tree, 'Next')!.props.disabled).toBe(true);
+    type(cutting.tree, 'Goal weight in lb', '170');
+    // The month after next, whenever this runs.
+    const base = new Date();
+    const month = new Date(base.getFullYear(), base.getMonth() + 2, 1).toLocaleDateString([], { month: 'short', year: 'numeric' });
+    press(cutting.tree, month);
+    expect(button(cutting.tree, 'Next')!.props.disabled).toBe(false);
+    expect(cutting.updates.some(([key]) => key === 'goalTargetDate')).toBe(true);
   });
 
-  it('the goal step shows current weight and derives the calorie axis from the target', () => {
-    const { tree, updates } = mount(baseProfile);
-    advanceToStep(tree, 'What are you working toward?');
-    expect(strings(tree).join(' ')).toContain('181 lb');
-    const goalField = tree.root
-      .findAll((n) => typeof n.props.onChangeText === 'function')
-      .find((n) => n.props.placeholder === '181');
-    act(() => goalField!.props.onChangeText('165'));
-    expect(updates).toEqual(expect.arrayContaining([['goal', 'lose']]));
-    expect(updates.some(([k]) => k === 'targetWeightKg')).toBe(true);
+  it('shows the starter plan, then three pages of what Plus gives, then the offer', async () => {
+    const { billingService } = jest.requireMock('../services/billingService');
+    billingService.purchase.mockResolvedValueOnce({ enabled: true, tier: 'plus', expiresAt: null });
+    const tiers: string[] = [];
+    const { tree } = mount({ ...baseProfile, targetWeightKg: 75, motivations: ['pet'] }, { canCustomise: false, paywall: { onTierChange: (tier) => tiers.push(tier) } });
+    meetPet(tree);
+    // Answers already on file: straight from the pet to the plan.
+    expect(tree.root.findAll((n) => n.props.testID === 'starter-plan').length).toBeGreaterThan(0);
+    press(tree, 'Let’s do it!');
+    expect(has(tree, 'Make Miso truly yours')).toBe(true);
+    press(tree, 'Next');
+    expect(has(tree, 'Snap a photo, get the macros')).toBe(true);
+    press(tree, 'Next');
+    expect(has(tree, 'Talk with Miso anytime')).toBe(true);
+    press(tree, 'Next');
+    expect(tree.root.findAll((n) => n.props.testID === 'plus-offer').length).toBeGreaterThan(0);
+    expect(has(tree, 'Start your 14-day free trial')).toBe(true);
+    await act(async () => {
+      await button(tree, 'Start my free trial')!.props.onPress();
+    });
+    expect(billingService.purchase).toHaveBeenCalledWith('yearly', true);
+    expect(tiers).toEqual(['plus']);
+    // Bought: on with onboarding. (In the app the new tier also opens the
+    // personality step; here canCustomise is fixed, so it is the next one.)
+    expect(has(tree, 'How many days in a row will you take care of')).toBe(true);
   });
 
-  it('the commitments step asks preferences, not current activity only', () => {
-    // Goal step needs a target + date before it will advance.
-    const { tree } = mount({ ...baseProfile, targetWeightKg: 75, goalTargetDate: '2026-12-01' });
-    advanceToStep(tree, 'What will you hold yourself to?');
-    const all = strings(tree).join(' ');
-    expect(all).toContain('Days a week you’ll train');
-    expect(all).toContain('Daily step goal');
+  it('lets them pass on the offer', () => {
+    const { tree } = mount({ ...baseProfile, targetWeightKg: 75, motivations: ['pet'] }, { canCustomise: false, paywall: { onTierChange: () => {} } });
+    meetPet(tree);
+    press(tree, 'Let’s do it!');
+    press(tree, 'Next');
+    press(tree, 'Next');
+    press(tree, 'Next');
+    press(tree, 'Not now');
+    expect(has(tree, 'How many days in a row will you take care of')).toBe(true);
   });
 
-  it('resumes at the companion once a goal weight and a motivation are set', () => {
-    const { tree } = mount({ ...baseProfile, targetWeightKg: 75, motivations: ['pet'] });
-    expect(strings(tree).join(' ')).toContain('Who’s coming with you?');
+  it('keeps personalities to Plus: no personality step on the free tier', () => {
+    const { tree } = mount({ ...baseProfile, targetWeightKg: 75, motivations: ['pet'] }, { canCustomise: false });
+    meetPet(tree);
+    press(tree, 'Let’s do it!');
+    expect(has(tree, 'Their personality')).toBe(false);
+    expect(has(tree, 'How many days in a row will you take care of')).toBe(true);
+  });
+
+  it('asks for notifications when it can, then a streak to commit to, then day one', async () => {
+    const enable = jest.fn(() => Promise.resolve(true));
+    const adopt = jest.fn();
+    const { tree } = mount({ ...baseProfile, targetWeightKg: 75, motivations: ['pet'] }, { canCustomise: false, onEnableNotifications: enable, onAdopt: adopt });
+    meetPet(tree);
+    press(tree, 'Let’s do it!');
+    expect(has(tree, 'Get reminders from Miso')).toBe(true);
+    await act(async () => {
+      button(tree, 'Turn on notifications')!.props.onPress();
+    });
+    expect(enable).toHaveBeenCalled();
+    expect(button(tree, 'Commit to this goal!')!.props.disabled).toBe(true);
+    press(tree, '7 days');
+    press(tree, 'Commit to this goal!');
+    expect(has(tree, 'Day 1')).toBe(true);
+    await act(async () => {
+      await button(tree, 'Start today')!.props.onPress();
+    });
+    expect(adopt).toHaveBeenCalled();
   });
 
   it('the join-a-partner affordance only appears when onRedeemInvite is passed', () => {
@@ -171,49 +273,38 @@ describe('OnboardingScreen flow', () => {
   });
 });
 
-describe('OnboardingScreen character', () => {
+describe('onboarding character (Plus)', () => {
   const adult: BodyProfile = { ...baseProfile, targetWeightKg: 75, motivations: ['pet'] };
   const atPet = (overrides: Overrides = {}, profile: BodyProfile = adult) => {
     const mounted = mount(profile, overrides);
-    advanceToStep(mounted.tree, 'Their personality');
+    meetPet(mounted.tree);
+    press(mounted.tree, 'Let’s do it!');
     return mounted.tree;
   };
   const stop = (tree: renderer.ReactTestRenderer, key: string, n: number) =>
     tree.root.findAll((node) => node.props.testID === `dial-${key}-${n}` && typeof node.props.onPress === 'function')[0];
 
-  it('shows the sliders once a base is picked, starting where that base sits', () => {
+  it('picks no personality for them, then shows the sliders under the picked base', () => {
     const dials: unknown[] = [];
-    const tree = atPet({ personality: 'savage', onDialsChange: (d: unknown) => dials.push(d) });
-    expect(strings(tree)).toContain('Fine-tune them');
-    // Savage sits far along "wholesome ↔ sarcastic" already.
-    expect(stop(tree, 'sarcastic', 6)).toBeTruthy();
+    const tree = atPet({ onDialsChange: (d: unknown) => dials.push(d) });
+    expect(has(tree, 'Their personality')).toBe(true);
+    expect(button(tree, 'Next')!.props.disabled).toBe(true);
+    expect(has(tree, 'Fine-tune them')).toBe(false);
+    press(tree, 'Savage');
+    expect(has(tree, 'Fine-tune them')).toBe(true);
     act(() => stop(tree, 'blunt', 0).props.onPress());
     expect(dials.at(-1)).toMatchObject({ blunt: 0 });
   });
 
-  it('resets the sliders when the base changes, and offers notes only for "Your own"', () => {
-    const dials: unknown[] = [];
-    const picks: unknown[] = [];
-    const personas: unknown[] = [];
-    const tree = atPet({
-      personality: 'sweet',
-      onPersonalityChange: (p: unknown) => picks.push(p),
-      onDialsChange: (d: unknown) => dials.push(d),
-      onPersonaChange: (p: unknown) => personas.push(p),
-    });
-    act(() => button(tree, 'Feisty')!.props.onPress());
-    expect(picks).toEqual(['feisty']);
-    expect(dials.at(-1)).toMatchObject({ blunt: 0.75, sarcastic: 0.5 });
-    // A base temperament takes no notes, but picking one keeps any already
-    // written, so going back to "Your own" does not lose them.
-    expect(personas).toEqual([]);
-    expect(strings(tree)).not.toContain('Who are they?');
-    expect(strings(tree).join(' ')).not.toMatch(/Anything else/);
-    // "Your own" is where the notes live (for an adult).
-    const own = atPet({ personality: 'custom' });
-    expect(strings(own)).toContain('Who are they?');
-    const teen = atPet({ personality: 'sweet' }, { ...adult, age: 15 });
-    expect(strings(teen)).not.toContain('Who are they?');
-    expect(strings(teen)).toContain('Fine-tune them');
+  it('offers notes only for "Your own", and only to adults', () => {
+    const own = atPet();
+    press(own, 'Your own');
+    expect(has(own, 'Who are they?')).toBe(true);
+    // Under 16, "Your own" is not offered at all; the bases still fine-tune.
+    const teen = atPet({}, { ...adult, age: 15 });
+    expect(has(teen, 'Your own')).toBe(false);
+    press(teen, 'Cute');
+    expect(has(teen, 'Who are they?')).toBe(false);
+    expect(has(teen, 'Fine-tune them')).toBe(true);
   });
 });

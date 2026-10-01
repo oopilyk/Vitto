@@ -1878,6 +1878,15 @@ function VittoApp() {
           error={error}
           onSignOut={isSupabaseConfigured && session ? logOut : undefined}
           onRedeemInvite={isSupabaseConfigured && session ? redeemInvite : undefined}
+          onEnableNotifications={
+            Platform.OS === 'web' || !session
+              ? undefined
+              : async () => {
+                  const status = await setDevicePush(true);
+                  setPushEnabled(status === 'ready');
+                  return status === 'ready';
+                }
+          }
         />
       </View>
     );
