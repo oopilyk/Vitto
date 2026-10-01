@@ -21,7 +21,7 @@ const life = (pet: Partial<LifeContext['pet']> = {}): LifeContext =>
 describe('free tier', () => {
   it('has the lower caps', () => {
     expect(TIER_LIMITS.free).toMatchObject({ messagesPerDay: 10, proactivePerDay: 2 });
-    expect(TIER_LIMITS.plus).toMatchObject({ messagesPerDay: 200, proactivePerDay: 12 });
+    expect(TIER_LIMITS.plus).toMatchObject({ messagesPerDay: 100, proactivePerDay: 12 });
   });
 
   it('speaks without a personality, whatever the phone sent', () => {

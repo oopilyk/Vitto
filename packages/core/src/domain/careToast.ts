@@ -138,6 +138,7 @@ const STAT_LABEL: Record<Exclude<keyof PetDelta, 'xp'>, string> = {
   legStrength: 'legs',
   endurance: 'endurance',
   recovery: 'recovery',
+  mindSessions: 'mind session',
   mind: 'mind',
 };
 

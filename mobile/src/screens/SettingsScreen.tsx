@@ -23,7 +23,7 @@ import {
   withMeasurementSystem,
   type PetState,
 } from '@vitto/core';
-import { BreedPicker } from '../components/BreedPicker';
+import { SpriteFrame } from '../components/SpriteFrame';
 import { sheetByBreed } from '../components/petSprites';
 import { CharacterEditor, type Character } from '../components/CharacterEditor';
 import { ChoiceRow, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
@@ -36,8 +36,10 @@ interface Props {
   /** The pet's look. Saved straight away by the parent, outside the profile draft. */
   breed?: PetBreed;
   onBreedChange?: (breed: PetBreed) => void;
-  /** The pet's coin balance, shown by the breed picker. */
+  /** The pet's coin balance, shown on the companion row. */
   coins?: number;
+  /** Opens the page where the animal is switched (ChooseCompanionScreen). */
+  onOpenChooseCompanion?: () => void;
   /**
    * What switching the animal costs. Above zero, a pick waits for a confirm
    * that names the price; zero (the dev account) switches on the tap.
@@ -45,8 +47,12 @@ interface Props {
   breedChangeCost?: number;
   /** The pet whose character is edited below the breed. Absent when there is no pet to edit. */
   pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
-  /** Saves base, sliders and notes together; the parent persists, like the breed. */
-  onCharacterChange?: (next: Character) => void;
+  /**
+   * Saves base, sliders and notes together; the parent persists, like the breed,
+   * and resolves to null once the character is confirmed in place, or to what
+   * went wrong.
+   */
+  onCharacterChange?: (next: Character) => Promise<string | null> | void;
   /** Personalities are Plus. False shows what the feature is instead of the editor. Defaults to true. */
   canCustomise?: boolean;
   /** Whether the account has Plus, for the Plus card's wording. */
@@ -116,6 +122,7 @@ export function SettingsScreen({
   onBreedChange,
   coins = 0,
   breedChangeCost = 0,
+  onOpenChooseCompanion,
   pet,
   onCharacterChange,
   canCustomise = true,
@@ -129,7 +136,6 @@ export function SettingsScreen({
   onDeleteAccount,
   deletingAccount,
 }: Props) {
-  const [pendingBreed, setPendingBreed] = useState<PetBreed | null>(null);
   const [profile, setProfile] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -192,37 +198,27 @@ export function SettingsScreen({
         {onBreedChange ? (
           <Card
             title="Your companion"
-            hint={breedChangeCost > 0 ? `Switching animal costs ${breedChangeCost} coins. You have ${coins}.` : 'Changes take effect straight away'}
+            hint="Their animal and their personality"
           >
-            <BreedPicker
-              value={pendingBreed ?? breed}
-              onChange={(next) => {
-                if (breedChangeCost <= 0) {
-                  onBreedChange(next);
-                  return;
-                }
-                setPendingBreed(next === breed ? null : next);
-              }}
-              size={88}
-            />
-            {pendingBreed ? (
-              <View style={styles.switchConfirm} testID="breed-switch-confirm">
-                <Text style={styles.switchText}>
-                  {coins >= breedChangeCost
-                    ? `Switch to the ${sheetByBreed(pendingBreed).label} for ${breedChangeCost} coins? You'll have ${coins - breedChangeCost} left.`
-                    : `The ${sheetByBreed(pendingBreed).label} costs ${breedChangeCost} coins. You have ${coins}, so ${breedChangeCost - coins} more to go.`}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change animal"
+              onPress={onOpenChooseCompanion}
+              disabled={!onOpenChooseCompanion}
+              style={styles.companionRow}
+              testID="change-animal"
+            >
+              {breed ? (
+                <SpriteFrame sheet={sheetByBreed(breed)} frame={sheetByBreed(breed).animations.idle[0]} size={56} />
+              ) : null}
+              <View style={styles.companionText}>
+                <Text style={styles.companionName}>{breed ? sheetByBreed(breed).label : 'No animal yet'}</Text>
+                <Text style={styles.companionMeta}>
+                  {breedChangeCost > 0 ? `${coins} coins · a switch costs ${breedChangeCost}` : 'Switching is free on this account'}
                 </Text>
-                <PrimaryButton
-                  label={`Switch · ${breedChangeCost} coins`}
-                  disabled={coins < breedChangeCost}
-                  onPress={() => {
-                    onBreedChange(pendingBreed);
-                    setPendingBreed(null);
-                  }}
-                />
-                <TextButton label="Keep them as they are" onPress={() => setPendingBreed(null)} />
               </View>
-            ) : null}
+              <Text style={styles.companionCta}>Change ›</Text>
+            </Pressable>
             {pet && onCharacterChange ? (
               <Group label="Personality">
                 {canCustomise ? (
@@ -513,8 +509,21 @@ export function SettingsScreen({
 }
 
 const styles = StyleSheet.create({
-  switchConfirm: { marginTop: 12, gap: 8 },
-  switchText: { ...text.body, color: colors.inkSoft, lineHeight: 19 },
+  companionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.cardSoft,
+  },
+  companionText: { flex: 1 },
+  companionName: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  companionMeta: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  companionCta: { fontSize: 14, fontWeight: '600', color: colors.coral },
   locked: {
     borderWidth: 1,
     borderColor: colors.border,

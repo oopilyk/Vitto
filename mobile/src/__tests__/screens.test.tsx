@@ -1429,7 +1429,7 @@ describe('breed picker', () => {
       .findAllByProps({ accessibilityLabel: 'Choose the Shiba' })
       .find((node: any) => typeof node.props.onPress === 'function');
     expect(shiba).toBeTruthy();
-    expect(shiba!.props.accessibilityState).toEqual({ selected: false });
+    expect(shiba!.props.accessibilityState).toEqual({ selected: false, disabled: false });
 
     act(() => shiba!.props.onPress());
     expect(chosen).toEqual(['shiba']);
@@ -2237,7 +2237,7 @@ describe('pet sprite', () => {
 
   it('keeps an endurance-built pack animal on its base sheet — none has runner art', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const runner = { id: 'p', breed: 'tabbyCat', level: 12, endurance: 80, strength: 10 };
+    const runner = { id: 'p', breed: 'tabbyCat', level: 16, endurance: 80, strength: 10 };
     expect(sheetForPet(runner).label).toBe('Tabby Cat');
   });
 
@@ -2249,7 +2249,7 @@ describe('pet sprite', () => {
 
   it('evolves a grown, endurance-built bichon onto the runner sheet', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const runner = { id: 'p', breed: 'bichon', level: 12, endurance: 80, strength: 10 };
+    const runner = { id: 'p', breed: 'bichon', level: 16, endurance: 80, strength: 10 };
     expect(sheetForPet(runner).label).toBe('Bichon · Runner');
   });
 
@@ -2265,26 +2265,26 @@ describe('pet sprite', () => {
     // frame map of its own, rather than an alias of the base's.
     const { sheetForPet } = require('../components/petSprites');
     const base = sheetForPet({ id: 'p', breed: 'bichon', level: 5 });
-    const runner = sheetForPet({ id: 'p', breed: 'bichon', level: 12, endurance: 80, strength: 10 });
+    const runner = sheetForPet({ id: 'p', breed: 'bichon', level: 16, endurance: 80, strength: 10 });
     expect(runner.source).not.toBe(base.source);
     expect(runner.animations).not.toBe(base.animations);
   });
 
   it('evolves a grown, strength-built cat onto the lifter sheet', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const lifter = { id: 'p', breed: 'tabbyCat', level: 12, strength: 80, endurance: 10, mind: 10 };
+    const lifter = { id: 'p', breed: 'tabbyCat', level: 16, strength: 80, endurance: 10, mind: 10 };
     expect(sheetForPet(lifter).label).toBe('Tabby Cat · Lifter');
   });
 
   it('evolves a grown, mind-built otter onto the scholar sheet', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const scholar = { id: 'p', breed: 'otter', level: 12, mind: 80, endurance: 10, strength: 10 };
+    const scholar = { id: 'p', breed: 'otter', level: 16, mindSessions: 27, endurance: 10, strength: 10 };
     expect(sheetForPet(scholar).label).toBe('Otter · Scholar');
   });
 
   it('evolves a grown, mind-built shiba onto the scholar sheet', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const scholar = { id: 'p', breed: 'shiba', level: 12, mind: 80, endurance: 10, strength: 10 };
+    const scholar = { id: 'p', breed: 'shiba', level: 16, mindSessions: 27, endurance: 10, strength: 10 };
     expect(sheetForPet(scholar).label).toBe('Shiba · Scholar');
   });
 
@@ -2309,8 +2309,8 @@ describe('pet sprite', () => {
     // a derived form can still be given a map of its own later.
     const { sheetForPet } = require('../components/petSprites');
     const base = sheetForPet({ id: 'p', breed: 'bichon', level: 5 });
-    const lifter = sheetForPet({ id: 'p', breed: 'bichon', level: 12, strength: 80, endurance: 10, mind: 10 });
-    const scholar = sheetForPet({ id: 'p', breed: 'bichon', level: 12, mind: 80, endurance: 10, strength: 10 });
+    const lifter = sheetForPet({ id: 'p', breed: 'bichon', level: 16, strength: 80, endurance: 10, mind: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'bichon', level: 16, mindSessions: 27, endurance: 10, strength: 10 });
     for (const derived of [lifter, scholar]) {
       expect(derived.source).not.toBe(base.source);
       expect(derived.animations).not.toBe(base.animations);
@@ -2322,8 +2322,8 @@ describe('pet sprite', () => {
   it('plays the bear lifter its own clips, and falls back to its sheet where it has none', () => {
     const { sheetForPet } = require('../components/petSprites');
     const base = sheetForPet({ id: 'p', breed: 'bear', level: 5 });
-    const lifter = sheetForPet({ id: 'p', breed: 'bear', level: 12, strength: 80, endurance: 10, mind: 10 });
-    const scholar = sheetForPet({ id: 'p', breed: 'bear', level: 12, mind: 80, endurance: 10, strength: 10 });
+    const lifter = sheetForPet({ id: 'p', breed: 'bear', level: 16, strength: 80, endurance: 10, mind: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'bear', level: 16, mindSessions: 27, endurance: 10, strength: 10 });
     expect(lifter.label).toBe('Bear · Lifter');
 
     // Re-animated rather than derived, so it carries its own 4x17 sheet and map,
@@ -2354,7 +2354,7 @@ describe('pet sprite', () => {
 
   it('evolves the bear into its scholar, with clips for every band but rest', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const scholar = sheetForPet({ id: 'p', breed: 'bear', level: 12, mind: 80, endurance: 10, strength: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'bear', level: 16, mindSessions: 27, endurance: 10, strength: 10 });
     expect(scholar.label).toBe('Bear · Scholar');
     expect(scholar.rows).toBe(16);
     const { clips } = scholar.videos;
@@ -2364,7 +2364,7 @@ describe('pet sprite', () => {
     expect(scholar.animations.rest.length).toBeGreaterThan(1);
     for (const band of ['sad', 'faint']) expect(clips[band].loop).toBe(false);
     // Same box as the runner, so the bear's forms stand the same size.
-    const runner = sheetForPet({ id: 'p', breed: 'bear', level: 12, endurance: 80, strength: 10, mind: 10 });
+    const runner = sheetForPet({ id: 'p', breed: 'bear', level: 16, endurance: 80, strength: 10, mind: 10 });
     expect(scholar.videos.cell).toEqual(runner.videos.cell);
     expect(scholar.selfDrawn).toEqual(['foggy']);
     for (const frames of Object.values(scholar.animations) as [number, number][][]) {
@@ -2377,7 +2377,7 @@ describe('pet sprite', () => {
 
   it('evolves the bear into its runner, with a clip for every band', () => {
     const { sheetForPet, HOLDS_LAST_FRAME } = require('../components/petSprites');
-    const runner = sheetForPet({ id: 'p', breed: 'bear', level: 12, endurance: 80, strength: 10, mind: 10 });
+    const runner = sheetForPet({ id: 'p', breed: 'bear', level: 16, endurance: 80, strength: 10, mind: 10 });
     expect(runner.label).toBe('Bear · Runner');
     expect(runner.name).toBe('bear');
     expect(runner.rows).toBe(16);
@@ -2403,7 +2403,7 @@ describe('pet sprite', () => {
   });
 
   it('plays the bichon lifter its own clips instead of sheet frames', () => {
-    const lifter = { ...pet, breed: 'bichon', level: 12, strength: 80, endurance: 10, mind: 10 };
+    const lifter = { ...pet, breed: 'bichon', level: 16, strength: 80, endurance: 10, mind: 10 };
     const sheet = sheetForPet(lifter);
     expect(sheet.label).toBe('Bichon · Lifter');
     const { clips } = sheet.videos;
@@ -2446,8 +2446,8 @@ describe('pet sprite', () => {
     // the derived otters have to carry the base's shape, not just its frames.
     const { sheetForPet } = require('../components/petSprites');
     const base = sheetForPet({ id: 'p', breed: 'otter', level: 5 });
-    const lifter = sheetForPet({ id: 'p', breed: 'otter', level: 12, strength: 80, endurance: 10, mind: 10 });
-    const scholar = sheetForPet({ id: 'p', breed: 'otter', level: 12, mind: 80, endurance: 10, strength: 10 });
+    const lifter = sheetForPet({ id: 'p', breed: 'otter', level: 16, strength: 80, endurance: 10, mind: 10 });
+    const scholar = sheetForPet({ id: 'p', breed: 'otter', level: 16, mindSessions: 27, endurance: 10, strength: 10 });
     for (const derived of [lifter, scholar]) {
       expect(derived.columns).toBe(6);
       expect(derived.rows).toBe(10);

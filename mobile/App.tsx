@@ -47,6 +47,7 @@ import { companionService, loadCompanionTier } from './src/services/companionSer
 import { PetJeopardyScreen } from './src/screens/PetJeopardyScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { PlusScreen } from './src/screens/PlusScreen';
+import { ChooseCompanionScreen } from './src/screens/ChooseCompanionScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
@@ -106,6 +107,8 @@ type RootStackParamList = {
   CompanionDebug: undefined;
   // Vitto Plus: the perks and (test mode) the purchase. From Settings and the chat's limit.
   Plus: undefined;
+  // Switching the pet's animal, for coins. Pushed from Settings.
+  ChooseCompanion: undefined;
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -974,12 +977,19 @@ export default function App() {
     setPersonalityChangesLeft(await remoteRepository.personalityChangesLeft(petId).catch(() => null));
   };
 
-  const changePersonality = async (next: PetPersonality, persona?: string, dials?: PersonalityDials) => {
-    if (!pet) return;
+  /**
+   * Saves a new character and makes sure it is really there: the pet is read
+   * back from the server afterwards and compared, because the monthly change
+   * limit keeps the old character rather than failing the save. Resolves to
+   * null when the character is in place, or to what went wrong.
+   */
+  const changePersonality = async (next: PetPersonality, persona?: string, dials?: PersonalityDials): Promise<string | null> => {
+    if (!pet) return 'There is no pet to change.';
     // The server would keep the old character anyway; say so instead.
     if (personalityChangesLeft === 0) {
-      setError(`No character changes left this month for ${pet.name}. They reset on the 1st.`);
-      return;
+      const message = `No character changes left this month for ${pet.name}. They reset on the 1st.`;
+      setError(message);
+      return message;
     }
     // Notes ride on any base now, so they are kept across a base change unless
     // new ones are given; the sliders are whatever the caller settled on.
@@ -999,15 +1009,35 @@ export default function App() {
           saved = await remoteRepository.savePetIfUnchanged({ ...fresh, ...wearing }, fresh.version ?? 0);
           if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
         }
-        const stored = { ...base, ...wearing, version: saved.version };
+        // Read it back: what the server holds is the only proof it saved.
+        const check = await remoteRepository.loadPet();
+        const sameDials = (a?: PersonalityDials, b?: PersonalityDials) =>
+          JSON.stringify(a ?? null) === JSON.stringify(b ?? null) ||
+          (!!a && !!b && (Object.keys(a) as (keyof PersonalityDials)[]).every((key) => Math.abs(a[key] - b[key]) < 1e-6));
+        if (
+          check &&
+          check.id === pet.id &&
+          (check.personality !== wearing.personality ||
+            (check.persona ?? undefined) !== (wearing.persona ?? undefined) ||
+            !sameDials(check.dials, wearing.dials))
+        ) {
+          setPet(check);
+          await repository.savePet(check);
+          void refreshPersonalityChangesLeft(pet.id);
+          throw new Error(`${pet.name}'s character did not change on the server. You may be out of changes this month.`);
+        }
+        const stored = check && check.id === pet.id ? check : { ...base, ...wearing, version: saved.version };
         setPet(stored);
         await repository.savePet(stored);
         void refreshPersonalityChangesLeft(pet.id);
-        return;
+        return null;
       }
       await repository.savePet(nextPet);
+      return null;
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not change their temperament.'));
+      const message = errorMessage(cause, 'Could not change their character.');
+      setError(message);
+      return message;
     } finally {
       releasePetWrite();
     }
@@ -1778,6 +1808,7 @@ export default function App() {
           breed={breed}
           onBreedChange={setBreed}
           canCustomise={canCustomise}
+          paywall={session ? { onTierChange: (tier) => { if (!isDevAccount(session.user.email)) setCompanionTier(tier); }, isDevAccount: isDevAccount(session.user.email) } : undefined}
           personality={personality}
           onPersonalityChange={setPersonality}
           persona={persona}
@@ -1940,12 +1971,13 @@ export default function App() {
               onBreedChange={(next) => void changeBreed(next)}
               coins={coinsOf(pet)}
               breedChangeCost={isDev ? 0 : BREED_CHANGE_COST}
+              onOpenChooseCompanion={() => navigation.navigate('ChooseCompanion')}
               pet={livePet}
               canCustomise={canCustomise}
               isPlus={canCustomise}
               onOpenPlus={() => navigation.navigate('Plus')}
               personalityChangesLeft={personalityChangesLeft}
-              onCharacterChange={(next) => void changePersonality(next.personality, next.persona, next.dials)}
+              onCharacterChange={(next) => changePersonality(next.personality, next.persona, next.dials)}
               islandEnabled={canShowIsland() ? islandEnabled : null}
               onIslandEnabledChange={(next) => {
                 setIslandEnabled(next);
@@ -2022,10 +2054,20 @@ export default function App() {
             />
           )}
         </RootStack.Screen>
+        <RootStack.Screen name="ChooseCompanion">
+          {({ navigation }) => (
+            <ChooseCompanionScreen
+              breed={pet.breed}
+              coins={coinsOf(pet)}
+              cost={isDev ? 0 : BREED_CHANGE_COST}
+              onChoose={(next) => void changeBreed(next)}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
         <RootStack.Screen name="Plus">
           {({ navigation }) => (
             <PlusScreen
-              petName={livePet.name}
               isDevAccount={isDev}
               onTierChange={(tier) => {
                 // The dev account stays Plus whatever the store says.
@@ -2111,6 +2153,12 @@ export default function App() {
                 // No navigation here: the screen calls `onFeedStart` and then
                 // `onClose` itself, and closing twice raced the feed animation.
                 onComplete={completeMeal}
+                // Photo macro tracking is Plus; the paywall opens once this modal is gone.
+                canScanPhotos={canCustomise}
+                onOpenPlus={() => {
+                  navigation.goBack();
+                  navigation.navigate('Plus');
+                }}
                 petContext={
                   livePet
                     ? {

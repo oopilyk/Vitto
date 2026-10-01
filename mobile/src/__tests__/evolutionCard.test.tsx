@@ -30,12 +30,12 @@ describe('EvolutionCard', () => {
     const all = strings(tree);
     expect(all).toContain('Runner?');
     expect(all).toContain('closest');
-    expect(all.some((line) => line.includes('Level 6/11') && line.includes('Endurance 30/45'))).toBe(true);
+    expect(all.some((line) => line.includes('Level 6/15') && line.includes('Endurance 30/60'))).toBe(true);
     tree.unmount();
   });
 
   it('shows an earned form in colour', () => {
-    const tree = render(pet({ level: 12, endurance: 60, evolvedBuild: 'runner', earnedBuilds: ['runner'] }));
+    const tree = render(pet({ level: 16, endurance: 80, evolvedBuild: 'runner', earnedBuilds: ['runner'] }));
     const frames = tree.root.findAllByType(SpriteFrame);
     expect(frames.filter((frame) => !frame.props.tintColor)).toHaveLength(1);
     expect(strings(tree)).toContain('Wearing');
@@ -45,7 +45,7 @@ describe('EvolutionCard', () => {
   it('lets a pet with all three forms switch between them', () => {
     const chosen: string[] = [];
     const tree = render(
-      pet({ level: 14, strength: 70, evolvedBuild: 'lifter', earnedBuilds: ['runner', 'lifter', 'scholar'] }),
+      pet({ level: 16, strength: 80, evolvedBuild: 'lifter', earnedBuilds: ['runner', 'lifter', 'scholar'] }),
       (build) => chosen.push(build),
     );
     expect(strings(tree).some((line) => line.includes('All three earned'))).toBe(true);

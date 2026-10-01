@@ -940,7 +940,7 @@ export const sheetByBreed = (breed: PetBreed): PetSheet =>
  */
 export const sheetForPet = (
   pet: Pick<PetState, 'id' | 'breed'> &
-    Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
+    Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mindSessions' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
 ): PetSheet => {
   const base = baseSheetForPet(pet);
   // Gated on level as well as build: a level-2 pet that has been walked a lot has
@@ -949,7 +949,7 @@ export const sheetForPet = (
   const build = getPetBuild({
     endurance: pet.endurance ?? 0,
     strength: pet.strength ?? 0,
-    mind: pet.mind ?? 0,
+    mindSessions: pet.mindSessions ?? 0,
     evolvedBuild: pet.evolvedBuild,
     earnedBuilds: pet.earnedBuilds,
     chosenBuild: pet.chosenBuild,

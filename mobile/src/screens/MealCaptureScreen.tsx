@@ -23,12 +23,19 @@ interface Props {
   onClose: () => void;
   /** Who is about to eat this, so the photo analysis can come back with their reaction. */
   petContext?: MealPetContext;
+  /**
+   * Photo macro tracking is Plus. False shows the Photo tab as a locked Plus
+   * feature and opens on Search instead. Defaults to true.
+   */
+  canScanPhotos?: boolean;
+  /** Opens the Plus paywall from the locked Photo tab. */
+  onOpenPlus?: () => void;
 }
 
 type Mode = 'photo' | 'search' | 'scan';
 
-export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext }: Props) {
-  const [mode, setMode] = useState<Mode>('photo');
+export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus }: Props) {
+  const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
   const [busy, setBusy] = useState<'analyzing' | 'saving' | 'searching' | null>(null);
@@ -183,14 +190,25 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               style={[styles.tab, mode === option && styles.tabOn]}
             >
               <Text style={[styles.tabLabel, mode === option && styles.tabLabelOn]}>
-                {option === 'photo' ? 'Photo' : option === 'search' ? 'Search' : 'Scan barcode'}
+                {option === 'photo' ? (canScanPhotos ? 'Photo' : 'Photo · Plus') : option === 'search' ? 'Search' : 'Scan barcode'}
               </Text>
             </Pressable>
           ))}
         </View>
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-          {mode === 'photo' ? (
+          {mode === 'photo' && !canScanPhotos ? (
+            <View style={styles.locked} testID="photo-locked">
+              <Text style={styles.lockedTitle}>Snap your plate. Plus does the macros.</Text>
+              <Text style={styles.lockedBody}>
+                Photo meal tracking is part of Vitto Plus: take a picture and Vitto reads the plate, estimates the calories and macros, and grades it. Searching foods and scanning barcodes stay free.
+              </Text>
+              {onOpenPlus ? <PrimaryButton label="See Plus" onPress={onOpenPlus} /> : null}
+              <TextButton label="Search foods instead" onPress={() => setMode('search')} />
+            </View>
+          ) : null}
+
+          {mode === 'photo' && canScanPhotos ? (
             <>
               {image ? (
                 <Image source={{ uri: image.uri }} style={styles.preview} />
@@ -392,6 +410,16 @@ function AnalysisCard({ analysis }: { analysis: MealAnalysis }) {
 }
 
 const styles = StyleSheet.create({
+  locked: {
+    gap: 10,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.cardSoft,
+  },
+  lockedTitle: { ...text.heading, fontSize: 16, color: colors.ink },
+  lockedBody: { ...text.body, color: colors.muted, lineHeight: 20 },
   sheet: { flex: 1, backgroundColor: colors.paper, paddingTop: 20 },
   header: {
     flexDirection: 'row',

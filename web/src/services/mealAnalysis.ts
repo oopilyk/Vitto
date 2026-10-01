@@ -23,6 +23,9 @@ export const analyzeMealImage = async (file: File): Promise<MealAnalysis> => {
     if (response) {
       try {
         const details = await response.json() as { error?: string };
+        if (details.error === 'PLUS_REQUIRED') {
+          throw new Error('Photo meal tracking is part of Vitto Plus. Search for the food instead.');
+        }
         throw new Error(details.error || error.message);
       } catch (cause) {
         if (cause instanceof Error && cause.message !== error.message) throw cause;

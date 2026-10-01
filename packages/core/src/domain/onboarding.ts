@@ -76,6 +76,42 @@ export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
   { value: 'custom', label: 'Your own', detail: 'No base. Just the sliders and your notes' },
 ];
 
+/**
+ * What each personality is like, for the preview shown when one is picked: a
+ * fuller description than the option's one-liner, and a line in its voice so
+ * the choice is heard, not just read about. "Your own" has no sample; the
+ * preview quotes their own notes instead.
+ */
+export const PERSONALITY_PREVIEW: Partial<Record<PetPersonality, { about: string; sample?: string }>> = {
+  feisty: {
+    about: 'Scrappy and competitive. Pushes you, picks fights it cannot win, and is fiercely loyal underneath.',
+    sample: "Rest day? Again? Fine. But tomorrow we're going hard, got it?",
+  },
+  cute: {
+    about: 'Small, adoring and a little dramatic. Everything you do is the best thing that has ever happened.',
+    sample: 'hiii!! i missed you sooo much. can we go on a walk?? pleaseee',
+  },
+  sweet: {
+    about: 'Warm and patient. Notices how you are doing, never guilts you, always glad to see you.',
+    sample: "You came back! I saved you a spot. How was today, really?",
+  },
+  savage: {
+    about: 'Deadpan and merciless, with a little swearing. Roasts you because it cares, and it does care.',
+    sample: 'Oh, a salad. Groundbreaking. Proud of you, I guess.',
+  },
+  hype: {
+    about: 'Pure swagger. Treats every rep and every meal like a championship moment.',
+    sample: "LET'S GO. That's a PR. You're actually built different.",
+  },
+  menace: {
+    about: 'Bossy, loud and swears like hell. Bullies you into looking after yourself, and means it lovingly.',
+    sample: 'Did you eat yet? No? Then what the hell are you doing. Go. Now.',
+  },
+  custom: {
+    about: 'Exactly who you describe. The sliders set the tone; your notes decide who they are.',
+  },
+};
+
 export const PERSONA_MAX_LENGTH = 300;
 /**
  * Any non-empty note will do: "A fatty" is a character if that is who they want.

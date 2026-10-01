@@ -60,6 +60,7 @@ export const analyzeMealImage = async (image: PickedImage, pet?: MealPetContext)
           // Not JSON — a gateway or runtime error page. Its text is still the
           // most specific thing we have, so pass it through as-is.
         }
+        if (detail === 'PLUS_REQUIRED') throw new Error('Photo meal tracking is part of Vitto Plus. Search or scan a barcode instead.');
         if (detail) throw new Error(detail);
       }
     }

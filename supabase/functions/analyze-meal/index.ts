@@ -22,6 +22,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
+/** Treated as Plus; the same list as the companion function's. */
+const DEV_EMAILS = new Set(['kyleyli2005@gmail.com']);
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -60,6 +63,22 @@ Deno.serve(async (request) => {
           }
         : null;
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+
+    // Photo macro tracking is a Plus feature. Decided here from the verified
+    // session and the server-side entitlement, so no client can claim it; the
+    // dev account counts as Plus, as it does in the companion function.
+    const isDev = DEV_EMAILS.has((user.email ?? '').trim().toLowerCase());
+    if (!isDev) {
+      const { data: entitlement } = await admin
+        .from('companion_entitlements')
+        .select('tier, expires_at')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const lapsed = entitlement?.expires_at && Date.parse(entitlement.expires_at) < Date.now();
+      if (entitlement?.tier !== 'plus' || lapsed) {
+        return json({ error: 'PLUS_REQUIRED' }, 402);
+      }
+    }
 
     // Checked before the image is fetched, let alone sent to the model: the
     // point is to spend nothing on a request that is over the line.

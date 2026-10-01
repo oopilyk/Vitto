@@ -2,6 +2,7 @@
 // Supabase client, which each app injects through `configureCore`.
 export * from './domain/careToast';
 export * from './domain/coins';
+export * from './domain/strengthRanks';
 export * from './domain/trophies';
 export * from './domain/achievements';
 export * from './domain/workoutTemplates';

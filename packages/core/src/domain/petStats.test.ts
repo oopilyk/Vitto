@@ -188,48 +188,53 @@ describe('getPetBuild', () => {
   });
 
   it('calls a pet a lifter once strength is high and clearly ahead of the rest', () => {
-    expect(getPetBuild({ ...base, strength: 60, endurance: 20, mind: 20 })).toBe('lifter');
+    expect(getPetBuild({ ...base, strength: 60, endurance: 20 })).toBe('lifter');
   });
 
-  it('calls a pet a scholar once mind is high and clearly ahead of the rest', () => {
-    expect(getPetBuild({ ...base, mind: 60, endurance: 20, strength: 20 })).toBe('scholar');
+  it('calls a pet a scholar from mind sessions, not the mind stat', () => {
+    // 20 sessions is a mind score of 60: high, and clearly ahead of the rest.
+    expect(getPetBuild({ ...base, mindSessions: 20, endurance: 20, strength: 20 })).toBe('scholar');
+    // A full mind stat with no sessions is not a scholar: mind decays daily.
+    const sharpButUnpractised = { ...base, mind: 100, mindSessions: 0 };
+    expect(getPetBuild(sharpButUnpractised)).toBe('balanced');
   });
 
   it('needs strength or mind to be substantial, not merely ahead', () => {
-    expect(getPetBuild({ ...base, strength: 30, endurance: 2, mind: 2 })).toBe('balanced');
-    expect(getPetBuild({ ...base, mind: 30, endurance: 2, strength: 2 })).toBe('balanced');
+    expect(getPetBuild({ ...base, strength: 30, endurance: 2 })).toBe('balanced');
+    expect(getPetBuild({ ...base, mindSessions: 10, endurance: 2, strength: 2 })).toBe('balanced');
   });
 
   it('stays balanced when two stats are high but close together', () => {
-    expect(getPetBuild({ ...base, strength: 60, mind: 55, endurance: 10 })).toBe('balanced');
-    expect(getPetBuild({ ...base, mind: 60, endurance: 55, strength: 10 })).toBe('balanced');
+    expect(getPetBuild({ ...base, strength: 60, mindSessions: 19, endurance: 10 })).toBe('balanced');
+    expect(getPetBuild({ ...base, mindSessions: 20, endurance: 55, strength: 10 })).toBe('balanced');
   });
 
   it('needs a lead over BOTH rivals, not just one of them', () => {
-    // Endurance is far ahead of strength, but mind is right behind it.
-    expect(getPetBuild({ ...base, endurance: 60, strength: 10, mind: 52 })).toBe('balanced');
+    // Endurance is far ahead of strength, but mind (17 sessions, 51) is close behind it.
+    expect(getPetBuild({ ...base, endurance: 60, strength: 10, mindSessions: 17 })).toBe('balanced');
   });
 });
 
 describe('hasEvolved', () => {
-  const runner = { level: 1, endurance: 60, strength: 20, mind: 20 };
-  const lifter = { level: 1, strength: 60, endurance: 20, mind: 20 };
-  const scholar = { level: 1, mind: 60, endurance: 20, strength: 20 };
+  const runner = { level: 1, endurance: 60, strength: 20 };
+  const lifter = { level: 1, strength: 60, endurance: 20 };
+  const scholar = { level: 1, mindSessions: 20, endurance: 20, strength: 20 };
 
-  it('holds the evolution back until the pet is past baby', () => {
+  it('holds the evolution back until the pet reaches the evolution level', () => {
     expect(hasEvolved(runner)).toBe(false);
-    expect(hasEvolved({ ...runner, level: 11 })).toBe(true);
+    expect(hasEvolved({ ...runner, level: EVOLUTION_LEVEL - 1 })).toBe(false);
+    expect(hasEvolved({ ...runner, level: EVOLUTION_LEVEL })).toBe(true);
   });
 
   it('treats a lifter and a scholar the same way', () => {
     expect(hasEvolved(lifter)).toBe(false);
-    expect(hasEvolved({ ...lifter, level: 11 })).toBe(true);
+    expect(hasEvolved({ ...lifter, level: EVOLUTION_LEVEL })).toBe(true);
     expect(hasEvolved(scholar)).toBe(false);
-    expect(hasEvolved({ ...scholar, level: 11 })).toBe(true);
+    expect(hasEvolved({ ...scholar, level: EVOLUTION_LEVEL })).toBe(true);
   });
 
   it('stays false for a grown pet with no specialism', () => {
-    expect(hasEvolved({ level: 40, endurance: 20, strength: 20, mind: 20 })).toBe(false);
+    expect(hasEvolved({ level: 40, endurance: 20, strength: 20 })).toBe(false);
   });
 });
 
@@ -308,6 +313,7 @@ describe('evolution is for keeps', () => {
     ...createPet('u', 'Blue', 'dog', 'bear'),
     level: EVOLUTION_LEVEL + 3,
     mind: 65,
+    mindSessions: 22,
     endurance: 20,
     strength: 20,
     adoptedAt: at(0).toISOString(),
@@ -315,7 +321,7 @@ describe('evolution is for keeps', () => {
   });
 
   it('keeps a scholar a scholar after its mind decays back to even', () => {
-    // Mind falls 5 a day; by day 10 it is 15, nowhere near scholar territory.
+    // Mind falls 5 a day; by day 10 it is 15. Sessions are what count, and they stay.
     const decayed = applyTimeDecay(scholar(), at(10));
     expect(decayed.mind).toBeLessThan(45);
     expect(decayed.evolvedBuild).toBe('scholar');
@@ -324,15 +330,16 @@ describe('evolution is for keeps', () => {
   });
 
   it('locks in on the event that makes the pet evolve', () => {
-    const almost = { ...scholar(), mind: 40 };
+    const almost = { ...scholar(), mindSessions: 19 };
     expect(almost.evolvedBuild).toBeUndefined();
-    const evolved = applyDelta(almost, { mind: 20 }, at(1).toISOString());
+    // The 20th session tips it over.
+    const evolved = applyDelta(almost, { mindSessions: 1 }, at(1).toISOString());
     expect(evolved.evolvedBuild).toBe('scholar');
   });
 
   it('still re-specialises when another stat clearly takes over', () => {
     const locked = lockEvolution(scholar());
-    const runner = { ...locked, mind: 20, endurance: 70 };
+    const runner = { ...locked, mindSessions: 5, endurance: 80 };
     expect(getPetBuild(runner)).toBe('runner');
     expect(lockEvolution(runner).evolvedBuild).toBe('runner');
   });
@@ -358,18 +365,23 @@ describe('evolution progress and switching', () => {
     expect(start.progress).toBeGreaterThan(0);
     expect(start.progress).toBeLessThan(0.5);
     expect(start.level).toEqual({ have: 1, need: EVOLUTION_LEVEL });
-    expect(start.stat).toEqual({ key: 'endurance', have: 20, need: 45 });
+    expect(start.stat).toEqual({ key: 'endurance', have: 20, need: 60 });
     // Stat and level met but not far enough ahead: not full.
-    const close = evolutionProgress(pet({ level: 12, endurance: 50, strength: 45 }), 'runner');
+    const close = evolutionProgress(pet({ level: EVOLUTION_LEVEL, endurance: 65, strength: 55 }), 'runner');
     expect(close.progress).toBeLessThan(1);
-    expect(close.lead).toEqual({ have: 5, need: 12 });
-    expect(evolutionProgress(pet({ level: 12, endurance: 60 }), 'runner').progress).toBe(1);
+    expect(close.lead).toEqual({ have: 10, need: 15 });
+    expect(evolutionProgress(pet({ level: EVOLUTION_LEVEL, endurance: 80 }), 'runner').progress).toBe(1);
+  });
+
+  it('counts the scholar in sessions', () => {
+    const scholar = evolutionProgress(pet({ mindSessions: 8 }), 'scholar');
+    expect(scholar.stat).toEqual({ key: 'mindSessions', have: 8, need: 20 });
   });
 
   it('remembers every form earned', () => {
-    let blue = lockEvolution(pet({ level: 12, endurance: 60 }));
+    let blue = lockEvolution(pet({ level: EVOLUTION_LEVEL, endurance: 80 }));
     expect(blue.earnedBuilds).toEqual(['runner']);
-    blue = lockEvolution({ ...blue, endurance: 20, strength: 60 });
+    blue = lockEvolution({ ...blue, endurance: 20, strength: 80 });
     expect(blue.earnedBuilds).toEqual(['runner', 'lifter']);
     expect(evolutionProgress(blue, 'runner').earned).toBe(true);
     expect(canSwitchForm(blue)).toBe(false);
@@ -378,11 +390,11 @@ describe('evolution progress and switching', () => {
   });
 
   it('carries a form locked before the list existed', () => {
-    expect(lockEvolution(pet({ level: 12, evolvedBuild: 'scholar' })).earnedBuilds).toEqual(['scholar']);
+    expect(lockEvolution(pet({ level: EVOLUTION_LEVEL, evolvedBuild: 'scholar' })).earnedBuilds).toEqual(['scholar']);
   });
 
   it('wears the picked form once all three are earned, whatever the stats say', () => {
-    const blue = pet({ level: 14, strength: 70, earnedBuilds: ['runner', 'lifter', 'scholar'], evolvedBuild: 'lifter' });
+    const blue = pet({ level: EVOLUTION_LEVEL, strength: 80, earnedBuilds: ['runner', 'lifter', 'scholar'], evolvedBuild: 'lifter' });
     expect(canSwitchForm(blue)).toBe(true);
     expect(getPetBuild(blue)).toBe('lifter');
     const scholar = chooseForm(blue, 'scholar');

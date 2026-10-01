@@ -43,6 +43,7 @@ import { NutrientRing } from '../components/NutrientRing';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { ChoiceRow, Field, Kicker, NumberField, PrimaryButton, TextButton } from '../components/ui';
+import { StrengthMap } from '../components/StrengthMap';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { colors, fonts, layout, text } from '../theme';
 
@@ -563,6 +564,10 @@ export function ProfileScreen({
               {`Across your logged lifts you sit around the ${ordinal(overall.percentile)} percentile — ${overall.label.toLowerCase()}. Placed against people who lift, of your sex, bodyweight and age, using published training standards. It is an estimate, not a survey of everyone.`}
             </Text>
           ) : null}
+        </Card>
+
+        <Card title="Strength map" hint="Your strongest lifts against people your size, muscle by muscle">
+          <StrengthMap profile={profile} events={events} />
         </Card>
 
         <Card

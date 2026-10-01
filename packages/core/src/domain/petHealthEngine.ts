@@ -158,6 +158,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
     endurance: clamp(pet.endurance + (delta.endurance ?? 0), 0, 100),
     recovery: clamp(pet.recovery + (delta.recovery ?? 0)),
     mind: clamp(pet.mind + (delta.mind ?? 0)),
+    mindSessions: Math.max(0, pet.mindSessions ?? 0) + Math.max(0, delta.mindSessions ?? 0),
     mood: determineMood(nextEnergy, nextNutrition, nextHappiness),
     lastEventAt: laterOf(pet.lastEventAt, occurredAt),
   });
@@ -347,6 +348,8 @@ export class PetHealthEngine {
           // Sitting down and doing the work is the behaviour worth rewarding;
           // how well it went still separates the XP and the mood below.
           mind: Math.max(0, MIND_FULL - pet.mind),
+          // Counted for good: the scholar evolution is read from sessions.
+          mindSessions: 1,
           xp: brainTrainingXp(metadata),
         };
         message = sharp

@@ -68,4 +68,29 @@ describe('meal capture', () => {
     tree.unmount();
   });
 
+
+  it('keeps photo tracking for Plus: free opens on Search, and Photo sells Plus', async () => {
+    const opened: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <MealCaptureScreen
+          onComplete={async () => {}}
+          onFeedStart={() => {}}
+          onAnalyzingChange={() => {}}
+          onClose={() => {}}
+          canScanPhotos={false}
+          onOpenPlus={() => opened.push('plus')}
+        />,
+      );
+    });
+    // Not the camera: free starts where it can actually log something.
+    expect(tree.root.findAll((n) => n.props.testID === 'photo-locked')).toHaveLength(0);
+    act(() => press(tree, 'Photo · Plus').props.onPress());
+    expect(tree.root.findAll((n) => n.props.testID === 'photo-locked').length).toBeGreaterThan(0);
+    expect(() => press(tree, 'Choose from library')).toThrow();
+    act(() => press(tree, 'See Plus').props.onPress());
+    expect(opened).toEqual(['plus']);
+    tree.unmount();
+  });
 });

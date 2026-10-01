@@ -57,3 +57,62 @@ describe('fine-tuning drops down under the chosen base', () => {
     tree.unmount();
   });
 });
+
+describe('the character editor keeps notes and explains the choice', () => {
+  const press = (tree: renderer.ReactTestRenderer, label: string) =>
+    act(() => tree.root.findAll((n) => typeof n.props.onPress === 'function' && n.findAllByType(Text).some((t) => t.props.children === label))[0]!.props.onPress());
+
+  it('keeps what was written under "Your own" when another base is tried', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<CharacterEditor pet={{ name: 'Miso', personality: 'custom', persona: 'A grumpy pirate' }} age={30} onSave={() => {}} />);
+    });
+    press(tree, 'Sweet');
+    press(tree, 'Your own');
+    const input = tree.root.findAll((n) => n.props.accessibilityLabel === 'Their character' && typeof n.props.onChangeText === 'function')[0]!;
+    expect(input.props.value).toBe('A grumpy pirate');
+    tree.unmount();
+  });
+
+  it('describes the chosen personality with a sample line, and makes a confirmed save obvious', async () => {
+    const saved: unknown[] = [];
+    const onSave = async (next: unknown) => {
+      saved.push(next);
+      return null;
+    };
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<CharacterEditor pet={{ name: 'Miso', personality: 'sweet' }} age={30} onSave={onSave} />);
+    });
+    press(tree, 'Savage');
+    const preview = tree.root.findAll((n) => n.props.testID === 'personality-preview')[0]!;
+    const words = preview.findAllByType(Text).map((t) => [t.props.children].flat().join(''));
+    expect(words.some((w) => w.includes('Deadpan'))).toBe(true);
+    expect(words.some((w) => w.includes('Groundbreaking'))).toBe(true);
+    await act(async () => {
+      tree.root.findAll((n) => n.props.testID === 'save-character' && typeof n.props.onPress === 'function')[0]!.props.onPress();
+    });
+    expect(saved).toHaveLength(1);
+    // The app hands back the saved pet; once it matches, the save shows as done.
+    act(() => tree.update(<CharacterEditor pet={{ name: 'Miso', personality: 'savage', dials: (saved[0] as { dials: never }).dials }} age={30} onSave={onSave} />));
+    expect(tree.root.findAll((n) => n.props.testID === 'character-saved').length).toBeGreaterThan(0);
+    const current = tree.root.findAll((n) => n.props.testID === 'current-character')[0]!;
+    expect(current.findAllByType(Text).some((t) => t.props.children === 'Miso is Savage')).toBe(true);
+    expect(current.findAllByType(Text).some((t) => t.props.children === '✓ Live now')).toBe(true);
+    tree.unmount();
+  });
+
+  it('says plainly when a save did not take', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<CharacterEditor pet={{ name: 'Miso', personality: 'sweet' }} age={30} onSave={async () => 'Out of changes this month.'} />);
+    });
+    press(tree, 'Savage');
+    await act(async () => {
+      tree.root.findAll((n) => n.props.testID === 'save-character' && typeof n.props.onPress === 'function')[0]!.props.onPress();
+    });
+    expect(tree.root.findAll((n) => n.props.testID === 'character-save-failed').length).toBeGreaterThan(0);
+    expect(tree.root.findAll((n) => n.props.testID === 'character-saved')).toHaveLength(0);
+    tree.unmount();
+  });
+});

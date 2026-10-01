@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
+  EVOLUTION_LEVEL,
   EVOLVED_BUILDS,
   PET_BUILD_LABEL,
   canSwitchForm,
@@ -23,7 +24,14 @@ interface Props {
 const STAT_WORD: Record<EvolutionProgress['stat']['key'], string> = {
   endurance: 'Endurance',
   strength: 'Strength',
-  mind: 'Mind',
+  mindSessions: 'Mind sessions',
+};
+
+/** What the lead is measured in, said plainly: the scholar's is its mind score. */
+const LEAD_WORD: Record<EvolutionProgress['stat']['key'], string> = {
+  endurance: 'Endurance',
+  strength: 'Strength',
+  mindSessions: 'Mind score',
 };
 
 /** What is still missing, in the order the pet will meet it. Empty once there is nothing left. */
@@ -33,7 +41,7 @@ const stillNeeded = (progress: EvolutionProgress): string[] => {
   if (progress.level.have < progress.level.need) needs.push(`Level ${progress.level.have}/${progress.level.need}`);
   if (progress.stat.have < progress.stat.need) needs.push(`${word} ${progress.stat.have}/${progress.stat.need}`);
   if (progress.lead.have < progress.lead.need)
-    needs.push(`${word} ${Math.max(0, progress.lead.have)}/${progress.lead.need} ahead of the rest`);
+    needs.push(`${LEAD_WORD[progress.stat.key]} ${Math.max(0, progress.lead.have)}/${progress.lead.need} ahead of the rest`);
   return needs;
 };
 
@@ -57,7 +65,7 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
     ? `All three earned. Tap a form for ${pet.name} to wear it.`
     : earnedCount > 0
       ? `Earn all three forms and ${pet.name} can switch between them.`
-      : `From level 11, whichever stat clearly leads decides who ${pet.name} becomes.`;
+      : `From level ${EVOLUTION_LEVEL}, whichever you train most (workouts, cardio or mind sessions) decides who ${pet.name} becomes.`;
 
   return (
     <View style={styles.card} testID="evolution-card">

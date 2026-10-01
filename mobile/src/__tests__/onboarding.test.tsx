@@ -4,6 +4,16 @@ import renderer, { act } from 'react-test-renderer';
 import { PROFILE_SURVEY_DEFAULTS, type BodyProfile } from '@vitto/core';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 
+// The welcome step's pet animates on real timers, which could fire after the
+// environment is torn down and take the whole run with them.
+jest.useFakeTimers();
+
+jest.mock('../services/billingService', () => {
+  const actual = jest.requireActual('../services/billingService');
+  return { ...actual, billingService: { status: jest.fn(() => Promise.resolve({ enabled: true, tier: 'free', expiresAt: null })), purchase: jest.fn(), cancel: jest.fn(), restore: jest.fn() } };
+});
+jest.mock('../services/pushService', () => ({ scheduleTrialReminder: jest.fn(), cancelTrialReminder: jest.fn() }));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
@@ -73,6 +83,29 @@ const advanceToStep = (tree: renderer.ReactTestRenderer, marker: string, max = 1
   }
   throw new Error(`never reached step "${marker}"`);
 };
+
+describe('the Plus paywall in onboarding', () => {
+  it('is step 3 for someone without Plus, and closing it moves on', async () => {
+    const { tree } = mount(baseProfile, { canCustomise: false, paywall: { onTierChange: () => {} } });
+    expect(strings(tree)).toContain('Step 1 of 9');
+    advanceToStep(tree, 'Vitto Plus');
+    expect(strings(tree)).toContain('Step 3 of 9');
+    // Its own button and close replace the usual Continue.
+    expect(button(tree, 'Continue')).toBeUndefined();
+    // Skipping is labelled, top and bottom.
+    const skip = tree.root.findAll((n) => n.props.accessibilityLabel === 'Skip' && typeof n.props.onPress === 'function')[0]!;
+    expect(tree.root.findAll((n) => n.props.testID === 'continue-free').length).toBeGreaterThan(0);
+    await act(async () => skip.props.onPress());
+    expect(strings(tree)).toContain('Step 4 of 9');
+    act(() => tree.unmount());
+  });
+
+  it('is not shown to someone who already has Plus', () => {
+    const { tree } = mount(baseProfile, { canCustomise: true, paywall: { onTierChange: () => {} } });
+    expect(strings(tree)).toContain('Step 1 of 8');
+    act(() => tree.unmount());
+  });
+});
 
 describe('personalities on the free tier', () => {
   it('shows the Plus note instead of the picker, and does not ask for a choice', () => {
@@ -171,8 +204,9 @@ describe('OnboardingScreen character', () => {
     act(() => button(tree, 'Feisty')!.props.onPress());
     expect(picks).toEqual(['feisty']);
     expect(dials.at(-1)).toMatchObject({ blunt: 0.75, sarcastic: 0.5 });
-    // A base temperament takes no notes, and picking one clears any.
-    expect(personas.at(-1)).toBe('');
+    // A base temperament takes no notes, but picking one keeps any already
+    // written, so going back to "Your own" does not lose them.
+    expect(personas).toEqual([]);
     expect(strings(tree)).not.toContain('Who are they?');
     expect(strings(tree).join(' ')).not.toMatch(/Anything else/);
     // "Your own" is where the notes live (for an adult).

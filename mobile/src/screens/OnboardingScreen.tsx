@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -42,6 +43,8 @@ import {
 } from '@vitto/core';
 import { BreedPicker } from '../components/BreedPicker';
 import { CharacterDials } from '../components/CharacterDials';
+import { PersonalityPreview } from '../components/CharacterEditor';
+import { PlusPaywall } from '../components/PlusPaywall';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { ChoiceRow, ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
@@ -75,6 +78,12 @@ interface Props {
   onSetUnits: (system: MeasurementSystem) => void;
   onSignOut?: () => void;
   onRedeemInvite?: (code: string) => Promise<boolean>;
+  /**
+   * The Vitto Plus paywall, shown as the third step to anyone without Plus
+   * (up-front paywalls earn several times more per install than ones found
+   * later in Settings). Absent: no paywall step.
+   */
+  paywall?: { onTierChange: (tier: 'free' | 'plus') => void; isDevAccount?: boolean };
 }
 
 const INVITE_INPUT_MAX_LENGTH = 7;
@@ -126,6 +135,7 @@ const formatMonth = (iso: string | undefined) =>
 type StepId =
   | 'welcome'
   | 'basics'
+  | 'plus'
   | 'goal'
   | 'commitments'
   | 'motivation'
@@ -133,9 +143,12 @@ type StepId =
   | 'namePet'
   | 'companion';
 
-const SEQUENCE: StepId[] = [
+const FULL_SEQUENCE: StepId[] = [
   'welcome',
   'basics',
+  // Third: early enough to be seen by nearly everyone, after a question or two
+  // so it is not the very first thing they meet.
+  'plus',
   'goal',
   'commitments',
   'motivation',
@@ -165,7 +178,13 @@ export function OnboardingScreen({
   onSetUnits,
   onSignOut,
   onRedeemInvite,
+  paywall,
 }: Props) {
+  // Decided once: buying Plus on the paywall step must not reshuffle the steps
+  // (or skip ahead) under their thumb.
+  const SEQUENCE = useRef<StepId[]>(
+    FULL_SEQUENCE.filter((step) => step !== 'plus' || (Boolean(paywall) && !canCustomise)),
+  ).current;
   // Resume at the companion if the questionnaire is answered (fields persist
   // per-keystroke). Decided once so a later edit doesn't yank the user around.
   const startId = useRef<StepId>(
@@ -654,12 +673,18 @@ export function OnboardingScreen({
                 onPersonalityChange(next);
                 // The sliders show what the base means, and start from it.
                 onDialsChange(companion.dialsFor(next));
-                // Notes belong to "Your own" only.
-                if (next !== 'custom') onPersonaChange('');
+                // Notes are kept when another base is tried, so coming back to
+                // "Your own" does not lose them; only "Your own" uses them.
               }}
               // The fine-tuning drops down under the base it tunes.
               expanded={(chosen) => (
                 <>
+                  <PersonalityPreview
+                    personality={chosen}
+                    dials={dials ?? companion.dialsFor(chosen)}
+                    persona={persona}
+                    name={name.trim() || 'They'}
+                  />
                   <View style={styles.dials}>
                     <Text style={styles.dialsLabel}>Fine-tune them</Text>
                     <CharacterDials dials={dials ?? companion.dialsFor(chosen)} onChange={onDialsChange} testID="character-dials" />
@@ -676,6 +701,10 @@ export function OnboardingScreen({
                         placeholder="A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
                         placeholderTextColor={colors.faint}
                         multiline
+                        // Return closes the keyboard rather than starting a new line.
+                        returnKeyType="done"
+                        submitBehavior="blurAndSubmit"
+                        onSubmitEditing={() => Keyboard.dismiss()}
                         maxLength={PERSONA_MAX_LENGTH}
                         accessibilityLabel="Their character"
                       />
@@ -729,12 +758,25 @@ export function OnboardingScreen({
           </View>
         ) : null}
 
+        {stepId === 'plus' && paywall ? (
+          <PlusPaywall
+            skippable
+            isDevAccount={paywall.isDevAccount}
+            onTierChange={paywall.onTierChange}
+            // Not now, or bought: either way, on with onboarding.
+            onClose={() => setStepId(SEQUENCE[index + 1])}
+            onPurchased={() => setStepId(SEQUENCE[index + 1])}
+          />
+        ) : null}
+
         <ErrorText>{stepError ?? error}</ErrorText>
 
-        <View style={styles.actions}>
-          <PrimaryButton label={nextLabel} busy={busy} onPress={() => void advance()} />
-          {index > 0 ? <TextButton label="Back" onPress={back} /> : null}
-        </View>
+        {stepId !== 'plus' ? (
+          <View style={styles.actions}>
+            <PrimaryButton label={nextLabel} busy={busy} onPress={() => void advance()} />
+            {index > 0 ? <TextButton label="Back" onPress={back} /> : null}
+          </View>
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

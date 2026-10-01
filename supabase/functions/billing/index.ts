@@ -18,7 +18,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
  *
  * Actions (all for the signed-in user only; there is no way to name anyone else):
  *   status              -> { enabled, tier, plan, expiresAt }
- *   purchase { plan }   -> plan 'monthly' | 'yearly'; Plus until the period ends
+ *   purchase { plan, trial } -> plan 'monthly' | 'yearly'. `trial` (yearly only)
+ *                          adds TRIAL_DAYS free up front. Plus until the
+ *                          period ends.
  *   cancel              -> back to free now (a real store would run to period end)
  */
 
@@ -30,6 +32,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** What each plan buys. Prices live in the app; nothing is charged. */
 const PLAN_DAYS = { monthly: 30, yearly: 365 } as const;
 type Plan = keyof typeof PLAN_DAYS;
+/** The free trial, offered on the yearly plan only. */
+const TRIAL_DAYS = 14;
 
 const mockEnabled = () => Deno.env.get('MOCK_PAYMENTS') === 'true';
 
@@ -66,17 +70,20 @@ Deno.serve(async (request) => {
     if (action === 'purchase') {
       const plan = body?.plan as Plan;
       if (!(plan in PLAN_DAYS)) return json({ error: 'Unknown plan.' }, 400);
+      const trial = body?.trial === true && plan === 'yearly';
       const now = Date.now();
       // Buying again while subscribed extends from the current end, like a renewal.
       const status = await current();
+      // A grant that never lapses (set by hand) must not be replaced by a plan that does.
+      if (status.tier === 'plus' && status.expiresAt === null) return json(status);
       const from = status.tier === 'plus' && status.expiresAt ? Math.max(now, Date.parse(status.expiresAt)) : now;
-      const expiresAt = new Date(from + PLAN_DAYS[plan] * DAY_MS).toISOString();
+      const expiresAt = new Date(from + (PLAN_DAYS[plan] + (trial ? TRIAL_DAYS : 0)) * DAY_MS).toISOString();
       const { error } = await admin.from('companion_entitlements').upsert(
         { user_id: user.id, tier: 'plus', expires_at: expiresAt, updated_at: new Date(now).toISOString() },
         { onConflict: 'user_id' },
       );
       if (error) throw error;
-      console.log(`[billing] MOCK purchase: ${user.id} ${plan} until ${expiresAt}`);
+      console.log(`[billing] MOCK purchase: ${user.id} ${plan}${trial ? ' + trial' : ''} until ${expiresAt}`);
       return json(await current());
     }
 

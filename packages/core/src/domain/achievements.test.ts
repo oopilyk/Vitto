@@ -51,7 +51,7 @@ describe('earnedAchievements', () => {
   });
 
   it('reads level and evolution off the pet', () => {
-    const grown = { ...pet, level: 12, endurance: 90, strength: 10, mind: 10 };
+    const grown = { ...pet, level: 16, endurance: 90, strength: 10, mind: 10 };
     const earned = earnedAchievements({ events: [], pet: grown, trophies: [], today: TODAY });
     expect(earned).toEqual(expect.arrayContaining(['level_5', 'level_10', 'evolved']));
   });

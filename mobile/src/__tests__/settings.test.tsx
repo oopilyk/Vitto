@@ -134,90 +134,30 @@ describe('settings screen', () => {
     tree.unmount();
   });
 
-  it('lets you change the companion, saved straight away outside the draft', () => {
-    const chosen: string[] = [];
+  it('shows the companion as a row that opens the switching page', () => {
+    const opened: string[] = [];
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <SettingsScreen
           profile={profile}
           breed="bichon"
-          onBreedChange={(next) => chosen.push(next)}
+          onBreedChange={() => {}}
+          coins={120}
+          breedChangeCost={500}
+          onOpenChooseCompanion={() => opened.push('choose')}
           onSave={async () => {}}
           onClose={() => {}}
         />,
       );
     });
     expect(json(tree)).toContain('Your companion');
-    act(() => byLabel(tree, 'Choose the Shiba')!.props.onPress());
-    expect(chosen).toEqual(['shiba']);
-    // Not part of the profile draft, so no save bar appears.
-    expect(findButton(tree, 'Save changes')).toBeUndefined();
+    expect(json(tree)).toContain('120 coins · a switch costs 500');
+    // The grid lives on its own page now.
+    expect(byLabel(tree, 'Choose the Shiba')).toBeUndefined();
+    act(() => byLabel(tree, 'Change animal')!.props.onPress());
+    expect(opened).toEqual(['choose']);
     tree.unmount();
-  });
-
-  it('shows personalities as a Plus feature on the free tier', () => {
-    const pet = { name: 'Blue', personality: 'menace' as const };
-    const renderWith = (canCustomise: boolean) => {
-      let tree!: renderer.ReactTestRenderer;
-      act(() => {
-        tree = renderer.create(
-          <SettingsScreen
-            profile={profile}
-            breed="bichon"
-            onBreedChange={() => {}}
-            pet={pet}
-            onCharacterChange={() => {}}
-            canCustomise={canCustomise}
-            onSave={async () => {}}
-            onClose={() => {}}
-          />,
-        );
-      });
-      return tree;
-    };
-    const free = renderWith(false);
-    expect(free.root.findAllByProps({ testID: 'personality-locked' }).length).toBeGreaterThan(0);
-    expect(json(free)).toContain('A Plus feature');
-    free.unmount();
-    const plus = renderWith(true);
-    expect(plus.root.findAllByProps({ testID: 'personality-locked' })).toHaveLength(0);
-    plus.unmount();
-  });
-
-  it('asks before spending coins on a new animal, and will not overspend', () => {
-    const chosen: string[] = [];
-    const renderWith = (coins: number) => {
-      let tree!: renderer.ReactTestRenderer;
-      act(() => {
-        tree = renderer.create(
-          <SettingsScreen
-            profile={profile}
-            breed="bichon"
-            onBreedChange={(next) => chosen.push(next)}
-            coins={coins}
-            breedChangeCost={500}
-            onSave={async () => {}}
-            onClose={() => {}}
-          />,
-        );
-      });
-      return tree;
-    };
-    const rich = renderWith(620);
-    act(() => byLabel(rich, 'Choose the Shiba')!.props.onPress());
-    // Nothing is spent on the tap itself.
-    expect(chosen).toEqual([]);
-    expect(json(rich)).toContain("You'll have 120 left");
-    act(() => findButton(rich, 'Switch · 500 coins')!.props.onPress());
-    expect(chosen).toEqual(['shiba']);
-    rich.unmount();
-
-    const poor = renderWith(120);
-    act(() => byLabel(poor, 'Choose the Shiba')!.props.onPress());
-    expect(json(poor)).toContain('380 more to go');
-    expect(findButton(poor, 'Switch · 500 coins')!.props.disabled).toBe(true);
-    poor.unmount();
   });
 
   it('hides the companion card when no breed handler is wired up', () => {
@@ -310,13 +250,13 @@ describe('profile screen → settings', () => {
 });
 
 describe('SettingsScreen personality', () => {
-  it('edits base, sliders and notes together, saving once', () => {
+  it('edits base, sliders and notes together, saving once', async () => {
     const saved: unknown[] = [];
     const pet = { name: 'Blue', personality: 'sweet' as const, dials: undefined, persona: undefined };
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <SettingsScreen profile={profile} onSave={async () => {}} onClose={() => {}} breed="bichon" onBreedChange={() => {}} pet={pet} onCharacterChange={(next) => saved.push(next)} />,
+        <SettingsScreen profile={profile} onSave={async () => {}} onClose={() => {}} breed="bichon" onBreedChange={() => {}} pet={pet} onCharacterChange={async (next) => { saved.push(next); return null; }} />,
       );
     });
     const button = (label: string) =>
@@ -327,7 +267,7 @@ describe('SettingsScreen personality', () => {
     act(() => button('Savage').props.onPress());
     act(() => tree.root.findAll((n) => n.props.testID === 'dial-blunt-0' && typeof n.props.onPress === 'function')[0].props.onPress());
     expect(save().props.accessibilityState).toEqual({ disabled: false });
-    act(() => save().props.onPress());
+    await act(async () => save().props.onPress());
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({ personality: 'savage', dials: { blunt: 0, sarcastic: 0.92 }, persona: '' });
   });

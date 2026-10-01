@@ -157,3 +157,39 @@ export const forgetThisDevice = async (): Promise<void> => {
     // Signing out must never fail because a token could not be cleared.
   }
 };
+
+const TRIAL_REMINDER_ID = 'vitto-plus-trial-reminder';
+
+/**
+ * The "we remind you before it ends" the paywall promises: a local notification
+ * `daysIn` days from now. Best effort -- without notification permission (or on
+ * web, which cannot schedule) it quietly does nothing, and the paywall's copy
+ * is only shown where that is acceptable (see PlusPaywall). Replaces any
+ * reminder already scheduled, so starting a trial twice cannot remind twice.
+ */
+export const scheduleTrialReminder = async (daysIn: number, trialDays: number): Promise<boolean> => {
+  if (Platform.OS === 'web') return false;
+  try {
+    const permission = await Notifications.getPermissionsAsync();
+    const granted = permission.granted || (await Notifications.requestPermissionsAsync()).granted;
+    if (!granted) return false;
+    await Notifications.cancelScheduledNotificationAsync(TRIAL_REMINDER_ID).catch(() => {});
+    await Notifications.scheduleNotificationAsync({
+      identifier: TRIAL_REMINDER_ID,
+      content: {
+        title: 'Your Plus trial ends soon',
+        body: `${trialDays - daysIn} days left of your free trial. Cancel anytime before then if it is not for you.`,
+      },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + daysIn * 24 * 60 * 60 * 1000) },
+    });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** Drops the trial reminder, e.g. when Plus is cancelled. */
+export const cancelTrialReminder = async (): Promise<void> => {
+  if (Platform.OS === 'web') return;
+  await Notifications.cancelScheduledNotificationAsync(TRIAL_REMINDER_ID).catch(() => {});
+};

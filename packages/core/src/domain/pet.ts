@@ -131,6 +131,8 @@ export interface PetState {
   chosenBuild?: EvolvedBuild;
   /** Coins earned by caring for the pet, spent on changes (see coins.ts). Absent reads as 0. */
   coins?: number;
+  /** Mind sessions ever played. Only counts up; the scholar evolution is read from it (`buildMindScore`). */
+  mindSessions?: number;
   adoptedAt: string;
   lastEventAt?: string;
   /**
@@ -153,6 +155,8 @@ export interface PetDelta {
   endurance?: number;
   recovery?: number;
   mind?: number;
+  /** Mind sessions played; only ever added to. */
+  mindSessions?: number;
   xp?: number;
 }
 
@@ -190,7 +194,7 @@ export const clamp = (value: number, minimum = 0, maximum = 100) =>
  * has to have been raised a while before how it was raised means anything, so a
  * level-2 pet that has been walked twice is not yet a runner.
  */
-export const EVOLUTION_LEVEL = 11;
+export const EVOLUTION_LEVEL = 15;
 
 /** How much xp `applyDelta` rolls into the next level. Whole-number levels only. */
 export const XP_PER_LEVEL = 100;
@@ -224,14 +228,34 @@ export type EvolvedBuild = Exclude<PetBuild, 'balanced'>;
  * training everything evenly from tipping into a specialism on noise. Because the
  * lead is required over BOTH rivals, at most one specialism can ever qualify.
  */
-const BUILD_MIN_STAT = 45;
-const BUILD_LEAD_OVER_OTHERS = 12;
+const BUILD_MIN_STAT = 60;
+const BUILD_LEAD_OVER_OTHERS = 15;
+
+/**
+ * The mind side of the build is counted in SESSIONS, not read off `mind`.
+ * `mind` decays every day without a session (it drives mood and "foggy"), so a
+ * scholar measured by it could slip out of its specialism -- and a runner or
+ * lifter could tip in or out of the lead as it rose and fell. Sessions only ever
+ * count up, like strength and endurance only ever build. Each is worth this many
+ * points on the 0-100 scale the other two use, so a scholar needs about
+ * BUILD_MIN_STAT / MIND_SCORE_PER_SESSION (20) sessions.
+ */
+export const MIND_SCORE_PER_SESSION = 3;
+
+/** The mind score evolution compares: sessions, on the same 0-100 scale as strength and endurance. */
+export const buildMindScore = (pet: Partial<Pick<PetState, 'mindSessions'>>): number =>
+  Math.min(100, Math.max(0, pet.mindSessions ?? 0) * MIND_SCORE_PER_SESSION);
 
 const dominates = (stat: number, ...others: number[]): boolean =>
   stat >= BUILD_MIN_STAT && others.every((other) => stat - other >= BUILD_LEAD_OVER_OTHERS);
 
+/** The stats evolution reads: endurance, strength, and the mind score from sessions. */
+type BuildStats = Pick<PetState, 'endurance' | 'strength'> & Partial<Pick<PetState, 'mindSessions'>>;
+
 /** What the stats alone say right now, ignoring any locked evolution. */
-const liveBuild = ({ endurance, strength, mind }: Pick<PetState, 'endurance' | 'strength' | 'mind'>): PetBuild => {
+const liveBuild = (pet: BuildStats): PetBuild => {
+  const { endurance, strength } = pet;
+  const mind = buildMindScore(pet);
   if (dominates(endurance, strength, mind)) return 'runner';
   if (dominates(strength, endurance, mind)) return 'lifter';
   if (dominates(mind, endurance, strength)) return 'scholar';
@@ -243,8 +267,7 @@ const liveBuild = ({ endurance, strength, mind }: Pick<PetState, 'endurance' | '
  * back to even -- the one it already evolved into. A pet never devolves.
  */
 export const getPetBuild = (
-  pet: Pick<PetState, 'endurance' | 'strength' | 'mind'> &
-    Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
+  pet: BuildStats & Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
 ): PetBuild => {
   // A pet that has earned every form wears the one picked for it.
   if (pet.chosenBuild && canSwitchForm(pet)) return pet.chosenBuild;
@@ -262,12 +285,16 @@ export const canSwitchForm = (pet: Partial<Pick<PetState, 'earnedBuilds'>>): boo
 export const chooseForm = <T extends PetState>(pet: T, build: EvolvedBuild): T =>
   canSwitchForm(pet) ? { ...pet, chosenBuild: build } : pet;
 
-/** The stat each evolution is grown from. */
-export const BUILD_STAT: Record<EvolvedBuild, 'endurance' | 'strength' | 'mind'> = {
+/** What each evolution is grown from. The scholar's is counted in sessions. */
+export const BUILD_STAT: Record<EvolvedBuild, 'endurance' | 'strength' | 'mindSessions'> = {
   runner: 'endurance',
   lifter: 'strength',
-  scholar: 'mind',
+  scholar: 'mindSessions',
 };
+
+/** A build's stat on the shared 0-100 scale. */
+const buildScore = (pet: BuildStats, build: EvolvedBuild): number =>
+  build === 'scholar' ? buildMindScore(pet) : pet[BUILD_STAT[build] as 'endurance' | 'strength'];
 
 export interface EvolutionProgress {
   build: EvolvedBuild;
@@ -276,7 +303,8 @@ export interface EvolutionProgress {
   /** 0..1 across the three requirements below; 1 once earned. */
   progress: number;
   level: { have: number; need: number };
-  stat: { key: 'endurance' | 'strength' | 'mind'; have: number; need: number };
+  /** In the stat's own units: points for endurance and strength, sessions for mind. */
+  stat: { key: 'endurance' | 'strength' | 'mindSessions'; have: number; need: number };
   /** How far the stat is ahead of the higher of the other two. */
   lead: { have: number; need: number };
 }
@@ -288,12 +316,12 @@ export interface EvolutionProgress {
  * be full while the pet still would not evolve.
  */
 export const evolutionProgress = (
-  pet: Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'> & Partial<Pick<PetState, 'earnedBuilds' | 'evolvedBuild'>>,
+  pet: Pick<PetState, 'level'> & BuildStats & Partial<Pick<PetState, 'earnedBuilds' | 'evolvedBuild'>>,
   build: EvolvedBuild,
 ): EvolutionProgress => {
   const key = BUILD_STAT[build];
-  const have = pet[key];
-  const rival = Math.max(...EVOLVED_BUILDS.filter((other) => other !== build).map((other) => pet[BUILD_STAT[other]]));
+  const have = buildScore(pet, build);
+  const rival = Math.max(...EVOLVED_BUILDS.filter((other) => other !== build).map((other) => buildScore(pet, other)));
   const earned = Boolean(pet.earnedBuilds?.includes(build) || pet.evolvedBuild === build);
   const share = (value: number, need: number) => Math.max(0, Math.min(1, value / need));
   const parts = [
@@ -306,7 +334,10 @@ export const evolutionProgress = (
     earned,
     progress: earned ? 1 : parts.reduce((total, part) => total + part, 0) / parts.length,
     level: { have: pet.level, need: EVOLUTION_LEVEL },
-    stat: { key, have: Math.round(have), need: BUILD_MIN_STAT },
+    stat:
+      build === 'scholar'
+        ? { key, have: Math.max(0, pet.mindSessions ?? 0), need: Math.ceil(BUILD_MIN_STAT / MIND_SCORE_PER_SESSION) }
+        : { key, have: Math.round(have), need: BUILD_MIN_STAT },
     lead: { have: Math.round(have - rival), need: BUILD_LEAD_OVER_OTHERS },
   };
 };
@@ -344,8 +375,7 @@ export const PET_BUILD_LABEL: Record<PetBuild, string> = {
  * on the dashboard and the sheet the avatar draws can never disagree about it.
  */
 export const hasEvolved = (
-  pet: Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'> &
-    Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
+  pet: Pick<PetState, 'level'> & BuildStats & Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
 ): boolean => pet.level >= EVOLUTION_LEVEL && getPetBuild(pet) !== 'balanced';
 
 /**
@@ -407,6 +437,8 @@ export const applyForcedForm = (pet: PetState, form: ForcedPetForm | null): PetS
     endurance: statFor('endurance'),
     strength: statFor('strength'),
     mind: statFor('mind'),
+    // The scholar is read from sessions, so the preview pins those too.
+    mindSessions: Math.ceil(statFor('mind') / MIND_SCORE_PER_SESSION),
     // Pinned too, or a real pet's locked evolution would still show through
     // (and a forced `foggy` after a forced form could not keep the form).
     evolvedBuild: form === 'base' ? undefined : form,
