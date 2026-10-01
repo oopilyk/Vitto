@@ -68,6 +68,8 @@ interface Props {
   appleHealthStatus?: 'disconnected' | 'connected';
   onOpenAppleHealth?: () => void;
   onOpenHistory?: () => void;
+  /** Opens the graph of each lift's estimated max over time. */
+  onOpenLiftProgress?: () => void;
 }
 
 /** The same art the living-room shelf uses, so the list and the shelf cannot disagree. */
@@ -88,16 +90,35 @@ function Card({
   hint,
   children,
   onLayout,
+  onOpen,
+  openLabel,
 }: {
   title: string;
   hint?: string;
   children: ReactNode;
   /** Where the card sits in the scroll content -- so a deep link can scroll to it. */
   onLayout?: (event: LayoutChangeEvent) => void;
+  /** Opens the card's detail page, from an arrow at its top right. */
+  onOpen?: () => void;
+  /** Screen-reader name for that arrow. */
+  openLabel?: string;
 }) {
   return (
     <View style={styles.card} onLayout={onLayout}>
-      <Kicker>{title}</Kicker>
+      <View style={styles.cardHead}>
+        <Kicker>{title}</Kicker>
+        {onOpen ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={openLabel ?? `Open ${title}`}
+            onPress={onOpen}
+            hitSlop={10}
+            style={({ pressed }) => [styles.cardOpen, pressed && styles.headerButtonPressed]}
+          >
+            <Text style={styles.cardOpenMark}>↗</Text>
+          </Pressable>
+        ) : null}
+      </View>
       {hint ? <Text style={styles.cardHint}>{hint}</Text> : null}
       <View style={styles.cardBody}>{children}</View>
     </View>
@@ -137,6 +158,7 @@ export function ProfileScreen({
   appleHealthStatus,
   onOpenAppleHealth,
   onOpenHistory,
+  onOpenLiftProgress,
 }: Props) {
   const targets = calculateMacroTargets(profile);
   const today = new Date();
@@ -310,6 +332,8 @@ export function ProfileScreen({
 
         <Card
           title="Personal records"
+          onOpen={onOpenLiftProgress}
+          openLabel="See lift progress"
           hint={
             onBoard === 0
               ? 'Your best on each big lift and on the road, read from the workouts you log'
@@ -497,6 +521,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
   },
+  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  cardOpen: {
+    width: 32,
+    height: 32,
+    marginVertical: -6,
+    marginRight: -6,
+    borderRadius: 16,
+    backgroundColor: colors.cardSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardOpenMark: { fontSize: 16, fontWeight: '700', color: colors.coral },
   cardHint: { fontSize: 12, color: colors.faint, marginTop: 6, lineHeight: 17 },
   cardBody: { marginTop: 4 },
   rings: { flexDirection: 'row', gap: 6, marginTop: 10 },

@@ -9,6 +9,7 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { ScreenTimeScreen } from '../screens/ScreenTimeScreen';
 import { ActivityHistoryScreen } from '../screens/ActivityHistoryScreen';
+import { LiftProgressScreen } from '../screens/LiftProgressScreen';
 
 const profile: BodyProfile = {
   age: 30,
@@ -385,6 +386,56 @@ describe('activity history page', () => {
     expect(rendered).toContain('Today');
     expect(rendered).toContain('Yesterday');
     expect(rendered).toContain('2 care moments');
+    tree.unmount();
+  });
+});
+
+describe('lift progress', () => {
+  const bench = (day: string, weight: number, reps: number) =>
+    ({
+      id: day,
+      type: 'WORKOUT',
+      occurredAt: `2026-09-${day}T12:00:00Z`,
+      metadata: {
+        workoutType: 'strength',
+        durationMinutes: 60,
+        exercises: [{ id: 'e', name: 'Bench Press', muscleGroup: 'chest', sets: [{ id: 's', reps, weight, unit: 'lb', completed: true }] }],
+      },
+    }) as any;
+  const lifter = { ...profile, sex: 'male' as const, weightKg: 80, weightUnit: 'lb' as const };
+
+  it('opens from the arrow on Personal records', () => {
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<ProfileScreen profile={profile} events={[]} onClose={() => {}} onOpenLiftProgress={() => (opened += 1)} />);
+    });
+    act(() => byLabel(tree, 'See lift progress')!.props.onPress());
+    expect(opened).toBe(1);
+    tree.unmount();
+  });
+
+  it('shows the latest estimated max, the change since the first session, and each session', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<LiftProgressScreen profile={lifter} events={[bench('10', 185, 5), bench('20', 205, 5)]} onClose={() => {}} />);
+    });
+    const rendered = json(tree);
+    // 205 x 5 -> ~239 lb; 185 x 5 -> ~216 lb.
+    expect(rendered).toMatch(/23[89]/);
+    expect(rendered).toMatch(/\+2[34] lb since/);
+    expect(rendered).toContain('Bench Press · 205 lb × 5');
+    expect(rendered).toContain('more to ');
+    tree.unmount();
+  });
+
+  it('says so when a lift has nothing logged', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<LiftProgressScreen profile={lifter} events={[bench('10', 185, 5)]} onClose={() => {}} />);
+    });
+    act(() => findButton(tree, 'Squat')!.props.onPress());
+    expect(json(tree)).toContain('No squat logged yet');
     tree.unmount();
   });
 });

@@ -142,6 +142,46 @@ export const liftScores = (events: readonly HealthEvent[], profile: Pick<BodyPro
   });
 };
 
+export interface LiftPoint {
+  occurredAt: string;
+  /** The workout's best estimated one-rep max, as the barbell lift, in kg. */
+  oneRepMaxKg: number;
+  /** The set it came from. */
+  from: NonNullable<LiftScore['from']>;
+}
+
+/**
+ * A lift's estimated one-rep max over time: one point per workout that
+ * trained it (its best set), oldest first. Uses the same estimate and the
+ * same variation conversions as `liftScores`, so the graph and the rank
+ * always agree.
+ */
+export const liftHistory = (events: readonly HealthEvent[], lift: StandardLift): LiftPoint[] => {
+  const points: LiftPoint[] = [];
+  for (const event of events) {
+    if (event.type !== 'WORKOUT') continue;
+    let best: LiftPoint | null = null;
+    for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
+      const factor = LIFT_SOURCES[lift][exercise.name];
+      if (!factor) continue;
+      for (const set of exercise.sets) {
+        if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0) continue;
+        const unit = set.unit ?? 'kg';
+        const kg = estimatedOneRepMax(convertWeightValue(set.weight, unit, 'kg'), set.reps) * factor;
+        if (!best || kg > best.oneRepMaxKg) {
+          best = { occurredAt: event.occurredAt, oneRepMaxKg: kg, from: { exercise: exercise.name, weight: set.weight, unit, reps: set.reps } };
+        }
+      }
+    }
+    if (best) points.push({ ...best, oneRepMaxKg: Math.round(best.oneRepMaxKg * 10) / 10 });
+  }
+  return points.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+};
+
+/** Each tier's starting 1RM for this lift, in kg, at this bodyweight (Bronze -> Grand Champion). */
+export const tierThresholdsKg = (lift: StandardLift, profile: Pick<BodyProfile, 'sex' | 'weightKg'>): number[] =>
+  standardsFor(lift, profile.sex).map((multiple) => Math.round(multiple * Math.max(30, profile.weightKg) * 10) / 10);
+
 export type MuscleGroup = 'chest' | 'shoulders' | 'triceps' | 'biceps' | 'upperBack' | 'lowerBack' | 'glutes' | 'hamstrings' | 'quads';
 
 export const MUSCLE_GROUP_LABEL: Record<MuscleGroup, string> = {

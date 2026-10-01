@@ -56,6 +56,7 @@ import { RemindersScreen } from './src/screens/RemindersScreen';
 import { GymScreen } from './src/screens/GymScreen';
 import { AppleHealthScreen } from './src/screens/AppleHealthScreen';
 import { ActivityHistoryScreen } from './src/screens/ActivityHistoryScreen';
+import { LiftProgressScreen } from './src/screens/LiftProgressScreen';
 import { PersonalityScreen } from './src/screens/PersonalityScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
@@ -126,6 +127,7 @@ type RootStackParamList = {
   Gym: undefined;
   AppleHealth: undefined;
   ActivityHistory: undefined;
+  LiftProgress: undefined;
   // Settings' own pages, each pushed from its row there.
   Preferences: undefined;
   Personality: undefined;
@@ -1951,6 +1953,7 @@ export default function App() {
               appleHealthStatus={Platform.OS === 'ios' ? (isAppleHealthConnected ? 'connected' : 'disconnected') : undefined}
               onOpenAppleHealth={() => navigation.navigate('AppleHealth')}
               onOpenHistory={() => navigation.navigate('ActivityHistory')}
+              onOpenLiftProgress={() => navigation.navigate('LiftProgress')}
             />
           )}
         </RootStack.Screen>
@@ -2023,6 +2026,9 @@ export default function App() {
               onClose={() => navigation.goBack()}
             />
           )}
+        </RootStack.Screen>
+        <RootStack.Screen name="LiftProgress">
+          {({ navigation }) => <LiftProgressScreen profile={profile} events={events} onClose={() => navigation.goBack()} />}
         </RootStack.Screen>
         <RootStack.Screen name="ActivityHistory">
           {({ navigation }) => <ActivityHistoryScreen events={events} onClose={() => navigation.goBack()} />}
