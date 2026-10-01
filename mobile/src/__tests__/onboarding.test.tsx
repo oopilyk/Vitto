@@ -265,6 +265,50 @@ describe('onboarding', () => {
     expect(adopt).toHaveBeenCalled();
   });
 
+  it('never scrolls a page and never uses an emoji, all the way through', () => {
+    const { ScrollView } = require('react-native');
+    const enable = jest.fn(() => Promise.resolve(true));
+    const { tree } = mount(baseProfile, { onEnableNotifications: enable });
+    const check = () => {
+      // The only scroller allowed is the sideways strip of months.
+      for (const scroller of tree.root.findAllByType(ScrollView)) expect(scroller.props.horizontal).toBe(true);
+      for (const line of strings(tree)) expect(line).not.toMatch(/\p{Extended_Pictographic}/u);
+    };
+    check();
+    press(tree, 'Get started');
+    check();
+    tapLabel(tree, 'Choose the Shiba');
+    check();
+    press(tree, 'Choose the shiba');
+    check();
+    press(tree, 'Let’s go!');
+    press(tree, 'Shuffle');
+    press(tree, 'Next');
+    press(tree, 'Skip');
+    check();
+    press(tree, 'Next');
+    for (const tap of ['18-24', 'Male']) {
+      check();
+      press(tree, tap);
+    }
+    check();
+    type(tree, 'Height in feet', '5');
+    type(tree, 'Weight in lb', '180');
+    press(tree, 'Next');
+    for (const tap of ['Stay where I am', 'On my feet some', '3 days']) {
+      check();
+      press(tree, tap);
+    }
+    check();
+    press(tree, 'Next');
+    check();
+    press(tree, '10,000 steps');
+    press(tree, 'Seeing progress');
+    check();
+    press(tree, 'Next');
+    check(); // the plan
+  });
+
   it('the join-a-partner affordance only appears when onRedeemInvite is passed', () => {
     const withInvite = mount(baseProfile, { onRedeemInvite: async () => true });
     expect(button(withInvite.tree, 'Have an invite code? Join a partner’s pet')).toBeTruthy();
@@ -281,30 +325,25 @@ describe('onboarding character (Plus)', () => {
     press(mounted.tree, 'Let’s do it!');
     return mounted.tree;
   };
-  const stop = (tree: renderer.ReactTestRenderer, key: string, n: number) =>
-    tree.root.findAll((node) => node.props.testID === `dial-${key}-${n}` && typeof node.props.onPress === 'function')[0];
 
-  it('picks no personality for them, then shows the sliders under the picked base', () => {
+  it('picks no personality for them, then previews the one they tap, starting its sliders where that base sits', () => {
     const dials: unknown[] = [];
     const tree = atPet({ onDialsChange: (d: unknown) => dials.push(d) });
-    expect(has(tree, 'Their personality')).toBe(true);
+    expect(has(tree, 'Choose a personality for Miso')).toBe(true);
     expect(button(tree, 'Next')!.props.disabled).toBe(true);
-    expect(has(tree, 'Fine-tune them')).toBe(false);
     press(tree, 'Savage');
-    expect(has(tree, 'Fine-tune them')).toBe(true);
-    act(() => stop(tree, 'blunt', 0).props.onPress());
-    expect(dials.at(-1)).toMatchObject({ blunt: 0 });
+    expect(tree.root.findAll((n) => n.props.testID === 'personality-preview-savage').length).toBeGreaterThan(0);
+    expect(dials.at(-1)).toMatchObject({ sarcastic: 0.92 });
+    expect(button(tree, 'Next')!.props.disabled).toBe(false);
   });
 
-  it('offers notes only for "Your own", and only to adults', () => {
+  it('asks who they are only for "Your own", and only offers it to adults', () => {
     const own = atPet();
     press(own, 'Your own');
     expect(has(own, 'Who are they?')).toBe(true);
-    // Under 16, "Your own" is not offered at all; the bases still fine-tune.
     const teen = atPet({}, { ...adult, age: 15 });
     expect(has(teen, 'Your own')).toBe(false);
     press(teen, 'Cute');
     expect(has(teen, 'Who are they?')).toBe(false);
-    expect(has(teen, 'Fine-tune them')).toBe(true);
   });
 });

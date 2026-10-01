@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
@@ -10,8 +10,10 @@ import {
   Text,
   TextInput,
   View,
-  useWindowDimensions,
+  type LayoutChangeEvent,
+  type StyleProp,
   type TextInputProps,
+  type ViewStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useFonts, Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_700Bold } from '@expo-google-fonts/rubik';
@@ -21,6 +23,7 @@ import {
   MOTIVATION_OPTIONS,
   MATURE_PERSONALITY_AGE,
   PERSONA_MAX_LENGTH,
+  PERSONALITY_PREVIEW,
   companion,
   isValidPersona,
   petPersonalityOptionsFor,
@@ -42,14 +45,12 @@ import {
   type PetPersonality,
   type TrainingType,
 } from '@vitto/core';
-import { CharacterDials } from '../components/CharacterDials';
-import { PersonalityPreview } from '../components/CharacterEditor';
-import { billingService, PLUS_PLANS, TRIAL_DAYS, TRIAL_REMINDER_DAY, type PlusPlan } from '../services/billingService';
-import { scheduleTrialReminder } from '../services/pushService';
 import { PetAvatar } from '../components/PetAvatar';
 import { PET_SHEETS, sheetByBreed } from '../components/petSprites';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
+import { billingService, PLUS_PLANS, TRIAL_DAYS, TRIAL_REMINDER_DAY, type PlusPlan } from '../services/billingService';
+import { scheduleTrialReminder } from '../services/pushService';
 import { colors, getColorScheme, themedStyles } from '../theme';
 
 interface Props {
@@ -64,10 +65,10 @@ interface Props {
   canCustomise?: boolean;
   personality: PetPersonality;
   onPersonalityChange: (value: PetPersonality) => void;
-  /** Their own notes on the character, on any base. Shown from MATURE_PERSONALITY_AGE. */
+  /** Their own notes on the character. Shown for "Your own", from MATURE_PERSONALITY_AGE. */
   persona?: string;
   onPersonaChange?: (value: string) => void;
-  /** The five sliders. Reset to the base's positions when the base changes. */
+  /** The five sliders. Set to the base's positions when a base is picked; fine-tuned later in Settings. */
   dials?: companion.PersonalityDials;
   onDialsChange?: (value: companion.PersonalityDials) => void;
   stepGoal: number;
@@ -81,8 +82,8 @@ interface Props {
   onSignOut?: () => void;
   onRedeemInvite?: (code: string) => Promise<boolean>;
   /**
-   * The Vitto Plus paywall, shown to anyone without Plus once they have seen
-   * their plan (the point it is worth most). Absent: no paywall step.
+   * The Vitto Plus offer, shown to anyone without Plus once they have seen
+   * their plan (the point it is worth most). Absent: no Plus pages.
    */
   paywall?: { onTierChange: (tier: 'free' | 'plus') => void; isDevAccount?: boolean };
   /** Asks the OS for notifications; resolves to whether they are on. Absent where push cannot work. */
@@ -107,15 +108,15 @@ const AGE_OPTIONS = [
 ];
 
 const GOAL_OPTIONS = [
-  { value: 'lose' as const, emoji: '🔥', label: 'Lose fat' },
-  { value: 'maintain' as const, emoji: '⚖️', label: 'Stay where I am' },
-  { value: 'gain' as const, emoji: '💪', label: 'Build muscle' },
+  { value: 'lose' as const, label: 'Lose fat' },
+  { value: 'maintain' as const, label: 'Stay where I am' },
+  { value: 'gain' as const, label: 'Build muscle' },
 ];
 
 const ACTIVITY_OPTIONS = [
-  { value: 'low' as const, emoji: '🪑', label: 'Mostly sitting', detail: 'Desk job, not much walking' },
-  { value: 'moderate' as const, emoji: '🚶', label: 'On my feet some', detail: 'Walking through the day' },
-  { value: 'high' as const, emoji: '🏃', label: 'Always moving', detail: 'A physical job, rarely sitting' },
+  { value: 'low' as const, label: 'Mostly sitting', detail: 'Desk job, not much walking' },
+  { value: 'moderate' as const, label: 'On my feet some', detail: 'Walking through the day' },
+  { value: 'high' as const, label: 'Always moving', detail: 'A physical job, rarely sitting' },
 ];
 
 const TRAINING_DAY_OPTIONS = [
@@ -130,10 +131,10 @@ const TRAINING_DAY_OPTIONS = [
 const STEP_LABEL: Record<number, string> = { 5000: 'Easing in', 7500: 'Steady', 10000: 'The classic', 12500: 'Ambitious' };
 
 const COMMIT_OPTIONS = [
-  { days: 3, emoji: '🙌', note: 'Baby steps' },
-  { days: 7, emoji: '💪', note: 'Strong start' },
-  { days: 14, emoji: '🎯', note: 'Clearly committed' },
-  { days: 30, emoji: '🔥', note: 'Unstoppable streak' },
+  { days: 3, note: 'Baby steps' },
+  { days: 7, note: 'Strong start' },
+  { days: 14, note: 'Clearly committed' },
+  { days: 30, note: 'Unstoppable streak' },
 ];
 
 const NAME_IDEAS = [
@@ -310,12 +311,22 @@ const palette = () =>
         greenPale: '#eef8eb',
       };
 
+/** The smallest pet worth showing; with less room than this the pet steps aside. */
+const MIN_PET = 72;
+/** An answer button shrinks to this on a long list in a small space, and no further. */
+const MIN_CHOICE = 46;
+const CHOICE_GAP = 10;
+
 /**
  * Onboarding, the way the best pet apps do it: one small thing per screen,
  * your pet on screen and talking the whole way once you have picked them,
  * taps that answer and move on by themselves, and a little haptic for every
- * choice. Nothing is chosen for you: every answer waits for your tap. The
- * questions still fill the same profile the calorie and macro targets read.
+ * choice. Nothing is chosen for you: every answer waits for your tap.
+ *
+ * Nothing scrolls. Each page is laid out in the space it actually has (which
+ * the keyboard shrinks): answers shrink towards MIN_CHOICE, long lists sit in
+ * two columns, and the pet takes whatever room is left, stepping aside if
+ * there is not enough of it.
  */
 export function OnboardingScreen({
   name,
@@ -327,7 +338,6 @@ export function OnboardingScreen({
   onPersonalityChange,
   persona = '',
   onPersonaChange = () => {},
-  dials,
   onDialsChange = () => {},
   stepGoal,
   onStepGoalChange,
@@ -366,7 +376,7 @@ export function OnboardingScreen({
       if (answeredAtStart && QUESTION_STEPS.has(step)) return false;
       if (step === 'target') return goal !== 'maintain';
       if (PLUS_STEPS.has(step)) return offerPlus;
-      // After the paywall, so buying Plus there opens it up.
+      // After the offer, so buying Plus there opens it up.
       if (step === 'personality') return canCustomise;
       if (step === 'notifications') return Boolean(onEnableNotifications);
       return true;
@@ -379,11 +389,20 @@ export function OnboardingScreen({
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
-  const [plusBusy, setPlusBusy] = useState<PlusPlan | null>(null);
-  const [plusTestMode, setPlusTestMode] = useState<boolean | null>(null);
   const [commitDays, setCommitDays] = useState<number | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
+  const [plusBusy, setPlusBusy] = useState<PlusPlan | null>(null);
+  const [plusTestMode, setPlusTestMode] = useState<boolean | null>(null);
+
+  // The room the page has (the keyboard takes its share), measured, so every
+  // page can be laid out to fit it instead of scrolling.
+  const [area, setArea] = useState({ width: 0, height: 0 });
+  const onAreaLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setArea((current) => (Math.abs(current.width - width) < 1 && Math.abs(current.height - height) < 1 ? current : { width, height }));
+  };
+  const short = area.height > 0 && area.height < 520;
 
   const index = Math.max(0, sequence.indexOf(stepId));
   const isLast = index === sequence.length - 1;
@@ -410,10 +429,6 @@ export function OnboardingScreen({
   );
 
   const F = palette();
-  // Short phones (an SE, a mini) get a smaller pet, so the question and its answers still fit.
-  const { height: screenHeight } = useWindowDimensions();
-  const compact = screenHeight < 740;
-  const petScale = compact ? 0.72 : 1;
   const months = useMemo(monthChoices, []);
   const metric = profile.weightUnit === 'kg';
   const fromDisplayWeight = (value: number) => (metric ? value : value / LB_PER_KG);
@@ -427,10 +442,11 @@ export function OnboardingScreen({
   const PetName = named ? name.trim() : 'Your pet';
   const you = picked.yourName ? profile.displayName?.trim() : undefined;
   const survival = petSurvivalGuidance(named ? name.trim() : 'your pet');
+  const animal = sheetByBreed(breed).label.toLowerCase();
 
   const previewPet = useMemo(
-    () => createPet('preview', named ? name.trim() : 'Pet', 'dog', breed, personality, undefined, persona, dials),
-    [named, name, breed, personality, persona, dials],
+    () => createPet('preview', named ? name.trim() : 'Pet', 'dog', breed, personality, undefined, persona),
+    [named, name, breed, personality, persona],
   );
 
   /** A happy little hop, for tapping the pet or a moment worth one. */
@@ -438,6 +454,24 @@ export function OnboardingScreen({
     setCelebrating(true);
     if (celebrateTimer.current) clearTimeout(celebrateTimer.current);
     celebrateTimer.current = setTimeout(() => setCelebrating(false), ms);
+  };
+
+  /**
+   * How big the pet can be on this page: what is left of the measured height
+   * once `reserved` (everything else on the page) is set aside, capped at
+   * `wanted`. Zero, and the pet steps aside, when that is less than MIN_PET.
+   * Before the first measurement, the wanted size.
+   */
+  const petRoom = (wanted: number, reserved: number) => {
+    if (area.height === 0) return wanted;
+    const room = Math.floor(Math.min(wanted, area.height - reserved - 16));
+    return room >= MIN_PET ? room : 0;
+  };
+
+  /** The space a list of `count` answers needs at its smallest. */
+  const listNeeds = (count: number, columns = 1) => {
+    const rows = Math.ceil(count / columns);
+    return rows * MIN_CHOICE + (rows - 1) * CHOICE_GAP + 16;
   };
 
   const setGoalWeight = (display: number | undefined) => {
@@ -557,36 +591,6 @@ export function OnboardingScreen({
     onUpdate('motivations', next);
   };
 
-  /** The pet you chose, tappable (a hop and a little buzz), with whatever they have to say above. */
-  const pet = (requested = 130, bubble?: string, partying = false) => {
-    const size = Math.round(requested * petScale);
-    return (
-      <View style={styles.petArea}>
-        {bubble ? <Bubble>{bubble}</Bubble> : null}
-        <Pressable
-          style={styles.petPress}
-          accessibilityRole="button"
-          accessibilityLabel={`Say hi to ${petName}`}
-          onPress={() => {
-            thump();
-            celebrate();
-          }}
-        >
-          <PetAvatar
-            {...IDLE_ACTIVITY}
-            pet={previewPet}
-            isCelebrating={partying || celebrating}
-            size={size}
-            hideStatusCaption
-            stageStyle={[styles.petStage, { height: size + 8 }]}
-          >
-            {null}
-          </PetAvatar>
-        </Pressable>
-      </View>
-    );
-  };
-
   const yearly = PLUS_PLANS.find((plan) => plan.value === 'yearly')!;
   const monthly = PLUS_PLANS.find((plan) => plan.value === 'monthly')!;
 
@@ -622,25 +626,73 @@ export function OnboardingScreen({
     }
   };
 
+  /** The pet you chose at `size` (nothing at 0), tappable for a hop and a little buzz, with what they have to say above. */
+  const pet = (size: number, bubble?: string, partying = false) => (
+    <View style={styles.petArea}>
+      {bubble ? <Bubble>{bubble}</Bubble> : null}
+      {size > 0 ? (
+        <Pressable
+          style={styles.petPress}
+          accessibilityRole="button"
+          accessibilityLabel={`Say hi to ${petName}`}
+          onPress={() => {
+            thump();
+            celebrate();
+          }}
+        >
+          <PetAvatar
+            {...IDLE_ACTIVITY}
+            pet={previewPet}
+            isCelebrating={partying || celebrating}
+            size={size}
+            hideStatusCaption
+            stageStyle={[styles.petStage, { height: size + 4 }]}
+          >
+            {null}
+          </PetAvatar>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
+  /** A question page: label, pet if it fits, the question, then answers laid out to fit what is left. */
+  const question = (
+    {
+      eyebrow,
+      title,
+      sub,
+      count,
+      columns = 1,
+      wanted = 110,
+    }: { eyebrow: string; title: string; sub?: string; count: number; columns?: number; wanted?: number },
+    answers: ReactNode,
+  ) => {
+    const header = 26 + (title.length > 26 ? 64 : 34) + (sub && !short ? (sub.length > 44 ? 52 : 30) : 0);
+    const size = petRoom(wanted, header + listNeeds(count, columns));
+    return (
+      <View style={styles.fill}>
+        <Text style={styles.eyebrow}>{eyebrow}</Text>
+        {pet(size)}
+        <Text style={[styles.question, short && styles.questionShort]}>{title}</Text>
+        {sub && !short ? <Text style={styles.sub}>{sub}</Text> : null}
+        <View style={styles.choices}>{answers}</View>
+      </View>
+    );
+  };
+
   const footer: { label: string; disabled?: boolean } | null = (() => {
     if (TAP_TO_ADVANCE.has(stepId) || stepId === 'plusOffer' || stepId === 'notifications') return null;
     switch (stepId) {
       case 'welcome':
         return { label: 'Get started' };
+      case 'choosePet':
+        return picked.choosePet ? { label: `Choose the ${animal}` } : { label: 'Choose your companion', disabled: true };
       case 'meetPet':
         return { label: 'Let’s go!' };
-      case 'choosePet':
-        return picked.choosePet
-          ? { label: `Choose the ${sheetByBreed(breed).label.toLowerCase()}` }
-          : { label: 'Choose your companion', disabled: true };
       case 'namePet':
         return { label: 'Next', disabled: !named };
       case 'yourName':
         return { label: 'Next', disabled: !profile.displayName?.trim() || !picked.yourName };
-      case 'plusPersonality':
-      case 'plusMeals':
-      case 'plusChat':
-        return { label: 'Next' };
       case 'body':
         return { label: 'Next', disabled: !bodyComplete };
       case 'target':
@@ -662,6 +714,13 @@ export function OnboardingScreen({
 
   const translateX = enter.interpolate({ inputRange: [0, 1], outputRange: [24 * direction.current, 0] });
   const progress = Math.max(0.05, index / (sequence.length - 1));
+  const personalities = petPersonalityOptionsFor(profile.age);
+  const preview = picked.personality && personality !== 'custom' ? PERSONALITY_PREVIEW[personality] : undefined;
+
+  // Pet tiles: five across, square, from the measured width.
+  // `area` is measured outside its 20pt side padding, and the page caps at MAX_WIDTH.
+  const inner = Math.min(MAX_WIDTH, area.width - 40);
+  const tile = area.width > 0 ? Math.floor((inner - 4 * 8) / 5) : 64;
 
   return (
     <KeyboardAvoidingView style={[styles.screen, { backgroundColor: F.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -687,21 +746,22 @@ export function OnboardingScreen({
         <View style={styles.headerSpacer} />
       )}
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <View style={styles.area} onLayout={onAreaLayout}>
         <Animated.View style={[styles.page, { opacity: enter, transform: [{ translateX }] }]}>
           {stepId === 'welcome' ? (
-            <View style={[styles.center, styles.tall]}>
+            <View style={[styles.fill, styles.centred]}>
               <View style={styles.welcomePets}>
-                {WELCOME_PETS.map((option, n) => (
-                  <View key={option} style={[styles.welcomePet, n === 1 && styles.welcomePetMiddle]}>
-                    <SpriteFrame sheet={sheetByBreed(option)} frame={sheetByBreed(option).animations.idle[0]!} size={n === 1 ? 150 : 112} />
-                  </View>
-                ))}
+                {WELCOME_PETS.map((option, n) => {
+                  const size = Math.min(n === 1 ? 150 : 112, Math.max(0, petRoom(n === 1 ? 150 : 112, showJoin ? 360 : 230)));
+                  return size > 0 ? (
+                    <View key={option} style={[styles.welcomePet, n === 1 && styles.welcomePetMiddle]}>
+                      <SpriteFrame sheet={sheetByBreed(option)} frame={sheetByBreed(option).animations.idle[0]!} size={size} />
+                    </View>
+                  ) : null;
+                })}
               </View>
-              <Text style={[styles.title, compact && styles.titleCompact]}>A companion that grows with you.</Text>
-              <Text style={[styles.sub, compact && styles.subCompact]}>
-                Every workout, meal and step keeps them going. Let’s meet yours!
-              </Text>
+              <Text style={styles.title}>A companion that grows with you.</Text>
+              <Text style={styles.sub}>Every workout, meal and step keeps them going. Let’s meet yours!</Text>
               {onRedeemInvite ? (
                 showJoin ? (
                   <View style={styles.join}>
@@ -734,21 +794,22 @@ export function OnboardingScreen({
           ) : null}
 
           {stepId === 'choosePet' ? (
-            <View>
-              <Text style={[styles.title, compact && styles.titleCompact]}>Choose your companion!</Text>
-              <Text style={[styles.sub, compact && styles.subCompact]}>
-                Pick the one that feels right. They’ll live your goals with you.
-              </Text>
-              <View style={styles.chosen}>
+            <View style={styles.fill}>
+              <Text style={styles.title}>Choose your companion!</Text>
+              {!short ? <Text style={styles.sub}>Pick the one that feels right.</Text> : null}
+              <View style={[styles.fill, styles.centred]}>
                 {picked.choosePet ? (
-                  pet(150)
+                  <>
+                    {pet(petRoom(170, (short ? 50 : 80) + tile * 2 + 8 + 50))}
+                    <Text style={styles.chosenName}>{`The ${animal}`}</Text>
+                  </>
                 ) : (
                   <View style={styles.mystery}>
                     <Text style={styles.mysteryMark}>?</Text>
                   </View>
                 )}
               </View>
-              <View style={styles.grid}>
+              <View style={styles.petGrid}>
                 {PET_SHEETS.map((sheet) => {
                   const on = Boolean(picked.choosePet) && breed === sheet.name;
                   return (
@@ -763,15 +824,14 @@ export function OnboardingScreen({
                         onBreedChange(sheet.name);
                         celebrate(900);
                       }}
-                      style={({ pressed }) => [styles.petTile, on && styles.choiceOn, pressed && styles.pressed]}
+                      style={({ pressed }) => [
+                        styles.petTile,
+                        { width: tile, height: tile },
+                        on && styles.selected,
+                        pressed && styles.pressed,
+                      ]}
                     >
-                      <SpriteFrame sheet={sheet} frame={sheet.animations.idle[0]!} size={84} />
-                      <Text style={[styles.petTileLabel, on && styles.choiceLabelOn]}>{sheet.label}</Text>
-                      {on ? (
-                        <View style={[styles.check, styles.petTileCheck]}>
-                          <Text style={styles.checkMark}>✓</Text>
-                        </View>
-                      ) : null}
+                      <SpriteFrame sheet={sheet} frame={sheet.animations.idle[0]!} size={Math.round(tile * 0.86)} />
                     </Pressable>
                   );
                 })}
@@ -780,20 +840,16 @@ export function OnboardingScreen({
           ) : null}
 
           {stepId === 'meetPet' ? (
-            <View style={[styles.center, styles.tall]} testID="meet-pet">
-              {pet(220, undefined, true)}
-              <Text
-                style={[styles.title, compact && styles.titleCompact]}
-              >{`You chose the ${sheetByBreed(breed).label.toLowerCase()}!`}</Text>
-              <Text style={[styles.sub, compact && styles.subCompact]}>
-                They’re so happy to meet you. Every workout, meal and step you log, they’ll be right there with you.
-              </Text>
+            <View style={[styles.fill, styles.centred]} testID="meet-pet">
+              {pet(petRoom(230, 150), undefined, true)}
+              <Text style={styles.title}>{`You chose the ${animal}!`}</Text>
+              <Text style={styles.sub}>They’re so happy to meet you, and they’ll be with you for every workout, meal and step.</Text>
             </View>
           ) : null}
 
           {stepId === 'namePet' ? (
-            <View style={styles.center}>
-              {pet(150, 'Hi! Thanks for choosing me. What do you want to call me?')}
+            <View style={[styles.fill, styles.centred]}>
+              {pet(petRoom(160, 96 + 80 + 72), 'Hi! Thanks for choosing me. What do you want to call me?')}
               <FInput
                 value={picked.namePet ? name : ''}
                 onChangeText={(value) => {
@@ -819,13 +875,12 @@ export function OnboardingScreen({
                   />
                 </View>
               </View>
-              <Text style={styles.hint}>You can change this later.</Text>
             </View>
           ) : null}
 
           {stepId === 'yourName' ? (
-            <View style={styles.center}>
-              {pet(140, `Cheers! I’m ${petName}. And what’s your name?`)}
+            <View style={[styles.fill, styles.centred]}>
+              {pet(petRoom(150, 96 + 80), `Cheers! I’m ${petName}. And what’s your name?`)}
               <FInput
                 value={picked.yourName ? (profile.displayName ?? '') : ''}
                 onChangeText={(value) => {
@@ -841,314 +896,335 @@ export function OnboardingScreen({
           ) : null}
 
           {stepId === 'aboutIntro' ? (
-            <View style={[styles.center, styles.tall]}>
-              {pet(170)}
-              <Text style={[styles.title, compact && styles.titleCompact]}>Let’s learn a bit about you!</Text>
-              <Text style={[styles.sub, compact && styles.subCompact]}>{`${PetName} is curious about how they can grow with you.`}</Text>
+            <View style={[styles.fill, styles.centred]}>
+              {pet(petRoom(180, 130))}
+              <Text style={styles.title}>Let’s learn a bit about you!</Text>
+              <Text style={styles.sub}>{`${PetName} is curious about how they can grow with you.`}</Text>
             </View>
           ) : null}
 
-          {stepId === 'age' ? (
-            <Question
-              compact={compact}
-              eyebrow="About you"
-              pet={pet(110)}
-              title="How old are you?"
-              sub="This helps us personalize your experience"
-            >
-              {AGE_OPTIONS.map((option) => (
-                <FChoice
-                  key={option.label}
-                  label={option.label}
-                  selected={ageChoice === option.age}
-                  onPress={() =>
-                    answer(() => {
-                      setAgeChoice(option.age);
-                      onUpdate('age', option.age);
-                    })
-                  }
-                />
-              ))}
-            </Question>
-          ) : null}
-
-          {stepId === 'sex' ? (
-            <Question
-              compact={compact}
-              eyebrow="About you"
-              pet={pet(110)}
-              title="What’s your sex?"
-              sub="Only for your energy estimate and strength standards"
-            >
-              {(['male', 'female'] as const).map((value) => (
-                <FChoice
-                  key={value}
-                  label={value === 'male' ? 'Male' : 'Female'}
-                  selected={sexChoice === value}
-                  onPress={() =>
-                    answer(() => {
-                      setSexChoice(value);
-                      onUpdate('sex', value);
-                    })
-                  }
-                />
-              ))}
-              <Pressable
-                accessibilityRole="button"
-                onPress={() =>
-                  answer(() => {
-                    setSexChoice('other');
-                    onUpdate('sex', 'other');
-                  })
-                }
-                style={styles.linkRow}
-              >
-                <Text style={styles.linkLarge}>Prefer not to answer</Text>
-              </Pressable>
-            </Question>
-          ) : null}
-
-          {stepId === 'body' ? (
-            <Question
-              compact={compact}
-              eyebrow="About you"
-              pet={pet(100)}
-              title="Your height and weight"
-              sub="Just for your calorie target. Nobody else sees it."
-            >
-              {/* Seeded from the device locale, so a US phone opens on pounds and feet already. */}
-              <View style={styles.toggle}>
-                {(['imperial', 'metric'] as const).map((system) => {
-                  const on = measurementSystemOf(profile) === system;
-                  return (
-                    <Pressable
-                      key={system}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: on }}
-                      onPress={() => {
-                        tick();
-                        setBody({ feet: '', inches: '', cm: '', weight: '' });
-                        onSetUnits(system);
-                      }}
-                      style={[styles.toggleOption, on && styles.toggleOptionOn]}
-                    >
-                      <Text style={[styles.toggleLabel, on && styles.toggleLabelOn]}>{system === 'imperial' ? 'lb · ft' : 'kg · cm'}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {metric ? (
-                <FInput
-                  keyboardType="number-pad"
-                  value={body.cm}
-                  onChangeText={(value) => updateBody({ ...body, cm: digits(value) })}
-                  placeholder="Height (cm)"
-                  accessibilityLabel="Height in centimetres"
-                />
-              ) : (
-                <View style={styles.row}>
-                  <View style={styles.rowItem}>
-                    <FInput
-                      keyboardType="number-pad"
-                      value={body.feet}
-                      onChangeText={(value) => updateBody({ ...body, feet: digits(value) })}
-                      placeholder="Height (ft)"
-                      accessibilityLabel="Height in feet"
-                    />
-                  </View>
-                  <View style={styles.rowItem}>
-                    <FInput
-                      keyboardType="number-pad"
-                      value={body.inches}
-                      onChangeText={(value) => updateBody({ ...body, inches: digits(value) })}
-                      placeholder="(in)"
-                      accessibilityLabel="Height in inches"
-                    />
-                  </View>
-                </View>
-              )}
-              <FInput
-                keyboardType="number-pad"
-                value={body.weight}
-                onChangeText={(value) => updateBody({ ...body, weight: digits(value) })}
-                placeholder={`Weight (${profile.weightUnit})`}
-                accessibilityLabel={`Weight in ${profile.weightUnit}`}
-              />
-            </Question>
-          ) : null}
-
-          {stepId === 'goal' ? (
-            <Question compact={compact} eyebrow="Your goal" pet={pet(110)} title="What would you most like to do?">
-              {GOAL_OPTIONS.map((option) => (
-                <FChoice
-                  key={option.value}
-                  emoji={option.emoji}
-                  label={option.label}
-                  selected={goalChoice === option.value}
-                  onPress={() =>
-                    answer(() => {
-                      setGoalChoice(option.value);
-                      if (option.value === 'maintain') {
-                        // Holding steady: the goal is where they are, and there is no weight to ask for.
-                        setGoalWeight(displayedWeight);
-                        if (!profile.goalTargetDate) {
-                          onUpdate('goalTargetDate', months[2]!.value);
-                          const weeks = weeksUntil(months[2]!.value);
-                          if (weeks !== undefined) onUpdate('goalWeeks', weeks);
-                        }
+          {stepId === 'age'
+            ? question(
+                {
+                  eyebrow: 'About you',
+                  title: 'How old are you?',
+                  sub: 'This helps us personalize your experience',
+                  count: AGE_OPTIONS.length,
+                  columns: 2,
+                },
+                <Grid columns={2}>
+                  {AGE_OPTIONS.map((option) => (
+                    <FChoice
+                      key={option.label}
+                      label={option.label}
+                      selected={ageChoice === option.age}
+                      onPress={() =>
+                        answer(() => {
+                          setAgeChoice(option.age);
+                          onUpdate('age', option.age);
+                        })
                       }
-                    }, sequenceFor(option.value))
-                  }
-                />
-              ))}
-            </Question>
-          ) : null}
+                    />
+                  ))}
+                </Grid>,
+              )
+            : null}
 
-          {stepId === 'target' ? (
-            <Question
-              compact={compact}
-              eyebrow="Your goal"
-              pet={pet(100)}
-              title="What weight are you aiming for?"
-              sub={`You’re at ${displayedWeight} ${profile.weightUnit} now.`}
-            >
-              <FInput
-                keyboardType="number-pad"
-                value={goalText}
-                onChangeText={(value) => {
-                  const next = digits(value);
-                  setGoalText(next);
-                  setGoalWeight(next === '' ? undefined : Number(next));
-                }}
-                placeholder={`Goal weight (${profile.weightUnit})`}
-                accessibilityLabel={`Goal weight in ${profile.weightUnit}`}
-              />
-              <Text style={styles.fieldLabel}>By when?</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-                {months.map((month) => {
-                  const on = picked.target && profile.goalTargetDate === month.value;
-                  return (
-                    <Pressable
-                      key={month.value}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: Boolean(on) }}
-                      onPress={() => setGoalDate(month.value)}
-                      style={[styles.chip, on && styles.chipOn]}
-                    >
-                      <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>{month.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </Question>
-          ) : null}
+          {stepId === 'sex'
+            ? question(
+                { eyebrow: 'About you', title: 'What’s your sex?', sub: 'Only for your energy estimate and strength standards', count: 3 },
+                <>
+                  {(['male', 'female'] as const).map((value) => (
+                    <FChoice
+                      key={value}
+                      label={value === 'male' ? 'Male' : 'Female'}
+                      selected={sexChoice === value}
+                      onPress={() =>
+                        answer(() => {
+                          setSexChoice(value);
+                          onUpdate('sex', value);
+                        })
+                      }
+                    />
+                  ))}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() =>
+                      answer(() => {
+                        setSexChoice('other');
+                        onUpdate('sex', 'other');
+                      })
+                    }
+                    style={styles.linkRow}
+                  >
+                    <Text style={styles.linkLarge}>Prefer not to answer</Text>
+                  </Pressable>
+                </>,
+              )
+            : null}
 
-          {stepId === 'activity' ? (
-            <Question compact={compact} eyebrow="Your days" pet={pet(100)} title="Outside workouts, how active is your day?">
-              {ACTIVITY_OPTIONS.map((option) => (
-                <FChoice
-                  key={option.value}
-                  emoji={option.emoji}
-                  label={option.label}
-                  detail={option.detail}
-                  selected={picked.activity && profile.activity === option.value}
-                  onPress={() => answer(() => onUpdate('activity', option.value))}
-                />
-              ))}
-            </Question>
-          ) : null}
+          {stepId === 'body'
+            ? question(
+                {
+                  eyebrow: 'About you',
+                  title: 'Your height and weight',
+                  sub: 'Just for your calorie target. Nobody else sees it.',
+                  count: 4,
+                  wanted: 100,
+                },
+                <>
+                  {/* Seeded from the device locale, so a US phone opens on pounds and feet already. */}
+                  <View style={styles.toggle}>
+                    {(['imperial', 'metric'] as const).map((system) => {
+                      const on = measurementSystemOf(profile) === system;
+                      return (
+                        <Pressable
+                          key={system}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: on }}
+                          onPress={() => {
+                            tick();
+                            setBody({ feet: '', inches: '', cm: '', weight: '' });
+                            onSetUnits(system);
+                          }}
+                          style={[styles.toggleOption, on && styles.toggleOptionOn]}
+                        >
+                          <Text style={[styles.toggleLabel, on && styles.toggleLabelOn]}>
+                            {system === 'imperial' ? 'lb · ft' : 'kg · cm'}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  {metric ? (
+                    <FInput
+                      keyboardType="number-pad"
+                      value={body.cm}
+                      onChangeText={(value) => updateBody({ ...body, cm: digits(value) })}
+                      placeholder="Height (cm)"
+                      accessibilityLabel="Height in centimetres"
+                    />
+                  ) : (
+                    <View style={styles.row}>
+                      <View style={styles.rowItem}>
+                        <FInput
+                          keyboardType="number-pad"
+                          value={body.feet}
+                          onChangeText={(value) => updateBody({ ...body, feet: digits(value) })}
+                          placeholder="Height (ft)"
+                          accessibilityLabel="Height in feet"
+                        />
+                      </View>
+                      <View style={styles.rowItem}>
+                        <FInput
+                          keyboardType="number-pad"
+                          value={body.inches}
+                          onChangeText={(value) => updateBody({ ...body, inches: digits(value) })}
+                          placeholder="(in)"
+                          accessibilityLabel="Height in inches"
+                        />
+                      </View>
+                    </View>
+                  )}
+                  <FInput
+                    keyboardType="number-pad"
+                    value={body.weight}
+                    onChangeText={(value) => updateBody({ ...body, weight: digits(value) })}
+                    placeholder={`Weight (${profile.weightUnit})`}
+                    accessibilityLabel={`Weight in ${profile.weightUnit}`}
+                  />
+                </>,
+              )
+            : null}
 
-          {stepId === 'trainingDays' ? (
-            <Question
-              compact={compact}
-              eyebrow="Your days"
-              pet={pet(100)}
-              title="How many days a week will you train?"
-              sub={`${PetName} gets stronger every time you do`}
-            >
-              <View style={styles.grid}>
-                {TRAINING_DAY_OPTIONS.map((option) => {
-                  const on = picked.trainingDays && profile.trainingDaysPerWeek === option.value;
-                  return (
-                    <Pressable
+          {stepId === 'goal'
+            ? question(
+                { eyebrow: 'Your goal', title: 'What would you most like to do?', count: 3, wanted: 140 },
+                <>
+                  {GOAL_OPTIONS.map((option) => (
+                    <FChoice
                       key={option.value}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: Boolean(on) }}
+                      label={option.label}
+                      selected={goalChoice === option.value}
+                      onPress={() =>
+                        answer(() => {
+                          setGoalChoice(option.value);
+                          if (option.value === 'maintain') {
+                            // Holding steady: the goal is where they are, and there is no weight to ask for.
+                            setGoalWeight(displayedWeight);
+                            if (!profile.goalTargetDate) {
+                              onUpdate('goalTargetDate', months[2]!.value);
+                              const weeks = weeksUntil(months[2]!.value);
+                              if (weeks !== undefined) onUpdate('goalWeeks', weeks);
+                            }
+                          }
+                        }, sequenceFor(option.value))
+                      }
+                    />
+                  ))}
+                </>,
+              )
+            : null}
+
+          {stepId === 'target'
+            ? question(
+                {
+                  eyebrow: 'Your goal',
+                  title: 'What weight are you aiming for?',
+                  sub: `You’re at ${displayedWeight} ${profile.weightUnit} now.`,
+                  count: 3,
+                  wanted: 100,
+                },
+                <>
+                  <FInput
+                    keyboardType="number-pad"
+                    value={goalText}
+                    onChangeText={(value) => {
+                      const next = digits(value);
+                      setGoalText(next);
+                      setGoalWeight(next === '' ? undefined : Number(next));
+                    }}
+                    placeholder={`Goal weight (${profile.weightUnit})`}
+                    accessibilityLabel={`Goal weight in ${profile.weightUnit}`}
+                  />
+                  <Text style={styles.fieldLabel}>By when?</Text>
+                  {/* The one sideways list: fifteen months in a row, swiped, never the page. */}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chips}
+                    style={styles.chipStrip}
+                  >
+                    {months.map((month) => {
+                      const on = picked.target && profile.goalTargetDate === month.value;
+                      return (
+                        <Pressable
+                          key={month.value}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: Boolean(on) }}
+                          onPress={() => setGoalDate(month.value)}
+                          style={[styles.chip, on && styles.chipOn]}
+                        >
+                          <Text style={[styles.chipLabel, on && styles.chipLabelOn]}>{month.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </>,
+              )
+            : null}
+
+          {stepId === 'activity'
+            ? question(
+                { eyebrow: 'Your days', title: 'Outside workouts, how active is your day?', count: 3 },
+                <>
+                  {ACTIVITY_OPTIONS.map((option) => (
+                    <FChoice
+                      key={option.value}
+                      label={option.label}
+                      detail={short ? undefined : option.detail}
+                      align="left"
+                      selected={picked.activity && profile.activity === option.value}
+                      onPress={() => answer(() => onUpdate('activity', option.value))}
+                    />
+                  ))}
+                </>,
+              )
+            : null}
+
+          {stepId === 'trainingDays'
+            ? question(
+                {
+                  eyebrow: 'Your days',
+                  title: 'How many days a week will you train?',
+                  sub: `${PetName} gets stronger every time you do`,
+                  count: TRAINING_DAY_OPTIONS.length,
+                  columns: 2,
+                },
+                <Grid columns={2}>
+                  {TRAINING_DAY_OPTIONS.map((option) => (
+                    <FChoice
+                      key={option.value}
+                      label={option.label}
+                      selected={picked.trainingDays && profile.trainingDaysPerWeek === option.value}
                       onPress={() => answer(() => onUpdate('trainingDaysPerWeek', option.value))}
-                      style={({ pressed }) => [styles.gridCell, on && styles.choiceOn, pressed && styles.pressed]}
-                    >
-                      <Text style={[styles.gridLabel, on && styles.choiceLabelOn]}>{option.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </Question>
-          ) : null}
+                    />
+                  ))}
+                </Grid>,
+              )
+            : null}
 
-          {stepId === 'trainingTypes' ? (
-            <Question
-              compact={compact}
-              eyebrow="Your days"
-              pet={pet(100)}
-              title="What kind of training do you like?"
-              sub="Pick any, or none yet"
-            >
-              {TRAINING_TYPE_OPTIONS.map((option) => (
-                <FChoice
-                  key={option.value}
-                  label={option.label}
-                  align="left"
-                  selected={trainingTypes.includes(option.value)}
-                  onPress={() => toggleTraining(option.value)}
-                />
-              ))}
-            </Question>
-          ) : null}
+          {stepId === 'trainingTypes'
+            ? question(
+                {
+                  eyebrow: 'Your days',
+                  title: 'What kind of training do you like?',
+                  sub: 'Pick any, or none yet',
+                  count: TRAINING_TYPE_OPTIONS.length,
+                  columns: 2,
+                },
+                <Grid columns={2}>
+                  {TRAINING_TYPE_OPTIONS.map((option) => (
+                    <FChoice
+                      key={option.value}
+                      label={option.label}
+                      selected={trainingTypes.includes(option.value)}
+                      onPress={() => toggleTraining(option.value)}
+                    />
+                  ))}
+                </Grid>,
+              )
+            : null}
 
-          {stepId === 'steps' ? (
-            <Question
-              compact={compact}
-              eyebrow="Your days"
-              pet={pet(100)}
-              title="How many steps a day?"
-              sub={`Every one of them feeds ${petName}`}
-            >
-              {STEP_GOAL_PRESETS.map((steps) => (
-                <FChoice
-                  key={steps}
-                  label={`${steps.toLocaleString()} steps`}
-                  note={STEP_LABEL[steps]}
-                  selected={picked.steps && stepGoal === steps}
-                  onPress={() => answer(() => onStepGoalChange(steps))}
-                />
-              ))}
-              <FChoice emoji="✨" label="Let Vitto choose" onPress={() => answer(() => onStepGoalChange(suggestStepGoal(profile)))} />
-            </Question>
-          ) : null}
+          {stepId === 'steps'
+            ? question(
+                {
+                  eyebrow: 'Your days',
+                  title: 'How many steps a day?',
+                  sub: `Every one of them feeds ${petName}`,
+                  count: STEP_GOAL_PRESETS.length + 1,
+                },
+                <>
+                  {STEP_GOAL_PRESETS.map((steps) => (
+                    <FChoice
+                      key={steps}
+                      label={`${steps.toLocaleString()} steps`}
+                      note={STEP_LABEL[steps]}
+                      selected={picked.steps && stepGoal === steps}
+                      onPress={() => answer(() => onStepGoalChange(steps))}
+                    />
+                  ))}
+                  <FChoice label="Let Vitto choose" onPress={() => answer(() => onStepGoalChange(suggestStepGoal(profile)))} />
+                </>,
+              )
+            : null}
 
-          {stepId === 'motivation' ? (
-            <Question
-              compact={compact}
-              eyebrow="Almost there"
-              pet={pet(100)}
-              title="What keeps you going?"
-              sub={`${PetName} will cheer you on the way you like. Pick any.`}
-            >
-              {MOTIVATION_OPTIONS.map((option) => (
-                <FChoice
-                  key={option.value}
-                  label={option.label}
-                  align="left"
-                  selected={motivations.includes(option.value)}
-                  onPress={() => toggleMotivation(option.value)}
-                />
-              ))}
-            </Question>
-          ) : null}
+          {stepId === 'motivation'
+            ? question(
+                {
+                  eyebrow: 'Almost there',
+                  title: 'What keeps you going?',
+                  sub: `${PetName} will cheer you on the way you like. Pick any.`,
+                  count: MOTIVATION_OPTIONS.length,
+                  columns: 2,
+                },
+                <Grid columns={2}>
+                  {MOTIVATION_OPTIONS.map((option) => (
+                    <FChoice
+                      key={option.value}
+                      label={option.label}
+                      small
+                      selected={motivations.includes(option.value)}
+                      onPress={() => toggleMotivation(option.value)}
+                    />
+                  ))}
+                </Grid>,
+              )
+            : null}
 
           {stepId === 'plan' ? (
-            <View style={styles.center}>
-              {pet(120, 'You got this!')}
+            <View style={styles.fill}>
+              {pet(petRoom(120, 64 + 330), 'You got this!')}
               <View style={styles.planCard} testID="starter-plan">
                 <View style={styles.planRings}>
                   {[0, 1, 2, 3, 4].map((n) => (
@@ -1157,30 +1233,28 @@ export function OnboardingScreen({
                 </View>
                 <Text style={styles.planTitle}>{you ? `${you}’s starter plan` : 'Your starter plan'}</Text>
                 <Text style={styles.planSub}>{`Try these easy goals with ${petName}!`}</Text>
-                <PlanRow emoji="🍽️" text={`Eat about ${targets.calories.toLocaleString()} kcal a day`} />
-                <PlanRow emoji="🥩" text={`Get ${targets.proteinGrams}g of protein`} />
-                <PlanRow emoji="👟" text={`Walk ${stepGoal.toLocaleString()} steps`} />
+                <PlanRow text={`Eat about ${targets.calories.toLocaleString()} kcal a day`} />
+                <PlanRow text={`Get ${targets.proteinGrams}g of protein`} />
+                <PlanRow text={`Walk ${stepGoal.toLocaleString()} steps`} />
                 <PlanRow
-                  emoji="🏋️"
                   text={profile.trainingDaysPerWeek > 0 ? `Train ${profile.trainingDaysPerWeek} days a week` : 'Try one workout this week'}
                 />
                 {goalChoice !== 'maintain' && profile.goal !== 'maintain' && profile.targetWeightKg !== undefined ? (
                   <PlanRow
-                    emoji="🎯"
                     text={`Reach ${toDisplayWeight(profile.targetWeightKg)} ${profile.weightUnit} by ${formatMonth(profile.goalTargetDate)}`}
                     last
                   />
                 ) : (
-                  <PlanRow emoji="⚖️" text={`Hold steady around ${displayedWeight} ${profile.weightUnit}`} last />
+                  <PlanRow text={`Hold steady around ${displayedWeight} ${profile.weightUnit}`} last />
                 )}
               </View>
             </View>
           ) : null}
 
           {stepId === 'plusPersonality' ? (
-            <View style={styles.center}>
+            <View style={[styles.fill, styles.centred]}>
               <Text style={styles.plusKicker}>Vitto Plus</Text>
-              <Text style={[styles.title, compact && styles.titleCompact]}>{`Make ${petName} truly yours`}</Text>
+              <Text style={styles.title}>{`Make ${petName} truly yours`}</Text>
               <View style={styles.perkStage}>
                 <View style={[styles.voice, styles.voiceLeft]}>
                   <Text style={styles.voiceTag}>Sweet</Text>
@@ -1190,25 +1264,27 @@ export function OnboardingScreen({
                   <Text style={styles.voiceTag}>Savage</Text>
                   <Text style={styles.voiceLine}>Oh, you’re up. Groundbreaking.</Text>
                 </View>
-                {compact ? null : pet(130)}
-                <View style={[styles.voice, styles.voiceLeft, compact && styles.hidden]}>
-                  <Text style={styles.voiceTag}>Hype</Text>
-                  <Text style={styles.voiceLine}>LET’S GOOO, legend!</Text>
-                </View>
               </View>
-              <Text style={[styles.sub, compact && styles.subCompact]}>
-                Pick a personality, fine-tune it with sliders, or write them a whole character of your own.
-              </Text>
+              {pet(petRoom(120, 80 + 150 + 70 + 90))}
+              {!short ? <Text style={styles.sub}>Pick a personality, or write them a whole character of your own.</Text> : null}
               <PerkCompare free="One easygoing voice" plus="Every personality, and your own" />
             </View>
           ) : null}
 
           {stepId === 'plusMeals' ? (
-            <View style={styles.center}>
+            <View style={[styles.fill, styles.centred]}>
               <Text style={styles.plusKicker}>Vitto Plus</Text>
-              <Text style={[styles.title, compact && styles.titleCompact]}>Snap a photo, get the macros</Text>
-              <View style={[styles.mealCard, compact && styles.mealCardCompact]}>
-                <Text style={styles.mealEmoji}>🥗</Text>
+              <Text style={styles.title}>Snap a photo, get the macros</Text>
+              <View style={styles.mealCard}>
+                {/* A viewfinder over a plate: the camera finding the meal. */}
+                <View style={styles.viewfinder}>
+                  {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => (
+                    <View key={corner} style={[styles.corner, styles[`corner_${corner}`]]} />
+                  ))}
+                  <View style={styles.plate}>
+                    <View style={styles.plateInner} />
+                  </View>
+                </View>
                 <View style={styles.mealChips}>
                   {['520 kcal', '32g protein', '48g carbs', '18g fat'].map((chip) => (
                     <View key={chip} style={styles.mealChip}>
@@ -1217,18 +1293,20 @@ export function OnboardingScreen({
                   ))}
                 </View>
               </View>
-              {compact ? null : pet(100)}
-              <Text
-                style={[styles.sub, compact && styles.subCompact]}
-              >{`Point your camera at a meal and Vitto works out the calories and macros, then feeds ${petName}. No searching, no typing.`}</Text>
+              {pet(petRoom(100, 80 + 200 + 70 + 90))}
+              {!short ? (
+                <Text
+                  style={styles.sub}
+                >{`Point your camera at a meal and Vitto works out the calories and macros, then feeds ${petName}.`}</Text>
+              ) : null}
               <PerkCompare free="Search and log by hand" plus="Photo meal tracking" />
             </View>
           ) : null}
 
           {stepId === 'plusChat' ? (
-            <View style={styles.center}>
+            <View style={[styles.fill, styles.centred]}>
               <Text style={styles.plusKicker}>Vitto Plus</Text>
-              <Text style={[styles.title, compact && styles.titleCompact]}>{`Talk with ${petName} anytime`}</Text>
+              <Text style={styles.title}>{`Talk with ${petName} anytime`}</Text>
               <View style={styles.chat}>
                 <View style={[styles.chatBubble, styles.chatMine]}>
                   <Text style={[styles.chatText, styles.chatTextMine]}>Hit a new bench PR today!</Text>
@@ -1237,39 +1315,36 @@ export function OnboardingScreen({
                   <Text style={styles.chatText}>No way! I KNEW you had it in you. What’s next, the squat?</Text>
                 </View>
               </View>
-              {compact ? null : pet(100)}
-              <Text
-                style={[styles.sub, compact && styles.subCompact]}
-              >{`A smarter, more in-character ${petName} who remembers your week, and checks in on you more.`}</Text>
+              {pet(petRoom(110, 80 + 140 + 70 + 90))}
+              {!short ? (
+                <Text
+                  style={styles.sub}
+                >{`A smarter, more in-character ${petName} who remembers your week and checks in on you more.`}</Text>
+              ) : null}
               <PerkCompare free="10 messages a day" plus="100 a day, sharper voice" />
             </View>
           ) : null}
 
           {stepId === 'plusOffer' && paywall ? (
-            <View testID="plus-offer">
+            <View style={styles.fill} testID="plus-offer">
               <Pressable accessibilityRole="button" onPress={() => goNext('plusOffer')} hitSlop={10} style={styles.offerSkip}>
                 <Text style={styles.link}>Not now</Text>
               </Pressable>
-              <Text style={styles.offerReady}>✓ Your free trial is ready</Text>
-              <Text style={[styles.title, compact && styles.titleCompact]}>{`Start your ${TRIAL_DAYS}-day free trial`}</Text>
-              <View style={[styles.timeline, compact && styles.timelineCompact]}>
+              <Text style={styles.offerReady}>Your free trial is ready</Text>
+              <Text style={[styles.title, short && styles.titleShort]}>{`Start your ${TRIAL_DAYS}-day free trial`}</Text>
+              <View style={styles.timeline}>
                 <View style={styles.timelineBar} />
                 {[
-                  { icon: '🔓', title: 'Today', body: `Unlock everything in Plus and see what ${petName} can be.` },
+                  { title: 'Today', body: `Unlock everything in Plus and see what ${petName} can be.`, filled: true },
+                  { title: `Day ${TRIAL_REMINDER_DAY}`, body: 'We’ll remind you with a notification that your trial is ending.' },
                   {
-                    icon: '🔔',
-                    title: `Day ${TRIAL_REMINDER_DAY}`,
-                    body: 'We’ll remind you with a notification that your trial is ending.',
-                  },
-                  {
-                    icon: '⭐',
                     title: `Day ${TRIAL_DAYS}`,
                     body: `You’ll be charged on ${new Date(Date.now() + TRIAL_DAYS * 86_400_000).toLocaleDateString([], { month: 'short', day: 'numeric' })}. Cancel anytime before.`,
                   },
                 ].map((row) => (
                   <View key={row.title} style={styles.timelineRow}>
-                    <View style={styles.timelineIcon}>
-                      <Text style={styles.timelineEmoji}>{row.icon}</Text>
+                    <View style={styles.timelineMarkWrap}>
+                      <View style={[styles.timelineMark, row.filled && styles.timelineMarkOn]} />
                     </View>
                     <View style={styles.timelineText}>
                       <Text style={styles.timelineTitle}>{row.title}</Text>
@@ -1284,77 +1359,56 @@ export function OnboardingScreen({
           ) : null}
 
           {stepId === 'personality' ? (
-            <View>
-              {pet(110)}
-              <Text style={[styles.title, compact && styles.titleCompact]}>{`Choose a personality for ${petName}`}</Text>
-              <Text style={[styles.sub, compact && styles.subCompact]}>
-                Their personality: how they talk to you. You can change it any time.
-              </Text>
+            <View style={styles.fill}>
+              <Text style={[styles.title, short && styles.titleShort]}>{`Choose a personality for ${petName}`}</Text>
+              {!short ? <Text style={styles.sub}>Their personality: how they talk to you. Fine-tune it any time in Settings.</Text> : null}
               <View style={styles.choices}>
-                {petPersonalityOptionsFor(profile.age).map((option) => {
-                  const on = Boolean(picked.personality) && personality === option.value;
-                  return (
-                    <Fragment key={option.value}>
-                      <FChoice
-                        label={option.label}
-                        detail={option.detail}
-                        align="left"
-                        selected={on}
-                        onPress={() => {
-                          tick();
-                          pick('personality');
-                          onPersonalityChange(option.value);
-                          // The sliders show what the base means, and start from it.
-                          onDialsChange(companion.dialsFor(option.value));
-                        }}
-                      />
-                      {on ? (
-                        <View style={styles.expanded} testID={`choice-expanded-${option.value}`}>
-                          <PersonalityPreview
-                            personality={option.value}
-                            dials={dials ?? companion.dialsFor(option.value)}
-                            persona={persona}
-                            name={named ? name.trim() : 'They'}
-                          />
-                          <View>
-                            <Text style={styles.fieldLabel}>Fine-tune them</Text>
-                            <CharacterDials
-                              dials={dials ?? companion.dialsFor(option.value)}
-                              onChange={onDialsChange}
-                              testID="character-dials"
-                            />
-                          </View>
-                          {option.value === 'custom' && profile.age >= MATURE_PERSONALITY_AGE ? (
-                            <View>
-                              <Text style={styles.fieldLabel}>Who are they?</Text>
-                              <FInput
-                                multiline
-                                style={styles.persona}
-                                value={persona}
-                                onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
-                                placeholder="A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
-                                // Return closes the keyboard rather than starting a new line.
-                                returnKeyType="done"
-                                submitBehavior="blurAndSubmit"
-                                onSubmitEditing={() => Keyboard.dismiss()}
-                                maxLength={PERSONA_MAX_LENGTH}
-                                accessibilityLabel="Their character"
-                              />
-                              <Text style={styles.count}>{`${persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
+                <Grid columns={2}>
+                  {personalities.map((option) => (
+                    <FChoice
+                      key={option.value}
+                      label={option.label}
+                      selected={Boolean(picked.personality) && personality === option.value}
+                      onPress={() => {
+                        tick();
+                        pick('personality');
+                        onPersonalityChange(option.value);
+                        // The base's own slider positions; fine-tuning is for later, in Settings.
+                        onDialsChange(companion.dialsFor(option.value));
+                      }}
+                    />
+                  ))}
+                </Grid>
               </View>
+              {picked.personality && personality === 'custom' && profile.age >= MATURE_PERSONALITY_AGE ? (
+                <View style={styles.personaBox}>
+                  <Text style={styles.fieldLabel}>Who are they?</Text>
+                  <FInput
+                    multiline
+                    style={styles.persona}
+                    value={persona}
+                    onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
+                    placeholder="A grumpy old pirate who secretly adores us"
+                    // Return closes the keyboard rather than starting a new line.
+                    returnKeyType="done"
+                    submitBehavior="blurAndSubmit"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                    maxLength={PERSONA_MAX_LENGTH}
+                    accessibilityLabel="Their character"
+                  />
+                </View>
+              ) : preview ? (
+                <View style={styles.previewCard} testID={`personality-preview-${personality}`}>
+                  <Text style={styles.previewAbout}>{preview.about}</Text>
+                  {preview.sample ? <Text style={styles.previewQuote}>{`“${preview.sample}”`}</Text> : null}
+                </View>
+              ) : null}
             </View>
           ) : null}
 
           {stepId === 'notifications' ? (
-            <View style={styles.center}>
-              <Text style={[styles.title, compact && styles.titleCompact]}>{`Get reminders from ${petName}`}</Text>
+            <View style={[styles.fill, styles.centred]}>
+              <Text style={styles.title}>{`Get reminders from ${petName}`}</Text>
               <View style={styles.notification}>
                 <View style={styles.notificationIcon}>
                   <SpriteFrame sheet={sheetByBreed(breed)} frame={sheetByBreed(breed).animations.idle[0]!} size={58} />
@@ -1365,21 +1419,18 @@ export function OnboardingScreen({
                 </View>
                 <Text style={styles.notificationTime}>now</Text>
               </View>
-              {pet(170)}
+              {pet(petRoom(180, 80 + 100))}
             </View>
           ) : null}
 
           {stepId === 'commit' ? (
-            <View>
-              <Text
-                style={[styles.title, compact && styles.titleCompact]}
-              >{`How many days in a row will you take care of ${petName}?`}</Text>
-              {pet(110, commitDays ? 'You got this!' : undefined)}
+            <View style={styles.fill}>
+              <Text style={[styles.title, short && styles.titleShort]}>{`How many days in a row will you take care of ${petName}?`}</Text>
+              {pet(petRoom(110, 100 + 70 + listNeeds(COMMIT_OPTIONS.length)), commitDays ? 'You got this!' : undefined)}
               <View style={styles.choices}>
                 {COMMIT_OPTIONS.map((option) => (
                   <FChoice
                     key={option.days}
-                    emoji={option.emoji}
                     label={`${option.days} days`}
                     note={option.note}
                     selected={commitDays === option.days}
@@ -1394,12 +1445,10 @@ export function OnboardingScreen({
           ) : null}
 
           {stepId === 'dayOne' ? (
-            <View style={styles.center}>
+            <View style={[styles.fill, styles.centred]}>
               <Text style={styles.dayKicker}>Day 1</Text>
-              <Text
-                style={[styles.title, compact && styles.titleCompact]}
-              >{`Happy ${new Date().toLocaleDateString([], { weekday: 'long' })}!`}</Text>
-              {pet(190)}
+              <Text style={styles.title}>{`Happy ${new Date().toLocaleDateString([], { weekday: 'long' })}!`}</Text>
+              {pet(petRoom(190, 80 + 230 + (commitDays ? 40 : 0)))}
               <View style={styles.dayCard}>
                 <Text style={styles.dayCardKicker}>A gentle reminder</Text>
                 <Text style={styles.dayCardTitle}>Good things take time.</Text>
@@ -1409,13 +1458,8 @@ export function OnboardingScreen({
             </View>
           ) : null}
         </Animated.View>
-      </ScrollView>
-
-      <View pointerEvents="none" style={styles.fadeWrap}>
-        {[0, 0.35, 0.7].map((opacity, n) => (
-          <View key={n} style={[styles.fadeBand, { backgroundColor: F.bg, opacity }]} />
-        ))}
       </View>
+
       <View style={[styles.footer, { backgroundColor: F.bg }]}>
         <View style={styles.footerInner}>
           {(stepError ?? error) ? <Text style={styles.error}>{stepError ?? error}</Text> : null}
@@ -1485,65 +1529,78 @@ function Bubble({ children }: { children: ReactNode }) {
   );
 }
 
-/** One question: a small label, the pet, the question, a line of context, then its answers. */
-function Question({
-  eyebrow,
-  pet,
-  title,
-  sub,
-  compact,
-  children,
-}: {
-  eyebrow?: string;
-  pet: ReactNode;
-  title: string;
-  sub?: string;
-  compact?: boolean;
-  children: ReactNode;
-}) {
+/** Answers in rows of `columns`, every row sharing the height the page can give. */
+function Grid({ columns, children }: { columns: number; children: ReactNode }) {
+  const items = (Array.isArray(children) ? children : [children]).flat().filter(Boolean);
+  const rows: ReactNode[][] = [];
+  for (let i = 0; i < items.length; i += columns) rows.push(items.slice(i, i + columns));
   return (
-    <View>
-      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-      {pet}
-      <Text style={[styles.question, compact && styles.questionCompact]}>{title}</Text>
-      {sub ? <Text style={[styles.sub, compact && styles.subCompact]}>{sub}</Text> : null}
-      <View style={styles.choices}>{children}</View>
-    </View>
+    <>
+      {rows.map((row, n) => (
+        <View key={n} style={styles.gridRow}>
+          {row.map((item, m) => (
+            <View key={m} style={styles.gridCell}>
+              {item}
+            </View>
+          ))}
+        </View>
+      ))}
+    </>
   );
 }
 
-/** A big rounded answer: grey edge, green edge and a tick once chosen. */
+/** A big rounded answer: grey edge, green edge and a tick once chosen. It shrinks to fit a long list. */
 function FChoice({
   label,
-  emoji,
   detail,
   note,
   selected,
   align = 'center',
+  small,
   onPress,
+  style,
 }: {
   label: string;
-  emoji?: string;
   detail?: string;
   note?: string;
   selected?: boolean;
   align?: 'center' | 'left';
+  /** Smaller type, for long labels in a two-column grid. */
+  small?: boolean;
   onPress: () => void;
+  style?: StyleProp<ViewStyle>;
 }) {
-  const centred = align === 'center' && !emoji && !note && !detail;
+  const centred = align === 'center' && !note && !detail;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: Boolean(selected) }}
       onPress={onPress}
-      style={({ pressed }) => [styles.choice, selected && styles.choiceOn, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.choice, selected && styles.selected, pressed && styles.pressed, style]}
     >
-      {emoji ? <Text style={styles.choiceEmoji}>{emoji}</Text> : null}
       <View style={[styles.choiceText, centred && styles.choiceTextCentred]}>
-        <Text style={[styles.choiceLabel, selected && styles.choiceLabelOn]}>{label}</Text>
-        {detail ? <Text style={styles.choiceDetail}>{detail}</Text> : null}
+        <Text
+          style={[
+            styles.choiceLabel,
+            !centred && styles.choiceLabelLeft,
+            small && styles.choiceLabelSmall,
+            selected && styles.choiceLabelOn,
+          ]}
+          numberOfLines={2}
+        >
+          {label}
+        </Text>
+        {detail ? (
+          <Text style={styles.choiceDetail} numberOfLines={1}>
+            {detail}
+          </Text>
+        ) : null}
       </View>
-      {note ? <Text style={styles.choiceNote}>{note}</Text> : null}
+      {note ? (
+        <Text style={styles.choiceNote} numberOfLines={1}>
+          {note}
+        </Text>
+      ) : null}
       {selected ? (
         <View style={styles.check}>
           <Text style={styles.checkMark}>✓</Text>
@@ -1581,7 +1638,9 @@ function FButton({
         pressed && styles.buttonPressed,
       ]}
     >
-      <Text style={[styles.buttonLabel, primary ? styles.buttonLabelPrimary : styles.buttonLabelSecondary]}>{busy ? '…' : label}</Text>
+      <Text style={[styles.buttonLabel, primary ? styles.buttonLabelPrimary : styles.buttonLabelSecondary]} numberOfLines={1}>
+        {busy ? '…' : label}
+      </Text>
     </Pressable>
   );
 }
@@ -1607,11 +1666,13 @@ function PerkCompare({ free, plus }: { free: string; plus: string }) {
   );
 }
 
-function PlanRow({ emoji, text, last }: { emoji: string; text: string; last?: boolean }) {
+function PlanRow({ text, last }: { text: string; last?: boolean }) {
   return (
     <View style={[styles.planRow, !last && styles.planRowRuled]}>
-      <Text style={styles.planEmoji}>{emoji}</Text>
-      <Text style={styles.planText}>{text}</Text>
+      <View style={styles.planDot} />
+      <Text style={styles.planText} numberOfLines={2}>
+        {text}
+      </Text>
     </View>
   );
 }
@@ -1621,13 +1682,14 @@ const MAX_WIDTH = 560;
 
 const styles = themedStyles(() => {
   const F = palette();
+  const dark = getColorScheme() === 'dark';
   return {
     screen: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingTop: 58, paddingHorizontal: 18, paddingBottom: 4 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingTop: 56, paddingHorizontal: 18, paddingBottom: 4 },
     headerEnd: { justifyContent: 'flex-end' },
-    headerSpacer: { height: 58 },
+    headerSpacer: { height: 56 },
     headerBalance: { width: 12 },
-    backButton: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: F.soft },
+    backButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: F.soft },
     backMark: { fontFamily: FONT.medium, fontSize: 32, lineHeight: 40, color: F.sub, marginTop: -3, marginLeft: -2 },
     progressTrack: { flex: 1, height: 16, borderRadius: 8, backgroundColor: F.soft, overflow: 'hidden' },
     progressFill: { height: 16, borderRadius: 8, backgroundColor: F.green },
@@ -1641,43 +1703,44 @@ const styles = themedStyles(() => {
       backgroundColor: 'rgba(255,255,255,0.35)',
     },
 
-    scroll: { flex: 1 },
-    body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, flexGrow: 1 },
-    page: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
-    center: { alignItems: 'center' },
-    tall: { paddingTop: 36 },
+    // The page: a fixed area, measured, that nothing scrolls inside.
+    area: { flex: 1, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 4, overflow: 'hidden' },
+    page: { flex: 1, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
+    fill: { flex: 1, minHeight: 0 },
+    centred: { alignItems: 'center', justifyContent: 'center' },
     row: { flexDirection: 'row', gap: 12, alignSelf: 'stretch' },
-    rowSpaced: { marginTop: 14 },
+    rowSpaced: { marginTop: 12 },
     rowItem: { flex: 1 },
 
     eyebrow: {
       fontFamily: FONT.medium,
-      fontSize: 15,
+      fontSize: 14,
+      lineHeight: 20,
       letterSpacing: 1.6,
       textTransform: 'uppercase',
       color: F.sub,
       textAlign: 'center',
-      marginTop: 10,
     },
-    title: { fontFamily: FONT.bold, fontSize: 27, lineHeight: 34, color: F.text, textAlign: 'center', marginTop: 10 },
-    question: { fontFamily: FONT.bold, fontSize: 24, lineHeight: 30, color: F.text, textAlign: 'center', marginTop: 6 },
-    sub: { fontFamily: FONT.regular, fontSize: 17, lineHeight: 24, color: F.sub, textAlign: 'center', marginTop: 6 },
-    hint: { fontFamily: FONT.regular, fontSize: 16, color: F.sub, textAlign: 'center', marginTop: 16 },
-    fieldLabel: { fontFamily: FONT.medium, fontSize: 16, color: F.text, marginTop: 6, marginBottom: 2 },
-    link: { fontFamily: FONT.medium, fontSize: 15, color: F.sub },
-    linkLarge: { fontFamily: FONT.medium, fontSize: 18, color: F.sub },
-    linkRow: { alignItems: 'center', paddingVertical: 14 },
-    error: { fontFamily: FONT.medium, fontSize: 14, color: colors.danger, textAlign: 'center' },
-    count: { fontFamily: FONT.regular, fontSize: 13, color: F.sub, textAlign: 'right', marginTop: 4 },
+    title: { fontFamily: FONT.bold, fontSize: 26, lineHeight: 32, color: F.text, textAlign: 'center', marginTop: 6 },
+    titleShort: { fontSize: 22, lineHeight: 28 },
+    question: { fontFamily: FONT.bold, fontSize: 23, lineHeight: 29, color: F.text, textAlign: 'center', marginTop: 4 },
+    questionShort: { fontSize: 20, lineHeight: 26 },
+    sub: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 22, color: F.sub, textAlign: 'center', marginTop: 4 },
+    hint: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, textAlign: 'center', marginTop: 10 },
+    fieldLabel: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 21, color: F.text, marginTop: 4 },
+    link: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, color: F.sub },
+    linkLarge: { fontFamily: FONT.medium, fontSize: 17, lineHeight: 22, color: F.sub },
+    linkRow: { alignItems: 'center', paddingVertical: 10 },
+    error: { fontFamily: FONT.medium, fontSize: 14, lineHeight: 19, color: colors.danger, textAlign: 'center' },
 
     welcomePets: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 6 },
     welcomePet: { marginHorizontal: -14 },
     welcomePetMiddle: { zIndex: 1 },
-    chosen: { alignItems: 'center', minHeight: 170, justifyContent: 'center', marginVertical: 6 },
+    chosenName: { fontFamily: FONT.semibold, fontSize: 18, lineHeight: 24, color: F.text },
     mystery: {
-      width: 120,
-      height: 120,
-      borderRadius: 60,
+      width: 110,
+      height: 110,
+      borderRadius: 55,
       backgroundColor: F.soft,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1685,90 +1748,79 @@ const styles = themedStyles(() => {
       borderColor: F.border,
       borderStyle: 'dashed',
     },
-    mysteryMark: { fontFamily: FONT.bold, fontSize: 48, lineHeight: 58, color: F.sub },
+    mysteryMark: { fontFamily: FONT.bold, fontSize: 46, lineHeight: 56, color: F.sub },
+    petGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 6 },
+    petTile: {
+      borderRadius: 18,
+      borderWidth: 2,
+      borderColor: F.border,
+      backgroundColor: F.bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
 
-    petArea: { alignItems: 'center', alignSelf: 'stretch', marginTop: 6 },
+    petArea: { alignItems: 'center', alignSelf: 'stretch', marginTop: 4 },
     // Full width, so the pet's soft glow fades out instead of stopping at a box edge.
     petPress: { alignSelf: 'stretch' },
     petStage: { backgroundColor: 'transparent', alignSelf: 'stretch' },
     bubble: {
       alignSelf: 'stretch',
       backgroundColor: F.soft,
-      borderRadius: 26,
-      paddingHorizontal: 22,
-      paddingVertical: 18,
-      marginBottom: 10,
+      borderRadius: 24,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      marginBottom: 8,
     },
-    bubbleText: { fontFamily: FONT.medium, fontSize: 18, lineHeight: 25, color: F.text },
+    bubbleText: { fontFamily: FONT.medium, fontSize: 17, lineHeight: 24, color: F.text },
     bubbleTail: {
       position: 'absolute',
-      bottom: -9,
+      bottom: -8,
       left: 34,
-      width: 22,
-      height: 22,
+      width: 20,
+      height: 20,
       borderRadius: 4,
       backgroundColor: F.soft,
       transform: [{ rotate: '45deg' }],
     },
 
-    choices: { marginTop: 20, gap: 12, alignSelf: 'stretch' },
+    // Answers: a column that hands each row an equal share, down to MIN_CHOICE.
+    choices: { flex: 1, minHeight: 0, marginTop: 14, gap: CHOICE_GAP },
+    gridRow: { flexDirection: 'row', gap: CHOICE_GAP, flexBasis: 64, flexShrink: 1, flexGrow: 0, minHeight: MIN_CHOICE, maxHeight: 68 },
+    gridCell: { flex: 1 },
     choice: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 14,
-      minHeight: 70,
-      paddingHorizontal: 22,
-      paddingVertical: 14,
-      borderRadius: 24,
+      gap: 12,
+      flexBasis: 64,
+      flexShrink: 1,
+      flexGrow: 0,
+      minHeight: MIN_CHOICE,
+      maxHeight: 72,
+      paddingHorizontal: 18,
+      borderRadius: 22,
       borderWidth: 2,
       borderColor: F.border,
       backgroundColor: F.bg,
     },
-    choiceOn: { borderColor: F.green, borderWidth: 3, paddingHorizontal: 21, backgroundColor: F.bg },
+    selected: { borderColor: F.green, borderWidth: 3 },
     pressed: { transform: [{ scale: 0.98 }] },
-    choiceEmoji: { fontSize: 28, lineHeight: 36 },
     choiceText: { flex: 1 },
     choiceTextCentred: { alignItems: 'center' },
-    choiceLabel: { fontFamily: FONT.medium, fontSize: 19, lineHeight: 25, color: F.text },
+    choiceLabel: { fontFamily: FONT.medium, fontSize: 18, lineHeight: 23, color: F.text, textAlign: 'center' },
+    choiceLabelLeft: { textAlign: 'left' },
+    choiceLabelSmall: { fontSize: 15, lineHeight: 19 },
     choiceLabelOn: { fontFamily: FONT.semibold },
-    choiceDetail: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, marginTop: 2 },
-    choiceNote: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 22, color: F.sub, flexShrink: 1, textAlign: 'right' },
-    check: { width: 30, height: 30, borderRadius: 15, backgroundColor: F.green, alignItems: 'center', justifyContent: 'center' },
-    checkMark: { fontFamily: FONT.bold, fontSize: 16, lineHeight: 20, color: '#ffffff' },
-    expanded: { gap: 14, padding: 16, borderRadius: 20, backgroundColor: F.greenPale },
-
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    gridCell: {
-      flexBasis: '45%',
-      flexGrow: 1,
-      height: 70,
-      borderRadius: 24,
-      borderWidth: 2,
-      borderColor: F.border,
-      backgroundColor: F.bg,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    gridLabel: { fontFamily: FONT.medium, fontSize: 19, lineHeight: 25, color: F.text },
-    petTile: {
-      flexBasis: '45%',
-      flexGrow: 1,
-      alignItems: 'center',
-      paddingTop: 10,
-      paddingBottom: 14,
-      borderRadius: 24,
-      borderWidth: 2,
-      borderColor: F.border,
-      backgroundColor: F.bg,
-    },
-    petTileLabel: { fontFamily: FONT.medium, fontSize: 17, lineHeight: 22, color: F.text, marginTop: 2 },
-    petTileCheck: { position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 13 },
+    choiceDetail: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 18, color: F.sub, marginTop: 1 },
+    choiceNote: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, flexShrink: 1, textAlign: 'right' },
+    check: { width: 26, height: 26, borderRadius: 13, backgroundColor: F.green, alignItems: 'center', justifyContent: 'center' },
+    checkMark: { fontFamily: FONT.bold, fontSize: 14, lineHeight: 18, color: '#ffffff' },
 
     toggle: { flexDirection: 'row', gap: 10 },
     toggleOption: {
       flex: 1,
-      height: 48,
-      borderRadius: 24,
+      height: 46,
+      borderRadius: 23,
       borderWidth: 2,
       borderColor: F.border,
       alignItems: 'center',
@@ -1780,24 +1832,25 @@ const styles = themedStyles(() => {
 
     input: {
       alignSelf: 'stretch',
-      minHeight: 66,
-      borderRadius: 24,
+      height: 58,
+      borderRadius: 22,
       borderWidth: 2,
       borderColor: F.border,
       backgroundColor: F.input,
-      paddingHorizontal: 20,
+      paddingHorizontal: 18,
       fontFamily: FONT.medium,
       fontSize: 20,
       color: F.text,
       textAlign: 'center',
-      marginTop: 14,
     },
-    persona: { minHeight: 110, fontSize: 16, textAlign: 'left', paddingTop: 14, textAlignVertical: 'top', lineHeight: 22 },
-    chips: { flexDirection: 'row', gap: 10, paddingRight: 24, paddingVertical: 4 },
+    persona: { height: 96, fontSize: 16, textAlign: 'left', paddingTop: 12, textAlignVertical: 'top', lineHeight: 22 },
+    personaBox: { marginTop: 10, gap: 6 },
+    chipStrip: { flexGrow: 0 },
+    chips: { flexDirection: 'row', gap: 10, paddingRight: 24, paddingVertical: 2 },
     chip: {
-      height: 48,
+      height: 46,
       paddingHorizontal: 18,
-      borderRadius: 24,
+      borderRadius: 23,
       borderWidth: 2,
       borderColor: F.border,
       alignItems: 'center',
@@ -1807,109 +1860,144 @@ const styles = themedStyles(() => {
     chipLabel: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 21, color: F.sub },
     chipLabelOn: { color: F.text },
 
-    plusKicker: { fontFamily: FONT.semibold, fontSize: 14, letterSpacing: 1.6, textTransform: 'uppercase', color: '#f29b0f', marginTop: 8 },
-    perkStage: { alignSelf: 'stretch', marginTop: 14, gap: 8 },
-    voice: { maxWidth: '78%', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: F.soft },
+    join: { alignSelf: 'stretch', marginTop: 14, gap: 10 },
+
+    previewCard: { marginTop: 12, padding: 16, borderRadius: 22, backgroundColor: F.greenPale, gap: 6 },
+    previewAbout: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 21, color: F.text },
+    previewQuote: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 22, color: F.text, fontStyle: 'italic' },
+
+    plusKicker: {
+      fontFamily: FONT.semibold,
+      fontSize: 14,
+      lineHeight: 19,
+      letterSpacing: 1.6,
+      textTransform: 'uppercase',
+      color: '#f29b0f',
+    },
+    perkStage: { alignSelf: 'stretch', marginTop: 12, gap: 8 },
+    voice: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: F.soft },
     voiceLeft: { alignSelf: 'flex-start', borderBottomLeftRadius: 6 },
     voiceRight: { alignSelf: 'flex-end', borderBottomRightRadius: 6 },
-    voiceTag: { fontFamily: FONT.semibold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: F.green },
+    voiceTag: { fontFamily: FONT.semibold, fontSize: 12, lineHeight: 16, letterSpacing: 1, textTransform: 'uppercase', color: F.green },
     voiceLine: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 22, color: F.text, marginTop: 2 },
     mealCard: {
       alignSelf: 'stretch',
-      marginTop: 18,
-      paddingVertical: 20,
-      paddingHorizontal: 16,
-      borderRadius: 28,
-      backgroundColor: getColorScheme() === 'dark' ? colors.cardSoft : '#fff4e2',
+      marginTop: 12,
+      padding: 14,
+      borderRadius: 26,
+      backgroundColor: dark ? colors.cardSoft : '#fff4e2',
       alignItems: 'center',
-      gap: 14,
+      gap: 12,
     },
-    mealEmoji: { fontSize: 72, lineHeight: 86 },
+    viewfinder: { width: 120, height: 92, alignItems: 'center', justifyContent: 'center' },
+    corner: { position: 'absolute', width: 22, height: 22, borderColor: F.green },
+    corner_tl: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 10 },
+    corner_tr: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 10 },
+    corner_bl: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 10 },
+    corner_br: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 10 },
+    plate: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: '#ffffff',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: '#efe3cc',
+    },
+    plateInner: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#8cc56f' },
     mealChips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
-    mealChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14, backgroundColor: F.bg, borderWidth: 2, borderColor: F.border },
-    mealChipLabel: { fontFamily: FONT.semibold, fontSize: 14, color: F.text },
-    chat: { alignSelf: 'stretch', marginTop: 18, gap: 10 },
-    chatBubble: { maxWidth: '82%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 22 },
+    mealChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: F.bg, borderWidth: 2, borderColor: F.border },
+    mealChipLabel: { fontFamily: FONT.semibold, fontSize: 14, lineHeight: 19, color: F.text },
+    chat: { alignSelf: 'stretch', marginTop: 12, gap: 10 },
+    chatBubble: { maxWidth: '84%', paddingHorizontal: 16, paddingVertical: 11, borderRadius: 22 },
     chatMine: { alignSelf: 'flex-end', backgroundColor: F.green, borderBottomRightRadius: 6 },
     chatTheirs: { alignSelf: 'flex-start', backgroundColor: F.soft, borderBottomLeftRadius: 6 },
     chatText: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 22, color: F.text },
     chatTextMine: { color: '#ffffff' },
-    compare: { alignSelf: 'stretch', flexDirection: 'row', gap: 10, marginTop: 18 },
-    compareCell: { flex: 1, padding: 14, borderRadius: 20, borderWidth: 2, borderColor: F.border },
+    compare: { alignSelf: 'stretch', flexDirection: 'row', gap: 10, marginTop: 12 },
+    compareCell: { flex: 1, padding: 12, borderRadius: 20, borderWidth: 2, borderColor: F.border },
     compareCellPlus: { borderColor: F.green, backgroundColor: F.greenPale },
-    compareLabel: { fontFamily: FONT.semibold, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: F.sub },
+    compareLabel: { fontFamily: FONT.semibold, fontSize: 12, lineHeight: 16, letterSpacing: 1, textTransform: 'uppercase', color: F.sub },
     compareLabelPlus: { color: F.green },
-    compareValue: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, color: F.sub, marginTop: 4 },
+    compareValue: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, color: F.sub, marginTop: 3 },
     compareValuePlus: { color: F.text },
 
-    offerSkip: { alignSelf: 'flex-end', paddingVertical: 6 },
-    offerReady: { fontFamily: FONT.semibold, fontSize: 17, lineHeight: 22, color: F.green, textAlign: 'center', marginTop: 6 },
-    timeline: { marginTop: 20, gap: 16, paddingLeft: 4 },
-    timelineBar: { position: 'absolute', left: 4, top: 6, bottom: 6, width: 52, borderRadius: 26, backgroundColor: F.greenPale },
-    timelineRow: { flexDirection: 'row', gap: 18, alignItems: 'flex-start' },
-    timelineIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-    timelineEmoji: { fontSize: 28, lineHeight: 34 },
-    timelineText: { flex: 1, paddingTop: 4 },
-    timelineTitle: { fontFamily: FONT.bold, fontSize: 19, lineHeight: 24, color: F.text },
-    timelineBody: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 21, color: F.sub, marginTop: 1 },
-    offerPrice: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 22, color: F.text, textAlign: 'center' },
+    offerSkip: { alignSelf: 'flex-end', paddingVertical: 4 },
+    offerReady: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.green, textAlign: 'center', marginTop: 4 },
+    timeline: { marginTop: 16, gap: 14 },
+    timelineBar: { position: 'absolute', left: 11, top: 10, bottom: 10, width: 6, borderRadius: 3, backgroundColor: F.greenPale },
+    timelineRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
+    timelineMarkWrap: { width: 28, paddingTop: 2, alignItems: 'center' },
+    timelineMark: { width: 22, height: 22, borderRadius: 11, borderWidth: 4, borderColor: F.green, backgroundColor: F.bg },
+    timelineMarkOn: { backgroundColor: F.green },
+    timelineText: { flex: 1 },
+    timelineTitle: { fontFamily: FONT.bold, fontSize: 18, lineHeight: 23, color: F.text },
+    timelineBody: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, marginTop: 1 },
+    offerPrice: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 21, color: F.text, textAlign: 'center' },
     offerPriceStrong: { fontFamily: FONT.bold },
 
-    join: { alignSelf: 'stretch', marginTop: 20, gap: 10 },
-
     planCard: {
-      alignSelf: 'stretch',
-      marginTop: 22,
-      paddingTop: 30,
-      paddingHorizontal: 20,
-      paddingBottom: 8,
-      borderRadius: 28,
-      backgroundColor: getColorScheme() === 'dark' ? colors.yellow : '#fdf6e8',
+      flexShrink: 1,
+      marginTop: 18,
+      paddingTop: 24,
+      paddingHorizontal: 18,
+      paddingBottom: 6,
+      borderRadius: 26,
+      backgroundColor: dark ? colors.yellow : '#fdf6e8',
       borderWidth: 2,
-      borderColor: getColorScheme() === 'dark' ? colors.hairline : '#f3e7c9',
+      borderColor: dark ? colors.hairline : '#f3e7c9',
     },
-    planRings: { position: 'absolute', top: -14, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between' },
-    planRing: { width: 13, height: 28, borderRadius: 6, backgroundColor: '#e2c46e' },
-    planTitle: { fontFamily: FONT.bold, fontSize: 22, lineHeight: 28, color: F.text, textAlign: 'center' },
-    planSub: { fontFamily: FONT.regular, fontSize: 16, color: '#a39363', textAlign: 'center', marginTop: 4, marginBottom: 6 },
-    planRow: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 14 },
-    planRowRuled: { borderBottomWidth: 1.5, borderBottomColor: getColorScheme() === 'dark' ? colors.hairline : '#f3e7c9' },
-    planEmoji: { fontSize: 26, lineHeight: 34 },
-    planText: { flex: 1, fontFamily: FONT.medium, fontSize: 18, lineHeight: 24, color: F.text },
+    planRings: { position: 'absolute', top: -13, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between' },
+    planRing: { width: 12, height: 26, borderRadius: 6, backgroundColor: '#e2c46e' },
+    planTitle: { fontFamily: FONT.bold, fontSize: 21, lineHeight: 27, color: F.text, textAlign: 'center' },
+    planSub: {
+      fontFamily: FONT.regular,
+      fontSize: 15,
+      lineHeight: 20,
+      color: '#a39363',
+      textAlign: 'center',
+      marginTop: 2,
+      marginBottom: 4,
+    },
+    planRow: { flexDirection: 'row', alignItems: 'center', gap: 14, flexBasis: 48, flexShrink: 1, minHeight: 34 },
+    planRowRuled: { borderBottomWidth: 1.5, borderBottomColor: dark ? colors.hairline : '#f3e7c9' },
+    planDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: F.green },
+    planText: { flex: 1, fontFamily: FONT.medium, fontSize: 17, lineHeight: 22, color: F.text },
 
     notification: {
       alignSelf: 'stretch',
       flexDirection: 'row',
       alignItems: 'center',
       gap: 14,
-      marginTop: 24,
-      padding: 16,
-      borderRadius: 26,
+      marginTop: 18,
+      padding: 14,
+      borderRadius: 24,
       backgroundColor: F.soft,
     },
     notificationIcon: {
-      width: 52,
-      height: 52,
-      borderRadius: 13,
+      width: 50,
+      height: 50,
+      borderRadius: 12,
       backgroundColor: colors.tile,
       alignItems: 'center',
       justifyContent: 'flex-end',
       overflow: 'hidden',
     },
     notificationText: { flex: 1 },
-    notificationTitle: { fontFamily: FONT.semibold, fontSize: 17, lineHeight: 22, color: F.text },
-    notificationBody: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 22, color: F.text, marginTop: 2 },
-    notificationTime: { fontFamily: FONT.regular, fontSize: 14, color: F.sub, alignSelf: 'flex-start' },
+    notificationTitle: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.text },
+    notificationBody: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.text, marginTop: 1 },
+    notificationTime: { fontFamily: FONT.regular, fontSize: 13, lineHeight: 17, color: F.sub, alignSelf: 'flex-start' },
 
-    dayKicker: { fontFamily: FONT.medium, fontSize: 16, letterSpacing: 1.6, textTransform: 'uppercase', color: F.sub, marginTop: 20 },
+    dayKicker: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, letterSpacing: 1.6, textTransform: 'uppercase', color: F.sub },
     dayCard: {
       alignSelf: 'stretch',
-      marginTop: 10,
-      padding: 22,
+      marginTop: 8,
+      padding: 18,
       borderRadius: 26,
-      backgroundColor: getColorScheme() === 'dark' ? colors.yellow : '#ffe9a6',
-      borderWidth: 8,
-      borderColor: getColorScheme() === 'dark' ? colors.card : '#ffffff',
+      backgroundColor: dark ? colors.yellow : '#ffe9a6',
+      borderWidth: 7,
+      borderColor: dark ? colors.card : '#ffffff',
       alignItems: 'center',
       gap: 4,
       shadowColor: '#000000',
@@ -1918,36 +2006,33 @@ const styles = themedStyles(() => {
       shadowOffset: { width: 0, height: 4 },
       transform: [{ rotate: '-2deg' }],
     },
-    dayCardKicker: { fontFamily: FONT.medium, fontSize: 13, letterSpacing: 1.4, textTransform: 'uppercase', color: '#8a6d1d' },
-    dayCardTitle: { fontFamily: FONT.bold, fontSize: 28, lineHeight: 36, color: '#f29b0f', textAlign: 'center' },
+    dayCardKicker: {
+      fontFamily: FONT.medium,
+      fontSize: 12,
+      lineHeight: 16,
+      letterSpacing: 1.4,
+      textTransform: 'uppercase',
+      color: '#8a6d1d',
+    },
+    dayCardTitle: { fontFamily: FONT.bold, fontSize: 26, lineHeight: 32, color: '#f29b0f', textAlign: 'center' },
     dayCardBody: {
       fontFamily: FONT.regular,
-      fontSize: 15,
-      lineHeight: 21,
-      color: getColorScheme() === 'dark' ? colors.inkSoft : '#5c5440',
+      fontSize: 14,
+      lineHeight: 20,
+      color: dark ? colors.inkSoft : '#5c5440',
       textAlign: 'center',
-      marginTop: 4,
+      marginTop: 2,
     },
 
-    // Three bands that fade the last of a scrolling page into the button area.
-    fadeWrap: { height: 18, marginTop: -18 },
-    fadeBand: { flex: 1 },
-    hidden: { display: 'none' },
-    titleCompact: { fontSize: 23, lineHeight: 29, marginTop: 4 },
-    questionCompact: { fontSize: 21, lineHeight: 27 },
-    subCompact: { fontSize: 15, lineHeight: 21 },
-    timelineCompact: { marginTop: 12, gap: 10 },
-    mealCardCompact: { paddingVertical: 12, marginTop: 12, gap: 10 },
-    // Below the page, not over it: nothing ever scrolls out of sight behind the button.
-    footer: { paddingHorizontal: 30, paddingTop: 10, paddingBottom: HOME_INDICATOR_INSET + 10 },
-    footerInner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', gap: 12 },
+    footer: { paddingHorizontal: 30, paddingTop: 8, paddingBottom: HOME_INDICATOR_INSET + 8 },
+    footerInner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', gap: 10 },
 
-    button: { height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 5 },
+    button: { height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 5 },
     buttonPrimary: { backgroundColor: F.green, borderBottomColor: F.greenEdge },
     buttonPrimaryOff: { opacity: 0.5 },
     buttonSecondary: { backgroundColor: F.soft, borderBottomColor: F.softEdge },
     buttonSecondaryOff: { opacity: 0.6 },
-    buttonPressed: { borderBottomWidth: 1, marginTop: 4, height: 54 },
+    buttonPressed: { borderBottomWidth: 1, marginTop: 4, height: 52 },
     buttonLabel: { fontFamily: FONT.medium, fontSize: 20, lineHeight: 26, paddingHorizontal: 12, textAlign: 'center' },
     buttonLabelPrimary: { color: '#ffffff' },
     buttonLabelSecondary: { color: F.sub },
