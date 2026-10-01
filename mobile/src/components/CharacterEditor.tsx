@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   PERSONALITY_PREVIEW,
@@ -11,9 +11,9 @@ import {
   type PetPersonality,
   type PetState,
 } from '@vitto/core';
-import { colors, fonts, layout } from '../theme';
+import { colors, fonts } from '../theme';
 import { CharacterDials } from './CharacterDials';
-import { ChoiceRow } from './ui';
+import { SelectionList, TextField } from './settingsKit';
 
 /** Everything that makes up the character, as one value to save together. */
 export interface Character {
@@ -104,8 +104,7 @@ export function CharacterEditor({
         dials={stored.dials}
         confirmed={justSaved}
       />
-      <ChoiceRow
-        stacked
+      <SelectionList
         options={options}
         value={options.some((option) => option.value === draft.personality) ? draft.personality : undefined}
         onChange={(personality) =>
@@ -128,12 +127,11 @@ export function CharacterEditor({
             {notesAllowed && personality === 'custom' ? (
               <View>
                 <Text style={styles.label}>Who are they?</Text>
-                <TextInput
-                  style={[layout.input, styles.persona]}
+                <TextField
+                  style={styles.persona}
                   value={draft.persona}
                   onChangeText={(persona) => setDraft((current) => ({ ...current, persona: persona.slice(0, PERSONA_MAX_LENGTH) }))}
                   placeholder="A grumpy old pirate who secretly adores us."
-                  placeholderTextColor={colors.faint}
                   multiline
                   // Return closes the keyboard rather than starting a new line.
                   returnKeyType="done"
@@ -184,7 +182,6 @@ export function CharacterEditor({
             : `${changesLeft} character change${changesLeft === 1 ? '' : 's'} left this month.`}
         </Text>
       ) : null}
-      <Text style={styles.note}>What they have learned about you is kept. Only the starting point moves.</Text>
     </View>
   );
 }
@@ -209,10 +206,10 @@ function CurrentCharacter({
   return (
     <View style={[styles.current, confirmed && styles.currentConfirmed]} testID="current-character">
       <Text style={[styles.currentKicker, confirmed && styles.currentKickerConfirmed]}>
-        {confirmed ? '✓ Live now' : 'Current character'}
+        {confirmed ? '✓ Live now' : 'Current voice'}
       </Text>
-      <Text style={styles.currentName}>{`${pet.name} is ${label}`}</Text>
-      {notes ? <Text style={styles.currentNotes} numberOfLines={2}>{`"${notes}"`}</Text> : null}
+      <Text style={styles.currentName}>{pet.personality === 'custom' ? `${pet.name} is their own character` : `${pet.name} is ${label}`}</Text>
+      {notes ? <Text style={styles.currentNotes} numberOfLines={3}>{`“${notes}”`}</Text> : null}
       {tuned ? <Text style={styles.currentTuned}>{`Tuned: ${tuned}.`}</Text> : null}
     </View>
   );
@@ -243,34 +240,20 @@ export function PersonalityPreview({ personality, dials, persona, name }: { pers
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 10 },
-  preview: {
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: colors.cardSoft,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  previewAbout: { fontSize: 13, color: colors.inkSoft, lineHeight: 19 },
-  previewQuote: { borderLeftWidth: 3, borderLeftColor: colors.coral, paddingLeft: 10, gap: 2 },
-  previewQuoteText: { fontSize: 14, color: colors.ink, fontStyle: 'italic', lineHeight: 20 },
-  previewQuoteBy: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint },
-  previewTuned: { fontSize: 12, color: colors.muted },
-  current: {
-    gap: 3,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-  },
+  wrap: { gap: 14 },
+  preview: { gap: 10, padding: 14, borderRadius: 12, backgroundColor: colors.card },
+  previewAbout: { fontSize: 14, color: colors.inkSoft, lineHeight: 20 },
+  previewQuote: { borderLeftWidth: 3, borderLeftColor: colors.coral, paddingLeft: 12, gap: 4 },
+  previewQuoteText: { fontFamily: fonts.display, fontSize: 17, color: colors.ink, fontStyle: 'italic', lineHeight: 24 },
+  previewQuoteBy: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
+  previewTuned: { fontSize: 13, color: colors.muted },
+  current: { gap: 4, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 16, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: colors.cardSoft },
   currentConfirmed: { borderColor: colors.mintDeep, backgroundColor: colors.mint },
-  currentKicker: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: colors.muted },
+  currentKicker: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint },
   currentKickerConfirmed: { color: colors.mintDeep, fontWeight: '700' },
-  currentName: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  currentNotes: { fontSize: 13, fontStyle: 'italic', color: colors.inkSoft },
-  currentTuned: { fontSize: 12, color: colors.muted },
+  currentName: { fontSize: 18, fontWeight: '700', color: colors.ink, letterSpacing: -0.2 },
+  currentNotes: { fontFamily: fonts.display, fontSize: 19, fontStyle: 'italic', color: colors.coralDeep, lineHeight: 26, marginTop: 2 },
+  currentTuned: { fontSize: 13, color: colors.muted, marginTop: 2 },
   saveDone: { backgroundColor: colors.mintDeep },
   savedBanner: {
     flexDirection: 'row',
@@ -299,12 +282,12 @@ const styles = StyleSheet.create({
   failedTitle: { fontSize: 13, fontWeight: '700', color: colors.coralDeep },
   failedBody: { fontSize: 12, color: colors.coralDeep, lineHeight: 17 },
   noteOut: { color: colors.coral },
-  label: { fontSize: 12, fontWeight: '600', color: colors.inkSoft, marginTop: 6 },
-  persona: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19, marginTop: 6 },
+  label: { fontSize: 14, fontWeight: '600', color: colors.inkSoft },
+  persona: { minHeight: 96, paddingTop: 12, paddingBottom: 12, textAlignVertical: 'top', lineHeight: 21, marginTop: 8 },
   count: { fontSize: 11, color: colors.faint, textAlign: 'right', marginTop: 4 },
-  save: { marginTop: 6, paddingVertical: 12, alignItems: 'center', borderRadius: 12, backgroundColor: colors.coral },
+  save: { minHeight: 52, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.coral },
   saveOff: { opacity: 0.35 },
-  saveLabel: { fontFamily: fonts.mono, fontSize: 13, fontWeight: '700', color: '#fff' },
+  saveLabel: { fontSize: 16, fontWeight: '700', color: '#fff' },
   pressed: { opacity: 0.8 },
-  note: { fontSize: 11, lineHeight: 16, color: colors.muted },
+  note: { fontSize: 13, lineHeight: 18, color: colors.muted },
 });

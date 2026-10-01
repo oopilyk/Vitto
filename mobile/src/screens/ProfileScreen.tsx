@@ -1,62 +1,48 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { type LayoutChangeEvent, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
-  type LayoutChangeEvent,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import {
-
-  measurementSystemOf,
   ACHIEVEMENTS,
   type AchievementId,
-  type TrophyId,  type BodyProfile,
-  type BrainTrainingMetadata,
+  type BodyProfile,
   type HealthEvent,
-  type MealMetadata,
-  type ScreenTimeMetadata,
+  type Reminder,
+  type TrophyId,
+  BIG_LIFTS,
   calculateMacroTargets,
   calculateQualifyingStreaks,
   convertWeightValue,
   estimateCaloriesBurned,
+  formatPace,
   getActiveDateKeys,
   getEventsForDay,
   getMealsForDay,
+  liftStanding,
+  measurementSystemOf,
+  ordinal,
+  overallStanding,
+  personalRecords,
+  runRecords,
   sumMealMacros,
-  type Reminder,
-  type Weekday,
-  WEEKDAYS,
-  WEEKDAY_LABEL,
-  describeReminderDays,
-  formatReminderTime,
-  reminderError,
-  normalizeReminderLabel,
-  errorMessage} from '@vitto/core';
-import { BIG_LIFTS, MAX_BIO_LENGTH, formatPace, liftStanding, normalizeBio, ordinal, overallStanding, personalRecords, runRecords } from '@vitto/core';
+} from '@vitto/core';
 import { NutrientRing } from '../components/NutrientRing';
-import { MealDiaryRow } from '../components/MealDiaryRow';
 import { ActivityCalendar } from '../components/ActivityCalendar';
-import { ChoiceRow, Field, Kicker, NumberField, PrimaryButton, TextButton } from '../components/ui';
+import { Kicker } from '../components/ui';
+import { NavGroup, NavRow } from '../components/settingsKit';
 import { StrengthMap } from '../components/StrengthMap';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
-import { colors, fonts, layout, text } from '../theme';
+import { formatMinutes } from '../services/minutes';
+import { colors, fonts, layout } from '../theme';
 
 interface Props {
   profile: BodyProfile;
   events: HealthEvent[];
-  onSave: (profile: BodyProfile) => Promise<void>;
   onClose: () => void;
-  /** Opens Settings — about you, your goal, your training. Omitted where it is not wired up (tests). */
+  /** Opens Settings. Omitted where it is not wired up (tests). */
   onOpenSettings?: () => void;
+  /** Opens Edit profile: name and bio. */
+  onEditProfile?: () => void;
   /**
-   * Opens the Friends screen, which owns claiming a username. Offered here only
-   * as a way to go and set one; this screen never writes it. Absent offline,
+   * Opens the Friends screen, which owns claiming a username. Absent offline,
    * where there is nobody to be a friend of.
    */
   onOpenFriends?: () => void;
@@ -67,46 +53,21 @@ interface Props {
    * the goals are written down, so hiding them would make the shelf unexplained.
    */
   achievements?: readonly AchievementId[];
+  /**
+   * The tools below the stats, each a row that opens its own page. A row shows
+   * only when its page is wired up; the value beside it says what is set now.
+   */
+  onOpenScreenTime?: () => void;
+  /** The reminders, for the row's count. Absent where notifications cannot be scheduled. */
+  reminders?: readonly Reminder[];
+  onOpenReminders?: () => void;
+  /** Whether "My gym" is saved. Absent where location cannot be read (web). */
+  gymSaved?: boolean;
+  onOpenGym?: () => void;
   /** Omitted entirely on platforms with no HealthKit provider (Android, web). */
   appleHealthStatus?: 'disconnected' | 'connected';
-  onConnectAppleHealth?: () => void;
-  onSyncAppleHealth?: () => void;
-  isSyncingAppleHealth?: boolean;
-  /**
-   * Logs a manually entered screen-time total for today (any platform). Should
-   * reject with a readable message when today is already logged.
-   */
-  onLogScreenTime?: (minutes: number, budgetMinutes?: number) => Promise<void>;
-  /** Android only: the UsageStatsManager path. Omitted wherever the native module is absent. */
-  screenTimeAccess?: {
-    granted: boolean;
-    onOpenSettings: () => void;
-    onSync: (budgetMinutes?: number) => void;
-    syncing?: boolean;
-  };
-  /**
-   * The user's own reminders — "take my creatine at 8am". Absent where local
-   * notifications cannot be scheduled, which hides the card.
-   */
-  reminders?: {
-    items: Reminder[];
-    permission: string;
-    onAdd: (draft: { label: string; hour: number; minute: number; days: Weekday[] }) => Promise<void>;
-    onToggle: (id: string) => void;
-    onRemove: (id: string) => void;
-  };
-  /**
-   * "My gym": one coordinate, kept on this device, that parks a dumbbell beside
-   * the pet whenever the app is open nearby. Absent where location cannot be
-   * read (web), which hides the card. See mobile/AMBIENT.md.
-   */
-  gym?: {
-    saved: boolean;
-    busy: boolean;
-    error: string | null;
-    onSetHere: () => void;
-    onClear: () => void;
-  };
+  onOpenAppleHealth?: () => void;
+  onOpenHistory?: () => void;
 }
 
 /** The same art the living-room shelf uses, so the list and the shelf cannot disagree. */
@@ -117,62 +78,9 @@ const TROPHY_ART: Record<TrophyId, ReturnType<typeof require>> = {
   book: require('../../assets/trophies/book.png'),
 };
 
-
-const HISTORY_PAGE_SIZE = 20;
 /** Achievement rows shown before "Show all". */
 const ACHIEVEMENTS_PREVIEW = 5;
-const MINUTES_PER_DAY = 24 * 60;
-
-/** "2h 05m" for the screen-time card; whole minutes in, so no rounding surprises. */
-const formatMinutes = (minutes: number): string => {
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours === 0) return `${rest}m`;
-  return rest === 0 ? `${hours}h` : `${hours}h ${String(rest).padStart(2, '0')}m`;
-};
-
-/** Splits a minute total into the hours + minutes pair the fields show. */
-const splitMinutes = (minutes: number | undefined) =>
-  minutes === undefined ? { hours: undefined, minutes: undefined } : { hours: Math.floor(minutes / 60), minutes: minutes % 60 };
-
-/**
- * Joins the pair back. An empty pair and a zero total both mean "no value":
- * zero is "no budget" to the engine, the mapping and the database check alike,
- * so it must never be stored as a number. A pair with an unparsable half (the
- * field accepts "1.2.3") yields NaN, which callers gate on with Number.isFinite.
- */
-const joinMinutes = (hours: number | undefined, minutes: number | undefined): number | undefined => {
-  if (hours === undefined && minutes === undefined) return undefined;
-  const total = Math.round((hours ?? 0) * 60 + (minutes ?? 0));
-  if (!Number.isFinite(total)) return Number.NaN;
-  const clamped = Math.max(0, Math.min(MINUTES_PER_DAY, total));
-  return clamped === 0 ? undefined : clamped;
-};
-
-/** Raw text → number for the budget fields; empty stays undefined so joinMinutes can tell "blank" from "0". */
-const parseField = (value: string): number | undefined => (value.trim() === '' ? undefined : Number(value));
-
-/** What the budget fields show for a stored total — only used to seed and reset them, never while typing. */
-const budgetText = (minutes: number | undefined) => {
-  const split = splitMinutes(minutes);
-  return { hours: split.hours === undefined ? '' : String(split.hours), minutes: split.minutes === undefined ? '' : String(split.minutes) };
-};
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
-
-const describeEvent = (event: HealthEvent): string => {
-  if (event.type === 'WORKOUT') return 'Workout';
-  if (event.type === 'STEP_ACTIVITY') return 'Steps';
-  if (event.type === 'BRAIN_TRAINING') {
-    const session = event.metadata as BrainTrainingMetadata;
-    return `${session.game === 'math' ? 'Quick maths' : 'Read and recall'} · ${session.score} mind score`;
-  }
-  if (event.type === 'SCREEN_TIME') {
-    const screen = event.metadata as ScreenTimeMetadata;
-    const verdict = screen.withinBudget === undefined ? '' : screen.withinBudget ? ' · under budget' : ' · over budget';
-    return `Screen time · ${formatMinutes(screen.minutes)}${verdict}`;
-  }
-  return 'Healthy moment';
-};
 
 /** A titled card. Grouping the form this way keeps any one screenful readable. */
 function Card({
@@ -196,69 +104,40 @@ function Card({
   );
 }
 
-function Group({ label, children }: { label: string; children: ReactNode }) {
+function Stat({ value, label }: { value: number; label: string }) {
   return (
-    <View style={styles.group}>
-      <Text style={styles.groupLabel}>{label}</Text>
-      {children}
+    <View style={styles.stat}>
+      <Text style={styles.statValue}>{value.toLocaleString()}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
+/**
+ * Profile: who you are and how you are doing. A header the way social apps
+ * have one (avatar, headline numbers, name, bio, Edit profile), then today,
+ * consistency, strength and achievements to look at. Anything you set up or
+ * type into (screen time, reminders, gym, Apple Health) is a row that opens a
+ * page of its own, so this page is never a form.
+ */
 export function ProfileScreen({
-  profile: initial,
+  profile,
   events,
-  onSave,
   onClose,
-  onOpenFriends,
   onOpenSettings,
+  onEditProfile,
+  onOpenFriends,
   onSignOut,
   achievements,
-  appleHealthStatus,
-  onConnectAppleHealth,
-  onSyncAppleHealth,
-  isSyncingAppleHealth,
-  onLogScreenTime,
-  screenTimeAccess,
+  onOpenScreenTime,
   reminders,
-  gym,
+  onOpenReminders,
+  gymSaved,
+  onOpenGym,
+  appleHealthStatus,
+  onOpenAppleHealth,
+  onOpenHistory,
 }: Props) {
-  const [profile, setProfile] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE_SIZE);
-  // The budget fields hold raw text so they never re-normalise under the
-  // user's fingers ("90" minutes must not flip to 1h/30m mid-entry); the joined
-  // total is what lands in the profile.
-  const [budgetFields, setBudgetFields] = useState(() => budgetText(initial.screenTimeBudgetMinutes));
-  // Today's screen-time entry, as the hours/minutes pair the user types.
-  const [screenHours, setScreenHours] = useState<number | undefined>(undefined);
-  const [screenMinutes, setScreenMinutes] = useState<number | undefined>(undefined);
-  const [screenTimeError, setScreenTimeError] = useState<string | null>(null);
-  // The reminder being composed. Kept as text so a half-typed time does not
-  // fight the field the way a number would.
-  const [reminderLabel, setReminderLabel] = useState('');
-  const [reminderHour, setReminderHour] = useState<number | undefined>(8);
-  const [reminderMinute, setReminderMinute] = useState<number | undefined>(0);
-  const [reminderDays, setReminderDays] = useState<Weekday[]>([]);
-  const [reminderBusy, setReminderBusy] = useState(false);
-  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
-  const [loggingScreenTime, setLoggingScreenTime] = useState(false);
-
-  // Drives the save bar: it only appears once something actually differs.
-  const dirty = useMemo(
-    () => JSON.stringify(profile) !== JSON.stringify(initial),
-    [profile, initial],
-  );
-
-  const update = <K extends keyof BodyProfile>(key: K, value: BodyProfile[K]) => {
-    setProfile((current) => ({ ...current, [key]: value }));
-    setError(null);
-  };
-
-  const digits = (value: string, decimals = false) =>
-    value.replace(decimals ? /[^0-9.]/g : /[^0-9]/g, '');
-
   const targets = calculateMacroTargets(profile);
   const today = new Date();
   const todaysEvents = getEventsForDay(events, today);
@@ -266,8 +145,6 @@ export function ProfileScreen({
   const burned = estimateCaloriesBurned(todaysEvents);
   const remaining = targets.calories - consumed.calories + burned;
   const streaks = calculateQualifyingStreaks(events, today);
-  // The board: heaviest ticked set per big lift, then the two run records, all
-  // in the units the profile is kept in.
   const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const runs = runRecords(events, measurementSystemOf(profile));
   // Each lift is also placed against people of the same sex, bodyweight and age.
@@ -275,9 +152,7 @@ export function ProfileScreen({
   const lifts = personalRecords(events, profile.weightUnit, BIG_LIFTS).map(({ exercise, record }) => ({
     exercise,
     record,
-    standing: record
-      ? liftStanding(exercise, convertWeightValue(record.weight, profile.weightUnit, 'kg'), profile)
-      : null,
+    standing: record ? liftStanding(exercise, convertWeightValue(record.weight, profile.weightUnit, 'kg'), profile) : null,
   }));
   const overall = overallStanding(lifts.map((lift) => lift.standing));
   const board: { label: string; value: string | null; unit?: string; meta: string; note?: string }[] = [
@@ -302,86 +177,9 @@ export function ProfileScreen({
     },
   ];
   const onBoard = board.filter((tile) => tile.value !== null).length;
-  const counts = [
-    [events.filter((event) => event.type === 'MEAL').length, 'meals logged'],
-    [events.filter((event) => event.type === 'WORKOUT').length, 'workouts'],
-    [events.filter((event) => event.type === 'BRAIN_TRAINING').length, 'mind sessions'],
-    [events.length, 'care moments'],
-  ] as const;
 
-  const addReminder = async () => {
-    if (!reminders) return;
-    const draft = {
-      label: reminderLabel,
-      hour: reminderHour ?? -1,
-      minute: reminderMinute ?? 0,
-      days: reminderDays,
-    };
-    const problem = reminderError(draft, reminders.items.length);
-    if (problem) {
-      setReminderMessage(problem);
-      return;
-    }
-    setReminderBusy(true);
-    try {
-      await reminders.onAdd(draft);
-      setReminderLabel('');
-      setReminderDays([]);
-      setReminderMessage(null);
-    } catch (cause) {
-      setReminderMessage(errorMessage(cause, 'Could not save that reminder.'));
-    } finally {
-      setReminderBusy(false);
-    }
-  };
-
-  const screenTimeToday = findScreenTimeForDate(events, today);
-  const screenTimeEntry = joinMinutes(screenHours, screenMinutes);
-  // A blank pair joins to undefined, a typed one to a number; NaN (a stray
-  // second decimal point) must never reach the log button.
-  const canLogScreenTime = screenTimeEntry !== undefined && Number.isFinite(screenTimeEntry);
-
-  const updateBudget = (next: { hours: string; minutes: string }) => {
-    setBudgetFields(next);
-    const joined = joinMinutes(parseField(next.hours), parseField(next.minutes));
-    // Leave the stored budget alone while a half is unparsable; the text keeps
-    // what was typed, and the next keystroke resolves it.
-    if (joined === undefined || Number.isFinite(joined)) update('screenTimeBudgetMinutes', joined);
-  };
-
-  const discard = () => {
-    setProfile(initial);
-    setBudgetFields(budgetText(initial.screenTimeBudgetMinutes));
-  };
-
-  const logScreenTime = async () => {
-    if (!onLogScreenTime || screenTimeEntry === undefined || !Number.isFinite(screenTimeEntry)) return;
-    setLoggingScreenTime(true);
-    setScreenTimeError(null);
-    try {
-      // The budget as shown on screen, saved or not: scoring against a number
-      // the user cannot see would be baffling.
-      await onLogScreenTime(screenTimeEntry, profile.screenTimeBudgetMinutes);
-      setScreenHours(undefined);
-      setScreenMinutes(undefined);
-    } catch (cause) {
-      setScreenTimeError(cause instanceof Error ? cause.message : 'Could not log screen time.');
-    } finally {
-      setLoggingScreenTime(false);
-    }
-  };
-
-  const save = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      await onSave(profile);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save your profile.');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const workouts = events.filter((event) => event.type === 'WORKOUT').length;
+  const meals = events.filter((event) => event.type === 'MEAL').length;
 
   const earnedCount = ACHIEVEMENTS.filter((achievement) => (achievements ?? []).includes(achievement.id)).length;
   // Sixteen rows is most of a screen: the first few show by default and one
@@ -389,100 +187,91 @@ export function ProfileScreen({
   const [showAchievements, setShowAchievements] = useState(false);
   const visibleAchievements = showAchievements ? ACHIEVEMENTS : ACHIEVEMENTS.slice(0, ACHIEVEMENTS_PREVIEW);
 
+  const name = profile.displayName?.trim();
+  const avatarLetter = (name || profile.username || '?').slice(0, 1).toUpperCase();
+  const screenTimeToday = findScreenTimeForDate(events, today);
+  const screenTimeValue = [
+    profile.screenTimeBudgetMinutes ? `Budget ${formatMinutes(profile.screenTimeBudgetMinutes)}` : 'No budget',
+    screenTimeToday ? `${formatMinutes(screenTimeToday.metadata.minutes)} today` : 'not logged today',
+  ].join(' · ');
+  const activeReminders = reminders?.filter((item) => item.enabled).length ?? 0;
+
   return (
-    <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={layout.screen}>
       <View style={styles.topbar}>
-        <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.back}>
+        <Pressable accessibilityRole="button" onPress={onClose} hitSlop={10} style={styles.back}>
           <Text style={styles.backMark}>←</Text>
           <Text style={styles.backLabel}>Pet</Text>
         </Pressable>
-        <Text style={styles.topTitle}>Profile</Text>
         {onOpenSettings ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Open settings"
             onPress={onOpenSettings}
             hitSlop={8}
-            style={[styles.back, styles.settings]}
+            style={({ pressed }) => [styles.settingsButton, pressed && styles.headerButtonPressed]}
           >
-            <Text style={styles.backLabel}>Settings</Text>
-            <Text style={styles.backMark}>→</Text>
+            <Text style={styles.settingsLabel}>Settings</Text>
           </Pressable>
-        ) : (
-          <View style={styles.back} />
-        )}
+        ) : null}
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.body, { paddingBottom: (dirty ? 110 : 40) + HOME_INDICATOR_INSET }]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/*
-          Who you are, above everything the app measures about you. The handle
-          and the note are the only things on this screen another person ever
-          sees, so they are grouped together and away from the body metrics.
-        */}
-        <Card title="You">
-          {/* The handle IS the identity: unique, chosen, and the only name other
-              people ever see you by. The free-text name below is a separate
-              thing, kept for yourself. */}
-          <View style={styles.identity}>
-            <View style={styles.identityAvatar}>
-              <Text style={styles.identityInitial}>
-                {(profile.username || profile.displayName?.trim() || '?').slice(0, 1).toUpperCase()}
-              </Text>
+      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: 40 + HOME_INDICATOR_INSET }]}>
+        <View style={styles.header} testID="profile-header">
+          <View style={styles.headerTop}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarInitial}>{avatarLetter}</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              {profile.username ? (
-                <Text style={styles.identityHandle}>{`@${profile.username}`}</Text>
-              ) : onOpenFriends ? (
-                <Pressable accessibilityRole="button" onPress={onOpenFriends} hitSlop={6}>
-                  <Text style={styles.identityHandleUnset}>Pick a username in Friends</Text>
-                </Pressable>
-              ) : (
-                <Text style={styles.identityHandleUnset}>No username yet</Text>
-              )}
-              <Text style={styles.identityHandleHint}>
-                {profile.username
-                  ? 'How friends and care partners see you'
-                  : 'Friends find you by your username'}
-              </Text>
+            <View style={styles.stats}>
+              <Stat value={streaks.currentStreak} label="day streak" />
+              <Stat value={workouts} label="workouts" />
+              <Stat value={meals} label="meals" />
             </View>
           </View>
 
-          <Group label="NAME">
-            <TextInput
-              style={layout.input}
-              value={profile.displayName ?? ''}
-              onChangeText={(value) => update('displayName', value)}
-              placeholder="Your name"
-              placeholderTextColor={colors.faint}
-              maxLength={40}
-              accessibilityLabel="Your display name"
-            />
-            <Text style={styles.bioCount}>Just for you — nobody else is shown this.</Text>
-          </Group>
+          <View style={styles.who}>
+            {name ? <Text style={styles.name}>{name}</Text> : null}
+            {profile.username ? (
+              <Text style={name ? styles.handle : styles.name}>{`@${profile.username}`}</Text>
+            ) : onOpenFriends ? (
+              <Pressable accessibilityRole="button" onPress={onOpenFriends} hitSlop={6}>
+                <Text style={styles.handleLink}>Pick a username in Friends</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.handle}>No username yet</Text>
+            )}
+            {profile.bio?.trim() ? (
+              <Text style={styles.bio}>{profile.bio}</Text>
+            ) : onEditProfile ? (
+              <Text style={styles.bioEmpty}>No bio yet. Friends see it beside your username.</Text>
+            ) : null}
+          </View>
 
-          {/* "Bio", not "About" — the body-metrics card that used to live on this
-              screen was called "About you", and it now lives in Settings. Two
-              things by that name on one screen would be nothing but confusing. */}
-          <Group label="BIO">
-            <TextInput
-              style={[layout.input, styles.bio]}
-              value={profile.bio ?? ''}
-              onChangeText={(value) => update('bio', value.slice(0, MAX_BIO_LENGTH))}
-              onBlur={() => update('bio', normalizeBio(profile.bio ?? ''))}
-              placeholder="A line about you — what you are training for, what you are working on."
-              placeholderTextColor={colors.faint}
-              multiline
-              maxLength={MAX_BIO_LENGTH}
-              accessibilityLabel="Your bio"
-            />
-            <Text style={styles.bioCount}>
-              {`${(profile.bio ?? '').length} / ${MAX_BIO_LENGTH} · friends see your username and this note`}
-            </Text>
-          </Group>
-        </Card>
+          {onEditProfile || onOpenFriends ? (
+            <View style={styles.headerButtons}>
+              {onEditProfile ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onEditProfile}
+                  style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
+                  testID="edit-profile"
+                >
+                  <Text style={styles.headerButtonLabel}>Edit profile</Text>
+                </Pressable>
+              ) : null}
+              {onOpenFriends ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onOpenFriends}
+                  style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
+                  testID="open-friends"
+                >
+                  <Text style={styles.headerButtonLabel}>Friends</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
 
         <Card title="Today">
           <View style={styles.rings}>
@@ -493,13 +282,7 @@ export function ProfileScreen({
               color={colors.coral}
               size={88}
             />
-            <NutrientRing
-              value={burned}
-              percent={(burned / targets.calories) * 100}
-              label="Burned"
-              color="#78a598"
-              size={88}
-            />
+            <NutrientRing value={burned} percent={(burned / targets.calories) * 100} label="Burned" color="#78a598" size={88} />
             <NutrientRing
               value={remaining}
               percent={(Math.abs(remaining) / targets.calories) * 100}
@@ -510,32 +293,19 @@ export function ProfileScreen({
             />
           </View>
           <Text style={styles.targetLine}>
-            Target {targets.calories.toLocaleString()} kcal · {targets.proteinGrams}g protein ·{' '}
-            {targets.carbsGrams}g carbs · {targets.fatGrams}g fat
+            Target {targets.calories.toLocaleString()} kcal · {targets.proteinGrams}g protein · {targets.carbsGrams}g carbs ·{' '}
+            {targets.fatGrams}g fat
           </Text>
         </Card>
 
         <Card title="Consistency">
-          <View style={styles.streakRow}>
-            <View>
-              <Text style={styles.streakValue}>{streaks.currentStreak}</Text>
-              <Text style={styles.streakUnit}>day streak</Text>
-            </View>
-            <View style={styles.streakDivider} />
-            <View>
-              <Text style={styles.streakValue}>{streaks.longestStreak}</Text>
-              <Text style={styles.streakUnit}>longest run</Text>
-            </View>
+          <View style={styles.calendarHead}>
+            <Text style={styles.calendarStreak}>
+              {streaks.currentStreak === 1 ? '1 day in a row' : `${streaks.currentStreak} days in a row`}
+            </Text>
+            <Text style={styles.calendarLongest}>{`longest ${streaks.longestStreak}`}</Text>
           </View>
           <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} />
-          <View style={styles.counts}>
-            {counts.map(([value, label]) => (
-              <View key={label} style={styles.count}>
-                <Text style={styles.countValue}>{value}</Text>
-                <Text style={styles.countLabel}>{label}</Text>
-              </View>
-            ))}
-          </View>
         </Card>
 
         <Card
@@ -593,14 +363,10 @@ export function ProfileScreen({
                   </View>
                 )}
                 <View style={styles.trophyText}>
-                  <Text style={[styles.trophyName, !earned && styles.trophyNameLocked]}>
-                    {achievement.title}
-                  </Text>
+                  <Text style={[styles.trophyName, !earned && styles.trophyNameLocked]}>{achievement.title}</Text>
                   <Text style={styles.trophyRule}>{achievement.describe(profile)}</Text>
                 </View>
-                <Text style={[styles.trophyState, earned && styles.trophyStateEarned]}>
-                  {earned ? 'UNLOCKED' : 'LOCKED'}
-                </Text>
+                <Text style={[styles.trophyState, earned && styles.trophyStateEarned]}>{earned ? 'UNLOCKED' : 'LOCKED'}</Text>
               </View>
             );
           })}
@@ -612,273 +378,54 @@ export function ProfileScreen({
               hitSlop={8}
               style={styles.foldToggle}
             >
-              <Text style={styles.link}>
-                {showAchievements ? 'Show fewer' : `Show all ${ACHIEVEMENTS.length}`}
-              </Text>
+              <Text style={styles.link}>{showAchievements ? 'Show fewer' : `Show all ${ACHIEVEMENTS.length}`}</Text>
               <Text style={styles.foldChevron}>{showAchievements ? '▴' : '▾'}</Text>
             </Pressable>
           ) : null}
         </Card>
 
-        <Card
-          title="Screen time"
-          hint="Stay under a budget you set and your pet's mind sharpens. Going over never costs anything."
-        >
-          <View style={styles.grid}>
-            <Field label="Daily budget (h)" hint="optional">
-              <TextInput
-                style={layout.input}
-                keyboardType="decimal-pad"
-                placeholder="—"
-                placeholderTextColor={colors.faint}
-                value={budgetFields.hours}
-                onChangeText={(value) => updateBudget({ ...budgetFields, hours: digits(value, true) })}
+        <View style={styles.tools}>
+          <NavGroup title="Your tools">
+            {onOpenScreenTime ? (
+              <NavRow title="Screen time" value={screenTimeValue} onPress={onOpenScreenTime} testID="open-screen-time" />
+            ) : null}
+            {reminders && onOpenReminders ? (
+              <NavRow
+                title="Reminders"
+                value={reminders.length === 0 ? 'None yet' : `${activeReminders} of ${reminders.length} on`}
+                onPress={onOpenReminders}
+                testID="open-reminders"
               />
-            </Field>
-            <Field label="(min)">
-              <TextInput
-                style={layout.input}
-                keyboardType="number-pad"
-                placeholder="—"
-                placeholderTextColor={colors.faint}
-                value={budgetFields.minutes}
-                onChangeText={(value) => updateBudget({ ...budgetFields, minutes: digits(value) })}
+            ) : null}
+            {typeof gymSaved === 'boolean' && onOpenGym ? (
+              <NavRow title="My gym" value={gymSaved ? 'Saved' : 'Not set'} onPress={onOpenGym} testID="open-gym" />
+            ) : null}
+            {appleHealthStatus && onOpenAppleHealth ? (
+              <NavRow
+                title="Apple Health"
+                value={appleHealthStatus === 'connected' ? 'Connected' : 'Not connected'}
+                onPress={onOpenAppleHealth}
+                testID="open-apple-health"
               />
-            </Field>
-          </View>
-          {profile.screenTimeBudgetMinutes === undefined ? (
-            <Text style={styles.cardHint}>No budget set — a log still counts, it just is not scored.</Text>
+            ) : null}
+            {onOpenHistory ? (
+              <NavRow
+                title="Activity history"
+                value={events.length === 0 ? 'Nothing yet' : `${events.length} care moments`}
+                onPress={onOpenHistory}
+                testID="open-history"
+              />
+            ) : null}
+          </NavGroup>
+
+          {onSignOut ? (
+            <NavGroup>
+              <NavRow title="Log out" onPress={onSignOut} danger testID="log-out" />
+            </NavGroup>
           ) : null}
-
-          {screenTimeToday ? (
-            <Text style={[text.body, styles.screenLogged]}>
-              Logged today: {formatMinutes(screenTimeToday.metadata.minutes)}
-              {screenTimeToday.metadata.withinBudget === undefined
-                ? ''
-                : screenTimeToday.metadata.withinBudget
-                  ? ' — under budget.'
-                  : ' — over budget. Tomorrow is a fresh screen.'}
-            </Text>
-          ) : (
-            <Group label={Platform.OS === 'ios' ? 'Today · from Settings → Screen Time' : 'Today'}>
-              <View style={styles.grid}>
-                <NumberField label="Hours" placeholder="0" value={screenHours} onChange={setScreenHours} />
-                <NumberField label="Minutes" placeholder="0" value={screenMinutes} onChange={setScreenMinutes} />
-              </View>
-              {screenTimeError ? <Text style={styles.saveError}>{screenTimeError}</Text> : null}
-              <View style={styles.screenActions}>
-                <TextButton
-                  label={loggingScreenTime ? 'Logging...' : "Log today's screen time"}
-                  tone="coral"
-                  onPress={() => void logScreenTime()}
-                  disabled={!onLogScreenTime || !canLogScreenTime || loggingScreenTime}
-                />
-                {screenTimeAccess ? (
-                  screenTimeAccess.granted ? (
-                    <TextButton
-                      label={screenTimeAccess.syncing ? 'Reading...' : 'Read from this phone'}
-                      onPress={() => screenTimeAccess.onSync(profile.screenTimeBudgetMinutes)}
-                      disabled={screenTimeAccess.syncing}
-                    />
-                  ) : (
-                    <TextButton label="Allow usage access" onPress={screenTimeAccess.onOpenSettings} />
-                  )
-                ) : null}
-              </View>
-              {screenTimeAccess && !screenTimeAccess.granted ? (
-                <Text style={styles.cardHint}>
-                  Android can read today's total for you. Vitto asks for "usage access" in Settings, keeps only the
-                  total, and never sees which apps you used.
-                </Text>
-              ) : null}
-            </Group>
-          )}
-        </Card>
-
-        {reminders ? (
-          <Card
-            title="Reminders"
-            hint="Your own notes to yourself — Vitto sends them even when it is closed."
-          >
-            {reminders.items.length === 0 ? (
-              <Text style={styles.empty}>
-                Nothing yet. Add one below, like &quot;Take creatine&quot; at 8:00 am.
-              </Text>
-            ) : (
-              reminders.items.map((item) => (
-                <View key={item.id} style={styles.reminderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.reminderLabel, !item.enabled && styles.reminderOff]}>
-                      {item.label}
-                    </Text>
-                    <Text style={styles.reminderMeta}>
-                      {formatReminderTime(item.hour, item.minute)} · {describeReminderDays(item.days)}
-                      {item.enabled ? '' : ' · paused'}
-                    </Text>
-                  </View>
-                  <TextButton
-                    label={item.enabled ? 'Pause' : 'Resume'}
-                    onPress={() => reminders.onToggle(item.id)}
-                  />
-                  <TextButton label="Delete" tone="coral" onPress={() => reminders.onRemove(item.id)} />
-                </View>
-              ))
-            )}
-
-            <Group label="New reminder">
-              <Field label="What should Vitto say?">
-                <TextInput
-                  style={layout.input}
-                  placeholder="Take creatine"
-                  placeholderTextColor={colors.faint}
-                  value={reminderLabel}
-                  onChangeText={setReminderLabel}
-                  maxLength={60}
-                />
-              </Field>
-              <View style={styles.grid}>
-                <NumberField label="Hour (0-23)" placeholder="8" value={reminderHour} onChange={setReminderHour} />
-                <NumberField label="Minute" placeholder="00" value={reminderMinute} onChange={setReminderMinute} />
-              </View>
-              {/* No days chosen means every day -- see `isEveryDay`. */}
-              <Text style={styles.fieldHint}>
-                {reminderDays.length === 0 ? 'Every day' : describeReminderDays(reminderDays)}
-              </Text>
-              <ChoiceRow
-                options={WEEKDAYS.map((day) => ({ value: String(day), label: WEEKDAY_LABEL[day] }))}
-                value={reminderDays.map(String)}
-                onChange={(value) => {
-                  const day = Number(value) as Weekday;
-                  setReminderDays((current) =>
-                    current.includes(day) ? current.filter((item) => item !== day) : [...current, day],
-                  );
-                }}
-              />
-              {reminderMessage ? <Text style={styles.saveError}>{reminderMessage}</Text> : null}
-              {reminders.permission === 'denied' ? (
-                <Text style={styles.cardHint}>
-                  Notifications are turned off for Vitto, so these will not appear until you allow them
-                  in Settings. They are still saved.
-                </Text>
-              ) : null}
-              <View style={styles.screenActions}>
-                <TextButton
-                  label={reminderBusy ? 'Saving...' : 'Add reminder'}
-                  tone="coral"
-                  onPress={() => void addReminder()}
-                  disabled={reminderBusy}
-                />
-              </View>
-            </Group>
-          </Card>
-        ) : null}
-
-        {gym ? (
-          <Card
-            title="My gym"
-            hint="Save where you train and your pet picks up a dumbbell whenever you open Vitto there."
-          >
-            <Text style={text.body}>
-              {gym.saved
-                ? 'Saved. Vitto checks whether you are nearby while the app is open — nothing is recorded.'
-                : 'Not set. Stand at your gym and save it; only that one spot is kept, on this phone.'}
-            </Text>
-            {gym.error ? <Text style={styles.saveError}>{gym.error}</Text> : null}
-            <View style={styles.screenActions}>
-              <TextButton
-                label={gym.busy ? 'Finding you...' : gym.saved ? 'Move my gym to here' : 'Set my gym to here'}
-                tone="coral"
-                onPress={gym.onSetHere}
-                disabled={gym.busy}
-              />
-              {gym.saved ? <TextButton label="Forget my gym" onPress={gym.onClear} disabled={gym.busy} /> : null}
-            </View>
-          </Card>
-        ) : null}
-
-        <Card title="Activity history" hint="Your full record">
-          {events.length === 0 ? (
-            <Text style={styles.empty}>Your care history will appear here.</Text>
-          ) : (
-            <>
-              {events.slice(0, historyLimit).map((event) =>
-                event.type === 'MEAL' ? (
-                  <MealDiaryRow key={event.id} event={event as HealthEvent<MealMetadata>} />
-                ) : (
-                  <View key={event.id} style={styles.historyRow}>
-                    <View style={styles.dot} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.historyName}>{describeEvent(event)}</Text>
-                      <Text style={styles.historyTime}>
-                        {new Date(event.occurredAt).toLocaleString([], {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        })}
-                      </Text>
-                    </View>
-                  </View>
-                ),
-              )}
-              {events.length > historyLimit ? (
-                <Pressable onPress={() => setHistoryLimit((limit) => limit + HISTORY_PAGE_SIZE)}>
-                  <Text style={styles.link}>Load more →</Text>
-                </Pressable>
-              ) : null}
-            </>
-          )}
-        </Card>
-
-        {appleHealthStatus ? (
-          <View style={styles.appleHealth}>
-            <Kicker>Apple Health</Kicker>
-            {appleHealthStatus === 'connected' ? (
-              <>
-                <Text style={text.body}>
-                  Connected — workouts and meals from apps like Strong or MyFitnessPal will show up here
-                  automatically.
-                </Text>
-                <TextButton
-                  label={isSyncingAppleHealth ? 'Syncing...' : 'Sync now'}
-                  onPress={() => onSyncAppleHealth?.()}
-                  disabled={isSyncingAppleHealth}
-                />
-              </>
-            ) : (
-              <>
-                <Text style={text.body}>
-                  Connect Apple Health to pull in workouts and meals you've already logged in Strong,
-                  MyFitnessPal, or similar apps.
-                </Text>
-                <TextButton label="Connect Apple Health" onPress={() => onConnectAppleHealth?.()} />
-              </>
-            )}
-          </View>
-        ) : null}
-
-        {onSignOut ? (
-          <View style={styles.signOut}>
-            <TextButton label="Log out" onPress={onSignOut} />
-          </View>
-        ) : null}
-
-      </ScrollView>
-
-      {dirty ? (
-        <View style={[styles.saveBar, { paddingBottom: HOME_INDICATOR_INSET }]}>
-          {error ? <Text style={styles.saveError}>{error}</Text> : null}
-          <View style={styles.saveRow}>
-            <View style={{ flex: 1 }}>
-              <PrimaryButton
-                label={saving ? 'Saving...' : 'Save changes'}
-                busy={saving}
-                onPress={() => void save()}
-              />
-            </View>
-            <TextButton label="Discard" onPress={discard} disabled={saving} />
-          </View>
         </View>
-      ) : null}
-    </KeyboardAvoidingView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -887,18 +434,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 22,
-    paddingTop: 62,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
+    paddingHorizontal: 20,
+    paddingTop: 58,
+    paddingBottom: 4,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 64 },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
   backMark: { fontSize: 18, color: colors.coral },
-  backLabel: { fontFamily: fonts.mono, fontSize: 12, color: colors.muted },
-  topTitle: { ...text.heading, fontSize: 16 },
-  settings: { justifyContent: 'flex-end' },
-  body: { padding: 16, gap: 14 },
+  backLabel: { fontSize: 15, fontWeight: '500', color: colors.inkSoft },
+  settingsButton: {
+    minHeight: 36,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+  },
+  settingsLabel: { fontSize: 14, fontWeight: '600', color: colors.inkSoft },
+  body: { paddingHorizontal: 16, gap: 14 },
+
+  header: { paddingHorizontal: 4, paddingTop: 8, paddingBottom: 6, gap: 14 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#efe7d8',
+  },
+  avatarInitial: { fontFamily: fonts.display, fontSize: 34, color: colors.ink },
+  stats: { flex: 1, flexDirection: 'row', justifyContent: 'space-around' },
+  stat: { alignItems: 'center', minWidth: 64 },
+  statValue: { fontSize: 22, fontWeight: '800', color: colors.ink },
+  statLabel: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  who: { gap: 2 },
+  name: { fontSize: 17, fontWeight: '700', color: colors.ink },
+  handle: { fontSize: 14, color: colors.muted },
+  handleLink: { fontSize: 14, fontWeight: '600', color: colors.coral },
+  bio: { fontSize: 15, color: colors.inkSoft, lineHeight: 21, marginTop: 6 },
+  bioEmpty: { fontSize: 15, color: colors.faint, marginTop: 6 },
+  headerButtons: { flexDirection: 'row', gap: 8 },
+  headerButton: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    backgroundColor: colors.cardSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerButtonPressed: { opacity: 0.7 },
+  headerButtonLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
+
+  calendarHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10, marginBottom: 4 },
+  calendarStreak: { fontSize: 15, fontWeight: '700', color: colors.ink },
+  calendarLongest: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
+  tools: { marginTop: -8 },
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -906,29 +497,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
   },
-  reminderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
-  },
-  reminderLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  reminderOff: { color: colors.faint },
-  reminderMeta: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 3 },
-  fieldHint: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 10, marginBottom: 6 },
   cardHint: { fontSize: 12, color: colors.faint, marginTop: 6, lineHeight: 17 },
   cardBody: { marginTop: 4 },
-  group: { marginTop: 16 },
-  groupLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    color: colors.faint,
-    textTransform: 'uppercase',
-  },
-  grid: { flexDirection: 'row', gap: 12 },
   rings: { flexDirection: 'row', gap: 6, marginTop: 10 },
   targetLine: {
     fontFamily: fonts.mono,
@@ -937,21 +507,6 @@ const styles = StyleSheet.create({
     marginTop: 14,
     lineHeight: 16,
   },
-  streakRow: { flexDirection: 'row', alignItems: 'center', gap: 22, marginTop: 12 },
-  streakDivider: { width: 1, height: 34, backgroundColor: colors.hairline },
-  streakValue: { fontSize: 28, fontWeight: '700', color: colors.ink },
-  streakUnit: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 2 },
-  counts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
-  count: {
-    flexGrow: 1,
-    flexBasis: '44%',
-    minWidth: 0,
-    backgroundColor: colors.cardSoft,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  countValue: { fontSize: 20, fontWeight: '700', color: colors.ink },
   records: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   record: {
     flexBasis: '30%',
@@ -971,40 +526,9 @@ const styles = StyleSheet.create({
   recordMeta: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
   recordRank: { fontFamily: fonts.mono, fontSize: 10, color: colors.mintDeep, marginTop: 4 },
   recordFootnote: { fontSize: 11, color: colors.faint, lineHeight: 16, marginTop: 14 },
-  countLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 3 },
-  historyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee9e1',
-  },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral },
-  historyName: { fontSize: 13, fontWeight: '500', color: colors.ink },
-  historyTime: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
-  empty: { fontSize: 13, color: colors.faint, paddingVertical: 12 },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  identityAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.paper,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-  },
-  identityInitial: { fontFamily: fonts.display, fontSize: 24, color: colors.ink },
-  identityHandle: { fontFamily: fonts.display, fontSize: 20, color: colors.ink },
-  identityHandleUnset: { fontFamily: fonts.mono, fontSize: 13, color: colors.coral },
-  identityHandleHint: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 5, lineHeight: 13 },
-  bio: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19 },
-  bioCount: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 6, lineHeight: 13 },
   link: { fontFamily: fonts.mono, fontSize: 11, color: colors.coral, paddingVertical: 14 },
   foldToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
   foldChevron: { fontSize: 12, color: colors.coral },
-  appleHealth: { gap: 8, paddingVertical: 14, ...layout.hairline },
   trophyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1036,25 +560,4 @@ const styles = StyleSheet.create({
   trophyRule: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 3, lineHeight: 14 },
   trophyState: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.8, color: colors.faint },
   trophyStateEarned: { color: colors.mintDeep },
-  screenLogged: { marginTop: 14 },
-  screenActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18, marginTop: 14 },
-  signOut: { alignItems: 'center', paddingVertical: 10 },
-  saveBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    backgroundColor: colors.card,
-    borderTopWidth: 1,
-    borderTopColor: colors.hairline,
-    shadowColor: '#26312d',
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -3 },
-    elevation: 14,
-  },
-  saveRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  saveError: { ...text.error, fontSize: 12, marginBottom: 10 },
 });

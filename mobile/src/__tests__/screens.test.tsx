@@ -1462,24 +1462,44 @@ describe('profile screen', () => {
       .find((node) => node.findAllByType(Text).some((t: any) => t.props.children === label));
   };
 
-  it('shows who you are, and saves a name and a bio through the normal save bar', async () => {
+  it('shows who you are in the header, and opens Edit profile', () => {
     const { Text } = require('react-native');
-    const { MAX_BIO_LENGTH } = require('@vitto/core');
-    const saved: any[] = [];
+    let edited = 0;
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <ProfileScreen
           profile={{ ...profile, displayName: 'Kyle', username: 'kyle', bio: 'Training for a half.' }}
-          breed="shiba" onBreedChange={() => {}} events={[]}
-          onSave={async (next: any) => { saved.push(next); }} onClose={() => {}} />,
+          events={[]}
+          onClose={() => {}}
+          onEditProfile={() => { edited += 1; }} />,
       );
     });
     const flat = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
     // The handle reads back as a handle, and the avatar takes the name's initial.
     expect(flat).toContain('@kyle');
     expect(flat).toContain('K');
+    expect(flat).toContain('Training for a half.');
+    // Profile is never a form: name and bio are edited on their own page.
+    expect(tree.root.findAllByProps({ accessibilityLabel: 'Your bio' })).toHaveLength(0);
+    act(() => findButton(tree, 'Edit profile')!.props.onPress());
+    expect(edited).toBe(1);
+    tree.unmount();
+  });
 
+  it('saves a name and a bio from Edit profile, never the handle', async () => {
+    const { Text } = require('react-native');
+    const { MAX_BIO_LENGTH } = require('@vitto/core');
+    const { EditProfileScreen } = require('../screens/EditProfileScreen');
+    const saved: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <EditProfileScreen
+          profile={{ ...profile, displayName: 'Kyle', username: 'kyle', bio: 'Training for a half.' }}
+          onSave={async (next: any) => { saved.push(next); }} onClose={() => {}} />,
+      );
+    });
     const bioField = tree.root.findAllByProps({ accessibilityLabel: 'Your bio' })
       .find((n: any) => typeof n.props.onChangeText === 'function');
     expect(bioField!.props.value).toBe('Training for a half.');
@@ -1499,6 +1519,42 @@ describe('profile screen', () => {
     expect(saved[0].bio).toHaveLength(MAX_BIO_LENGTH);
     // The handle is never written from here — Friends owns it.
     expect(saved[0].username).toBe('kyle');
+    tree.unmount();
+  });
+
+  it('lists the tools as rows that open their own pages, each saying what is set', () => {
+    const opened: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ProfileScreen
+          profile={{ ...profile, screenTimeBudgetMinutes: 120 }}
+          events={[]}
+          onClose={() => {}}
+          onOpenScreenTime={() => opened.push('screen')}
+          reminders={[{ id: 'r', label: 'Creatine', hour: 8, minute: 0, days: [], enabled: true }]}
+          onOpenReminders={() => opened.push('reminders')}
+          gymSaved={false}
+          onOpenGym={() => opened.push('gym')}
+          appleHealthStatus="connected"
+          onOpenAppleHealth={() => opened.push('health')}
+          onOpenHistory={() => opened.push('history')}
+        />,
+      );
+    });
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('Budget 2h');
+    expect(rendered).toContain('1 of 1 on');
+    expect(rendered).toContain('Not set');
+    expect(rendered).toContain('Connected');
+    for (const label of ['Screen time', 'Reminders', 'My gym', 'Apple Health', 'Activity history']) {
+      const row = tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
+      act(() => row!.props.onPress());
+    }
+    expect(opened).toEqual(['screen', 'reminders', 'gym', 'health', 'history']);
+    // No forms here any more.
+    expect(rendered).not.toContain('Add reminder');
+    expect(rendered).not.toContain("Log today's screen time");
     tree.unmount();
   });
 
@@ -2875,13 +2931,11 @@ describe('care partners', () => {
   });
 
   const renderReminders = (overrides: Record<string, unknown> = {}) => {
+    const { RemindersScreen } = require('../screens/RemindersScreen');
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <ProfileScreen
-          profile={profile}
-          events={[]}
-          onSave={async () => {}}
+        <RemindersScreen
           onClose={() => {}}
           reminders={{
             items: [],

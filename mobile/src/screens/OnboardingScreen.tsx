@@ -1,18 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import {
-
   measurementSystemOf,
-  type MeasurementSystem,  DIETARY_OPTIONS,
+  type MeasurementSystem,
+  DIETARY_OPTIONS,
   MOTIVATION_OPTIONS,
   MATURE_PERSONALITY_AGE,
   PERSONA_MAX_LENGTH,
@@ -47,8 +38,19 @@ import { PersonalityPreview } from '../components/CharacterEditor';
 import { PlusPaywall } from '../components/PlusPaywall';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
-import { ChoiceRow, ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
-import { colors, fonts, layout, text } from '../theme';
+import { ErrorText, PrimaryButton, TextButton } from '../components/ui';
+import {
+  ChipGroup,
+  FieldRow,
+  FormField,
+  SELECTED_FILL,
+  SETTINGS_MAX_WIDTH,
+  SegmentedControl,
+  SelectionList,
+  SelectionTiles,
+  TextField,
+} from '../components/settingsKit';
+import { colors, fonts, layout } from '../theme';
 
 interface Props {
   name: string;
@@ -105,11 +107,11 @@ const ACTIVITY_OPTIONS = [
 
 const GYM_DAY_OPTIONS = [
   { value: '0', label: 'None' },
-  { value: '2', label: '2 days' },
-  { value: '3', label: '3 days' },
-  { value: '4', label: '4 days' },
-  { value: '5', label: '5 days' },
-  { value: '6', label: '6+ days' },
+  { value: '2', label: '2' },
+  { value: '3', label: '3' },
+  { value: '4', label: '4' },
+  { value: '5', label: '5' },
+  { value: '6', label: '6+' },
 ];
 
 /** The month options for the goal-date picker — the next 15 months. */
@@ -128,20 +130,9 @@ const monthChoices = () => {
 };
 
 const formatMonth = (iso: string | undefined) =>
-  iso
-    ? new Date(`${iso}T00:00:00`).toLocaleDateString([], { month: 'long', year: 'numeric' })
-    : '';
+  iso ? new Date(`${iso}T00:00:00`).toLocaleDateString([], { month: 'long', year: 'numeric' }) : '';
 
-type StepId =
-  | 'welcome'
-  | 'basics'
-  | 'plus'
-  | 'goal'
-  | 'commitments'
-  | 'motivation'
-  | 'choosePet'
-  | 'namePet'
-  | 'companion';
+type StepId = 'welcome' | 'basics' | 'plus' | 'goal' | 'commitments' | 'motivation' | 'choosePet' | 'namePet' | 'companion';
 
 const FULL_SEQUENCE: StepId[] = [
   'welcome',
@@ -182,14 +173,10 @@ export function OnboardingScreen({
 }: Props) {
   // Decided once: buying Plus on the paywall step must not reshuffle the steps
   // (or skip ahead) under their thumb.
-  const SEQUENCE = useRef<StepId[]>(
-    FULL_SEQUENCE.filter((step) => step !== 'plus' || (Boolean(paywall) && !canCustomise)),
-  ).current;
+  const SEQUENCE = useRef<StepId[]>(FULL_SEQUENCE.filter((step) => step !== 'plus' || (Boolean(paywall) && !canCustomise))).current;
   // Resume at the companion if the questionnaire is answered (fields persist
   // per-keystroke). Decided once so a later edit doesn't yank the user around.
-  const startId = useRef<StepId>(
-    hasCompletedQuestionnaire(profile) ? 'choosePet' : 'welcome',
-  ).current;
+  const startId = useRef<StepId>(hasCompletedQuestionnaire(profile) ? 'choosePet' : 'welcome').current;
 
   const [stepId, setStepId] = useState<StepId>(startId);
   const [stepError, setStepError] = useState<string | null>(null);
@@ -209,13 +196,11 @@ export function OnboardingScreen({
   const toDisplayWeight = (kg: number) => (metric ? Math.round(kg) : toLb(kg));
   const fromDisplayWeight = (value: number) => (metric ? value : toKg(value));
   /** A kg figure from the domain, in the user's unit. */
-  const weightLabel = (kg: number) =>
-    metric ? `${kg} kg` : `${Math.round(convertWeightValue(kg, 'kg', 'lb') * 10) / 10} lb`;
+  const weightLabel = (kg: number) => (metric ? `${kg} kg` : `${Math.round(convertWeightValue(kg, 'kg', 'lb') * 10) / 10} lb`);
   const bounds = GOAL_BOUNDS[profile.weightUnit];
   const displayedWeightLb = toDisplayWeight(profile.weightKg);
   const displayedHeight = convertHeightToFeetAndInches(profile.heightCm);
-  const displayedGoalLb =
-    profile.targetWeightKg === undefined ? undefined : toDisplayWeight(profile.targetWeightKg);
+  const displayedGoalLb = profile.targetWeightKg === undefined ? undefined : toDisplayWeight(profile.targetWeightKg);
 
   const targets = calculateMacroTargets(profile);
   const plan = planForGoal(profile);
@@ -260,14 +245,12 @@ export function OnboardingScreen({
       }
       if (!profile.goalTargetDate) return 'Pick a month to reach it by.';
     }
-    if (stepId === 'motivation' && (profile.motivations?.length ?? 0) === 0)
-      return 'Pick at least one thing that keeps you going.';
+    if (stepId === 'motivation' && (profile.motivations?.length ?? 0) === 0) return 'Pick at least one thing that keeps you going.';
     if (stepId === 'namePet' && !name.trim()) return 'Give your companion a name.';
     // They can go back and lower their age after choosing an age-gated one.
     if (stepId === 'namePet' && canCustomise && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
       return 'Pick a personality.';
-    if (stepId === 'namePet' && canCustomise && personality === 'custom' && !isValidPersona(persona))
-      return 'Tell us who they are.';
+    if (stepId === 'namePet' && canCustomise && personality === 'custom' && !isValidPersona(persona)) return 'Tell us who they are.';
     return null;
   };
 
@@ -303,482 +286,465 @@ export function OnboardingScreen({
     try {
       await onRedeemInvite(code);
     } catch (cause) {
-      setStepError(
-        cause instanceof Error && cause.message ? cause.message : 'Could not join that pet.',
-      );
+      setStepError(cause instanceof Error && cause.message ? cause.message : 'Could not join that pet.');
     } finally {
       setJoining(false);
     }
   };
 
-  const nextLabel = isLast
-    ? 'Enter the Vitto world'
-    : stepId === 'welcome'
-      ? 'Get started'
-      : 'Continue';
+  const nextLabel = isLast ? 'Enter the Vitto world' : stepId === 'welcome' ? 'Get started' : 'Continue';
 
   const survival = petSurvivalGuidance(petName);
   const wantsSteps = stepGoal;
   const bestSteps = optimalDailySteps(profile);
   const bestGymDays = optimalTrainingDays(profile);
 
-  return (
-    <KeyboardAvoidingView
-      style={layout.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <View style={styles.top}>
-          <Kicker>Vitto / your life, their story</Kicker>
-          {onSignOut ? <TextButton label="Log out" onPress={onSignOut} /> : null}
-        </View>
+  const STEP_EYEBROW: Record<StepId, string> = {
+    welcome: 'Welcome',
+    basics: 'About you',
+    plus: 'Vitto Plus',
+    goal: 'Your goal',
+    commitments: 'Your habits',
+    motivation: 'Motivation',
+    choosePet: 'Your companion',
+    namePet: 'Your companion',
+    companion: 'All set',
+  };
 
-        <View style={styles.progressTrack}>
-          <View
-            style={[styles.progressFill, { width: `${((index + 1) / SEQUENCE.length) * 100}%` }]}
-          />
+  return (
+    <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          {index > 0 ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} hitSlop={12} style={styles.backButton}>
+              <Text style={styles.backMark}>←</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.backButton} />
+          )}
+          <View style={styles.progress} accessibilityLabel={`Step ${index + 1} of ${SEQUENCE.length}`}>
+            {SEQUENCE.map((step, n) => (
+              <View key={step} style={[styles.progressSegment, n <= index && styles.progressSegmentOn]} />
+            ))}
+          </View>
+          {onSignOut ? (
+            <Pressable accessibilityRole="button" onPress={onSignOut} hitSlop={8} style={styles.signOut}>
+              <Text style={styles.signOutLabel}>Log out</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.backButton} />
+          )}
         </View>
         <Text style={styles.progressLabel}>
           Step {index + 1} of {SEQUENCE.length}
         </Text>
+      </View>
 
-        {stepId === 'welcome' ? (
-          <View style={styles.stepBlock}>
-            <View style={styles.peekPet}>
-              <PetAvatar
-                {...IDLE_ACTIVITY}
-                pet={previewPet}
-                isCelebrating={false}
-                size={120}
-                hideStatusCaption
-                stageStyle={styles.peekStage}
-              >
-                {null}
-              </PetAvatar>
-            </View>
-            <Text style={styles.headline}>A companion that grows with you.</Text>
-            <Text style={styles.intro}>
-              First, your weight goal and how you want to train. Then you’ll meet the pet that lives
-              it with you — every workout, meal and step keeps them going.
-            </Text>
-            {onRedeemInvite ? (
-              showJoin ? (
-                <View style={styles.join}>
-                  <Field label="Invite code" hint="from your care partner">
-                    <TextInput
-                      style={[layout.input, styles.inviteInput]}
-                      value={joinCode}
-                      onChangeText={(value) => {
-                        setJoinCode(value);
-                        setStepError(null);
-                      }}
-                      autoCapitalize="characters"
-                      autoCorrect={false}
-                      maxLength={INVITE_INPUT_MAX_LENGTH}
-                      placeholder="ABC-DEF"
-                      placeholderTextColor={colors.faint}
-                    />
-                  </Field>
-                  <PrimaryButton
-                    label="Join their pet"
-                    busy={joining}
-                    disabled={normalizeInviteCode(joinCode).length !== 6}
-                    onPress={() => void join()}
-                  />
-                </View>
-              ) : (
-                <TextButton
-                  label="Have an invite code? Join a partner’s pet"
-                  onPress={() => setShowJoin(true)}
-                />
-              )
-            ) : null}
-          </View>
-        ) : null}
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <View style={styles.page}>
+          {stepId !== 'plus' ? <Text style={styles.eyebrow}>{STEP_EYEBROW[stepId]}</Text> : null}
 
-        {stepId === 'basics' ? (
-          <View style={styles.stepBlock}>
-            <Text style={styles.headline}>A few basics.</Text>
-            <Text style={styles.intro}>
-              Enough for Vitto to set your calorie target — nothing more.
-            </Text>
-            {/* One choice for every unit in the app. Seeded from the device
-                locale, so a US phone opens on pounds and feet already. */}
-            <Field label="Units">
-              <ChoiceRow
-                options={[
-                  { value: 'metric' as const, label: 'Metric', detail: 'kg · cm' },
-                  { value: 'imperial' as const, label: 'Imperial', detail: 'lb · ft/in' },
-                ]}
-                value={measurementSystemOf(profile)}
-                onChange={onSetUnits}
-              />
-            </Field>
-            <View style={styles.grid}>
-              <Field label="Age">
-                <TextInput
-                  style={layout.input}
-                  keyboardType="number-pad"
-                  value={String(profile.age)}
-                  onChangeText={(value) =>
-                    onUpdate('age', Number(value.replace(/[^0-9]/g, '')) || 0)
-                  }
-                />
-              </Field>
-              <Field label={`Weight (${profile.weightUnit})`}>
-                <TextInput
-                  style={layout.input}
-                  keyboardType="number-pad"
-                  value={String(displayedWeightLb)}
-                  onChangeText={(value) =>
-                    onUpdate('weightKg', fromDisplayWeight(Number(value.replace(/[^0-9]/g, '')) || 0))
-                  }
-                />
-              </Field>
-            </View>
-            {metric ? (
-              <Field label="Height (cm)">
-                <TextInput
-                  style={layout.input}
-                  keyboardType="number-pad"
-                  value={String(profile.heightCm)}
-                  onChangeText={(value) =>
-                    onUpdate('heightCm', Number(value.replace(/[^0-9]/g, '')) || 0)
-                  }
-                />
-              </Field>
-            ) : (
-              <View style={styles.grid}>
-                <Field label="Height (ft)">
-                  <TextInput
-                    style={layout.input}
-                    keyboardType="number-pad"
-                    value={String(displayedHeight.feet)}
-                    onChangeText={(value) =>
-                      onUpdate(
-                        'heightCm',
-                        feetAndInchesToCm(
-                          Number(value.replace(/[^0-9]/g, '')) || 0,
-                          displayedHeight.inches,
-                        ),
-                      )
-                    }
-                  />
-                </Field>
-                <Field label="Height (in)">
-                  <TextInput
-                    style={layout.input}
-                    keyboardType="number-pad"
-                    value={String(displayedHeight.inches)}
-                    onChangeText={(value) =>
-                      onUpdate(
-                        'heightCm',
-                        feetAndInchesToCm(
-                          displayedHeight.feet,
-                          Number(value.replace(/[^0-9]/g, '')) || 0,
-                        ),
-                      )
-                    }
-                  />
-                </Field>
+          {stepId === 'welcome' ? (
+            <View>
+              <View style={styles.heroPet}>
+                <PetAvatar
+                  {...IDLE_ACTIVITY}
+                  pet={previewPet}
+                  isCelebrating={false}
+                  size={170}
+                  hideStatusCaption
+                  stageStyle={styles.heroStage}
+                >
+                  {null}
+                </PetAvatar>
               </View>
-            )}
-            <Text style={styles.groupLabel}>Sex</Text>
-            <Text style={styles.hint}>Used only for the energy estimate. Stays private.</Text>
-            <ChoiceRow
-              options={[
-                { value: 'other' as const, label: 'Prefer not to say' },
-                { value: 'female' as const, label: 'Female' },
-                { value: 'male' as const, label: 'Male' },
-              ]}
-              value={profile.sex}
-              onChange={(value) => onUpdate('sex', value)}
-            />
-          </View>
-        ) : null}
-
-        {stepId === 'goal' ? (
-          <View style={styles.stepBlock}>
-            <Text style={styles.headline}>What are you working toward?</Text>
-            <Text style={styles.intro}>
-              You’re at{' '}
-              <Text style={styles.inlineValue}>
-                {displayedWeightLb} {profile.weightUnit}
-              </Text>{' '}
-              now. Where do
-              you want to be?
-            </Text>
-            <Field label={`Goal weight (${profile.weightUnit})`}>
-              <TextInput
-                style={layout.input}
-                keyboardType="number-pad"
-                value={displayedGoalLb === undefined ? '' : String(displayedGoalLb)}
-                placeholder={String(displayedWeightLb)}
-                placeholderTextColor={colors.faint}
-                onChangeText={(value) => {
-                  const digits = value.replace(/[^0-9]/g, '');
-                  setGoalWeightLb(digits === '' ? undefined : Number(digits));
-                }}
-              />
-            </Field>
-            <Text style={styles.groupLabel}>Reach it by</Text>
-            <ChoiceRow
-              options={months}
-              value={profile.goalTargetDate}
-              onChange={setGoalDate}
-            />
-            {profile.targetWeightKg && profile.goalTargetDate ? (
-              <View style={styles.plan}>
-                <Kicker>Your daily target</Kicker>
-                <Text style={styles.planBig}>{targets.calories.toLocaleString()} kcal</Text>
-                <Text style={styles.planText}>
-                  {profile.goal === 'maintain'
-                    ? `Holding ${displayedWeightLb} ${profile.weightUnit}.`
-                    : `${plan ? `About ${weightLabel(plan.kgPerWeek)}` : 'A steady pace'} a week to hit ${
-                        displayedGoalLb
-                      } ${profile.weightUnit} by ${formatMonth(profile.goalTargetDate)}.`}
-                </Text>
-                {plan?.capped ? (
-                  <Text style={styles.planWarning}>
-                    That’s a fast pace — Vitto capped it to stay safe, so it’ll take a bit longer.
-                  </Text>
-                ) : null}
+              <Text style={styles.headline}>A companion that grows with you.</Text>
+              <Text style={styles.intro}>
+                First, your goal and how you want to train. Then you’ll meet the pet that lives it with you. Every workout, meal and step
+                keeps them going.
+              </Text>
+              <View style={styles.promises}>
+                <WelcomePoint mark="1" text="Tell us your goal. Takes about a minute." />
+                <WelcomePoint mark="2" text="Pick and name your companion." />
+                <WelcomePoint mark="3" text="Look after yourself, and they thrive." />
               </View>
-            ) : null}
-            <Text style={styles.groupLabel}>Any dietary preference?</Text>
-            <ChoiceRow
-              options={DIETARY_OPTIONS}
-              value={profile.dietaryPreference}
-              onChange={(value) => onUpdate('dietaryPreference', value)}
-            />
-          </View>
-        ) : null}
-
-        {stepId === 'commitments' ? (
-          <View style={styles.stepBlock}>
-            <Text style={styles.headline}>What will you hold yourself to?</Text>
-            <Text style={styles.intro}>
-              This is what {petName} lives on. Pick what you’ll actually commit to.
-            </Text>
-            <Text style={styles.groupLabel}>Outside workouts, how active is your day?</Text>
-            <ChoiceRow
-              options={ACTIVITY_OPTIONS}
-              value={profile.activity}
-              onChange={(value) => onUpdate('activity', value)}
-            />
-            <Text style={styles.groupLabel}>Days a week you’ll train</Text>
-            <ChoiceRow
-              options={GYM_DAY_OPTIONS}
-              value={String(profile.trainingDaysPerWeek)}
-              onChange={(value) => onUpdate('trainingDaysPerWeek', Number(value))}
-            />
-            <Text style={styles.groupLabel}>Daily step goal</Text>
-            <ChoiceRow
-              options={[
-                ...STEP_GOAL_PRESETS.map((n) => ({ value: String(n), label: n.toLocaleString() })),
-                { value: 'auto', label: 'Let Vitto choose' },
-              ]}
-              value={
-                STEP_GOAL_PRESETS.includes(stepGoal as (typeof STEP_GOAL_PRESETS)[number])
-                  ? String(stepGoal)
-                  : undefined
-              }
-              onChange={(value) =>
-                onStepGoalChange(value === 'auto' ? suggestStepGoal(profile) : Number(value))
-              }
-            />
-            <Text style={styles.groupLabel}>What kind of training?</Text>
-            <ChoiceRow
-              stacked
-              options={TRAINING_TYPE_OPTIONS}
-              value={profile.trainingTypes ?? []}
-              onChange={toggleTraining}
-            />
-          </View>
-        ) : null}
-
-        {stepId === 'motivation' ? (
-          <View style={styles.stepBlock}>
-            <Text style={styles.headline}>What keeps you going?</Text>
-            <Text style={styles.intro}>
-              Vitto leans on this — for nudges, and how {petName} cheers you on.
-            </Text>
-            <ChoiceRow
-              stacked
-              options={MOTIVATION_OPTIONS}
-              value={profile.motivations ?? []}
-              onChange={(value) => {
-                const list = profile.motivations ?? [];
-                onUpdate(
-                  'motivations',
-                  list.includes(value) ? list.filter((v) => v !== value) : [...list, value],
-                );
-              }}
-            />
-          </View>
-        ) : null}
-
-        {stepId === 'choosePet' ? (
-          <View style={styles.stepBlock}>
-            <Kicker>Now — your companion</Kicker>
-            <Text style={styles.headline}>Who’s coming with you?</Text>
-            <Text style={styles.intro}>
-              They’ll live your goal with you. Pick the one that feels right.
-            </Text>
-            <BreedPicker value={breed} onChange={onBreedChange} size={96} />
-          </View>
-        ) : null}
-
-        {stepId === 'namePet' ? (
-          <View style={styles.stepBlock}>
-            <View style={styles.centerPet}>
-              <PetAvatar
-                {...IDLE_ACTIVITY}
-                pet={previewPet}
-                isCelebrating={false}
-                size={180}
-                hideStatusCaption
-                stageStyle={styles.centerStage}
-              >
-                {null}
-              </PetAvatar>
-            </View>
-            <Field label="Their name">
-              <TextInput
-                style={layout.input}
-                value={name}
-                onChangeText={onNameChange}
-                maxLength={18}
-                placeholder="Miso"
-                placeholderTextColor={colors.faint}
-              />
-            </Field>
-            <Text style={styles.groupLabel}>Their personality</Text>
-            {!canCustomise ? (
-              <View style={styles.locked} testID="personality-locked">
-                <Text style={styles.lockedTitle}>A Plus feature</Text>
-                <Text style={styles.lockedBody}>
-                  {`${name.trim() || 'Your companion'} starts with their own easygoing voice. With Plus you can pick a temperament, fine-tune it, or write them a whole character.`}
-                </Text>
-              </View>
-            ) : null}
-            {canCustomise ? (
-            <ChoiceRow
-              stacked
-              // By age: the ones that swear hard need MATURE_PERSONALITY_AGE.
-              options={petPersonalityOptionsFor(profile.age)}
-              // An age corrected downwards after choosing it leaves nothing selected.
-              value={petPersonalityOptionsFor(profile.age).some((option) => option.value === personality) ? personality : ('' as typeof personality)}
-              onChange={(next) => {
-                onPersonalityChange(next);
-                // The sliders show what the base means, and start from it.
-                onDialsChange(companion.dialsFor(next));
-                // Notes are kept when another base is tried, so coming back to
-                // "Your own" does not lose them; only "Your own" uses them.
-              }}
-              // The fine-tuning drops down under the base it tunes.
-              expanded={(chosen) => (
-                <>
-                  <PersonalityPreview
-                    personality={chosen}
-                    dials={dials ?? companion.dialsFor(chosen)}
-                    persona={persona}
-                    name={name.trim() || 'They'}
-                  />
-                  <View style={styles.dials}>
-                    <Text style={styles.dialsLabel}>Fine-tune them</Text>
-                    <CharacterDials dials={dials ?? companion.dialsFor(chosen)} onChange={onDialsChange} testID="character-dials" />
-                  </View>
-                  {chosen === 'custom' && profile.age >= MATURE_PERSONALITY_AGE ? (
-                    <Field
-                      label="Who are they?"
-                      hint="as much or as little as you like"
-                    >
-                      <TextInput
-                        style={[layout.input, styles.persona]}
-                        value={persona}
-                        onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
-                        placeholder="A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
-                        placeholderTextColor={colors.faint}
-                        multiline
-                        // Return closes the keyboard rather than starting a new line.
-                        returnKeyType="done"
-                        submitBehavior="blurAndSubmit"
-                        onSubmitEditing={() => Keyboard.dismiss()}
-                        maxLength={PERSONA_MAX_LENGTH}
-                        accessibilityLabel="Their character"
+              {onRedeemInvite ? (
+                showJoin ? (
+                  <View style={styles.join}>
+                    <FormField label="Invite code" hint="from your care partner">
+                      <TextField
+                        style={styles.inviteInput}
+                        value={joinCode}
+                        onChangeText={(value) => {
+                          setJoinCode(value);
+                          setStepError(null);
+                        }}
+                        autoCapitalize="characters"
+                        autoCorrect={false}
+                        maxLength={INVITE_INPUT_MAX_LENGTH}
+                        placeholder="ABC-DEF"
                       />
-                      <Text style={styles.personaCount}>{`${persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
-                    </Field>
-                  ) : null}
-                </>
-              )}
+                    </FormField>
+                    <PrimaryButton
+                      label="Join their pet"
+                      busy={joining}
+                      disabled={normalizeInviteCode(joinCode).length !== 6}
+                      onPress={() => void join()}
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.joinLink}>
+                    <TextButton label="Have an invite code? Join a partner’s pet" onPress={() => setShowJoin(true)} />
+                  </View>
+                )
+              ) : null}
+            </View>
+          ) : null}
+
+          {stepId === 'basics' ? (
+            <View>
+              <Text style={styles.headline}>A few basics.</Text>
+              <Text style={styles.intro}>Enough for Vitto to set your calorie target. Nothing more.</Text>
+              <View style={styles.fields}>
+                {/* One choice for every unit in the app. Seeded from the device
+                    locale, so a US phone opens on pounds and feet already. */}
+                <FormField label="Units">
+                  <SegmentedControl
+                    options={[
+                      { value: 'imperial' as const, label: 'lb · ft' },
+                      { value: 'metric' as const, label: 'kg · cm' },
+                    ]}
+                    value={measurementSystemOf(profile)}
+                    onChange={onSetUnits}
+                  />
+                </FormField>
+                <FieldRow>
+                  <FormField label="Age">
+                    <TextField
+                      keyboardType="number-pad"
+                      value={String(profile.age)}
+                      onChangeText={(value) => onUpdate('age', Number(value.replace(/[^0-9]/g, '')) || 0)}
+                    />
+                  </FormField>
+                  <FormField label={`Weight (${profile.weightUnit})`}>
+                    <TextField
+                      keyboardType="number-pad"
+                      value={String(displayedWeightLb)}
+                      onChangeText={(value) => onUpdate('weightKg', fromDisplayWeight(Number(value.replace(/[^0-9]/g, '')) || 0))}
+                    />
+                  </FormField>
+                </FieldRow>
+                {metric ? (
+                  <FormField label="Height (cm)">
+                    <TextField
+                      keyboardType="number-pad"
+                      value={String(profile.heightCm)}
+                      onChangeText={(value) => onUpdate('heightCm', Number(value.replace(/[^0-9]/g, '')) || 0)}
+                    />
+                  </FormField>
+                ) : (
+                  <FieldRow>
+                    <FormField label="Height (ft)">
+                      <TextField
+                        keyboardType="number-pad"
+                        value={String(displayedHeight.feet)}
+                        onChangeText={(value) =>
+                          onUpdate('heightCm', feetAndInchesToCm(Number(value.replace(/[^0-9]/g, '')) || 0, displayedHeight.inches))
+                        }
+                      />
+                    </FormField>
+                    <FormField label="Height (in)">
+                      <TextField
+                        keyboardType="number-pad"
+                        value={String(displayedHeight.inches)}
+                        onChangeText={(value) =>
+                          onUpdate('heightCm', feetAndInchesToCm(displayedHeight.feet, Number(value.replace(/[^0-9]/g, '')) || 0))
+                        }
+                      />
+                    </FormField>
+                  </FieldRow>
+                )}
+                <FormField label="Sex" hint="only for the energy estimate, stays private">
+                  <SegmentedControl
+                    options={[
+                      { value: 'female' as const, label: 'Female' },
+                      { value: 'male' as const, label: 'Male' },
+                      { value: 'other' as const, label: 'Rather not say' },
+                    ]}
+                    value={profile.sex}
+                    onChange={(value) => onUpdate('sex', value)}
+                  />
+                </FormField>
+              </View>
+            </View>
+          ) : null}
+
+          {stepId === 'goal' ? (
+            <View>
+              <Text style={styles.headline}>What are you working toward?</Text>
+              <Text style={styles.intro}>
+                You’re at{' '}
+                <Text style={styles.inlineValue}>
+                  {displayedWeightLb} {profile.weightUnit}
+                </Text>{' '}
+                now. Where do you want to be?
+              </Text>
+              <View style={styles.fields}>
+                <FormField label={`Goal weight (${profile.weightUnit})`}>
+                  <TextField
+                    style={styles.bigInput}
+                    keyboardType="number-pad"
+                    value={displayedGoalLb === undefined ? '' : String(displayedGoalLb)}
+                    placeholder={String(displayedWeightLb)}
+                    onChangeText={(value) => {
+                      const digits = value.replace(/[^0-9]/g, '');
+                      setGoalWeightLb(digits === '' ? undefined : Number(digits));
+                    }}
+                  />
+                </FormField>
+                <FormField label="Reach it by">
+                  <ChipGroup scroll options={months} value={profile.goalTargetDate} onChange={setGoalDate} />
+                </FormField>
+                {profile.targetWeightKg && profile.goalTargetDate ? (
+                  <View style={styles.plan} testID="goal-plan">
+                    <Text style={styles.planLabel}>Your daily target</Text>
+                    <Text style={styles.planBig}>{targets.calories.toLocaleString()} kcal</Text>
+                    <Text style={styles.planText}>
+                      {profile.goal === 'maintain'
+                        ? `Holding ${displayedWeightLb} ${profile.weightUnit}.`
+                        : `${plan ? `About ${weightLabel(plan.kgPerWeek)}` : 'A steady pace'} a week to hit ${displayedGoalLb} ${
+                            profile.weightUnit
+                          } by ${formatMonth(profile.goalTargetDate)}.`}
+                    </Text>
+                    {plan?.capped ? (
+                      <Text style={styles.planWarning}>That’s a fast pace. Vitto capped it to stay safe, so it’ll take a bit longer.</Text>
+                    ) : null}
+                  </View>
+                ) : null}
+                <FormField label="Any dietary preference?">
+                  <ChipGroup
+                    options={DIETARY_OPTIONS}
+                    value={profile.dietaryPreference}
+                    onChange={(value) => onUpdate('dietaryPreference', value)}
+                  />
+                </FormField>
+              </View>
+            </View>
+          ) : null}
+
+          {stepId === 'commitments' ? (
+            <View>
+              <Text style={styles.headline}>What will you hold yourself to?</Text>
+              <Text style={styles.intro}>This is what {petName} lives on. Pick what you’ll actually commit to.</Text>
+              <View style={styles.fields}>
+                <FormField label="Outside workouts, how active is your day?">
+                  <SelectionList options={ACTIVITY_OPTIONS} value={profile.activity} onChange={(value) => onUpdate('activity', value)} />
+                </FormField>
+                <FormField label="Days a week you’ll train">
+                  <SegmentedControl
+                    options={GYM_DAY_OPTIONS}
+                    value={String(profile.trainingDaysPerWeek)}
+                    onChange={(value) => onUpdate('trainingDaysPerWeek', Number(value))}
+                  />
+                </FormField>
+                <FormField label="Daily step goal">
+                  <ChipGroup
+                    options={[
+                      ...STEP_GOAL_PRESETS.map((n) => ({ value: String(n), label: n.toLocaleString() })),
+                      { value: 'auto', label: 'Let Vitto choose' },
+                    ]}
+                    value={STEP_GOAL_PRESETS.includes(stepGoal as (typeof STEP_GOAL_PRESETS)[number]) ? String(stepGoal) : undefined}
+                    onChange={(value) => onStepGoalChange(value === 'auto' ? suggestStepGoal(profile) : Number(value))}
+                  />
+                </FormField>
+                <FormField label="What kind of training?" hint="pick any">
+                  <SelectionTiles options={TRAINING_TYPE_OPTIONS} value={profile.trainingTypes ?? []} onChange={toggleTraining} />
+                </FormField>
+              </View>
+            </View>
+          ) : null}
+
+          {stepId === 'motivation' ? (
+            <View>
+              <Text style={styles.headline}>What keeps you going?</Text>
+              <Text style={styles.intro}>Vitto leans on this, for nudges and for how {petName} cheers you on. Pick any.</Text>
+              <View style={styles.fields}>
+                <SelectionList
+                  multiple
+                  options={MOTIVATION_OPTIONS}
+                  value={profile.motivations ?? []}
+                  onChange={(value) => {
+                    const list = profile.motivations ?? [];
+                    onUpdate('motivations', list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
+                  }}
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {stepId === 'choosePet' ? (
+            <View>
+              <Text style={styles.headline}>Who’s coming with you?</Text>
+              <Text style={styles.intro}>They’ll live your goal with you. Pick the one that feels right.</Text>
+              <View style={styles.fields}>
+                <BreedPicker value={breed} onChange={onBreedChange} size={96} />
+              </View>
+            </View>
+          ) : null}
+
+          {stepId === 'namePet' ? (
+            <View>
+              <View style={styles.heroPet}>
+                <PetAvatar
+                  {...IDLE_ACTIVITY}
+                  pet={previewPet}
+                  isCelebrating={false}
+                  size={170}
+                  hideStatusCaption
+                  stageStyle={styles.heroStage}
+                >
+                  {null}
+                </PetAvatar>
+              </View>
+              <View style={styles.fields}>
+                <FormField label="Their name">
+                  <TextField
+                    style={styles.bigInput}
+                    value={name}
+                    onChangeText={onNameChange}
+                    maxLength={18}
+                    placeholder="Miso"
+                    returnKeyType="done"
+                  />
+                </FormField>
+                <FormField label="Their personality">
+                  {!canCustomise ? (
+                    <View style={styles.locked} testID="personality-locked">
+                      <Text style={styles.lockedTitle}>A Plus feature</Text>
+                      <Text style={styles.lockedBody}>
+                        {`${name.trim() || 'Your companion'} starts with their own easygoing voice. With Plus you can pick a temperament, fine-tune it, or write them a whole character.`}
+                      </Text>
+                    </View>
+                  ) : (
+                    <SelectionList
+                      // By age: the ones that swear hard need MATURE_PERSONALITY_AGE.
+                      options={petPersonalityOptionsFor(profile.age)}
+                      // An age corrected downwards after choosing it leaves nothing selected.
+                      value={petPersonalityOptionsFor(profile.age).some((option) => option.value === personality) ? personality : undefined}
+                      onChange={(next) => {
+                        onPersonalityChange(next);
+                        // The sliders show what the base means, and start from it.
+                        onDialsChange(companion.dialsFor(next));
+                        // Notes are kept when another base is tried, so coming back to
+                        // "Your own" does not lose them; only "Your own" uses them.
+                      }}
+                      // The fine-tuning drops down under the base it tunes.
+                      expanded={(chosen) => (
+                        <>
+                          <PersonalityPreview
+                            personality={chosen}
+                            dials={dials ?? companion.dialsFor(chosen)}
+                            persona={persona}
+                            name={name.trim() || 'They'}
+                          />
+                          <View>
+                            <Text style={styles.dialsLabel}>Fine-tune them</Text>
+                            <CharacterDials dials={dials ?? companion.dialsFor(chosen)} onChange={onDialsChange} testID="character-dials" />
+                          </View>
+                          {chosen === 'custom' && profile.age >= MATURE_PERSONALITY_AGE ? (
+                            <FormField label="Who are they?" hint="as much or as little as you like">
+                              <TextField
+                                style={styles.persona}
+                                value={persona}
+                                onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
+                                placeholder="A grumpy old pirate who secretly adores us and hands out sea shanties as rewards"
+                                multiline
+                                // Return closes the keyboard rather than starting a new line.
+                                returnKeyType="done"
+                                submitBehavior="blurAndSubmit"
+                                onSubmitEditing={() => Keyboard.dismiss()}
+                                maxLength={PERSONA_MAX_LENGTH}
+                                accessibilityLabel="Their character"
+                              />
+                              <Text style={styles.personaCount}>{`${persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
+                            </FormField>
+                          ) : null}
+                        </>
+                      )}
+                    />
+                  )}
+                </FormField>
+              </View>
+            </View>
+          ) : null}
+
+          {stepId === 'companion' ? (
+            <View>
+              <View style={styles.heroPet}>
+                <PetAvatar {...IDLE_ACTIVITY} pet={previewPet} isCelebrating size={200} hideStatusCaption stageStyle={styles.heroStageTall}>
+                  {null}
+                </PetAvatar>
+              </View>
+              <Text style={styles.meetName}>{petName}</Text>
+              <Text style={styles.meetLine}>{survival.detail}</Text>
+
+              <View style={styles.recap}>
+                <Text style={styles.recapTitle}>Your plan</Text>
+                <RecapRow
+                  label="Goal"
+                  value={`${displayedGoalLb ?? displayedWeightLb} ${profile.weightUnit} by ${formatMonth(profile.goalTargetDate) || 'your date'}`}
+                />
+                <RecapRow label="Eat" value={`${targets.calories.toLocaleString()} kcal · ${targets.proteinGrams}g protein / day`} />
+                <RecapRow
+                  label="Move"
+                  value={`${wantsSteps.toLocaleString()} steps/day${bestSteps !== wantsSteps ? `  (aim ${bestSteps.toLocaleString()})` : ''}`}
+                />
+                <RecapRow
+                  label="Train"
+                  value={`${profile.trainingDaysPerWeek} days/wk${bestGymDays !== profile.trainingDaysPerWeek ? `  (aim ${bestGymDays})` : ''}`}
+                />
+              </View>
+              <Text style={styles.hint}>
+                Keep it up most days and {petName} thrives. {petName} is counting on you.
+              </Text>
+            </View>
+          ) : null}
+
+          {stepId === 'plus' && paywall ? (
+            <PlusPaywall
+              skippable
+              isDevAccount={paywall.isDevAccount}
+              onTierChange={paywall.onTierChange}
+              // Not now, or bought: either way, on with onboarding.
+              onClose={() => setStepId(SEQUENCE[index + 1])}
+              onPurchased={() => setStepId(SEQUENCE[index + 1])}
             />
-            ) : null}
-          </View>
-        ) : null}
-
-        {stepId === 'companion' ? (
-          <View style={styles.stepBlock}>
-            <View style={styles.centerPet}>
-              <PetAvatar
-                {...IDLE_ACTIVITY}
-                pet={previewPet}
-                isCelebrating
-                size={200}
-                hideStatusCaption
-                stageStyle={styles.centerStage}
-              >
-                {null}
-              </PetAvatar>
-            </View>
-            <Text style={styles.meetName}>{petName}</Text>
-            <Text style={styles.meetLine}>{survival.detail}</Text>
-
-            <View style={styles.recap}>
-              <Kicker>Your plan</Kicker>
-              <RecapRow label="Goal" value={`${displayedGoalLb ?? displayedWeightLb} ${profile.weightUnit} by ${formatMonth(profile.goalTargetDate) || 'your date'}`} />
-              <RecapRow label="Eat" value={`${targets.calories.toLocaleString()} kcal · ${targets.proteinGrams}g protein / day`} />
-              <RecapRow
-                label="Move"
-                value={`${wantsSteps.toLocaleString()} steps/day${
-                  bestSteps !== wantsSteps ? `  (aim ${bestSteps.toLocaleString()})` : ''
-                }`}
-              />
-              <RecapRow
-                label="Train"
-                value={`${profile.trainingDaysPerWeek} days/wk${
-                  bestGymDays !== profile.trainingDaysPerWeek ? `  (aim ${bestGymDays})` : ''
-                }`}
-              />
-            </View>
-            <Text style={styles.hint}>
-              Keep it up most days and {petName} thrives. {petName} is counting on you.
-            </Text>
-          </View>
-        ) : null}
-
-        {stepId === 'plus' && paywall ? (
-          <PlusPaywall
-            skippable
-            isDevAccount={paywall.isDevAccount}
-            onTierChange={paywall.onTierChange}
-            // Not now, or bought: either way, on with onboarding.
-            onClose={() => setStepId(SEQUENCE[index + 1])}
-            onPurchased={() => setStepId(SEQUENCE[index + 1])}
-          />
-        ) : null}
-
-        <ErrorText>{stepError ?? error}</ErrorText>
-
-        {stepId !== 'plus' ? (
-          <View style={styles.actions}>
-            <PrimaryButton label={nextLabel} busy={busy} onPress={() => void advance()} />
-            {index > 0 ? <TextButton label="Back" onPress={back} /> : null}
-          </View>
-        ) : null}
+          ) : null}
+        </View>
       </ScrollView>
+
+      {stepId !== 'plus' ? (
+        <View style={styles.footer}>
+          <View style={styles.footerInner}>
+            <ErrorText>{stepError ?? error}</ErrorText>
+            <PrimaryButton label={nextLabel} busy={busy} onPress={() => void advance()} />
+          </View>
+        </View>
+      ) : (
+        <ErrorText>{stepError ?? error}</ErrorText>
+      )}
     </KeyboardAvoidingView>
+  );
+}
+
+function WelcomePoint({ mark, text: line }: { mark: string; text: string }) {
+  return (
+    <View style={styles.promise}>
+      <View style={styles.promiseMark}>
+        <Text style={styles.promiseMarkText}>{mark}</Text>
+      </View>
+      <Text style={styles.promiseText}>{line}</Text>
+    </View>
   );
 }
 
@@ -791,95 +757,96 @@ function RecapRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
+
 const styles = StyleSheet.create({
-  body: { padding: 22, paddingTop: 70, paddingBottom: 60 },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  progressTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#e4e2da',
-    marginTop: 22,
-    overflow: 'hidden',
-  },
-  progressFill: { height: 4, borderRadius: 2, backgroundColor: colors.coral },
-  progressLabel: {
+  header: { paddingTop: 58, paddingHorizontal: 20, paddingBottom: 6 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backButton: { width: 44, height: 36, justifyContent: 'center' },
+  backMark: { fontSize: 22, color: colors.ink },
+  progress: { flex: 1, flexDirection: 'row', gap: 4 },
+  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#e4e0d6' },
+  progressSegmentOn: { backgroundColor: colors.coral },
+  signOut: { minWidth: 44, height: 36, justifyContent: 'center', alignItems: 'flex-end' },
+  signOutLabel: { fontSize: 13, fontWeight: '500', color: colors.muted },
+  progressLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, letterSpacing: 1, textAlign: 'center', marginTop: 6 },
+
+  body: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 140 },
+  page: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
+  eyebrow: {
     fontFamily: fonts.mono,
-    fontSize: 10,
-    color: colors.faint,
-    marginTop: 8,
-    letterSpacing: 1,
-  },
-  stepBlock: { marginTop: 8 },
-  headline: { ...text.display, marginTop: 22, lineHeight: 38 },
-  intro: { ...text.body, marginTop: 12, color: colors.muted },
-  inlineValue: { fontWeight: '700', color: colors.ink },
-  grid: { flexDirection: 'row', gap: 12 },
-  groupLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: colors.faint,
-    marginTop: 22,
+    fontSize: 11,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
+    color: colors.coralDeep,
+    marginTop: 8,
   },
-  hint: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 12, lineHeight: 16 },
-  plan: {
-    marginTop: 18,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(132,160,138,0.35)',
-    backgroundColor: colors.sageSoft,
+  headline: { fontSize: 30, fontWeight: '800', color: colors.ink, letterSpacing: -0.6, lineHeight: 36, marginTop: 8 },
+  intro: { fontSize: 16, color: colors.muted, lineHeight: 23, marginTop: 10 },
+  inlineValue: { fontWeight: '700', color: colors.ink },
+  fields: { marginTop: 24, gap: 22 },
+  bigInput: { fontSize: 22, fontWeight: '700', minHeight: 56 },
+  hint: { fontSize: 13, color: colors.muted, marginTop: 16, lineHeight: 19, textAlign: 'center' },
+
+  heroPet: { alignItems: 'center', marginTop: 4 },
+  heroStage: { height: 180, backgroundColor: 'transparent' },
+  heroStageTall: { height: 210, backgroundColor: 'transparent' },
+  promises: { marginTop: 24, gap: 12 },
+  promise: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  promiseMark: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: SELECTED_FILL,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  planBig: { fontSize: 30, fontWeight: '700', color: colors.ink, marginTop: 6 },
-  planText: { fontSize: 13, lineHeight: 20, color: colors.inkSoft, marginTop: 4 },
-  planWarning: { fontFamily: fonts.mono, fontSize: 10, color: '#9a6b5c', marginTop: 8, lineHeight: 15 },
-  join: { marginTop: 20, gap: 4, alignSelf: 'stretch' },
+  promiseMarkText: { fontSize: 13, fontWeight: '700', color: colors.coralDeep },
+  promiseText: { flex: 1, fontSize: 15, color: colors.inkSoft },
+  join: { marginTop: 24, gap: 12 },
+  joinLink: { marginTop: 20, alignItems: 'center' },
   inviteInput: { fontFamily: fonts.mono, letterSpacing: 3 },
-  peekPet: { alignItems: 'center', marginTop: 12 },
-  persona: { minHeight: 84, paddingTop: 12, textAlignVertical: 'top', lineHeight: 19 },
-  locked: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 14,
-    gap: 4,
-    backgroundColor: colors.cardSoft,
-  },
-  lockedTitle: { ...text.heading, fontSize: 15, color: colors.ink },
-  lockedBody: { ...text.body, color: colors.muted, lineHeight: 19 },
-  dials: { marginTop: 14 },
-  dialsLabel: { fontSize: 12, fontWeight: '600', color: colors.inkSoft, marginBottom: 6 },
-  personaCount: { fontSize: 12, color: colors.faint, textAlign: 'right', marginTop: 4 },
-  peekStage: { height: 130, backgroundColor: 'transparent' },
-  centerPet: { alignItems: 'center', marginTop: 10, marginBottom: 8 },
-  centerStage: { height: 210, backgroundColor: 'transparent' },
-  meetName: { ...text.display, textAlign: 'center', marginTop: 6 },
-  meetLine: {
-    ...text.body,
-    color: colors.muted,
-    textAlign: 'center',
-    marginTop: 12,
-    paddingHorizontal: 6,
-  },
+
+  plan: { padding: 18, borderRadius: 16, backgroundColor: colors.sageSoft },
+  planLabel: { fontSize: 13, fontWeight: '600', color: colors.inkSoft },
+  planBig: { fontSize: 32, fontWeight: '800', color: colors.ink, marginTop: 4, letterSpacing: -0.5 },
+  planText: { fontSize: 14, lineHeight: 20, color: colors.inkSoft, marginTop: 4 },
+  planWarning: { fontSize: 12, color: '#9a6b5c', marginTop: 8, lineHeight: 17 },
+
+  locked: { borderRadius: 16, padding: 16, gap: 4, backgroundColor: colors.cardSoft },
+  lockedTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  lockedBody: { fontSize: 14, color: colors.muted, lineHeight: 20 },
+  dialsLabel: { fontSize: 13, fontWeight: '600', color: colors.inkSoft, marginBottom: 6 },
+  persona: { minHeight: 96, paddingTop: 12, textAlignVertical: 'top', lineHeight: 20 },
+  personaCount: { fontSize: 12, color: colors.faint, textAlign: 'right' },
+
+  meetName: { fontSize: 34, fontWeight: '800', color: colors.ink, textAlign: 'center', letterSpacing: -0.6, marginTop: 4 },
+  meetLine: { fontSize: 15, color: colors.muted, textAlign: 'center', lineHeight: 22, marginTop: 8, paddingHorizontal: 6 },
   recap: {
     marginTop: 22,
-    padding: 16,
+    padding: 18,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
-    gap: 10,
+    gap: 12,
   },
+  recapTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
   recapRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
-  recapLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: colors.faint,
-    textTransform: 'uppercase',
-    marginTop: 2,
+  recapLabel: { fontSize: 14, color: colors.muted },
+  recapValue: { flex: 1, textAlign: 'right', fontSize: 14, color: colors.ink, fontWeight: '600' },
+
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: HOME_INDICATOR_INSET + 8,
+    backgroundColor: colors.paper,
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
   },
-  recapValue: { flex: 1, textAlign: 'right', fontSize: 13, color: colors.ink, fontWeight: '600' },
-  actions: { marginTop: 28, gap: 16 },
+  footerInner: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center', gap: 8 },
 });

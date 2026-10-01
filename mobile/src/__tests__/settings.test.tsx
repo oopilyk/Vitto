@@ -3,6 +3,12 @@ import { Text, TextInput } from 'react-native';
 import { type BodyProfile, PROFILE_SURVEY_DEFAULTS, measurementSystemOf } from '@vitto/core';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { PreferencesScreen } from '../screens/PreferencesScreen';
+import { PersonalityScreen } from '../screens/PersonalityScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
+import { ScreenTimeScreen } from '../screens/ScreenTimeScreen';
+import { ActivityHistoryScreen } from '../screens/ActivityHistoryScreen';
 
 const profile: BodyProfile = {
   age: 30,
@@ -37,13 +43,13 @@ const render = (
 ) => {
   let tree!: renderer.ReactTestRenderer;
   act(() => {
-    tree = renderer.create(<SettingsScreen profile={body} onSave={onSave} onClose={onClose} />);
+    tree = renderer.create(<PreferencesScreen profile={body} onSave={onSave} onClose={onClose} />);
   });
   return tree;
 };
 
-describe('settings screen', () => {
-  it('shows the body profile cards that used to live on Profile', () => {
+describe('preferences screen', () => {
+  it('holds the body profile form', () => {
     const tree = render();
     const screen = json(tree);
     expect(screen).toContain('About you');
@@ -134,44 +140,94 @@ describe('settings screen', () => {
     tree.unmount();
   });
 
-  it('shows the companion as a row that opens the switching page', () => {
-    const opened: string[] = [];
+  it('goes back to Settings from the top bar', () => {
+    let closed = 0;
+    const tree = render(profile, async () => {}, () => {
+      closed += 1;
+    });
+    act(() => findButton(tree, 'Settings')!.props.onPress());
+    expect(closed).toBe(1);
+    tree.unmount();
+  });
+});
+
+describe('settings menu', () => {
+  const opened: string[] = [];
+  const renderMenu = (extra: Partial<React.ComponentProps<typeof SettingsScreen>> = {}) => {
+    opened.length = 0;
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <SettingsScreen
-          profile={profile}
+          profile={{ ...profile, displayName: 'Kyle' }}
+          onClose={() => opened.push('back')}
           breed="bichon"
           onBreedChange={() => {}}
           coins={120}
           breedChangeCost={500}
-          onOpenChooseCompanion={() => opened.push('choose')}
-          onSave={async () => {}}
-          onClose={() => {}}
+          pet={{ name: 'Blue', personality: 'sweet', dials: undefined, persona: undefined }}
+          notificationsOn
+          onOpenPlus={() => opened.push('plus')}
+          onOpenChooseCompanion={() => opened.push('animal')}
+          onOpenPersonality={() => opened.push('personality')}
+          onOpenNotifications={() => opened.push('notifications')}
+          onOpenPreferences={() => opened.push('preferences')}
+          onOpenDeleteAccount={() => opened.push('delete')}
+          {...extra}
         />,
       );
     });
-    expect(json(tree)).toContain('Your companion');
-    expect(json(tree)).toContain('120 coins · a switch costs 500');
-    // The grid lives on its own page now.
-    expect(byLabel(tree, 'Choose the Shiba')).toBeUndefined();
-    act(() => byLabel(tree, 'Change animal')!.props.onPress());
-    expect(opened).toEqual(['choose']);
+    return tree;
+  };
+
+  it('is a list of rows, each saying what it is set to and opening its own page', () => {
+    const tree = renderMenu();
+    const screen = json(tree);
+    // No forms on the menu itself.
+    expect(screen).not.toContain('About you');
+    expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
+    expect(screen).toContain('120 coins');
+    expect(screen).toContain('Kyle · 30 · Lose fat');
+    expect(screen).toContain('On');
+
+    for (const [label, page] of [
+      ['Vitto Plus', 'plus'],
+      ['Animal', 'animal'],
+      ['Personality', 'personality'],
+      ['Notifications', 'notifications'],
+      ['Your preferences', 'preferences'],
+      ['Delete account', 'delete'],
+    ]) {
+      act(() => byLabel(tree, label!)!.props.onPress());
+      expect(opened.at(-1)).toBe(page);
+    }
+    act(() => findButton(tree, 'Profile')!.props.onPress());
+    expect(opened.at(-1)).toBe('back');
     tree.unmount();
   });
 
-  it('hides the companion card when no breed handler is wired up', () => {
-    expect(json(render())).not.toContain('Your companion');
+  it('says personalities are Plus on the free tier', () => {
+    const tree = renderMenu({ canCustomise: false });
+    expect(json(tree)).toContain('A Plus feature');
+    tree.unmount();
   });
 
-  it('offers Delete account at the bottom, and says what it destroys', async () => {
+  it('leaves out rows whose page is not wired up', () => {
+    const tree = renderMenu({ onBreedChange: undefined, onOpenDeleteAccount: undefined, notificationsOn: null });
+    expect(byLabel(tree, 'Animal')).toBeUndefined();
+    expect(byLabel(tree, 'Delete account')).toBeUndefined();
+    expect(byLabel(tree, 'Notifications')).toBeUndefined();
+    tree.unmount();
+  });
+});
+
+describe('delete account page', () => {
+  it('says what it destroys, then deletes', async () => {
     let deleted = 0;
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <SettingsScreen
-          profile={profile}
-          onSave={async () => {}}
+        <DeleteAccountScreen
           onClose={() => {}}
           onDeleteAccount={async () => {
             deleted += 1;
@@ -180,31 +236,29 @@ describe('settings screen', () => {
       );
     });
     const rendered = json(tree);
-    expect(rendered).toContain('Delete account');
     // The warning has to name the shared-pet outcome, which is the surprising part.
     expect(rendered).toContain('cannot be undone');
     expect(rendered).toContain('care partner');
-
     await act(async () => {
       await findButton(tree, 'Delete account')!.props.onPress();
     });
     expect(deleted).toBe(1);
     tree.unmount();
   });
+});
 
-  it('hides Delete account offline, where there is no account to delete', () => {
-    const tree = render();
-    expect(json(tree)).not.toContain('Delete account');
-    tree.unmount();
-  });
-
-  it('goes back to Profile from the top bar', () => {
-    let closed = 0;
-    const tree = render(profile, async () => {}, () => {
-      closed += 1;
+describe('notifications page', () => {
+  it('shows only the toggles this device can use', () => {
+    const changed: boolean[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <NotificationsScreen petName="Blue" pushEnabled onPushEnabledChange={(next) => changed.push(next)} islandEnabled={null} onClose={() => {}} />,
+      );
     });
-    act(() => findButton(tree, 'Profile')!.props.onPress());
-    expect(closed).toBe(1);
+    const rendered = json(tree);
+    expect(rendered).toContain('Blue can message you');
+    expect(rendered).not.toContain('Dynamic Island');
     tree.unmount();
   });
 });
@@ -217,7 +271,6 @@ describe('profile screen → settings', () => {
         <ProfileScreen
           profile={profile}
           events={[]}
-          onSave={async () => {}}
           onClose={() => {}}
           onOpenSettings={onOpenSettings}
         />,
@@ -249,14 +302,14 @@ describe('profile screen → settings', () => {
   });
 });
 
-describe('SettingsScreen personality', () => {
+describe('personality page', () => {
   it('edits base, sliders and notes together, saving once', async () => {
     const saved: unknown[] = [];
     const pet = { name: 'Blue', personality: 'sweet' as const, dials: undefined, persona: undefined };
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <SettingsScreen profile={profile} onSave={async () => {}} onClose={() => {}} breed="bichon" onBreedChange={() => {}} pet={pet} onCharacterChange={async (next) => { saved.push(next); return null; }} />,
+        <PersonalityScreen pet={pet} age={profile.age} onClose={() => {}} onSave={async (next) => { saved.push(next); return null; }} />,
       );
     });
     const button = (label: string) =>
@@ -272,9 +325,66 @@ describe('SettingsScreen personality', () => {
     expect(saved[0]).toMatchObject({ personality: 'savage', dials: { blunt: 0, sarcastic: 0.92 }, persona: '' });
   });
 
-  it('keeps the editor off the screen when there is no pet to edit', () => {
+  it('shows what Plus would unlock instead of the editor on the free tier', () => {
     let tree!: renderer.ReactTestRenderer;
-    act(() => { tree = renderer.create(<SettingsScreen profile={profile} onSave={async () => {}} onClose={() => {}} />); });
+    const pet = { name: 'Blue', personality: 'sweet' as const, dials: undefined, persona: undefined };
+    act(() => { tree = renderer.create(<PersonalityScreen pet={pet} age={30} canCustomise={false} onSave={() => {}} onClose={() => {}} />); });
     expect(tree.root.findAll((n) => n.props.testID === 'character-dials')).toHaveLength(0);
+    expect(tree.root.findAll((n) => n.props.testID === 'personality-locked').length).toBeGreaterThan(0);
+  });
+});
+
+describe('screen time page', () => {
+  it('saves the budget through its own save bar, and logs today against the budget shown', async () => {
+    const saved: BodyProfile[] = [];
+    const logged: [number, number | undefined][] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <ScreenTimeScreen
+          profile={profile}
+          events={[]}
+          onSave={async (next) => {
+            saved.push(next);
+          }}
+          onLogScreenTime={async (minutes, budget) => {
+            logged.push([minutes, budget]);
+          }}
+          onClose={() => {}}
+        />,
+      );
+    });
+    const field = (label: string) => tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onChangeText === 'function')!;
+    expect(findButton(tree, 'Save changes')).toBeUndefined();
+    act(() => field('Budget hours').props.onChangeText('1'));
+    act(() => field('Budget minutes').props.onChangeText('30'));
+    await act(async () => {
+      await findButton(tree, 'Save changes')!.props.onPress();
+    });
+    expect(saved[0]!.screenTimeBudgetMinutes).toBe(90);
+
+    act(() => field('Today hours').props.onChangeText('2'));
+    await act(async () => {
+      await findButton(tree, "Log today's screen time")!.props.onPress();
+    });
+    expect(logged).toEqual([[120, 90]]);
+    tree.unmount();
+  });
+});
+
+describe('activity history page', () => {
+  it('groups moments under a heading per day', () => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 86_400_000);
+    const event = (id: string, at: Date) => ({ id, type: 'WORKOUT', occurredAt: at.toISOString(), metadata: {} }) as any;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<ActivityHistoryScreen events={[event('a', now), event('b', yesterday)]} onClose={() => {}} />);
+    });
+    const rendered = json(tree);
+    expect(rendered).toContain('Today');
+    expect(rendered).toContain('Yesterday');
+    expect(rendered).toContain('2 care moments');
+    tree.unmount();
   });
 });

@@ -49,6 +49,16 @@ import { MindGymScreen } from './src/screens/MindGymScreen';
 import { PlusScreen } from './src/screens/PlusScreen';
 import { ChooseCompanionScreen } from './src/screens/ChooseCompanionScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { PreferencesScreen } from './src/screens/PreferencesScreen';
+import { EditProfileScreen } from './src/screens/EditProfileScreen';
+import { ScreenTimeScreen } from './src/screens/ScreenTimeScreen';
+import { RemindersScreen } from './src/screens/RemindersScreen';
+import { GymScreen } from './src/screens/GymScreen';
+import { AppleHealthScreen } from './src/screens/AppleHealthScreen';
+import { ActivityHistoryScreen } from './src/screens/ActivityHistoryScreen';
+import { PersonalityScreen } from './src/screens/PersonalityScreen';
+import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
 import { deviceMeasurementSystem } from './src/services/deviceLocale';
@@ -109,6 +119,18 @@ type RootStackParamList = {
   Plus: undefined;
   // Switching the pet's animal, for coins. Pushed from Settings.
   ChooseCompanion: undefined;
+  // Profile's own pages, each pushed from its row there.
+  EditProfile: undefined;
+  ScreenTime: undefined;
+  Reminders: undefined;
+  Gym: undefined;
+  AppleHealth: undefined;
+  ActivityHistory: undefined;
+  // Settings' own pages, each pushed from its row there.
+  Preferences: undefined;
+  Personality: undefined;
+  Notifications: undefined;
+  DeleteAccount: undefined;
   MealCapture: undefined;
   Workout: undefined;
   MindGym: undefined;
@@ -1916,21 +1938,38 @@ export default function App() {
               achievements={achievementsNow}
               profile={profile}
               events={events}
-              onSave={persistProfile}
-              onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
               onClose={() => navigation.goBack()}
               onOpenSettings={() => navigation.navigate('Settings')}
+              onEditProfile={() => navigation.navigate('EditProfile')}
+              onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
               onSignOut={isSupabaseConfigured && session ? logOut : undefined}
-              appleHealthStatus={
-                Platform.OS === 'ios'
-                  ? isAppleHealthConnected
-                    ? 'connected'
-                    : 'disconnected'
-                  : undefined
-              }
-              onConnectAppleHealth={() => void connectAppleHealth()}
-              onSyncAppleHealth={() => void syncAppleHealth()}
-              isSyncingAppleHealth={isSyncingAppleHealth}
+              onOpenScreenTime={() => navigation.navigate('ScreenTime')}
+              reminders={reminders}
+              onOpenReminders={() => navigation.navigate('Reminders')}
+              gymSaved={Platform.OS === 'web' ? undefined : gym !== null}
+              onOpenGym={() => navigation.navigate('Gym')}
+              appleHealthStatus={Platform.OS === 'ios' ? (isAppleHealthConnected ? 'connected' : 'disconnected') : undefined}
+              onOpenAppleHealth={() => navigation.navigate('AppleHealth')}
+              onOpenHistory={() => navigation.navigate('ActivityHistory')}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="EditProfile">
+          {({ navigation }) => (
+            <EditProfileScreen
+              profile={profile}
+              onSave={persistProfile}
+              onClose={() => navigation.goBack()}
+              onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="ScreenTime">
+          {({ navigation }) => (
+            <ScreenTimeScreen
+              profile={profile}
+              events={events}
+              onSave={persistProfile}
               onLogScreenTime={logScreenTime}
               screenTimeAccess={
                 Platform.OS === 'android' && isScreenTimeModuleAvailable()
@@ -1942,6 +1981,13 @@ export default function App() {
                     }
                   : undefined
               }
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Reminders">
+          {({ navigation }) => (
+            <RemindersScreen
               reminders={{
                 items: reminders,
                 permission: reminderPermission,
@@ -1949,40 +1995,86 @@ export default function App() {
                 onToggle: toggleReminder,
                 onRemove: removeReminder,
               }}
-              gym={
-                Platform.OS === 'web'
-                  ? undefined
-                  : {
-                      saved: gym !== null,
-                      busy: gymBusy,
-                      error: gymError,
-                      onSetHere: () => void setGymHere(),
-                      onClear: () => void clearGym(),
-                    }
-              }
+              onClose={() => navigation.goBack()}
             />
           )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Gym">
+          {({ navigation }) => (
+            <GymScreen
+              gym={{
+                saved: gym !== null,
+                busy: gymBusy,
+                error: gymError,
+                onSetHere: () => void setGymHere(),
+                onClear: () => void clearGym(),
+              }}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="AppleHealth">
+          {({ navigation }) => (
+            <AppleHealthScreen
+              status={isAppleHealthConnected ? 'connected' : 'disconnected'}
+              onConnect={() => void connectAppleHealth()}
+              onSync={() => void syncAppleHealth()}
+              syncing={isSyncingAppleHealth}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="ActivityHistory">
+          {({ navigation }) => <ActivityHistoryScreen events={events} onClose={() => navigation.goBack()} />}
         </RootStack.Screen>
         <RootStack.Screen name="Settings">
           {({ navigation }) => (
             <SettingsScreen
               profile={profile}
+              onClose={() => navigation.goBack()}
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}
               coins={coinsOf(pet)}
               breedChangeCost={isDev ? 0 : BREED_CHANGE_COST}
-              onOpenChooseCompanion={() => navigation.navigate('ChooseCompanion')}
               pet={livePet}
               canCustomise={canCustomise}
               isPlus={canCustomise}
+              notificationsOn={
+                typeof pushEnabled === 'boolean' || canShowIsland()
+                  ? pushEnabled === true || (canShowIsland() && islandEnabled === true)
+                  : null
+              }
               onOpenPlus={() => navigation.navigate('Plus')}
-              personalityChangesLeft={personalityChangesLeft}
-              onCharacterChange={(next) => changePersonality(next.personality, next.persona, next.dials)}
-              islandEnabled={canShowIsland() ? islandEnabled : null}
-              onIslandEnabledChange={(next) => {
-                setIslandEnabled(next);
-                void repository.saveIslandEnabled(next);
-              }}
+              onOpenChooseCompanion={() => navigation.navigate('ChooseCompanion')}
+              onOpenPersonality={() => navigation.navigate('Personality')}
+              onOpenNotifications={() => navigation.navigate('Notifications')}
+              onOpenPreferences={() => navigation.navigate('Preferences')}
+              onOpenDeleteAccount={isOnline ? () => navigation.navigate('DeleteAccount') : undefined}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Preferences">
+          {({ navigation }) => (
+            <PreferencesScreen profile={profile} onSave={persistProfile} onClose={() => navigation.goBack()} />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Personality">
+          {({ navigation }) => (
+            <PersonalityScreen
+              pet={livePet}
+              age={profile.age}
+              onSave={(next) => changePersonality(next.personality, next.persona, next.dials)}
+              canCustomise={canCustomise}
+              onOpenPlus={() => navigation.navigate('Plus')}
+              changesLeft={personalityChangesLeft}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="Notifications">
+          {({ navigation }) => (
+            <NotificationsScreen
+              petName={livePet.name}
               pushEnabled={pushEnabled}
               onPushEnabledChange={(next) => {
                 setPushEnabled(next); // optimistic: the control must answer the tap
@@ -1990,10 +2082,21 @@ export default function App() {
                   if (status !== 'ready') setPushEnabled((current) => (current === next ? !next : current));
                 });
               }}
-              onSave={persistProfile}
+              islandEnabled={canShowIsland() ? islandEnabled : null}
+              onIslandEnabledChange={(next) => {
+                setIslandEnabled(next);
+                void repository.saveIslandEnabled(next);
+              }}
               onClose={() => navigation.goBack()}
-              onDeleteAccount={isOnline ? deleteAccount : undefined}
-              deletingAccount={isDeletingAccount}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="DeleteAccount">
+          {({ navigation }) => (
+            <DeleteAccountScreen
+              onDeleteAccount={deleteAccount}
+              deleting={isDeletingAccount}
+              onClose={() => navigation.goBack()}
             />
           )}
         </RootStack.Screen>
