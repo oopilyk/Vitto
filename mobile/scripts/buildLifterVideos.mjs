@@ -53,7 +53,9 @@ const PETS = {
   bearRunner: {
     source: 'bear-runner',
     output: 'bearRunner',
-    clips: ['idle', 'cheer', 'run', 'dizzy', 'tired', 'lie-down'],
+    // The run starts from a standstill; only its stride (four frames a step,
+    // three steps) is looped, so it never stops to stand up again.
+    clips: ['idle', 'cheer', { name: 'run', frames: [15, 26] }, 'dizzy', 'tired', 'lie-down'],
     key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true },
   },
   bearScholar: {

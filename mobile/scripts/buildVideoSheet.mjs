@@ -83,24 +83,24 @@ const FORMS = {
     box: { x: 8, y: -24, size: 754 },
     key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true },
     /*
-     * Each clip is read from its .gif where there is one (31 frames at 6fps,
-     * already cut out), else its .mp4 (41 frames at 8fps):
-     *   idle.gif      standing, blinking, a few sparks
-     *   cheer.gif     3-28 holds its medal up, cheering
-     *   run.gif       ONE CYCLE IS 16 FRAMES (frame 3 matches 19), so 3-17 loops
-     *   dizzy.gif     spiral eyes, a ring of stars
-     *   tired.gif     0-4 stands, 5-8 slumps, 9+ hunched
-     *   lie-down.gif  0-7 grimaces, 8-17 sits, 18+ lies down
+     * Each clip is read from its .gif (31 frames at 6fps, already cut out).
+     * The second set, without the electric sparks:
+     *   idle.gif      standing, breathing, blinking
+     *   cheer.gif     3-13 pumps a fist, 14-17 bounces, 18-21 pumps again
+     *   run.gif       0-2 sets off; from 15 ONE STRIDE IS 4 FRAMES (15 matches 19, 23)
+     *   dizzy.gif     spiral eyes, a ring of stars from frame 2
+     *   tired.gif     0-3 stands, 4 slumps, 5+ hunched and teary
+     *   lie-down.gif  0-11 winces, 12-15 drops, 16+ lies flat
      */
     band: {
       idle: ['idle', [1, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 29]],
-      cheer: ['cheer', [3, 5, 7, 9, 12, 14, 16, 18, 21, 23, 25, 28]],
-      move: ['run', [3, 5, 7, 9, 11, 13, 15, 17]],
-      rest: ['lie-down', [19, 21, 22, 24, 25, 27, 28, 30]],
+      cheer: ['cheer', [3, 5, 7, 9, 11, 13, 15, 17, 18, 19, 20, 21]],
+      move: ['run', [15, 16, 17, 18, 19, 20, 21, 22]],
+      rest: ['lie-down', [16, 18, 20, 22, 24, 26, 28, 30]],
       unwell: ['dizzy', [4, 7, 10, 13, 16, 19, 22, 25]],
-      sad: ['tired', [9, 12, 15, 18, 21, 24, 27, 30]],
+      sad: ['tired', [5, 8, 11, 14, 17, 20, 23, 26]],
       // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
-      faint: ['lie-down', [8, 10, 12, 14, 16, 17, 18, 20]],
+      faint: ['lie-down', [9, 11, 12, 13, 14, 15, 16, 18]],
     },
   },
   bearScholar: {
