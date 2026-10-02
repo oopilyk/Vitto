@@ -1817,6 +1817,14 @@ function VittoApp() {
     });
   }, []);
 
+  // The saved place only exists so a theme change can re-mount the navigator
+  // without losing the screen. Whenever the main app is not on screen (loading,
+  // signed out, onboarding), it is stale: the next time the app shows, it
+  // starts on the Dashboard, not wherever the last account left off.
+  if (!authReady || !dataReady || (isSupabaseConfigured && !session) || petLoadFailed || !pet) {
+    navigationState.current = undefined;
+  }
+
   if (!authReady || !dataReady) {
     return (
       <View style={[layout.screen, styles.center]}>
@@ -1938,7 +1946,7 @@ function VittoApp() {
       }}
     >
       <StatusBar barStyle={statusBarStyle} />
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator initialRouteName="Dashboard" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Dashboard">
           {({ navigation }) => (
             <DashboardScreen
