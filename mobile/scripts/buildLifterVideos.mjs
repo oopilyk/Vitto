@@ -27,7 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import { keyBackground } from './keyBackground.mjs';
+import { fillHoles, keyBackground } from './keyBackground.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -45,10 +45,29 @@ const PETS = {
   bear: {
     source: 'bear-lifter',
     output: 'bearLifter',
-    clips: ['idle-flex', 'walk', 'states', 'pot'],
+    // Idle is the original video; everything else is the GIF set (31 frames at
+    // 6fps, cut out). Each GIF opens on one stray frame of the old pose, so the
+    // clips start at frame 1. The run loops whole strides (8 frames each), and
+    // `lie` is the collapse's lying-still tail, looped, for rest.
+    clips: [
+      'idle-flex',
+      { name: 'cheer', frames: [1, 30] },
+      { name: 'run', frames: [1, 24] },
+      { name: 'dizzy', frames: [2, 30] },
+      { name: 'sad', frames: [1, 30] },
+      { name: 'collapse', frames: [1, 30] },
+      { name: 'lie', from: 'collapse', frames: [19, 30] },
+    ],
     // The flexing arm closes a gap against the body. No `closeGaps`: its arms
     // hang a real gap from its sides, which should stay see-through.
     key: { pocketArea: 200, pocketReach: 10, greyFringe: true },
+    // Only the dizzy GIF has white filled in behind its art (inside the ring of
+    // stars). Elsewhere a white patch is the bear's own, like its open mouth.
+    cutOutPockets: ['dizzy'],
+    // The cheer and collapse GIFs have see-through holes in the bear's teeth on
+    // some frames, so the mouth flickers onto the room behind. Not the run: its
+    // one hole is the real gap inside a curled arm.
+    fillHoles: { clips: ['cheer', 'collapse'], maxArea: 200 },
   },
   bearRunner: {
     source: 'bear-runner',
@@ -97,10 +116,13 @@ try {
     const source = fs.existsSync(gif) ? gif : path.join(sources, `${from}.mp4`);
     const frames = path.join(work, clip);
     fs.mkdirSync(frames);
+    const key = { ...pet.key, cutOutPockets: pet.cutOutPockets?.includes(from) ?? false };
     const filter = range ? `fps=${FPS},select='between(n\\,${range[0]}\\,${range[1]})'` : `fps=${FPS}`;
     execFileSync('ffmpeg', ['-v', 'error', '-i', source, '-vf', filter, '-fps_mode', 'vfr', '-pix_fmt', 'rgba', path.join(frames, '%04d.png')]);
     for (const file of fs.readdirSync(frames)) {
-      const png = keyBackground(PNG.sync.read(fs.readFileSync(path.join(frames, file))), pet.key);
+      const raw = PNG.sync.read(fs.readFileSync(path.join(frames, file)));
+      if (pet.fillHoles?.clips.includes(from)) fillHoles(raw, pet.fillHoles.maxArea);
+      const png = keyBackground(raw, key);
       fs.writeFileSync(path.join(frames, file), PNG.sync.write(png));
     }
     // ProRes 4444 first (it carries alpha and ffmpeg can write it anywhere),

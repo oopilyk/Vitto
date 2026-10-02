@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import { keyBackground } from './keyBackground.mjs';
+import { fillHoles, keyBackground } from './keyBackground.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pets = path.join(root, 'assets/pet');
@@ -57,21 +57,28 @@ const FORMS = {
     // this box puts at y=106 and x=64 of the cell.
     box: { x: 26, y: 4, size: 720 },
     key: { tolerance: 18, pocketArea: 200, pocketReach: 10, greyFringe: true },
+    // As in buildLifterVideos.mjs: only the dizzy GIF has white behind its art.
+    cutOutPockets: ['dizzy'],
+    fillHoles: { clips: ['cheer', 'collapse'], maxArea: 200 },
     /*
-     * 124 frames at 24fps each:
-     *   idle-flex  0-56 standing, 60-104 rises into a flex and holds it
-     *   states     0-16 standing, 24-56 yawning, 64-88 sitting, 96-123 curled up
-     *   pot        the whole clip is sitting, eating out of the honey pot
-     *   walk       ONE CYCLE IS 25 FRAMES, so the band samples exactly that
+     * idle-flex.mp4, 124 frames at 24fps: 0-56 standing, 60-104 rises into a flex.
+     * The rest are GIFs, 31 frames at 6fps, already cut out; frame 0 of each is
+     * a stray frame of the old pose and is never used:
+     *   cheer.gif     holds the honey pot, 9-20 pumps a fist
+     *   run.gif       ONE STRIDE IS 8 FRAMES (1 matches 9, 17, 25)
+     *   dizzy.gif     spiral eyes, a ring of stars from frame 2
+     *   sad.gif       1-5 slumps, 6+ hunched and crying
+     *   collapse.gif  1-16 grumpy, 17-18 goes down, 19+ lies flat
      */
     band: {
       idle: ['idle-flex', [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]],
-      cheer: ['idle-flex', [60, 64, 68, 72, 76, 80, 84, 88, 92, 96, 100, 104]],
-      move: ['walk', [0, 2, 4, 6, 8, 10, 13, 15, 17, 19, 21, 23]],
-      rest: ['pot', [0, 14, 28, 42, 56, 70, 84, 98]],
-      unwell: ['states', [24, 28, 32, 36, 40, 44, 48, 52]],
-      sad: ['states', [64, 68, 72, 76, 80, 84, 88, 92]],
-      faint: ['states', [96, 100, 104, 108, 112, 116, 120, 123]],
+      cheer: ['cheer', [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]],
+      move: ['run', [9, 10, 11, 12, 13, 14, 15, 16]],
+      rest: ['collapse', [19, 20, 22, 24, 26, 27, 28, 30]],
+      unwell: ['dizzy', [3, 6, 9, 12, 15, 18, 21, 24]],
+      sad: ['sad', [6, 9, 12, 15, 18, 21, 24, 27]],
+      // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+      faint: ['collapse', [1, 5, 9, 13, 16, 17, 18, 19]],
     },
   },
   bearRunner: {
@@ -197,7 +204,10 @@ try {
       grab(band.video, frame, raw);
       // Keyed at full size so the downscale resamples the ALPHA too, which is
       // what stops a pale fringe forming where the art meets the background.
-      write(cut(keyBackground(read(raw), form.key), form.box), keyed);
+      const key = { ...form.key, cutOutPockets: form.cutOutPockets?.includes(band.video) ?? false };
+      const frameIn = read(raw);
+      if (form.fillHoles?.clips.includes(band.video)) fillHoles(frameIn, form.fillHoles.maxArea);
+      write(cut(keyBackground(frameIn, key), form.box), keyed);
       execFileSync('sips', ['-z', String(CELL), String(CELL), keyed, '--out', small], { stdio: 'ignore' });
 
       const cell = read(small);

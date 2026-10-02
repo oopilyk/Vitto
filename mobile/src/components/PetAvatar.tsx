@@ -353,7 +353,6 @@ export function PetAvatar({
   return (
     <View style={[styles.stage, stageStyle]}>
       {children}
-      <PetAura color={baseAura} size={size} />
       {feedingImage ? (
         <Animated.Image source={{ uri: feedingImage }} style={[styles.food, foodStyle]} />
       ) : null}
@@ -362,6 +361,9 @@ export function PetAvatar({
           share it, so "above the head" is above the head wherever the stage puts
           the pet (centred here, standing on the floor in a room). */}
       <View style={[styles.cell, { width: size, height: size }]} pointerEvents="box-none">
+      {/* In the cell, not the stage: a room stands the pet on its floor rather
+          than centring it, and the pool of light has to stay under its feet. */}
+      <PetAura color={baseAura} size={size} />
       {/* A window one cell wide, with the whole sheet slid behind it. */}
       <Animated.View
         accessibilityRole="image"

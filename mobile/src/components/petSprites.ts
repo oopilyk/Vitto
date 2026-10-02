@@ -672,11 +672,18 @@ const BEAR_LAYOUT: SheetLayout = {
  * fall back to the sheet's yawning, sitting and curled-up frames, which is what
  * `clips` being partial is for. Android falls back for all of them.
  */
-const BEAR_LIFTER_CLIPS = {
+const bearLifterClip = (name: string) => ({
+  hevc: BEAR_LIFTER_FILES[name]!.hevc,
+  webm: BEAR_LIFTER_FILES[name]!.webm,
+});
+const BEAR_LIFTER_FILES: Record<string, { hevc: number; webm: number }> = {
   'idle-flex': { hevc: require('../../assets/pet/video/bearLifter/idle-flex.mov'), webm: require('../../assets/pet/video/bearLifter/idle-flex.webm') },
-  walk: { hevc: require('../../assets/pet/video/bearLifter/walk.mov'), webm: require('../../assets/pet/video/bearLifter/walk.webm') },
-  states: { hevc: require('../../assets/pet/video/bearLifter/states.mov'), webm: require('../../assets/pet/video/bearLifter/states.webm') },
-  pot: { hevc: require('../../assets/pet/video/bearLifter/pot.mov'), webm: require('../../assets/pet/video/bearLifter/pot.webm') },
+  cheer: { hevc: require('../../assets/pet/video/bearLifter/cheer.mov'), webm: require('../../assets/pet/video/bearLifter/cheer.webm') },
+  run: { hevc: require('../../assets/pet/video/bearLifter/run.mov'), webm: require('../../assets/pet/video/bearLifter/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/bearLifter/dizzy.mov'), webm: require('../../assets/pet/video/bearLifter/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/bearLifter/sad.mov'), webm: require('../../assets/pet/video/bearLifter/sad.webm') },
+  collapse: { hevc: require('../../assets/pet/video/bearLifter/collapse.mov'), webm: require('../../assets/pet/video/bearLifter/collapse.webm') },
+  lie: { hevc: require('../../assets/pet/video/bearLifter/lie.mov'), webm: require('../../assets/pet/video/bearLifter/lie.webm') },
 };
 
 const BEAR_LIFTER_VIDEOS: PetVideos = {
@@ -687,14 +694,21 @@ const BEAR_LIFTER_VIDEOS: PetVideos = {
   clips: {
     // Stands about, then rears up into a double-bicep flex — the strength
     // build's whole personality, so it is what you see most of the time.
-    idle: { ...BEAR_LIFTER_CLIPS['idle-flex'], loop: true },
-    // The celebration after logging food (and while eating).
-    cheer: { ...BEAR_LIFTER_CLIPS.pot, loop: true },
-    move: { ...BEAR_LIFTER_CLIPS.walk, loop: true },
-    // Stands, sits, then lies down and stays there. Played once: looping it
-    // would have the bear get up and settle again on a timer.
-    rest: { ...BEAR_LIFTER_CLIPS.states, loop: false },
+    idle: { ...bearLifterClip('idle-flex'), loop: true },
+    // Hugs the honey pot and pumps a fist.
+    cheer: { ...bearLifterClip('cheer'), loop: true },
+    // Three whole strides, so the loop never stutters.
+    move: { ...bearLifterClip('run'), loop: true },
+    unwell: { ...bearLifterClip('dizzy'), loop: true },
+    // Lying still, looped: the collapse's last frames, without the fall.
+    rest: { ...bearLifterClip('lie'), loop: true },
+    // These two settle into a pose and stay there. Looping them would have
+    // the bear stand back up and slump, or fall, over and over.
+    sad: { ...bearLifterClip('sad'), loop: false },
+    faint: { ...bearLifterClip('collapse'), loop: false },
   },
+  // The dizzy clip has its own spiral eyes and orbiting stars.
+  selfDrawn: ['foggy'],
 };
 
 const BEAR_LIFTER: PetSheet = {
@@ -702,21 +716,21 @@ const BEAR_LIFTER: PetSheet = {
   name: 'bear',
   label: 'Bear · Lifter',
   source: require('../../assets/pet/bearLifter.png'),
-  rows: 17,
+  rows: 16,
   animations: {
     idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2], [1, 3], [2, 0], [2, 1], [2, 2], [2, 3]],
     cheer: [[3, 0], [3, 1], [3, 2], [3, 3], [4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3]],
-    // Twelve frames across one 25-frame cycle of the source clip, so it loops.
-    move: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3], [8, 0], [8, 1], [8, 2], [8, 3]],
-    rest: [[9, 0], [9, 1], [9, 2], [9, 3], [10, 0], [10, 1], [10, 2], [10, 3]],
-    unwell: [[11, 0], [11, 1], [11, 2], [11, 3], [12, 0], [12, 1], [12, 2], [12, 3]],
-    sad: [[13, 0], [13, 1], [13, 2], [13, 3], [14, 0], [14, 1], [14, 2], [14, 3]],
-    faint: [[15, 0], [15, 1], [15, 2], [15, 3], [16, 0], [16, 1], [16, 2], [16, 3]],
+    // One whole 8-frame stride of the run, so it loops.
+    move: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3]],
+    rest: [[8, 0], [8, 1], [8, 2], [8, 3], [9, 0], [9, 1], [9, 2], [9, 3]],
+    unwell: [[10, 0], [10, 1], [10, 2], [10, 3], [11, 0], [11, 1], [11, 2], [11, 3]],
+    sad: [[12, 0], [12, 1], [12, 2], [12, 3], [13, 0], [13, 1], [13, 2], [13, 3]],
+    faint: [[14, 0], [14, 1], [14, 2], [14, 3], [15, 0], [15, 1], [15, 2], [15, 3]],
   },
   // `rest` is a real loop here rather than the single frame most sheets hold,
   // so the shared 700ms would crawl; `cheer` is paced to the clip it came from.
-  // No `selfDrawn`: nothing in these bands draws its own stars, so DizzyOrbit
-  // keeps carrying `foggy` as it does for the base bear.
+  // The dizzy band draws its own spiral eyes and stars.
+  selfDrawn: ['foggy'],
   frameMs: { cheer: 150, rest: 250 },
   videos: BEAR_LIFTER_VIDEOS,
 };

@@ -536,8 +536,10 @@ export function PetAura({ color, size }: PetAuraProps) {
         </Defs>
         <Ellipse cx="50" cy="52" rx="50" ry="44" fill={`url(#${gradientId})`} />
         {/* Contact shadow: without it the sprite floats on a flat panel. Kept
-            far softer than the glow — it is a hint of weight, not a light source. */}
-        <Ellipse cx="50" cy="79" rx="24" ry="4.2" fill={colors.slateDeep} opacity={0.13} />
+            far softer than the glow — it is a hint of weight, not a light source.
+            `shadow`, which is dark in both schemes: slate turns light in dark
+            mode, and a light ellipse here reads as a spotlight. */}
+        <Ellipse cx="50" cy="71" rx="24" ry="4.2" fill={colors.shadow} opacity={0.13} />
       </Svg>
     </View>
   );

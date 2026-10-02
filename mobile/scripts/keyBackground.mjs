@@ -22,6 +22,8 @@ const GREY_CHROMA = 40;
 const GREY_LUMA = 80;
 /** A cool, muted edge pixel above this is a blend, not the outline's near-black. */
 const COOL_LUMA = 30;
+/** `cutOutPockets`: the smallest enclosed white patch, open to the outside, that is background. */
+const CUT_OUT_POCKET = 80;
 /** A pale patch `pocketReach` keys: at most this big, and this light. */
 const PALE_PATCH = 40;
 const PALE_LUMA = 170;
@@ -45,11 +47,16 @@ const PALE_LUMA = 170;
  *   that lie between two dark outlines (under an arm hanging close to the
  *   body) with the outline's colour. On screen they are a pixel or two wide
  *   and read as a white line, not as a gap.
+ *   `cutOutPockets`: for frames that arrive already cut out (GIFs), still key
+ *   an enclosed white region that is both at least `pocketArea` big and within
+ *   `pocketReach` of the outside: a generator that left the inside of the
+ *   dizzy ring of stars filled white. Off by default, because white inside a
+ *   cut-out's outline is usually art (the scholar's paper).
  *   `clearCreases`: background trapped deep in a crease (a white slit up
  *   under an arm) is made see-through rather than painted over, so it reads
  *   as the same gap the rest of the armpit is. See fillCreaseSpecks.
  */
-export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLuma = FRINGE_LUMA_DEFAULT, pocketArea, pocketReach, greyFringe = false, closeGaps = 0, clearCreases = false } = {}) => {
+export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLuma = FRINGE_LUMA_DEFAULT, pocketArea, pocketReach, greyFringe = false, closeGaps = 0, clearCreases = false, cutOutPockets = false } = {}) => {
   const { width, height, data } = png;
   // A frame that arrives already cut out (a GIF) has hard 1-bit alpha with the
   // generator's white matte left on the pixels next to it. Its transparent
@@ -122,7 +129,7 @@ export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLum
   // (the bear's are all under ~50px); big ones are background showing through.
   // A pre-cut frame's enclosed background is already transparent; anything
   // white left inside its outlines is art (the scholar's paper).
-  if (!cutOut && (pocketArea || pocketReach)) {
+  if ((!cutOut || cutOutPockets) && (pocketArea || pocketReach)) {
     // How far each unkeyed pixel is from the outside, out to `pocketReach`.
     const reach = new Int32Array(width * height).fill(-1);
     if (pocketReach) {
@@ -149,7 +156,11 @@ export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLum
       }
       const big = pocketArea && region.length >= pocketArea;
       const near = pocketReach && region.some((flat) => reach[flat] >= 0);
-      if (big || near) for (const flat of region) outside[flat] = 1;
+      // A cut-out frame keeps small or buried white as art; only a big patch
+      // open to the outside is background the generator left behind.
+      // The ring can split that patch into slivers, so the size floor is lower;
+      // the bear's own highlights are smaller still, or buried in the art.
+      if (cutOut ? near && region.length >= CUT_OUT_POCKET : big || near) for (const flat of region) outside[flat] = 1;
     }
     // Background trapped in a notch is often blended off-colour (light grey
     // rather than the background's white), so it matches neither test above.
@@ -429,4 +440,79 @@ const fillCreaseSpecks = (png, outside, { clear = false } = {}) => {
       data[i] = fill[0]; data[i + 1] = fill[1]; data[i + 2] = fill[2];
     }
   }
+};
+
+/** `fillHoles`: the colour a hole is filled with when nothing light borders it. */
+const TOOTH = [244, 238, 228];
+
+/**
+ * Fills small see-through holes enclosed by the art in a frame that arrives
+ * already cut out (a GIF). The generator sometimes picks a colour in the art,
+ * like the bear's teeth, as its transparent one, so a mouth flickers open onto
+ * the room behind it from frame to frame. A hole is filled with the light
+ * pixels round its edge (the rest of the teeth), or a tooth white.
+ *
+ * Only holes up to `maxArea` pixels: a bigger enclosed gap (inside a curled
+ * arm) is real and should stay see-through. Run it before keyBackground, which
+ * would otherwise take the hole for background and peel the teeth round it.
+ */
+export const fillHoles = (png, maxArea) => {
+  const { width, height, data } = png;
+  const clear = (flat) => data[(flat << 2) + 3] < 128;
+  const seen = new Uint8Array(width * height);
+  const flood = (start) => {
+    const stack = [start];
+    const region = [];
+    seen[start] = 1;
+    while (stack.length) {
+      const flat = stack.pop();
+      region.push(flat);
+      const x = flat % width;
+      const y = (flat / width) | 0;
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const next = ny * width + nx;
+        if (!seen[next] && clear(next)) {
+          seen[next] = 1;
+          stack.push(next);
+        }
+      }
+    }
+    return region;
+  };
+  // Everything see-through that reaches the frame's edge is the outside.
+  for (let x = 0; x < width; x += 1) {
+    for (const y of [0, height - 1]) if (!seen[y * width + x] && clear(y * width + x)) flood(y * width + x);
+  }
+  for (let y = 0; y < height; y += 1) {
+    for (const x of [0, width - 1]) if (!seen[y * width + x] && clear(y * width + x)) flood(y * width + x);
+  }
+  for (let flat = 0; flat < width * height; flat += 1) {
+    if (seen[flat] || !clear(flat)) continue;
+    const region = flood(flat);
+    if (region.length > maxArea) continue;
+    const inside = new Set(region);
+    const sum = [0, 0, 0];
+    let count = 0;
+    for (const hole of region) {
+      const x = hole % width;
+      const y = (hole / width) | 0;
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        const next = ny * width + nx;
+        if (inside.has(next)) continue;
+        const i = next << 2;
+        if ((data[i] + data[i + 1] + data[i + 2]) / 3 < 150) continue;
+        sum[0] += data[i];
+        sum[1] += data[i + 1];
+        sum[2] += data[i + 2];
+        count += 1;
+      }
+    }
+    const fill = count ? sum.map((total) => Math.round(total / count)) : TOOTH;
+    for (const hole of region) {
+      const i = hole << 2;
+      [data[i], data[i + 1], data[i + 2], data[i + 3]] = [...fill, 255];
+    }
+  }
+  return png;
 };

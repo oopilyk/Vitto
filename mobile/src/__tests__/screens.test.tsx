@@ -2390,37 +2390,32 @@ describe('pet sprite', () => {
     expect(lifter.source).not.toBe(scholar.source);
   });
 
-  it('plays the bear lifter its own clips, and falls back to its sheet where it has none', () => {
+  it('plays the bear lifter its own clip for every band', () => {
     const { sheetForPet } = require('../components/petSprites');
     const base = sheetForPet({ id: 'p', breed: 'bear', level: 5 });
     const lifter = sheetForPet({ id: 'p', breed: 'bear', level: 16, strength: 80, endurance: 10, mind: 10 });
     const scholar = sheetForPet({ id: 'p', breed: 'bear', level: 16, mindSessions: 27, endurance: 10, strength: 10 });
     expect(lifter.label).toBe('Bear · Lifter');
 
-    // Re-animated rather than derived, so it carries its own 4x17 sheet and map,
+    // Re-animated rather than derived, so it carries its own 4x16 sheet and map,
     // as the scholar now does too.
-    expect(lifter.rows).toBe(17);
+    expect(lifter.rows).toBe(16);
     expect(lifter.animations).not.toEqual(base.animations);
-    expect(scholar.animations).not.toEqual(lifter.animations);
-    // The flex is the strength build's whole point, so a level-up plays it.
+    expect(scholar.source).not.toBe(lifter.source);
     expect(lifter.animations.cheer).toHaveLength(12);
 
-    // Four clips for seven bands. The other three fall back to sheet frames,
-    // which only works because the sheet still carries every band.
     const { clips } = lifter.videos;
-    expect(Object.keys(clips).sort()).toEqual(['cheer', 'idle', 'move', 'rest']);
-    for (const band of ['unwell', 'sad', 'faint']) {
-      expect(clips[band]).toBeUndefined();
-      expect(lifter.animations[band].length).toBeGreaterThan(1);
-    }
-    // Lies down and stays; looping would have it settle again on a timer.
-    expect(clips.rest.loop).toBe(false);
+    expect(Object.keys(clips).sort()).toEqual(['cheer', 'faint', 'idle', 'move', 'rest', 'sad', 'unwell']);
+    // The sheet still carries every band, for the moments before a clip loads.
+    for (const band of ['unwell', 'sad', 'faint', 'rest']) expect(lifter.animations[band].length).toBeGreaterThan(1);
+    // These settle into a pose and stay; looping would have the bear get up and fall again.
+    for (const band of ['sad', 'faint']) expect(clips[band].loop).toBe(false);
     // Clips and sheet are cut from the same box, or the bear jumps at the
-    // moment an animation without a clip falls back to a frame.
+    // moment an animation falls back to a frame.
     expect(lifter.videos.cell).toEqual({ x: 26, y: 4, size: 720 });
     expect(lifter.videos.frameSize).toBe(768);
-    // Nothing here draws its own stars, unlike the bichon's dizzy clip.
-    expect(lifter.selfDrawn).toBeUndefined();
+    // The dizzy clip draws its own stars.
+    expect(lifter.selfDrawn).toEqual(['foggy']);
   });
 
   it('evolves the bear into its scholar, with clips for every band but rest', () => {
