@@ -1007,6 +1007,9 @@ function VittoApp() {
       }
       setEvents((current) => [storedEvent, ...current]);
       setError(null);
+      // Every log gets a cheer, except steps: those sync in the background
+      // and already have the pet go exploring.
+      if (event.type !== 'STEP_ACTIVITY') interaction.celebrate();
       if (remote) void tellCompanion(storedEvent, nextPet, detectLevelUp(pet, nextPet) !== null);
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save this care moment.'));
@@ -1331,8 +1334,10 @@ function VittoApp() {
     await recordEvent(makeEvent<MealMetadata>(userId, 'MEAL', metadata));
   };
 
+  // No "working out" scene first: it has no pose of its own and borrowed the
+  // run, so a finished workout read as the pet running off. `recordEvent`
+  // cheers it like every other log.
   const completeWorkout = async (metadata: WorkoutMetadata) => {
-    interaction.startWorkout();
     await recordEvent(makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata));
   };
 

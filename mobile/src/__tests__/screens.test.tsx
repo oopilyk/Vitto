@@ -68,6 +68,7 @@ const idleInteraction: UsePetInteractionResult = {
   startWorkout: () => {},
   startExploring: () => {},
   startTravel: () => {},
+  celebrate: () => {},
   setAmbientWalking: () => {},
   reset: () => {},
 };
@@ -474,7 +475,7 @@ describe('screens render', () => {
     // The summary reports the run, not three zeroes.
     const line = tree.root.findAllByType(Text)
       .map((t: any) => t.props.children)
-      .find((c: any) => typeof c === 'string' && c.includes('mi'));
+      .find((c: any) => typeof c === 'string' && /\d mi\b/.test(c));
     expect(line).toContain('6.2 mi');
     expect(line).not.toContain('set');
     expect(line).not.toContain('volume');

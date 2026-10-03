@@ -157,4 +157,21 @@ describe('petInteractionReducer', () => {
 
     expect(petInteractionReducer(celebrating, { type: 'RESET' })).toEqual(IDLE_STATE);
   });
+
+  it('cheers a logged moment from a resting pet, but never over a meal or workout', () => {
+    const cheering = petInteractionReducer(IDLE_STATE, { type: 'CELEBRATION_STARTED' });
+    expect(cheering).toEqual({ kind: 'celebrating', grade: null });
+    expect(petInteractionReducer(cheering, { type: 'CELEBRATION_FINISHED' })).toEqual(IDLE_STATE);
+    expect(petInteractionReducer({ kind: 'sleeping' }, { type: 'CELEBRATION_STARTED' })).toEqual(cheering);
+
+    // A meal ends in its own cheer and a workout chains into one: a log's
+    // cheer arriving mid-way leaves them alone, as does one already playing.
+    const walkingToFood: PetInteractionState = { kind: 'walkingToFood', grade: 'B' };
+    const eating: PetInteractionState = { kind: 'eating', feedingImage: null, grade: 'A' };
+    const workingOut: PetInteractionState = { kind: 'workingOut' };
+    const mealCheer: PetInteractionState = { kind: 'celebrating', grade: 'A' };
+    for (const busy of [walkingToFood, eating, workingOut, mealCheer, { kind: 'analyzing' } as PetInteractionState]) {
+      expect(petInteractionReducer(busy, { type: 'CELEBRATION_STARTED' })).toEqual(busy);
+    }
+  });
 });

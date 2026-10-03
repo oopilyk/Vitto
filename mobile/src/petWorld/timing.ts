@@ -26,6 +26,14 @@ export const EATING_DURATION_MS = 1900;
 /** How long the celebration (confetti, hearts) plays once eating finishes. */
 export const CELEBRATION_DURATION_MS = 1500;
 
+/**
+ * How long the pet cheers for any other log (a workout, a mind game, screen
+ * time). Longer than the meal's, which comes straight after a whole eating
+ * scene; this is the only acknowledgement these get, and it starts as the log's
+ * sheet is still sliding away.
+ */
+export const LOG_CELEBRATION_MS = 2600;
+
 /** Cadence of the munch sound while `eating`. Formerly inline in `startFeeding`. */
 export const MUNCH_INTERVAL_MS = 420;
 

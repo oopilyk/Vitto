@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { MealAnalysis } from '@vitto/core';
-import { petInteractionReducer } from './petInteractionReducer';
+import { CELEBRATES_FROM, petInteractionReducer } from './petInteractionReducer';
 import {
   CELEBRATION_DURATION_MS,
   EATING_DURATION_MS,
   EXPLORE_DURATION_MS,
   FOOD_CONSUMED_DELAY_MS,
+  LOG_CELEBRATION_MS,
   MUNCH_INTERVAL_MS,
   NOTICE_MS,
   SHEET_DISMISS_MS,
@@ -43,6 +44,12 @@ export interface UsePetInteractionResult {
    */
   startFeeding: (imageUri: string | null, grade: MealAnalysis['grade']) => void;
   startWorkout: () => void;
+  /**
+   * A cheer for a logged moment. Waits out the log's sheet so it is on screen,
+   * then plays only if the pet is not in the middle of something that has its
+   * own ending (a meal ends in its own cheer, a workout chains into one).
+   */
+  celebrate: () => void;
   startExploring: () => void;
   /** A short timed dash for a room change — the pet runs, then settles into the
    *  new scene. Only takes over an idle/noticing pet (see the reducer). */
@@ -60,6 +67,9 @@ export interface UsePetInteractionResult {
 
 export function usePetInteraction(callbacks: PetInteractionCallbacks = {}): UsePetInteractionResult {
   const [state, dispatch] = useReducer(petInteractionReducer, IDLE_STATE);
+  // Read when a delayed cheer fires, to decide whether it plays at all.
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
 
@@ -119,10 +129,30 @@ export function usePetInteraction(callbacks: PetInteractionCallbacks = {}): UseP
     [after, everyTick],
   );
 
+  /** Starts a cheer now and ends it on its own timer. */
+  const cheer = useCallback(() => {
+    dispatch({ type: 'CELEBRATION_STARTED' });
+    after(LOG_CELEBRATION_MS, () => dispatch({ type: 'CELEBRATION_FINISHED' }));
+  }, [after]);
+
+  const celebrate = useCallback(() => {
+    after(SHEET_DISMISS_MS, () => {
+      // Checked here rather than left to the reducer alone: a cheer that does
+      // not start must not schedule a finish, which would cut short whichever
+      // celebration IS on screen (the end of a meal).
+      if (CELEBRATES_FROM.has(stateRef.current.kind)) cheer();
+    });
+  }, [after, cheer]);
+
+  // A workout ends in a cheer of its own, so the log's `celebrate` (which
+  // arrives while the pet is still lifting) has nothing to add.
   const startWorkout = useCallback(() => {
     dispatch({ type: 'WORKOUT_STARTED' });
-    after(WORKOUT_DURATION_MS, () => dispatch({ type: 'WORKOUT_FINISHED' }));
-  }, [after]);
+    after(WORKOUT_DURATION_MS, () => {
+      dispatch({ type: 'WORKOUT_FINISHED' });
+      cheer();
+    });
+  }, [after, cheer]);
 
   const startExploring = useCallback(() => {
     dispatch({ type: 'EXPLORE_STARTED' });
@@ -149,6 +179,7 @@ export function usePetInteraction(callbacks: PetInteractionCallbacks = {}): UseP
     stopAnalyzing,
     startFeeding,
     startWorkout,
+    celebrate,
     startExploring,
     startTravel,
     setAmbientWalking,

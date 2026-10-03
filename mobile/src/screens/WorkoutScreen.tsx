@@ -42,6 +42,9 @@ interface Props {
 /** The unnamed session. Saving a routine still called this asks for a real name. */
 const DEFAULT_SESSION_NAME = 'Strength session';
 
+/** One-tap session lengths; anything else goes in the box beside them. */
+const DURATION_CHOICES = [30, 45, 60, 90] as const;
+
 /**
  * Two jobs on one builder.
  *
@@ -258,6 +261,53 @@ export function WorkoutScreen({
   const countOf = (exerciseName: string) =>
     exercises.filter((exercise) => exercise.name === exerciseName).length;
 
+  const empty = exercises.length === 0;
+  const durationChoice = DURATION_CHOICES.find((minutes) => String(minutes) === duration.trim());
+
+  /** One routine as a full-width row: its name, what is in it, and what a tap does. */
+  const routineRow = (template: WorkoutTemplate) => {
+    const preview = template.exercises.slice(0, 3).map((exercise) => exercise.name).join(', ');
+    const more = template.exercises.length - 3;
+    return (
+      <View key={template.id} style={styles.routineRowWrap}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={managingRoutines ? `Edit routine ${template.name}` : `Load routine ${template.name}`}
+          onPress={() => (managingRoutines ? startEditingRoutine(template) : loadRoutine(template))}
+          style={({ pressed }) => [styles.routineRow, pressed && styles.pressed]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.routineName}>{template.name}</Text>
+            <Text style={styles.routinePreview} numberOfLines={1}>
+              {preview}
+              {more > 0 ? ` +${more} more` : ''}
+            </Text>
+          </View>
+          <Text style={styles.routineGo}>{managingRoutines ? 'Edit' : 'Start'}</Text>
+        </Pressable>
+        {managingRoutines && onDeleteTemplate ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Delete routine ${template.name}`}
+            hitSlop={8}
+            onPress={() => {
+              void onDeleteTemplate(template.id);
+              if (activeTemplateId === template.id) setActiveTemplateId(null);
+            }}
+            style={styles.routineDelete}
+          >
+            <Text style={styles.routineDeleteMark}>×</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  };
+
+  const openPicker = () => {
+    setSearch('');
+    setPicking(true);
+  };
+
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -272,7 +322,9 @@ export function WorkoutScreen({
                 ? editingTemplateId
                   ? routineName || 'Edit routine'
                   : routineName || 'New routine'
-                : name || 'Workout'}
+                : empty
+                  ? 'Log a workout'
+                  : name || 'Workout'}
             </Text>
           </View>
           <TextButton
@@ -295,166 +347,88 @@ export function WorkoutScreen({
                 autoFocus={!editingTemplateId}
               />
               <Text style={styles.sectionHint}>
-                Add the exercises you do on this day. The weights and reps here are just your
-                starting point — each time you train it, they update to what you actually did.
+                Add the exercises you do on this day. The weights and reps are a starting point:
+                each time you train it, they update to what you actually did.
               </Text>
             </>
-          ) : (
+          ) : null}
+
+          {routineMessage && !routineMode ? <Text style={styles.routineMessage}>{routineMessage}</Text> : null}
+
+          {/* Nothing added yet: the whole screen is one question, how to start. */}
+          {!routineMode && empty ? (
             <>
-              <View style={styles.toolbar}>
-                <TextInput
-                  style={[layout.input, { flex: 1 }]}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Workout name"
-                  placeholderTextColor={colors.faint}
-                />
-                <TextInput
-                  style={[layout.input, styles.minutes]}
-                  value={duration}
-                  onChangeText={setDuration}
-                  keyboardType="number-pad"
-                  placeholder="Min"
-                  placeholderTextColor={colors.faint}
-                />
-                {/* Only a cardio session has a distance; it feeds the run records
-                    on the profile (fastest mile, longest run). */}
-                {goesSomewhere ? (
-                  <TextInput
-                    style={[layout.input, styles.minutes]}
-                    value={distance}
-                    onChangeText={setDistance}
-                    keyboardType="decimal-pad"
-                    placeholder={distanceUnit}
-                    accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}`}
-                    placeholderTextColor={colors.faint}
-                  />
-                ) : null}
-              </View>
+              <Text style={styles.lead}>What are you training today?</Text>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add exercise"
+                onPress={openPicker}
+                style={({ pressed }) => [styles.startCard, pressed && styles.pressed]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.startTitle}>Pick exercises</Text>
+                  <Text style={styles.startHint}>Choose from {exerciseLibrary.length} moves, then fill in your sets</Text>
+                </View>
+                <Text style={styles.startArrow}>→</Text>
+              </Pressable>
 
               {onSaveTemplate ? (
                 <View style={styles.routines}>
-                  <View style={styles.routinesHead}>
-                    <Text style={styles.sectionLabel}>ROUTINES</Text>
-                    {templates.length > 0 && onDeleteTemplate ? (
-                      <TextButton
-                        label={managingRoutines ? 'Done' : 'Manage'}
-                        onPress={() => setManagingRoutines((current) => !current)}
-                      />
-                    ) : null}
-                  </View>
-
-                  <View style={styles.routineChips}>
-                    {templates.map((template) => {
-                      const active = template.id === activeTemplateId;
-                      return (
-                        <View key={template.id} style={styles.routineChipWrap}>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              managingRoutines
-                                ? `Edit routine ${template.name}`
-                                : `Load routine ${template.name}`
-                            }
-                            accessibilityState={{ selected: active }}
-                            onPress={() =>
-                              managingRoutines ? startEditingRoutine(template) : loadRoutine(template)
-                            }
-                            style={({ pressed }) => [
-                              styles.routineChip,
-                              active && !managingRoutines && styles.routineChipOn,
-                              pressed && styles.pressed,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.routineChipLabel,
-                                active && !managingRoutines && styles.routineChipLabelOn,
-                              ]}
-                            >
-                              {template.name}
-                            </Text>
-                            <Text style={styles.routineChipMeta}>
-                              {managingRoutines
-                                ? 'tap to edit'
-                                : `${template.exercises.length} ${template.exercises.length === 1 ? 'exercise' : 'exercises'}`}
-                            </Text>
-                          </Pressable>
-                          {managingRoutines && onDeleteTemplate ? (
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={`Delete routine ${template.name}`}
-                              hitSlop={8}
-                              onPress={() => {
-                                void onDeleteTemplate(template.id);
-                                if (activeTemplateId === template.id) setActiveTemplateId(null);
-                              }}
-                              style={styles.routineDelete}
-                            >
-                              <Text style={styles.routineDeleteMark}>×</Text>
-                            </Pressable>
-                          ) : null}
-                        </View>
-                      );
-                    })}
-
-                    {/* The way to MAKE one, sitting in the strip where routines
-                        live. Always available — building a routine no longer
-                        requires logging a session first. */}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Make a new routine"
-                      onPress={startNewRoutine}
-                      style={({ pressed }) => [
-                        styles.routineChip,
-                        styles.routineAdd,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Text style={styles.routineAddLabel}>+ New routine</Text>
-                      <Text style={styles.routineChipMeta}>push · pull · legs</Text>
-                    </Pressable>
-                  </View>
-
-                  {templates.length === 0 ? (
-                    <Text style={styles.routinesHint}>
-                      Do the same split every week? Make a routine once — next time it is one tap to
-                      load the whole thing.
-                    </Text>
+                  {templates.length > 0 ? (
+                    <>
+                      <View style={styles.routinesHead}>
+                        <Text style={styles.sectionLabel}>OR START A ROUTINE</Text>
+                        {onDeleteTemplate ? (
+                          <TextButton
+                            label={managingRoutines ? 'Done' : 'Edit'}
+                            onPress={() => setManagingRoutines((current) => !current)}
+                          />
+                        ) : null}
+                      </View>
+                      <View style={styles.routineList}>{templates.map(routineRow)}</View>
+                    </>
                   ) : null}
-                  {routineMessage ? <Text style={styles.routineMessage}>{routineMessage}</Text> : null}
+
+                  {/* The way to MAKE one. Always here, so building a routine never
+                      means logging a session first. */}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Make a new routine"
+                    onPress={startNewRoutine}
+                    style={({ pressed }) => [styles.newRoutine, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.newRoutineTitle}>+ Create a routine</Text>
+                    <Text style={styles.newRoutineHint}>
+                      {templates.length === 0
+                        ? 'Same workout every week? Set it up once, then start it in one tap.'
+                        : 'Save another day of your split.'}
+                    </Text>
+                  </Pressable>
                 </View>
               ) : null}
             </>
-          )}
-
-          {/* One obvious way to add an exercise, in both modes. The library used
-              to appear only if you happened to type into a search box, which
-              hid the whole catalogue behind a guess. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add exercise"
-            onPress={() => {
-              setSearch('');
-              setPicking(true);
-            }}
-            style={({ pressed }) => [styles.addExercise, pressed && styles.pressed]}
-          >
-            <Text style={styles.addExerciseMark}>+</Text>
-            <Text style={styles.addExerciseLabel}>Add exercise</Text>
-          </Pressable>
-
-          {exercises.length === 0 ? (
-            <Text style={styles.empty}>
-              {routineMode
-                ? 'No exercises yet. Add the ones you do on this day.'
-                : 'No exercises yet. Add one, or load a routine above.'}
-            </Text>
           ) : null}
 
-          {exercises.map((exercise) => (
+          {routineMode && empty ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add exercise"
+              onPress={openPicker}
+              style={({ pressed }) => [styles.startCard, styles.routineStart, pressed && styles.pressed]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.startTitle}>Add exercises</Text>
+                <Text style={styles.startHint}>Pick everything you do on this day</Text>
+              </View>
+              <Text style={styles.startArrow}>→</Text>
+            </Pressable>
+          ) : null}
+
+          {exercises.map((exercise, position) => (
             <View key={exercise.id} style={styles.exercise}>
               <View style={styles.exerciseHead}>
+                <Text style={styles.exerciseNumber}>{position + 1}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                   <Text style={styles.exerciseMuscle}>{exercise.muscleGroup}</Text>
@@ -464,126 +438,210 @@ export function WorkoutScreen({
                   accessibilityLabel={`Remove ${exercise.name}`}
                   hitSlop={8}
                   onPress={() => removeExercise(exercise.id)}
+                  style={({ pressed }) => [styles.exerciseRemove, pressed && styles.pressed]}
                 >
-                  <Text style={styles.exerciseRemove}>Remove</Text>
+                  <Text style={styles.exerciseRemoveMark}>×</Text>
                 </Pressable>
               </View>
               {exercise.distance ? (
-                // A run, ride or swim: the distance and time at the top of the
-                // screen are its whole record. Burpees and jump rope are cardio
-                // too but go nowhere, so they keep the set table below.
-                <Text style={styles.cardioNote}>Logged by distance and time — set them at the top.</Text>
+                // A run, ride or swim: the distance and time below are its whole
+                // record. Burpees and jump rope are cardio too but go nowhere, so
+                // they keep the set table.
+                <Text style={styles.cardioNote}>Logged by distance and time — fill them in below.</Text>
               ) : (
-              <>
-              <View style={styles.setHead}>
-                <Text style={[styles.setHeadLabel, styles.setIndex]}>#</Text>
-                <Text style={[styles.setHeadLabel, styles.setInputHead]}>
-                  {exercise.bodyweight ? 'body' : weightUnit}
-                </Text>
-                <Text style={[styles.setHeadLabel, styles.setInputHead]}>reps</Text>
-              </View>
-              {exercise.sets.map((set, index) => (
-                <View key={set.id} style={styles.setRow}>
-                  <Text style={styles.setIndex}>{index + 1}</Text>
-                  <TextInput
-                    style={[layout.input, styles.setInput]}
-                    keyboardType="number-pad"
-                    editable={!exercise.bodyweight}
-                    value={exercise.bodyweight ? '' : String(set.weight ?? '')}
-                    placeholder={exercise.bodyweight ? 'BW' : weightUnit}
-                    placeholderTextColor={colors.faint}
-                    onChangeText={(value) =>
-                      patchSet(exercise.id, set.id, { weight: Number(value) || 0 })
-                    }
-                  />
-                  <TextInput
-                    style={[layout.input, styles.setInput]}
-                    keyboardType="number-pad"
-                    value={String(set.reps)}
-                    placeholder="reps"
-                    placeholderTextColor={colors.faint}
-                    onChangeText={(value) =>
-                      patchSet(exercise.id, set.id, { reps: Number(value) || 0 })
-                    }
-                  />
-                  {/* No tick: a set on the list is a set you did. One you did
-                      not do comes off with "Remove set" below. */}
-                </View>
-              ))}
-              <View style={styles.setActions}>
-                <TextButton
-                  label="+ Add set"
-                  onPress={() =>
-                    setExercises((current) =>
-                      current.map((item) => (item.id === exercise.id ? addSet(item, weightUnit) : item)),
-                    )
-                  }
-                />
-                {exercise.sets.length > 1 ? (
-                  <TextButton
-                    label="Remove set"
+                <>
+                  <View style={styles.setHead}>
+                    <Text style={[styles.setHeadLabel, styles.setIndex]}>SET</Text>
+                    <Text style={[styles.setHeadLabel, styles.setInputHead]}>
+                      {exercise.bodyweight ? 'body' : weightUnit}
+                    </Text>
+                    <Text style={[styles.setHeadLabel, styles.setInputHead]}>reps</Text>
+                    <View style={styles.setRemoveSlot} />
+                  </View>
+                  {exercise.sets.map((set, index) => (
+                    <View key={set.id} style={styles.setRow}>
+                      <Text style={[styles.setIndex, styles.setIndexValue]}>{index + 1}</Text>
+                      <TextInput
+                        style={[layout.input, styles.setInput, exercise.bodyweight && styles.setInputOff]}
+                        keyboardType="number-pad"
+                        selectTextOnFocus
+                        editable={!exercise.bodyweight}
+                        value={exercise.bodyweight ? '' : String(set.weight ?? '')}
+                        placeholder={exercise.bodyweight ? 'BW' : weightUnit}
+                        placeholderTextColor={colors.faint}
+                        accessibilityLabel={`Set ${index + 1} weight`}
+                        onChangeText={(value) => patchSet(exercise.id, set.id, { weight: Number(value) || 0 })}
+                      />
+                      <TextInput
+                        style={[layout.input, styles.setInput]}
+                        keyboardType="number-pad"
+                        selectTextOnFocus
+                        value={String(set.reps)}
+                        placeholder="reps"
+                        placeholderTextColor={colors.faint}
+                        accessibilityLabel={`Set ${index + 1} reps`}
+                        onChangeText={(value) => patchSet(exercise.id, set.id, { reps: Number(value) || 0 })}
+                      />
+                      {/* No tick: a set on the list is a set you did. One you did
+                          not do comes off here. */}
+                      {exercise.sets.length > 1 ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove set ${index + 1} of ${exercise.name}`}
+                          hitSlop={6}
+                          onPress={() =>
+                            setExercises((current) =>
+                              current.map((item) =>
+                                item.id === exercise.id
+                                  ? { ...item, sets: item.sets.filter((candidate) => candidate.id !== set.id) }
+                                  : item,
+                              ),
+                            )
+                          }
+                          style={styles.setRemoveSlot}
+                        >
+                          <Text style={styles.setRemoveMark}>−</Text>
+                        </Pressable>
+                      ) : (
+                        <View style={styles.setRemoveSlot} />
+                      )}
+                    </View>
+                  ))}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add a set to ${exercise.name}`}
                     onPress={() =>
                       setExercises((current) =>
-                        current.map((item) =>
-                          item.id === exercise.id
-                            ? { ...item, sets: item.sets.slice(0, -1) }
-                            : item,
-                        ),
+                        current.map((item) => (item.id === exercise.id ? addSet(item, weightUnit) : item)),
                       )
                     }
-                  />
-                ) : null}
-              </View>
-              </>
+                    style={({ pressed }) => [styles.addSet, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.addSetLabel}>+ Add set</Text>
+                  </Pressable>
+                </>
               )}
             </View>
           ))}
 
-          {routineMode ? null : (
-            <TextInput
-              style={[layout.input, styles.notes]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Optional notes"
-              placeholderTextColor={colors.faint}
-              multiline
-            />
-          )}
+          {!empty ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add exercise"
+              onPress={openPicker}
+              style={({ pressed }) => [styles.addExercise, pressed && styles.pressed]}
+            >
+              <Text style={styles.addExerciseLabel}>+ Add another exercise</Text>
+            </Pressable>
+          ) : null}
+
+          {/* The session's details, once there is a session to describe. */}
+          {!routineMode && !empty ? (
+            <View style={styles.details}>
+              <Text style={styles.sectionLabel}>DETAILS</Text>
+
+              <Text style={styles.fieldLabel}>Name</Text>
+              <TextInput
+                style={layout.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Workout name"
+                placeholderTextColor={colors.faint}
+              />
+
+              <Text style={styles.fieldLabel}>How long, in minutes</Text>
+              <View style={styles.durationRow}>
+                {DURATION_CHOICES.map((minutes) => {
+                  const on = durationChoice === minutes;
+                  return (
+                    <Pressable
+                      key={minutes}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${minutes} minutes`}
+                      accessibilityState={{ selected: on }}
+                      onPress={() => setDuration(String(minutes))}
+                      style={({ pressed }) => [styles.durationChip, on && styles.durationChipOn, pressed && styles.pressed]}
+                    >
+                      <Text style={[styles.durationChipLabel, on && styles.durationChipLabelOn]}>{minutes}</Text>
+                    </Pressable>
+                  );
+                })}
+                <TextInput
+                  style={[layout.input, styles.durationInput, !durationChoice && duration.trim() !== '' && styles.durationInputOn]}
+                  value={durationChoice ? '' : duration}
+                  onChangeText={setDuration}
+                  keyboardType="number-pad"
+                  placeholder="Other"
+                  placeholderTextColor={colors.faint}
+                  accessibilityLabel="Minutes"
+                />
+              </View>
+
+              {/* Only a session that goes somewhere has a distance; it feeds the
+                  run records on the profile (fastest mile, longest run). */}
+              {goesSomewhere ? (
+                <>
+                  <Text style={styles.fieldLabel}>Distance, in {distanceUnit === 'mi' ? 'miles' : 'kilometres'}</Text>
+                  <TextInput
+                    style={layout.input}
+                    value={distance}
+                    onChangeText={setDistance}
+                    keyboardType="decimal-pad"
+                    placeholder={distanceUnit}
+                    accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}`}
+                    placeholderTextColor={colors.faint}
+                  />
+                </>
+              ) : null}
+
+              <Text style={styles.fieldLabel}>Notes (optional)</Text>
+              <TextInput
+                style={[layout.input, styles.notes]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="How did it feel?"
+                placeholderTextColor={colors.faint}
+                multiline
+              />
+
+              {/* An ad-hoc session you decide afterwards is worth keeping. */}
+              {onSaveTemplate ? (
+                <View style={styles.sessionActions}>
+                  <TextButton
+                    label={activeTemplateId ? 'Update routine' : 'Save as routine'}
+                    onPress={saveSessionAsRoutine}
+                  />
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
           <ErrorText>{error}</ErrorText>
+        </ScrollView>
 
+        {/* Pinned, so the way out is always in the same place. */}
+        <View style={styles.footer}>
           {routineMode ? (
-            <View style={styles.footer}>
+            <>
               {routineMessage ? <Text style={styles.routineError}>{routineMessage}</Text> : null}
               <PrimaryButton
                 label={saving ? 'Saving...' : editingTemplateId ? 'Save changes' : 'Save routine'}
                 busy={saving}
                 onPress={() => void saveRoutine()}
               />
-              <TextButton label="Cancel" onPress={leaveRoutineMode} />
-            </View>
+            </>
           ) : (
-            <View style={styles.footer}>
-              <Text style={styles.stats}>{summary}</Text>
-              {exercises.length > 0 ? (
-                <View style={styles.sessionActions}>
-                  {/* An ad-hoc session you decide afterwards is worth keeping. */}
-                  {onSaveTemplate ? (
-                    <TextButton
-                      label={activeTemplateId ? 'Update routine' : 'Save as routine'}
-                      onPress={saveSessionAsRoutine}
-                    />
-                  ) : null}
-                </View>
-              ) : null}
+            <>
+              <Text style={styles.stats}>{empty ? 'Add an exercise to finish' : summary}</Text>
               <PrimaryButton
                 label={saving ? 'Saving...' : 'Finish workout'}
                 busy={saving}
+                disabled={empty}
                 onPress={() => void finish()}
               />
-            </View>
+            </>
           )}
-        </ScrollView>
+        </View>
 
         {/* The picker. An in-sheet overlay rather than a nested Modal: nested
             modals behave differently on iOS, Android and react-native-web, and
@@ -671,90 +729,184 @@ const styles = themedStyles(() => ({
     gap: 12,
   },
   title: { ...text.title, marginTop: 8 },
-  body: { padding: 22, paddingBottom: 60 },
-  toolbar: { flexDirection: 'row', gap: 10 },
-  minutes: { width: 84, textAlign: 'center' },
+  body: { padding: 22, paddingBottom: 40 },
   field: { marginTop: 8 },
 
   sectionLabel: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.3, color: colors.faint },
   sectionHint: { ...text.small, marginTop: 10, lineHeight: 18 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.muted, marginTop: 16, marginBottom: 6 },
+  lead: { fontSize: 17, fontWeight: '600', color: colors.ink },
 
-  // Routines strip
-  routines: { marginTop: 18 },
-  routinesHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  routinesHint: { ...text.small, marginTop: 10, lineHeight: 18 },
-  routineChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  routineChipWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  routineChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+  // The big "start here" button
+  startCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: colors.coral,
+  },
+  routineStart: { marginTop: 20 },
+  startTitle: { fontSize: 17, fontWeight: '700', color: colors.onCoral },
+  startHint: { fontSize: 13, color: colors.onCoral, opacity: 0.85, marginTop: 3 },
+  startArrow: { fontSize: 22, color: colors.onCoral },
+
+  // Routines
+  routines: { marginTop: 26 },
+  routinesHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  routineList: { gap: 8 },
+  routineRowWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  routineRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.cardSoft,
+    backgroundColor: colors.card,
   },
-  routineChipOn: { borderColor: colors.coral, backgroundColor: colors.coralWash },
-  routineChipLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
-  routineChipLabelOn: { color: colors.coralDeep },
-  routineChipMeta: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 2 },
-  // Dashed, like every "add one" tile — reads as a slot to fill, not a saved item.
-  routineAdd: { borderStyle: 'dashed', borderColor: colors.coral, backgroundColor: 'transparent' },
-  routineAddLabel: { fontSize: 14, fontWeight: '600', color: colors.coralDeep },
+  routineName: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  routinePreview: { fontSize: 12, color: colors.muted, marginTop: 3 },
+  routineGo: { fontSize: 14, fontWeight: '600', color: colors.coralDeep },
   routineDelete: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.dangerWash,
+  },
+  routineDeleteMark: { fontSize: 17, color: colors.danger, marginTop: -1 },
+  newRoutine: {
+    marginTop: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+  },
+  newRoutineTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  newRoutineHint: { fontSize: 12, color: colors.muted, marginTop: 3, lineHeight: 17 },
+  routineMessage: { fontSize: 13, color: colors.mintDeep, marginBottom: 12 },
+  routineError: { fontSize: 13, color: colors.danger },
+
+  // Exercise cards
+  exercise: {
+    marginTop: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+  },
+  exerciseHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  exerciseNumber: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
+    textAlign: 'center',
+    lineHeight: 26,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.coralDeep,
     backgroundColor: colors.coralWash,
   },
-  routineDeleteMark: { fontSize: 16, color: colors.coralDeep, marginTop: -1 },
-  routineMessage: { fontFamily: fonts.mono, fontSize: 11, color: colors.mintDeep, marginTop: 10 },
-  routineError: { fontFamily: fonts.mono, fontSize: 11, color: colors.danger },
-
-  // Add-exercise button
-  addExercise: {
-    flexDirection: 'row',
+  exerciseName: { fontSize: 16, fontWeight: '600', color: colors.ink },
+  exerciseMuscle: { fontSize: 12, color: colors.faint, marginTop: 1, textTransform: 'capitalize' },
+  exerciseRemove: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 20,
+    backgroundColor: colors.tile,
+  },
+  exerciseRemoveMark: { fontSize: 17, color: colors.muted, marginTop: -1 },
+  setHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
+  setHeadLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1,
+    color: colors.faint,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  setInputHead: { flex: 1, minWidth: 0 },
+  setIndex: { width: 32, textAlign: 'center' },
+  setIndexValue: { fontSize: 14, fontWeight: '600', color: colors.muted },
+  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  // minWidth 0 lets the field shrink; without it the row runs off the screen.
+  setInput: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  setInputOff: { opacity: 0.6 },
+  setRemoveSlot: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  setRemoveMark: { fontSize: 20, color: colors.faint, lineHeight: 22 },
+  addSet: {
+    marginTop: 10,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: colors.tile,
+  },
+  addSetLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  cardioNote: { fontSize: 13, color: colors.muted, marginTop: 10, lineHeight: 18 },
+
+  addExercise: {
+    marginTop: 14,
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: colors.coral,
+    alignItems: 'center',
   },
-  addExerciseMark: { fontSize: 18, color: colors.coralDeep, marginTop: -2 },
   addExerciseLabel: { fontSize: 15, fontWeight: '600', color: colors.coralDeep },
 
-  // Exercise cards
-  exercise: {
-    marginTop: 16,
-    padding: 14,
+  // Details
+  details: { marginTop: 28 },
+  durationRow: { flexDirection: 'row', gap: 8 },
+  durationChip: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 14,
+    borderColor: colors.border,
+    alignItems: 'center',
     backgroundColor: colors.card,
   },
-  exerciseHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  exerciseName: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  exerciseMuscle: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 2 },
-  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  setHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
-  setHeadLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, textAlign: 'center' },
-  setInputHead: { flex: 1, minWidth: 0 },
-  setIndex: { width: 18, fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
-  // minWidth 0 lets the field shrink; without it the row runs off the screen.
-  setInput: { flex: 1, minWidth: 0, paddingVertical: 9, paddingHorizontal: 6, textAlign: 'center' },
-  cardioNote: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 10, lineHeight: 15 },
-  setActions: { flexDirection: 'row', gap: 18, marginTop: 4 },
+  durationChipOn: { borderColor: colors.selectedBorder, backgroundColor: colors.selectedFill },
+  durationChipLabel: { fontSize: 15, fontWeight: '600', color: colors.ink },
+  durationChipLabelOn: { color: colors.coralDeep },
+  durationInput: { flex: 1.3, minWidth: 0, textAlign: 'center', paddingHorizontal: 6 },
+  durationInputOn: { borderColor: colors.selectedBorder },
+  notes: { minHeight: 72, textAlignVertical: 'top' },
+  sessionActions: { flexDirection: 'row', marginTop: 14 },
 
-  notes: { marginTop: 16, minHeight: 80, textAlignVertical: 'top' },
+  footer: {
+    gap: 10,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 18,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+    backgroundColor: colors.paper,
+  },
+  stats: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, textAlign: 'center' },
   empty: { marginTop: 14, fontSize: 13, color: colors.faint, textAlign: 'center' },
-  footer: { marginTop: 24, gap: 14 },
-  stats: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted },
-  sessionActions: { flexDirection: 'row', gap: 18, marginTop: -4 },
   pressed: { opacity: 0.75 },
 
   // Picker overlay
@@ -805,5 +957,4 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
   },
   libraryMinusMark: { fontSize: 16, color: colors.faint, lineHeight: 18 },
-  exerciseRemove: { fontFamily: fonts.mono, fontSize: 11, color: colors.faint },
 }));

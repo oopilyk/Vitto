@@ -98,6 +98,7 @@ export type PetInteractionEvent =
   | { type: 'FOOD_REACHED_PET'; feedingImage: string | null }
   | { type: 'FOOD_CONSUMED' }
   | { type: 'EATING_FINISHED' }
+  | { type: 'CELEBRATION_STARTED' }
   | { type: 'CELEBRATION_FINISHED' }
   | { type: 'WORKOUT_STARTED' }
   | { type: 'WORKOUT_FINISHED' }

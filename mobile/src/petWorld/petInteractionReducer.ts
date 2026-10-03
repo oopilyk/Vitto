@@ -1,5 +1,15 @@
 import { IDLE_STATE, type PetInteractionEvent, type PetInteractionState } from './types';
 
+/** What a logged moment's cheer may interrupt: background states, never a scripted moment. */
+export const CELEBRATES_FROM: ReadonlySet<PetInteractionState['kind']> = new Set([
+  'idle',
+  'noticing',
+  'sleeping',
+  'ambientWalking',
+  'travelling',
+  'exploring',
+]);
+
 /**
  * Pure state transition for what the pet is doing. No timers, no side effects —
  * `usePetInteraction` owns the choreography (the setTimeout chain that used to
@@ -38,6 +48,11 @@ export function petInteractionReducer(
       return state.kind === 'eating' ? { ...state, feedingImage: null } : state;
     case 'EATING_FINISHED':
       return state.kind === 'eating' ? { kind: 'celebrating', grade: state.grade } : state;
+    case 'CELEBRATION_STARTED':
+      // A logged moment, cheered on its own. Only from a pet that is not busy
+      // with something that ends in its own cheer (a meal, a workout) or is
+      // already cheering — see `CELEBRATES_FROM`.
+      return CELEBRATES_FROM.has(state.kind) ? { kind: 'celebrating', grade: null } : state;
     case 'CELEBRATION_FINISHED':
       return state.kind === 'celebrating' ? IDLE_STATE : state;
 
