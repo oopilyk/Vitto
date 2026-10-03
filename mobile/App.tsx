@@ -524,6 +524,8 @@ function VittoApp() {
   // What the pet is doing on screen, and the choreography (walk to food, eat,
   // celebrate, ...) that drives it. Replaces the seven booleans plus nested
   // setTimeout chain this used to be — see `src/petWorld/usePetInteraction.ts`.
+  /** Whether the open mind game has logged a session; see `closeMindGame`. */
+  const mindLogged = useRef(false);
   const interaction = usePetInteraction({
     onMunch: playMunchSound,
     onEatingFinished: playCelebrationSound,
@@ -1342,7 +1344,20 @@ function VittoApp() {
   };
 
   const completeMindSession = async (metadata: BrainTrainingMetadata) => {
+    mindLogged.current = true;
     await recordEvent(makeEvent<BrainTrainingMetadata>(userId, 'BRAIN_TRAINING', metadata));
+  };
+
+  /**
+   * Leaving a mind game. One that logged a session goes back to the pet, like a
+   * meal or a workout, so the cheer is seen — even when it was opened from Today.
+   * One left without playing just goes back to wherever it came from.
+   */
+  const closeMindGame = (navigation: { goBack: () => void; popTo: (name: 'Dashboard') => void }) => {
+    const logged = mindLogged.current;
+    mindLogged.current = false;
+    if (logged) navigation.popTo('Dashboard');
+    else navigation.goBack();
   };
 
   /**
@@ -2411,7 +2426,7 @@ function VittoApp() {
                 onOpenWordPuzzle={() => navigation.replace('WordPuzzle')}
                 onOpenFourCorners={() => navigation.replace('FourCorners')}
                 onOpenPetJeopardy={() => navigation.replace('PetJeopardy')}
-                onClose={() => navigation.goBack()}
+                onClose={() => closeMindGame(navigation)}
               />
             )}
           </RootStack.Screen>
@@ -2423,7 +2438,7 @@ function VittoApp() {
                 // path every other mind game uses -- the screen guards against
                 // calling this twice, so nothing here needs to.
                 onFinish={completeMindSession}
-                onClose={() => navigation.goBack()}
+                onClose={() => closeMindGame(navigation)}
               />
             )}
           </RootStack.Screen>
@@ -2437,7 +2452,7 @@ function VittoApp() {
                 // carries an explicit `xpAwarded`, the wager's result reaches the
                 // pet engine as that one number rather than a second award call.
                 onFinish={completeMindSession}
-                onClose={() => navigation.goBack()}
+                onClose={() => closeMindGame(navigation)}
               />
             )}
           </RootStack.Screen>
@@ -2448,11 +2463,13 @@ function VittoApp() {
                 progress={wordPuzzleProgress}
                 onSaveProgress={saveWordPuzzleProgress}
                 onClearProgress={clearWordPuzzleProgress}
+                // Saved means done: straight back to the pet, like every other log.
                 onFinish={async (metadata) => {
                   await completeMindSession(metadata);
                   clearWordPuzzleProgress();
+                  closeMindGame(navigation);
                 }}
-                onClose={() => navigation.goBack()}
+                onClose={() => closeMindGame(navigation)}
               />
             )}
           </RootStack.Screen>
