@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { refreshEntitlement, storeConfigured } from '../_shared/revenuecat.ts';
 
 /**
  * MOCK payments for Vitto Plus.
@@ -16,8 +17,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
  *   supabase secrets set MOCK_PAYMENTS=true
  *   supabase functions deploy billing
  *
+ * REAL purchases (the App Store, through RevenueCat) need only the one action
+ * here, `sync`, and it works whatever MOCK_PAYMENTS says: see
+ * _shared/revenuecat.ts and the revenuecat-webhook function.
+ *
  * Actions (all for the signed-in user only; there is no way to name anyone else):
- *   status              -> { enabled, tier, plan, expiresAt }
+ *   status              -> { enabled, store, tier, expiresAt }. `enabled` is
+ *                          MOCK_PAYMENTS; `store` is whether real purchases can
+ *                          be verified (the RevenueCat secret is set).
+ *   sync                -> re-reads this user's App Store purchases from
+ *                          RevenueCat, writes the entitlement, returns status.
  *   purchase { plan, trial } -> plan 'monthly' | 'yearly'. `trial` (yearly only)
  *                          adds TRIAL_DAYS free up front. Plus until the
  *                          period ends.
@@ -58,12 +67,19 @@ Deno.serve(async (request) => {
       const active = data?.tier === 'plus' && (expiresAt === null || expiresAt > Date.now());
       return {
         enabled: mockEnabled(),
+        store: storeConfigured(),
         tier: active ? 'plus' : 'free',
         expiresAt: active && data?.expires_at ? data.expires_at : null,
       };
     };
 
     if (action === 'status') return json(await current());
+
+    if (action === 'sync') {
+      if (!storeConfigured()) return json({ error: 'Purchases are not set up yet.' }, 503);
+      await refreshEntitlement(admin, user.id);
+      return json(await current());
+    }
 
     if (!mockEnabled()) return json({ error: 'Test purchases are switched off.' }, 403);
 

@@ -4,6 +4,7 @@ import {
   Easing,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -51,7 +52,15 @@ import { PetAvatar } from '../components/PetAvatar';
 import { PET_SHEETS, sheetByBreed, portraitFrame } from '../components/petSprites';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
-import { billingService, PLUS_PLANS, TRIAL_DAYS, TRIAL_REMINDER_DAY, type PlusPlan } from '../services/billingService';
+import {
+  billingService,
+  LEGAL_LINKS,
+  PLUS_PLANS,
+  TRIAL_DAYS,
+  TRIAL_REMINDER_DAY,
+  type PlusPlan,
+  type PlusStatus,
+} from '../services/billingService';
 import { scheduleTrialReminder } from '../services/pushService';
 import { colors, getColorScheme, themedStyles } from '../theme';
 
@@ -410,7 +419,8 @@ export function OnboardingScreen({
   const [handle, setHandle] = useState('');
   const [claiming, setClaiming] = useState(false);
   const [plusBusy, setPlusBusy] = useState<PlusPlan | null>(null);
-  const [plusTestMode, setPlusTestMode] = useState<boolean | null>(null);
+  /** How Plus is sold here (store or test) and at what price, read once the offer is on screen. */
+  const [plusStatus, setPlusStatus] = useState<PlusStatus | null>(null);
 
   // The room the page has (the keyboard takes its share), measured, so every
   // page can be laid out to fit it instead of scrolling.
@@ -619,17 +629,23 @@ export function OnboardingScreen({
     onUpdate('motivations', next);
   };
 
-  const yearly = PLUS_PLANS.find((plan) => plan.value === 'yearly')!;
-  const monthly = PLUS_PLANS.find((plan) => plan.value === 'monthly')!;
+  // The App Store's own prices once known, the intended ones until then.
+  const sellable = plusStatus?.plans ?? PLUS_PLANS;
+  const yearly = sellable.find((plan) => plan.value === 'yearly') ?? PLUS_PLANS.find((plan) => plan.value === 'yearly')!;
+  const monthly = sellable.find((plan) => plan.value === 'monthly') ?? PLUS_PLANS.find((plan) => plan.value === 'monthly')!;
+  const plusStore = plusStatus?.mode === 'store';
+  // Store mode: the trial Apple will give this person (first-time subscribers
+  // only), or none. Test mode: always.
+  const trialDays = plusStore ? (plusStatus?.trialDays ?? null) : TRIAL_DAYS;
+  const reminderDay = trialDays === null ? null : plusStore ? Math.max(1, trialDays - 2) : TRIAL_REMINDER_DAY;
 
-  // Whether the store is in test mode, read once the offer is on screen.
   useEffect(() => {
-    if (stepId !== 'plusOffer' || plusTestMode !== null) return;
+    if (stepId !== 'plusOffer' || plusStatus !== null) return;
     void billingService
       .status()
-      .then((status) => setPlusTestMode(status.enabled))
-      .catch(() => setPlusTestMode(false));
-  }, [stepId, plusTestMode]);
+      .then(setPlusStatus)
+      .catch(() => setPlusStatus({ enabled: false, tier: 'free', expiresAt: null }));
+  }, [stepId, plusStatus]);
 
   /** Buys Plus (Yearly comes with the trial), unlocks it at once, and carries on. */
   const buyPlus = async (plan: PlusPlan) => {
@@ -638,13 +654,15 @@ export function OnboardingScreen({
     setPlusBusy(plan);
     setStepError(null);
     try {
-      const trial = plan === 'yearly';
+      const trial = plan === 'yearly' && trialDays !== null;
       const next = await billingService.purchase(plan, trial);
       paywall.onTierChange(next.tier);
       if (next.tier === 'plus') {
         cheer();
         // The reminder is a courtesy: if it cannot be scheduled, the purchase still stands.
-        if (trial) await Promise.resolve(scheduleTrialReminder(TRIAL_REMINDER_DAY, TRIAL_DAYS)).catch(() => {});
+        if (trial && trialDays !== null && reminderDay !== null) {
+          await Promise.resolve(scheduleTrialReminder(reminderDay, trialDays)).catch(() => {});
+        }
         goNext('plusOffer');
       }
     } catch (cause) {
@@ -1382,16 +1400,19 @@ export function OnboardingScreen({
               <Pressable accessibilityRole="button" onPress={() => goNext('plusOffer')} hitSlop={10} style={styles.offerSkip}>
                 <Text style={styles.link}>Not now</Text>
               </Pressable>
-              <Text style={styles.offerReady}>Your free trial is ready</Text>
-              <Text style={[styles.title, short && styles.titleShort]}>{`Start your ${TRIAL_DAYS}-day free trial`}</Text>
+              <Text style={styles.offerReady}>{trialDays !== null ? 'Your free trial is ready' : 'Everything your pet can be'}</Text>
+              <Text style={[styles.title, short && styles.titleShort]}>
+                {trialDays !== null ? `Start your ${trialDays}-day free trial` : 'Get Vitto Plus'}
+              </Text>
+              {trialDays !== null ? (
               <View style={styles.timeline}>
                 <View style={styles.timelineBar} />
                 {[
                   { title: 'Today', body: `Unlock everything in Plus and see what ${petName} can be.`, filled: true },
-                  { title: `Day ${TRIAL_REMINDER_DAY}`, body: 'We’ll remind you with a notification that your trial is ending.' },
+                  { title: `Day ${reminderDay}`, body: 'We’ll remind you with a notification that your trial is ending.' },
                   {
-                    title: `Day ${TRIAL_DAYS}`,
-                    body: `You’ll be charged on ${new Date(Date.now() + TRIAL_DAYS * 86_400_000).toLocaleDateString([], { month: 'short', day: 'numeric' })}. Cancel anytime before.`,
+                    title: `Day ${trialDays}`,
+                    body: `You’ll be charged on ${new Date(Date.now() + trialDays * 86_400_000).toLocaleDateString([], { month: 'short', day: 'numeric' })}. Cancel anytime before.`,
                   },
                 ].map((row) => (
                   <View key={row.title} style={styles.timelineRow}>
@@ -1405,8 +1426,9 @@ export function OnboardingScreen({
                   </View>
                 ))}
               </View>
+              ) : null}
               {paywall.isDevAccount ? <Text style={styles.hint}>Dev account: Plus is always on here.</Text> : null}
-              {plusTestMode ? <Text style={styles.hint}>Test mode: no real payment is taken.</Text> : null}
+              {plusStatus?.mode === 'test' ? <Text style={styles.hint}>Test mode: no real payment is taken.</Text> : null}
             </View>
           ) : null}
 
@@ -1518,12 +1540,12 @@ export function OnboardingScreen({
           {stepId === 'plusOffer' ? (
             <>
               <Text style={styles.offerPrice}>
-                {`${TRIAL_DAYS} days free, then `}
+                {trialDays !== null ? `${trialDays} days free, then ` : ''}
                 <Text style={styles.offerPriceStrong}>{`${yearly.price} per year`}</Text>
-                {` (${yearly.note?.toLowerCase() ?? ''})`}
+                {yearly.note ? ` (${yearly.note.toLowerCase()})` : ''}
               </Text>
               <FButton
-                label="Start my free trial"
+                label={trialDays !== null ? 'Start my free trial' : 'Get Plus yearly'}
                 busy={plusBusy === 'yearly'}
                 disabled={plusBusy !== null}
                 onPress={() => void buyPlus('yearly')}
@@ -1534,8 +1556,27 @@ export function OnboardingScreen({
                 disabled={plusBusy !== null}
                 style={styles.linkRow}
               >
-                <Text style={styles.linkLarge}>{`Or ${monthly.price} a month, no trial`}</Text>
+                <Text style={styles.linkLarge}>{`Or ${monthly.price} a month${trialDays !== null ? ', no trial' : ''}`}</Text>
               </Pressable>
+              {/* What the App Store requires on any screen that sells a subscription. */}
+              <Text style={styles.offerLegal}>
+                {'Renews automatically. Cancel anytime in Settings. '}
+                <Text style={styles.offerLegalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+                  Terms
+                </Text>
+                {LEGAL_LINKS.privacy ? (
+                  <>
+                    {' · '}
+                    <Text
+                      style={styles.offerLegalLink}
+                      accessibilityRole="link"
+                      onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}
+                    >
+                      Privacy
+                    </Text>
+                  </>
+                ) : null}
+              </Text>
             </>
           ) : stepId === 'notifications' ? (
             <>
@@ -1988,6 +2029,8 @@ const styles = themedStyles(() => {
     timelineBody: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, marginTop: 1 },
     offerPrice: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 21, color: F.text, textAlign: 'center' },
     offerPriceStrong: { fontFamily: FONT.bold },
+    offerLegal: { fontFamily: FONT.regular, fontSize: 12, lineHeight: 17, color: F.sub, textAlign: 'center' },
+    offerLegalLink: { textDecorationLine: 'underline' },
 
     planCard: {
       flexShrink: 1,

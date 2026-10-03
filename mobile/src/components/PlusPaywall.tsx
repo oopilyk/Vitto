@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Platform, Pressable, Switch, Text, View } from 'react-native';
 import { companion as ai } from '@vitto/core';
 import {
   billingService,
+  LEGAL_LINKS,
   PLUS_PLANS,
   TRIAL_DAYS,
   TRIAL_REMINDER_DAY,
@@ -135,9 +136,18 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
     }
   };
 
-  const chosen = PLUS_PLANS.find((option) => option.value === plan)!;
-  // The trial is a Yearly offer: turning it on picks Yearly, other plans turn it off.
-  const trialOn = trial && plan === 'yearly';
+  // Store mode sells at the App Store's own prices; test mode at the intended ones.
+  const store = status?.mode === 'store';
+  const sellable = status?.plans ?? PLUS_PLANS;
+  // Store mode: the trial Apple will actually give this person (first-time
+  // subscribers only), or none. Test mode: always on offer.
+  const trialDays = store ? (status?.trialDays ?? null) : TRIAL_DAYS;
+  const reminderDay = trialDays === null ? null : store ? Math.max(1, trialDays - 2) : TRIAL_REMINDER_DAY;
+  const chosen = sellable.find((option) => option.value === plan) ?? sellable[0]!;
+  const yearlyPrice = sellable.find((option) => option.value === 'yearly')?.price ?? '';
+  // The trial is a Yearly offer: turning it on picks Yearly, other plans turn it
+  // off. In store mode it is not a choice: Yearly comes with it when eligible.
+  const trialOn = trialDays !== null && plan === 'yearly' && (store || trial);
   const choosePlan = (next: PlusPlan) => {
     setPlan(next);
     if (next !== 'yearly') setTrial(false);
@@ -152,14 +162,14 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
       () => billingService.purchase(plan, trialOn),
       async (next) => {
         if (next.tier !== 'plus') return;
-        if (trialOn) await scheduleTrialReminder(TRIAL_REMINDER_DAY, TRIAL_DAYS);
+        if (trialOn && trialDays !== null && reminderDay !== null) await scheduleTrialReminder(reminderDay, trialDays);
         onPurchased?.();
       },
     );
 
   const isPlus = status?.tier === 'plus';
   // Yearly first: it is the plan the page is built to sell.
-  const plans = [...PLUS_PLANS].sort((a, b) => (a.value === 'yearly' ? -1 : b.value === 'yearly' ? 1 : 0));
+  const plans = [...sellable].sort((a, b) => (a.value === 'yearly' ? -1 : b.value === 'yearly' ? 1 : 0));
 
   return (
     <View style={styles.wrap} testID="plus-paywall">
@@ -222,9 +232,11 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
           </Text>
           {status.enabled ? (
             <TextButton
-              label="Cancel Plus (test mode)"
+              label={store ? 'Manage subscription' : 'Cancel Plus (test mode)'}
               tone="coral"
-              onPress={() => void run(billingService.cancel, () => cancelTrialReminder())}
+              onPress={() =>
+                void run(billingService.cancel, (next) => (next.tier === 'free' ? cancelTrialReminder() : undefined))
+              }
               disabled={busy}
             />
           ) : null}
@@ -267,11 +279,13 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
             })}
           </View>
 
+          {trialDays !== null ? (
           <View style={[styles.card, styles.trialRow]}>
             <View style={styles.trialText}>
-              <Text style={styles.trialTitle}>{`${TRIAL_DAYS}-day free trial`}</Text>
+              <Text style={styles.trialTitle}>{`${trialDays}-day free trial`}</Text>
               <Text style={styles.trialSub}>{trialOn ? 'Try everything. Pay nothing today.' : 'On the yearly plan'}</Text>
             </View>
+            {store ? null : (
             <Switch
               value={trialOn}
               onValueChange={toggleTrial}
@@ -283,7 +297,9 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
               accessibilityLabel="Free trial"
               testID="trial-toggle"
             />
+            )}
           </View>
+          ) : null}
 
           {trialOn ? (
             <View style={styles.card} testID="trial-timeline">
@@ -292,8 +308,8 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
                 <View style={styles.timelineRail} />
                 {[
                   { day: 'Today', what: 'Full access, free', tint: colors.mintDeep },
-                  { day: `Day ${TRIAL_REMINDER_DAY}`, what: 'We remind you before it ends', tint: colors.lilacDeep },
-                  { day: `Day ${TRIAL_DAYS}`, what: '$39.99 / year, cancel anytime', tint: colors.inkSoft },
+                  { day: `Day ${reminderDay}`, what: 'We remind you before it ends', tint: colors.lilacDeep },
+                  { day: `Day ${trialDays}`, what: `${yearlyPrice} / year, cancel anytime`, tint: colors.inkSoft },
                 ].map((step) => (
                   <View key={step.day} style={styles.stop}>
                     <View style={[styles.stopDot, { backgroundColor: step.tint }]} />
@@ -308,9 +324,29 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
           <View style={styles.cta}>
             <PrimaryButton label={trialOn ? 'Start Free Trial' : 'Continue'} onPress={() => void buy()} busy={busy} disabled={busy} />
             <Text style={styles.terms} testID="plus-terms">{chosen.terms(trialOn)}</Text>
-            <Text style={styles.testMode} testID="plus-test-mode">
-              Test mode: no real payment is taken. This unlocks Plus exactly as a purchase will.
-            </Text>
+            {store ? null : (
+              <Text style={styles.testMode} testID="plus-test-mode">
+                Test mode: no real payment is taken. This unlocks Plus exactly as a purchase will.
+              </Text>
+            )}
+            {/* The App Store requires both next to a subscription. */}
+            <View style={styles.legal}>
+              <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+                Terms of Use
+              </Text>
+              {LEGAL_LINKS.privacy ? (
+                <>
+                  <Text style={styles.legalDot}>·</Text>
+                  <Text
+                    style={styles.legalLink}
+                    accessibilityRole="link"
+                    onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}
+                  >
+                    Privacy Policy
+                  </Text>
+                </>
+              ) : null}
+            </View>
           </View>
         </>
       ) : null}
@@ -350,6 +386,9 @@ const styles = themedStyles(() => ({
   },
   skipLabel: { fontSize: 14, fontWeight: '600', color: colors.inkSoft },
   restore: { fontSize: 14, fontWeight: '600', color: colors.coral },
+  legal: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  legalLink: { fontSize: 12, color: colors.muted, textDecorationLine: 'underline' },
+  legalDot: { fontSize: 12, color: colors.faint },
 
   hero: { alignItems: 'center', paddingTop: 4, paddingBottom: 2 },
   icon: {

@@ -107,3 +107,58 @@ describe('Vitto Plus paywall (test mode)', () => {
     tree.unmount();
   });
 });
+
+describe('Vitto Plus paywall (App Store)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const storePlans = (trialDays: number | null) => [
+    { value: 'monthly', label: 'Monthly', price: '£6.99', per: '/ mo', terms: () => '£6.99 / month, renews automatically.' },
+    {
+      value: 'yearly',
+      label: 'Yearly',
+      price: '£34.99',
+      per: '/ yr',
+      note: 'Only £2.91 a month',
+      badge: 'SAVE 58%',
+      terms: (trial: boolean) => (trial && trialDays ? `Free for ${trialDays} days, then £34.99 / year.` : '£34.99 / year.'),
+    },
+  ];
+
+  it('sells at the store\'s own prices, with the trial Apple will give and no switch for it', async () => {
+    billingService.status.mockResolvedValue({ enabled: true, mode: 'store', tier: 'free', expiresAt: null, plans: storePlans(7), trialDays: 7 });
+    const tree = await open();
+    const all = strings(tree);
+    expect(all).toContain('£34.99');
+    expect(all).toContain('7-day free trial');
+    // Apple applies the trial by itself: nothing to toggle, and no test-mode note.
+    expect(byTestId(tree, 'trial-toggle')).toHaveLength(0);
+    expect(byTestId(tree, 'plus-test-mode')).toHaveLength(0);
+    expect(all).toContain('Day 5');
+    expect(all).toContain('£34.99 / year, cancel anytime');
+    expect(byTestId(tree, 'plus-terms')[0]!.props.children).toBe('Free for 7 days, then £34.99 / year.');
+    expect(all).toContain('Terms of Use');
+    tree.unmount();
+  });
+
+  it('offers no trial to someone who has already had one', async () => {
+    billingService.status.mockResolvedValue({ enabled: true, mode: 'store', tier: 'free', expiresAt: null, plans: storePlans(null), trialDays: null });
+    const tree = await open();
+    expect(strings(tree).some((line) => line.includes('free trial'))).toBe(false);
+    expect(byTestId(tree, 'trial-timeline')).toHaveLength(0);
+    expect(pressable(tree, 'Start Free Trial')).toBeUndefined();
+    expect(pressable(tree, 'Continue')).toBeDefined();
+    tree.unmount();
+  });
+
+  it('sends a subscriber to manage their subscription rather than cancelling in-app', async () => {
+    billingService.status.mockResolvedValue({ enabled: true, mode: 'store', tier: 'plus', expiresAt: '2027-09-30T00:00:00Z' });
+    billingService.cancel.mockResolvedValue({ enabled: true, mode: 'store', tier: 'plus', expiresAt: '2027-09-30T00:00:00Z' });
+    const tree = await open();
+    expect(pressable(tree, 'Cancel Plus')).toBeUndefined();
+    await act(async () => pressable(tree, 'Manage subscription')!.props.onPress());
+    expect(billingService.cancel).toHaveBeenCalled();
+    // Still paid up to the end of the period, so the reminder stays.
+    expect(push.cancelTrialReminder).not.toHaveBeenCalled();
+    tree.unmount();
+  });
+});
