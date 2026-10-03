@@ -15,11 +15,13 @@ const MEALS_PER_DAY = 60;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The most this will base64 into memory. The bucket refuses larger uploads
- * (20260927120000), so this is the second of two locks: a bucket limit raised
- * later should not silently become an edge-function OOM.
+ * The largest photo accepted. The app sends a compressed one (`quality: 0.6`),
+ * well under this; the cap is what keeps a hand-made request from becoming an
+ * edge-function OOM.
  */
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+/** The same types the old bucket allowed. */
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 /** Treated as Plus; the same list as the companion function's. */
@@ -34,20 +36,16 @@ Deno.serve(async (request) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Authentication required.' }, 401);
 
-    const { storagePath, pet } = await request.json();
-    // The download below runs as the service role and so bypasses the storage
-    // policy that would otherwise confine a caller to their own folder. That
-    // makes this string the only thing standing between a caller and someone
-    // else's private photo, so it is checked strictly: the right prefix AND no
-    // traversal segment. `a/../b` satisfies startsWith and is not a path this
-    // app ever produces.
-    if (
-      typeof storagePath !== 'string' ||
-      !storagePath.startsWith(`${user.id}/`) ||
-      storagePath.includes('..') ||
-      storagePath.includes('\\')
-    ) {
-      return json({ error: 'Invalid image path.' }, 400);
+    // The photo arrives in the request and goes no further than the model: it
+    // is never written to storage, a table or a log. Only the analysis is kept.
+    const { image, pet } = await request.json();
+    const imageBase64 = typeof image?.base64 === 'string' ? image.base64 : '';
+    const imageType = typeof image?.mimeType === 'string' ? image.mimeType.toLowerCase() : 'image/jpeg';
+    if (!imageBase64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) return json({ error: 'That photo could not be read.' }, 400);
+    if (!IMAGE_TYPES.has(imageType)) return json({ error: 'That kind of image is not supported.' }, 415);
+    // Base64 is 4 characters per 3 bytes.
+    if (Math.floor((imageBase64.length * 3) / 4) > MAX_IMAGE_BYTES) {
+      return json({ error: 'That image is too large to analyse.' }, 413);
     }
     // Optional. With it the model also writes the pet's one-line reaction to the
     // plate, in character; without it (the web app) the analysis is unchanged.
@@ -91,11 +89,6 @@ Deno.serve(async (request) => {
       return json({ error: "That's a lot of meals for one day. Try again tomorrow." }, 429);
     }
 
-    const { data: image, error: downloadError } = await admin.storage.from('meal-images').download(storagePath);
-    if (downloadError) throw downloadError;
-    if (image.size > MAX_IMAGE_BYTES) return json({ error: 'That image is too large to analyse.' }, 413);
-    const imageBase64 = Array.from(new Uint8Array(await image.arrayBuffer()), (byte) => String.fromCharCode(byte)).join('');
-    const encodedImage = btoa(imageBase64);
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -170,7 +163,7 @@ Deno.serve(async (request) => {
               ? ` The pet about to eat it is ${petContext.name}, a ${petContext.personality} pet who is currently ${petContext.mood}` +
                 (petContext.ailments.length > 0 ? ` and ${petContext.ailments.join(', ')}` : '') + '.'
               : '') },
-          { inlineData: { mimeType: image.type || 'image/jpeg', data: encodedImage } },
+          { inlineData: { mimeType: imageType, data: imageBase64 } },
         ] }],
       }),
     });
@@ -192,7 +185,7 @@ Deno.serve(async (request) => {
       return json({ noFoodDetected: true });
     }
 
-    const { error: insertError } = await admin.from('meal_analyses').insert({ user_id: user.id, storage_path: storagePath, analysis });
+    const { error: insertError } = await admin.from('meal_analyses').insert({ user_id: user.id, analysis });
     if (insertError) throw insertError;
     return json({ analysis });
   } catch (error) {

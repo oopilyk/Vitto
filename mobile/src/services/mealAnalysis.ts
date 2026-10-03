@@ -1,8 +1,5 @@
-import { decode } from 'base64-arraybuffer';
-import { type MealAnalysis, type MealPetContext, newId, parseMealAnalysisResponse } from '@vitto/core';
+import { type MealAnalysis, type MealPetContext, parseMealAnalysisResponse } from '@vitto/core';
 import { supabase } from './supabaseClient';
-
-const bucket = 'meal-images';
 
 export interface PickedImage {
   /** Local file URI, used for the on-screen preview. */
@@ -13,10 +10,10 @@ export interface PickedImage {
 }
 
 /**
- * The web build handed Supabase a File straight from an <input>. On device the
- * picker returns the bytes itself (`base64: true`), which avoids reading the file
- * back off disk: expo-file-system's modern `File` API needs native code that is not
- * in every Expo Go build, and its legacy reader is deprecated.
+ * The photo goes to `analyze-meal` in the request itself and is never stored:
+ * not uploaded to a bucket, not kept by the function. Only the analysis is.
+ * The picker returns the bytes itself (`base64: true`), which avoids reading
+ * the file back off disk.
  *
  * `pet` is optional and only ever adds: with it, the function also returns the
  * pet's reaction to the plate in its own voice. Without it (the web app, tests)
@@ -27,19 +24,9 @@ export const analyzeMealImage = async (image: PickedImage, pet?: MealPetContext)
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sign in before analyzing a meal.');
 
-  const contentType = image.mimeType ?? 'image/jpeg';
-  const extension = contentType.includes('png') ? 'png' : 'jpg';
-  const path = `${user.id}/${newId()}.${extension}`;
-
   if (!image.base64) throw new Error('That photo could not be read. Try choosing it again.');
-  const bytes = decode(image.base64);
-  const { error: uploadError } = await supabase.storage
-    .from(bucket)
-    .upload(path, bytes, { contentType, upsert: false });
-  if (uploadError) throw uploadError;
-
   const { data, error } = await supabase.functions.invoke('analyze-meal', {
-    body: { storagePath: path, ...(pet ? { pet } : {}) },
+    body: { image: { base64: image.base64, mimeType: image.mimeType ?? 'image/jpeg' }, ...(pet ? { pet } : {}) },
   });
   if (error) {
     // supabase-js hangs the failed Response off `context`, and the function puts the
