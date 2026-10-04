@@ -43,6 +43,29 @@ personality), `claude-sonnet-5` for Plus pets with a "Your own" character, and
 `COMPANION_CHAT_MODEL` / `COMPANION_CUSTOM_MODEL` / `COMPANION_FREE_CHAT_MODEL` /
 `COMPANION_EXTRACT_MODEL`.
 
+## Spend limits
+
+Every paid AI call goes through `claim_ai_call` first (`_shared/aiBudget.ts`,
+migration `20261002130000_ai_call_budget.sql`). That covers chat, proactive
+check-ins, meal photos and push-line rewrites. It enforces two limits:
+
+- **The person's daily cap** for that kind of call. It's claimed atomically and
+  recorded before the model is asked, so simultaneous requests can't all slip
+  under it, and failed or empty calls count too.
+- **`AI_DAILY_CEILING`**: total calls across the whole app in 24 hours.
+  The default is 5000. Past it, everyone gets "Your pet is resting" until the
+  window rolls on. Raise it as you grow:
+  `supabase secrets set AI_DAILY_CEILING=20000`.
+
+`ai_calls` cleans itself up: about one claim in a hundred deletes rows older
+than two days.
+
+If the claim can't be made at all (for example, the migration hasn't been
+applied), no model is called. The gate fails closed.
+
+Also set a monthly spend limit in the Anthropic and Google AI consoles. That's
+the last line of defence if anything here is wrong.
+
 ## Security model
 
 The phone sends the person's message and a description of their day. It never

@@ -10,11 +10,23 @@ interface Props {
   /** Whether the pet shows in the Dynamic Island. Null where the device cannot. */
   islandEnabled?: boolean | null;
   onIslandEnabledChange?: (next: boolean) => void;
+  /** Kind words from the pet every couple of days. Null where notifications cannot work. */
+  affirmationsEnabled?: boolean | null;
+  onAffirmationsEnabledChange?: (next: boolean) => void;
   onClose: () => void;
 }
 
 /** Notifications, on their own page (from Settings). Each toggle shows only where it can work. */
-export function NotificationsScreen({ petName, pushEnabled, onPushEnabledChange, islandEnabled, onIslandEnabledChange, onClose }: Props) {
+export function NotificationsScreen({
+  petName,
+  pushEnabled,
+  onPushEnabledChange,
+  islandEnabled,
+  onIslandEnabledChange,
+  affirmationsEnabled,
+  onAffirmationsEnabledChange,
+  onClose,
+}: Props) {
   return (
     <SettingsPage title="Notifications" backLabel="Settings" onBack={onClose}>
       <View style={styles.body}>
@@ -24,6 +36,14 @@ export function NotificationsScreen({ petName, pushEnabled, onPushEnabledChange,
             description="Never between 10pm and 8am."
             value={pushEnabled}
             onChange={onPushEnabledChange}
+          />
+        ) : null}
+        {typeof affirmationsEnabled === 'boolean' && onAffirmationsEnabledChange ? (
+          <ToggleRow
+            title="Little affirmations"
+            description={`Every couple of days, a kind word from ${petName ?? 'your pet'}. Daytime only.`}
+            value={affirmationsEnabled}
+            onChange={onAffirmationsEnabledChange}
           />
         ) : null}
         {typeof islandEnabled === 'boolean' && onIslandEnabledChange ? (

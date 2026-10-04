@@ -27,8 +27,9 @@ export interface TierLimits {
 
 export const TIER_LIMITS: Record<CompanionTier, TierLimits> = {
   // Free is the tier that costs money without paying any, so its ceiling is the
-  // one that bounds the bill; Plus keeps the generous one.
-  free: { messagesPerDay: 10, proactivePerDay: 2, maxMessageLength: 600 },
+  // one that bounds the bill; Plus keeps the generous one. Five is enough to
+  // feel the pet answer, and makes Plus's hundred a reason to upgrade.
+  free: { messagesPerDay: 5, proactivePerDay: 2, maxMessageLength: 600 },
   // Every Plus message is a Sonnet call; 100 feels unlimited and keeps a
   // heavy subscriber from costing more than they pay.
   plus: { messagesPerDay: 100, proactivePerDay: 12, maxMessageLength: 1200 },

@@ -1,18 +1,20 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { BUSY_MESSAGE, claimAiCall } from '../_shared/aiBudget.ts';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 
 /**
- * Meals a single account may have analysed in a rolling 24 hours.
+ * Photos a single account may send for analysis in a rolling 24 hours.
  *
  * Every call sends an image to Gemini, so without a ceiling one signed-in
  * account with a loop is an unbounded bill. Set well above real use -- nobody
  * photographs sixty plates a day -- so it only ever catches abuse, never a
- * hungry person. `meal_analyses` already stores `user_id` and `created_at`, so
- * the count is one indexed query and needs no new table.
+ * hungry person. Counted by attempt (see _shared/aiBudget.ts), so a photo with
+ * no food in it, or one the model fails on, counts the same as a meal.
  */
 const MEALS_PER_DAY = 60;
-const DAY_MS = 24 * 60 * 60 * 1000;
+/** The dev account's cap: effectively none, but still recorded. */
+const DEV_MEALS_PER_DAY = 100_000;
 
 /**
  * The largest photo accepted. The app sends a compressed one (`quality: 0.6`),
@@ -78,16 +80,11 @@ Deno.serve(async (request) => {
       }
     }
 
-    // Checked before the image is fetched, let alone sent to the model: the
-    // point is to spend nothing on a request that is over the line.
-    const { count: analysedToday } = await admin
-      .from('meal_analyses')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', new Date(Date.now() - DAY_MS).toISOString());
-    if ((analysedToday ?? 0) >= MEALS_PER_DAY) {
-      return json({ error: "That's a lot of meals for one day. Try again tomorrow." }, 429);
-    }
+    // Claimed before the photo goes to the model, atomically, so a burst of
+    // simultaneous requests cannot all slip under the cap.
+    const claim = await claimAiCall(admin, user.id, 'meal_photo', isDev ? DEV_MEALS_PER_DAY : MEALS_PER_DAY);
+    if (claim === 'user_limit') return json({ error: "That's a lot of meals for one day. Try again tomorrow." }, 429);
+    if (claim === 'global_limit') return json({ error: BUSY_MESSAGE }, 503);
 
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');

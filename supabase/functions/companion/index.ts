@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
 import { EXTRACT_MODEL, anthropic, chatModelFor, generate } from '../_shared/model.ts';
 import { isExpoPushToken } from '../_shared/push.ts';
+import { BUSY_MESSAGE, claimAiCall } from '../_shared/aiBudget.ts';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
 import {
@@ -488,6 +489,12 @@ Deno.serve(async (request) => {
       if (message.length > limits.maxMessageLength) return json({ error: `Keep it under ${limits.maxMessageLength} characters.` }, 400);
       const before = await access();
       if (!before.canChat) return json({ error: 'DAILY_LIMIT', access: before }, 429);
+      // The count above is for the screen; this is the cap. It is claimed
+      // atomically before anything is spent, so a burst of simultaneous
+      // messages cannot all slip under it.
+      const claim = await claimAiCall(admin, user.id, 'chat', limits.messagesPerDay);
+      if (claim === 'user_limit') return json({ error: 'DAILY_LIMIT', access: before }, 429);
+      if (claim === 'global_limit') return json({ error: BUSY_MESSAGE }, 503);
 
       // The event first, so the reply already reflects it (and any derived
       // "returned after absence"). Silent, because the reply IS the reaction.
@@ -511,7 +518,9 @@ Deno.serve(async (request) => {
       await companion.touchMemories([...inMind], now);
 
       // A templated fallback reply teaches nothing worth a second model call.
-      if (!generated.degraded) await inBackground(learnFrom(companion, ctx, message, generated.text, now));
+      // Remembering is Plus: the memory pass is a second model call on every
+      // message, so free chat skips it and costs about half as much.
+      if (!generated.degraded && tier === 'plus') await inBackground(learnFrom(companion, ctx, message, generated.text, now));
 
       return json({ userMessage, reply, state, access: await access(), degraded: generated.degraded });
     }
@@ -523,7 +532,11 @@ Deno.serve(async (request) => {
       const [memories, recentMessages] = await Promise.all([companion.memories(), companion.messages(40)]);
       // The rules decide WHETHER to speak. No rule fires, no model is called.
       const fire = pickProactiveTrigger({ state, events, memories, recentMessages, life, now });
-      if (!fire || (await companion.usage(now)).proactive >= limits.proactivePerDay) {
+      if (
+        !fire ||
+        (await companion.usage(now)).proactive >= limits.proactivePerDay ||
+        (await claimAiCall(admin, user.id, 'proactive', limits.proactivePerDay)) !== 'ok'
+      ) {
         await companion.saveState(state);
         return json({ message: null, trigger: null, state });
       }

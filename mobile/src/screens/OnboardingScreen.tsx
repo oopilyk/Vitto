@@ -48,6 +48,7 @@ import {
   type PetPersonality,
   type TrainingType,
 } from '@vitto/core';
+import { companion as ai } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { PET_SHEETS, sheetByBreed, portraitFrame } from '../components/petSprites';
 import { SpriteFrame } from '../components/SpriteFrame';
@@ -1391,7 +1392,10 @@ export function OnboardingScreen({
                   style={styles.sub}
                 >{`A sharper, more in-character ${petName} who remembers your week and checks in on you more.`}</Text>
               ) : null}
-              <PerkCompare free="10 messages a day" plus="100 a day, sharper voice" />
+              <PerkCompare
+                free={`${ai.TIER_LIMITS.free.messagesPerDay} messages a day`}
+                plus={`${ai.TIER_LIMITS.plus.messagesPerDay} a day, and remembers you`}
+              />
             </View>
           ) : null}
 

@@ -22,6 +22,7 @@ import {
   type PushLineBank,
 } from '../_shared/companion/index.ts';
 import { chatModelFor, generatePushLines } from '../_shared/model.ts';
+import { claimAiCall } from '../_shared/aiBudget.ts';
 import { sendPush, type PushMessage } from '../_shared/push.ts';
 
 /**
@@ -133,6 +134,9 @@ interface Candidate {
  * voice, otherwise rewritten now (one model call) and stored. An old bank beats
  * no bank if the rewrite fails.
  */
+/** Push-line rewrites one person's pet may have in 24 hours. */
+const PUSH_LINE_REWRITES_PER_DAY = 3;
+
 const bankFor = async (
   db: SupabaseClient,
   candidate: Candidate,
@@ -143,6 +147,11 @@ const bankFor = async (
   const fresh = candidate.pushLines && candidate.pushLinesKey === key
     && candidate.pushLinesAt !== null && now - candidate.pushLinesAt < PUSH_LINES_MAX_AGE_MS;
   if (fresh) return { bank: candidate.pushLines, usage: null };
+  // A rewrite is rare (the voice changed, or the bank aged out), so a few a day
+  // is plenty; past that, or past the app's ceiling, the old bank serves.
+  if ((await claimAiCall(db, candidate.userId, 'push_lines', PUSH_LINE_REWRITES_PER_DAY)) !== 'ok') {
+    return { bank: candidate.pushLines, usage: null };
+  }
 
   const written = await generatePushLines(build(), [], renderPushLinesInstruction(), chatModelFor(candidate.tier, candidate.life.pet.temperament));
   const bank = written ? parsePushLines(written.text) : null;

@@ -14,6 +14,7 @@ import type { Session } from '@supabase/supabase-js';
 import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
+import { loadAffirmationsEnabled, saveAffirmationsEnabled, syncAffirmations } from './src/services/affirmations';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
 import { saveWithRetry } from './src/services/saveWithRetry';
@@ -509,6 +510,20 @@ function VittoApp() {
   }, [pet?.id, session?.user.id]);
   // null until the server has answered; Settings hides the control until then.
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null);
+  /** The pet's affirmations (local notifications). Null where notifications cannot work (web). */
+  const [affirmationsEnabled, setAffirmationsEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void loadAffirmationsEnabled().then(setAffirmationsEnabled);
+  }, []);
+  // Keeps the queue topped up: on launch, when the toggle or the pet's name
+  // changes, and once notifications are allowed.
+  const affirmingPetId = pet?.id;
+  const affirmingPetName = pet?.name;
+  useEffect(() => {
+    if (affirmationsEnabled === null || !affirmingPetId || !affirmingPetName) return;
+    void syncAffirmations({ enabled: affirmationsEnabled, petId: affirmingPetId, petName: affirmingPetName });
+  }, [affirmationsEnabled, affirmingPetId, affirmingPetName, reminderPermission]);
   // The Dynamic Island. On until switched off; the choice is kept on the device.
   const [islandEnabled, setIslandEnabled] = useState(true);
   useEffect(() => {
@@ -2143,8 +2158,8 @@ function VittoApp() {
               canCustomise={canCustomise}
               isPlus={canCustomise}
               notificationsOn={
-                typeof pushEnabled === 'boolean' || canShowIsland()
-                  ? pushEnabled === true || (canShowIsland() && islandEnabled === true)
+                typeof pushEnabled === 'boolean' || canShowIsland() || typeof affirmationsEnabled === 'boolean'
+                  ? pushEnabled === true || (canShowIsland() && islandEnabled === true) || affirmationsEnabled === true
                   : null
               }
               onOpenPlus={() => navigation.navigate('Plus')}
@@ -2198,6 +2213,15 @@ function VittoApp() {
               onIslandEnabledChange={(next) => {
                 setIslandEnabled(next);
                 void repository.saveIslandEnabled(next);
+              }}
+              affirmationsEnabled={affirmationsEnabled}
+              onAffirmationsEnabledChange={(next) => {
+                setAffirmationsEnabled(next);
+                void saveAffirmationsEnabled(next);
+                // Asked here, in the moment someone wants them, never at launch.
+                if (next && reminderPermission !== 'granted') {
+                  void requestReminderPermission().then(setReminderPermission);
+                }
               }}
               onClose={() => navigation.goBack()}
             />
