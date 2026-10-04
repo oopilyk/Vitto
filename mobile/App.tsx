@@ -142,7 +142,8 @@ type RootStackParamList = {
   LiftProgress: undefined;
   // Settings' own pages, each pushed from its row there.
   Preferences: undefined;
-  Personality: undefined;
+  /** `welcome`: arrived straight from buying Plus, to choose who the pet is. */
+  Personality: { welcome?: boolean } | undefined;
   Notifications: undefined;
   DeleteAccount: undefined;
   Appearance: undefined;
@@ -2186,11 +2187,17 @@ function VittoApp() {
           )}
         </RootStack.Screen>
         <RootStack.Screen name="Personality">
-          {({ navigation }) => (
+          {({ navigation, route }) => (
             <PersonalityScreen
               pet={livePet}
               age={profile.age}
-              onSave={(next) => changePersonality(next.personality, next.persona, next.dials)}
+              welcome={route.params?.welcome === true}
+              onSave={async (next) => {
+                const problem = await changePersonality(next.personality, next.persona, next.dials);
+                // Arrived from the upgrade: once they've chosen, they're done here.
+                if (problem === null && route.params?.welcome) navigation.goBack();
+                return problem;
+              }}
               canCustomise={canCustomise}
               onOpenPlus={() => navigation.navigate('Plus')}
               changesLeft={personalityChangesLeft}
@@ -2312,6 +2319,10 @@ function VittoApp() {
                 // The dev account stays Plus whatever the store says.
                 if (!isDev) setCompanionTier(tier);
               }}
+              // Plus's headline is choosing who the pet is, and a free pet has
+              // only ever had the default voice. Straight there, so the upgrade
+              // is felt at once (back to that page if it is what sent them here).
+              onPurchased={() => navigation.popTo('Personality', { welcome: true })}
               onClose={() => navigation.goBack()}
             />
           )}

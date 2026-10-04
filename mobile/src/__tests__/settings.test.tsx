@@ -343,6 +343,23 @@ describe('personality page', () => {
     expect(saved[0]).toMatchObject({ personality: 'savage', dials: { blunt: 0, sarcastic: 0.92 }, persona: '' });
   });
 
+  it('welcomes a new subscriber and invites a first choice, with "Later" to skip it', () => {
+    let tree!: renderer.ReactTestRenderer;
+    const pet = { name: 'Blue', personality: 'sweet' as const, dials: undefined, persona: undefined };
+    const closed: string[] = [];
+    act(() => {
+      tree = renderer.create(<PersonalityScreen pet={pet} age={30} welcome onSave={() => {}} onClose={() => closed.push('later')} />);
+    });
+    const texts = tree.root.findAllByType(Text).map((t: any) => [t.props.children].flat().join(''));
+    expect(texts).toContain('Who should Blue be?');
+    expect(texts).toContain('Welcome to Plus');
+    // The editor itself is right there.
+    expect(tree.root.findAll((n) => n.props.testID === 'character-dials').length).toBeGreaterThan(0);
+    const later = tree.root.findAll((n) => typeof n.props.onPress === 'function' && n.findAllByType(Text).some((t: any) => t.props.children === 'Later'))[0];
+    act(() => later.props.onPress());
+    expect(closed).toEqual(['later']);
+  });
+
   it('shows what Plus would unlock instead of the editor on the free tier', () => {
     let tree!: renderer.ReactTestRenderer;
     const pet = { name: 'Blue', personality: 'sweet' as const, dials: undefined, persona: undefined };

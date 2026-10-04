@@ -1,6 +1,7 @@
 import { Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 import { PlusPaywall } from '../components/PlusPaywall';
+import { PlusScreen } from '../screens/PlusScreen';
 
 jest.mock('../services/billingService', () => {
   const actual = jest.requireActual('../services/billingService');
@@ -104,6 +105,36 @@ describe('Vitto Plus paywall (test mode)', () => {
     const tree = await open();
     expect(strings(tree)).toContain("Plus isn't available to buy yet.");
     expect(pressable(tree, 'Start Free Trial')).toBeUndefined();
+    tree.unmount();
+  });
+});
+
+describe('Plus screen', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('hands a successful purchase on, so the app can go and choose a personality', async () => {
+    billingService.status.mockResolvedValue({ enabled: true, tier: 'free', expiresAt: null });
+    billingService.purchase.mockResolvedValue({ enabled: true, tier: 'plus', expiresAt: '2027-10-14T00:00:00Z' });
+    const onPurchased = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<PlusScreen onTierChange={jest.fn()} onPurchased={onPurchased} onClose={() => {}} />);
+    });
+    await act(async () => pressable(tree, 'Start Free Trial')!.props.onPress());
+    expect(onPurchased).toHaveBeenCalledTimes(1);
+    tree.unmount();
+  });
+
+  it('does not move on when the purchase did not go through', async () => {
+    billingService.status.mockResolvedValue({ enabled: true, tier: 'free', expiresAt: null });
+    billingService.purchase.mockResolvedValue({ enabled: true, tier: 'free', expiresAt: null });
+    const onPurchased = jest.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<PlusScreen onTierChange={jest.fn()} onPurchased={onPurchased} onClose={() => {}} />);
+    });
+    await act(async () => pressable(tree, 'Start Free Trial')!.props.onPress());
+    expect(onPurchased).not.toHaveBeenCalled();
     tree.unmount();
   });
 });
