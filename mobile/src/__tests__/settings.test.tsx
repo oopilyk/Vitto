@@ -222,6 +222,23 @@ describe('settings menu', () => {
   });
 });
 
+describe('settings legal links', () => {
+  it('always offers the terms, opening them in the browser', () => {
+    const { Linking } = require('react-native');
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<SettingsScreen profile={profile} onClose={() => {}} />);
+    });
+    const terms = tree.root.findAll((node) => node.props.testID === 'open-terms' && typeof node.props.onPress === 'function')[0];
+    expect(terms).toBeDefined();
+    act(() => terms!.props.onPress());
+    expect(open).toHaveBeenCalledWith(expect.stringContaining('apple.com'));
+    open.mockRestore();
+    tree.unmount();
+  });
+});
+
 describe('delete account page', () => {
   it('says what it destroys, then deletes', async () => {
     let deleted = 0;

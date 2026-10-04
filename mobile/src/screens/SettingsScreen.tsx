@@ -1,8 +1,9 @@
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { type BodyProfile, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { NavGroup, NavRow, SettingsPage } from '../components/settingsKit';
 import { sheetByBreed, portraitFrame } from '../components/petSprites';
+import { LEGAL_LINKS } from '../services/billingService';
 import { colors, themedStyles } from '../theme';
 
 interface Props {
@@ -125,6 +126,14 @@ export function SettingsScreen({
           <NavRow title="Appearance" value={appearanceLabel} onPress={onOpenAppearance} testID="open-appearance" />
         </NavGroup>
       ) : null}
+
+      {/* Always reachable, not only next to a purchase: App Review asks for both. */}
+      <NavGroup title="Legal">
+        {LEGAL_LINKS.privacy ? (
+          <NavRow title="Privacy Policy" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)} testID="open-privacy" />
+        ) : null}
+        <NavRow title="Terms of Use" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)} testID="open-terms" />
+      </NavGroup>
 
       {onOpenDeleteAccount ? (
         <NavGroup title="Account">
