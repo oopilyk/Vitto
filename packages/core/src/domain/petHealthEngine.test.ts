@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PetHealthEngine, applyDelta } from './petHealthEngine';
+import { MEAL_FILL_DEFAULT, PetHealthEngine, applyDelta } from './petHealthEngine';
 import { clamp, createPet } from './pet';
 import type { HealthEvent, WorkoutStats } from './health';
 
@@ -410,14 +410,27 @@ describe('MEAL', () => {
       mealEvent({ protein: true, vegetables: true, fruit: true, wholeGrains: true, fiber: true }),
     );
 
-    expect(result.pet.nutrition).toBe(clamp(pet.nutrition + 15));
+    expect(result.pet.nutrition).toBe(clamp(pet.nutrition + MEAL_FILL_DEFAULT + 15));
   });
 
-  it('gives no nutrition at all when every nourishing signal is absent', () => {
-    const pet = createPet('user-1', 'Miso');
-    const result = new PetHealthEngine().apply(pet, mealEvent({}));
+  it('feeds the pet for any meal, even one with nothing nourishing on it, but adds no health', () => {
+    const pet = { ...createPet('user-1', 'Miso'), nutrition: 20 };
+    const result = new PetHealthEngine().apply(pet, mealEvent({ treats: true }));
 
-    expect(result.pet.nutrition).toBe(pet.nutrition);
+    expect(result.pet.nutrition).toBe(20 + MEAL_FILL_DEFAULT);
+    expect(result.pet.health).toBe(pet.health);
+  });
+
+  it('fills by calories, within limits', () => {
+    const at = (calories: number) => {
+      const pet = { ...createPet('user-1', 'Miso'), nutrition: 20 };
+      const meal = mealEvent({});
+      (meal.metadata as Record<string, unknown>).analysis = { macros: { calories, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 } };
+      return new PetHealthEngine().apply(pet, meal).pet.nutrition - 20;
+    };
+    expect(at(80)).toBe(3);
+    expect(at(640)).toBe(8);
+    expect(at(5800)).toBe(12);
   });
 
   it('pays the health and energy bonus once three or more nourishing signals are hit', () => {

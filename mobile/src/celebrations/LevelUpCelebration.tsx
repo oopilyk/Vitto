@@ -13,7 +13,7 @@ import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
-import { colors, fonts, themedStyles } from '../theme';
+import { colors, fonts, themedStyles, world } from '../theme';
 import { PixelConfetti } from './PixelConfetti';
 
 /**
@@ -411,8 +411,8 @@ const styles = themedStyles(() => ({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 2,
-    color: colors.ink,
+    color: world.ink,
   },
-  continueMark: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: colors.ink },
+  continueMark: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: world.ink },
   flash: { ...FILL, backgroundColor: '#fdf6e3' },
 }));

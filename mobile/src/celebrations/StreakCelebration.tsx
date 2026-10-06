@@ -65,10 +65,13 @@ function useReducedMotion(): boolean | null {
   return reduced;
 }
 
-export function StreakCelebration({ pet, streak, night, onComplete }: Props) {
+export function StreakCelebration({ pet, streak, night: nightTime, onComplete }: Props) {
   const reduceMotion = useReducedMotion();
   const { width, height } = useWindowDimensions();
-  const c = night || getColorScheme() === 'dark' ? nightColors : dayColors;
+  // Dark mode takes the night palette, the button included, so its type and
+  // its panel never disagree.
+  const night = nightTime || getColorScheme() === 'dark';
+  const c = night ? nightColors : dayColors;
 
   const [phase, setPhase] = useState<Phase>('enter');
   const [celebrating, setCelebrating] = useState(false);

@@ -186,9 +186,11 @@ export function TodayScreen({
   onOpenCompanionDebug,
   ambientDebug,
 }: Props) {
-  const night = isNightTime();
-  // Dark mode takes the night palette, whatever the hour.
-  const c = night || getColorScheme() === 'dark' ? nightColors : dayColors;
+  // Dark mode takes the night palette, whatever the hour: the panels as well
+  // as the type on them. Deciding those two separately once put the night's
+  // cream type on the day's cream panels in dark mode.
+  const night = isNightTime() || getColorScheme() === 'dark';
+  const c = night ? nightColors : dayColors;
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {
     if (!onRefresh) return;

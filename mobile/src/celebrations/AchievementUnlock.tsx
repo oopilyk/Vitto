@@ -14,7 +14,7 @@ import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
 import { playCelebrationSound } from '../services/mealFeedback';
-import { colors, fonts, themedStyles } from '../theme';
+import { colors, fonts, themedStyles, world } from '../theme';
 import { PixelConfetti } from './PixelConfetti';
 
 /**
@@ -199,7 +199,7 @@ const styles = themedStyles(() => ({
     fontFamily: fonts.display,
     fontSize: 28,
     letterSpacing: -0.5,
-    color: colors.ink,
+    color: world.ink,
     marginTop: 6,
     textAlign: 'center',
   },

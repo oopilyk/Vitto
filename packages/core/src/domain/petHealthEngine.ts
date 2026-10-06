@@ -104,6 +104,14 @@ const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
   petJeopardy: 'Pet Jeopardy',
 };
 
+/** Fullness from one meal: about +1 per 80 kcal, between 3 and 12. A meal with no count fills a middling 6. */
+export const MEAL_FILL_DEFAULT = 6;
+const mealFill = (meal: MealMetadata): number => {
+  const kcal = meal.analysis?.macros?.calories;
+  if (typeof kcal !== 'number' || !Number.isFinite(kcal) || kcal <= 0) return MEAL_FILL_DEFAULT;
+  return Math.min(12, Math.max(3, Math.round(kcal / 80)));
+};
+
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
   if (nutrition < HUNGRY_NUTRITION_THRESHOLD) return 'hungry';
   if (energy < SLEEPY_ENERGY_THRESHOLD) return 'sleepy';
@@ -361,7 +369,11 @@ export class PetHealthEngine {
       case 'MEAL': {
         const meal = event.metadata as unknown as MealMetadata;
         const nourishingSignals = [meal.protein, meal.vegetables, meal.fruit, meal.wholeGrains, meal.fiber].filter(Boolean).length;
-        delta = { nutrition: nourishingSignals * 3, health: nourishingSignals >= 3 ? 2 : 0, happiness: meal.treats ? 4 : 2, energy: nourishingSignals >= 3 ? 3 : 0, xp: 10 };
+        // Any meal feeds the pet: hungry means unfed, and someone who ate should
+        // never be told their pet is starving. How much it fills follows the
+        // calories, capped so one huge plate is not a week's food; what was on
+        // the plate adds on top, and health is still only for the good stuff.
+        delta = { nutrition: mealFill(meal) + nourishingSignals * 3, health: nourishingSignals >= 3 ? 2 : 0, happiness: meal.treats ? 4 : 2, energy: nourishingSignals >= 3 ? 3 : 0, xp: 10 };
         // Food effects ride on top: a spicy plate is a little energising, a feast
         // a little sleepy. Small by design — flavour, not a second nutrition engine.
         foodEffects = detectFoodEffects(meal);
