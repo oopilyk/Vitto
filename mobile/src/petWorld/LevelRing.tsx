@@ -21,10 +21,13 @@ export function LevelRing({
   xpPct,
   onPress,
   night,
+  size = SIZE,
 }: {
   level: number;
   xpPct: number;
   onPress: () => void;
+  /** The disc's diameter; everything inside scales with it. Defaults to 90. */
+  size?: number;
   /** Warm-cream number so it stays legible over a dark night backdrop. */
   night?: boolean;
 }) {
@@ -33,6 +36,11 @@ export function LevelRing({
   // The unearned part of the ring — a warm hairline, per theme.
   const track = night ? 'rgba(239,229,208,0.22)' : world.surfaceSoft;
   const earned = night ? world.nightAccent : world.accent;
+  // Only the measurements change with size; colours and borders stay in the sheet.
+  const scale = size / SIZE;
+  const inset = Math.round(6 * scale);
+  const disc = { width: size, height: size, borderRadius: size / 2 };
+  const inner = size - inset * 2;
 
   return (
     <Pressable
@@ -40,17 +48,23 @@ export function LevelRing({
       accessibilityRole="button"
       accessibilityLabel="Open pet stats"
       hitSlop={8}
-      style={({ pressed }) => [styles.wrap, pressed && retroPressed]}
+      style={({ pressed }) => [styles.wrap, disc, pressed && retroPressed]}
     >
       {/* Hard, un-blurred drop shadow — a duplicate disc offset behind the
           badge, so the retro shadow survives the ring's -45° rotation. */}
-      <View style={styles.shadowDisc} />
+      <View style={[styles.shadowDisc, disc]} />
       {/* The solid outlined face the number sits on. Same colour in every room. */}
-      <View style={[styles.face, night && styles.faceNight]} />
+      <View style={[styles.face, disc, night && styles.faceNight]} />
       <View
         style={[
           styles.ring,
           {
+            top: inset,
+            left: inset,
+            width: inner,
+            height: inner,
+            borderRadius: inner / 2,
+            borderWidth: Math.max(4, Math.round(STROKE * scale)),
             borderTopColor: quarters[0] ? earned : track,
             borderRightColor: quarters[1] ? earned : track,
             borderBottomColor: quarters[2] ? earned : track,
@@ -58,8 +72,8 @@ export function LevelRing({
           },
         ]}
       />
-      <Text style={[styles.kicker, night && styles.levelNight]}>LV</Text>
-      <Text style={[styles.level, night && styles.levelNight]}>{level}</Text>
+      <Text style={[styles.kicker, { fontSize: Math.max(8, Math.round(10 * scale)) }, night && styles.levelNight]}>LV</Text>
+      <Text style={[styles.level, { fontSize: Math.round(32 * scale) }, night && styles.levelNight]}>{level}</Text>
     </Pressable>
   );
 }

@@ -340,7 +340,7 @@ describe('screens render', () => {
       );
     });
     const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('MINE');
+    // Only the shared pet is marked; yours is the default.
     expect(rendered).toContain('JOINT');
     expect(rendered).toContain('Blue');
 

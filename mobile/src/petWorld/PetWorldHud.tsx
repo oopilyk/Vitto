@@ -25,16 +25,16 @@ const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
 
 /**
  * The chrome that isn't either scene, in the pet-world's pixel-UI language.
- * One clear hierarchy, not a wall of equal boxes:
+ * Three compact rows across the top, so the middle of the screen stays the
+ * pet's and nothing grows down over it or the room's own buttons:
  *
- *   primary    — the level ring (progression, top-left).
- *   identity   — ONE plate, top-centre: the room as a kicker over the pet's
- *                name. Directly beneath it, un-boxed on the scene, the pet's
- *                state line ("Miso is feeling bright.") and one quiet meta line
- *                (day count, streak, partner) — no separate chips or boxes.
- *   secondary  — the account disc (a menu: Profile, Settings, Friends) and the
- *                today pill down the right edge, and the pet switcher (only when
- *                there are two pets) under the ring.
+ *   1. top bar  — the level ring (progression), one plate with the room over
+ *                 the pet's name, and the account disc (Profile, Settings,
+ *                 Friends).
+ *   2. status   — the pet's own line, full width, with its day, streak, bond
+ *                 and food effects as one row of tokens beneath.
+ *   3. tools    — the pet switcher (only with two pets) on the left, Today and
+ *                 Chat on the right, all one height.
  *
  * The pet's condition is expressed as the pet's own line, not a badge; adding a
  * second joint pet lives in Profile's care-partner card, not here; and the full
@@ -170,6 +170,12 @@ export function PetWorldHud({
     ...(onOpenFriends ? [{ label: 'Friends', onPress: choose(onOpenFriends), icon: true }] : []),
   ];
 
+  // The pet's line and its meta, as one card. Built once, laid out below.
+  const metaLabel =
+    streaks.currentStreak > 0
+      ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` + (streakAtRisk ? ', not yet logged today.' : '.')
+      : dayLabel;
+
   return (
     // `box-none`: the HUD layer spans the whole screen and sits on top of the
     // environment's action row, so without this its empty space swallows every
@@ -181,237 +187,35 @@ export function PetWorldHud({
         // the menu instead of poking the pet.
         <Pressable accessibilityLabel="Close account menu" onPress={() => setMenuOpen(false)} style={styles.backdrop} />
       ) : null}
-      <View style={styles.topRow} pointerEvents="box-none">
-        <View style={styles.sideLeft}>
-          <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} />
 
-          {/* Only when there really are two pets: a quiet switcher under the
-              ring. Adding a joint pet is a deliberate social action and lives
-              in Profile's care-partner card, not as a button on the world. */}
-          {showSwitcher ? (
-            <View style={styles.slotColumn} pointerEvents="box-none">
-              {pets!.map((candidate) => {
-                const selected = candidate.id === (activePetId ?? pets![0].id);
-                return (
-                  <Pressable
-                    key={candidate.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected, disabled: selected }}
-                    accessibilityLabel={`Show ${candidate.name}, your ${candidate.own ? 'own' : 'joint'} pet`}
-                    disabled={selected}
-                    onPress={() => onSelectPet!(candidate.id)}
-                    style={[
-                      retro.panelQuiet,
-                      night && retro.panelQuietNight,
-                      styles.petTab,
-                      selected && styles.petTabOn,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        retro.kicker,
-                        night && retro.kickerNight,
-                        styles.petTabKicker,
-                        selected && styles.petTabTextOn,
-                      ]}
-                    >
-                      {candidate.own ? 'MINE' : 'JOINT'}
-                    </Text>
-                    <Text
-                      style={[styles.petTabName, night && retro.labelNight, selected && styles.petTabTextOn]}
-                      numberOfLines={1}
-                    >
-                      {candidate.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ) : null}
-        </View>
+      {/* Row 1, the top bar: progression, where you are, and you. */}
+      <View style={styles.topRow} pointerEvents="box-none">
+        <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} size={RING} />
 
         {/* Inert: a tap anywhere here reaches the pet behind it. */}
-        <View style={styles.center} pointerEvents="none">
-          {/* One plate: the room as a kicker over the pet's name. Replaces the
-              two separate name / room plates that used to stack here. */}
-          <View style={[retro.panel, night && retro.panelNight, styles.plate]}>
-            <Text style={[retro.kicker, night && retro.kickerNight, styles.roomKicker]} numberOfLines={1}>
-              {ENVIRONMENT_LABEL[environment].toUpperCase()}
-            </Text>
-            <Text style={[styles.name, night && retro.labelNight]} numberOfLines={1}>
-              {pet.name.toUpperCase()}
-            </Text>
-          </View>
-
-          {/*
-            The pet's line and its meta sit on a plaque of their own — the same
-            cream-with-ink-border-and-hard-shadow panel as the room sign above
-            and the pet tabs beside it, so it belongs to the HUD rather than
-            floating over the scene.
-
-            The plaque is OPAQUE, and that is the point. The text used to be
-            painted straight onto the art (and then onto a translucent scrim),
-            so its contrast depended on whatever the picture behind it happened
-            to be — bright cloud outdoors, mid-brown wall in the study — and
-            no single text colour survives both. On an opaque surface the only
-            thing that matters is the panel's own colour, which the HUD
-            controls: ink on cream by day, cream on charcoal at night, both
-            measured (see hudContrast.test).
-          */}
-          <View style={[retro.panel, night && retro.panelNight, styles.readout]}>
-          {/* The whole sentence, however long. Capped at two lines it ended in
-              "Get some …", which is the one line people glance up for. */}
-          <Text style={[styles.feeling, night && retro.labelNight]}>
-            {feeling}
+        <View style={[retro.panel, night && retro.panelNight, styles.plate]} pointerEvents="none">
+          <Text style={[retro.kicker, night && retro.kickerNight, styles.roomKicker]} numberOfLines={1}>
+            {ENVIRONMENT_LABEL[environment].toUpperCase()}
           </Text>
-          {/*
-            The meta as a row of tokens with a gap, not a sentence with "·"
-            between the parts. Joined into one string, a narrow plaque wrapped
-            it after the dot and left "DAY 19 · RUNNER ·" on one line and the
-            flame alone on the next. Tokens wrap cleanly between themselves and
-            need no punctuation at all.
-          */}
-          <View
-            style={styles.metaRow}
-            accessibilityLabel={
-              streaks.currentStreak > 0
-                ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` +
-                  (streakAtRisk ? ', not yet logged today.' : '.')
-                : dayLabel
-            }
-          >
-            <Text style={[styles.meta, night && retro.captionNight]}>{dayToken}</Text>
-            {formToken ? (
-              <Text style={[styles.meta, night && retro.captionNight]}>{formToken}</Text>
-            ) : null}
-            {/* The relationship, only when it has something to say: neutral is
-                the default and would just be noise. Sulking and wary read in
-                coral, so a cooling bond is noticed before it bottoms out. */}
-            {bond.stage !== 'neutral' ? (
-              <Text
-                style={[
-                  styles.meta,
-                  night && retro.captionNight,
-                  (bond.stage === 'sulking' || bond.stage === 'wary') && styles.metaBondCool,
-                ]}
-                accessibilityLabel={`${pet.name} is ${bond.stage} toward you`}
-              >
-                {bond.stage.toUpperCase()}
-              </Text>
-            ) : null}
-            {streaks.currentStreak > 0 ? (
-              <Text
-                style={[
-                  styles.meta,
-                  styles.metaFlame,
-                  night && styles.metaFlameNight,
-                  streakAtRisk && styles.metaFlameAtRisk,
-                ]}
-              >
-                {`🔥 ${streaks.currentStreak}`}
-              </Text>
-            ) : null}
-          </View>
-          {/* A sentence, so it gets its own line rather than a slot in the row. */}
-          {partnerName ? (
-            <Text style={[styles.metaPartner, night && styles.metaPartnerNight]}>
-              {`Raised with ${partnerName}`}
-            </Text>
-          ) : null}
-          {/*
-            The food effects get their own row rather than being appended to the
-            line above. Strung into that sentence with "·" separators baked into
-            the text, a wrap put the separator at the START of the next line and
-            the row read as broken punctuation. As separate chips the line breaks
-            between tags instead, and never in front of one.
-          */}
-          {foodTags.length > 0 ? (
-            <View
-              style={styles.metaTags}
-              accessibilityLabel={`Effects: ${foodTags.join(', ')}`}
-            >
-              {foodTags.map((tag) => (
-                <Text key={tag} style={[styles.metaTag, night && styles.metaTagNight]}>
-                  {tag}
-                </Text>
-              ))}
-            </View>
-          ) : null}
-          </View>
+          <Text style={[styles.name, night && retro.labelNight]} numberOfLines={1}>
+            {pet.name.toUpperCase()}
+          </Text>
         </View>
 
-        <View style={styles.sideRight} pointerEvents="box-none">
-          {/* The account disc opens the menu; today is a pill of the same
-              height, coral-outlined so it reads as "your daily goals" rather
-              than another nav button. */}
-          <View style={styles.rail} pointerEvents="box-none">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open account menu"
-              accessibilityState={{ expanded: menuOpen }}
-              onPress={() => setMenuOpen((open) => !open)}
-              hitSlop={8}
-              style={({ pressed }) => [
-                retro.panel,
-                night && retro.panelNight,
-                styles.disc,
-                (pressed || menuOpen) && retroPressed,
-              ]}
-            >
-              <Text style={[styles.discInitial, night && retro.labelNight]}>
-                {(accountInitial ?? pet.name.charAt(0)).toUpperCase()}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open today's detail"
-              accessibilityHint="Your goals for today"
-              onPress={onOpenToday}
-              hitSlop={8}
-              style={({ pressed }) => [
-                retro.panel,
-                night && retro.panelNight,
-                styles.pill,
-                styles.pillGoals,
-                night && styles.pillGoalsNight,
-                pressed && retroPressed,
-              ]}
-            >
-              <Text style={[retro.label, styles.pillLabel, night ? styles.pillLabelNight : styles.pillLabelGoals]}>
-                TODAY
-              </Text>
-            </Pressable>
-
-            {/* Talking to the pet. A pill the twin of TODAY, in plain ink so
-                coral keeps meaning "your goals", with a dot when it has said
-                something you have not read — the message itself waits in the
-                conversation. */}
-            {onOpenChat ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  unreadMessages > 0
-                    ? `Talk to ${pet.name}, ${unreadMessages} unread`
-                    : `Talk to ${pet.name}`
-                }
-                onPress={onOpenChat}
-                hitSlop={8}
-                style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, pressed && retroPressed]}
-              >
-                <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>CHAT</Text>
-                {unreadMessages > 0 ? (
-                  <View testID="companion-unread" style={[styles.unreadDot, night && styles.unreadDotNight]} pointerEvents="none" />
-                ) : null}
-              </Pressable>
-            ) : null}
-          </View>
+        <View style={styles.accountSlot} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open account menu"
+            accessibilityState={{ expanded: menuOpen }}
+            onPress={() => setMenuOpen((open) => !open)}
+            hitSlop={8}
+            style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.disc, (pressed || menuOpen) && retroPressed]}
+          >
+            <Text style={[styles.discInitial, night && retro.labelNight]}>{(accountInitial ?? pet.name.charAt(0)).toUpperCase()}</Text>
+          </Pressable>
 
           {menuOpen ? (
-            <View
-              accessibilityRole="menu"
-              style={[retro.panel, night && retro.panelNight, styles.menu]}
-            >
+            <View accessibilityRole="menu" style={[retro.panel, night && retro.panelNight, styles.menu]}>
               {menuItems.map((item, index) => (
                 <Pressable
                   key={item.label}
@@ -440,6 +244,112 @@ export function PetWorldHud({
         </View>
       </View>
 
+      {/*
+        Row 2, the pet's line, across the full width. It used to sit in the
+        narrow strip between two 96px side columns, where a one-line sentence
+        wrapped to five and the card grew down over the pet and the room's own
+        buttons. Full width, the same sentence takes one or two lines.
+
+        OPAQUE on purpose: on a plaque the text's contrast depends only on the
+        panel, never on the art behind it (see hudContrast.test).
+      */}
+      <View style={[retro.panel, night && retro.panelNight, styles.readout]} pointerEvents="none">
+        {/* The whole sentence, however long: it is the one line people glance up for. */}
+        <Text style={[styles.feeling, night && retro.labelNight]}>{feeling}</Text>
+        {/* Day, form, bond, streak and food effects as one row of tokens, so a
+            narrow screen wraps between them rather than inside a sentence. */}
+        <View style={styles.metaRow} accessibilityLabel={metaLabel}>
+          <Text style={[styles.meta, night && retro.captionNight]}>{dayToken}</Text>
+          {formToken ? <Text style={[styles.meta, night && retro.captionNight]}>{formToken}</Text> : null}
+          {/* The relationship, only when it has something to say; cooling reads in coral. */}
+          {bond.stage !== 'neutral' ? (
+            <Text
+              style={[styles.meta, night && retro.captionNight, (bond.stage === 'sulking' || bond.stage === 'wary') && styles.metaBondCool]}
+              accessibilityLabel={`${pet.name} is ${bond.stage} toward you`}
+            >
+              {bond.stage.toUpperCase()}
+            </Text>
+          ) : null}
+          {streaks.currentStreak > 0 ? (
+            <Text style={[styles.meta, styles.metaFlame, night && styles.metaFlameNight, streakAtRisk && styles.metaFlameAtRisk]}>
+              {`🔥 ${streaks.currentStreak}`}
+            </Text>
+          ) : null}
+          {foodTags.map((tag) => (
+            <Text key={tag} style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`Effect: ${tag}`}>
+              {tag}
+            </Text>
+          ))}
+        </View>
+        {partnerName ? <Text style={[styles.metaPartner, night && styles.metaPartnerNight]}>{`Raised with ${partnerName}`}</Text> : null}
+      </View>
+
+      {/* Row 3, tools: which pet (only with two), then today and chat. */}
+      <View style={styles.toolRow} pointerEvents="box-none">
+        {showSwitcher ? (
+          <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.switcher]}>
+            {pets!.map((candidate) => {
+              const selected = candidate.id === (activePetId ?? pets![0].id);
+              return (
+                <Pressable
+                  key={candidate.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected, disabled: selected }}
+                  accessibilityLabel={`Show ${candidate.name}, your ${candidate.own ? 'own' : 'joint'} pet`}
+                  disabled={selected}
+                  onPress={() => onSelectPet!(candidate.id)}
+                  style={[styles.petTab, selected && styles.petTabOn]}
+                >
+                  <Text style={[styles.petTabName, night && retro.labelNight, selected && styles.petTabTextOn]} numberOfLines={1}>
+                    {candidate.name}
+                    {/* Only the shared one is marked: yours is the default. */}
+                    {candidate.own ? null : <Text style={styles.petTabJoint}>{'  JOINT'}</Text>}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <View />
+        )}
+
+        <View style={styles.tools} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open today's detail"
+            accessibilityHint="Your goals for today"
+            onPress={onOpenToday}
+            hitSlop={6}
+            style={({ pressed }) => [
+              retro.panel,
+              night && retro.panelNight,
+              styles.pill,
+              styles.pillGoals,
+              night && styles.pillGoalsNight,
+              pressed && retroPressed,
+            ]}
+          >
+            <Text style={[retro.label, styles.pillLabel, night ? styles.pillLabelNight : styles.pillLabelGoals]}>TODAY</Text>
+          </Pressable>
+
+          {/* Talking to the pet, with a dot when it has said something unread. */}
+          {onOpenChat ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={unreadMessages > 0 ? `Talk to ${pet.name}, ${unreadMessages} unread` : `Talk to ${pet.name}`}
+              onPress={onOpenChat}
+              hitSlop={6}
+              style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, pressed && retroPressed]}
+            >
+              <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>CHAT</Text>
+              {unreadMessages > 0 ? (
+                <View testID="companion-unread" style={[styles.unreadDot, night && styles.unreadDotNight]} pointerEvents="none" />
+              ) : null}
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
       <CareToastBanner toast={careToast} night={night} />
     </View>
   );
@@ -447,30 +357,34 @@ export function PetWorldHud({
 
 /** Clears the notch / status bar — no boxed top bar reserves that space now. */
 const TOP_INSET = 56;
-/** Level-ring footprint; the side columns match it so the centre plate lands
- *  on the true screen centre. */
-const SIDE_COLUMN = 96;
-const DISC = 52;
+/** The level ring and the account disc frame the top bar; the plate sits between. */
+const RING = 64;
+const DISC = 44;
+/** Today, chat and the pet switcher share one height. */
+const TOOL = 36;
+const GUTTER = 16;
 
 const styles = themedStyles(() => ({
   fill: { flex: 1 },
   topRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: GUTTER,
     paddingTop: TOP_INSET,
+    // Above the rows that follow it, so the account menu it opens is drawn
+    // over the status card and the tools rather than under them.
+    zIndex: 10,
+    elevation: 10,
   },
-  sideLeft: { width: SIDE_COLUMN, alignItems: 'flex-start' },
-  sideRight: { width: SIDE_COLUMN, alignItems: 'flex-end' },
-  center: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
+  accountSlot: { width: RING, alignItems: 'flex-end' },
 
   plate: {
-    paddingHorizontal: 16,
+    flex: 1,
+    paddingHorizontal: 12,
     paddingTop: 6,
     paddingBottom: 8,
     alignItems: 'center',
-    maxWidth: '100%',
   },
   roomKicker: { fontSize: 10, marginBottom: 1 },
   name: {
@@ -483,11 +397,10 @@ const styles = themedStyles(() => ({
 
   /** The plaque itself; shape only — colour, border and shadow come from `retro.panel`. */
   readout: {
-    marginTop: 10,
-    alignSelf: 'center',
-    maxWidth: '100%',
+    marginTop: 12,
+    marginHorizontal: GUTTER,
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingTop: 8,
     paddingBottom: 9,
   },
@@ -547,14 +460,6 @@ const styles = themedStyles(() => ({
   metaFlameAtRisk: { opacity: 0.6, fontWeight: '600' },
   // Food effect tags — warm gold, so they read as a state the pet is in. Each is
   // its own chip so a narrow screen wraps between them, not inside a separator.
-  metaTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 5,
-  },
   metaTag: {
     fontFamily: fonts.mono,
     fontSize: 9,
@@ -570,7 +475,6 @@ const styles = themedStyles(() => ({
   },
   metaTagNight: { color: '#e4c878', backgroundColor: 'rgba(228,200,120,0.16)' },
 
-  rail: { alignItems: 'flex-end', gap: 12 },
   disc: {
     width: DISC,
     height: DISC,
@@ -603,24 +507,33 @@ const styles = themedStyles(() => ({
   menuItemPressed: { opacity: 0.6 },
   menuLabel: { fontSize: 12, letterSpacing: 1.2 },
   menuIcon: { width: 18, height: 18 },
+  toolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: GUTTER,
+    marginTop: 12,
+  },
+  tools: { flexDirection: 'row', gap: 10 },
   pill: {
-    height: DISC,
-    borderRadius: DISC / 2,
-    paddingHorizontal: 16,
+    height: TOOL,
+    borderRadius: TOOL / 2,
+    paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   // Coral-outlined so TODAY reads as "your daily goals", not another nav disc.
   pillGoals: { borderColor: world.accent },
   pillGoalsNight: { borderColor: world.nightAccent },
-  pillLabel: { fontSize: 12, letterSpacing: 1.4 },
+  pillLabel: { fontSize: 11, letterSpacing: 1.3 },
   pillLabelGoals: { color: world.accentDeep },
   pillLabelNight: { color: world.nightAccent },
 
-  slotColumn: { marginTop: 10, gap: 6, width: SIDE_COLUMN, alignItems: 'stretch' },
-  petTab: { paddingHorizontal: 10, paddingVertical: 6, alignItems: 'flex-start' },
-  petTabOn: { borderColor: world.accent, backgroundColor: world.accentWash },
-  petTabKicker: { fontSize: 8, letterSpacing: 1.2, marginBottom: 1 },
+  // Two pets, one control: a segmented switch, the selected half filled.
+  switcher: { flexDirection: 'row', height: TOOL, padding: 3, borderRadius: TOOL / 2, flexShrink: 1 },
+  petTab: { paddingHorizontal: 12, borderRadius: (TOOL - 6) / 2, justifyContent: 'center', maxWidth: 110 },
+  petTabOn: { backgroundColor: world.accentWash },
+  petTabJoint: { fontSize: 8, letterSpacing: 1, opacity: 0.75 },
   petTabName: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', color: world.inkSoft },
   petTabTextOn: { color: world.accentDeep },
 }));
