@@ -1,5 +1,5 @@
 import { Linking, View } from 'react-native';
-import { type BodyProfile, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState } from '@vitto/core';
+import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, tracksArea } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { NavGroup, NavRow, SettingsPage } from '../components/settingsKit';
 import { sheetByBreed, portraitFrame } from '../components/petSprites';
@@ -17,7 +17,7 @@ interface Props {
   /** What switching the animal costs; zero (the dev account) is free. */
   breedChangeCost?: number;
   /** The pet, for its name and personality on the rows. */
-  pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
+  pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona' | 'careAreas'>;
   /** Whether the account has Plus, for the Plus row's wording. */
   isPlus?: boolean;
   /** Whether personalities can be changed (Plus); otherwise the row says so. Defaults to true. */
@@ -30,12 +30,22 @@ interface Props {
   onOpenPersonality?: () => void;
   onOpenNotifications?: () => void;
   onOpenPreferences?: () => void;
+  /** What affects the pet (see CareAreasScreen). */
+  onOpenCareAreas?: () => void;
   /** The appearance choice, for its row's value ("System", "Dark"...). */
   appearanceLabel?: string;
   onOpenAppearance?: () => void;
   /** Opens the page that deletes the account. Absent offline. */
   onOpenDeleteAccount?: () => void;
 }
+
+const CARE_AREA_LABEL: Record<CareArea, string> = { nutrition: 'Food', training: 'Workouts', movement: 'Steps', mind: 'Mind games' };
+
+/** "Everything", or the areas that are on: "Workouts, Steps". */
+const careAreasSummary = (areas: readonly CareArea[] | undefined) => {
+  const on = CARE_AREAS.filter((area) => tracksArea(areas, area));
+  return on.length === CARE_AREAS.length ? 'Food, workouts, steps and mind games' : on.map((area) => CARE_AREA_LABEL[area]).join(', ');
+};
 
 const GOAL_LABEL: Record<BodyProfile['goal'], string> = {
   lose: 'Lose fat',
@@ -65,6 +75,7 @@ export function SettingsScreen({
   onOpenPersonality,
   onOpenNotifications,
   onOpenPreferences,
+  onOpenCareAreas,
   appearanceLabel,
   onOpenAppearance,
   onOpenDeleteAccount,
@@ -105,6 +116,14 @@ export function SettingsScreen({
             }
             onPress={onOpenChooseCompanion}
             testID="change-animal"
+          />
+        ) : null}
+        {pet && onOpenCareAreas ? (
+          <NavRow
+            title={`What affects ${pet.name}`}
+            value={careAreasSummary(pet.careAreas)}
+            onPress={onOpenCareAreas}
+            testID="open-care-areas"
           />
         ) : null}
         {pet && onOpenPersonality ? (

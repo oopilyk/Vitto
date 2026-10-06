@@ -12,6 +12,7 @@ import {
   type TrophyId,
   AILMENT_PRECEDENCE,
   type BodyProfile,
+  type CareArea,
   type CareDiaryEntry,
   type DailyRecap,
   type ForcedPetForm,
@@ -23,6 +24,7 @@ import {
   findWordPuzzleEventForDate,
   mindScoreLabel,
   toDateKey,
+  tracksArea,
 } from '@vitto/core';
 import { ChoiceRow, TextButton } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
@@ -212,6 +214,10 @@ export function TodayScreen({
   const wordPuzzleToday = findWordPuzzleEventForDate(events, todayKey);
 
   const { gym, outdoors, mind, food, levelProgress } = recap;
+  // An area the person doesn't track (Settings > What affects your pet) is not a
+  // goal: hidden, unless they did it anyway today, which is still worth seeing.
+  const shows = (area: CareArea, didToday: boolean) =>
+    didToday || tracksArea(pet.careAreas, area);
   const toLevel = levelProgress.level + 1;
   const petName = pet.name;
 
@@ -248,9 +254,7 @@ export function TodayScreen({
             Deliberately NOT boxed like the pillars below: this is the main
             section the screen leads with, not one panel among equals. */}
         <View style={[styles.overview, { borderBottomColor: c.hairline }]}>
-          <Text style={[styles.overKicker, { color: c.soft }]}>
-            You and {petName}, today
-          </Text>
+          <Text style={[styles.overKicker, { color: c.soft }]}>You and {petName}, today</Text>
           <View style={styles.xpRow}>
             <Text style={[styles.xpValue, { color: c.ink }]}>+{recap.xp}</Text>
             <Text style={[styles.xpUnit, { color: c.soft }]}>XP earned</Text>
@@ -268,171 +272,187 @@ export function TodayScreen({
           </Text>
 
           <View style={[styles.glanceRow, { borderTopColor: c.hairline }]}>
-            <Glance label="GYM" value={gym.done ? '✓' : '—'} on={gym.done} c={c} />
-            <Glance
-              label="OUTDOORS"
-              value={outdoors.steps > 0 ? `${Math.round(outdoors.steps / 100) / 10}k` : '0'}
-              on={outdoors.steps > 0}
-              c={c}
-            />
-            <Glance
-              label="MIND"
-              value={mind.sessionCount > 0 ? String(mind.sessionCount) : '—'}
-              on={mind.sessionCount > 0}
-              c={c}
-            />
-            <Glance
-              label="FOOD"
-              value={food.mealCount > 0 ? String(food.mealCount) : '—'}
-              on={food.mealCount > 0}
-              c={c}
-            />
+            {shows('training', gym.done) ? (
+              <Glance label="GYM" value={gym.done ? '✓' : '—'} on={gym.done} c={c} />
+            ) : null}
+            {shows('movement', outdoors.steps > 0) ? (
+              <Glance
+                label="OUTDOORS"
+                value={outdoors.steps > 0 ? `${Math.round(outdoors.steps / 100) / 10}k` : '0'}
+                on={outdoors.steps > 0}
+                c={c}
+              />
+            ) : null}
+            {shows('mind', mind.sessionCount > 0) ? (
+              <Glance
+                label="MIND"
+                value={mind.sessionCount > 0 ? String(mind.sessionCount) : '—'}
+                on={mind.sessionCount > 0}
+                c={c}
+              />
+            ) : null}
+            {shows('nutrition', food.mealCount > 0) ? (
+              <Glance
+                label="FOOD"
+                value={food.mealCount > 0 ? String(food.mealCount) : '—'}
+                on={food.mealCount > 0}
+                c={c}
+              />
+            ) : null}
           </View>
         </View>
 
         {/* --- The four pillars --- */}
-        <Pillar
-          c={c}
-          night={night}
-          kicker="GYM"
-          done={gym.done}
-          xp={gym.xp}
-          headline={
-            gym.done
-              ? gym.workoutCount > 1
-                ? `${gym.workoutCount} workouts`
-                : gym.lastName ?? 'Workout complete'
-              : 'No workout yet'
-          }
-          detail={
-            gym.done
-              ? [
-                  gym.totalMinutes > 0 ? `${gym.totalMinutes} min` : null,
-                  gym.exerciseCount > 0
-                    ? `${gym.exerciseCount} exercise${gym.exerciseCount > 1 ? 's' : ''}`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || 'Logged'
-              : `${petName} trains hard when you do.`
-          }
-        />
+        {shows('training', gym.done) ? (
+          <Pillar
+            c={c}
+            night={night}
+            kicker="GYM"
+            done={gym.done}
+            xp={gym.xp}
+            headline={
+              gym.done
+                ? gym.workoutCount > 1
+                  ? `${gym.workoutCount} workouts`
+                  : (gym.lastName ?? 'Workout complete')
+                : 'No workout yet'
+            }
+            detail={
+              gym.done
+                ? [
+                    gym.totalMinutes > 0 ? `${gym.totalMinutes} min` : null,
+                    gym.exerciseCount > 0
+                      ? `${gym.exerciseCount} exercise${gym.exerciseCount > 1 ? 's' : ''}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Logged'
+                : `${petName} trains hard when you do.`
+            }
+          />
+        ) : null}
 
-        <Pillar
-          c={c}
-          night={night}
-          kicker="OUTDOORS"
-          done={outdoors.goalReached}
-          xp={outdoors.xp}
-          headline={`${outdoors.steps.toLocaleString()} / ${outdoors.goal.toLocaleString()} steps`}
-          detail={
-            outdoors.steps > 0
-              ? outdoors.goalReached
-                ? `${petName} explored every corner with you today.`
-                : `${outdoors.percent}% of today's goal — ${petName} is enjoying the walk.`
-              : `${petName} is waiting for today's adventure.`
-          }
-          progressPercent={outdoors.percent}
-        >
-          {outdoors.steps > 0 ? (
-            <Text style={[styles.caloriesLine, { color: c.soft }]}>
-              🔥 {outdoors.caloriesBurned.toLocaleString()} cal burned
-              {outdoors.caloriesBurnedFromHealth ? '' : ' (estimate)'}
-            </Text>
-          ) : null}
-          <View style={styles.goalEdit}>
-            <Text style={[styles.goalEditLabel, { color: c.soft }]}>Daily goal</Text>
-            <TextInput
-              style={[styles.goalInput, { color: c.ink, borderColor: c.hairline }]}
-              keyboardType="number-pad"
-              value={String(stepGoal)}
-              onChangeText={(value) =>
-                onStepGoalChange(Number(value.replace(/[^0-9]/g, '')) || 1000)
-              }
-            />
-          </View>
-        </Pillar>
-
-        <Pillar
-          c={c}
-          night={night}
-          kicker="MIND"
-          done={mind.sessionCount > 0}
-          xp={mind.xp}
-          headline={
-            mind.sessionCount > 0
-              ? mind.bestScore > 0
-                ? `Best score ${mind.bestScore}`
-                : `${mind.sessionCount} session${mind.sessionCount > 1 ? 's' : ''}`
-              : 'Nothing completed yet'
-          }
-          detail={
-            mind.sessionCount > 0
-              ? `${mindScoreLabel(mind.bestScore)} — ${petName} felt you thinking.`
-              : `${petName} is up for a puzzle whenever you are.`
-          }
-          actions={[
-            { label: 'Train the mind →', onPress: onTrainMind },
-            ...(onOpenWordPuzzle
-              ? [
-                  {
-                    label: wordPuzzleToday
-                      ? `Word puzzle · done (${wordPuzzleToday.metadata.score})`
-                      : "Today's word puzzle →",
-                    onPress: onOpenWordPuzzle,
-                  },
-                ]
-              : []),
-          ]}
-        />
-
-        <Pillar
-          c={c}
-          night={night}
-          kicker="FOOD"
-          done={food.caloriePercent >= 90 && food.caloriePercent <= 110}
-          xp={recap.xpByPillar.food}
-          headline={
-            food.mealCount > 0
-              ? `${food.consumed.calories.toLocaleString()} / ${food.targets.calories.toLocaleString()} kcal`
-              : 'No meals logged'
-          }
-          detail={
-            food.mealCount === 0
-              ? `Log a meal and ${petName} eats well too.`
-              : food.someMealsUnanalyzed
-                ? `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} logged — one analysis was incomplete, so this total is approximate.`
-                : `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} · ${food.caloriePercent}% of today's fuel`
-          }
-        >
-          {food.mealCount > 0 ? (
-            <View style={styles.macros}>
-              {(
-                [
-                  ['Protein', food.consumed.proteinGrams, food.targets.proteinGrams],
-                  ['Carbs', food.consumed.carbsGrams, food.targets.carbsGrams],
-                  ['Fat', food.consumed.fatGrams, food.targets.fatGrams],
-                ] as const
-              ).map(([label, value, target]) => (
-                <View key={label} style={styles.macroRow}>
-                  <Text style={[styles.macroLabel, { color: c.soft }]}>{label}</Text>
-                  <View style={[styles.macroTrack, { backgroundColor: c.track }]}>
-                    <View
-                      style={[
-                        styles.macroFill,
-                        { width: `${Math.min(100, target > 0 ? (value / target) * 100 : 0)}%` },
-                      ]}
-                    />
-                  </View>
-                  <Text style={[styles.macroValue, { color: c.ink }]}>
-                    {value}
-                    <Text style={[styles.macroTarget, { color: c.soft }]}> / {target}g</Text>
-                  </Text>
-                </View>
-              ))}
+        {shows('movement', outdoors.steps > 0) ? (
+          <Pillar
+            c={c}
+            night={night}
+            kicker="OUTDOORS"
+            done={outdoors.goalReached}
+            xp={outdoors.xp}
+            headline={`${outdoors.steps.toLocaleString()} / ${outdoors.goal.toLocaleString()} steps`}
+            detail={
+              outdoors.steps > 0
+                ? outdoors.goalReached
+                  ? `${petName} explored every corner with you today.`
+                  : `${outdoors.percent}% of today's goal — ${petName} is enjoying the walk.`
+                : `${petName} is waiting for today's adventure.`
+            }
+            progressPercent={outdoors.percent}
+          >
+            {outdoors.steps > 0 ? (
+              <Text style={[styles.caloriesLine, { color: c.soft }]}>
+                🔥 {outdoors.caloriesBurned.toLocaleString()} cal burned
+                {outdoors.caloriesBurnedFromHealth ? '' : ' (estimate)'}
+              </Text>
+            ) : null}
+            <View style={styles.goalEdit}>
+              <Text style={[styles.goalEditLabel, { color: c.soft }]}>Daily goal</Text>
+              <TextInput
+                style={[styles.goalInput, { color: c.ink, borderColor: c.hairline }]}
+                keyboardType="number-pad"
+                value={String(stepGoal)}
+                onChangeText={(value) =>
+                  onStepGoalChange(Number(value.replace(/[^0-9]/g, '')) || 1000)
+                }
+              />
             </View>
-          ) : null}
-        </Pillar>
+          </Pillar>
+        ) : null}
+
+        {shows('mind', mind.sessionCount > 0) ? (
+          <Pillar
+            c={c}
+            night={night}
+            kicker="MIND"
+            done={mind.sessionCount > 0}
+            xp={mind.xp}
+            headline={
+              mind.sessionCount > 0
+                ? mind.bestScore > 0
+                  ? `Best score ${mind.bestScore}`
+                  : `${mind.sessionCount} session${mind.sessionCount > 1 ? 's' : ''}`
+                : 'Nothing completed yet'
+            }
+            detail={
+              mind.sessionCount > 0
+                ? `${mindScoreLabel(mind.bestScore)} — ${petName} felt you thinking.`
+                : `${petName} is up for a puzzle whenever you are.`
+            }
+            actions={[
+              { label: 'Train the mind →', onPress: onTrainMind },
+              ...(onOpenWordPuzzle
+                ? [
+                    {
+                      label: wordPuzzleToday
+                        ? `Word puzzle · done (${wordPuzzleToday.metadata.score})`
+                        : "Today's word puzzle →",
+                      onPress: onOpenWordPuzzle,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        ) : null}
+
+        {shows('nutrition', food.mealCount > 0) ? (
+          <Pillar
+            c={c}
+            night={night}
+            kicker="FOOD"
+            done={food.caloriePercent >= 90 && food.caloriePercent <= 110}
+            xp={recap.xpByPillar.food}
+            headline={
+              food.mealCount > 0
+                ? `${food.consumed.calories.toLocaleString()} / ${food.targets.calories.toLocaleString()} kcal`
+                : 'No meals logged'
+            }
+            detail={
+              food.mealCount === 0
+                ? `Log a meal and ${petName} eats well too.`
+                : food.someMealsUnanalyzed
+                  ? `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} logged — one analysis was incomplete, so this total is approximate.`
+                  : `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} · ${food.caloriePercent}% of today's fuel`
+            }
+          >
+            {food.mealCount > 0 ? (
+              <View style={styles.macros}>
+                {(
+                  [
+                    ['Protein', food.consumed.proteinGrams, food.targets.proteinGrams],
+                    ['Carbs', food.consumed.carbsGrams, food.targets.carbsGrams],
+                    ['Fat', food.consumed.fatGrams, food.targets.fatGrams],
+                  ] as const
+                ).map(([label, value, target]) => (
+                  <View key={label} style={styles.macroRow}>
+                    <Text style={[styles.macroLabel, { color: c.soft }]}>{label}</Text>
+                    <View style={[styles.macroTrack, { backgroundColor: c.track }]}>
+                      <View
+                        style={[
+                          styles.macroFill,
+                          { width: `${Math.min(100, target > 0 ? (value / target) * 100 : 0)}%` },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.macroValue, { color: c.ink }]}>
+                      {value}
+                      <Text style={[styles.macroTarget, { color: c.soft }]}> / {target}g</Text>
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </Pillar>
+        ) : null}
 
         {/* --- Today's activity: aggregated, meaningful only --- */}
         <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.activity]}>
@@ -470,8 +490,12 @@ export function TodayScreen({
             testID="insight-locked"
           >
             <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
-            <Text style={[styles.softHeadline, { color: c.ink }]}>{`${petName} spotted a pattern in your habits`}</Text>
-            <Text style={[styles.softDetail, { color: world.accent }]}>See what it is with Plus →</Text>
+            <Text
+              style={[styles.softHeadline, { color: c.ink }]}
+            >{`${petName} spotted a pattern in your habits`}</Text>
+            <Text style={[styles.softDetail, { color: world.accent }]}>
+              See what it is with Plus →
+            </Text>
           </Pressable>
         ) : null}
 
@@ -768,7 +792,13 @@ const styles = themedStyles(() => ({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
-  overMeta: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 0.4, marginTop: 6, lineHeight: 15 },
+  overMeta: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 0.4,
+    marginTop: 6,
+    lineHeight: 15,
+  },
   glanceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -799,7 +829,12 @@ const styles = themedStyles(() => ({
   xpChipText: { fontFamily: fonts.mono, fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
   caloriesLine: { fontFamily: fonts.mono, fontSize: 11, marginTop: 2 },
   goalEdit: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
-  goalEditLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase' },
+  goalEditLabel: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
   goalInput: {
     width: 88,
     textAlign: 'center',

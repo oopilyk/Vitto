@@ -2,8 +2,6 @@ import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
 import {
   type BodyProfile,
-  FOCUS_AREAS,
-  type FocusArea,
   type MeasurementSystem,
   convertHeightToFeetAndInches,
   convertWeightValue,
@@ -33,12 +31,6 @@ interface Props {
 /** Longest a display name can be; matches the server-side `left(..., 40)` so what is typed is what the partner sees. */
 const DISPLAY_NAME_MAX_LENGTH = 40;
 
-const FOCUS_LABEL: Record<FocusArea, string> = {
-  nutrition: 'Eat better',
-  training: 'Get stronger',
-  movement: 'Move more',
-  mind: 'Sharpen my mind',
-};
 
 
 /**
@@ -274,21 +266,6 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         </FormField>
       </SettingsSection>
 
-      <SettingsSection title="What you want from Vitto" description="Pick any. Your dashboard leads with these.">
-        <SelectionTiles
-          options={FOCUS_AREAS.map((area) => ({
-            value: area,
-            label: FOCUS_LABEL[area],
-          }))}
-          value={profile.focusAreas}
-          onChange={(area) =>
-            update(
-              'focusAreas',
-              profile.focusAreas.includes(area) ? profile.focusAreas.filter((item) => item !== area) : [...profile.focusAreas, area],
-            )
-          }
-        />
-      </SettingsSection>
     </SettingsPage>
   );
 }

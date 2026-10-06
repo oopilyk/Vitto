@@ -122,6 +122,7 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
   // there any event today": a sleep sync or a second meal must never look
   // like a fresh streak day just because it's technically the day's Nth event.
   const newStreakDay = createsNewStreakDay(events, event);
+  // Through the pet's own care areas: a need its owner doesn't track is held, not drained.
   const decayed = applyTimeDecay(pet, eventDay);
   const xpBefore = totalPetXp(decayed);
   // Read before the event lands: the point is whether this care moment is the

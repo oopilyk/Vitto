@@ -128,6 +128,10 @@ export interface UserPattern {
  * string, and renders it into a prompt it owns. Lying here only changes what your
  * own pet thinks your day looked like.
  */
+/** A kind of care the person has switched off. */
+export type SkippedCare = 'food' | 'workouts' | 'steps' | 'mind';
+export const SKIPPABLE_CARE: readonly SkippedCare[] = ['food', 'workouts', 'steps', 'mind'];
+
 export interface LifeContext {
   pet: {
     name: string;
@@ -166,6 +170,12 @@ export interface LifeContext {
     sleepHoursLastNight: number | null;
     careStreakDays: number;
     loggedSomethingToday: boolean;
+    /**
+     * What the person has chosen not to track (Settings > What affects your
+     * pet). The pet never brings these up unprompted, and "none logged yet"
+     * is not news. Absent from older clients, which means nothing is skipped.
+     */
+    skips?: SkippedCare[];
   };
   now: {
     localTime: string;

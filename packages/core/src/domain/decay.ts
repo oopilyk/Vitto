@@ -1,4 +1,5 @@
 import { determineMood } from './petHealthEngine';
+import { applyCareAreas, untrackedNeeds, type CareArea } from './careAreas';
 import { clamp, lockEvolution, type PetState } from './pet';
 
 export const ONE_MINUTE_MS = 60 * 1000;
@@ -94,11 +95,22 @@ export const VITAL_NEEDS = ['nutrition', 'energy', 'happiness'] as const;
  * Persistence happens only at care time, where `recordEvent` decays from the
  * stored pet, applies the delta, and sets `lastEventAt` to the event time --
  * that new anchor is what makes the next projection start from zero.
+ *
+ * `careAreas` is what the pet's owner chose to look after (see careAreas.ts),
+ * and defaults to the pet's own setting. A need none of them feeds is held at
+ * a comfortable level and does not decay, so it can neither ail the pet nor
+ * cost it health. A pet with no setting decays every need, as it always has.
  */
-export const applyTimeDecay = (stored: PetState, asOf: Date): PetState => {
+export const applyTimeDecay = (
+  stored: PetState,
+  asOf: Date,
+  careAreas: readonly CareArea[] | null | undefined = stored.careAreas,
+): PetState => {
   // Locked from the stats as they stood before this decay, so a pet saved while
   // evolved can never decay out of its evolution (mind drops 5 a day).
-  const pet = lockEvolution(stored);
+  const pet = applyCareAreas(lockEvolution(stored), careAreas);
+  const held = new Set<string>(untrackedNeeds(careAreas));
+  const rate = (stat: keyof typeof DECAY_PER_DAY) => (held.has(stat) ? 0 : DECAY_PER_DAY[stat]);
   const anchor = new Date(pet.lastEventAt ?? pet.adoptedAt);
   const elapsedDays = Math.min(
     MAX_DECAY_DAYS,
@@ -106,15 +118,16 @@ export const applyTimeDecay = (stored: PetState, asOf: Date): PetState => {
   );
   if (elapsedDays <= 0) return pet;
 
-  const energy = clamp(pet.energy - elapsedDays * DECAY_PER_DAY.energy);
-  const nutrition = clamp(pet.nutrition - elapsedDays * DECAY_PER_DAY.nutrition);
-  const happiness = clamp(pet.happiness - elapsedDays * DECAY_PER_DAY.happiness);
-  const mind = clamp(pet.mind - elapsedDays * DECAY_PER_DAY.mind);
+  const energy = clamp(pet.energy - elapsedDays * rate('energy'));
+  const nutrition = clamp(pet.nutrition - elapsedDays * rate('nutrition'));
+  const happiness = clamp(pet.happiness - elapsedDays * rate('happiness'));
+  const mind = clamp(pet.mind - elapsedDays * rate('mind'));
 
   // Each need falls linearly, so the moment it crosses a threshold is analytic:
   // no simulation loop, and the answer is identical at any tick granularity.
+  // A held need never falls, so it never reaches either threshold.
   const daysUntil = (stat: (typeof VITAL_NEEDS)[number], floor: number) =>
-    Math.max(0, (pet[stat] - floor) / DECAY_PER_DAY[stat]);
+    rate(stat) === 0 ? Infinity : Math.max(0, (pet[stat] - floor) / rate(stat));
 
   const criticalDays = VITAL_NEEDS.reduce(
     (total, stat) => total + Math.max(0, elapsedDays - daysUntil(stat, CRITICAL_NEED)),

@@ -8,6 +8,7 @@ import { PersonalityScreen } from '../screens/PersonalityScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { ScreenTimeScreen } from '../screens/ScreenTimeScreen';
+import { CareAreasScreen } from '../screens/CareAreasScreen';
 import { ActivityHistoryScreen } from '../screens/ActivityHistoryScreen';
 import { LiftProgressScreen } from '../screens/LiftProgressScreen';
 
@@ -56,7 +57,8 @@ describe('preferences screen', () => {
     expect(screen).toContain('About you');
     expect(screen).toContain('Your goal');
     expect(screen).toContain('Your training');
-    expect(screen).toContain('What you want from Vitto');
+    // Moved to its own page: What affects your pet.
+    expect(screen).not.toContain('What you want from Vitto');
     tree.unmount();
   });
 
@@ -235,6 +237,53 @@ describe('settings legal links', () => {
     act(() => terms!.props.onPress());
     expect(open).toHaveBeenCalledWith(expect.stringContaining('apple.com'));
     open.mockRestore();
+    tree.unmount();
+  });
+});
+
+describe('what affects your pet', () => {
+  const toggles = (tree: renderer.ReactTestRenderer) =>
+    tree.root.findAll((node) => typeof node.props.onValueChange === 'function' && typeof node.type !== 'string');
+
+  it('switches an area off, and says what that means for the pet', () => {
+    const changes: string[][] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <CareAreasScreen petName="Miso" areas={['nutrition', 'training', 'movement', 'mind']} onChange={(next) => changes.push(next)} onClose={() => {}} />,
+      );
+    });
+    const texts = () => tree.root.findAllByType(Text).map((t: any) => [t.props.children].flat().join(''));
+    expect(texts()).toContain('What affects Miso');
+    act(() => toggles(tree)[0]!.props.onValueChange(false));
+    expect(changes).toEqual([['training', 'movement', 'mind']]);
+
+    act(() => tree.update(<CareAreasScreen petName="Miso" areas={['training', 'movement', 'mind']} onChange={() => {}} onClose={() => {}} />));
+    expect(texts()).toContain('Miso never gets hungry. Logging meals is optional.');
+    tree.unmount();
+  });
+
+  it('shows a partner the owner\'s choice, read-only', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<CareAreasScreen petName="Miso" areas={['training', 'mind']} canEdit={false} onChange={() => {}} onClose={() => {}} />);
+    });
+    expect(toggles(tree)).toHaveLength(0);
+    const texts = tree.root.findAllByType(Text).map((t: any) => [t.props.children].flat().join(''));
+    expect(texts).toContain("What counts toward Miso's health. Only Miso's owner can change this.");
+    expect(texts.filter((line) => line === 'Off')).toHaveLength(2);
+    tree.unmount();
+  });
+
+  it('keeps the last area on', () => {
+    const changes: string[][] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<CareAreasScreen petName="Miso" areas={['mind']} onChange={(next) => changes.push(next)} onClose={() => {}} />);
+    });
+    const mind = toggles(tree)[3]!;
+    act(() => mind.props.onValueChange(false));
+    expect(changes).toEqual([]);
     tree.unmount();
   });
 });

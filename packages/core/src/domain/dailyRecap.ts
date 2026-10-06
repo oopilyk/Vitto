@@ -1,3 +1,4 @@
+import { tracksArea } from './careAreas';
 import type { BodyProfile } from './macroTargets';
 import { calculateMacroTargets } from './macroTargets';
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, WorkoutMetadata } from './health';
@@ -258,9 +259,17 @@ export function buildDailyRecap({
   const outdoorsProgress = Math.min(100, outdoors.percent);
   const mindProgress = mind.sessionCount > 0 ? 100 : 0;
   const foodProgress = meals.length > 0 ? Math.min(100, food.caloriePercent) : 0;
-  const dailyProgress = Math.round(
-    (gymProgress + outdoorsProgress + mindProgress + foodProgress) / 4,
-  );
+  // Only the pillars this pet's owner chose (see careAreas.ts): someone who
+  // doesn't track food must be able to reach 100% without logging a meal.
+  const counted = (
+    [
+      ['training', gymProgress],
+      ['movement', outdoorsProgress],
+      ['mind', mindProgress],
+      ['nutrition', foodProgress],
+    ] as const
+  ).filter(([area]) => tracksArea(pet.careAreas, area));
+  const dailyProgress = Math.round(counted.reduce((total, [, progress]) => total + progress, 0) / counted.length);
 
   // --- Meaningful activity, aggregated ------------------------------
   const activity: RecapActivity[] = [];

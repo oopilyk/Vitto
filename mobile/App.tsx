@@ -11,7 +11,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  assessCondition, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -71,6 +71,7 @@ import { ActivityHistoryScreen } from './src/screens/ActivityHistoryScreen';
 import { LiftProgressScreen } from './src/screens/LiftProgressScreen';
 import { PersonalityScreen } from './src/screens/PersonalityScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { CareAreasScreen } from './src/screens/CareAreasScreen';
 import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
 import { APPEARANCE_LABEL, AppearanceScreen } from './src/screens/AppearanceScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
@@ -143,6 +144,7 @@ type RootStackParamList = {
   LiftProgress: undefined;
   // Settings' own pages, each pushed from its row there.
   Preferences: undefined;
+  CareAreas: undefined;
   /** `welcome`: arrived straight from buying Plus, to choose who the pet is. */
   Personality: { welcome?: boolean } | undefined;
   Notifications: undefined;
@@ -1066,6 +1068,40 @@ function VittoApp() {
    * limit keeps the old character rather than failing the save. Resolves to
    * null when the character is in place, or to what went wrong.
    */
+  /**
+   * What affects the pet (Settings > What affects …). Saved on the pet, so a
+   * shared pet has one set of rules; only its owner reaches this (the page is
+   * read-only for a partner, and the database undoes anyone else's change).
+   */
+  const changeCareAreas = async (areas: CareArea[]) => {
+    if (!pet) return;
+    const before = pet;
+    const nextPet = { ...pet, careAreas: areas };
+    setPet(nextPet);
+    try {
+      if (isSupabaseConfigured && session) {
+        let saved = await remoteRepository.savePetIfUnchanged(nextPet, pet.version ?? 0);
+        let base: PetState = nextPet;
+        if (saved.status === 'conflict') {
+          // The partner cared for the pet meanwhile: apply the change to what is there now.
+          const fresh = await remoteRepository.loadPet();
+          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          base = { ...fresh, careAreas: areas };
+          saved = await remoteRepository.savePetIfUnchanged(base, fresh.version ?? 0);
+          if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
+        }
+        const stored = { ...base, version: saved.version };
+        setPet(stored);
+        await repository.savePet(stored);
+        return;
+      }
+      await repository.savePet(nextPet);
+    } catch (cause) {
+      setPet(before);
+      setError(errorMessage(cause, 'Could not save that change.'));
+    }
+  };
+
   const changePersonality = async (next: PetPersonality, persona?: string, dials?: PersonalityDials): Promise<string | null> => {
     if (!pet) return 'There is no pet to change.';
     // The server would keep the old character anyway; say so instead.
@@ -1838,7 +1874,7 @@ function VittoApp() {
     const current = islandPet.current;
     if (!current) return;
     const at = new Date();
-    void syncPetIsland(applyTimeDecay(current, at), enabled, at.getTime());
+    void syncPetIsland(applyTimeDecay(current, at), enabled, at.getTime(), current.careAreas);
   }, []);
   useEffect(() => {
     if (!dataReady || !island) return;
@@ -2174,6 +2210,7 @@ function VittoApp() {
               onOpenPersonality={() => navigation.navigate('Personality')}
               onOpenNotifications={() => navigation.navigate('Notifications')}
               onOpenPreferences={() => navigation.navigate('Preferences')}
+              onOpenCareAreas={() => navigation.navigate('CareAreas')}
               appearanceLabel={
                 preference === 'system' ? `System · ${scheme === 'dark' ? 'Dark' : 'Light'}` : APPEARANCE_LABEL[preference]
               }
@@ -2185,6 +2222,18 @@ function VittoApp() {
         <RootStack.Screen name="Appearance">
           {({ navigation }) => (
             <AppearanceScreen preference={preference} scheme={scheme} onChange={setPreference} onClose={() => navigation.goBack()} />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="CareAreas">
+          {({ navigation }) => (
+            <CareAreasScreen
+              petName={livePet.name}
+              areas={livePet.careAreas}
+              onChange={(areas) => void changeCareAreas(areas)}
+              // Only the owner chooses; on a shared pet the partner sees it read-only.
+              canEdit={!isSupabaseConfigured || !session || isOwnPet(livePet, userId)}
+              onClose={() => navigation.goBack()}
+            />
           )}
         </RootStack.Screen>
         <RootStack.Screen name="Preferences">

@@ -6,6 +6,8 @@ import {
   MOOD_WORD,
   SLEEPY_ENERGY_THRESHOLD,
   assessCondition,
+  untrackedNeeds,
+  type CareArea,
   type PetState,
 } from '@vitto/core';
 import { sheetForPet } from '../components/petSprites';
@@ -43,8 +45,10 @@ type Need = 'nutrition' | 'energy' | 'happiness';
  * its rate. The widget draws the bar sliding between the two, so at `now` it
  * sits exactly at the current value.
  */
-const window = (value: number, need: Need, now: number): { fullAt: number; emptyAt: number } => {
-  const perMs = DECAY_PER_DAY[need] / MS_PER_DAY;
+const window = (value: number, need: Need, now: number, held = false): { fullAt: number; emptyAt: number } => {
+  // A need the person doesn't track never falls: drawn as a bar that would take
+  // a century to move, which the widget shows as standing still.
+  const perMs = held ? 1 / (100 * 365 * MS_PER_DAY) : DECAY_PER_DAY[need] / MS_PER_DAY;
   const clamped = Math.max(0, Math.min(100, value));
   return {
     fullAt: now - (100 - clamped) / perMs,
@@ -53,23 +57,25 @@ const window = (value: number, need: Need, now: number): { fullAt: number; empty
 };
 
 /** The moment `value` falls below `threshold` at its rate, or null if it already has. */
-const crossingAt = (value: number, threshold: number, need: Need, now: number): number | null => {
-  if (value < threshold) return null;
+const crossingAt = (value: number, threshold: number, need: Need, now: number, held = false): number | null => {
+  if (held || value < threshold) return null;
   const perMs = DECAY_PER_DAY[need] / MS_PER_DAY;
   return now + (value - threshold) / perMs;
 };
 
 const seconds = (ms: number) => Math.round(ms / 1000);
 
-export const buildIslandState = (pet: PetState, now: number = Date.now()): IslandState => {
-  const nutrition = window(pet.nutrition, 'nutrition', now);
-  const energy = window(pet.energy, 'energy', now);
+export const buildIslandState = (pet: PetState, now: number = Date.now(), careAreas?: readonly CareArea[] | null): IslandState => {
+  // Needs the person doesn't track (see careAreas in @vitto/core) never run down.
+  const held = new Set<string>(untrackedNeeds(careAreas));
+  const nutrition = window(pet.nutrition, 'nutrition', now, held.has('nutrition'));
+  const energy = window(pet.energy, 'energy', now, held.has('energy'));
   const happiness = window(pet.happiness, 'happiness', now);
 
   // Whichever comes first: hungry or sleepy. Neither once it already is one.
   const candidates: { need: string; at: number }[] = [];
-  const hungryAt = crossingAt(pet.nutrition, HUNGRY_NUTRITION_THRESHOLD, 'nutrition', now);
-  const sleepyAt = crossingAt(pet.energy, SLEEPY_ENERGY_THRESHOLD, 'energy', now);
+  const hungryAt = crossingAt(pet.nutrition, HUNGRY_NUTRITION_THRESHOLD, 'nutrition', now, held.has('nutrition'));
+  const sleepyAt = crossingAt(pet.energy, SLEEPY_ENERGY_THRESHOLD, 'energy', now, held.has('energy'));
   if (hungryAt !== null) candidates.push({ need: 'hungry', at: hungryAt });
   if (sleepyAt !== null) candidates.push({ need: 'sleepy', at: sleepyAt });
   const next = pet.mood === 'hungry' || pet.mood === 'sleepy'
@@ -110,13 +116,18 @@ export const islandSignature = (pet: PetState): string =>
 export const canShowIsland = (): boolean => Platform.OS === 'ios' && isIslandAvailable();
 
 /** Puts the pet on the Island, or takes it off when the setting is off. */
-export const syncPetIsland = async (pet: PetState, enabled: boolean, now: number = Date.now()): Promise<void> => {
+export const syncPetIsland = async (
+  pet: PetState,
+  enabled: boolean,
+  now: number = Date.now(),
+  careAreas?: readonly CareArea[] | null,
+): Promise<void> => {
   if (!canShowIsland()) return;
   if (!enabled) {
     await endIsland();
     return;
   }
-  await syncIsland(buildIslandState(pet, now));
+  await syncIsland(buildIslandState(pet, now, careAreas));
 };
 
 export const clearPetIsland = async (): Promise<void> => {

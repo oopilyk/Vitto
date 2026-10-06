@@ -1,5 +1,6 @@
 import type { PersonalityDials } from '../companion/types';
 import type { FoodEffect } from './foodEffects';
+import type { FocusArea } from './macroTargets';
 import { newId } from './ids';
 
 export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
@@ -114,6 +115,13 @@ export interface PetState {
    * the companion's traits then drift from. Absent on pets adopted before them.
    */
   dials?: PersonalityDials;
+  /**
+   * What affects this pet: the care areas its owner chose (see careAreas.ts).
+   * A need none of them feeds is held steady instead of decaying. Absent means
+   * every area, as every pet always worked. Only the owner may change it; the
+   * database undoes a partner's change.
+   */
+  careAreas?: FocusArea[];
   /**
    * The specialism the pet evolved into, locked once earned. Evolving is for
    * keeps: when the stats behind it drift back to even (a scholar skipping Mind

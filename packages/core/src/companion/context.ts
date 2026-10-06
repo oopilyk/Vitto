@@ -1,7 +1,7 @@
 import { selectRelevantMemories } from './memory';
 import { observePatterns } from './patterns';
 import { describePersonality, dominantTraits, personalityFlavor } from './personality';
-import { DIAL_KEYS } from './types';
+import { DIAL_KEYS, SKIPPABLE_CARE } from './types';
 import type { CompanionEvent, CompanionMemory, CompanionMessage, CompanionState, LifeContext, PersonalityDials, PetContext } from './types';
 import { DAY, clamp, formatAgo } from './util';
 
@@ -53,6 +53,9 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
   const today = record(source.today);
   const now = record(source.now);
   const sleep = today.sleepHoursLastNight;
+  const skipped = Array.isArray(today.skips)
+    ? SKIPPABLE_CARE.filter((kind) => (today.skips as unknown[]).includes(kind))
+    : [];
   return {
     pet: {
       name: text(pet.name, 24, 'Vitto'),
@@ -93,6 +96,7 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
       sleepHoursLastNight: typeof sleep === 'number' && Number.isFinite(sleep) ? Math.round(clamp(sleep, 0, 24) * 10) / 10 : null,
       careStreakDays: Math.round(num(today.careStreakDays, 0, 100_000, 0)),
       loggedSomethingToday: today.loggedSomethingToday === true,
+      ...(skipped.length ? { skips: skipped } : {}),
     },
     now: {
       localTime: text(now.localTime, 12, '12:00 PM'),

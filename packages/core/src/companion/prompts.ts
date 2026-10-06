@@ -203,16 +203,33 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
   lines.push('\n# Their day so far');
   const t = life.today;
   const bits: string[] = [];
-  bits.push(
-    t.meals
-      ? `${t.meals} meal${t.meals === 1 ? '' : 's'} logged (${t.calories} of about ${t.calorieTarget} kcal, ${t.proteinGrams} of ${t.proteinTarget} g protein)`
-      : 'no meals logged yet',
-  );
-  bits.push(t.steps ? `${t.steps.toLocaleString('en-US')} of ${t.stepGoal.toLocaleString('en-US')} steps` : 'no steps logged yet');
-  bits.push(t.workouts ? `trained${t.lastWorkoutName ? ` (${t.lastWorkoutName})` : ''}` : 'no workout today');
-  bits.push(t.mindSessions ? `${t.mindSessions} mind game${t.mindSessions === 1 ? '' : 's'}` : 'no mind games yet');
+  // What they chose not to track is mentioned only when they did it anyway:
+  // "no meals logged yet" is not news to someone who doesn't log meals.
+  const skips = new Set(t.skips ?? []);
+  if (t.meals || !skips.has('food')) {
+    bits.push(
+      t.meals
+        ? `${t.meals} meal${t.meals === 1 ? '' : 's'} logged (${t.calories} of about ${t.calorieTarget} kcal, ${t.proteinGrams} of ${t.proteinTarget} g protein)`
+        : 'no meals logged yet',
+    );
+  }
+  if (t.steps || !skips.has('steps')) {
+    bits.push(t.steps ? `${t.steps.toLocaleString('en-US')} of ${t.stepGoal.toLocaleString('en-US')} steps` : 'no steps logged yet');
+  }
+  if (t.workouts || !skips.has('workouts')) {
+    bits.push(t.workouts ? `trained${t.lastWorkoutName ? ` (${t.lastWorkoutName})` : ''}` : 'no workout today');
+  }
+  if (t.mindSessions || !skips.has('mind')) {
+    bits.push(t.mindSessions ? `${t.mindSessions} mind game${t.mindSessions === 1 ? '' : 's'}` : 'no mind games yet');
+  }
   if (t.sleepHoursLastNight !== null) bits.push(`slept ${t.sleepHoursLastNight} h last night`);
-  lines.push(`${bits.join('; ')}.`);
+  if (bits.length) lines.push(`${bits.join('; ')}.`);
+  if (skips.size) {
+    const names = { food: 'food or meals', workouts: 'workouts', steps: 'steps', mind: 'mind games' } as const;
+    lines.push(
+      `They have chosen not to track ${[...skips].map((kind) => names[kind]).join(', ')}. Never nag them about it or ask them to do it; it is fine if they mention it themselves.`,
+    );
+  }
   if (t.careStreakDays >= 2) {
     lines.push(`You are on a ${t.careStreakDays}-day streak together${t.loggedSomethingToday ? '' : ' (nothing logged yet today)'}.`);
   }

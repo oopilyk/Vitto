@@ -1,3 +1,4 @@
+import { tracksArea } from './careAreas';
 import type { CompanionEventInput, LifeContext } from '../companion/types';
 import { timeOfDayFor, WEEKDAYS } from '../companion/util';
 import { bondFor } from './bond';
@@ -176,6 +177,16 @@ export const buildLifeContext = (input: {
     .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))[0];
   const asleep = (lastSleep?.metadata as SleepMetadata | undefined)?.asleepMinutes;
 
+  const skipped = (
+    [
+      ['nutrition', 'food'],
+      ['training', 'workouts'],
+      ['movement', 'steps'],
+      ['mind', 'mind'],
+    ] as const
+  )
+    .filter(([area]) => !tracksArea(input.pet.careAreas, area))
+    .map(([, kind]) => kind);
   return {
     pet: {
       name: pet.name,
@@ -209,6 +220,8 @@ export const buildLifeContext = (input: {
       sleepHoursLastNight: typeof asleep === 'number' ? Math.round((asleep / 60) * 10) / 10 : null,
       careStreakDays: streak.currentStreak,
       loggedSomethingToday: streak.todayQualifies,
+      // What the pet's owner switched off (Settings > What affects your pet).
+      ...(skipped.length ? { skips: skipped } : {}),
     },
     now: {
       localTime: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
