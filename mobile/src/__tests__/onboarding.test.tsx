@@ -112,6 +112,13 @@ const meetPet = (tree: renderer.ReactTestRenderer) => {
   type(tree, "Your companion's name", 'Miso');
   press(tree, 'Next'); // name
   press(tree, 'Skip'); // your name
+  chooseCareAreas(tree);
+};
+
+/** What should keep the pet healthy: nothing preselected, so pick one and go on. */
+const chooseCareAreas = (tree: renderer.ReactTestRenderer) => {
+  press(tree, 'Food');
+  press(tree, 'Next');
 };
 
 describe('onboarding', () => {
@@ -139,6 +146,10 @@ describe('onboarding', () => {
     press(tree, 'Next');
     expect(has(tree, 'what’s your name?')).toBe(true);
     press(tree, 'Skip');
+    // What should keep the pet healthy: nothing chosen for you, and no going on without one.
+    expect(has(tree, 'What should keep') && has(tree, 'healthy?')).toBe(true);
+    expect(button(tree, 'Next')!.props.disabled).toBe(true);
+    chooseCareAreas(tree);
     expect(has(tree, 'Let’s learn a bit about you!')).toBe(true);
   });
 
@@ -286,6 +297,8 @@ describe('onboarding', () => {
     press(tree, 'Next');
     press(tree, 'Skip');
     check();
+    chooseCareAreas(tree);
+    check();
     press(tree, 'Next');
     for (const tap of ['18-24', 'Male']) {
       check();
@@ -339,6 +352,9 @@ describe('onboarding', () => {
       await button(tree, 'Next')!.props.onPress();
     });
     expect(claimed).toEqual(['kyleli']);
+    // Then what should keep the pet healthy, before anything about you.
+    expect(has(tree, 'What should keep') && has(tree, 'healthy?')).toBe(true);
+    chooseCareAreas(tree);
     expect(has(tree, 'Let’s learn a bit about you!')).toBe(true);
   });
 

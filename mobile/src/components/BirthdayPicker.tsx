@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
-import { PrimaryButton } from './ui';
-import { colors, layout, themedStyles } from '../theme';
+import { ONB_FONT, OnbButton, onboardingPalette } from './onboardingKit';
+import { themedStyles } from '../theme';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 /** Far enough back for anyone; nobody is 120. */
@@ -43,7 +43,7 @@ export function BirthdayPicker({ month, year, onChange }: Props) {
         accessibilityRole="button"
         accessibilityLabel={chosen ? `Birthday, ${chosen}` : 'Choose your birthday'}
         onPress={show}
-        style={({ pressed }) => [layout.input, styles.field, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.field, pressed && styles.pressed]}
         testID="birthday-field"
       >
         <Text style={chosen ? styles.value : styles.placeholder}>{chosen ?? 'Month and year'}</Text>
@@ -91,7 +91,7 @@ export function BirthdayPicker({ month, year, onChange }: Props) {
               })}
             </ScrollView>
           </View>
-          <PrimaryButton
+          <OnbButton
             label="Done"
             disabled={!draftMonth || !draftYear}
             onPress={() => {
@@ -105,34 +105,42 @@ export function BirthdayPicker({ month, year, onChange }: Props) {
   );
 }
 
-const styles = themedStyles(() => ({
-  field: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  pressed: { opacity: 0.8 },
-  value: { fontSize: 15, color: colors.ink },
-  placeholder: { fontSize: 15, color: colors.faint },
-  chevron: { fontSize: 16, color: colors.muted, marginTop: -6 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
-  sheet: {
-    backgroundColor: colors.paper,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 34,
-    gap: 14,
-  },
-  title: { fontSize: 17, fontWeight: '700', color: colors.ink, textAlign: 'center' },
-  columns: { flexDirection: 'row', gap: 12, height: 300 },
-  column: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 14,
-    backgroundColor: colors.card,
-  },
-  columnBody: { padding: 6, gap: 2 },
-  option: { paddingVertical: 11, paddingHorizontal: 12, borderRadius: 10 },
-  optionOn: { backgroundColor: colors.selectedFill },
-  optionLabel: { fontSize: 15, color: colors.ink, textAlign: 'center' },
-  optionLabelOn: { color: colors.coralDeep, fontWeight: '700' },
-}));
+// In the sign-up kit's look (see onboardingKit), so it sits among those fields.
+const styles = themedStyles(() => {
+  const F = onboardingPalette();
+  return {
+    field: {
+      height: 54,
+      borderRadius: 22,
+      borderWidth: 2,
+      borderColor: F.border,
+      backgroundColor: F.input,
+      paddingHorizontal: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    pressed: { opacity: 0.8 },
+    value: { fontFamily: ONB_FONT.medium, fontSize: 17, color: F.text },
+    placeholder: { fontFamily: ONB_FONT.medium, fontSize: 17, color: F.sub },
+    chevron: { fontSize: 16, color: F.sub, marginTop: -6 },
+    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
+    sheet: {
+      backgroundColor: F.bg,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 34,
+      gap: 14,
+    },
+    title: { fontFamily: ONB_FONT.bold, fontSize: 20, color: F.text, textAlign: 'center' },
+    columns: { flexDirection: 'row', gap: 12, height: 300 },
+    column: { flex: 1, borderWidth: 2, borderColor: F.border, borderRadius: 22, backgroundColor: F.input },
+    columnBody: { padding: 6, gap: 2 },
+    option: { paddingVertical: 11, paddingHorizontal: 12, borderRadius: 16 },
+    optionOn: { backgroundColor: F.greenPale },
+    optionLabel: { fontFamily: ONB_FONT.medium, fontSize: 16, color: F.text, textAlign: 'center' },
+    optionLabelOn: { fontFamily: ONB_FONT.bold, color: F.green },
+  };
+});

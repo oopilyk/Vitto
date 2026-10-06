@@ -39,6 +39,8 @@ import {
   INVITE_CODE_LENGTH,
   INVITE_CODE_LENGTHS,
   normalizeInviteCode,
+  CARE_AREAS,
+  type CareArea,
   normalizeUsername,
   usernameError,
   petSurvivalGuidance,
@@ -66,6 +68,7 @@ import {
 } from '../services/billingService';
 import { scheduleTrialReminder } from '../services/pushService';
 import { colors, getColorScheme, themedStyles } from '../theme';
+import { ONB_FONT as FONT, OnbButton as FButton, OnbInput as FInput, onboardingPalette as palette } from '../components/onboardingKit';
 
 interface Props {
   name: string;
@@ -115,6 +118,19 @@ const LB_PER_KG = 2.20462;
 
 /** Goal-weight bounds, per unit: the same human range either way. */
 const GOAL_BOUNDS = { kg: { min: 30, max: 300 }, lb: { min: 66, max: 660 } } as const;
+
+/** The care areas as onboarding asks about them: what each one means for the pet. */
+/**
+ * The care areas as onboarding asks about them: what you do, what happens if
+ * you don't, and which of the pet's stats it raises (as the engine applies them;
+ * happiness rises with everything, so it is left off every line).
+ */
+const CARE_AREA_CHOICE: Record<CareArea, { label: string; detail: (pet: string) => string; stats: string }> = {
+  nutrition: { label: 'Food', detail: (pet) => `Log your meals. Skip them and ${pet} gets hungry.`, stats: '+ Nutrition · Health' },
+  training: { label: 'Workouts', detail: () => 'Log your training sessions.', stats: '+ Strength · Endurance · Energy' },
+  movement: { label: 'Steps', detail: () => 'Sync your daily steps.', stats: '+ Energy · Endurance' },
+  mind: { label: 'Mind games', detail: (pet) => `Play quick games. Skip them and ${pet} gets foggy.`, stats: '+ Mind' },
+};
 
 /** Ages as ranges, the way you would say it out loud; each lands on a representative age. */
 const AGE_OPTIONS = [
@@ -201,6 +217,7 @@ type StepId =
   | 'namePet'
   | 'yourName'
   | 'username'
+  | 'careAreas'
   | 'aboutIntro'
   | 'age'
   | 'sex'
@@ -232,6 +249,9 @@ const FULL_SEQUENCE: StepId[] = [
   'yourName',
   // The handle friends find you by: unique, so the server has the last word.
   'username',
+  // What the pet runs on: chosen before the questions, so someone who doesn't
+  // track food knows from the start it won't be held against their pet.
+  'careAreas',
   // Then, gently, about you. One question a screen.
   'aboutIntro',
   'age',
@@ -294,46 +314,7 @@ const tick = () => buzz(() => Haptics.selectionAsync?.());
 const thump = () => buzz(() => Haptics.impactAsync?.(Haptics.ImpactFeedbackStyle?.Light));
 const cheer = () => buzz(() => Haptics.notificationAsync?.(Haptics.NotificationFeedbackType?.Success));
 
-/** Onboarding's own type: a soft, rounded face, set big. */
-const FONT = {
-  regular: 'Rubik_400Regular',
-  medium: 'Rubik_500Medium',
-  semibold: 'Rubik_600SemiBold',
-  bold: 'Rubik_700Bold',
-};
 
-/**
- * Onboarding's palette: clean white, soft greys and the app's coral for
- * "go" and "chosen", in the manner of the best pet apps. Dark mode keeps the
- * shapes and the coral and swaps the greys for the app's dark surfaces.
- */
-const palette = () =>
-  getColorScheme() === 'dark'
-    ? {
-        bg: colors.paper,
-        text: colors.ink,
-        sub: colors.muted,
-        soft: colors.cardSoft,
-        softEdge: colors.border,
-        border: colors.hairline,
-        input: colors.card,
-        // The app's coral: "go" and "chosen", as everywhere else in Vitto.
-        green: colors.coral,
-        greenEdge: '#a8432f',
-        greenPale: colors.selectedFill,
-      }
-    : {
-        bg: '#ffffff',
-        text: '#333333',
-        sub: '#6b7785',
-        soft: '#f0f0f0',
-        softEdge: '#d9d9d9',
-        border: '#ebebeb',
-        input: '#f7f7f7',
-        green: colors.coral,
-        greenEdge: '#b34a35',
-        greenPale: colors.selectedFill,
-      };
 
 /** The smallest pet worth showing; with less room than this the pet steps aside. */
 const MIN_PET = 72;
@@ -538,6 +519,7 @@ export function OnboardingScreen({
     }
     if (stepId === 'target' && goalNumber !== undefined && (goalNumber < bounds.min || goalNumber > bounds.max))
       return `Pick a goal between ${bounds.min} and ${bounds.max} ${profile.weightUnit}.`;
+    if (stepId === 'careAreas' && careAreas.length === 0) return 'Pick at least one.';
     // They can go back and lower their age after choosing an age-gated one.
     if (stepId === 'personality' && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
       return 'Pick a personality.';
@@ -615,6 +597,17 @@ export function OnboardingScreen({
     } finally {
       setJoining(false);
     }
+  };
+
+  /** What should affect the pet. Nothing preselected; carried on the profile until the pet is adopted. */
+  const [careAreas, setCareAreas] = useState<CareArea[]>([]);
+  const toggleCareArea = (value: CareArea) => {
+    tick();
+    const next = careAreas.includes(value)
+      ? careAreas.filter((area) => area !== value)
+      : CARE_AREAS.filter((area) => area === value || careAreas.includes(area));
+    setCareAreas(next);
+    if (next.length > 0) onUpdate('focusAreas', next);
   };
 
   const toggleTraining = (value: TrainingType) => {
@@ -714,11 +707,12 @@ export function OnboardingScreen({
       count,
       columns = 1,
       wanted = 110,
-    }: { eyebrow: string; title: string; sub?: string; count: number; columns?: number; wanted?: number },
+      extraRoom = 0,
+    }: { eyebrow: string; title: string; sub?: string; count: number; columns?: number; wanted?: number; extraRoom?: number },
     answers: ReactNode,
   ) => {
     const header = 26 + (title.length > 26 ? 64 : 34) + (sub && !short ? (sub.length > 44 ? 52 : 30) : 0);
-    const size = petRoom(wanted, header + listNeeds(count, columns));
+    const size = petRoom(wanted, header + listNeeds(count, columns) + extraRoom);
     return (
       <View style={styles.fill}>
         <Text style={styles.eyebrow}>{eyebrow}</Text>
@@ -751,6 +745,8 @@ export function OnboardingScreen({
         return { label: 'Next', disabled: goalNumber === undefined || !picked.target || !profile.goalTargetDate };
       case 'motivation':
         return { label: 'Next', disabled: motivations.length === 0 };
+      case 'careAreas':
+        return { label: 'Next', disabled: careAreas.length === 0 };
       case 'personality':
         return { label: 'Next', disabled: !picked.personality };
       case 'plan':
@@ -1228,6 +1224,35 @@ export function OnboardingScreen({
               )
             : null}
 
+          {stepId === 'careAreas'
+            ? question(
+                {
+                  eyebrow: petName,
+                  title: `What should keep ${petName} healthy?`,
+                  sub: `Pick what you'll track. Anything you leave off never affects ${petName}.`,
+                  count: CARE_AREAS.length,
+                  // Two-line rows: room for them, so nothing scrolls.
+                  extraRoom: CARE_AREAS.length * 40,
+                  wanted: 90,
+                },
+                <>
+                  {CARE_AREAS.map((area) => (
+                    <FChoice
+                      key={area}
+                      label={CARE_AREA_CHOICE[area].label}
+                      detail={CARE_AREA_CHOICE[area].detail(petName)}
+                      detailLines={2}
+                      stats={CARE_AREA_CHOICE[area].stats}
+                      align="left"
+                      selected={careAreas.includes(area)}
+                      onPress={() => toggleCareArea(area)}
+                      style={styles.choiceTall}
+                    />
+                  ))}
+                </>,
+              )
+            : null}
+
           {stepId === 'trainingTypes'
             ? question(
                 {
@@ -1653,6 +1678,8 @@ function Grid({ columns, children }: { columns: number; children: ReactNode }) {
 function FChoice({
   label,
   detail,
+  detailLines = 1,
+  stats,
   note,
   selected,
   align = 'center',
@@ -1662,6 +1689,10 @@ function FChoice({
 }: {
   label: string;
   detail?: string;
+  /** How many lines the detail may take; one by default, for the tight grids. */
+  detailLines?: number;
+  /** A short coral line under the detail: what it raises, "Strength · Energy". */
+  stats?: string;
   note?: string;
   selected?: boolean;
   align?: 'center' | 'left';
@@ -1691,8 +1722,13 @@ function FChoice({
           {label}
         </Text>
         {detail ? (
-          <Text style={styles.choiceDetail} numberOfLines={1}>
+          <Text style={styles.choiceDetail} numberOfLines={detailLines}>
             {detail}
+          </Text>
+        ) : null}
+        {stats ? (
+          <Text style={styles.choiceStats} numberOfLines={1}>
+            {stats}
           </Text>
         ) : null}
       </View>
@@ -1711,44 +1747,6 @@ function FChoice({
 }
 
 /** The chunky button: a solid face over a darker lip, which it presses down into. */
-function FButton({
-  label,
-  onPress,
-  disabled,
-  busy,
-  tone = 'primary',
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  busy?: boolean;
-  tone?: 'primary' | 'secondary';
-}) {
-  const primary = tone === 'primary';
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled || busy) }}
-      disabled={disabled || busy}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        primary ? styles.buttonPrimary : styles.buttonSecondary,
-        disabled && (primary ? styles.buttonPrimaryOff : styles.buttonSecondaryOff),
-        pressed && styles.buttonPressed,
-      ]}
-    >
-      <Text style={[styles.buttonLabel, primary ? styles.buttonLabelPrimary : styles.buttonLabelSecondary]} numberOfLines={1}>
-        {busy ? '…' : label}
-      </Text>
-    </Pressable>
-  );
-}
-
-/** A soft grey field with big centred type. */
-function FInput(props: TextInputProps) {
-  return <TextInput placeholderTextColor={palette().sub} {...props} style={[styles.input, props.style]} />;
-}
 
 /** What the free app does, against what Plus adds. */
 function PerkCompare({ free, plus }: { free: string; plus: string }) {
@@ -1888,6 +1886,8 @@ const styles = themedStyles(() => {
     choices: { flex: 1, minHeight: 0, marginTop: 14, gap: CHOICE_GAP },
     gridRow: { flexDirection: 'row', gap: CHOICE_GAP, flexBasis: 64, flexShrink: 1, flexGrow: 0, minHeight: MIN_CHOICE, maxHeight: 68 },
     gridCell: { flex: 1 },
+    // A choice with a two-line detail under its label.
+    choiceTall: { flexBasis: 92, maxHeight: 104, paddingVertical: 10 },
     choice: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1912,6 +1912,8 @@ const styles = themedStyles(() => {
     choiceLabelSmall: { fontSize: 15, lineHeight: 19 },
     choiceLabelOn: { fontFamily: FONT.semibold },
     choiceDetail: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 18, color: F.sub, marginTop: 1 },
+    // What a choice raises, in the accent, so it reads as a reward.
+    choiceStats: { fontFamily: FONT.bold, fontSize: 12, lineHeight: 16, letterSpacing: 0.2, color: F.green, marginTop: 3 },
     choiceNote: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, flexShrink: 1, textAlign: 'right' },
     check: { width: 26, height: 26, borderRadius: 13, backgroundColor: F.green, alignItems: 'center', justifyContent: 'center' },
     checkMark: { fontFamily: FONT.bold, fontSize: 14, lineHeight: 18, color: '#ffffff' },
@@ -1930,19 +1932,6 @@ const styles = themedStyles(() => {
     toggleLabel: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 21, color: F.sub },
     toggleLabelOn: { color: F.text, fontFamily: FONT.semibold },
 
-    input: {
-      alignSelf: 'stretch',
-      height: 58,
-      borderRadius: 22,
-      borderWidth: 2,
-      borderColor: F.border,
-      backgroundColor: F.input,
-      paddingHorizontal: 18,
-      fontFamily: FONT.medium,
-      fontSize: 20,
-      color: F.text,
-      textAlign: 'center',
-    },
     persona: { height: 96, fontSize: 16, textAlign: 'left', paddingTop: 12, textAlignVertical: 'top', lineHeight: 22 },
     personaBox: { marginTop: 10, gap: 6 },
     chipStrip: { flexGrow: 0 },
@@ -2129,14 +2118,5 @@ const styles = themedStyles(() => {
     footer: { paddingHorizontal: 30, paddingTop: 8, paddingBottom: HOME_INDICATOR_INSET + 8 },
     footerInner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', gap: 10 },
 
-    button: { height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 5 },
-    buttonPrimary: { backgroundColor: F.green, borderBottomColor: F.greenEdge },
-    buttonPrimaryOff: { opacity: 0.5 },
-    buttonSecondary: { backgroundColor: F.soft, borderBottomColor: F.softEdge },
-    buttonSecondaryOff: { opacity: 0.6 },
-    buttonPressed: { borderBottomWidth: 1, marginTop: 4, height: 52 },
-    buttonLabel: { fontFamily: FONT.medium, fontSize: 20, lineHeight: 26, paddingHorizontal: 12, textAlign: 'center' },
-    buttonLabelPrimary: { color: '#ffffff' },
-    buttonLabelSecondary: { color: F.sub },
   };
 });

@@ -11,7 +11,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
+import {  assessCondition, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -684,7 +684,18 @@ function VittoApp() {
           // screen. `loadProfile` returns null for a row that has not been
           // through onboarding, and signing into such an account used to inherit
           // whoever was signed in before.
-          setProfile(profileResult.value ?? DEFAULT_PROFILE);
+          //
+          // The username is the exception: it was chosen at sign-up and is
+          // already on the profile row, but `loadProfile` drops a row that has
+          // not been through onboarding. The signup metadata carries the same
+          // value, so onboarding doesn't ask for it a second time.
+          const signedUpAs = session.user.user_metadata?.username;
+          setProfile(
+            profileResult.value ??
+              (typeof signedUpAs === 'string' && !usernameError(signedUpAs)
+                ? { ...DEFAULT_PROFILE, username: normalizeUsername(signedUpAs) }
+                : DEFAULT_PROFILE),
+          );
         }
 
         const failure = [petResult, eventsResult, profileResult].find(
@@ -1378,9 +1389,13 @@ function VittoApp() {
         throw new Error('Weight must be between 30 and 300 kg.');
 
       // A free pet is adopted without a character; choosing one is Plus.
-      const nextPet = canCustomise
+      const created = canCustomise
         ? createPet(userId, name.trim() || 'Miso', 'dog', breed, personality, undefined, persona, dials)
         : createPet(userId, name.trim() || 'Miso', 'dog', breed);
+      // What should affect the pet, as chosen in onboarding (carried on the
+      // profile until now). Every area is the default, stored as no setting.
+      const chosen = profile.focusAreas;
+      const nextPet = chosen.length > 0 && chosen.length < CARE_AREAS.length ? { ...created, careAreas: chosen } : created;
       if (isSupabaseConfigured && session) await remoteRepository.savePet(nextPet);
       await persistProfile(profile);
       await repository.savePet(nextPet);

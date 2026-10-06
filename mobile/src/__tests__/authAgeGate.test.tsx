@@ -12,7 +12,6 @@ jest.mock('@vitto/core', () => ({
   signInWithEmail: (...args: unknown[]) => mockSignIn(...args),
   verifySignupCode: (...args: unknown[]) => mockVerify(...args),
   resendSignupCode: (...args: unknown[]) => mockResend(...args),
-  isUsernameAvailable: () => Promise.resolve(true),
 }));
 
 import { AuthScreen } from '../screens/AuthScreen';
@@ -51,11 +50,15 @@ const createAccount = async (tree: renderer.ReactTestRenderer) => {
 
 const fill = (tree: renderer.ReactTestRenderer, month: string, year: string) => {
   pickBirthday(tree, month, year);
-  const inputs = tree.root.findAll((node) => typeof node.props.onChangeText === 'function' && node.props.placeholder);
-  const set = (placeholder: string, value: string) =>
-    act(() => inputs.find((node) => node.props.placeholder === placeholder)!.props.onChangeText(value));
-  set('Your name', 'Sam');
-  set('kyle_li', 'sam_lifts');
+  const inputs = tree.root.findAll(
+    (node) => typeof node.props.onChangeText === 'function' && (node.props.placeholder || node.props.accessibilityLabel),
+  );
+  const set = (key: string, value: string) =>
+    act(() =>
+      inputs
+        .find((node) => node.props.placeholder === key || node.props.accessibilityLabel === key)!
+        .props.onChangeText(value),
+    );
   set('you@example.com', 'sam@example.com');
   set('••••••', 'secret123');
 };
@@ -72,9 +75,12 @@ describe('sign-up age check', () => {
   it('asks for a birthday first, neutrally, by tapping, with nothing chosen for you', async () => {
     const tree = await openSignUp();
     const labels = tree.root.findAllByType(Text).map((t) => String([t.props.children].flat().join('')).toLowerCase());
-    const at = (label: string) => labels.findIndex((text) => text === label);
+    const at = (label: string) => labels.findIndex((text) => text.startsWith(label));
     expect(at('birthday')).toBeGreaterThanOrEqual(0);
-    expect(at('birthday')).toBeLessThan(at('your name'));
+    expect(at('birthday')).toBeLessThan(at('email'));
+    // The name and username are asked in onboarding, not here.
+    expect(at('your name')).toBe(-1);
+    expect(at('username')).toBe(-1);
     // No typing: a field that opens a picker, and it starts empty.
     expect(tree.root.findAll((node) => node.props.testID === 'birthday-field').length).toBeGreaterThan(0);
     expect(labels).toContain('month and year');
@@ -109,7 +115,8 @@ describe('sign-up age check', () => {
     const tree = await openSignUp();
     fill(tree, '6', '1998');
     await createAccount(tree);
-    expect(mockSignUp.mock.calls[0]!.slice(0, 4)).toEqual(['sam@example.com', 'secret123', 'Sam', 'sam_lifts']);
+    // No name: onboarding asks for it on a page of its own.
+    expect(mockSignUp.mock.calls[0]!.slice(0, 4)).toEqual(['sam@example.com', 'secret123', '', undefined]);
     // No session until the email is confirmed: straight on to the code.
     expect(tree.root.findAll((node) => node.props.testID === 'confirm-code').length).toBeGreaterThan(0);
     const texts = tree.root.findAllByType(Text).map((t) => [t.props.children].flat().join(''));
@@ -132,7 +139,6 @@ describe('a mistyped birthday', () => {
     const texts = tree.root.findAllByType(Text).map((t) => [t.props.children].flat().join(''));
     expect(texts).toContain('Is everything right?');
     expect(texts).toContain(`March ${new Date().getFullYear() - 10}`);
-    expect(texts).toContain('@sam_lifts');
     expect(texts).toContain('sam@example.com');
     // Nothing sent, not turned away yet: they can still go back and fix it.
     expect(mockSignUp).not.toHaveBeenCalled();
@@ -178,6 +184,22 @@ describe('confirming a new account with a code', () => {
     act(() => codeInput(tree).props.onChangeText('33440646'));
     await act(async () => byText(tree, 'Confirm')!.props.onPress());
     expect(mockVerify).toHaveBeenCalledWith('sam@example.com', '33440646');
+    tree.unmount();
+  });
+
+  it('sends an address that already has an account to sign-in, not to a code that never comes', async () => {
+    // Supabase's answer for a confirmed address: a user with no identities, no code sent.
+    mockSignUp.mockResolvedValue({ data: { session: null, user: { id: 'fake', identities: [] } }, error: null });
+    const tree = await openSignUp();
+    fill(tree, '6', '1998');
+    await createAccount(tree);
+
+    expect(tree.root.findAll((node) => node.props.testID === 'confirm-code')).toHaveLength(0);
+    const texts = tree.root.findAllByType(Text).map((t) => [t.props.children].flat().join(''));
+    expect(texts).toContain('An account with this email already exists. Sign in instead.');
+    expect(byText(tree, 'Sign in')).toBeTruthy();
+    const emailInput = tree.root.find((node) => node.props.placeholder === 'you@example.com' && typeof node.props.onChangeText === 'function');
+    expect(emailInput.props.value).toBe('sam@example.com');
     tree.unmount();
   });
 

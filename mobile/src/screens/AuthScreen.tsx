@@ -1,24 +1,22 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { KeyboardAvoidingView, Linking, Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useFonts, Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_700Bold } from '@expo-google-fonts/rubik';
 import {
   checkBirthday,
   errorMessage,
   isEmailNotConfirmed,
-  isUsernameAvailable,
-  normalizeUsername,
   signInWithEmail,
   resendSignupCode,
   SIGNUP_CODE_MAX_LENGTH,
   SIGNUP_CODE_MIN_LENGTH,
   signUpWithEmail,
-  usernameError,
   verifySignupCode,
 } from '@vitto/core';
-import { ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { BirthdayPicker } from '../components/BirthdayPicker';
+import { ONB_FONT, OnbButton, OnbInput, onboardingPalette, onboardingText as T } from '../components/onboardingKit';
 import { LEGAL_LINKS } from '../services/billingService';
-import { colors, fonts, layout, text, themedStyles } from '../theme';
+import { themedStyles } from '../theme';
 
 /**
  * When someone under 13 last tried to sign up on this phone, so going straight
@@ -46,10 +44,43 @@ const MONTH_NAMES = [
 /** Supabase will not send another confirmation email sooner than this. */
 const RESEND_AFTER_SECONDS = 60;
 
+/** A quiet text button in the kit's type: the secondary actions under the main one. */
+function TextLink({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled} hitSlop={8} style={({ pressed }) => [styles.link, (pressed || disabled) && styles.linkDim]}>
+      <Text style={T.link}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** A labelled field, with an optional quieter hint after the label. */
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <View style={styles.field}>
+      <Text style={T.label}>
+        {label}
+        {hint ? <Text style={T.labelHint}>{`  ${hint}`}</Text> : null}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+/** The page frame every state of this screen shares: the kit's surface, keyboard-aware. */
+function Page({ children, testID }: { children: ReactNode; testID?: string }) {
+  return (
+    <KeyboardAvoidingView style={T.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" testID={testID}>
+        <View style={styles.column}>{children}</View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
 export function AuthScreen() {
+  // The same rounded face as onboarding, so signing up and onboarding read as one flow.
+  useFonts({ Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_700Bold });
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -129,10 +160,6 @@ export function AuthScreen() {
   /** Signing up from a phone that has already been turned away: only sign-in is offered. */
   const signUpClosed = mode === 'sign-up' && blocked;
 
-  // Shape only — whether it is already someone else's is a question for the
-  // server, asked on submit.
-  const usernameProblem = mode === 'sign-up' && username ? usernameError(username) : null;
-
   const submit = async (reviewed = false) => {
     // Sign-up goes through a review page first, for everyone and whatever age
     // they picked, before anything is checked or sent: a mis-tap is caught
@@ -141,11 +168,6 @@ export function AuthScreen() {
     if (mode === 'sign-up' && !reviewed) {
       if (!birthday.ok && birthday.reason !== 'too-young') {
         setError('Choose your birthday.');
-        return;
-      }
-      const problem = usernameError(username);
-      if (problem) {
-        setError(problem);
         return;
       }
       setError(null);
@@ -168,26 +190,27 @@ export function AuthScreen() {
           }
           return;
         }
-        const problem = usernameError(username);
-        if (problem) {
-          setError(problem);
-          return;
-        }
-        // Checked here rather than only on keystroke so the answer is fresh at
-        // the moment it matters. The unique index is still the real guarantee —
-        // this turns the common "already taken" case into a form error instead
-        // of a failed registration.
-        if (!(await isUsernameAvailable(username))) {
-          setError(`@${normalizeUsername(username)} is already taken. Try another.`);
-          return;
-        }
       }
 
       const result =
         mode === 'sign-in'
           ? await signInWithEmail(email.trim(), password)
-          : await signUpWithEmail(email.trim(), password, name.trim(), username, process.env.EXPO_PUBLIC_EMAIL_CONFIRMED_URL || undefined);
+          : // No name or username here: onboarding asks for both, once the
+          // address is confirmed, so an unconfirmed sign-up never holds a
+          // username.
+          await signUpWithEmail(email.trim(), password, '', undefined, process.env.EXPO_PUBLIC_EMAIL_CONFIRMED_URL || undefined);
       if (result.error) throw result.error;
+      // An address that already has a confirmed account: Supabase answers as if
+      // it had signed up (a user with no identities) but creates nothing and
+      // sends no code, so the code page would wait forever. Say so, and offer
+      // sign-in with the address kept.
+      if (mode === 'sign-up' && result.data.user && result.data.user.identities?.length === 0) {
+        setReviewing(false);
+        setMode('sign-in');
+        setPassword('');
+        setError('An account with this email already exists. Sign in instead.');
+        return;
+      }
       // No session yet: the address needs confirming, with the code just sent.
       if (mode === 'sign-up' && !result.data.session) askForCode(email.trim());
     } catch (cause) {
@@ -207,271 +230,209 @@ export function AuthScreen() {
   if (confirming) {
     const complete = code.replace(/\D/g, '').length >= SIGNUP_CODE_MIN_LENGTH;
     return (
-      <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" testID="confirm-code">
-          <Kicker>Vitto / one last step</Kicker>
-          <Text style={styles.headline}>Check your email.</Text>
-          <Text
-            style={styles.intro}
-          >{`We sent a ${SIGNUP_CODE_MIN_LENGTH}-digit code to ${confirming}. Enter it to confirm your account.`}</Text>
+      <Page testID="confirm-code">
+        <Text style={T.eyebrow}>One last step</Text>
+        <Text style={T.title}>Check your email</Text>
+        <Text style={T.sub}>{`We sent a ${SIGNUP_CODE_MIN_LENGTH}-digit code to ${confirming}. Enter it to confirm your account.`}</Text>
 
-          <TextInput
-            style={[layout.input, styles.code]}
-            value={code}
-            onChangeText={(next) => setCode(next.replace(/\D/g, '').slice(0, SIGNUP_CODE_MAX_LENGTH))}
-            placeholder={'0'.repeat(SIGNUP_CODE_MIN_LENGTH)}
-            placeholderTextColor={colors.faint}
-            keyboardType="number-pad"
-            // iOS offers the code from Mail above the keyboard.
-            textContentType="oneTimeCode"
-            autoComplete="one-time-code"
-            autoFocus
-            maxLength={SIGNUP_CODE_MAX_LENGTH}
-            accessibilityLabel="Confirmation code"
+        <OnbInput
+          style={styles.code}
+          value={code}
+          onChangeText={(next) => setCode(next.replace(/\D/g, '').slice(0, SIGNUP_CODE_MAX_LENGTH))}
+          placeholder={'0'.repeat(SIGNUP_CODE_MIN_LENGTH)}
+          keyboardType="number-pad"
+          // iOS offers the code from Mail above the keyboard.
+          textContentType="oneTimeCode"
+          autoComplete="one-time-code"
+          autoFocus
+          maxLength={SIGNUP_CODE_MAX_LENGTH}
+          accessibilityLabel="Confirmation code"
+        />
+
+        {error ? <Text style={[T.error, styles.notice]}>{error}</Text> : null}
+        {message ? <Text style={[T.success, styles.notice]}>{message}</Text> : null}
+
+        <View style={styles.actions}>
+          <OnbButton label="Confirm" busy={busy} disabled={!complete} onPress={() => void confirm()} />
+          <TextLink
+            label={resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+            disabled={resendIn > 0}
+            onPress={() => void resend()}
           />
-
-          <ErrorText>{error}</ErrorText>
-          {message ? <Text style={styles.message}>{message}</Text> : null}
-
-          <View style={styles.actions}>
-            <PrimaryButton label="Confirm" busy={busy} disabled={!complete} onPress={() => void confirm()} />
-            <TextButton
-              label={resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
-              disabled={resendIn > 0}
-              onPress={() => void resend()}
-            />
-            <TextButton
-              label="Use a different email"
-              onPress={() => {
-                setConfirming(null);
-                setError(null);
-                setMessage(null);
-              }}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <TextLink
+            label="Use a different email"
+            onPress={() => {
+              setConfirming(null);
+              setError(null);
+              setMessage(null);
+            }}
+          />
+        </View>
+      </Page>
     );
   }
 
   if (reviewing && mode === 'sign-up' && !blocked) {
     const rows: [string, string][] = [
       ['Birthday', `${MONTH_NAMES[Number(birthMonth) - 1]} ${birthYear}`],
-      ['Name', name.trim() || '—'],
-      ['Username', `@${normalizeUsername(username)}`],
       ['Email', email.trim()],
     ];
     return (
-      <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" testID="signup-review">
-          <Kicker>Vitto / almost there</Kicker>
-          <Text style={styles.headline}>Is everything right?</Text>
-          <Text style={styles.intro}>Check your details before we create your account.</Text>
+      <Page testID="signup-review">
+        <Text style={T.eyebrow}>Almost there</Text>
+        <Text style={T.title}>Is everything right?</Text>
+        <Text style={T.sub}>Check your details before we create your account.</Text>
 
-          <View style={styles.review}>
-            {rows.map(([label, value], index) => (
-              <View key={label} style={[styles.reviewRow, index > 0 && styles.reviewRule]}>
-                <Text style={styles.reviewLabel}>{label}</Text>
-                <Text style={styles.reviewValue} numberOfLines={1}>
-                  {value}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          <ErrorText>{error}</ErrorText>
-
-          <View style={styles.actions}>
-            <PrimaryButton label="Create account" busy={busy} onPress={() => void submit(true)} />
-            <Text style={styles.legal} testID="signup-legal">
-              {'By creating an account, you agree to our '}
-              <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
-                Terms of Use
+        <View style={[T.card, styles.review]}>
+          {rows.map(([label, value], index) => (
+            <View key={label} style={[styles.reviewRow, index > 0 && styles.reviewRule]}>
+              <Text style={T.body}>{label}</Text>
+              <Text style={styles.reviewValue} numberOfLines={1}>
+                {value}
               </Text>
-              {LEGAL_LINKS.privacy ? (
-                <>
-                  {' and '}
-                  <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}>
-                    Privacy Policy
-                  </Text>
-                </>
-              ) : null}
-              .
-            </Text>
-            <TextButton
-              label="Go back and edit"
-              onPress={() => {
-                setReviewing(false);
-                setError(null);
-              }}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    );
-  }
-
-  return (
-    <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        <Kicker>Vitto / your life, their story</Kicker>
-        <Text style={styles.headline}>{mode === 'sign-in' ? 'Welcome back.' : 'Start your story.'}</Text>
-        <Text style={styles.intro}>Sign in to save your pet and analyze meals privately.</Text>
-
-        {mode === 'sign-up' && blocked ? (
-          <View style={styles.blocked} testID="signup-blocked">
-            <Text style={styles.blockedTitle}>We can't create an account for you</Text>
-            <Text style={styles.blockedBody}>Vitto is for people 13 and older.</Text>
-            {/* Back out to sign-in, not to the birthday: going back to pick an
-                older year would defeat the check. */}
-            <View style={styles.blockedBack}>
-              <TextButton
-                label="Back to sign in"
-                onPress={() => {
-                  setMode('sign-in');
-                  setError(null);
-                }}
-              />
             </View>
-          </View>
-        ) : null}
+          ))}
+        </View>
 
-        {mode === 'sign-up' && !blocked ? (
-          <Field label="Birthday">
-            <BirthdayPicker
-              month={birthMonth}
-              year={birthYear}
-              onChange={(month, year) => {
-                setBirthMonth(month);
-                setBirthYear(year);
-                setReviewing(false);
-              }}
-            />
-          </Field>
-        ) : null}
-
-        {mode === 'sign-up' && !blocked ? (
-          <Field label="Your name">
-            <TextInput
-              style={layout.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Your name"
-              placeholderTextColor={colors.faint}
-              autoCapitalize="words"
-            />
-          </Field>
-        ) : null}
-
-        {mode === 'sign-up' && !blocked ? (
-          <Field label="Username" hint="3-20 characters: a-z, 0-9, _">
-            <TextInput
-              style={layout.input}
-              value={username}
-              // Normalised as it is typed, so what you see is what gets stored
-              // and a capital letter is not a rejection.
-              onChangeText={(next) => setUsername(normalizeUsername(next))}
-              placeholder="kyle_li"
-              placeholderTextColor={colors.faint}
-              autoCapitalize="none"
-              autoCorrect={false}
-              maxLength={20}
-            />
-            {usernameProblem ? <Text style={styles.hint}>{usernameProblem}</Text> : null}
-          </Field>
-        ) : null}
-
-        {signUpClosed ? null : (
-          <>
-            <Field label="Email">
-              <TextInput
-                style={layout.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                placeholderTextColor={colors.faint}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="emailAddress"
-              />
-            </Field>
-
-            <Field label="Password" hint="6 characters minimum">
-              <TextInput
-                style={layout.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••"
-                placeholderTextColor={colors.faint}
-                secureTextEntry
-                textContentType="password"
-              />
-            </Field>
-          </>
-        )}
-
-        <ErrorText>{error}</ErrorText>
-        {message ? <Text style={styles.message}>{message}</Text> : null}
+        {error ? <Text style={[T.error, styles.notice]}>{error}</Text> : null}
 
         <View style={styles.actions}>
-          {signUpClosed ? null : (
-            <PrimaryButton
-              label={mode === 'sign-in' ? 'Sign in' : 'Continue'}
-              busy={busy}
-              disabled={
-                !email ||
-                password.length < 6 ||
-                (mode === 'sign-up' && (usernameError(username) !== null || (!birthday.ok && birthday.reason !== 'too-young')))
-              }
-              onPress={() => void submit()}
-            />
-          )}
-          <TextButton
-            label={mode === 'sign-in' ? 'Need an account?' : 'Already have an account?'}
+          <OnbButton label="Create account" busy={busy} onPress={() => void submit(true)} />
+          <Text style={styles.legal} testID="signup-legal">
+            {'By creating an account, you agree to our '}
+            <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+              Terms of Use
+            </Text>
+            {LEGAL_LINKS.privacy ? (
+              <>
+                {' and '}
+                <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}>
+                  Privacy Policy
+                </Text>
+              </>
+            ) : null}
+            .
+          </Text>
+          <TextLink
+            label="Go back and edit"
             onPress={() => {
-              setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
               setReviewing(false);
               setError(null);
             }}
           />
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </Page>
+    );
+  }
+
+  return (
+    <Page>
+      <Text style={T.eyebrow}>Vitto</Text>
+      <Text style={T.title}>{mode === 'sign-in' ? 'Welcome back' : 'Start your story'}</Text>
+      <Text style={T.sub}>{mode === 'sign-in' ? 'Sign in to see your pet.' : 'Make an account to save your pet.'}</Text>
+
+      {mode === 'sign-up' && blocked ? (
+        <View style={[T.card, styles.blocked]} testID="signup-blocked">
+          <Text style={styles.blockedTitle}>We can't create an account for you</Text>
+          <Text style={T.body}>Vitto is for people 13 and older.</Text>
+          {/* Back out to sign-in, not to the birthday: going back to pick an
+              older year would defeat the check. */}
+          <View style={styles.blockedBack}>
+            <OnbButton
+              label="Back to sign in"
+              tone="secondary"
+              onPress={() => {
+                setMode('sign-in');
+                setError(null);
+              }}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {mode === 'sign-up' && !blocked ? (
+        <Field label="Birthday">
+          <BirthdayPicker
+            month={birthMonth}
+            year={birthYear}
+            onChange={(month, year) => {
+              setBirthMonth(month);
+              setBirthYear(year);
+              setReviewing(false);
+            }}
+          />
+        </Field>
+      ) : null}
+
+      {signUpClosed ? null : (
+        <>
+          <Field label="Email">
+            <OnbInput
+              form
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="emailAddress"
+            />
+          </Field>
+
+          <Field label="Password" hint="6 characters minimum">
+            <OnbInput form value={password} onChangeText={setPassword} placeholder="••••••" secureTextEntry textContentType="password" />
+          </Field>
+        </>
+      )}
+
+      {error ? <Text style={[T.error, styles.notice]}>{error}</Text> : null}
+      {message ? <Text style={[T.success, styles.notice]}>{message}</Text> : null}
+
+      <View style={styles.actions}>
+        {signUpClosed ? null : (
+          <OnbButton
+            label={mode === 'sign-in' ? 'Sign in' : 'Continue'}
+            busy={busy}
+            disabled={
+              !email ||
+              password.length < 6 ||
+              (mode === 'sign-up' && !birthday.ok && birthday.reason !== 'too-young')
+            }
+            onPress={() => void submit()}
+          />
+        )}
+        <TextLink
+          label={mode === 'sign-in' ? 'Need an account?' : 'Already have an account?'}
+          onPress={() => {
+            setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
+            setReviewing(false);
+            setError(null);
+          }}
+        />
+      </View>
+    </Page>
   );
 }
 
-const styles = themedStyles(() => ({
-  body: { padding: 22, paddingTop: 90, paddingBottom: 60 },
-  headline: { ...text.display, marginTop: 18 },
-  intro: { ...text.body, marginTop: 12, color: colors.muted },
-  message: { fontFamily: fonts.mono, fontSize: 11, color: colors.mintDeep, marginTop: 12 },
-  hint: { fontFamily: fonts.mono, fontSize: 10, color: colors.danger, marginTop: 6 },
-  actions: { marginTop: 30, gap: 18 },
-  code: { marginTop: 26, fontSize: 28, letterSpacing: 10, textAlign: 'center', fontFamily: fonts.mono },
-  blocked: {
-    marginTop: 26,
-    padding: 18,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-  },
-  blockedTitle: { fontSize: 16, fontWeight: '600', color: colors.ink },
-  blockedBody: { fontSize: 14, color: colors.muted, marginTop: 4 },
-  blockedBack: { marginTop: 14, alignItems: 'flex-start' },
-  review: {
-    marginTop: 26,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-    paddingHorizontal: 16,
-  },
-  reviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingVertical: 14 },
-  reviewRule: { borderTopWidth: 1, borderTopColor: colors.divider },
-  reviewLabel: { fontSize: 14, color: colors.muted },
-  reviewValue: { flexShrink: 1, fontSize: 15, fontWeight: '600', color: colors.ink, textAlign: 'right' },
-  legal: { fontSize: 12, lineHeight: 17, color: colors.muted, textAlign: 'center', marginTop: -6 },
-  legalLink: { color: colors.ink, textDecorationLine: 'underline' },
-}));
+const styles = themedStyles(() => {
+  const F = onboardingPalette();
+  return {
+    body: { paddingHorizontal: 24, paddingTop: 84, paddingBottom: 48 },
+    column: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+    field: { marginTop: 20 },
+    notice: { marginTop: 14, textAlign: 'center' },
+    actions: { marginTop: 28, gap: 14 },
+    link: { alignItems: 'center', paddingVertical: 8 },
+    linkDim: { opacity: 0.5 },
+    code: { marginTop: 26, height: 64, fontSize: 30, letterSpacing: 8, fontFamily: ONB_FONT.semibold },
+    blocked: { marginTop: 24, gap: 4 },
+    blockedTitle: { fontFamily: ONB_FONT.semibold, fontSize: 17, lineHeight: 22, color: F.text },
+    blockedBack: { marginTop: 14 },
+    review: { marginTop: 24, paddingVertical: 4 },
+    reviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingVertical: 12 },
+    reviewRule: { borderTopWidth: 1, borderTopColor: F.border },
+    reviewValue: { flexShrink: 1, fontFamily: ONB_FONT.semibold, fontSize: 16, color: F.text, textAlign: 'right' },
+    legal: { fontFamily: ONB_FONT.regular, fontSize: 13, lineHeight: 18, color: F.sub, textAlign: 'center' },
+    legalLink: { fontFamily: ONB_FONT.medium, color: F.text, textDecorationLine: 'underline' },
+  };
+});
