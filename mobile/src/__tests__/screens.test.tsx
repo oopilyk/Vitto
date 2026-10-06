@@ -2591,7 +2591,7 @@ describe('care partners', () => {
   const openInvite = {
     id: 'inv-1',
     petId: pet.id,
-    code: 'ABCDEF',
+    code: 'ABCDEFGH',
     createdAt: new Date().toISOString(),
     expiresAt: inviteExpiresAt(new Date()),
   };
@@ -2653,7 +2653,7 @@ describe('care partners', () => {
   it('shows the open invite code, formatted, with a way to cancel it', () => {
     const tree = renderCard(partnerProps({ invite: openInvite }));
     const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('ABC-DEF');
+    expect(rendered).toContain('ABCD-EFGH');
     expect(findButton(tree, 'Cancel code')).toBeTruthy();
     expect(findButton(tree, 'New code')).toBeTruthy();
     // One live code at a time: no "invite" button while one is open.
@@ -2690,7 +2690,7 @@ describe('care partners', () => {
     );
 
     act(() => findButton(tree, 'I have a code')!.props.onPress());
-    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABCD-EFGH');
     expect(input).toBeTruthy();
     act(() => input!.props.onChangeText('abc-def'));
     await act(async () => {
@@ -2705,7 +2705,7 @@ describe('care partners', () => {
   it('keeps the typed code when the join confirm is cancelled', async () => {
     const tree = renderCard(partnerProps({ onRedeemInvite: async () => false }));
     act(() => findButton(tree, 'I have a code')!.props.onPress());
-    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABCD-EFGH');
     act(() => input!.props.onChangeText('ABC-DEF'));
     await act(async () => {
       await findButton(tree, 'Join')!.props.onPress();
@@ -2724,7 +2724,7 @@ describe('care partners', () => {
       }),
     );
     act(() => findButton(tree, 'I have a code')!.props.onPress());
-    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABCD-EFGH');
     act(() => input!.props.onChangeText('ABCDEF'));
     await act(async () => {
       await findButton(tree, 'Join')!.props.onPress();
@@ -3237,7 +3237,7 @@ describe('care partners', () => {
     const reveal = findButton(tree, "Have an invite code? Join a partner’s pet");
     expect(reveal).toBeTruthy();
     act(() => reveal!.props.onPress());
-    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABC-DEF');
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABCD-EFGH');
     expect(input).toBeTruthy();
     act(() => input!.props.onChangeText('abc def'));
     await act(async () => {

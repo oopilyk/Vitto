@@ -50,11 +50,11 @@ describe('invite codes', () => {
     const random = () => sequence[cursor++ % sequence.length];
     const code = generateInviteCode(random);
     expect(code).toHaveLength(INVITE_CODE_LENGTH);
-    expect(code).toBe('AS9BJ2');
+    expect(code).toBe('AS9BJ2AS');
     for (const char of code) expect(INVITE_CODE_ALPHABET).toContain(char);
     // Same sequence, same code.
     cursor = 0;
-    expect(generateInviteCode(random)).toBe('AS9BJ2');
+    expect(generateInviteCode(random)).toBe('AS9BJ2AS');
   });
 
   it('never indexes past the alphabet when the RNG returns 1', () => {
@@ -64,7 +64,7 @@ describe('invite codes', () => {
   it('only ever uses the confusable-free alphabet by default', () => {
     for (let i = 0; i < 50; i += 1) {
       const code = generateInviteCode();
-      expect(code).toMatch(/^[A-Z2-9]{6}$/);
+      expect(code).toMatch(/^[A-Z2-9]{8}$/);
       expect(code).not.toMatch(/[01OI]/);
     }
   });
@@ -75,8 +75,8 @@ describe('invite codes', () => {
   });
 
   it('formats a code for display', () => {
-    expect(formatInviteCode('ABCDEF')).toBe('ABC-DEF');
-    expect(formatInviteCode('abc-def')).toBe('ABC-DEF');
+    expect(formatInviteCode('ABCDEFGH')).toBe('ABCD-EFGH');
+    expect(formatInviteCode('abcd-efgh')).toBe('ABCD-EFGH');
     expect(formatInviteCode('ABC')).toBe('ABC');
   });
 

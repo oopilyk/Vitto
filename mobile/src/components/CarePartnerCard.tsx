@@ -9,6 +9,8 @@ import {
   isSharedPet,
   memberDisplayName,
   memberRole,
+  INVITE_CODE_LENGTH,
+  INVITE_CODE_LENGTHS,
   normalizeInviteCode,
 } from '@vitto/core';
 import { FRIENDS_LIGHT, type FriendsPalette } from '../friendsTheme';
@@ -51,7 +53,8 @@ interface Props {
 }
 
 /** Six characters plus the hyphen `formatInviteCode` shows, so a pasted formatted code fits. */
-const INVITE_INPUT_MAX_LENGTH = 7;
+/** The longest code with its dash, 'ABCD-EFGH'. */
+const INVITE_INPUT_MAX_LENGTH = INVITE_CODE_LENGTH + 1;
 
 const ROLE_LABEL: Record<PetMember['role'], string> = { owner: 'Owner', partner: 'Partner' };
 
@@ -81,7 +84,7 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
   const joinWithCode = () =>
     runPartnerAction(async () => {
       const code = normalizeInviteCode(joinCode);
-      if (code.length !== 6) throw new Error('Enter the six-character code your partner shared.');
+      if (!INVITE_CODE_LENGTHS.includes(code.length)) throw new Error('Enter the code your partner shared.');
       // A cancelled confirm keeps the code where it was typed.
       if (await carePartner.onRedeemInvite(code)) setJoinCode('');
     }, 'Could not join that pet.');
@@ -199,7 +202,7 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
                 autoCorrect={false}
                 autoFocus
                 maxLength={INVITE_INPUT_MAX_LENGTH}
-                placeholder="ABC-DEF"
+                placeholder="ABCD-EFGH"
                 placeholderTextColor={colors.faint}
                 accessibilityLabel="Invite code"
               />
@@ -209,7 +212,7 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
                   <PrimaryButton
                     label="Join"
                     busy={carePartner.busy}
-                    disabled={normalizeInviteCode(joinCode).length !== 6}
+                    disabled={!INVITE_CODE_LENGTHS.includes(normalizeInviteCode(joinCode).length)}
                     onPress={() => void joinWithCode()}
                   />
                 </View>

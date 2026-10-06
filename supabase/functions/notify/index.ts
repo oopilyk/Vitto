@@ -57,8 +57,21 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const iso = (ms: number) => new Date(ms).toISOString();
 
-/** One run's ceiling. Keeps a cron tick well inside an edge function's life. */
-const MAX_DEVICES = 500;
+/** People worked on in one run. Keeps a cron tick well inside an edge function's life. */
+const MAX_USERS = 500;
+/** Devices are listed in pages of this many; listing is cheap, the work per person is not. */
+const DEVICE_PAGE = 1000;
+/** A bound on the listing itself, far above any real number of devices for now. */
+const MAX_DEVICE_PAGES = 50;
+
+/** Compares without leaking, through timing, how much of a guess was right. */
+const sameSecret = (given: string, expected: string) => {
+  const a = new TextEncoder().encode(given);
+  const b = new TextEncoder().encode(expected);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  return diff === 0;
+};
 /** How many candidates are worked on at once. Politeness to Postgres, not a limit on scale. */
 const CONCURRENCY = 5;
 /** Older than this and the app has plainly not picked the event up itself. */
@@ -149,7 +162,7 @@ const bankFor = async (
   if (fresh) return { bank: candidate.pushLines, usage: null };
   // A rewrite is rare (the voice changed, or the bank aged out), so a few a day
   // is plenty; past that, or past the app's ceiling, the old bank serves.
-  if ((await claimAiCall(db, candidate.userId, 'push_lines', PUSH_LINE_REWRITES_PER_DAY)) !== 'ok') {
+  if ((await claimAiCall(db, candidate.userId, 'push_lines', PUSH_LINE_REWRITES_PER_DAY, candidate.tier === 'plus' ? 'plus' : 'free')) !== 'ok') {
     return { bank: candidate.pushLines, usage: null };
   }
 
@@ -262,27 +275,40 @@ Deno.serve(async (request) => {
     console.error('[notify] NOTIFY_SECRET is not set; refusing to run');
     return json({ error: 'Not configured.' }, 503);
   }
-  if (request.headers.get('x-notify-secret') !== secret) return json({ error: 'Not authorised.' }, 401);
+  if (!sameSecret(request.headers.get('x-notify-secret') ?? '', secret)) return json({ error: 'Not authorised.' }, 401);
 
   try {
     const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const now = Date.now();
 
-    const { data: deviceRows, error: deviceError } = await db.from('push_devices')
-      .select('token, user_id, utc_offset_minutes, quiet_start, quiet_end')
-      .eq('enabled', true).limit(MAX_DEVICES);
-    if (deviceError) throw deviceError;
+    // Every enabled device, most recently seen first. It used to read just the
+    // first 500 rows in no order, so anyone past them (or crowded out by junk
+    // registrations) silently never heard from their pet.
+    const deviceRows: { token: string; user_id: string; utc_offset_minutes: number; quiet_start: number; quiet_end: number }[] = [];
+    for (let page = 0; page < MAX_DEVICE_PAGES; page += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const { data, error: deviceError } = await db.from('push_devices')
+        .select('token, user_id, utc_offset_minutes, quiet_start, quiet_end')
+        .eq('enabled', true)
+        .order('last_seen_at', { ascending: false })
+        .order('token')
+        .range(page * DEVICE_PAGE, (page + 1) * DEVICE_PAGE - 1);
+      if (deviceError) throw deviceError;
+      deviceRows.push(...(data ?? []));
+      if (!data || data.length < DEVICE_PAGE) break;
+    }
 
     const byUser = new Map<string, Device[]>();
-    for (const row of deviceRows ?? []) {
+    for (const row of deviceRows) {
       const device: Device = {
         token: row.token, userId: row.user_id, utcOffsetMinutes: row.utc_offset_minutes,
         quietStart: row.quiet_start, quietEnd: row.quiet_end,
       };
       if (sleeping(device, now)) continue;
-      const list = byUser.get(device.userId) ?? [];
-      list.push(device);
-      byUser.set(device.userId, list);
+      const list = byUser.get(device.userId);
+      if (list) list.push(device);
+      // Awake people, most recently active first, up to this run's ceiling.
+      else if (byUser.size < MAX_USERS) byUser.set(device.userId, [device]);
     }
     if (byUser.size === 0) return json({ considered: 0, sent: 0, reason: 'nobody awake' });
 

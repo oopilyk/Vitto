@@ -420,46 +420,21 @@ describe('SupabaseRepository.loadOpenInvite', () => {
 });
 
 describe('SupabaseRepository.createInvite', () => {
-  it('revokes open invites first, then inserts a fresh code for the signed-in owner', async () => {
-    single.mockResolvedValueOnce({ data: inviteRow(), error: null });
+  it('has the server make the code and expiry, never the client', async () => {
+    rpc.mockResolvedValueOnce({ data: inviteRow({ code: 'ABCDEFGH' }), error: null });
 
     const invite = await new SupabaseRepository().createInvite('pet-1');
 
-    expect(update.mock.calls[0][0]).toEqual({ revoked_at: expect.any(String) });
-    expect(update.mock.invocationCallOrder[0]).toBeLessThan(insert.mock.invocationCallOrder[0]);
-    const payload = insert.mock.calls[0][0];
-    expect(payload).toMatchObject({ pet_id: 'pet-1', created_by: 'user-1' });
-    expect(payload.code).toMatch(/^[A-Z2-9]{6}$/);
-    expect(Date.parse(payload.expires_at) - Date.now()).toBeGreaterThan(6.9 * 24 * 60 * 60 * 1000);
-    expect(invite.code).toBe('ABCDEF');
-  });
-
-  it('retries once with a new code on a unique-violation', async () => {
-    single
-      .mockResolvedValueOnce({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "pet_invites_code_idx"' } })
-      .mockResolvedValueOnce({ data: inviteRow({ code: 'GHJKLM' }), error: null });
-
-    const invite = await new SupabaseRepository().createInvite('pet-1');
-
-    expect(insert).toHaveBeenCalledTimes(2);
-    expect(update).toHaveBeenCalledTimes(1);
-    expect(invite.code).toBe('GHJKLM');
-  });
-
-  it('gives up after the second collision', async () => {
-    const failure = { code: '23505', message: 'duplicate key value violates unique constraint "pet_invites_code_idx"' };
-    single.mockResolvedValue({ data: null, error: failure });
-
-    await expect(new SupabaseRepository().createInvite('pet-1')).rejects.toBe(failure);
-    expect(insert).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not insert when revoking the old invites fails', async () => {
-    const failure = { code: '42501', message: 'row-level security' };
-    responses.push({ data: null, error: failure });
-
-    await expect(new SupabaseRepository().createInvite('pet-1')).rejects.toBe(failure);
+    expect(rpc).toHaveBeenCalledWith('create_pet_invite', { p_pet_id: 'pet-1' });
     expect(insert).not.toHaveBeenCalled();
+    expect(invite.code).toBe('ABCDEFGH');
+  });
+
+  it('throws the RPC error so the caller can show it', async () => {
+    const failure = { code: '42501', message: 'NOT_YOUR_PET' };
+    rpc.mockResolvedValueOnce({ data: null, error: failure });
+
+    await expect(new SupabaseRepository().createInvite('pet-1')).rejects.toBe(failure);
   });
 });
 
@@ -493,6 +468,13 @@ describe('SupabaseRepository.redeemInvite', () => {
 
     const [, args] = rpc.mock.calls[0];
     expect(args).not.toHaveProperty('p_confirm_leave');
+  });
+
+  it('treats an empty answer as an invalid code, whatever the reason', async () => {
+    // Unknown, used and expired codes all come back empty from the server.
+    rpc.mockResolvedValueOnce({ data: null, error: null });
+
+    await expect(new SupabaseRepository().redeemInvite('ABCDEFGH')).rejects.toThrow('INVITE_INVALID');
   });
 
   it('throws the RPC error so inviteErrorMessage can map its code', async () => {

@@ -83,4 +83,4 @@ export const sendPush = async (messages: readonly PushMessage[]): Promise<PushOu
 
 /** Expo's own format check, so an obviously bad token never reaches the table. */
 export const isExpoPushToken = (token: unknown): token is string =>
-  typeof token === 'string' && /^Expo(nent)?PushToken\[[^\]]+\]$/.test(token);
+  typeof token === 'string' && /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,100}\]$/.test(token);

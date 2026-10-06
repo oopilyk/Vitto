@@ -68,6 +68,10 @@ const ExtractionSchema = z.object({
 const DEV_EMAILS = new Set(['kyleyli2005@gmail.com']);
 /** Stands in for "no cap" while staying a number every caller already handles. */
 const DEV_UNCAPPED = 100_000;
+/** Devices kept per person; the oldest beyond this are dropped. */
+const MAX_DEVICES_PER_USER = 5;
+/** How long a token must sit unused before another account may claim it. */
+const DEVICE_HANDOVER_MS = 30 * 24 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Rows <-> domain. The pure logic works in epoch ms; Postgres in timestamptz.
@@ -410,6 +414,14 @@ Deno.serve(async (request) => {
       const offset = typeof body?.utcOffsetMinutes === 'number' && Number.isFinite(body.utcOffsetMinutes)
         ? Math.round(Math.max(-840, Math.min(840, body.utcOffsetMinutes)))
         : 0;
+      // A token another account is still actively using is not ours to take:
+      // registering it would point their phone at this account's pet. It moves
+      // only once that account has gone quiet on it (or signed out, which
+      // deletes the row), as happens when a phone changes hands.
+      const { data: holder } = await admin.from('push_devices').select('user_id, last_seen_at').eq('token', token).maybeSingle();
+      if (holder && holder.user_id !== user.id && Date.now() - Date.parse(holder.last_seen_at) < DEVICE_HANDOVER_MS) {
+        return json({ error: 'That device is registered to another account.' }, 409);
+      }
       const { data: saved, error } = await admin.from('push_devices').upsert({
         token,
         user_id: user.id,
@@ -425,6 +437,11 @@ Deno.serve(async (request) => {
         last_seen_at: iso(Date.now()),
       }, { onConflict: 'token' }).select('enabled').single();
       if (error) throw error;
+      // A person has a phone or two, not hundreds: keep their most recent few.
+      const { data: mine } = await admin.from('push_devices').select('token')
+        .eq('user_id', user.id).order('last_seen_at', { ascending: false });
+      const extra = (mine ?? []).slice(MAX_DEVICES_PER_USER).map((row) => row.token);
+      if (extra.length) await admin.from('push_devices').delete().eq('user_id', user.id).in('token', extra);
       return json({ ok: true, enabled: saved.enabled as boolean });
     }
 
@@ -435,8 +452,12 @@ Deno.serve(async (request) => {
     // other's pets. Only someone who actually cares for this pet may talk to it.
     const { data: isMember } = await asUser.rpc('is_active_pet_member', { p_pet_id: petId });
     if (isMember !== true) {
+      // The creator of a pet with no membership rows yet. Not one who has left
+      // a shared pet: `pets.user_id` stays on them, but the pet is not theirs.
       const { data: owned } = await admin.from('pets').select('id').eq('id', petId).eq('user_id', user.id).maybeSingle();
-      if (!owned) return json({ error: 'That pet is not yours to talk to.' }, 403);
+      const { data: left } = await admin.from('pet_members').select('pet_id')
+        .eq('pet_id', petId).eq('user_id', user.id).not('left_at', 'is', null).maybeSingle();
+      if (!owned || left) return json({ error: 'That pet is not yours to talk to.' }, 403);
     }
 
     const now = Date.now();
@@ -492,7 +513,7 @@ Deno.serve(async (request) => {
       // The count above is for the screen; this is the cap. It is claimed
       // atomically before anything is spent, so a burst of simultaneous
       // messages cannot all slip under it.
-      const claim = await claimAiCall(admin, user.id, 'chat', limits.messagesPerDay);
+      const claim = await claimAiCall(admin, user.id, 'chat', limits.messagesPerDay, tier);
       if (claim === 'user_limit') return json({ error: 'DAILY_LIMIT', access: before }, 429);
       if (claim === 'global_limit') return json({ error: BUSY_MESSAGE }, 503);
 
@@ -535,7 +556,7 @@ Deno.serve(async (request) => {
       if (
         !fire ||
         (await companion.usage(now)).proactive >= limits.proactivePerDay ||
-        (await claimAiCall(admin, user.id, 'proactive', limits.proactivePerDay)) !== 'ok'
+        (await claimAiCall(admin, user.id, 'proactive', limits.proactivePerDay, tier)) !== 'ok'
       ) {
         await companion.saveState(state);
         return json({ message: null, trigger: null, state });
@@ -602,7 +623,9 @@ Deno.serve(async (request) => {
 
     return json({ error: 'Unknown action.' }, 400);
   } catch (error) {
+    // The detail goes to the logs, never to the caller: database and upstream
+    // errors name tables, columns and constraints.
     console.error('[companion] request failed', error);
-    return json({ error: error instanceof Error ? error.message : 'The companion is unavailable.' }, 500);
+    return json({ error: 'The companion is unavailable.' }, 500);
   }
 });

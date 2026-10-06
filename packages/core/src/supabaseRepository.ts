@@ -3,8 +3,6 @@ import type { HealthEvent } from './domain/health';
 import type { EvolvedBuild, PetState } from './domain/pet';
 import { withSurveyDefaults, type BodyProfile } from './domain/macroTargets';
 import {
-  generateInviteCode,
-  inviteExpiresAt,
   normalizeInviteCode,
   type CareLogEntry,
   type PetInvite,
@@ -529,35 +527,17 @@ export class SupabaseRepository {
   }
 
   /**
-   * Revokes any open invite for the pet first, so exactly one code is ever live.
-   * The code column is globally unique; a collision (23505) is retried once
-   * with a fresh code, which at 32^6 codes is already more than enough.
+   * Made by the server (`create_pet_invite`): an 8-character code from
+   * cryptographically random bytes and a fixed 7-day expiry, with any open
+   * invite for the pet retired first, so exactly one code is ever live. The
+   * client used to pick the code and expiry itself.
    */
   async createInvite(petId: string): Promise<PetInvite> {
     const client = requireClient();
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in before inviting a care partner.');
-
-    const now = new Date();
-    const { error: revokeError } = await client
-      .from('pet_invites')
-      .update({ revoked_at: now.toISOString() })
-      .eq('pet_id', petId)
-      .is('redeemed_at', null)
-      .is('revoked_at', null);
-    if (revokeError) throw revokeError;
-
-    for (let attempt = 0; ; attempt += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const { data, error } = await client
-        .from('pet_invites')
-        .insert({ pet_id: petId, created_by: user.id, code: generateInviteCode(), expires_at: inviteExpiresAt(now) })
-        .select()
-        .single();
-      if (!error && data) return toPetInvite(data as PetInviteRow);
-      if (error?.code === '23505' && attempt === 0) continue;
-      throw error ?? new Error('Could not create an invite.');
-    }
+    const { data, error } = await client.rpc('create_pet_invite', { p_pet_id: petId });
+    if (error) throw error;
+    if (!data) throw new Error('Could not create an invite.');
+    return toPetInvite(data as PetInviteRow);
   }
 
   async revokeInvite(inviteId: string): Promise<void> {
@@ -581,6 +561,9 @@ export class SupabaseRepository {
       p_code: normalizeInviteCode(code),
     });
     if (error) throw error;
+    // Unknown, used and expired codes all come back empty, on purpose: the
+    // server will not tell a guesser which codes are real.
+    if (!data) throw new Error('INVITE_INVALID');
     return data as string;
   }
 

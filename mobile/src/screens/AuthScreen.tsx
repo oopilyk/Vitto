@@ -4,22 +4,47 @@ import { KeyboardAvoidingView, Linking, Platform, ScrollView, Text, TextInput, V
 import {
   checkBirthday,
   errorMessage,
+  isEmailNotConfirmed,
   isUsernameAvailable,
   normalizeUsername,
   signInWithEmail,
+  resendSignupCode,
+  SIGNUP_CODE_MAX_LENGTH,
+  SIGNUP_CODE_MIN_LENGTH,
   signUpWithEmail,
   usernameError,
+  verifySignupCode,
 } from '@vitto/core';
 import { ErrorText, Field, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { BirthdayPicker } from '../components/BirthdayPicker';
 import { LEGAL_LINKS } from '../services/billingService';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 /**
- * Set on this phone once someone under 13 tries to sign up, so going back and
- * entering a different birthday does not get them in (the FTC's guidance for a
- * neutral age screen). The birthday itself is never stored or sent anywhere.
+ * When someone under 13 last tried to sign up on this phone, so going straight
+ * back and entering a different birthday does not get them in (the FTC's
+ * guidance for a neutral age screen). It lifts after a day, so an adult who
+ * mis-tapped is not locked out for good. The birthday itself is never stored
+ * or sent anywhere.
  */
 const UNDER_AGE_KEY = 'vitto.signupBlocked';
+const UNDER_AGE_BLOCK_MS = 24 * 60 * 60 * 1000;
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+/** Supabase will not send another confirmation email sooner than this. */
+const RESEND_AFTER_SECONDS = 60;
 
 export function AuthScreen() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
@@ -33,10 +58,70 @@ export function AuthScreen() {
   const [birthMonth, setBirthMonth] = useState('');
   const [birthYear, setBirthYear] = useState('');
   const [blocked, setBlocked] = useState(false);
+  /** The "is everything right?" page between the sign-up form and creating the account. */
+  const [reviewing, setReviewing] = useState(false);
+  /** The address a confirmation code went to; while set, the screen asks for the code. */
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [code, setCode] = useState('');
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const timer = setTimeout(() => setResendIn((seconds) => seconds - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  /** Moves to the code step for `address`; the code itself is already on its way. */
+  const askForCode = (address: string) => {
+    setConfirming(address);
+    setCode('');
+    setError(null);
+    setResendIn(RESEND_AFTER_SECONDS);
+  };
+
+  const confirm = async () => {
+    if (!confirming) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // On success Supabase signs in, and the app moves on (to onboarding, for a
+      // new account) by itself.
+      const { error: verifyError } = await verifySignupCode(confirming, code);
+      if (verifyError) throw verifyError;
+    } catch (cause) {
+      // Supabase's own wording, before errorMessage turns it into a generic one.
+      const raw = String((cause as { message?: unknown } | null)?.message ?? '');
+      setError(
+        /expired|invalid|token/i.test(raw)
+          ? "That code didn't work. Check it, or send a new one."
+          : errorMessage(cause, 'Could not confirm that code.'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    if (!confirming || resendIn > 0) return;
+    setError(null);
+    setMessage(null);
+    try {
+      const { error: resendError } = await resendSignupCode(confirming);
+      if (resendError) throw resendError;
+      setMessage('A new code is on its way.');
+      setResendIn(RESEND_AFTER_SECONDS);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not send a new code. Try again in a minute.'));
+    }
+  };
 
   useEffect(() => {
     AsyncStorage.getItem(UNDER_AGE_KEY)
-      .then((value) => setBlocked(value === '1'))
+      .then((value) => {
+        const since = Number(value);
+        if (Number.isFinite(since) && Date.now() - since < UNDER_AGE_BLOCK_MS) setBlocked(true);
+        else if (value !== null) void AsyncStorage.removeItem(UNDER_AGE_KEY);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -48,7 +133,25 @@ export function AuthScreen() {
   // server, asked on submit.
   const usernameProblem = mode === 'sign-up' && username ? usernameError(username) : null;
 
-  const submit = async () => {
+  const submit = async (reviewed = false) => {
+    // Sign-up goes through a review page first, for everyone and whatever age
+    // they picked, before anything is checked or sent: a mis-tap is caught
+    // there, and showing every age the same page gives nothing away about
+    // which ages are turned away.
+    if (mode === 'sign-up' && !reviewed) {
+      if (!birthday.ok && birthday.reason !== 'too-young') {
+        setError('Choose your birthday.');
+        return;
+      }
+      const problem = usernameError(username);
+      if (problem) {
+        setError(problem);
+        return;
+      }
+      setError(null);
+      setReviewing(true);
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -57,10 +160,11 @@ export function AuthScreen() {
         // First, before anything is sent anywhere.
         if (!birthday.ok) {
           if (birthday.reason === 'too-young') {
+            setReviewing(false);
             setBlocked(true);
-            await AsyncStorage.setItem(UNDER_AGE_KEY, '1').catch(() => undefined);
+            await AsyncStorage.setItem(UNDER_AGE_KEY, String(Date.now())).catch(() => undefined);
           } else {
-            setError('Enter your birthday as a month (1-12) and a year.');
+            setError('Choose your birthday.');
           }
           return;
         }
@@ -82,17 +186,130 @@ export function AuthScreen() {
       const result =
         mode === 'sign-in'
           ? await signInWithEmail(email.trim(), password)
-          : await signUpWithEmail(email.trim(), password, name.trim(), username);
+          : await signUpWithEmail(email.trim(), password, name.trim(), username, process.env.EXPO_PUBLIC_EMAIL_CONFIRMED_URL || undefined);
       if (result.error) throw result.error;
-      if (mode === 'sign-up' && !result.data.session) {
-        setMessage('Check your email to confirm your account.');
-      }
+      // No session yet: the address needs confirming, with the code just sent.
+      if (mode === 'sign-up' && !result.data.session) askForCode(email.trim());
     } catch (cause) {
+      // Signed up earlier but never confirmed: send a fresh code and ask for it,
+      // rather than leave them at an error they cannot act on.
+      if (mode === 'sign-in' && isEmailNotConfirmed(cause)) {
+        askForCode(email.trim());
+        await resendSignupCode(email.trim()).catch(() => undefined);
+        return;
+      }
       setError(errorMessage(cause, 'Authentication failed.'));
     } finally {
       setBusy(false);
     }
   };
+
+  if (confirming) {
+    const complete = code.replace(/\D/g, '').length >= SIGNUP_CODE_MIN_LENGTH;
+    return (
+      <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" testID="confirm-code">
+          <Kicker>Vitto / one last step</Kicker>
+          <Text style={styles.headline}>Check your email.</Text>
+          <Text
+            style={styles.intro}
+          >{`We sent a ${SIGNUP_CODE_MIN_LENGTH}-digit code to ${confirming}. Enter it to confirm your account.`}</Text>
+
+          <TextInput
+            style={[layout.input, styles.code]}
+            value={code}
+            onChangeText={(next) => setCode(next.replace(/\D/g, '').slice(0, SIGNUP_CODE_MAX_LENGTH))}
+            placeholder={'0'.repeat(SIGNUP_CODE_MIN_LENGTH)}
+            placeholderTextColor={colors.faint}
+            keyboardType="number-pad"
+            // iOS offers the code from Mail above the keyboard.
+            textContentType="oneTimeCode"
+            autoComplete="one-time-code"
+            autoFocus
+            maxLength={SIGNUP_CODE_MAX_LENGTH}
+            accessibilityLabel="Confirmation code"
+          />
+
+          <ErrorText>{error}</ErrorText>
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+
+          <View style={styles.actions}>
+            <PrimaryButton label="Confirm" busy={busy} disabled={!complete} onPress={() => void confirm()} />
+            <TextButton
+              label={resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+              disabled={resendIn > 0}
+              onPress={() => void resend()}
+            />
+            <TextButton
+              label="Use a different email"
+              onPress={() => {
+                setConfirming(null);
+                setError(null);
+                setMessage(null);
+              }}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  if (reviewing && mode === 'sign-up' && !blocked) {
+    const rows: [string, string][] = [
+      ['Birthday', `${MONTH_NAMES[Number(birthMonth) - 1]} ${birthYear}`],
+      ['Name', name.trim() || '—'],
+      ['Username', `@${normalizeUsername(username)}`],
+      ['Email', email.trim()],
+    ];
+    return (
+      <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" testID="signup-review">
+          <Kicker>Vitto / almost there</Kicker>
+          <Text style={styles.headline}>Is everything right?</Text>
+          <Text style={styles.intro}>Check your details before we create your account.</Text>
+
+          <View style={styles.review}>
+            {rows.map(([label, value], index) => (
+              <View key={label} style={[styles.reviewRow, index > 0 && styles.reviewRule]}>
+                <Text style={styles.reviewLabel}>{label}</Text>
+                <Text style={styles.reviewValue} numberOfLines={1}>
+                  {value}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <ErrorText>{error}</ErrorText>
+
+          <View style={styles.actions}>
+            <PrimaryButton label="Create account" busy={busy} onPress={() => void submit(true)} />
+            <Text style={styles.legal} testID="signup-legal">
+              {'By creating an account, you agree to our '}
+              <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+                Terms of Use
+              </Text>
+              {LEGAL_LINKS.privacy ? (
+                <>
+                  {' and '}
+                  <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}>
+                    Privacy Policy
+                  </Text>
+                </>
+              ) : null}
+              .
+            </Text>
+            <TextButton
+              label="Go back and edit"
+              onPress={() => {
+                setReviewing(false);
+                setError(null);
+              }}
+            />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
 
   return (
     <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -105,33 +322,31 @@ export function AuthScreen() {
           <View style={styles.blocked} testID="signup-blocked">
             <Text style={styles.blockedTitle}>We can't create an account for you</Text>
             <Text style={styles.blockedBody}>Vitto is for people 13 and older.</Text>
+            {/* Back out to sign-in, not to the birthday: going back to pick an
+                older year would defeat the check. */}
+            <View style={styles.blockedBack}>
+              <TextButton
+                label="Back to sign in"
+                onPress={() => {
+                  setMode('sign-in');
+                  setError(null);
+                }}
+              />
+            </View>
           </View>
         ) : null}
 
         {mode === 'sign-up' && !blocked ? (
           <Field label="Birthday">
-            <View style={styles.birthday}>
-              <TextInput
-                style={[layout.input, styles.birthMonth]}
-                value={birthMonth}
-                onChangeText={(next) => setBirthMonth(next.replace(/[^0-9]/g, '').slice(0, 2))}
-                placeholder="MM"
-                placeholderTextColor={colors.faint}
-                keyboardType="number-pad"
-                accessibilityLabel="Birth month"
-                maxLength={2}
-              />
-              <TextInput
-                style={[layout.input, styles.birthYear]}
-                value={birthYear}
-                onChangeText={(next) => setBirthYear(next.replace(/[^0-9]/g, '').slice(0, 4))}
-                placeholder="YYYY"
-                placeholderTextColor={colors.faint}
-                keyboardType="number-pad"
-                accessibilityLabel="Birth year"
-                maxLength={4}
-              />
-            </View>
+            <BirthdayPicker
+              month={birthMonth}
+              year={birthYear}
+              onChange={(month, year) => {
+                setBirthMonth(month);
+                setBirthYear(year);
+                setReviewing(false);
+              }}
+            />
           </Field>
         ) : null}
 
@@ -202,7 +417,7 @@ export function AuthScreen() {
         <View style={styles.actions}>
           {signUpClosed ? null : (
             <PrimaryButton
-              label={mode === 'sign-in' ? 'Sign in' : 'Create account'}
+              label={mode === 'sign-in' ? 'Sign in' : 'Continue'}
               busy={busy}
               disabled={
                 !email ||
@@ -212,27 +427,11 @@ export function AuthScreen() {
               onPress={() => void submit()}
             />
           )}
-          {mode === 'sign-up' && !signUpClosed ? (
-            <Text style={styles.legal} testID="signup-legal">
-              {'By creating an account, you agree to our '}
-              <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
-                Terms of Use
-              </Text>
-              {LEGAL_LINKS.privacy ? (
-                <>
-                  {' and '}
-                  <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}>
-                    Privacy Policy
-                  </Text>
-                </>
-              ) : null}
-              .
-            </Text>
-          ) : null}
           <TextButton
             label={mode === 'sign-in' ? 'Need an account?' : 'Already have an account?'}
             onPress={() => {
               setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
+              setReviewing(false);
               setError(null);
             }}
           />
@@ -249,6 +448,7 @@ const styles = themedStyles(() => ({
   message: { fontFamily: fonts.mono, fontSize: 11, color: colors.mintDeep, marginTop: 12 },
   hint: { fontFamily: fonts.mono, fontSize: 10, color: colors.danger, marginTop: 6 },
   actions: { marginTop: 30, gap: 18 },
+  code: { marginTop: 26, fontSize: 28, letterSpacing: 10, textAlign: 'center', fontFamily: fonts.mono },
   blocked: {
     marginTop: 26,
     padding: 18,
@@ -259,9 +459,19 @@ const styles = themedStyles(() => ({
   },
   blockedTitle: { fontSize: 16, fontWeight: '600', color: colors.ink },
   blockedBody: { fontSize: 14, color: colors.muted, marginTop: 4 },
-  birthday: { flexDirection: 'row', gap: 10 },
-  birthMonth: { width: 80, textAlign: 'center' },
-  birthYear: { width: 110, textAlign: 'center' },
+  blockedBack: { marginTop: 14, alignItems: 'flex-start' },
+  review: {
+    marginTop: 26,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+    paddingHorizontal: 16,
+  },
+  reviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingVertical: 14 },
+  reviewRule: { borderTopWidth: 1, borderTopColor: colors.divider },
+  reviewLabel: { fontSize: 14, color: colors.muted },
+  reviewValue: { flexShrink: 1, fontSize: 15, fontWeight: '600', color: colors.ink, textAlign: 'right' },
   legal: { fontSize: 12, lineHeight: 17, color: colors.muted, textAlign: 'center', marginTop: -6 },
   legalLink: { color: colors.ink, textDecorationLine: 'underline' },
 }));

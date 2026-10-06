@@ -6,19 +6,25 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
  * all slip under a cap) and records it before the model is asked (so every
  * attempt counts, including ones that fail or find nothing).
  *
- *   AI_DAILY_CEILING   calls the whole app may make in 24 hours, every kind
- *                      and every user together. Default 5000. Raise it as you
- *                      grow; it is the backstop if a cap anywhere is wrong.
+ *   AI_DAILY_CEILING        calls the whole app may make in 24 hours, every
+ *                           kind and every user together. Default 5000. Raise
+ *                           it as you grow; it is the backstop if a cap
+ *                           anywhere is wrong.
+ *   AI_FREE_DAILY_CEILING   the share of that free accounts may use, so a flood
+ *                           of throwaway sign-ups cannot lock out paying users.
+ *                           Default 60% of AI_DAILY_CEILING.
  */
 export type AiCallKind = 'chat' | 'proactive' | 'meal_photo' | 'push_lines';
 export type AiClaim = 'ok' | 'user_limit' | 'global_limit';
 
 const DEFAULT_CEILING = 5000;
 
-const ceiling = () => {
-  const raw = Number(Deno.env.get('AI_DAILY_CEILING'));
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_CEILING;
+const positive = (name: string) => {
+  const raw = Number(Deno.env.get(name));
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : null;
 };
+const ceiling = () => positive('AI_DAILY_CEILING') ?? DEFAULT_CEILING;
+const freeCeiling = () => positive('AI_FREE_DAILY_CEILING') ?? Math.floor(ceiling() * 0.6);
 
 /**
  * Claims one call. Fails CLOSED: if the claim itself cannot be made (the
@@ -30,12 +36,15 @@ export const claimAiCall = async (
   userId: string,
   kind: AiCallKind,
   userLimit: number,
+  tier: 'free' | 'plus',
 ): Promise<AiClaim> => {
   const { data, error } = await admin.rpc('claim_ai_call', {
     p_user: userId,
     p_kind: kind,
     p_user_limit: userLimit,
     p_global_limit: ceiling(),
+    p_tier: tier,
+    p_free_global_limit: freeCeiling(),
   });
   if (error) {
     console.error(`[aiBudget] claim failed for ${kind}`, error);

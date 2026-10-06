@@ -5,6 +5,14 @@
 import type { CompanionMemory, ExtractedMemory } from './types.ts';
 import { DAY, clamp01, overlap, tokenize } from './util.ts';
 
+/**
+ * One line, no control characters. A memory is rendered into the pet's system
+ * prompt on every later call, so a line break smuggled into one (say, a fake
+ * "# Rules" heading) would read as part of the instructions, and stay there.
+ */
+export const oneLine = (value: string): string =>
+  value.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+
 const MINOR_IMPORTANCE = 0.4;
 const MINOR_TTL_MS = 14 * DAY;
 /** How similar two memories must be to count as the same fact (0..1 token overlap). */
@@ -96,7 +104,7 @@ export const planMemoryWrites = (
   const createdImportance: number[] = [];
 
   for (const candidate of extracted) {
-    const content = candidate.content.trim().slice(0, 280);
+    const content = oneLine(candidate.content).slice(0, 280);
     if (!content) continue;
     const tokens = tokenize(content);
     const importance = clamp01(candidate.importance);

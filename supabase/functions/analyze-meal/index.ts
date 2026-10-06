@@ -25,6 +25,8 @@ const DEV_MEALS_PER_DAY = 100_000;
  * edge-function OOM.
  */
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+/** The whole request: an 8 MB photo as base64 is about 11 MB, plus a little. */
+const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
 /** What the model can read (see ClaudeImageType). */
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -107,7 +109,11 @@ Deno.serve(async (request) => {
 
     // The photo arrives in the request and goes no further than the model: it
     // is never written to storage, a table or a log. Only the analysis is kept.
-    const { image, pet } = await request.json();
+    // Refused before it is read into memory: a photo is well under this.
+    if (Number(request.headers.get('content-length') ?? 0) > MAX_REQUEST_BYTES) {
+      return json({ error: 'That image is too large to analyse.' }, 413);
+    }
+    const { image, pet } = (await request.json().catch(() => ({}))) as { image?: { base64?: unknown; mimeType?: unknown }; pet?: Record<string, unknown> };
     const imageBase64 = typeof image?.base64 === 'string' ? image.base64 : '';
     const imageType = typeof image?.mimeType === 'string' ? image.mimeType.toLowerCase() : 'image/jpeg';
     if (!imageBase64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) return json({ error: 'That photo could not be read.' }, 400);
@@ -126,7 +132,9 @@ Deno.serve(async (request) => {
             name: String(pet.name).slice(0, 40),
             personality: typeof pet.personality === 'string' ? pet.personality.slice(0, 20) : 'friendly',
             mood: typeof pet.mood === 'string' ? pet.mood.slice(0, 20) : 'content',
-            ailments: Array.isArray(pet.ailments) ? pet.ailments.filter((a: unknown) => typeof a === 'string').slice(0, 5) : [],
+            ailments: Array.isArray(pet.ailments)
+              ? pet.ailments.filter((a: unknown): a is string => typeof a === 'string').slice(0, 5).map((a: string) => a.slice(0, 24))
+              : [],
           }
         : null;
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
@@ -149,7 +157,8 @@ Deno.serve(async (request) => {
 
     // Claimed before the photo goes to the model, atomically, so a burst of
     // simultaneous requests cannot all slip under the cap.
-    const claim = await claimAiCall(admin, user.id, 'meal_photo', isDev ? DEV_MEALS_PER_DAY : MEALS_PER_DAY);
+    // Photos are Plus-only (checked above), so they draw on the paid budget.
+    const claim = await claimAiCall(admin, user.id, 'meal_photo', isDev ? DEV_MEALS_PER_DAY : MEALS_PER_DAY, 'plus');
     if (claim === 'user_limit') return json({ error: "That's a lot of meals for one day. Try again tomorrow." }, 429);
     if (claim === 'global_limit') return json({ error: BUSY_MESSAGE }, 503);
 
@@ -188,6 +197,8 @@ Deno.serve(async (request) => {
     if (insertError) throw insertError;
     return json({ analysis });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'Meal analysis failed.' }, 500);
+    // The detail goes to the logs, never to the caller.
+    console.error('[analyze-meal] failed', error);
+    return json({ error: 'Meal analysis failed. Try again.' }, 500);
   }
 });

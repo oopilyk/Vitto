@@ -66,7 +66,10 @@ export interface CareDiaryEntry {
 export type PetSaveResult = { status: 'saved'; version: number } | { status: 'conflict' };
 
 export const MAX_PET_MEMBERS = 2;
-export const INVITE_CODE_LENGTH = 6;
+/** Codes are made by the server (create_pet_invite); older 6-character ones still redeem until they expire. */
+export const INVITE_CODE_LENGTH = 8;
+/** Accepted when typed: today's length, and the old one. */
+export const INVITE_CODE_LENGTHS: readonly number[] = [6, 8];
 /** No 0/O/1/I — codes are read aloud and typed by hand. Must match the SQL CHECK on `pet_invites.code`. */
 export const INVITE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -92,7 +95,7 @@ export const generateInviteCode = (random: () => number = Math.random): string =
 export const normalizeInviteCode = (input: string): string =>
   input.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-/** 'ABCDEF' → 'ABC-DEF'. Anything that is not a full code is returned normalised but unbroken. */
+/** 'ABCDEFGH' → 'ABCD-EFGH'. Anything that is not a full code is returned normalised but unbroken. */
 export const formatInviteCode = (code: string): string => {
   const normalized = normalizeInviteCode(code);
   if (normalized.length !== INVITE_CODE_LENGTH) return normalized;
@@ -274,6 +277,8 @@ export const partnerActivityMessage = (
  * here instead of in SQL and stay in step with the rest of the app's voice.
  */
 const INVITE_ERROR_COPY: Record<string, string> = {
+  INVITE_INVALID: "That code isn't valid. Check it, or ask your partner for a new one.",
+  INVITE_RATE_LIMITED: 'Too many tries. Wait an hour, then try again.',
   INVITE_NOT_FOUND: "That code doesn't match any invite. Check it and try again.",
   INVITE_USED: 'That code has already been used.',
   INVITE_EXPIRED: 'That code has expired. Ask your partner for a new one.',

@@ -14,6 +14,7 @@ import type { Session } from '@supabase/supabase-js';
 import {  assessCondition, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
+import { listenForAuthLinks } from './src/services/authLinks';
 import { loadAffirmationsEnabled, saveAffirmationsEnabled, syncAffirmations } from './src/services/affirmations';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -625,7 +626,12 @@ function VittoApp() {
         setAuthReady(true);
       });
     const { data: listener } = onAuthStateChange((_event, next) => setSession(next));
-    return () => listener.subscription.unsubscribe();
+    // A confirmation email opened on this phone signs straight in (see authLinks).
+    const stopAuthLinks = listenForAuthLinks();
+    return () => {
+      listener.subscription.unsubscribe();
+      stopAuthLinks();
+    };
   }, []);
 
   // Local storage is async on device, so the first load happens in an effect

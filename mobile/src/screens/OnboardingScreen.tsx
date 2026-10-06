@@ -36,6 +36,8 @@ import {
   deriveTrainingStyle,
   feetAndInchesToCm,
   hasCompletedQuestionnaire,
+  INVITE_CODE_LENGTH,
+  INVITE_CODE_LENGTHS,
   normalizeInviteCode,
   normalizeUsername,
   usernameError,
@@ -107,7 +109,8 @@ interface Props {
   onEnableNotifications?: () => Promise<boolean>;
 }
 
-const INVITE_INPUT_MAX_LENGTH = 7;
+/** The longest code with its dash, 'ABCD-EFGH'. */
+const INVITE_INPUT_MAX_LENGTH = INVITE_CODE_LENGTH + 1;
 const LB_PER_KG = 2.20462;
 
 /** Goal-weight bounds, per unit: the same human range either way. */
@@ -600,8 +603,8 @@ export function OnboardingScreen({
   const join = async () => {
     if (!onRedeemInvite) return;
     const code = normalizeInviteCode(joinCode);
-    if (code.length !== 6) {
-      setStepError('Enter the six-character code your partner shared.');
+    if (!INVITE_CODE_LENGTHS.includes(code.length)) {
+      setStepError('Enter the code your partner shared.');
       return;
     }
     setJoining(true);
@@ -824,12 +827,12 @@ export function OnboardingScreen({
                       autoCapitalize="characters"
                       autoCorrect={false}
                       maxLength={INVITE_INPUT_MAX_LENGTH}
-                      placeholder="ABC-DEF"
+                      placeholder="ABCD-EFGH"
                     />
                     <FButton
                       label="Join their pet"
                       busy={joining}
-                      disabled={normalizeInviteCode(joinCode).length !== 6}
+                      disabled={!INVITE_CODE_LENGTHS.includes(normalizeInviteCode(joinCode).length)}
                       onPress={() => void join()}
                     />
                   </View>
