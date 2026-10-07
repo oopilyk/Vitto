@@ -44,6 +44,28 @@ const MEAL_MODEL = Deno.env.get('MEAL_MODEL') ?? 'claude-sonnet-5-5';
  */
 const anthropic = Deno.env.get('ANTHROPIC_API_KEY') ? new Anthropic({ timeout: 45_000, maxRetries: 1 }) : null;
 
+/**
+ * What the bytes actually are, from their first few. Claude checks the bytes
+ * against the declared type and refuses a mismatch, and the declared type is
+ * not reliable (the web picker labels a JPEG image/png), so the bytes win.
+ * Null for anything else, HEIC included.
+ */
+const sniffImageType = (base64: string): ClaudeImageType | null => {
+  let head: string;
+  try {
+    head = atob(base64.slice(0, 24));
+  } catch {
+    return null;
+  }
+  const bytes = Array.from(head, (char) => char.charCodeAt(0));
+  const starts = (...sig: number[]) => sig.every((byte, index) => bytes[index] === byte);
+  if (starts(0xff, 0xd8, 0xff)) return 'image/jpeg';
+  if (starts(0x89, 0x50, 0x4e, 0x47)) return 'image/png';
+  if (starts(0x47, 0x49, 0x46, 0x38)) return 'image/gif';
+  if (starts(0x52, 0x49, 0x46, 0x46) && head.slice(8, 12) === 'WEBP') return 'image/webp';
+  return null;
+};
+
 /** The image types Claude reads. HEIC is not one; the app's picker sends JPEG. */
 type ClaudeImageType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
 
@@ -115,8 +137,10 @@ Deno.serve(async (request) => {
     }
     const { image, pet } = (await request.json().catch(() => ({}))) as { image?: { base64?: unknown; mimeType?: unknown }; pet?: Record<string, unknown> };
     const imageBase64 = typeof image?.base64 === 'string' ? image.base64 : '';
-    const imageType = typeof image?.mimeType === 'string' ? image.mimeType.toLowerCase() : 'image/jpeg';
     if (!imageBase64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) return json({ error: 'That photo could not be read.' }, 400);
+    // The bytes say what the image is; the label the app sent is only a fallback.
+    const declared = typeof image?.mimeType === 'string' ? image.mimeType.toLowerCase() : 'image/jpeg';
+    const imageType = sniffImageType(imageBase64) ?? declared;
     if (!IMAGE_TYPES.has(imageType)) return json({ error: 'That kind of image is not supported.' }, 415);
     // Base64 is 4 characters per 3 bytes.
     if (Math.floor((imageBase64.length * 3) / 4) > MAX_IMAGE_BYTES) {

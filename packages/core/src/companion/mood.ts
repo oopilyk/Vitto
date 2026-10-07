@@ -31,7 +31,7 @@ const EVENT_MOOD: Partial<Record<CompanionEventType, Array<[CompanionMood, numbe
  * deliberately mild: they should read as "cares about you", not as a guilt trip.
  */
 export const computeMood = (
-  input: { traits: PersonalityTraits; lastInteractionAt: number; life?: Pick<LifeContext, 'needs' | 'energy' | 'bond'> },
+  input: { traits: PersonalityTraits; lastInteractionAt: number; life?: Pick<LifeContext, 'needs' | 'energy' | 'charge' | 'bond'> },
   recentEvents: readonly CompanionEvent[],
   now: number,
 ): MoodResult => {
@@ -56,8 +56,13 @@ export const computeMood = (
     if (life.needs.nutrition <= 25) add('hungry', 0.85, "you haven't eaten in a while and your tummy is loud");
     else if (life.needs.nutrition <= 40) add('hungry', 0.45, "you're getting peckish");
     if (life.needs.mind <= 15) add('bored', 0.5, 'your head feels foggy and you want something to think about');
-    if (life.energy < 0.25) add('sleepy', 0.8, "you're running on empty");
-    else if (life.energy < 0.4) add('sleepy', 0.45, "you're a bit low on energy");
+    // Energy (sleep and food) is what makes a pet sleepy; low Vitality
+    // (no walks or workouts) is restlessness, cooped up with nothing to do.
+    const charge = life.charge ?? 0.7;
+    if (charge < 0.25) add('sleepy', 0.8, "you're running on empty and can barely keep your eyes open");
+    else if (charge < 0.4) add('sleepy', 0.45, "you're a bit low on energy");
+    if (life.energy < 0.25) add('bored', 0.6, "you've been cooped up and you're itching to move");
+    else if (life.energy < 0.4) add('bored', 0.35, "you're feeling sluggish and could use a walk");
     // A cooled bond is a quiet hurt, not anger: it reads as missing them.
     if (life.bond === 'sulking') add('lonely', 0.55, "they haven't really been around lately");
     else if (life.bond === 'wary') add('lonely', 0.3, "they've been a bit distant lately");

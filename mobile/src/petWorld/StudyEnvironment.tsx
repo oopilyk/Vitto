@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
+import { RoomActionSlot } from './RoomActionSlot';
 import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
@@ -44,7 +45,7 @@ interface StudyEnvironmentControlsProps {
 /** The Study's call to action, in the same slot as the Gym's "Log workout". */
 function TrainMindButton({ onPress }: { onPress: () => void }) {
   return (
-    <View style={styles.trainSlot} pointerEvents="box-none">
+    <RoomActionSlot>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Train mind"
@@ -53,7 +54,7 @@ function TrainMindButton({ onPress }: { onPress: () => void }) {
       >
         <Text style={styles.trainLabel}>Train mind</Text>
       </Pressable>
-    </View>
+    </RoomActionSlot>
   );
 }
 
@@ -86,13 +87,6 @@ export function studyEnvironment(props: StudyEnvironmentControlsProps): Environm
 }
 
 const styles = themedStyles(() => ({
-  trainSlot: {
-    position: 'absolute',
-    top: '32%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
   train: {
     backgroundColor: colors.coral,
     paddingVertical: 12,

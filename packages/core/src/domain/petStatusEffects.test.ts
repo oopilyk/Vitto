@@ -42,14 +42,15 @@ describe('getStatusEffects', () => {
     expect(notDraining.find((e) => e.id === 'sad')?.detail).not.toContain('Costing');
   });
 
-  it('shows sleepy on its own, since nothing else marks a winding-down pet', () => {
-    expect(ids(pet({ energy: SLEEPY_ENERGY_THRESHOLD - 5 }))).toContain('sleepy');
+  it('shows sleepy for low Energy, since nothing else marks a winding-down pet', () => {
+    expect(ids(pet({ charge: SLEEPY_ENERGY_THRESHOLD - 5 }))).toContain('sleepy');
   });
 
-  it('suppresses sleepy once the pet is properly exhausted', () => {
+  it('shows sluggish for low Vitality, and folds it into exhausted further along', () => {
+    expect(ids(pet({ energy: SLEEPY_ENERGY_THRESHOLD - 5 }))).toContain('sluggish');
     const effects = ids(pet({ energy: 10 }));
     expect(effects).toContain('exhausted');
-    expect(effects).not.toContain('sleepy');
+    expect(effects).not.toContain('sluggish');
   });
 
   it('reports thriving only when every vital clears the regen line', () => {

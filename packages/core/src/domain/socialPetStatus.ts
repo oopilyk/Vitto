@@ -127,6 +127,7 @@ const HEALTH_TONE: Record<StatusEffect['id'], SocialHealthTone> = {
   sad: 'warn',
   foggy: 'warn',
   sleepy: 'neutral',
+  sluggish: 'neutral',
   thriving: 'good',
 };
 

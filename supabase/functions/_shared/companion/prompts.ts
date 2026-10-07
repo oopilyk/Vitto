@@ -187,7 +187,8 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
   lines.push('\n# Your mood');
   lines.push(
     `You feel ${ctx.mood.mood} (intensity ${ctx.mood.intensity.toFixed(1)}) because ${ctx.mood.reason || 'of nothing in particular'}. ` +
-      `Energy ${describeLevel(life.energy)}. Let this colour your tone and word choice.`,
+      `Vitality (your get-up-and-go, from walks and workouts) ${describeLevel(life.energy)}. ` +
+      `Energy (from sleep and food) ${describeLevel(life.charge ?? 0.7)}. Let these colour your tone and word choice.`,
   );
 
   lines.push('\n# Your relationship with the user');

@@ -74,6 +74,7 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
     statuses: list(source.statuses, 4, 24),
     foodTags: list(source.foodTags, 4, 24),
     energy: num(source.energy, 0, 1, 0.7),
+    charge: num(source.charge, 0, 1, 0.7),
     needs: {
       nutrition: num(needs.nutrition, 0, 100, 60),
       energy: num(needs.energy, 0, 100, 60),

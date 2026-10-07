@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
+import { RoomActionSlot } from './RoomActionSlot';
 import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
@@ -35,7 +36,7 @@ interface GymEnvironmentControlsProps {
 /** The Gym's dedicated call to action, in the same slot as Kitchen's "Log meal". */
 function LogWorkoutButton({ onPress }: { onPress: () => void }) {
   return (
-    <View style={styles.workoutSlot} pointerEvents="box-none">
+    <RoomActionSlot>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Log workout"
@@ -44,7 +45,7 @@ function LogWorkoutButton({ onPress }: { onPress: () => void }) {
       >
         <Text style={styles.workoutLabel}>Log workout</Text>
       </Pressable>
-    </View>
+    </RoomActionSlot>
   );
 }
 
@@ -71,13 +72,6 @@ export function gymEnvironment(props: GymEnvironmentControlsProps): EnvironmentD
 }
 
 const styles = themedStyles(() => ({
-  workoutSlot: {
-    position: 'absolute',
-    top: '32%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
   workout: {
     backgroundColor: colors.coral,
     paddingVertical: 12,

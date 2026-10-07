@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
+import { RoomActionSlot } from './RoomActionSlot';
 import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
@@ -35,7 +36,7 @@ interface OutsideEnvironmentControlsProps {
 
 function LogStepsButton({ onPress }: { onPress: () => void }) {
   return (
-    <View style={styles.stepsSlot} pointerEvents="box-none">
+    <RoomActionSlot>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Log steps"
@@ -44,7 +45,7 @@ function LogStepsButton({ onPress }: { onPress: () => void }) {
       >
         <Text style={styles.stepsLabel}>Log steps</Text>
       </Pressable>
-    </View>
+    </RoomActionSlot>
   );
 }
 
@@ -73,13 +74,6 @@ export function outsideEnvironment(props: OutsideEnvironmentControlsProps): Envi
 }
 
 const styles = themedStyles(() => ({
-  stepsSlot: {
-    position: 'absolute',
-    top: '32%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
   steps: {
     backgroundColor: colors.coral,
     paddingVertical: 12,

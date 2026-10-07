@@ -16,6 +16,7 @@ import {
 } from '@vitto/core';
 import { fonts, world, themedStyles } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
+import { useReportHudEdge } from './RoomActionSlot';
 import { LevelRing } from './LevelRing';
 import { retro, retroPressed } from './retroStyle';
 import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
@@ -95,6 +96,44 @@ interface PetWorldHudProps {
   canLogSleep?: boolean;
 }
 
+/** Padding inside the readout panel, either side. */
+const READOUT_PAD = 14;
+const META_GAP = 12;
+// The row is monospace, so a token's width is its length: about 0.6em a
+// character, plus letter spacing (and a tag's own padding).
+const metaTokenWidth = (token: string) => token.length * (10 * 0.6 + 0.8);
+const metaTagWidth = (tag: string) => tag.length * (9 * 0.6 + 0.8) + 12;
+
+/**
+ * Which food tags fit on the meta row's one line after its fixed tokens (day,
+ * form, bond, streak), and how many fold into a "+N" chip. Before the row has
+ * been measured it shows two, as a safe guess.
+ */
+export const fitMetaTags = (tags: readonly string[], fixed: readonly string[], width: number): { shown: string[]; hidden: number } => {
+  if (width <= 0) return { shown: tags.slice(0, 2), hidden: Math.max(0, tags.length - 2) };
+  let used = fixed.reduce((total, token, index) => total + metaTokenWidth(token) + (index > 0 ? META_GAP : 0), 0);
+  const shown: string[] = [];
+  for (const [index, tag] of tags.entries()) {
+    const left = tags.length - index - 1;
+    const room = META_GAP + metaTagWidth(tag) + (left > 0 ? META_GAP + metaTagWidth(`+${left}`) : 0);
+    if (used + room > width) break;
+    used += META_GAP + metaTagWidth(tag);
+    shown.push(tag);
+  }
+  return { shown, hidden: tags.length - shown.length };
+};
+
+/**
+ * The pet's line when nothing is wrong and nothing just happened. Sleepy and
+ * sluggish name the fix, like an ailment does: sleep only when Apple Health
+ * can actually bring a night in, a meal otherwise.
+ */
+const moodLine = (mood: PetState['mood'], canLogSleep?: boolean): string => {
+  if (mood === 'sleepy') return canLogSleep ? "I'm so sleepy. A good night's sleep would help." : "I'm so sleepy. A good meal would perk me up.";
+  if (mood === 'sluggish') return "I feel sluggish. Walk or workout?";
+  return `I'm feeling ${mood}.`;
+};
+
 export function PetWorldHud({
   pet,
   events,
@@ -137,7 +176,7 @@ export function PetWorldHud({
       ? reaction.message
       : reaction?.effects?.[0]
         ? reaction.effects[0].reaction
-        : (reaction?.message ?? `I'm feeling ${pet.mood}.`);
+        : (reaction?.message ?? moodLine(pet.mood, canLogSleep));
   // Then said the way THIS pet would say it: its personality, filtered through
   // whatever is wrong with it right now. See `petVoice`.
   // How it feels about you, from your own care history. Derived on every
@@ -160,6 +199,15 @@ export function PetWorldHud({
 
   // The account menu. Closed on any choice and on a tap anywhere else.
   const [menuOpen, setMenuOpen] = useState(false);
+  // The readout's inner width, so the meta row can keep to one line.
+  const [readoutWidth, setReadoutWidth] = useState(0);
+  const fixedTokens = [
+    dayToken,
+    formToken,
+    bond.stage !== 'neutral' ? bond.stage.toUpperCase() : null,
+    streaks.currentStreak > 0 ? `🔥 ${streaks.currentStreak}` : null,
+  ].filter((token): token is string => Boolean(token));
+  const { shown: shownTags, hidden: hiddenTags } = fitMetaTags(foodTags, fixedTokens, readoutWidth);
   const choose = (open: () => void) => () => {
     setMenuOpen(false);
     open();
@@ -175,6 +223,9 @@ export function PetWorldHud({
     streaks.currentStreak > 0
       ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` + (streakAtRisk ? ', not yet logged today.' : '.')
       : dayLabel;
+
+  // The last row is where the HUD ends: rooms keep their buttons below it.
+  const hudEdge = useReportHudEdge();
 
   return (
     // `box-none`: the HUD layer spans the whole screen and sits on top of the
@@ -253,11 +304,24 @@ export function PetWorldHud({
         OPAQUE on purpose: on a plaque the text's contrast depends only on the
         panel, never on the art behind it (see hudContrast.test).
       */}
-      <View style={[retro.panel, night && retro.panelNight, styles.readout]} pointerEvents="none">
-        {/* The whole sentence, however long: it is the one line people glance up for. */}
-        <Text style={[styles.feeling, night && retro.labelNight]}>{feeling}</Text>
-        {/* Day, form, bond, streak and food effects as one row of tokens, so a
-            narrow screen wraps between them rather than inside a sentence. */}
+      <View
+        style={[retro.panel, night && retro.panelNight, styles.readout]}
+        pointerEvents="none"
+        onLayout={(event) => setReadoutWidth(event.nativeEvent.layout.width - 2 * READOUT_PAD)}
+      >
+        {/* Two lines at most, whatever the pet says: the readout has a fixed
+            ceiling so the rows under it never move far. A longer line shrinks
+            a touch first, then ends in an ellipsis. */}
+        <Text
+          style={[styles.feeling, night && retro.labelNight]}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.85}
+        >
+          {feeling}
+        </Text>
+        {/* Day, form, bond, streak and food effects on exactly one line: the
+            tags that do not fit fold into a "+N" chip rather than wrapping. */}
         <View style={styles.metaRow} accessibilityLabel={metaLabel}>
           <Text style={[styles.meta, night && retro.captionNight]}>{dayToken}</Text>
           {formToken ? <Text style={[styles.meta, night && retro.captionNight]}>{formToken}</Text> : null}
@@ -275,17 +339,22 @@ export function PetWorldHud({
               {`🔥 ${streaks.currentStreak}`}
             </Text>
           ) : null}
-          {foodTags.map((tag) => (
+          {shownTags.map((tag) => (
             <Text key={tag} style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`Effect: ${tag}`}>
               {tag}
             </Text>
           ))}
+          {hiddenTags > 0 ? (
+            <Text style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`${hiddenTags} more effects`}>
+              {`+${hiddenTags}`}
+            </Text>
+          ) : null}
         </View>
         {partnerName ? <Text style={[styles.metaPartner, night && styles.metaPartnerNight]}>{`Raised with ${partnerName}`}</Text> : null}
       </View>
 
       {/* Row 3, tools: which pet (only with two), then today and chat. */}
-      <View style={styles.toolRow} pointerEvents="box-none">
+      <View ref={hudEdge.ref} onLayout={hudEdge.onLayout} style={styles.toolRow} pointerEvents="box-none">
         {showSwitcher ? (
           <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.switcher]}>
             {pets!.map((candidate) => {
@@ -400,7 +469,7 @@ const styles = themedStyles(() => ({
     marginTop: 12,
     marginHorizontal: GUTTER,
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: READOUT_PAD,
     paddingTop: 8,
     paddingBottom: 9,
   },
@@ -415,7 +484,8 @@ const styles = themedStyles(() => ({
   },
   metaRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     columnGap: 12,

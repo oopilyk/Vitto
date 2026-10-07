@@ -1,5 +1,5 @@
 import { FOCUS_AREAS, type FocusArea } from './macroTargets';
-import type { PetState } from './pet';
+import { chargeOf, type PetState } from './pet';
 import { determineMood } from './petHealthEngine';
 
 /**
@@ -10,6 +10,8 @@ import { determineMood } from './petHealthEngine';
  * it, and a need none of the person's chosen areas feeds stops mattering:
  *
  *   nutrition  <- food ('nutrition')
+ *   charge     <- food too (Energy: sleep and meals; sleep alone is not a
+ *                 choice anyone makes, so without meals it is held)
  *   energy     <- training or movement (workouts, steps)
  *   mind       <- mind games ('mind')
  *   happiness  <- everything, so it always counts
@@ -28,7 +30,7 @@ export type CareArea = FocusArea;
 export const CARE_AREAS: readonly CareArea[] = FOCUS_AREAS;
 
 /** The needs a care area can switch off. Happiness is fed by everything, so it always counts. */
-export type OptionalNeed = 'nutrition' | 'energy' | 'mind';
+export type OptionalNeed = 'nutrition' | 'charge' | 'energy' | 'mind';
 
 /** Where a switched-off need is held: comfortably above every threshold that would ail or slow the pet. */
 export const NEUTRAL_NEED = 80;
@@ -41,7 +43,7 @@ const allAreas = (areas: readonly CareArea[] | null | undefined): readonly CareA
 export const untrackedNeeds = (areas: readonly CareArea[] | null | undefined): OptionalNeed[] => {
   const chosen = new Set(allAreas(areas));
   const untracked: OptionalNeed[] = [];
-  if (!chosen.has('nutrition')) untracked.push('nutrition');
+  if (!chosen.has('nutrition')) untracked.push('nutrition', 'charge');
   if (!chosen.has('training') && !chosen.has('movement')) untracked.push('energy');
   if (!chosen.has('mind')) untracked.push('mind');
   return untracked;
@@ -59,8 +61,8 @@ export const applyCareAreas = (pet: PetState, areas: readonly CareArea[] | null 
   const untracked = untrackedNeeds(areas);
   if (untracked.length === 0) return pet;
   const next = { ...pet };
-  for (const need of untracked) next[need] = Math.max(next[need], NEUTRAL_NEED);
-  return { ...next, mood: determineMood(next.energy, next.nutrition, next.happiness) };
+  for (const need of untracked) next[need] = Math.max(need === 'charge' ? chargeOf(next) : next[need], NEUTRAL_NEED);
+  return { ...next, mood: determineMood(next) };
 };
 
 /** Turning areas on and off: at least one always stays on, or nothing would care for the pet. */

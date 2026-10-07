@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text } from 'react-native';
+import { RoomActionSlot } from './RoomActionSlot';
 import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentActionRow } from './EnvironmentActionRow';
@@ -47,7 +48,7 @@ interface KitchenEnvironmentControlsProps {
  *  the pet. Coral on white reads on both the day and night kitchen art. */
 function LogMealButton({ onPress }: { onPress: () => void }) {
   return (
-    <View style={styles.mealSlot} pointerEvents="box-none">
+    <RoomActionSlot>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Log meal"
@@ -56,7 +57,7 @@ function LogMealButton({ onPress }: { onPress: () => void }) {
       >
         <Text style={styles.mealLabel}>Log meal</Text>
       </Pressable>
-    </View>
+    </RoomActionSlot>
   );
 }
 
@@ -87,13 +88,6 @@ export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): Envi
 }
 
 const styles = themedStyles(() => ({
-  mealSlot: {
-    position: 'absolute',
-    top: '32%',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
   meal: {
     backgroundColor: colors.coral,
     paddingVertical: 12,

@@ -3,15 +3,25 @@ import type { FoodEffect } from './foodEffects';
 import type { FocusArea } from './macroTargets';
 import { newId } from './ids';
 
-export type PetMood = 'bright' | 'content' | 'sleepy' | 'hungry';
+/**
+ * `sleepy` is low Energy (sleep and food); `sluggish` is low Vitality
+ * (workouts and walks, stored as `energy`). Hungry outranks both.
+ */
+export type PetMood = 'bright' | 'content' | 'sleepy' | 'sluggish' | 'hungry';
 
 /** The mood as a word a person would use about a friend: "Blue is happy". */
 export const MOOD_WORD: Record<PetMood, string> = {
   bright: 'happy',
   content: 'doing fine',
   sleepy: 'sleepy',
+  sluggish: 'sluggish',
   hungry: 'hungry',
 };
+
+/** Energy for a pet that may predate it: a comfortable middle, so no old pet wakes up sleepy. */
+export const CHARGE_DEFAULT = 70;
+export const chargeOf = (pet: Pick<PetState, 'charge'>): number =>
+  typeof pet.charge === 'number' && Number.isFinite(pet.charge) ? pet.charge : CHARGE_DEFAULT;
 
 /**
  * The companion's disposition, chosen at adoption. Lives on the pet, not the
@@ -89,7 +99,16 @@ export interface PetState {
   level: number;
   xp: number;
   health: number;
+  /**
+   * Vitality, as the app shows it: what workouts and walks build. Stored as
+   * `energy` from before the stat was split; Energy proper is `charge`.
+   */
   energy: number;
+  /**
+   * Energy, as the app shows it: what sleep and meals fill. Absent on a pet
+   * saved before it existed; read it with `chargeOf`.
+   */
+  charge?: number;
   happiness: number;
   nutrition: number;
   strength: number;
@@ -160,6 +179,7 @@ export interface PetState {
 export interface PetDelta {
   health?: number;
   energy?: number;
+  charge?: number;
   happiness?: number;
   nutrition?: number;
   strength?: number;
@@ -483,6 +503,7 @@ export const createPet = (
   xp: 0,
   health: 78,
   energy: 72,
+  charge: 72,
   happiness: 82,
   nutrition: 68,
   strength: 14,

@@ -259,7 +259,7 @@ describe('what affects your pet', () => {
     expect(changes).toEqual([['training', 'movement', 'mind']]);
 
     act(() => tree.update(<CareAreasScreen petName="Miso" areas={['training', 'movement', 'mind']} onChange={() => {}} onClose={() => {}} />));
-    expect(texts()).toContain('Miso never gets hungry. Logging meals is optional.');
+    expect(texts()).toContain('Miso never gets hungry or sleepy. Logging meals is optional.');
     tree.unmount();
   });
 

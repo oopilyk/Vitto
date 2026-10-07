@@ -1,6 +1,6 @@
 import type { PersonalityDials } from './companion/types';
 import type { HealthEvent } from './domain/health';
-import type { EvolvedBuild, PetState } from './domain/pet';
+import { chargeOf, type EvolvedBuild, type PetState } from './domain/pet';
 import { sanitizeMeals } from './domain/hunger';
 import { withSurveyDefaults, type BodyProfile, type FocusArea } from './domain/macroTargets';
 import {
@@ -12,7 +12,7 @@ import {
 } from './domain/carePartners';
 import { requireSupabase } from './config';
 
-type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'coins' | 'mindSessions' | 'careAreas' | 'recentMeals'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null; persona: string | null; personality_dials: PersonalityDials | null; care_areas?: FocusArea[] | null; recent_meals?: unknown; evolved_build?: EvolvedBuild | null; earned_builds?: EvolvedBuild[] | null; chosen_build?: EvolvedBuild | null; coins?: number | null; mind_sessions?: number | null };
+type PetRow = Omit<PetState, 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'coins' | 'mindSessions' | 'careAreas' | 'recentMeals' | 'charge'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null; persona: string | null; personality_dials: PersonalityDials | null; care_areas?: FocusArea[] | null; recent_meals?: unknown; charge?: number | null; evolved_build?: EvolvedBuild | null; earned_builds?: EvolvedBuild[] | null; chosen_build?: EvolvedBuild | null; coins?: number | null; mind_sessions?: number | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 type PetMemberRow = { user_id: string; role: PetMember['role']; joined_at: string; left_at: string | null; display_name: string | null; username?: string | null };
 type PetInviteRow = { id: string; pet_id: string; code: string; created_at: string; expires_at: string; redeemed_at: string | null; revoked_at: string | null };
@@ -161,6 +161,8 @@ const petPayload = (pet: PetState) =>
     ...(pet.careAreas ? { care_areas: pet.careAreas } : {}),
     // Only once the pet has eaten under calorie hunger, like care_areas above.
     ...(pet.recentMeals ? { recent_meals: pet.recentMeals } : {}),
+    // Energy (sleep and food). Dropped by saveDroppingMissingColumns until the column exists.
+    charge: Math.round(chargeOf(pet)),
     evolved_build: pet.evolvedBuild ?? null,
     earned_builds: pet.earnedBuilds ?? null,
     chosen_build: pet.chosenBuild ?? null,
@@ -267,7 +269,7 @@ export class SupabaseRepository {
   }
 
   private static toPetState(row: PetRow): PetState {
-    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, persona: row.persona ?? undefined, dials: row.personality_dials ?? undefined, careAreas: row.care_areas?.length ? row.care_areas : undefined, recentMeals: sanitizeMeals(row.recent_meals), evolvedBuild: row.evolved_build ?? undefined, earnedBuilds: row.earned_builds ?? undefined, chosenBuild: row.chosen_build ?? undefined, coins: row.coins ?? 0, mindSessions: row.mind_sessions ?? 0, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
+    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, persona: row.persona ?? undefined, dials: row.personality_dials ?? undefined, careAreas: row.care_areas?.length ? row.care_areas : undefined, recentMeals: sanitizeMeals(row.recent_meals), charge: row.charge ?? undefined, evolvedBuild: row.evolved_build ?? undefined, earnedBuilds: row.earned_builds ?? undefined, chosenBuild: row.chosen_build ?? undefined, coins: row.coins ?? 0, mindSessions: row.mind_sessions ?? 0, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
   }
 
   /**

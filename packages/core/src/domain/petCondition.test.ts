@@ -155,15 +155,11 @@ describe('assessDecline', () => {
 });
 
 describe('AILMENT_MESSAGE asks only for what the app can accept', () => {
-  it('sends an exhausted pet to sleep only when sleep can actually reach the app', () => {
-    // A SLEEP event is created in exactly one place, the HealthKit import, so
-    // without it "get some rest" is an instruction with nowhere to carry it out.
-    expect(AILMENT_MESSAGE.exhausted('Blue', { canLogSleep: true })).toBe("I'm running on empty. Let me rest.");
-    const unreachable = AILMENT_MESSAGE.exhausted('Blue', { canLogSleep: false });
-    expect(unreachable).not.toContain('rest');
-    expect(unreachable).toBe("I'm running on empty. Take me for a walk or a workout?");
-    // No advice at all is the conservative case: assume sleep cannot be logged.
-    expect(AILMENT_MESSAGE.exhausted('Blue')).toBe(unreachable);
+  it('sends an exhausted pet to move, since only moving lifts Vitality', () => {
+    const line = "I'm running on empty. Take me for a walk or a workout?";
+    expect(AILMENT_MESSAGE.exhausted('Blue', { canLogSleep: true })).toBe(line);
+    expect(AILMENT_MESSAGE.exhausted('Blue', { canLogSleep: false })).toBe(line);
+    expect(AILMENT_MESSAGE.exhausted('Blue')).toBe(line);
   });
 
   it('names an action the user can take for every other ailment too', () => {

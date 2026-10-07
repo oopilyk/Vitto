@@ -145,9 +145,11 @@ export interface LifeContext {
   /** In-character conditions such as "Hungry", worst first. */
   statuses: string[];
   foodTags: string[];
-  /** 0..1, mirrored from the body. */
+  /** Vitality (workouts and walks; stored as `energy`), 0..1. */
   energy: number;
-  /** Body needs, 0..100. */
+  /** Energy (sleep and food), 0..1. Absent from an older app; read as comfortable. */
+  charge?: number;
+  /** Body needs, 0..100. `energy` is Vitality, as above. */
   needs: { nutrition: number; energy: number; happiness: number; mind: number };
   /** How it has been going lately — see `bondFor`. Closeness is separate. */
   bond: 'devoted' | 'warm' | 'neutral' | 'wary' | 'sulking';

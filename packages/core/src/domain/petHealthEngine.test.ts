@@ -477,11 +477,13 @@ describe('MEAL', () => {
     expect(mealQuality(mealEvent({}).metadata as never)).toBe('C');
   });
 
-  it('pays the energy bonus only for an A plate', () => {
-    const pet = createPet('user-1', 'Miso');
+  it('gives Energy for any meal, more for an A plate, and leaves Vitality alone', () => {
+    const pet = { ...createPet('user-1', 'Miso'), charge: 40 };
     const engine = new PetHealthEngine();
-    expect(engine.apply(pet, mealEvent({ protein: true, vegetables: true, fruit: true })).pet.energy).toBe(clamp(pet.energy + 3));
-    expect(engine.apply(pet, mealEvent({ protein: true, vegetables: true })).pet.energy).toBe(pet.energy);
+    const balanced = engine.apply(pet, mealEvent({ protein: true, vegetables: true, fruit: true })).pet;
+    expect(balanced.charge).toBe(52);
+    expect(engine.apply(pet, mealEvent({ protein: true, vegetables: true })).pet.charge).toBe(48);
+    expect(balanced.energy).toBe(pet.energy);
   });
 
   it('rewards a treat-only meal with the higher happiness bonus, not the plain one', () => {
@@ -556,27 +558,28 @@ describe('SLEEP', () => {
     metadata: { asleepMinutes, night: '2026-09-03' },
   });
 
-  it('restores the most energy for a full night', () => {
-    const pet = { ...createPet('user-1', 'Blue', 'dog'), energy: 20, recovery: 20 };
+  it('restores the most Energy for a full night, and no Vitality', () => {
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), charge: 20, recovery: 20 };
     const { pet: rested, reaction } = new PetHealthEngine().apply(pet, sleepEvent(8 * 60));
-    expect(rested.energy).toBe(34);
+    expect(rested.charge).toBe(55);
+    expect(rested.energy).toBe(pet.energy);
     expect(rested.recovery).toBe(25);
     expect(reaction.eventLabel).toBe('Rested up');
   });
 
   it('gives less for a short night than a full one', () => {
-    const pet = { ...createPet('user-1', 'Blue', 'dog'), energy: 20 };
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), charge: 20 };
     const engine = new PetHealthEngine();
-    const short = engine.apply(pet, sleepEvent(6 * 60)).pet.energy;
-    const full = engine.apply(pet, sleepEvent(8 * 60)).pet.energy;
-    expect(short).toBeLessThan(full);
-    expect(short).toBe(29);
+    const short = engine.apply(pet, sleepEvent(6 * 60)).pet.charge;
+    const full = engine.apply(pet, sleepEvent(8 * 60)).pet.charge;
+    expect(short!).toBeLessThan(full!);
+    expect(short).toBe(42);
   });
 
   it('still rewards a bad night rather than punishing it', () => {
-    const pet = { ...createPet('user-1', 'Blue', 'dog'), energy: 20, happiness: 40 };
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), charge: 20, happiness: 40 };
     const { pet: rested } = new PetHealthEngine().apply(pet, sleepEvent(3 * 60));
-    expect(rested.energy).toBeGreaterThan(pet.energy);
+    expect(rested.charge!).toBeGreaterThan(pet.charge);
     expect(rested.happiness).toBe(40);
   });
 
@@ -587,9 +590,9 @@ describe('SLEEP', () => {
   });
 
   it('treats a missing or negative duration as a bad night, not a crash', () => {
-    const pet = { ...createPet('user-1', 'Blue', 'dog'), energy: 20 };
+    const pet = { ...createPet('user-1', 'Blue', 'dog'), charge: 20 };
     const { pet: rested } = new PetHealthEngine().apply(pet, sleepEvent(-10));
-    expect(rested.energy).toBe(24);
+    expect(rested.charge).toBe(30);
   });
 });
 
@@ -756,8 +759,8 @@ describe('food effects on a meal', () => {
     expect(plain.reaction.effects).toBeUndefined();
     expect(spicy.reaction.effects?.map((e) => e.id)).toEqual(['spicy']);
     expect(spicy.reaction.effects?.[0].reaction).toBe('That was hot!');
-    // The spicy nudge (+2 energy) rides on top of the meal's own delta.
-    expect(spicy.pet.energy).toBe(plain.pet.energy + 2);
+    // The spicy nudge (+2 Energy) rides on top of the meal's own delta.
+    expect(spicy.pet.charge).toBe(plain.pet.charge! + 2);
     // The meal's own copy is untouched — the effect is a second line, not a replacement.
     expect(spicy.reaction.message).toContain('loved the variety');
   });

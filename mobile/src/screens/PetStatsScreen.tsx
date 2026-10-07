@@ -5,6 +5,8 @@ import {
   DECAY_PERIOD_MS,
   DECAY_PER_DAY,
   HUNGRY_NUTRITION_THRESHOLD,
+  SLEEPY_ENERGY_THRESHOLD,
+  SLUGGISH_VITALITY_THRESHOLD,
   PET_BUILD_LABEL,
   type HealthEvent,
   IS_TEST_DECAY_PERIOD,
@@ -73,7 +75,8 @@ const CARE_LABEL = [
  */
 const DECAY_RATES = `${(
   [
-    ['Energy', DECAY_PER_DAY.energy],
+    ['Vitality', DECAY_PER_DAY.energy],
+    ['Energy', DECAY_PER_DAY.charge],
     ['Happiness', DECAY_PER_DAY.happiness],
     ['Mind', DECAY_PER_DAY.mind],
   ] as const
@@ -132,9 +135,9 @@ function Card({
 const GROUP_INFO = (petName: string): Record<PetStatGroup, { title: string; intro: string; outro?: string }> => ({
   condition: {
     title: 'Condition',
-    intro: `How ${petName} is doing right now. Hunger, energy, happiness and mind fade on their own; everything else only ever climbs.`,
+    intro: `How ${petName} is doing right now. Hunger, vitality, energy, happiness and mind fade on their own; everything else only ever climbs.`,
     outro:
-      'Health has no timer of its own. Meals move it by what was on the plate, and beyond that it climbs while hunger, energy and happiness are all comfortable and drains for each one you let bottom out.',
+      'Health has no timer of its own. Meals move it by what was on the plate, and beyond that it climbs while hunger, vitality and happiness are all comfortable and drains for each one you let bottom out.',
   },
   body: { title: 'Body', intro: 'Built up through training, and it stays built.' },
   mind: { title: 'Mind', intro: `How sharp ${petName} is. It fades a little each day without a game.` },
@@ -215,20 +218,23 @@ const FEELING_TINT = (): Record<PetState['mood'], { backgroundColor: string; bor
   bright: { backgroundColor: colors.mint, borderColor: colors.mintDeep },
   content: { backgroundColor: colors.sageSoft, borderColor: colors.sage },
   sleepy: { backgroundColor: colors.lilac, borderColor: colors.lilacDeep },
+  sluggish: { backgroundColor: colors.sageSoft, borderColor: colors.inkSoft },
   hungry: { backgroundColor: colors.coralWash, borderColor: colors.coral },
 });
 const FEELING_INK = (): Record<PetState['mood'], string> => ({
   bright: colors.mintDeep,
   content: colors.inkSoft,
   sleepy: colors.lilacDeep,
+  sluggish: colors.inkSoft,
   hungry: colors.coralDeep,
 });
 
 const describeMood = (pet: PetState): string => {
   if (pet.mood === 'hungry') return `The hunger bar is under ${HUNGRY_NUTRITION_THRESHOLD}. A real meal will sort it.`;
-  if (pet.mood === 'sleepy') return `Energy is under 40. Some rest will sort it.`;
-  if (pet.mood === 'bright') return `Energy and happiness are both 65 or more.`;
-  return `Fed and rested, not quite at 65 energy and happiness together yet.`;
+  if (pet.mood === 'sleepy') return `Energy is under ${SLEEPY_ENERGY_THRESHOLD}. Sleep or a good meal will sort it.`;
+  if (pet.mood === 'sluggish') return `Vitality is under ${SLUGGISH_VITALITY_THRESHOLD}. A walk or a workout will sort it.`;
+  if (pet.mood === 'bright') return `Vitality and happiness are both 65 or more.`;
+  return `Fed and lively, not quite at 65 vitality and happiness together yet.`;
 };
 
 export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: Props) {

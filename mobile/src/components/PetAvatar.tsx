@@ -88,6 +88,7 @@ const AURA_BY_MOOD: Record<PetState['mood'], string> = {
   bright: '#c8e6cc',
   content: '#b8d3bb',
   sleepy: '#cfc4bb',
+  sluggish: '#c9c7b8',
   hungry: '#e3c9a6',
 };
 

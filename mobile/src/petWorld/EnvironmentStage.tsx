@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { HudEdgeProvider } from './RoomActionSlot';
 import {
   Animated,
   Easing,
@@ -257,6 +258,9 @@ export function EnvironmentStage({
   const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
 
   return (
+    // The HUD and the room's controls share one stage; this lets the controls
+    // keep clear of however tall the HUD has grown (see RoomActionSlot).
+    <HudEdgeProvider>
     <Animated.View style={[styles.stage, { backgroundColor }]} onLayout={onStageLayout}>
       <FadeSwap swapKey={environment} durationMs={transitionMs}>
         <Animated.View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -342,6 +346,7 @@ export function EnvironmentStage({
         </Animated.View>
       ) : null}
     </Animated.View>
+    </HudEdgeProvider>
   );
 }
 

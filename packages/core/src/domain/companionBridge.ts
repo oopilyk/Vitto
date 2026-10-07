@@ -9,7 +9,7 @@ import type { BrainTrainingMetadata, HealthEvent, MealMetadata, SleepMetadata, S
 import { calorieEstimate } from './macros';
 import type { BodyProfile } from './macroTargets';
 import { personalRecords } from './personalRecords';
-import { PET_BUILD_LABEL, getPetBuild, hasEvolved, type PetState } from './pet';
+import { PET_BUILD_LABEL, chargeOf, getPetBuild, hasEvolved, type PetState } from './pet';
 import { assessCondition, type PetAilment } from './petCondition';
 import { daysWithPet } from './petStats';
 import { calculateStreakStatus } from './streaks';
@@ -203,6 +203,7 @@ export const buildLifeContext = (input: {
     statuses: assessCondition(pet).ailments.map((ailment) => STATUS_LABEL[ailment]),
     foodTags: activeFoodEffects(events, now).map((effect) => effect.label),
     energy: pet.energy / 100,
+    charge: chargeOf(pet) / 100,
     needs: { nutrition: pet.nutrition, energy: pet.energy, happiness: pet.happiness, mind: pet.mind },
     bond: bond.stage,
     silentDays: bond.silentDays,

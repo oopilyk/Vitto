@@ -1,7 +1,8 @@
 import { DECAY_PER_DAY } from './decay';
-import { HUNGRY_NUTRITION_THRESHOLD } from './petHealthEngine';
+import { HUNGRY_NUTRITION_THRESHOLD } from './hunger';
+import { SLEEPY_ENERGY_THRESHOLD, SLUGGISH_VITALITY_THRESHOLD } from './petHealthEngine';
 import type { HealthEvent, HealthEventType } from './health';
-import { clamp, type PetState } from './pet';
+import { chargeOf, clamp, type PetState } from './pet';
 
 /**
  * The stats a pet actually carries. Every one of these is a 0-100 integer in the
@@ -10,6 +11,7 @@ import { clamp, type PetState } from './pet';
 export type PetStatKey =
   | 'health'
   | 'energy'
+  | 'charge'
   | 'happiness'
   | 'nutrition'
   | 'mind'
@@ -50,13 +52,19 @@ export const PET_STAT_DESCRIPTORS: PetStatDescriptor[] = [
     key: 'health',
     label: 'Health',
     group: 'condition',
-    hint: 'What you eat moves it: a balanced plate adds up to 3, junk takes 3 or more. It also holds up while hunger, energy and happiness stay in good shape, and slips away for every one of them you let run empty.',
+    hint: 'What you eat moves it: a balanced plate adds up to 3, junk takes 3 or more. It also holds up while hunger, vitality and happiness stay in good shape, and slips away for every one of them you let run empty.',
   },
   {
     key: 'energy',
+    label: 'Vitality',
+    group: 'condition',
+    hint: `Your pet's get-up-and-go: workouts and walks build it. Under ${SLUGGISH_VITALITY_THRESHOLD} your pet turns sluggish. Falls ${DECAY_PER_DAY.energy} a day when nothing is logged.`,
+  },
+  {
+    key: 'charge',
     label: 'Energy',
     group: 'condition',
-    hint: `Workouts, walks and good meals lift it. Falls ${DECAY_PER_DAY.energy} a day when nothing is logged.`,
+    hint: `Sleep and meals fill it: a full night's sleep most of all, a balanced plate more than a snack. Under ${SLEEPY_ENERGY_THRESHOLD} your pet gets sleepy. Falls ${DECAY_PER_DAY.charge} a day.`,
   },
   {
     key: 'happiness',
@@ -119,7 +127,7 @@ export const PET_STAT_DESCRIPTORS: PetStatDescriptor[] = [
  * bound in the database — only the engine clamps them — so a row written before
  * that clamp existed could still hold a value above 100 and overflow a bar.
  */
-export const statValue = (pet: PetState, key: PetStatKey): number => clamp(pet[key]);
+export const statValue = (pet: PetState, key: PetStatKey): number => clamp(key === 'charge' ? chargeOf(pet) : pet[key]);
 
 /** Day 1 is adoption day itself, so the count is inclusive at both ends. */
 export const daysWithPet = (pet: PetState, asOf: Date = new Date()): number =>

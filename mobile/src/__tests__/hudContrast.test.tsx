@@ -53,3 +53,20 @@ describe('HUD readout contrast', () => {
       .toMatchObject({ readable: true });
   });
 });
+
+describe('HUD meta row', () => {
+  const { fitMetaTags } = require('../petWorld/PetWorldHud');
+
+  it('keeps to one line, folding the tags that do not fit into +N', () => {
+    const fixed = ['DAY 40', 'RUNNER', 'WARM', '🔥 3'];
+    const tags = ['PROTEIN', 'GREENS', 'JUNK', 'SPICY'];
+    // A phone-width readout: some fit, the rest fold.
+    const narrow = fitMetaTags(tags, fixed, 300);
+    expect(narrow.shown.length + narrow.hidden).toBe(tags.length);
+    expect(narrow.hidden).toBeGreaterThan(0);
+    // Plenty of room: everything shows.
+    expect(fitMetaTags(tags, fixed, 1000)).toEqual({ shown: tags, hidden: 0 });
+    // No room past the fixed tokens: all fold.
+    expect(fitMetaTags(tags, fixed, 120).shown).toEqual([]);
+  });
+});

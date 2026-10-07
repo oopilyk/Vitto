@@ -20,17 +20,17 @@ interface Props {
 const AREA_COPY = (petName: string): Record<CareArea, { title: string; on: string; off: string }> => ({
   nutrition: {
     title: 'Food',
-    on: `Meals keep ${petName} fed. Skip them and ${petName} gets hungry.`,
-    off: `${petName} never gets hungry. Logging meals is optional.`,
+    on: `Meals keep ${petName} fed and give them energy. Skip them and ${petName} gets hungry and sleepy.`,
+    off: `${petName} never gets hungry or sleepy. Logging meals is optional.`,
   },
   training: {
     title: 'Workouts',
-    on: `Workouts give ${petName} energy and build their strength.`,
+    on: `Workouts give ${petName} vitality and build their strength.`,
     off: 'Workouts are optional.',
   },
   movement: {
     title: 'Steps',
-    on: `Walking gives ${petName} energy.`,
+    on: `Walking gives ${petName} vitality.`,
     off: 'Steps are optional.',
   },
   mind: {
@@ -89,7 +89,7 @@ export function CareAreasScreen({ petName, areas, onChange, canEdit = true, onCl
           );
         })}
         {energyHeld ? (
-          <Text style={styles.note}>{`With workouts and steps both off, ${petName} never gets tired either.`}</Text>
+          <Text style={styles.note}>{`With workouts and steps both off, ${petName}'s vitality never runs down either.`}</Text>
         ) : null}
         <Text style={styles.note}>{`Happiness always counts: anything you log makes ${petName} happier.`}</Text>
       </View>

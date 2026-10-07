@@ -6,8 +6,8 @@ import {
   VITAL_NEEDS,
 } from './decay';
 import { AILMENT_THRESHOLDS, assessCondition, type PetAilment } from './petCondition';
-import { SLEEPY_ENERGY_THRESHOLD } from './petHealthEngine';
-import type { PetState } from './pet';
+import { SLEEPY_ENERGY_THRESHOLD, SLUGGISH_VITALITY_THRESHOLD } from './petHealthEngine';
+import { chargeOf, type PetState } from './pet';
 
 /**
  * The pet's active states, as a list you can read at a glance.
@@ -27,13 +27,22 @@ import type { PetState } from './pet';
 export type StatusEffectKind = 'buff' | 'debuff';
 
 export interface StatusEffect {
-  id: PetAilment | 'sleepy' | 'thriving';
+  id: PetAilment | 'sleepy' | 'sluggish' | 'thriving';
   kind: StatusEffectKind;
   /** Chip text. Kept to one word so a stack of them stays readable. */
   label: string;
   /** What it is doing, in the engine's real terms. */
   detail: string;
 }
+
+/** The stats by the names the app shows them under, not their storage keys. */
+const STAT_NAME: Partial<Record<keyof PetState, string>> = {
+  health: 'Health',
+  nutrition: 'Hunger',
+  energy: 'Vitality',
+  happiness: 'Happiness',
+  mind: 'Mind',
+};
 
 const AILMENT_LABEL: Record<PetAilment, { label: string; stat: keyof PetState }> = {
   dying: { label: 'Fading', stat: 'health' },
@@ -46,7 +55,7 @@ const AILMENT_LABEL: Record<PetAilment, { label: string; stat: keyof PetState }>
 const RECOVERY_HINT: Record<PetAilment, string> = {
   dying: 'Any care moment at all helps.',
   starving: 'Log a meal.',
-  exhausted: 'Rest, or log a walk.',
+  exhausted: 'Log a walk or a workout.',
   sad: 'Play, or spend time together.',
   foggy: 'Try the Mind Gym.',
 };
@@ -59,10 +68,10 @@ const isDraining = (pet: PetState, ailment: PetAilment): boolean =>
 /**
  * Active buffs and debuffs, worst debuff first, buffs last.
  *
- * `sleepy` is included as a debuff in its own right: it is a real mood the engine
- * sets below SLEEPY_ENERGY_THRESHOLD, and without it a pet at 30 energy shows
- * nothing at all even though it is visibly winding down. It is suppressed when
- * `exhausted` is present, which is the same state further along.
+ * `sleepy` (low Energy) and `sluggish` (low Vitality) are debuffs in their own
+ * right: real moods the engine sets, which would otherwise show nothing until
+ * an ailment threshold. `sluggish` is suppressed when `exhausted` is present,
+ * which is the same state further along.
  */
 export const getStatusEffects = (pet: PetState): StatusEffect[] => {
   const condition = assessCondition(pet);
@@ -78,17 +87,27 @@ export const getStatusEffects = (pet: PetState): StatusEffect[] => {
       id: ailment,
       kind: 'debuff',
       label,
-      detail: `${stat[0].toUpperCase()}${stat.slice(1)} ${Math.round(value)}, at or under ${AILMENT_THRESHOLDS[ailment]}.${drain} ${RECOVERY_HINT[ailment]}`,
+      detail: `${STAT_NAME[stat] ?? stat} ${Math.round(value)}, at or under ${AILMENT_THRESHOLDS[ailment]}.${drain} ${RECOVERY_HINT[ailment]}`,
     });
   }
 
-  const alreadyExhausted = condition.ailments.includes('exhausted');
-  if (!alreadyExhausted && pet.energy < SLEEPY_ENERGY_THRESHOLD) {
+  // Energy (sleep and food) is not a vital need: low, it makes the pet
+  // sleepy, and that is all it does.
+  if (chargeOf(pet) < SLEEPY_ENERGY_THRESHOLD) {
     effects.push({
       id: 'sleepy',
       kind: 'debuff',
       label: 'Sleepy',
-      detail: `Energy ${Math.round(pet.energy)}, under ${SLEEPY_ENERGY_THRESHOLD}. Not costing health yet — it starts at ${CRITICAL_NEED}.`,
+      detail: `Energy ${Math.round(chargeOf(pet))}, under ${SLEEPY_ENERGY_THRESHOLD}. A good night's sleep or a meal will lift it.`,
+    });
+  }
+  const alreadyExhausted = condition.ailments.includes('exhausted');
+  if (!alreadyExhausted && pet.energy < SLUGGISH_VITALITY_THRESHOLD) {
+    effects.push({
+      id: 'sluggish',
+      kind: 'debuff',
+      label: 'Sluggish',
+      detail: `Vitality ${Math.round(pet.energy)}, under ${SLUGGISH_VITALITY_THRESHOLD}. Not costing health yet — it starts at ${CRITICAL_NEED}.`,
     });
   }
 

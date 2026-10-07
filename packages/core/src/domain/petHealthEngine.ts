@@ -1,11 +1,11 @@
 import type { BrainTrainingMetadata, HealthEvent, MealAnalysis, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
 import { coinsEarned, coinsOf } from './coins';
-import { clamp, lockEvolution, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
+import { chargeOf, clamp, lockEvolution, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { formatMinutes } from './careToast';
 import { type FoodEffect, detectFoodEffects, foodEffectsDelta } from './foodEffects';
 import { workoutStrengthDelta } from './strengthProgression';
-import { type RecentMeal, hungerAt, mealPoints, mealsOf, mealsStillFeeding } from './hunger';
+import { HUNGRY_NUTRITION_THRESHOLD, type RecentMeal, hungerAt, mealPoints, mealsOf, mealsStillFeeding } from './hunger';
 
 export interface EngineResult {
   pet: PetState;
@@ -26,8 +26,10 @@ export interface PetHealthContext {
   maintenanceCalories?: number;
 }
 
-export const HUNGRY_NUTRITION_THRESHOLD = 25;
+/** Under this Energy (`charge`: sleep and food) the pet is sleepy. */
 export const SLEEPY_ENERGY_THRESHOLD = 40;
+/** Under this Vitality (`energy`: workouts and walks) the pet is sluggish. */
+export const SLUGGISH_VITALITY_THRESHOLD = 40;
 const BRIGHT_ENERGY_THRESHOLD = 65;
 const BRIGHT_HAPPINESS_THRESHOLD = 65;
 const SHARP_SESSION_ACCURACY = 0.8;
@@ -137,10 +139,16 @@ export const mealQuality = (meal: MealMetadata): MealQuality => {
 /** The plate's effect on health. D is the unhealthy flag: it costs, even though the pet is fed. */
 export const MEAL_HEALTH: Record<MealQuality, number> = { A: 3, B: 1, C: 0, D: -3 };
 
-export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
-  if (nutrition < HUNGRY_NUTRITION_THRESHOLD) return 'hungry';
-  if (energy < SLEEPY_ENERGY_THRESHOLD) return 'sleepy';
-  if (energy >= BRIGHT_ENERGY_THRESHOLD && happiness >= BRIGHT_HAPPINESS_THRESHOLD) return 'bright';
+/**
+ * The mood, worst need first: hungry, then sleepy (Energy, from sleep and
+ * food), then sluggish (Vitality, from moving). Happy needs Vitality and
+ * happiness both high.
+ */
+export const determineMood = (stats: Pick<PetState, 'energy' | 'nutrition' | 'happiness' | 'charge'>): PetMood => {
+  if (stats.nutrition < HUNGRY_NUTRITION_THRESHOLD) return 'hungry';
+  if (chargeOf(stats) < SLEEPY_ENERGY_THRESHOLD) return 'sleepy';
+  if (stats.energy < SLUGGISH_VITALITY_THRESHOLD) return 'sluggish';
+  if (stats.energy >= BRIGHT_ENERGY_THRESHOLD && stats.happiness >= BRIGHT_HAPPINESS_THRESHOLD) return 'bright';
   return 'content';
 };
 
@@ -174,6 +182,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
   const nextEnergy = clamp(pet.energy + (delta.energy ?? 0));
   const nextNutrition = clamp(pet.nutrition + (delta.nutrition ?? 0));
   const nextHappiness = clamp(pet.happiness + (delta.happiness ?? 0));
+  const nextCharge = clamp(chargeOf(pet) + (delta.charge ?? 0));
   return lockEvolution({
     ...pet,
     level: nextLevel,
@@ -182,6 +191,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
     coins: coinsOf(pet) + coinsEarned(nextLevel - pet.level),
     health: clamp(pet.health + (delta.health ?? 0)),
     energy: nextEnergy,
+    charge: nextCharge,
     happiness: nextHappiness,
     nutrition: nextNutrition,
     strength: clamp(pet.strength + (delta.strength ?? 0), 0, 100),
@@ -192,7 +202,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
     recovery: clamp(pet.recovery + (delta.recovery ?? 0)),
     mind: clamp(pet.mind + (delta.mind ?? 0)),
     mindSessions: Math.max(0, pet.mindSessions ?? 0) + Math.max(0, delta.mindSessions ?? 0),
-    mood: determineMood(nextEnergy, nextNutrition, nextHappiness),
+    mood: determineMood({ energy: nextEnergy, nutrition: nextNutrition, happiness: nextHappiness, charge: nextCharge }),
     lastEventAt: laterOf(pet.lastEventAt, occurredAt),
   });
 };
@@ -374,7 +384,6 @@ export class PetHealthEngine {
         delta = {
           happiness: sharp ? 5 : 3,
           recovery: sharp ? 4 : 2,
-          energy: 1,
           // A session restores mind in full, whatever the score. Mind used to
           // creep back 2-8 points a time, so a foggy pet needed a week of
           // sessions to clear -- the stat drifted down faster than sitting down
@@ -408,7 +417,9 @@ export class PetHealthEngine {
           nutrition: hungerAt(recentMeals, anchorMs) - pet.nutrition,
           health: MEAL_HEALTH[quality],
           happiness: meal.treats ? 4 : 2,
-          energy: quality === 'A' ? 3 : 0,
+          // Energy: any meal gives some, a balanced plate more. Vitality is
+          // for moving, so a meal leaves it alone.
+          charge: quality === 'A' ? 12 : 8,
           xp: 10,
         };
         // Food effects ride on top: a spicy plate is a little energising, a feast
@@ -434,13 +445,13 @@ export class PetHealthEngine {
         const minutes = Math.max(0, metadata.asleepMinutes);
         const hours = Math.round((minutes / 60) * 10) / 10;
         if (minutes >= SLEEP_FULL_MINUTES) {
-          delta = { energy: 14, recovery: 5, health: 2, happiness: 3, xp: 16 };
+          delta = { charge: 35, recovery: 5, health: 2, happiness: 3, xp: 16 };
           message = `I slept soundly for ${hours}h and woke up bright.`;
         } else if (minutes >= SLEEP_SHORT_MINUTES) {
-          delta = { energy: 9, recovery: 3, happiness: 1, xp: 11 };
+          delta = { charge: 22, recovery: 3, happiness: 1, xp: 11 };
           message = `I got ${hours}h — enough to take the edge off.`;
         } else {
-          delta = { energy: 4, recovery: 1, xp: 6 };
+          delta = { charge: 10, recovery: 1, xp: 6 };
           message = `I only managed ${hours}h. A longer night would help.`;
         }
         eventLabel = 'Rested up';

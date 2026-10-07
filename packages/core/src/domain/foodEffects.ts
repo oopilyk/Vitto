@@ -75,7 +75,7 @@ export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
     durationMinutes: 2 * HOUR,
     // The grade already decides the meal's own (small) delta; this is the
     // after-effect, and the only effect that costs anything.
-    delta: { health: -1, energy: -1 },
+    delta: { health: -1, charge: -1 },
     test: (meal) => meal.analysis?.grade === 'D',
   },
   {
@@ -83,7 +83,7 @@ export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
     label: 'Spicy',
     reaction: 'That was hot!',
     durationMinutes: 2 * HOUR,
-    delta: { energy: 2 },
+    delta: { charge: 2 },
     words: ['spicy', 'hot sauce', 'hot wings', 'hot chicken', 'hot pot', 'extra hot', 'chili', 'chilli', 'chile', 'jalapeno', 'jalapeño', 'habanero', 'sriracha', 'curry', 'wasabi', 'buffalo', 'cayenne', 'kimchi', 'tabasco', 'szechuan', 'sichuan', 'vindaloo', 'nduja', 'pepperoncini', 'harissa', 'gochujang', 'chipotle'],
   },
   {
@@ -99,7 +99,7 @@ export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
     label: 'Wired',
     reaction: 'Wide awake now.',
     durationMinutes: 3 * HOUR,
-    delta: { energy: 3 },
+    delta: { charge: 3 },
     words: ['coffee', 'espresso', 'latte', 'cappuccino', 'americano', 'matcha', 'energy drink', 'red bull', 'cold brew', 'mocha', 'black tea', 'yerba'],
   },
   {
@@ -140,7 +140,7 @@ export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
     reaction: 'Ugh. Too much.',
     durationMinutes: 2 * HOUR,
     // A food coma: a little slower, a little content.
-    delta: { energy: -2, happiness: 1 },
+    delta: { charge: -2, happiness: 1 },
     test: (meal) => (meal.analysis?.macros.calories ?? 0) >= 900,
   },
   {

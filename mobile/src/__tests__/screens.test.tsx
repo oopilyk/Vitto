@@ -238,7 +238,7 @@ describe('screens render', () => {
           pet={{ ...pet, nutrition: 8, happiness: 45, mind: 45, energy: 45, health: 60 }}
           events={[]}
           reaction={null}
-          careToast={{ headline: '1,240 steps logged', detail: '+3 energy · +8 XP' }}
+          careToast={{ headline: '1,240 steps logged', detail: '+3 vitality · +8 XP' }}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
           onSyncSteps={() => {}}
@@ -252,7 +252,7 @@ describe('screens render', () => {
     });
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).toContain('1,240 steps logged');
-    expect(rendered).toContain('+3 energy · +8 XP');
+    expect(rendered).toContain('+3 vitality · +8 XP');
     // The ailment still owns the pet's line.
     expect(rendered).toContain('Feed me');
 
@@ -1766,7 +1766,7 @@ describe('pet stats screen', () => {
 
     const shown = bars(tree);
     // None of these five appear anywhere else in the app.
-    expect(shown.get('Energy')).toBe(57);
+    expect(shown.get('Vitality')).toBe(57);
     expect(shown.get('Hunger')).toBe(43);
     expect(shown.get('Happiness')).toBe(91);
     expect(shown.get('Strength')).toBe(33);
@@ -1816,11 +1816,11 @@ describe('pet stats screen', () => {
     const tree = render({ ...projected });
 
     const shown = bars(tree);
-    expect(shown.get('Energy')).toBe(80 - 2 * DECAY_PER_DAY.energy);
+    expect(shown.get('Vitality')).toBe(80 - 2 * DECAY_PER_DAY.energy);
     // Two days is four mealtimes missed: hungry, and well past it.
     expect(shown.get('Hunger')).toBeLessThan(25);
     // Exactly what it was given: a second pass would subtract the same window again.
-    expect(shown.get('Energy')).toBe(projected.energy);
+    expect(shown.get('Vitality')).toBe(projected.energy);
     expect(shown.get('Hunger')).toBe(projected.nutrition);
     // Projecting is non-destructive — the caller's stored pet is untouched.
     expect(source.energy).toBe(80);

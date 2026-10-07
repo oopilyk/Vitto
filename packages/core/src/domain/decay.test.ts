@@ -15,6 +15,7 @@ import {
 } from './decay';
 import { MEAL_POINTS_DEFAULT, mealPoints, nextHungryAt } from './hunger';
 import { createPet } from './pet';
+import { determineMood } from './petHealthEngine';
 
 /**
  * Tests are written in decay-days, not wall-clock time, so they exercise the real
@@ -256,5 +257,27 @@ describe('decay cadence', () => {
     const decayed = applyTimeDecay(pet, oneDay);
     expect(decayed.energy).toBe(100 - DECAY_PER_DAY.energy);
     expect(decayed.happiness).toBe(100 - DECAY_PER_DAY.happiness);
+  });
+});
+
+describe('Energy and Vitality, split', () => {
+  it('lets Energy fall on its own clock, and holds it when food is not tracked', () => {
+    const pet = { ...createPet('user-1', 'Miso'), charge: 80 };
+    expect(applyTimeDecay(pet, daysAfter(pet, 1)).charge).toBe(80 - DECAY_PER_DAY.charge);
+    expect(applyTimeDecay(pet, daysAfter(pet, 3), ['training', 'movement', 'mind']).charge).toBe(80);
+  });
+
+  it('reads a pet from before Energy as comfortable, not sleepy', () => {
+    const { charge: _charge, ...legacy } = createPet('user-1', 'Miso');
+    expect(applyTimeDecay(legacy, daysAfter(legacy, 0.1)).mood).not.toBe('sleepy');
+  });
+
+  it('makes low Energy sleepy and low Vitality sluggish, hungry first', () => {
+    const base = { energy: 70, nutrition: 70, happiness: 70, charge: 70 };
+    expect(determineMood({ ...base, charge: 30 })).toBe('sleepy');
+    expect(determineMood({ ...base, energy: 30 })).toBe('sluggish');
+    expect(determineMood({ ...base, energy: 30, charge: 30 })).toBe('sleepy');
+    expect(determineMood({ ...base, nutrition: 10, charge: 30 })).toBe('hungry');
+    expect(determineMood(base)).toBe('bright');
   });
 });

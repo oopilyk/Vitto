@@ -33,7 +33,7 @@ describe('PET_STAT_DESCRIPTORS', () => {
   it('covers every stat exactly once', () => {
     const keys = PET_STAT_DESCRIPTORS.map((descriptor) => descriptor.key);
     expect(new Set(keys).size).toBe(keys.length);
-    expect(keys).toHaveLength(11);
+    expect(keys).toHaveLength(12);
   });
 
   it('groups the stats the way the screen lays them out', () => {
@@ -41,7 +41,7 @@ describe('PET_STAT_DESCRIPTORS', () => {
       (acc[descriptor.group] ??= []).push(descriptor.key);
       return acc;
     }, {});
-    expect(groups.condition).toEqual(['health', 'energy', 'happiness', 'nutrition']);
+    expect(groups.condition).toEqual(['health', 'energy', 'charge', 'happiness', 'nutrition']);
     expect(groups.body).toEqual([
       'strength',
       'pushingStrength',
@@ -85,7 +85,7 @@ describe('PET_STAT_DESCRIPTORS', () => {
     const hint = hintFor('health');
     expect(hint).toMatch(/junk/);
     // By their shown names: nutrition reads as Hunger.
-    for (const need of ['hunger', 'energy', 'happiness']) {
+    for (const need of ['hunger', 'vitality', 'happiness']) {
       expect(hint).toContain(need);
     }
     // Health has no DECAY_PER_DAY entry, so it must not claim a daily fall.

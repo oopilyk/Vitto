@@ -1,6 +1,8 @@
-import { DECAY_PERIOD_MS } from './decay';
+import { DECAY_PERIOD_MS } from './decayClock';
 import type { PetState } from './pet';
-import { HUNGRY_NUTRITION_THRESHOLD } from './petHealthEngine';
+
+/** Under this the pet is hungry. Here, not in the engine, so this module imports nothing that imports it. */
+export const HUNGRY_NUTRITION_THRESHOLD = 25;
 
 /**
  * Hunger is what was eaten lately, not a timer.

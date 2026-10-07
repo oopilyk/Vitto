@@ -9,8 +9,9 @@ const DAY = DECAY_PERIOD_MS;
 describe('care areas', () => {
   it('holds steady the needs nothing the person chose feeds', () => {
     expect(untrackedNeeds(['nutrition', 'training', 'movement', 'mind'])).toEqual([]);
-    expect(untrackedNeeds(['training', 'movement', 'mind'])).toEqual(['nutrition']);
-    // Energy is fed by workouts or steps: it only stops counting with both off.
+    // Food off holds Energy too: meals are what keep it up without Apple Health.
+    expect(untrackedNeeds(['training', 'movement', 'mind'])).toEqual(['nutrition', 'charge']);
+    // Vitality is fed by workouts or steps: it only stops counting with both off.
     expect(untrackedNeeds(['nutrition', 'mind', 'movement'])).toEqual([]);
     expect(untrackedNeeds(['nutrition', 'mind'])).toEqual(['energy']);
     // Nothing set means everything, as before.

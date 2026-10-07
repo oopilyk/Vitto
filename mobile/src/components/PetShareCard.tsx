@@ -57,6 +57,7 @@ const MOOD_LINE: Record<PetState['mood'], string> = {
   bright: "I'm feeling happy.",
   content: "I'm doing fine.",
   sleepy: "I'm feeling sleepy.",
+  sluggish: "I'm feeling sluggish.",
   hungry: "I'm hungry.",
 };
 

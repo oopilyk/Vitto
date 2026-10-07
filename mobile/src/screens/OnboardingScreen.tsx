@@ -126,9 +126,9 @@ const GOAL_BOUNDS = { kg: { min: 30, max: 300 }, lb: { min: 66, max: 660 } } as 
  * happiness rises with everything, so it is left off every line).
  */
 const CARE_AREA_CHOICE: Record<CareArea, { label: string; detail: (pet: string) => string; stats: string }> = {
-  nutrition: { label: 'Food', detail: (pet) => `Log your meals. Skip them and ${pet} gets hungry.`, stats: '+ Hunger · Health' },
-  training: { label: 'Workouts', detail: () => 'Log your training sessions.', stats: '+ Strength · Endurance · Energy' },
-  movement: { label: 'Steps', detail: () => 'Sync your daily steps.', stats: '+ Energy · Endurance' },
+  nutrition: { label: 'Food', detail: (pet) => `Log your meals. Skip them and ${pet} gets hungry.`, stats: '+ Hunger · Energy · Health' },
+  training: { label: 'Workouts', detail: () => 'Log your training sessions.', stats: '+ Strength · Endurance · Vitality' },
+  movement: { label: 'Steps', detail: () => 'Sync your daily steps.', stats: '+ Vitality · Endurance' },
   mind: { label: 'Mind games', detail: (pet) => `Play quick games. Skip them and ${pet} gets foggy.`, stats: '+ Mind' },
 };
 

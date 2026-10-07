@@ -80,13 +80,12 @@ export const describeLoggedEvent = (event: HealthEvent): string => {
       return minutes > 0 ? `${minutes} min ${kind} logged` : `${kind} logged`;
     }
     case 'MEAL': {
-      const meal = event.metadata as MealMetadata;
-      const named = meal.analysis?.foodDescription?.trim();
-      const calories = meal.analysis?.macros?.calories;
-      const headline = named ? `${named} logged` : 'Meal logged';
+      // Not what was on the plate: a photographed meal is described in a
+      // sentence, and that sentence swamped the toast. The calories say enough.
+      const calories = (event.metadata as MealMetadata).analysis?.macros?.calories;
       return Number.isFinite(calories) && (calories as number) > 0
-        ? `${headline} · ${formatCount(calories as number)} kcal`
-        : headline;
+        ? `Meal logged · ${formatCount(calories as number)} kcal`
+        : 'Meal logged';
     }
     case 'BRAIN_TRAINING': {
       const { game, correct, total, wordsFound, rank, roundOutcomes } = event.metadata as BrainTrainingMetadata;
@@ -129,9 +128,10 @@ export const describeLoggedEvent = (event: HealthEvent): string => {
  */
 const STAT_LABEL: Record<Exclude<keyof PetDelta, 'xp'>, string> = {
   health: 'health',
-  energy: 'energy',
+  energy: 'vitality',
+  charge: 'energy',
   happiness: 'happiness',
-  nutrition: 'nutrition',
+  nutrition: 'hunger',
   strength: 'strength',
   pushingStrength: 'push',
   pullingStrength: 'pull',

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { careToast, describeDelta, describeLoggedEvent, formatCount, formatMinutes } from './careToast';
 import { detectFoodEffects } from './foodEffects';
-import type { HealthEvent } from './health';
+import type { HealthEvent, MealMetadata } from './health';
 
 const event = <T,>(type: HealthEvent['type'], metadata: T): HealthEvent =>
   ({ id: 'e-1', userId: 'u-1', occurredAt: '2026-09-09T08:00:00Z', type, source: 'manual', metadata }) as HealthEvent;
@@ -56,7 +56,7 @@ describe('describeLoggedEvent', () => {
     expect(describeLoggedEvent(event('WORKOUT', { workoutType: 'yoga', durationMinutes: 0 }))).toBe('yoga logged');
   });
 
-  it('uses what the meal photo was read as, with its calories', () => {
+  it('says a meal was logged with its calories, not what was on the plate', () => {
     const meal = event('MEAL', {
       protein: true,
       vegetables: true,
@@ -66,7 +66,7 @@ describe('describeLoggedEvent', () => {
       treats: false,
       analysis: { foodDescription: 'Chicken bowl', macros: { calories: 520 } },
     });
-    expect(describeLoggedEvent(meal)).toBe('Chicken bowl logged · 520 kcal');
+    expect(describeLoggedEvent(meal)).toBe('Meal logged · 520 kcal');
   });
 
   it('falls back to a plain meal when there is no analysis', () => {
@@ -98,17 +98,17 @@ describe('describeLoggedEvent', () => {
 describe('describeDelta', () => {
   it('leads with the biggest movement and ends on XP', () => {
     expect(describeDelta({ energy: 7, happiness: 4, endurance: 3, xp: 16 })).toBe(
-      '+7 energy · +4 happiness · +3 endurance · +16 XP',
+      '+7 vitality · +4 happiness · +3 endurance · +16 XP',
     );
   });
 
   it('trims to the three that moved most, keeping XP', () => {
     const line = describeDelta({ health: 1, energy: 7, happiness: 4, nutrition: 9, mind: 2, xp: 10 });
-    expect(line).toBe('+9 nutrition · +7 energy · +4 happiness · +10 XP');
+    expect(line).toBe('+9 hunger · +7 vitality · +4 happiness · +10 XP');
   });
 
   it('shows a loss as a loss', () => {
-    expect(describeDelta({ energy: -4, happiness: -2, xp: 2 })).toBe('-4 energy · -2 happiness · +2 XP');
+    expect(describeDelta({ energy: -4, happiness: -2, xp: 2 })).toBe('-4 vitality · -2 happiness · +2 XP');
   });
 
   it('ignores stats that did not move', () => {
@@ -127,7 +127,7 @@ describe('careToast', () => {
       protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false,
       analysis: { foodDescription: 'Spicy ramen', grade: 'B', summary: 'Spicy ramen', confidence: 1, detectedFoods: [], macros: { calories: 500, proteinGrams: 20, carbsGrams: 60, fatGrams: 15 }, nutrients: {} },
     });
-    const toast = careToast(meal, { nutrition: 3, xp: 10 }, detectFoodEffects(meal.metadata));
+    const toast = careToast(meal, { nutrition: 3, xp: 10 }, detectFoodEffects(meal.metadata as MealMetadata));
     expect(toast.effect).toEqual({ line: 'That was hot!', tags: ['Spicy', 'Cozy'] });
     // A plain plate carries no effect at all, not an empty one.
     expect(careToast(meal, { xp: 10 }).effect).toBeUndefined();
@@ -136,7 +136,7 @@ describe('careToast', () => {
   it('states the fact and the effect together', () => {
     expect(careToast(event('STEP_ACTIVITY', { steps: 8200 }), { energy: 7, endurance: 3, xp: 16 })).toEqual({
       headline: '8,200 steps logged',
-      detail: '+7 energy · +3 endurance · +16 XP',
+      detail: '+7 vitality · +3 endurance · +16 XP',
     });
   });
 });

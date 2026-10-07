@@ -6,6 +6,7 @@ import {
   nextHungryAt,
   SLEEPY_ENERGY_THRESHOLD,
   assessCondition,
+  chargeOf,
   untrackedNeeds,
   type CareArea,
   type PetState,
@@ -39,7 +40,7 @@ export const spriteAssetName = (label: string): string =>
     .map((word, index) => (index === 0 ? word.charAt(0).toLowerCase() + word.slice(1) : word.charAt(0).toUpperCase() + word.slice(1)))
     .join('');
 
-type Need = 'energy' | 'happiness';
+type Need = 'energy' | 'charge' | 'happiness';
 
 /**
  * When a need was last at 100 and when it reaches 0, if it only ever fell at
@@ -72,13 +73,15 @@ export const buildIslandState = (pet: PetState, now: number = Date.now(), careAr
   // Hunger steps down as meals wear off rather than draining, so its bar
   // stands still and the moment that matters is "hungry at" below.
   const nutrition = window(pet.nutrition, 'energy', now, true);
-  const energy = window(pet.energy, 'energy', now, held.has('energy'));
+  // The Island's energy bar is Energy (sleep and food), which is what makes
+  // the pet sleepy; Vitality lives on the stats screen.
+  const energy = window(chargeOf(pet), 'charge', now, held.has('charge'));
   const happiness = window(pet.happiness, 'happiness', now);
 
   // Whichever comes first: hungry or sleepy. Neither once it already is one.
   const candidates: { need: string; at: number }[] = [];
   const hungryAt = held.has('nutrition') ? null : nextHungryAt(pet, now);
-  const sleepyAt = crossingAt(pet.energy, SLEEPY_ENERGY_THRESHOLD, 'energy', now, held.has('energy'));
+  const sleepyAt = crossingAt(chargeOf(pet), SLEEPY_ENERGY_THRESHOLD, 'charge', now, held.has('charge'));
   if (hungryAt !== null) candidates.push({ need: 'hungry', at: hungryAt });
   if (sleepyAt !== null) candidates.push({ need: 'sleepy', at: sleepyAt });
   const next = pet.mood === 'hungry' || pet.mood === 'sleepy'

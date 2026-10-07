@@ -99,6 +99,7 @@ describe('activeFoodEffects', () => {
 describe('foodEffectsDelta', () => {
   it('sums the small nudges', () => {
     const effects = detectFoodEffects(meal('Spicy coffee', {}, { calories: 100, proteinGrams: 0, carbsGrams: 5, fatGrams: 0 }));
-    expect(foodEffectsDelta(effects)).toEqual({ energy: 5 });
+    // Food nudges Energy (sleep and food), never Vitality.
+    expect(foodEffectsDelta(effects)).toEqual({ charge: 5 });
   });
 });

@@ -63,10 +63,8 @@ export const AILMENT_MESSAGE: Record<PetAilment, (name: string, advice?: Ailment
   // meal". `name` is kept for callers and for a fallback that may want it.
   dying: () => "I'm fading. Please look after me.",
   starving: () => "I'm so hungry. Feed me?",
-  exhausted: (_name, advice) =>
-    advice?.canLogSleep
-      ? "I'm running on empty. Let me rest."
-      : "I'm running on empty. Take me for a walk or a workout?",
+  // Vitality: only moving lifts it, so moving is the ask, Apple Health or not.
+  exhausted: () => "I'm running on empty. Take me for a walk or a workout?",
   sad: () => 'I feel lonely. Spend some time with me?',
   foggy: () => "My head's all foggy. Mind Gym?",
 };
