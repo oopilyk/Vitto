@@ -54,19 +54,16 @@ describe('HUD readout contrast', () => {
   });
 });
 
-describe('HUD meta row', () => {
-  const { fitMetaTags } = require('../petWorld/PetWorldHud');
+describe('HUD effect chips', () => {
+  const { capEffectChips, MAX_EFFECT_CHIPS } = require('../petWorld/PetWorldHud');
 
-  it('keeps to one line, folding the tags that do not fit into +N', () => {
-    const fixed = ['DAY 40', 'RUNNER', 'WARM', '🔥 3'];
-    const tags = ['PROTEIN', 'GREENS', 'JUNK', 'SPICY'];
-    // A phone-width readout: some fit, the rest fold.
-    const narrow = fitMetaTags(tags, fixed, 300);
-    expect(narrow.shown.length + narrow.hidden).toBe(tags.length);
-    expect(narrow.hidden).toBeGreaterThan(0);
-    // Plenty of room: everything shows.
-    expect(fitMetaTags(tags, fixed, 1000)).toEqual({ shown: tags, hidden: 0 });
-    // No room past the fixed tokens: all fold.
-    expect(fitMetaTags(tags, fixed, 120).shown).toEqual([]);
+  it('shows at most five, folding the rest into +N', () => {
+    expect(capEffectChips(['PROTEIN', 'GREENS'])).toEqual({ shown: ['PROTEIN', 'GREENS'], hidden: 0 });
+    const five = ['A', 'B', 'C', 'D', 'E'];
+    expect(capEffectChips(five)).toEqual({ shown: five, hidden: 0 });
+    const seven = capEffectChips([...five, 'F', 'G']);
+    // Four chips and the "+3": still five slots.
+    expect(seven).toEqual({ shown: ['A', 'B', 'C', 'D'], hidden: 3 });
+    expect(seven.shown.length + 1).toBe(MAX_EFFECT_CHIPS);
   });
 });

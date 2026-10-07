@@ -208,7 +208,7 @@ export const detectFoodEffects = (meal: MealMetadata): FoodEffect[] => {
   return found.slice(0, 3);
 };
 
-export const MAX_ACTIVE_FOOD_EFFECTS = 3;
+export const MAX_ACTIVE_FOOD_EFFECTS = 5;
 
 /**
  * Effects still running now, newest meal first, one entry per effect.

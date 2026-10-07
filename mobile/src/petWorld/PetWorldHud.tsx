@@ -98,28 +98,17 @@ interface PetWorldHudProps {
 
 /** Padding inside the readout panel, either side. */
 const READOUT_PAD = 14;
-const META_GAP = 12;
-// The row is monospace, so a token's width is its length: about 0.6em a
-// character, plus letter spacing (and a tag's own padding).
-const metaTokenWidth = (token: string) => token.length * (10 * 0.6 + 0.8);
-const metaTagWidth = (tag: string) => tag.length * (9 * 0.6 + 0.8) + 12;
+/** The most effect chips the readout shows; past it, the last slot becomes "+N". */
+export const MAX_EFFECT_CHIPS = 5;
+/** One chip's height: its line plus its padding. */
+const CHIP_HEIGHT = 12 + 2 * 2;
+/** Chip row ceiling: exactly two rows of chips and the gap between, whatever the screen width. */
+const CHIP_ROWS_HEIGHT = 2 * CHIP_HEIGHT + 4;
 
-/**
- * Which food tags fit on the meta row's one line after its fixed tokens (day,
- * form, bond, streak), and how many fold into a "+N" chip. Before the row has
- * been measured it shows two, as a safe guess.
- */
-export const fitMetaTags = (tags: readonly string[], fixed: readonly string[], width: number): { shown: string[]; hidden: number } => {
-  if (width <= 0) return { shown: tags.slice(0, 2), hidden: Math.max(0, tags.length - 2) };
-  let used = fixed.reduce((total, token, index) => total + metaTokenWidth(token) + (index > 0 ? META_GAP : 0), 0);
-  const shown: string[] = [];
-  for (const [index, tag] of tags.entries()) {
-    const left = tags.length - index - 1;
-    const room = META_GAP + metaTagWidth(tag) + (left > 0 ? META_GAP + metaTagWidth(`+${left}`) : 0);
-    if (used + room > width) break;
-    used += META_GAP + metaTagWidth(tag);
-    shown.push(tag);
-  }
+/** At most MAX_EFFECT_CHIPS chips: every tag when they fit, else the first few and a "+N". */
+export const capEffectChips = (tags: readonly string[]): { shown: string[]; hidden: number } => {
+  if (tags.length <= MAX_EFFECT_CHIPS) return { shown: [...tags], hidden: 0 };
+  const shown = tags.slice(0, MAX_EFFECT_CHIPS - 1);
   return { shown, hidden: tags.length - shown.length };
 };
 
@@ -199,15 +188,7 @@ export function PetWorldHud({
 
   // The account menu. Closed on any choice and on a tap anywhere else.
   const [menuOpen, setMenuOpen] = useState(false);
-  // The readout's inner width, so the meta row can keep to one line.
-  const [readoutWidth, setReadoutWidth] = useState(0);
-  const fixedTokens = [
-    dayToken,
-    formToken,
-    bond.stage !== 'neutral' ? bond.stage.toUpperCase() : null,
-    streaks.currentStreak > 0 ? `🔥 ${streaks.currentStreak}` : null,
-  ].filter((token): token is string => Boolean(token));
-  const { shown: shownTags, hidden: hiddenTags } = fitMetaTags(foodTags, fixedTokens, readoutWidth);
+  const { shown: shownTags, hidden: hiddenTags } = capEffectChips(foodTags);
   const choose = (open: () => void) => () => {
     setMenuOpen(false);
     open();
@@ -307,7 +288,6 @@ export function PetWorldHud({
       <View
         style={[retro.panel, night && retro.panelNight, styles.readout]}
         pointerEvents="none"
-        onLayout={(event) => setReadoutWidth(event.nativeEvent.layout.width - 2 * READOUT_PAD)}
       >
         {/* Two lines at most, whatever the pet says: the readout has a fixed
             ceiling so the rows under it never move far. A longer line shrinks
@@ -320,8 +300,7 @@ export function PetWorldHud({
         >
           {feeling}
         </Text>
-        {/* Day, form, bond, streak and food effects on exactly one line: the
-            tags that do not fit fold into a "+N" chip rather than wrapping. */}
+        {/* Day and evolution (with the bond and streak), on one line. */}
         <View style={styles.metaRow} accessibilityLabel={metaLabel}>
           <Text style={[styles.meta, night && retro.captionNight]}>{dayToken}</Text>
           {formToken ? <Text style={[styles.meta, night && retro.captionNight]}>{formToken}</Text> : null}
@@ -339,17 +318,23 @@ export function PetWorldHud({
               {`🔥 ${streaks.currentStreak}`}
             </Text>
           ) : null}
-          {shownTags.map((tag) => (
-            <Text key={tag} style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`Effect: ${tag}`}>
-              {tag}
-            </Text>
-          ))}
-          {hiddenTags > 0 ? (
-            <Text style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`${hiddenTags} more effects`}>
-              {`+${hiddenTags}`}
-            </Text>
-          ) : null}
         </View>
+        {/* Under it, what the pet is feeling from its food: five chips at most,
+            wrapping onto two rows at most, so the readout has a ceiling. */}
+        {shownTags.length > 0 ? (
+          <View style={styles.chipRow}>
+            {shownTags.map((tag) => (
+              <Text key={tag} style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`Effect: ${tag}`}>
+                {tag}
+              </Text>
+            ))}
+            {hiddenTags > 0 ? (
+              <Text style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`${hiddenTags} more effects`}>
+                {`+${hiddenTags}`}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         {partnerName ? <Text style={[styles.metaPartner, night && styles.metaPartnerNight]}>{`Raised with ${partnerName}`}</Text> : null}
       </View>
 
@@ -482,6 +467,16 @@ const styles = themedStyles(() => ({
     color: world.ink,
     textAlign: 'center',
   },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    columnGap: 8,
+    rowGap: 4,
+    marginTop: 6,
+    maxHeight: CHIP_ROWS_HEIGHT,
+    overflow: 'hidden',
+  },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
@@ -533,6 +528,7 @@ const styles = themedStyles(() => ({
   metaTag: {
     fontFamily: fonts.mono,
     fontSize: 9,
+    lineHeight: 12,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
