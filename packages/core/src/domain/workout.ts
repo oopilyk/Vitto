@@ -162,12 +162,54 @@ export const calculateWorkoutStats = (exercises: WorkoutExercise[], durationMinu
   };
 };
 
-/** Inherits the unit of the set before it, so one exercise never mixes units. */
-export const addSet = (exercise: WorkoutExercise, unit?: WeightUnit): WorkoutExercise => ({
-  ...exercise,
-  sets: [
-    ...exercise.sets,
-    newSet(Boolean(exercise.bodyweight), unit ?? exercise.sets[exercise.sets.length - 1]?.unit ?? 'kg', exercise.muscleGroup),
-  ],
-});
+/**
+ * A copy of the set before it, weight, reps and unit, since the next set is
+ * usually the same again: one tap instead of retyping both numbers. Only the
+ * first set of an exercise starts from the defaults.
+ */
+export const addSet = (exercise: WorkoutExercise, unit?: WeightUnit): WorkoutExercise => {
+  const last = exercise.sets[exercise.sets.length - 1];
+  const next: WorkoutSet = last
+    ? {
+        id: newId(),
+        reps: last.reps,
+        // The weight keeps the unit it was entered in, so the number still means the same.
+        weight: last.weight,
+        unit: last.unit ?? unit ?? 'kg',
+        completed: true,
+      }
+    : newSet(Boolean(exercise.bodyweight), unit ?? 'kg', exercise.muscleGroup);
+  return { ...exercise, sets: [...exercise.sets, next] };
+};
 export const updateSet = (exercise: WorkoutExercise, setId: string, patch: Partial<WorkoutSet>): WorkoutExercise => ({ ...exercise, sets: exercise.sets.map((set) => set.id === setId ? { ...set, ...patch } : set) });
+/** Under this, a timed session was logged after the fact, not trained live. */
+export const MIN_TIMED_SESSION_MINUTES = 10;
+/** A set and its rest, for estimating a session logged after the fact. */
+export const MINUTES_PER_SET = 3;
+
+/**
+ * How long a session took, without asking. A run, ride or swim says its own
+ * minutes on its card. Sets are timed from the first exercise added to Finish,
+ * unless that is implausibly short (the session was typed in afterwards), when
+ * they are estimated at a few minutes each. Capped at three hours, like the
+ * stats.
+ */
+export const sessionMinutes = ({
+  cardioMinutes,
+  completedSets,
+  elapsedMs,
+}: {
+  /** Typed on a distance exercise's card, if any. */
+  cardioMinutes?: number;
+  completedSets: number;
+  /** Since the first exercise went in; null if it never did. */
+  elapsedMs: number | null;
+}): number => {
+  const typed = Number.isFinite(cardioMinutes) && (cardioMinutes as number) > 0 ? Math.round(cardioMinutes as number) : 0;
+  if (completedSets <= 0) return Math.min(180, Math.max(1, typed));
+  const timed = elapsedMs !== null && elapsedMs > 0 ? Math.round(elapsedMs / 60_000) : 0;
+  // Timed live, the clock already covers any run in the session; estimated,
+  // the run's own minutes are added to the sets'.
+  const minutes = timed >= MIN_TIMED_SESSION_MINUTES ? timed : completedSets * MINUTES_PER_SET + typed;
+  return Math.min(180, Math.max(1, minutes));
+};

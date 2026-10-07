@@ -7,7 +7,7 @@ import {
   templateFromSession,
   upsertTemplate,
 } from './workoutTemplates';
-import { addSet, createExercise } from './workout';
+import { MINUTES_PER_SET, addSet, createExercise, sessionMinutes } from './workout';
 
 const NOW = new Date('2026-09-11T10:00:00Z');
 
@@ -132,5 +132,32 @@ describe('removeTemplate', () => {
     const a = templateFromSession('A', push(), undefined, NOW);
     const b = templateFromSession('B', push(), undefined, NOW);
     expect(removeTemplate([a, b], a.id).map((t) => t.name)).toEqual(['B']);
+  });
+});
+
+describe('adding a set', () => {
+  it('copies the set before it, so the next one is a tap away', () => {
+    const bench = createExercise('Bench Press', 'chest', false, 'lb');
+    const first = { ...bench, sets: [{ ...bench.sets[0]!, weight: 175, reps: 4, unit: 'lb' as const }] };
+    const two = addSet(first, 'lb');
+    expect(two.sets).toHaveLength(2);
+    expect(two.sets[1]).toMatchObject({ weight: 175, reps: 4, unit: 'lb', completed: true });
+    expect(two.sets[1]!.id).not.toBe(two.sets[0]!.id);
+  });
+});
+
+describe('how long a session took', () => {
+  const minutes = (ms: number) => ms * 60_000;
+  it('times sets from the first exercise to Finish', () => {
+    expect(sessionMinutes({ completedSets: 12, elapsedMs: minutes(52) })).toBe(52);
+  });
+  it('estimates a session logged afterwards from its sets', () => {
+    expect(sessionMinutes({ completedSets: 12, elapsedMs: minutes(2) })).toBe(12 * MINUTES_PER_SET);
+    expect(sessionMinutes({ completedSets: 4, elapsedMs: null, cardioMinutes: 20 })).toBe(4 * MINUTES_PER_SET + 20);
+  });
+  it('takes a run at its own word, and caps everything at three hours', () => {
+    expect(sessionMinutes({ completedSets: 0, elapsedMs: minutes(1), cardioMinutes: 34 })).toBe(34);
+    expect(sessionMinutes({ completedSets: 0, elapsedMs: null })).toBe(1);
+    expect(sessionMinutes({ completedSets: 5, elapsedMs: minutes(400) })).toBe(180);
   });
 });

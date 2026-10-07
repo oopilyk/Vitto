@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import {
   type WeightUnit,
@@ -7,6 +7,7 @@ import {
   type WorkoutTemplate,
   addSet,
   calculateWorkoutStats,
+  sessionMinutes,
   createExercise,
   errorMessage,
   exerciseLibrary,
@@ -43,7 +44,6 @@ interface Props {
 const DEFAULT_SESSION_NAME = 'Strength session';
 
 /** One-tap session lengths; anything else goes in the box beside them. */
-const DURATION_CHOICES = [30, 45, 60, 90] as const;
 
 /**
  * Two jobs on one builder.
@@ -70,11 +70,18 @@ export function WorkoutScreen({
 }: Props) {
   const [mode, setMode] = useState<Mode>('log');
   const [name, setName] = useState(DEFAULT_SESSION_NAME);
-  const [duration, setDuration] = useState('30');
+  /** A run's own minutes, typed on its card. Everything else is timed (see sessionMinutes). */
+  const [duration, setDuration] = useState('');
   /** Distance for a cardio session, typed in the lifter's own unit (mi for lb, km for kg). */
   const [distance, setDistance] = useState('');
   const [notes, setNotes] = useState('');
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
+  /** When the first exercise went in: the session's clock, for timing it without asking. */
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (exercises.length > 0 && startedAt === null) setStartedAt(Date.now());
+    else if (exercises.length === 0 && startedAt !== null) setStartedAt(null);
+  }, [exercises.length, startedAt]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -190,7 +197,15 @@ export function WorkoutScreen({
 
   // ---- logging ------------------------------------------------------------
 
-  const stats = calculateWorkoutStats(exercises, Math.max(1, Number(duration) || 1));
+  const setStats = calculateWorkoutStats(exercises, 1);
+  const stats = {
+    ...setStats,
+    durationMinutes: sessionMinutes({
+      cardioMinutes: Number(duration) || undefined,
+      completedSets: setStats.completedSets,
+      elapsedMs: startedAt === null ? null : Date.now() - startedAt,
+    }),
+  };
   const cardio = stats.muscleGroups.includes('cardio');
   // Only a session that actually goes somewhere gets a distance box: a round of
   // burpees is cardio and has none.
@@ -262,7 +277,6 @@ export function WorkoutScreen({
     exercises.filter((exercise) => exercise.name === exerciseName).length;
 
   const empty = exercises.length === 0;
-  const durationChoice = DURATION_CHOICES.find((minutes) => String(minutes) === duration.trim());
 
   /** One routine as a full-width row: its name, what is in it, and what a tap does. */
   const routineRow = (template: WorkoutTemplate) => {
@@ -444,10 +458,39 @@ export function WorkoutScreen({
                 </Pressable>
               </View>
               {exercise.distance ? (
-                // A run, ride or swim: the distance and time below are its whole
-                // record. Burpees and jump rope are cardio too but go nowhere, so
-                // they keep the set table.
-                <Text style={styles.cardioNote}>Logged by distance and time — fill them in below.</Text>
+                // A run, ride or swim: distance and time are its whole record,
+                // so they are asked for right here on its card. Burpees and jump
+                // rope are cardio too but go nowhere, so they keep the set table.
+                routineMode ? (
+                  <Text style={styles.cardioNote}>Distance and time are filled in each time you log it.</Text>
+                ) : (
+                  <View style={styles.cardioFields}>
+                    <View style={styles.cardioField}>
+                      <Text style={styles.setHeadLabel}>{distanceUnit === 'mi' ? 'MILES' : 'KM'}</Text>
+                      <TextInput
+                        style={[layout.input, styles.cardioInput]}
+                        value={distance}
+                        onChangeText={setDistance}
+                        keyboardType="decimal-pad"
+                        placeholder="0.0"
+                        placeholderTextColor={colors.faint}
+                        accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}`}
+                      />
+                    </View>
+                    <View style={styles.cardioField}>
+                      <Text style={styles.setHeadLabel}>MINUTES</Text>
+                      <TextInput
+                        style={[layout.input, styles.cardioInput]}
+                        value={duration}
+                        onChangeText={setDuration}
+                        keyboardType="number-pad"
+                        placeholder="0"
+                        placeholderTextColor={colors.faint}
+                        accessibilityLabel="Minutes"
+                      />
+                    </View>
+                  </View>
+                )
               ) : (
                 <>
                   <View style={styles.setHead}>
@@ -548,51 +591,6 @@ export function WorkoutScreen({
                 placeholder="Workout name"
                 placeholderTextColor={colors.faint}
               />
-
-              <Text style={styles.fieldLabel}>How long, in minutes</Text>
-              <View style={styles.durationRow}>
-                {DURATION_CHOICES.map((minutes) => {
-                  const on = durationChoice === minutes;
-                  return (
-                    <Pressable
-                      key={minutes}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${minutes} minutes`}
-                      accessibilityState={{ selected: on }}
-                      onPress={() => setDuration(String(minutes))}
-                      style={({ pressed }) => [styles.durationChip, on && styles.durationChipOn, pressed && styles.pressed]}
-                    >
-                      <Text style={[styles.durationChipLabel, on && styles.durationChipLabelOn]}>{minutes}</Text>
-                    </Pressable>
-                  );
-                })}
-                <TextInput
-                  style={[layout.input, styles.durationInput, !durationChoice && duration.trim() !== '' && styles.durationInputOn]}
-                  value={durationChoice ? '' : duration}
-                  onChangeText={setDuration}
-                  keyboardType="number-pad"
-                  placeholder="Other"
-                  placeholderTextColor={colors.faint}
-                  accessibilityLabel="Minutes"
-                />
-              </View>
-
-              {/* Only a session that goes somewhere has a distance; it feeds the
-                  run records on the profile (fastest mile, longest run). */}
-              {goesSomewhere ? (
-                <>
-                  <Text style={styles.fieldLabel}>Distance, in {distanceUnit === 'mi' ? 'miles' : 'kilometres'}</Text>
-                  <TextInput
-                    style={layout.input}
-                    value={distance}
-                    onChangeText={setDistance}
-                    keyboardType="decimal-pad"
-                    placeholder={distanceUnit}
-                    accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}`}
-                    placeholderTextColor={colors.faint}
-                  />
-                </>
-              ) : null}
 
               <Text style={styles.fieldLabel}>Notes (optional)</Text>
               <TextInput
@@ -864,6 +862,9 @@ const styles = themedStyles(() => ({
   },
   addSetLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
   cardioNote: { fontSize: 13, color: colors.muted, marginTop: 10, lineHeight: 18 },
+  cardioFields: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  cardioField: { flex: 1, gap: 6, alignItems: 'center' },
+  cardioInput: { alignSelf: 'stretch', textAlign: 'center', fontSize: 18, fontWeight: '600' },
 
   addExercise: {
     marginTop: 14,
@@ -878,21 +879,6 @@ const styles = themedStyles(() => ({
 
   // Details
   details: { marginTop: 28 },
-  durationRow: { flexDirection: 'row', gap: 8 },
-  durationChip: {
-    flex: 1,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    backgroundColor: colors.card,
-  },
-  durationChipOn: { borderColor: colors.selectedBorder, backgroundColor: colors.selectedFill },
-  durationChipLabel: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  durationChipLabelOn: { color: colors.coralDeep },
-  durationInput: { flex: 1.3, minWidth: 0, textAlign: 'center', paddingHorizontal: 6 },
-  durationInputOn: { borderColor: colors.selectedBorder },
   notes: { minHeight: 72, textAlignVertical: 'top' },
   sessionActions: { flexDirection: 'row', marginTop: 14 },
 

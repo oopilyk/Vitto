@@ -464,7 +464,9 @@ describe('screens render', () => {
     expect(placeholders).not.toContain('BW');
     const labels = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
     expect(labels).not.toContain('+ Add set');
-    expect(labels.some((t) => t.includes('Logged by distance and time'))).toBe(true);
+    // Distance and minutes are asked for right on the run's card.
+    expect(labels).toContain('MILES');
+    expect(labels).toContain('MINUTES');
 
     // Miles, because the profile is in pounds.
     const distanceField = tree.root.findAllByProps({ accessibilityLabel: 'Distance in miles' })
