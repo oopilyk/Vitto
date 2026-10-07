@@ -68,16 +68,24 @@ describe('PET_STAT_DESCRIPTORS', () => {
 
   // These assert the hint is *derived* from DECAY_PER_DAY, not that it says any
   // particular number: retuning the engine must never leave the copy behind.
-  it.each(['energy', 'happiness', 'nutrition', 'mind'] as const)(
+  it.each(['energy', 'happiness', 'mind'] as const)(
     'quotes the live decay rate in the %s hint',
     (key) => {
       expect(hintFor(key)).toContain(`${String(DECAY_PER_DAY[key])} a day`);
     },
   );
 
-  it('describes health as a consequence of the other needs, not a timed decline', () => {
+  it('explains hunger as the last day of eating, not a rate', () => {
+    expect(hintFor('nutrition')).toContain('last 24 hours');
+    expect(hintFor('nutrition')).toContain('maintenance');
+    expect(hintFor('nutrition')).not.toMatch(/Falls \d+ a day/);
+  });
+
+  it('describes health as what you eat plus the other needs, not a timed decline', () => {
     const hint = hintFor('health');
-    for (const need of ['nutrition', 'energy', 'happiness']) {
+    expect(hint).toMatch(/junk/);
+    // By their shown names: nutrition reads as Hunger.
+    for (const need of ['hunger', 'energy', 'happiness']) {
       expect(hint).toContain(need);
     }
     // Health has no DECAY_PER_DAY entry, so it must not claim a daily fall.

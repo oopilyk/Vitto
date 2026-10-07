@@ -299,15 +299,28 @@ export const proteinPerKgFor = (profile: BodyProfile): number => {
   return lifts ? 1.8 : 1.5;
 };
 
-export const calculateMacroTargets = (profile: BodyProfile): MacroTargets => {
+/** Resting burn (Mifflin-St Jeor). */
+const baseCaloriesFor = (profile: BodyProfile): number => {
   const sexOffset = profile.sex === 'male' ? 5 : profile.sex === 'female' ? -161 : -78;
   const age = finite(profile.age, 30);
   const heightCm = finite(profile.heightCm, 170);
   const weightKg = finite(profile.weightKg, 70);
-  const baseCalories = 10 * weightKg + 6.25 * heightCm - 5 * age + sexOffset;
+  return 10 * weightKg + 6.25 * heightCm - 5 * age + sexOffset;
+};
+
+/**
+ * What this body burns in a day: the calories that hold weight steady, before
+ * any goal moves it. The pet's hunger is measured against this, so someone
+ * eating to a deficit is never told their pet is starving for following it.
+ */
+export const maintenanceCalories = (profile: BodyProfile): number =>
+  Math.max(1200, Math.round(baseCaloriesFor(profile) * activityFactorFor(profile)));
+
+export const calculateMacroTargets = (profile: BodyProfile): MacroTargets => {
+  const weightKg = finite(profile.weightKg, 70);
   const calories = Math.max(
     1200,
-    Math.round(baseCalories * activityFactorFor(profile) + calorieAdjustmentFor(profile)),
+    Math.round(baseCaloriesFor(profile) * activityFactorFor(profile) + calorieAdjustmentFor(profile)),
   );
   const proteinGrams = Math.round(weightKg * proteinPerKgFor(profile));
   const fatGrams = Math.round((calories * 0.28) / 9);

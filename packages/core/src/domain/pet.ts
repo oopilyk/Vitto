@@ -123,6 +123,12 @@ export interface PetState {
    */
   careAreas?: FocusArea[];
   /**
+   * Meals still feeding the pet: the last day's, each as its share of the
+   * logger's maintenance. Hunger is worked out from these (see hunger.ts).
+   * Absent on a pet that has not eaten since hunger started counting calories.
+   */
+  recentMeals?: { at: string; points: number }[];
+  /**
    * The specialism the pet evolved into, locked once earned. Evolving is for
    * keeps: when the stats behind it drift back to even (a scholar skipping Mind
    * Gym), `getPetBuild` falls back to this rather than devolving the pet. A

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MEAL_FILL_DEFAULT, PetHealthEngine, applyDelta } from './petHealthEngine';
+import { MEAL_HEALTH, PetHealthEngine, applyDelta, mealQuality } from './petHealthEngine';
+import { MEAL_POINTS_DEFAULT } from './hunger';
 import { clamp, createPet } from './pet';
 import type { HealthEvent, WorkoutStats } from './health';
 
@@ -403,53 +404,84 @@ describe('MEAL', () => {
     },
   });
 
-  it('scales nutrition by the count of nourishing signals present', () => {
-    const pet = createPet('user-1', 'Miso');
-    const result = new PetHealthEngine().apply(
-      pet,
-      mealEvent({ protein: true, vegetables: true, fruit: true, wholeGrains: true, fiber: true }),
-    );
-
-    expect(result.pet.nutrition).toBe(clamp(pet.nutrition + MEAL_FILL_DEFAULT + 15));
-  });
-
-  it('feeds the pet for any meal, even one with nothing nourishing on it, but adds no health', () => {
-    const pet = { ...createPet('user-1', 'Miso'), nutrition: 20 };
-    const result = new PetHealthEngine().apply(pet, mealEvent({ treats: true }));
-
-    expect(result.pet.nutrition).toBe(20 + MEAL_FILL_DEFAULT);
-    expect(result.pet.health).toBe(pet.health);
-  });
-
-  it('fills by calories, within limits', () => {
-    const at = (calories: number) => {
-      const pet = { ...createPet('user-1', 'Miso'), nutrition: 20 };
-      const meal = mealEvent({});
-      (meal.metadata as Record<string, unknown>).analysis = { macros: { calories, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 } };
-      return new PetHealthEngine().apply(pet, meal).pet.nutrition - 20;
+  const withCalories = (event: HealthEvent, calories: number, grade?: 'A' | 'B' | 'C' | 'D'): HealthEvent => {
+    (event.metadata as Record<string, unknown>).analysis = {
+      grade,
+      macros: { calories, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 },
     };
-    expect(at(80)).toBe(3);
-    expect(at(640)).toBe(8);
-    expect(at(5800)).toBe(12);
+    return event;
+  };
+
+  // Cared for that morning, so the meal at noon is the newest moment.
+  const fedThisMorning = (nutrition: number, recentMeals?: { at: string; points: number }[]) => ({
+    ...createPet('user-1', 'Miso'),
+    adoptedAt: '2026-08-28T08:00:00Z',
+    lastEventAt: '2026-08-28T08:00:00Z',
+    nutrition,
+    recentMeals,
+  });
+  const maintained = { maintenanceCalories: 2000 };
+
+  it('feeds the pet by the meal\'s share of maintenance, whatever was on the plate', () => {
+    const engine = new PetHealthEngine();
+    const at = (grade: 'A' | 'D') =>
+      engine.apply(fedThisMorning(0, []), withCalories(mealEvent({}), 1000, grade), maintained).pet;
+    // 1,000 of 2,000 kcal is half a day's eating: 50 on the bar, and not hungry.
+    expect(at('A').nutrition).toBe(50);
+    expect(at('A').mood).not.toBe('hungry');
+    // Hunger never reads the grade.
+    expect(at('D').nutrition).toBe(at('A').nutrition);
   });
 
-  it('pays the health and energy bonus once three or more nourishing signals are hit', () => {
-    const pet = createPet('user-1', 'Miso');
-    const result = new PetHealthEngine().apply(
-      pet,
-      mealEvent({ protein: true, vegetables: true, fruit: true }),
-    );
-
-    expect(result.pet.health).toBe(clamp(pet.health + 2));
-    expect(result.pet.energy).toBe(clamp(pet.energy + 3));
+  it('adds to what was eaten earlier in the day, up to a full bar', () => {
+    const engine = new PetHealthEngine();
+    const earlier = [{ at: '2026-08-28T07:00:00Z', points: 30 }];
+    expect(engine.apply(fedThisMorning(30, earlier), withCalories(mealEvent({}), 600, 'B'), maintained).pet.nutrition).toBe(60);
+    expect(engine.apply(fedThisMorning(30, earlier), withCalories(mealEvent({}), 5800, 'B'), maintained).pet.nutrition).toBe(100);
   });
 
-  it('withholds the health and energy bonus below the three-signal threshold', () => {
-    const pet = createPet('user-1', 'Miso');
-    const result = new PetHealthEngine().apply(pet, mealEvent({ protein: true, vegetables: true }));
+  it('remembers the meal on the pet, so hunger can wear off later', () => {
+    const result = new PetHealthEngine().apply(fedThisMorning(0, []), withCalories(mealEvent({}), 500, 'B'), maintained);
+    expect(result.pet.recentMeals).toEqual([{ at: '2026-08-28T12:00:00Z', points: 25 }]);
+  });
 
-    expect(result.pet.health).toBe(pet.health);
-    expect(result.pet.energy).toBe(pet.energy);
+  it('feeds a meal with no calorie count as about a quarter of a day', () => {
+    const result = new PetHealthEngine().apply(fedThisMorning(0, []), mealEvent({}), maintained);
+    expect(result.pet.nutrition).toBe(MEAL_POINTS_DEFAULT);
+  });
+
+  it('lets a meal logged long after it was eaten feed nothing now', () => {
+    // Imported two days late: it wore off long ago.
+    const pet = { ...fedThisMorning(40, []), lastEventAt: '2026-08-30T12:00:00Z' };
+    expect(new PetHealthEngine().apply(pet, withCalories(mealEvent({}), 1000, 'A'), maintained).pet.nutrition).toBe(0);
+  });
+
+  it('moves health by what was on the plate, and costs health for junk', () => {
+    const health = (grade: 'A' | 'B' | 'C' | 'D') => {
+      const pet = { ...createPet('user-1', 'Miso'), health: 60 };
+      return new PetHealthEngine().apply(pet, withCalories(mealEvent({}), 500, grade)).pet.health - 60;
+    };
+    expect(health('A')).toBe(MEAL_HEALTH.A);
+    expect(health('B')).toBe(MEAL_HEALTH.B);
+    expect(health('C')).toBe(0);
+    // The grade's own cost, plus the Junk after-effect a D plate carries.
+    expect(health('D')).toBeLessThanOrEqual(MEAL_HEALTH.D);
+    expect(MEAL_HEALTH.D).toBeLessThan(0);
+  });
+
+  it('grades an ungraded meal from its flags, and only calls it unhealthy when it was a treat', () => {
+    expect(mealQuality(mealEvent({ protein: true, vegetables: true, fruit: true }).metadata as never)).toBe('A');
+    expect(mealQuality(mealEvent({ protein: true, vegetables: true }).metadata as never)).toBe('B');
+    expect(mealQuality(mealEvent({ protein: true }).metadata as never)).toBe('C');
+    expect(mealQuality(mealEvent({ treats: true }).metadata as never)).toBe('D');
+    expect(mealQuality(mealEvent({}).metadata as never)).toBe('C');
+  });
+
+  it('pays the energy bonus only for an A plate', () => {
+    const pet = createPet('user-1', 'Miso');
+    const engine = new PetHealthEngine();
+    expect(engine.apply(pet, mealEvent({ protein: true, vegetables: true, fruit: true })).pet.energy).toBe(clamp(pet.energy + 3));
+    expect(engine.apply(pet, mealEvent({ protein: true, vegetables: true })).pet.energy).toBe(pet.energy);
   });
 
   it('rewards a treat-only meal with the higher happiness bonus, not the plain one', () => {
@@ -503,10 +535,11 @@ describe('MEAL', () => {
   });
 
   it('never lets a maxed-out pet exceed the 100 cap on nutrition', () => {
-    const pet = { ...createPet('user-1', 'Miso'), nutrition: 95 };
+    const pet = fedThisMorning(95, [{ at: '2026-08-28T07:00:00Z', points: 95 }]);
     const result = new PetHealthEngine().apply(
       pet,
       mealEvent({ protein: true, vegetables: true, fruit: true, wholeGrains: true, fiber: true }),
+      maintained,
     );
 
     expect(result.pet.nutrition).toBe(100);

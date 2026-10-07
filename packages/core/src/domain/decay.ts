@@ -1,4 +1,5 @@
 import { determineMood } from './petHealthEngine';
+import { hungerAt, hungerSteps, mealsOf } from './hunger';
 import { applyCareAreas, untrackedNeeds, type CareArea } from './careAreas';
 import { clamp, lockEvolution, type PetState } from './pet';
 
@@ -57,7 +58,6 @@ export const DECAY_TICK_MS = Math.min(60_000, Math.max(5_000, DECAY_PERIOD_MS / 
  * needs, not a stat that ticks down on its own.
  */
 export const DECAY_PER_DAY = {
-  nutrition: 18,
   energy: 12,
   happiness: 10,
   mind: 5,
@@ -119,15 +119,32 @@ export const applyTimeDecay = (
   if (elapsedDays <= 0) return pet;
 
   const energy = clamp(pet.energy - elapsedDays * rate('energy'));
-  const nutrition = clamp(pet.nutrition - elapsedDays * rate('nutrition'));
+  // Hunger is what was eaten in the last day (see hunger.ts): it steps down
+  // as each meal wears off, and the steps are kept for the health reckoning.
+  const anchorMs = anchor.getTime();
+  const endMs = anchorMs + elapsedDays * DECAY_PERIOD_MS;
+  const meals = mealsOf(pet);
+  const tracksFood = !held.has('nutrition');
+  const nutrition = tracksFood ? hungerAt(meals, endMs) : pet.nutrition;
+  const startNutrition = tracksFood ? hungerAt(meals, anchorMs) : pet.nutrition;
+  const steps = tracksFood
+    ? hungerSteps(meals, anchorMs, endMs).map((step) => ({ day: (step.atMs - anchorMs) / DECAY_PERIOD_MS, value: step.value }))
+    : [];
   const happiness = clamp(pet.happiness - elapsedDays * rate('happiness'));
   const mind = clamp(pet.mind - elapsedDays * rate('mind'));
 
   // Each need falls linearly, so the moment it crosses a threshold is analytic:
   // no simulation loop, and the answer is identical at any tick granularity.
   // A held need never falls, so it never reaches either threshold.
-  const daysUntil = (stat: (typeof VITAL_NEEDS)[number], floor: number) =>
-    rate(stat) === 0 ? Infinity : Math.max(0, (pet[stat] - floor) / rate(stat));
+  // Hunger falls in steps, so its moment is the first step under the floor.
+  const daysUntil = (stat: (typeof VITAL_NEEDS)[number], floor: number) => {
+    if (stat === 'nutrition') {
+      if (!tracksFood) return Infinity;
+      if (startNutrition < floor) return 0;
+      return steps.find((step) => step.value < floor)?.day ?? Infinity;
+    }
+    return rate(stat) === 0 ? Infinity : Math.max(0, (pet[stat] - floor) / rate(stat));
+  };
 
   const criticalDays = VITAL_NEEDS.reduce(
     (total, stat) => total + Math.max(0, elapsedDays - daysUntil(stat, CRITICAL_NEED)),

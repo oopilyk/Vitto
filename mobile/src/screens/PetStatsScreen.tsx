@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import {
   type BrainTrainingMetadata,
   DECAY_PERIOD_MS,
   DECAY_PER_DAY,
+  HUNGRY_NUTRITION_THRESHOLD,
   PET_BUILD_LABEL,
   type HealthEvent,
   IS_TEST_DECAY_PERIOD,
@@ -73,13 +74,12 @@ const CARE_LABEL = [
 const DECAY_RATES = `${(
   [
     ['Energy', DECAY_PER_DAY.energy],
-    ['Nutrition', DECAY_PER_DAY.nutrition],
     ['Happiness', DECAY_PER_DAY.happiness],
     ['Mind', DECAY_PER_DAY.mind],
   ] as const
 )
   .map(([label, rate]) => `${label} −${rate}`)
-  .join(' · ')}, every day without care.`;
+  .join(' · ')}, every day without care. Hunger follows what you ate in the last 24 hours instead.`;
 
 /**
  * How long one "day" of decline actually lasts, in words. Derived rather than
@@ -94,12 +94,77 @@ const DECAY_PERIOD_LABEL = (() => {
   return hours === 1 ? 'hour' : `${hours} hours`;
 })();
 
-function Card({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+function Card({
+  title,
+  hint,
+  onInfo,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  /** Opens the card's explanations on a page of their own, so the card can stay just bars. */
+  onInfo?: () => void;
+  children: ReactNode;
+}) {
   return (
     <View style={styles.card}>
-      <Kicker>{title}</Kicker>
+      <View style={styles.cardHead}>
+        <Kicker>{title}</Kicker>
+        {onInfo ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`About ${title}`}
+            onPress={onInfo}
+            hitSlop={10}
+            style={({ pressed }) => [styles.infoButton, pressed && styles.sharePressed]}
+          >
+            <Text style={styles.infoMark}>i</Text>
+          </Pressable>
+        ) : null}
+      </View>
       {hint ? <Text style={styles.cardHint}>{hint}</Text> : null}
       <View style={styles.cardBody}>{children}</View>
+    </View>
+  );
+}
+
+/** What each stat card's info page says above its stats, and under them. */
+const GROUP_INFO = (petName: string): Record<PetStatGroup, { title: string; intro: string; outro?: string }> => ({
+  condition: {
+    title: 'Condition',
+    intro: `How ${petName} is doing right now. Hunger, energy, happiness and mind fade on their own; everything else only ever climbs.`,
+    outro:
+      'Health has no timer of its own. Meals move it by what was on the plate, and beyond that it climbs while hunger, energy and happiness are all comfortable and drains for each one you let bottom out.',
+  },
+  body: { title: 'Body', intro: 'Built up through training, and it stays built.' },
+  mind: { title: 'Mind', intro: `How sharp ${petName} is. It fades a little each day without a game.` },
+});
+
+/** One card's explanations, on their own page: the card itself only shows the bars. */
+function StatInfoPage({ group, petName, onBack }: { group: PetStatGroup; petName: string; onBack: () => void }) {
+  const info = GROUP_INFO(petName)[group];
+  return (
+    <View style={layout.screen}>
+      <View style={styles.topbar}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back to stats" onPress={onBack} hitSlop={8} style={styles.back}>
+          <Text style={styles.backMark}>←</Text>
+          <Text style={styles.backLabel}>Stats</Text>
+        </Pressable>
+        <Text style={styles.topTitle}>{info.title}</Text>
+        <View style={styles.back} />
+      </View>
+      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: 40 + HOME_INDICATOR_INSET }]} testID={`stat-info-${group}`}>
+        <Text style={styles.infoIntro}>{info.intro}</Text>
+        <View style={styles.card}>
+          {PET_STAT_DESCRIPTORS.filter((descriptor) => descriptor.group === group).map((descriptor, index) => (
+            <View key={descriptor.key} style={[styles.infoRow, index > 0 && styles.infoRowRule]}>
+              <Text style={styles.infoName}>{descriptor.label}</Text>
+              <Text style={styles.infoBody}>{descriptor.hint}</Text>
+            </View>
+          ))}
+        </View>
+        {info.outro ? <Text style={styles.infoOutro}>{info.outro}</Text> : null}
+      </ScrollView>
     </View>
   );
 }
@@ -160,7 +225,7 @@ const FEELING_INK = (): Record<PetState['mood'], string> => ({
 });
 
 const describeMood = (pet: PetState): string => {
-  if (pet.mood === 'hungry') return `Nutrition is under 35. A meal will sort it.`;
+  if (pet.mood === 'hungry') return `The hunger bar is under ${HUNGRY_NUTRITION_THRESHOLD}. A real meal will sort it.`;
   if (pet.mood === 'sleepy') return `Energy is under 40. Some rest will sort it.`;
   if (pet.mood === 'bright') return `Energy and happiness are both 65 or more.`;
   return `Fed and rested, not quite at 65 energy and happiness together yet.`;
@@ -184,6 +249,8 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
     ? Math.max(0, Math.floor((now.getTime() - lastEventAt.getTime()) / 86400000))
     : null;
 
+  const [info, setInfo] = useState<PetStatGroup | null>(null);
+
   const groupOf = (group: PetStatGroup) =>
     PET_STAT_DESCRIPTORS.filter((descriptor) => descriptor.group === group);
 
@@ -194,9 +261,10 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
         label={descriptor.label}
         value={statValue(pet, descriptor.key)}
         color={GROUP_COLOR()[group]}
-        hint={descriptor.hint}
       />
     ));
+
+  if (info) return <StatInfoPage group={info} petName={pet.name} onBack={() => setInfo(null)} />;
 
   return (
     <View style={layout.screen}>
@@ -280,23 +348,15 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
 
         <EvolutionCard pet={pet} onChooseForm={onChooseForm} />
 
-        <Card
-          title="Condition"
-          hint={`How ${pet.name} is doing right now. Nutrition, energy, happiness and mind fade on their own — everything else only ever climbs.`}
-        >
+        <Card title="Condition" onInfo={() => setInfo('condition')}>
           {renderGroup('condition')}
-          <Text style={styles.healthNote}>
-            Health has no timer of its own. It climbs while nutrition, energy and happiness are
-            all comfortable, and drains for each one you let bottom out — so it is the
-            consequence of the other three, not a fifth thing to keep topped up.
-          </Text>
         </Card>
 
-        <Card title="Body" hint="Built up through training, and it stays built.">
+        <Card title="Body" onInfo={() => setInfo('body')}>
           {renderGroup('body')}
         </Card>
 
-        <Card title="Mind">
+        <Card title="Mind" onInfo={() => setInfo('mind')}>
           {renderGroup('mind')}
           <View style={styles.moodRow}>
             <Text style={styles.moodValue}>
@@ -397,6 +457,23 @@ const styles = themedStyles(() => ({
     borderRadius: 18,
     padding: 18,
   },
+  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  infoButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoMark: { fontFamily: fonts.mono, fontSize: 12, fontWeight: '700', color: colors.muted, marginTop: -1 },
+  infoIntro: { fontSize: 15, lineHeight: 22, color: colors.muted, marginBottom: 14 },
+  infoRow: { paddingVertical: 12 },
+  infoRowRule: { borderTopWidth: 1, borderTopColor: colors.hairline },
+  infoName: { ...text.heading, fontSize: 15 },
+  infoBody: { fontSize: 14, lineHeight: 21, color: colors.muted, marginTop: 4 },
+  infoOutro: { fontSize: 14, lineHeight: 21, color: colors.muted, marginTop: 14 },
   cardHint: { fontSize: 12, color: colors.faint, marginTop: 6, lineHeight: 17 },
   cardBody: { marginTop: 4 },
   facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
@@ -467,7 +544,6 @@ const styles = themedStyles(() => ({
   },
   lastCare: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 14, lineHeight: 16 },
   decayNote: { fontSize: 12, color: colors.faint, marginTop: 8, lineHeight: 18 },
-  healthNote: { fontSize: 12, color: colors.muted, marginTop: 14, lineHeight: 18 },
   testBanner: {
     backgroundColor: colors.coral,
     borderRadius: 14,

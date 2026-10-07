@@ -23,6 +23,7 @@ export * from './domain/petVoice';
 export * from './domain/bond';
 export * from './domain/petStats';
 export * from './domain/decay';
+export * from './domain/hunger';
 export * from './domain/devAccess';
 export * from './domain/petCondition';
 export * from './domain/petStatusEffects';

@@ -1,4 +1,5 @@
 import { DECAY_PER_DAY } from './decay';
+import { HUNGRY_NUTRITION_THRESHOLD } from './petHealthEngine';
 import type { HealthEvent, HealthEventType } from './health';
 import { clamp, type PetState } from './pet';
 
@@ -49,7 +50,7 @@ export const PET_STAT_DESCRIPTORS: PetStatDescriptor[] = [
     key: 'health',
     label: 'Health',
     group: 'condition',
-    hint: 'Not fed directly — it holds up while nutrition, energy and happiness all stay in good shape, and slips away for every one of them you let run empty.',
+    hint: 'What you eat moves it: a balanced plate adds up to 3, junk takes 3 or more. It also holds up while hunger, energy and happiness stay in good shape, and slips away for every one of them you let run empty.',
   },
   {
     key: 'energy',
@@ -65,9 +66,9 @@ export const PET_STAT_DESCRIPTORS: PetStatDescriptor[] = [
   },
   {
     key: 'nutrition',
-    label: 'Nutrition',
+    label: 'Hunger',
     group: 'condition',
-    hint: `Worth 3 for each of protein, vegetables, fruit, whole grains and fiber in a logged meal. Falls ${DECAY_PER_DAY.nutrition} a day.`,
+    hint: `What you ate in the last 24 hours, against what your body burns in a day: eat your maintenance and the bar is full. Each meal wears off a day after you ate it, and under ${HUNGRY_NUTRITION_THRESHOLD} your pet is hungry. What was on the plate counts toward health, not here.`,
   },
   {
     key: 'strength',

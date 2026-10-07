@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { DECAY_PERIOD_MS, DECAY_PER_DAY, HUNGRY_NUTRITION_THRESHOLD, PET_BREEDS, createPet } from '@vitto/core';
+import { DECAY_PERIOD_MS, PET_BREEDS, createPet, nextHungryAt } from '@vitto/core';
 import { sheetByBreed } from '../components/petSprites';
 import { buildIslandState, islandSignature, spriteAssetName } from '../services/petIsland';
 
@@ -17,18 +17,29 @@ const everySheet = () =>
 
 describe('the pet on the Dynamic Island', () => {
   it('hands the Island dates it can animate on its own, not numbers it cannot', () => {
-    const pet = { ...createPet('u', 'Blue', 'dog', 'bunny'), nutrition: 60, energy: 80, happiness: 50, health: 90, mood: 'content' as const };
+    // Fed two hours ago, a meal worth 60 on the bar.
+    const ate = new Date(NOW - DAY / 12).toISOString();
+    const pet = {
+      ...createPet('u', 'Blue', 'dog', 'bunny'),
+      adoptedAt: ate,
+      lastEventAt: ate,
+      nutrition: 60,
+      recentMeals: [{ at: ate, points: 60 }],
+      energy: 80,
+      happiness: 50,
+      health: 90,
+      mood: 'content' as const,
+    };
     const state = buildIslandState(pet, NOW);
     const s = (ms: number) => Math.round(ms / 1000);
-    // Food is at 60 and falls 18 a day: it was full 40/18 days ago and is empty 60/18 days from now.
-    expect(state.nutritionFullAt).toBe(s(NOW - (40 / DECAY_PER_DAY.nutrition) * DAY));
-    expect(state.nutritionEmptyAt).toBe(s(NOW + (60 / DECAY_PER_DAY.nutrition) * DAY));
-    // So a bar drawn draining full->empty sits at exactly 0.6 right now.
+    // Hunger steps down as meals wear off rather than draining: its bar stands still at 0.6...
     const at = (state.nutritionEmptyAt - s(NOW)) / (state.nutritionEmptyAt - state.nutritionFullAt);
     expect(at).toBeCloseTo(0.6, 3);
-    // It gets hungry when food crosses the threshold, before it gets sleepy.
+    expect(state.nutritionEmptyAt - s(NOW)).toBeGreaterThan(s(365 * DAY));
+    // ...and it gets hungry when that meal wears off, a day after it was eaten.
     expect(state.nextNeed).toBe('hungry');
-    expect(state.nextNeedAt).toBe(s(NOW + ((60 - HUNGRY_NUTRITION_THRESHOLD) / DECAY_PER_DAY.nutrition) * DAY));
+    expect(state.nextNeedAt).toBe(s(nextHungryAt(pet, NOW)!));
+    expect(state.nextNeedAt).toBe(s(NOW - DAY / 12 + DAY));
     expect(state.headline).toBe('Blue is doing fine');
     expect(state.sprite).toBe('bunny');
     expect(state.health).toBeCloseTo(0.9);

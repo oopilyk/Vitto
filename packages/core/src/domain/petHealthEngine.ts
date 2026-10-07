@@ -1,10 +1,11 @@
-import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
+import type { BrainTrainingMetadata, HealthEvent, MealAnalysis, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
 import { coinsEarned, coinsOf } from './coins';
 import { clamp, lockEvolution, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { formatMinutes } from './careToast';
 import { type FoodEffect, detectFoodEffects, foodEffectsDelta } from './foodEffects';
 import { workoutStrengthDelta } from './strengthProgression';
+import { type RecentMeal, hungerAt, mealPoints, mealsOf, mealsStillFeeding } from './hunger';
 
 export interface EngineResult {
   pet: PetState;
@@ -21,9 +22,11 @@ export interface PetHealthContext {
   history?: HealthEvent[];
   /** The user's body weight in kg, if known — lets bodyweight workouts scale by how much they actually move. */
   bodyWeightKg?: number;
+  /** What the logger burns in a day (see maintenanceCalories): a meal feeds the pet by its share of it. */
+  maintenanceCalories?: number;
 }
 
-export const HUNGRY_NUTRITION_THRESHOLD = 35;
+export const HUNGRY_NUTRITION_THRESHOLD = 25;
 export const SLEEPY_ENERGY_THRESHOLD = 40;
 const BRIGHT_ENERGY_THRESHOLD = 65;
 const BRIGHT_HAPPINESS_THRESHOLD = 65;
@@ -104,13 +107,35 @@ const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
   petJeopardy: 'Pet Jeopardy',
 };
 
-/** Fullness from one meal: about +1 per 80 kcal, between 3 and 12. A meal with no count fills a middling 6. */
-export const MEAL_FILL_DEFAULT = 6;
-const mealFill = (meal: MealMetadata): number => {
-  const kcal = meal.analysis?.macros?.calories;
-  if (typeof kcal !== 'number' || !Number.isFinite(kcal) || kcal <= 0) return MEAL_FILL_DEFAULT;
-  return Math.min(12, Math.max(3, Math.round(kcal / 80)));
+/*
+ * A meal does two separate things, and they never borrow from each other:
+ *
+ *   nutrition (hunger) -- whether the pet was fed, and how much. Any meal
+ *                         counts, so a pet whose person ate is never hungry.
+ *   health             -- what was on the plate. A good plate helps, junk
+ *                         costs, whatever it did for hunger.
+ */
+
+export type MealQuality = MealAnalysis['grade'];
+
+/**
+ * How good a plate was. Every logging path grades it (the photo model, the
+ * food database, Apple Health); a meal without a grade is read off its flags
+ * the way the food database grades, except that nothing flagged at all is
+ * only unhealthy when it was a treat, since an unflagged meal may just be
+ * one nobody described.
+ */
+export const mealQuality = (meal: MealMetadata): MealQuality => {
+  if (meal.analysis?.grade) return meal.analysis.grade;
+  const signals = [meal.protein, meal.vegetables, meal.fruit, meal.wholeGrains, meal.fiber].filter(Boolean).length;
+  if (signals >= 3) return 'A';
+  if (signals === 2) return 'B';
+  if (signals === 1) return 'C';
+  return meal.treats ? 'D' : 'C';
 };
+
+/** The plate's effect on health. D is the unhealthy flag: it costs, even though the pet is fed. */
+export const MEAL_HEALTH: Record<MealQuality, number> = { A: 3, B: 1, C: 0, D: -3 };
 
 export const determineMood = (energy: number, nutrition: number, happiness: number): PetMood => {
   if (nutrition < HUNGRY_NUTRITION_THRESHOLD) return 'hungry';
@@ -240,6 +265,7 @@ export class PetHealthEngine {
     let authored = false;
     let eventLabel: string;
     let foodEffects: FoodEffect[] = [];
+    let recentMeals: RecentMeal[] | undefined;
 
     switch (event.type) {
       case 'WORKOUT': {
@@ -368,12 +394,23 @@ export class PetHealthEngine {
       }
       case 'MEAL': {
         const meal = event.metadata as unknown as MealMetadata;
-        const nourishingSignals = [meal.protein, meal.vegetables, meal.fruit, meal.wholeGrains, meal.fiber].filter(Boolean).length;
-        // Any meal feeds the pet: hungry means unfed, and someone who ate should
-        // never be told their pet is starving. How much it fills follows the
-        // calories, capped so one huge plate is not a week's food; what was on
-        // the plate adds on top, and health is still only for the good stuff.
-        delta = { nutrition: mealFill(meal) + nourishingSignals * 3, health: nourishingSignals >= 3 ? 2 : 0, happiness: meal.treats ? 4 : 2, energy: nourishingSignals >= 3 ? 3 : 0, xp: 10 };
+        const quality = mealQuality(meal);
+        // Hunger: the meal joins the last day's eating, by its share of the
+        // logger's maintenance (see hunger.ts), whatever was on the plate.
+        // Health: only the plate.
+        const eatenMs = Date.parse(event.occurredAt);
+        const anchorMs = Math.max(eatenMs, Date.parse(pet.lastEventAt ?? pet.adoptedAt) || eatenMs);
+        recentMeals = mealsStillFeeding(
+          [...mealsOf(pet), { at: event.occurredAt, points: mealPoints(meal.analysis?.macros?.calories, context.maintenanceCalories) }],
+          anchorMs,
+        );
+        delta = {
+          nutrition: hungerAt(recentMeals, anchorMs) - pet.nutrition,
+          health: MEAL_HEALTH[quality],
+          happiness: meal.treats ? 4 : 2,
+          energy: quality === 'A' ? 3 : 0,
+          xp: 10,
+        };
         // Food effects ride on top: a spicy plate is a little energising, a feast
         // a little sleepy. Small by design — flavour, not a second nutrition engine.
         foodEffects = detectFoodEffects(meal);
@@ -382,7 +419,13 @@ export class PetHealthEngine {
         // written for that plate; a searched or scanned meal gets the stock line.
         const spoken = meal.analysis?.petReaction?.trim();
         authored = Boolean(spoken);
-        message = spoken || (meal.treats ? 'I savored the treat. Balance feels good.' : 'I loved the variety in that meal.');
+        message =
+          spoken ||
+          (quality === 'D'
+            ? 'That filled me up. Not the healthiest, though.'
+            : meal.treats
+              ? 'I savored the treat. Balance feels good.'
+              : 'I loved the variety in that meal.');
         eventLabel = 'Shared a meal';
         break;
       }
@@ -437,8 +480,9 @@ export class PetHealthEngine {
     const returnedAfterDays = daysAway >= RETURN_AFTER_DAYS ? daysAway : 0;
     if (returnedAfterDays) message = `It's been ${returnedAfterDays} days. ${message}`;
 
+    const next = applyDelta(pet, delta, event.occurredAt);
     return {
-      pet: applyDelta(pet, delta, event.occurredAt),
+      pet: recentMeals ? { ...next, recentMeals } : next,
       reaction: {
         message,
         eventLabel,

@@ -1767,7 +1767,7 @@ describe('pet stats screen', () => {
     const shown = bars(tree);
     // None of these five appear anywhere else in the app.
     expect(shown.get('Energy')).toBe(57);
-    expect(shown.get('Nutrition')).toBe(43);
+    expect(shown.get('Hunger')).toBe(43);
     expect(shown.get('Happiness')).toBe(91);
     expect(shown.get('Strength')).toBe(33);
     expect(shown.get('Recovery')).toBe(27);
@@ -1776,6 +1776,27 @@ describe('pet stats screen', () => {
     expect(rendered).toContain('Miso');
     expect(rendered).toContain('Condition');
     expect(rendered).toContain('Body');
+    tree.unmount();
+  });
+
+  it('keeps the explanations off the cards, behind an info button per card', () => {
+    const { Text } = require('react-native');
+    const tree = render();
+    const texts = () => tree.root.findAllByType(Text).map((n: any) => [n.props.children].flat().join(''));
+    const hungerHint = require('@vitto/core').PET_STAT_DESCRIPTORS.find((d: { key: string; hint: string }) => d.key === 'nutrition')!.hint;
+    expect(texts()).not.toContain(hungerHint);
+
+    const info = (label: string) =>
+      tree.root.find((node: any) => node.props.accessibilityLabel === label && typeof node.props.onPress === 'function');
+    act(() => info('About Condition').props.onPress());
+    expect(tree.root.findAll((node: any) => node.props.testID === 'stat-info-condition').length).toBeGreaterThan(0);
+    expect(texts()).toContain(hungerHint);
+    expect(texts()).toContain('Hunger');
+
+    act(() => info('Back to stats').props.onPress());
+    expect(tree.root.findAll((node: any) => node.props.testID === 'stat-info-condition')).toHaveLength(0);
+    expect(info('About Body')).toBeTruthy();
+    expect(info('About Mind')).toBeTruthy();
     tree.unmount();
   });
 
@@ -1796,10 +1817,11 @@ describe('pet stats screen', () => {
 
     const shown = bars(tree);
     expect(shown.get('Energy')).toBe(80 - 2 * DECAY_PER_DAY.energy);
-    expect(shown.get('Nutrition')).toBe(60 - 2 * DECAY_PER_DAY.nutrition);
+    // Two days is four mealtimes missed: hungry, and well past it.
+    expect(shown.get('Hunger')).toBeLessThan(25);
     // Exactly what it was given: a second pass would subtract the same window again.
     expect(shown.get('Energy')).toBe(projected.energy);
-    expect(shown.get('Nutrition')).toBe(projected.nutrition);
+    expect(shown.get('Hunger')).toBe(projected.nutrition);
     // Projecting is non-destructive — the caller's stored pet is untouched.
     expect(source.energy).toBe(80);
     expect(source.nutrition).toBe(60);

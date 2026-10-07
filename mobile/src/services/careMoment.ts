@@ -14,6 +14,7 @@ import {
   calculateQualifyingStreaks,
   createsNewStreakDay,
   totalPetXp,
+  maintenanceCalories,
 } from '@vitto/core';
 
 const PET_DELTA_KEYS: (keyof PetDelta)[] = [
@@ -130,7 +131,12 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
   const wasDying = assessCondition(decayed).primary === 'dying';
   // Strength is scored against recent training, so hand the engine the
   // history it needs plus body weight for bodyweight-exercise volume.
-  const result = engine.apply(decayed, event, { history: events, bodyWeightKg: profile.weightKg });
+  // Maintenance too: a meal feeds the pet by its share of what this person burns.
+  const result = engine.apply(decayed, event, {
+    history: events,
+    bodyWeightKg: profile.weightKg,
+    maintenanceCalories: maintenanceCalories(profile),
+  });
   let nextPet = result.pet;
   let nextReaction = result.reaction;
 

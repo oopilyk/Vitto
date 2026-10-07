@@ -13,6 +13,7 @@ import {
   isDecayFastMode,
   resolveDecayPeriodMs,
 } from './decay';
+import { MEAL_POINTS_DEFAULT, mealPoints, nextHungryAt } from './hunger';
 import { createPet } from './pet';
 
 /**
@@ -21,6 +22,7 @@ import { createPet } from './pet';
  */
 const daysAfter = (pet: { adoptedAt: string }, days: number) =>
   new Date(new Date(pet.adoptedAt).getTime() + days * DECAY_PERIOD_MS);
+
 
 describe('applyTimeDecay', () => {
   it('leaves a freshly cared-for pet unchanged', () => {
@@ -48,7 +50,6 @@ describe('applyTimeDecay', () => {
   it('applies the published per-day rates', () => {
     const pet = { ...createPet('user-1', 'Miso'), nutrition: 100, energy: 100, happiness: 100, mind: 100 };
     const decayed = applyTimeDecay(pet, daysAfter(pet, 1));
-    expect(decayed.nutrition).toBe(100 - DECAY_PER_DAY.nutrition);
     expect(decayed.energy).toBe(100 - DECAY_PER_DAY.energy);
     expect(decayed.happiness).toBe(100 - DECAY_PER_DAY.happiness);
     expect(decayed.mind).toBe(100 - DECAY_PER_DAY.mind);
@@ -63,15 +64,15 @@ describe('applyTimeDecay', () => {
   });
 
   it('compounds if the result is fed back in, which is why callers must decay from the stored pet', () => {
-    const pet = { ...createPet('user-1', 'Miso'), nutrition: 100 };
+    const pet = { ...createPet('user-1', 'Miso'), energy: 100 };
     const once = applyTimeDecay(pet, daysAfter(pet, 1));
     // `once` still carries the original anchor, so decaying it again re-applies
     // the very same elapsed day. This is the bug the contract forbids, captured
     // here so nobody "fixes" a call site by chaining decays.
     const twice = applyTimeDecay(once, daysAfter(pet, 1));
-    expect(once.nutrition).toBe(100 - DECAY_PER_DAY.nutrition);
-    expect(twice.nutrition).toBe(100 - 2 * DECAY_PER_DAY.nutrition);
-    expect(twice.nutrition).not.toBe(once.nutrition);
+    expect(once.energy).toBe(100 - DECAY_PER_DAY.energy);
+    expect(twice.energy).toBe(100 - 2 * DECAY_PER_DAY.energy);
+    expect(twice.energy).not.toBe(once.energy);
   });
 
   it('keeps decayed stats whole, since they are stored in integer columns', () => {
@@ -96,30 +97,54 @@ describe('applyTimeDecay', () => {
 
   describe('health, which is a consequence rather than a rate', () => {
     it('regenerates while every need is still comfortable', () => {
-      // All three needs start at 100, so the first one to leave the comfort zone
-      // is nutrition at (100 - 60) / 18 = 2.22 days. Half a day in, all thriving.
+      // A pet from before calorie hunger: what it had reads as one meal at its
+      // last care, which keeps it full for a day. Half a day in, all thriving.
       const pet = { ...createPet('user-1', 'Miso'), health: 50, nutrition: 100, energy: 100, happiness: 100 };
       expect(applyTimeDecay(pet, daysAfter(pet, 0.5)).health).toBe(clampedRegen(50, 0.5));
       expect(applyTimeDecay(pet, daysAfter(pet, 0.5)).health).toBeGreaterThan(pet.health);
     });
 
     it('stops regenerating once the first need leaves the comfort zone', () => {
-      const pet = { ...createPet('user-1', 'Miso'), health: 50, nutrition: 100, energy: 100, happiness: 100 };
-      const atComfortEdge = applyTimeDecay(pet, daysAfter(pet, 40 / DECAY_PER_DAY.nutrition)).health;
-      // Well past the edge but before anything turns critical: no further gain.
-      const later = applyTimeDecay(pet, daysAfter(pet, 3)).health;
-      expect(later).toBe(atComfortEdge);
+      // Two half-day meals, the first eaten half a day before the last care: at
+      // half a day it wears off and hunger drops to 50, out of comfort but not critical.
+      const base = createPet('user-1', 'Miso');
+      const anchor = Date.parse(base.adoptedAt);
+      const pet = {
+        ...base,
+        health: 50,
+        nutrition: 100,
+        energy: 100,
+        happiness: 100,
+        recentMeals: [
+          { at: new Date(anchor - 0.5 * DECAY_PERIOD_MS).toISOString(), points: 50 },
+          { at: base.adoptedAt, points: 50 },
+        ],
+      };
+      const atComfortEdge = applyTimeDecay(pet, daysAfter(pet, 0.5)).health;
+      expect(applyTimeDecay(pet, daysAfter(pet, 0.5)).nutrition).toBe(50);
+      // Later, but before the second meal wears off: no further gain.
+      expect(applyTimeDecay(pet, daysAfter(pet, 0.9)).health).toBe(atComfortEdge);
     });
 
     it('starts draining only once a need actually crosses 20', () => {
-      // Nutrition 38 reaches 20 after exactly 1 day; energy and happiness sit high.
-      const pet = { ...createPet('user-1', 'Miso'), health: 90, nutrition: 38, energy: 100, happiness: 100 };
-      expect(applyTimeDecay(pet, daysAfter(pet, 1)).health).toBe(90);
+      // Hunger held (not tracked), so only energy and happiness move.
+      // Energy 32 reaches 20 after exactly 1 day; happiness sits high.
+      const notFood = ['training', 'movement', 'mind'] as const;
+      const pet = { ...createPet('user-1', 'Miso'), health: 90, energy: 32, happiness: 100 };
+      expect(applyTimeDecay(pet, daysAfter(pet, 1), notFood).health).toBe(90);
       // One further day with exactly one need critical costs 4 health.
-      expect(applyTimeDecay(pet, daysAfter(pet, 2)).health).toBe(86);
+      expect(applyTimeDecay(pet, daysAfter(pet, 2), notFood).health).toBe(86);
       // Two needs critical drains twice as fast.
-      const two = { ...pet, energy: 32 }; // energy hits 20 after 1 day as well
-      expect(applyTimeDecay(two, daysAfter(two, 2)).health).toBe(82);
+      const two = { ...pet, happiness: 30 }; // happiness hits 20 after 1 day as well
+      expect(applyTimeDecay(two, daysAfter(two, 2), notFood).health).toBe(82);
+    });
+
+    it('drains once everything eaten has worn off', () => {
+      const pet = { ...createPet('user-1', 'Miso'), health: 90, nutrition: 100, energy: 100, happiness: 100 };
+      const emptied = applyTimeDecay(pet, daysAfter(pet, 1)).health;
+      expect(applyTimeDecay(pet, daysAfter(pet, 1)).nutrition).toBe(0);
+      // A further day with hunger empty (and nothing else critical) costs 4.
+      expect(applyTimeDecay(pet, daysAfter(pet, 2)).health).toBe(emptied - 4);
     });
 
     it('ignores mind entirely, because a dull mind does not kill the dog', () => {
@@ -137,6 +162,57 @@ describe('applyTimeDecay', () => {
     });
   });
 
+  describe('hunger, which is the last day of eating', () => {
+    const fedAt = (offsetsAndPoints: [number, number][]) => {
+      const base = createPet('user-1', 'Miso');
+      const anchor = Date.parse(base.adoptedAt);
+      return {
+        ...base,
+        recentMeals: offsetsAndPoints.map(([days, points]) => ({ at: new Date(anchor + days * DECAY_PERIOD_MS).toISOString(), points })),
+      };
+    };
+
+    it('adds up the meals still feeding the pet, and steps down as each wears off', () => {
+      // 40 points six hours before the last care, 30 at it.
+      const pet = { ...fedAt([[-0.25, 40], [0, 30]]), nutrition: 70 };
+      expect(applyTimeDecay(pet, daysAfter(pet, 0.5)).nutrition).toBe(70);
+      expect(applyTimeDecay(pet, daysAfter(pet, 0.8)).nutrition).toBe(30);
+      expect(applyTimeDecay(pet, daysAfter(pet, 1)).nutrition).toBe(0);
+      expect(applyTimeDecay(pet, daysAfter(pet, 1)).mood).toBe('hungry');
+    });
+
+    it('caps the bar at 100, however much was eaten', () => {
+      const pet = { ...fedAt([[0, 80], [0, 90]]), nutrition: 100 };
+      expect(applyTimeDecay(pet, daysAfter(pet, 0.1)).nutrition).toBe(100);
+    });
+
+    it('reads a pet from before calorie hunger as one meal at its last care', () => {
+      const pet = { ...createPet('user-1', 'Miso'), nutrition: 70 };
+      expect(pet.recentMeals).toBeUndefined();
+      expect(applyTimeDecay(pet, daysAfter(pet, 0.9)).nutrition).toBe(70);
+      expect(applyTimeDecay(pet, daysAfter(pet, 1)).nutrition).toBe(0);
+    });
+
+    it('never gets hungry when food is not one of the care areas', () => {
+      const pet = { ...createPet('user-1', 'Miso'), nutrition: 90 };
+      expect(applyTimeDecay(pet, daysAfter(pet, 3), ['training', 'movement', 'mind']).nutrition).toBe(90);
+    });
+
+    it('says when the pet will next be hungry, if nothing else is eaten', () => {
+      const pet = { ...fedAt([[-0.25, 40], [0, 30]]), nutrition: 70 };
+      const anchor = Date.parse(pet.adoptedAt);
+      // At 0.75 the first meal goes, leaving 30: still fed. At 1 the second goes.
+      expect(nextHungryAt(pet, anchor)).toBe(anchor + DECAY_PERIOD_MS);
+      expect(nextHungryAt({ ...pet, nutrition: 0, recentMeals: [] }, anchor)).toBeNull();
+    });
+
+    it('turns calories into bar points against maintenance', () => {
+      expect(mealPoints(700, 2800)).toBe(25);
+      expect(mealPoints(2800, 2800)).toBe(100);
+      expect(mealPoints(9000, 2800)).toBe(100);
+      expect(mealPoints(undefined, 2800)).toBe(MEAL_POINTS_DEFAULT);
+    });
+  });
   it('caps any single settle at MAX_DECAY_DAYS, so a hundred days away lands like fourteen', () => {
     const pet = { ...createPet('user-1', 'Miso'), health: 100, nutrition: 90, energy: 90, happiness: 90, mind: 90 };
     const capped = applyTimeDecay(pet, daysAfter(pet, MAX_DECAY_DAYS));
@@ -178,7 +254,6 @@ describe('decay cadence', () => {
     const pet = { ...createPet('user-1', 'Miso'), nutrition: 100, energy: 100, happiness: 100 };
     const oneDay = new Date(new Date(pet.adoptedAt).getTime() + DECAY_PERIOD_MS);
     const decayed = applyTimeDecay(pet, oneDay);
-    expect(decayed.nutrition).toBe(100 - DECAY_PER_DAY.nutrition);
     expect(decayed.energy).toBe(100 - DECAY_PER_DAY.energy);
     expect(decayed.happiness).toBe(100 - DECAY_PER_DAY.happiness);
   });

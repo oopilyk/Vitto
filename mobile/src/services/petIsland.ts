@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 import {
   DECAY_PERIOD_MS,
   DECAY_PER_DAY,
-  HUNGRY_NUTRITION_THRESHOLD,
   MOOD_WORD,
+  nextHungryAt,
   SLEEPY_ENERGY_THRESHOLD,
   assessCondition,
   untrackedNeeds,
@@ -24,7 +24,8 @@ import { endIsland, isIslandAvailable, syncIsland, type IslandState } from '../.
  * next open refreshes everything.
  *
  * All of it comes from the same decay the app itself uses (`applyTimeDecay`):
- * needs fall linearly, so "empty at" and "hungry at" are one division each.
+ * needs fall linearly, so "empty at" is one division; hunger is the last
+ * day's meals, so "hungry at" is when enough of them have worn off.
  */
 
 const MS_PER_DAY = DECAY_PERIOD_MS;
@@ -38,7 +39,7 @@ export const spriteAssetName = (label: string): string =>
     .map((word, index) => (index === 0 ? word.charAt(0).toLowerCase() + word.slice(1) : word.charAt(0).toUpperCase() + word.slice(1)))
     .join('');
 
-type Need = 'nutrition' | 'energy' | 'happiness';
+type Need = 'energy' | 'happiness';
 
 /**
  * When a need was last at 100 and when it reaches 0, if it only ever fell at
@@ -68,13 +69,15 @@ const seconds = (ms: number) => Math.round(ms / 1000);
 export const buildIslandState = (pet: PetState, now: number = Date.now(), careAreas?: readonly CareArea[] | null): IslandState => {
   // Needs the person doesn't track (see careAreas in @vitto/core) never run down.
   const held = new Set<string>(untrackedNeeds(careAreas));
-  const nutrition = window(pet.nutrition, 'nutrition', now, held.has('nutrition'));
+  // Hunger steps down as meals wear off rather than draining, so its bar
+  // stands still and the moment that matters is "hungry at" below.
+  const nutrition = window(pet.nutrition, 'energy', now, true);
   const energy = window(pet.energy, 'energy', now, held.has('energy'));
   const happiness = window(pet.happiness, 'happiness', now);
 
   // Whichever comes first: hungry or sleepy. Neither once it already is one.
   const candidates: { need: string; at: number }[] = [];
-  const hungryAt = crossingAt(pet.nutrition, HUNGRY_NUTRITION_THRESHOLD, 'nutrition', now, held.has('nutrition'));
+  const hungryAt = held.has('nutrition') ? null : nextHungryAt(pet, now);
   const sleepyAt = crossingAt(pet.energy, SLEEPY_ENERGY_THRESHOLD, 'energy', now, held.has('energy'));
   if (hungryAt !== null) candidates.push({ need: 'hungry', at: hungryAt });
   if (sleepyAt !== null) candidates.push({ need: 'sleepy', at: sleepyAt });
