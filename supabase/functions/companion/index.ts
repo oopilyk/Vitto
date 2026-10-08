@@ -3,9 +3,12 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
 import { EXTRACT_MODEL, anthropic, chatModelFor, generate } from '../_shared/model.ts';
 import { isExpoPushToken } from '../_shared/push.ts';
 import { BUSY_MESSAGE, claimAiCall } from '../_shared/aiBudget.ts';
+import { bankFor, storedBankFrom } from '../_shared/pushLineBank.ts';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
 import {
+  BANKED_CHECK_IN_KINDS,
+  pickPushLine,
   MAX_TURNS, MEMORY_CATEGORIES, STABLE_SYSTEM_PROMPT, TONE_SIGNALS, DAY,
   accessFor, applyCompanionEvent, customVoice, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
   fillTraits, humanizeReply, initialTraits, levelIndex, limitsFor, sameBasis, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
@@ -553,18 +556,43 @@ Deno.serve(async (request) => {
       const [memories, recentMessages] = await Promise.all([companion.memories(), companion.messages(40)]);
       // The rules decide WHETHER to speak. No rule fires, no model is called.
       const fire = pickProactiveTrigger({ state, events, memories, recentMessages, life, now });
+      // Banked check-ins (away for a while, streak at risk) are a line the pet
+      // already wrote in its own voice, so they cost no model call per send:
+      // only the daily count applies, not the AI budget.
+      const banked = fire ? BANKED_CHECK_IN_KINDS.has(fire.lineKind) : false;
       if (
         !fire ||
         (await companion.usage(now)).proactive >= limits.proactivePerDay ||
-        (await claimAiCall(admin, user.id, 'proactive', limits.proactivePerDay, tier)) !== 'ok'
+        (!banked && (await claimAiCall(admin, user.id, 'proactive', limits.proactivePerDay, tier)) !== 'ok')
       ) {
         await companion.saveState(state);
         return json({ message: null, trigger: null, state });
       }
-      const ctx = buildPetContext({ state, life, events, memories, messages: recentMessages, currentMessage: fire.situation, now });
-      const turns: Anthropic.MessageParam[] = [...turnsFromContext(ctx), { role: 'user', content: renderProactiveInstruction(fire.situation) }];
-      const generated = await generate(ctx, turns, () => mockProactive(fire.situation), 'companion', model);
-      const message = await companion.appendMessage({ role: 'pet', content: generated.text, source: 'proactive', triggerKey: fire.key, usage: generated.usage });
+      let text: string;
+      let usage: unknown;
+      if (banked) {
+        const { data: stored } = await admin.from('companion_state').select('push_lines, push_lines_key, push_lines_at')
+          .match({ user_id: user.id, pet_id: petId }).maybeSingle();
+        // The bank is written once and reused for a month; this only calls the
+        // model if the pet has no current bank yet (see _shared/pushLineBank.ts).
+        const written = await bankFor(
+          admin,
+          { userId: user.id, petId, tier, life },
+          storedBankFrom(stored),
+          () => buildPetContext({ state, life, events, memories, messages: recentMessages, currentMessage: '', now }),
+          now,
+        );
+        const alreadySent = recentMessages.filter((message) => message.source === 'proactive').map((message) => message.content);
+        text = pickPushLine(written.bank, fire.lineKind, fire.lineVars, alreadySent, now / 60_000) ?? mockProactive(fire.situation);
+        usage = written.usage;
+      } else {
+        const ctx = buildPetContext({ state, life, events, memories, messages: recentMessages, currentMessage: fire.situation, now });
+        const turns: Anthropic.MessageParam[] = [...turnsFromContext(ctx), { role: 'user', content: renderProactiveInstruction(fire.situation) }];
+        const generated = await generate(ctx, turns, () => mockProactive(fire.situation), 'companion', model);
+        text = generated.text;
+        usage = generated.usage;
+      }
+      const message = await companion.appendMessage({ role: 'pet', content: text, source: 'proactive', triggerKey: fire.key, usage });
       await companion.markReacted(fire.markEventsReacted, now);
       if (fire.markMemoryFollowedUp) await companion.markFollowedUp(fire.markMemoryFollowedUp, now);
       const next = { ...state, lastProactiveAt: now };

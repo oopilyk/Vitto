@@ -21,11 +21,13 @@ import { chatRequest, systemFor, takesEffort } from './chatRequest.ts';
  */
 export const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-haiku-4-5';
 /**
- * Plus with a character the person wrote themselves ("Your own"). There is no
- * written-out voice to lean on, only their notes, and inventing a voice from
- * those and holding it is where the stronger model earns its price.
+ * Plus with a character the person wrote themselves ("Your own"). The same
+ * model as the built-in characters: a stronger one held an invented voice a
+ * little better, at about three times the price of every message, which a
+ * subscription cannot carry for someone who chats all day. Set
+ * COMPANION_CUSTOM_MODEL to try another without a deploy.
  */
-export const CUSTOM_CHARACTER_MODEL = Deno.env.get('COMPANION_CUSTOM_MODEL') ?? 'claude-sonnet-5';
+export const CUSTOM_CHARACTER_MODEL = Deno.env.get('COMPANION_CUSTOM_MODEL') ?? 'claude-haiku-4-5';
 /**
  * Free: a much cheaper model for the same prompt. Free is the tier that costs
  * money without paying any, so it is where the price per message matters most.

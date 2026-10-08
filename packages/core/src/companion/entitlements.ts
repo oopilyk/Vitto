@@ -28,7 +28,7 @@ export const TIER_LIMITS: Record<CompanionTier, TierLimits> = {
   free: { messagesPerDay: 5, proactivePerDay: 2, maxMessageLength: 600 },
   // Every Plus message is a Sonnet call; 100 feels unlimited and keeps a
   // heavy subscriber from costing more than they pay.
-  plus: { messagesPerDay: 100, proactivePerDay: 12, maxMessageLength: 1200 },
+  plus: { messagesPerDay: 50, proactivePerDay: 12, maxMessageLength: 1200 },
 };
 
 export const limitsFor = (tier: CompanionTier | null | undefined): TierLimits =>

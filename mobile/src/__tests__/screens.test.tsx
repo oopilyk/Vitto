@@ -166,6 +166,34 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('offers to connect Apple Health on the steps card while steps cannot come in', () => {
+    const connected: number[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+      <TodayScreen
+        pet={pet}
+        events={[]}
+        profile={profile}
+        stepGoal={10000}
+        onStepGoalChange={() => {}}
+        onTrainMind={() => {}}
+        onOpenProfile={() => {}}
+        onClose={() => {}}
+        onConnectHealth={() => connected.push(1)}
+      />,
+      );
+    });
+    const { Text } = require('react-native');
+    const button = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) => node.findAllByType(Text).some((t: any) => t.props.children === 'Connect Apple Health'));
+    expect(button).toBeTruthy();
+    act(() => button!.props.onPress());
+    expect(connected).toEqual([1]);
+    tree.unmount();
+  });
+
   it('renders the dashboard with a logged meal and shows derived calories', () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

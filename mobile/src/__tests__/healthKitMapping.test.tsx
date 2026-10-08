@@ -86,10 +86,27 @@ describe('reconstructMealsFromNutrientSamples', () => {
       proteinGrams: 42,
       carbsGrams: 48,
       fatGrams: 14,
+      // Kept as a number now, not only as the yes/no fiber flag.
+      fiberGrams: 6,
     });
     expect(events[0].metadata.loggedVia).toBe('healthkit');
     expect(events[0].metadata.externalId).toBe('e1');
     expect(events[0].source).toBe('healthkit');
+  });
+
+  it('brings in sugar, saturated fat and sodium when the logging app wrote them', () => {
+    const startDate = new Date('2026-08-28T19:00:00.000Z');
+    const [meal] = reconstructMealsFromNutrientSamples('user-1', {
+      energy: [{ uuid: 'e1', quantity: 700, startDate }],
+      protein: [{ uuid: 'p1', quantity: 30, startDate }],
+      carbohydrates: [{ uuid: 'c1', quantity: 80, startDate }],
+      fat: [{ uuid: 'f1', quantity: 25, startDate }],
+      fiber: [],
+      sugar: [{ uuid: 's1', quantity: 18.4, startDate }],
+      saturatedFat: [{ uuid: 'sf1', quantity: 7.26, startDate }],
+      sodium: [{ uuid: 'na1', quantity: 1180, startDate }],
+    });
+    expect(meal!.metadata.analysis?.macros).toMatchObject({ sugarGrams: 18, saturatedFatGrams: 7.3, sodiumMg: 1180 });
   });
 
   it('defaults unmatched nutrients to zero rather than dropping the meal', () => {
@@ -108,6 +125,7 @@ describe('reconstructMealsFromNutrientSamples', () => {
       proteinGrams: 0,
       carbsGrams: 0,
       fatGrams: 0,
+      fiberGrams: 0,
     });
   });
 

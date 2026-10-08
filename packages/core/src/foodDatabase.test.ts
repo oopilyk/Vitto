@@ -382,3 +382,55 @@ describe('toMealAnalysis', () => {
     expect(analysis.macros.calories).toBe(10 * 4 + 20 * 4 + 5 * 9);
   });
 });
+
+describe('sub-macros', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reads fiber, sugar, saturated fat and sodium from USDA, and keeps them on the meal', async () => {
+    mockFetchOnce({
+      foods: [
+        {
+          fdcId: 9,
+          description: 'Granola bar',
+          foodNutrients: [
+            ...energyRows(450, 1883),
+            { nutrientName: 'Carbohydrate, by difference', unitName: 'G', value: 64 },
+            { nutrientName: 'Total lipid (fat)', unitName: 'G', value: 18 },
+            { nutrientName: 'Fiber, total dietary', unitName: 'G', value: 5 },
+            { nutrientName: 'Sugars, total including NLEA', unitName: 'G', value: 28 },
+            { nutrientName: 'Fatty acids, total saturated', unitName: 'G', value: 2.4 },
+            { nutrientName: 'Sodium, Na', unitName: 'MG', value: 300 },
+          ],
+        },
+      ],
+    });
+    const [bar] = await searchFoodsByName('granola');
+    expect(bar.macros).toMatchObject({ fiberGrams: 5, sugarGrams: 28, saturatedFatGrams: 2.4, sodiumMg: 300 });
+    // Saved as numbers now, not only as the yes/no fiber flag; two servings, doubled.
+    expect(toMealAnalysis(bar, 2).macros).toMatchObject({ fiberGrams: 10, sugarGrams: 56, saturatedFatGrams: 4.8, sodiumMg: 600 });
+  });
+
+  it('reads them from OpenFoodFacts, with sodium turned from grams into mg', async () => {
+    mockFetchOnce({
+      status: 1,
+      product: {
+        product_name: 'Crackers',
+        nutriments: {
+          'energy-kcal_100g': 420, 'proteins_100g': 9, 'carbohydrates_100g': 70, 'fat_100g': 11,
+          'fiber_100g': 3, 'sugars_100g': 4, 'saturated-fat_100g': 1.5, 'sodium_100g': 0.8,
+        },
+      },
+    });
+    const crackers = await lookupBarcode('0002');
+    expect(crackers?.macros).toMatchObject({ fiberGrams: 3, sugarGrams: 4, saturatedFatGrams: 1.5, sodiumMg: 800 });
+  });
+
+  it('leaves out a sub-macro the source never reported, rather than calling it zero', async () => {
+    mockFetchOnce({
+      foods: [{ fdcId: 2, description: 'Apple', foodNutrients: [...energyRows(52, 218)] }],
+    });
+    const [apple] = await searchFoodsByName('apple');
+    expect(apple.macros.sugarGrams).toBeUndefined();
+    expect(toMealAnalysis(apple, 1).macros).not.toHaveProperty('sodiumMg');
+  });
+});

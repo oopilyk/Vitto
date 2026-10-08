@@ -9,13 +9,13 @@ const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-
 /**
  * Photos a single account may send for analysis in a rolling 24 hours.
  *
- * Every call sends an image to Claude, so without a ceiling one signed-in
- * account with a loop is an unbounded bill. Set well above real use -- nobody
- * photographs sixty plates a day -- so it only ever catches abuse, never a
- * hungry person. Counted by attempt (see _shared/aiBudget.ts), so a photo with
- * no food in it, or one the model fails on, counts the same as a meal.
+ * Every call sends an image to Claude at about a cent each, so this is also
+ * what keeps a Plus subscription profitable: ten covers three meals and
+ * snacks with room for retakes, and search and barcode scanning stay free and
+ * unlimited past it. Counted by attempt (see _shared/aiBudget.ts), so a photo
+ * with no food in it, or one the model fails on, counts the same as a meal.
  */
-const MEALS_PER_DAY = 60;
+const MEALS_PER_DAY = 10;
 /** The dev account's cap: effectively none, but still recorded. */
 const DEV_MEALS_PER_DAY = 100_000;
 
@@ -83,6 +83,10 @@ const MealAnalysisSchema = z.object({
     proteinGrams: z.number(),
     carbsGrams: z.number(),
     fatGrams: z.number(),
+    fiberGrams: z.number(),
+    sugarGrams: z.number(),
+    saturatedFatGrams: z.number(),
+    sodiumMg: z.number(),
   }),
   nutrients: z.object({
     protein: z.boolean(),
@@ -108,7 +112,8 @@ const MEAL_SYSTEM_PROMPT =
   'summary is a separate short paragraph judging the nutritional quality of the meal (what it is rich in or lacking). ' +
   'When noFoodDetected is false, macros.calories must be a realistic non-zero estimate for the portions described in foodDescription — ' +
   'derive it from the estimated grams of protein, carbs and fat (4/4/9 kcal per gram) and sanity-check it against the portions. ' +
-  'Also return proteinGrams, carbsGrams, fatGrams as non-negative numbers, detectedFoods (string[]), grade (A-D), confidence (0-1), ' +
+  'Also return proteinGrams, carbsGrams, fatGrams as non-negative numbers, and the sub-macros fiberGrams, sugarGrams and saturatedFatGrams (grams, each part of the carbs or fat) and sodiumMg (milligrams), estimated the same way from the foods and portions you see, ' +
+  'with fiberGrams and sugarGrams no more than carbsGrams and saturatedFatGrams no more than fatGrams, detectedFoods (string[]), grade (A-D), confidence (0-1), ' +
   'and nutrients booleans: protein, vegetables, fruit, wholeGrains, fiber, treats. ' +
   'petReaction: if the user message describes a pet, write ONE sentence of at most 90 characters, in the first person AS THAT PET, ' +
   'reacting to how nourishing this plate is — delighted by a balanced plate ("Yum, that was nourishing!"), gently let down by junk ("Ugh, greasy…"). ' +
@@ -183,7 +188,7 @@ Deno.serve(async (request) => {
     // simultaneous requests cannot all slip under the cap.
     // Photos are Plus-only (checked above), so they draw on the paid budget.
     const claim = await claimAiCall(admin, user.id, 'meal_photo', isDev ? DEV_MEALS_PER_DAY : MEALS_PER_DAY, 'plus');
-    if (claim === 'user_limit') return json({ error: "That's a lot of meals for one day. Try again tomorrow." }, 429);
+    if (claim === 'user_limit') return json({ error: "That's 10 photos today. Search or scan your food until tomorrow." }, 429);
     if (claim === 'global_limit') return json({ error: BUSY_MESSAGE }, 503);
 
     if (!anthropic) throw new Error('ANTHROPIC_API_KEY is not configured.');

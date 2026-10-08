@@ -155,7 +155,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
           <Text style={styles.limitTitle}>{`${pet.name} is all talked out for today.`}</Text>
           <Text style={styles.limitBody}>{`You get ${limits.messagesPerDay} messages a day. It resets on its own — come back later.`}</Text>
           {onOpenPlus ? (
-            <TextButton label={`Plus gets you ${ai.TIER_LIMITS.plus.messagesPerDay} a day`} tone="coral" onPress={onOpenPlus} />
+            <TextButton label="Chat more with Plus" tone="coral" onPress={onOpenPlus} />
           ) : null}
         </View>
       ) : (

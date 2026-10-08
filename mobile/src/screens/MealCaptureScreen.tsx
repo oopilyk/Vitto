@@ -11,7 +11,7 @@ import {
   View, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
 import { analyzeMealImage, type PickedImage } from '../services/mealAnalysis';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
@@ -394,6 +394,9 @@ function AnalysisCard({ analysis }: { analysis: MealAnalysis }) {
             </Text>
           ))}
         </View>
+        {describeSubMacros(analysis.macros) ? (
+          <Text style={styles.subMacros}>{describeSubMacros(analysis.macros)}</Text>
+        ) : null}
         {effects.length > 0 ? (
           <View style={styles.effectRow} accessibilityLabel={`Effects: ${effects.map((e) => e.label).join(', ')}`}>
             {effects.map((effect) => (
@@ -512,6 +515,7 @@ const styles = themedStyles(() => ({
   analysisBody: { flex: 1 },
   analysisName: { fontSize: 15, fontWeight: '600', color: colors.ink, lineHeight: 20 },
   macroLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
+  subMacros: { fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 4 },
   macro: { flexDirection: 'row', alignItems: 'baseline' },
   macroValue: { fontSize: 16, fontWeight: '700', color: colors.ink },
   macroUnit: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted },

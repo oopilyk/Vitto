@@ -177,11 +177,16 @@ export const withSurveyDefaults = (profile: Partial<BodyProfile>): BodyProfile =
   return withMeasurementSystem(withDefaults, measurementSystemOf(withDefaults));
 };
 
+/** The usual fiber guideline: 14 g for every 1,000 kcal eaten. */
+export const FIBER_GRAMS_PER_1000_KCAL = 14;
+
 export interface MacroTargets {
   calories: number;
   proteinGrams: number;
   carbsGrams: number;
   fatGrams: number;
+  /** 14 g per 1,000 kcal, the usual dietary guideline. The only sub-macro with a target. */
+  fiberGrams: number;
 }
 
 export const parseNumberInput = (value: string) => Number(value.replace(/^0+(?=\d)/, '')) || 0;
@@ -325,7 +330,8 @@ export const calculateMacroTargets = (profile: BodyProfile): MacroTargets => {
   const proteinGrams = Math.round(weightKg * proteinPerKgFor(profile));
   const fatGrams = Math.round((calories * 0.28) / 9);
   const carbsGrams = Math.max(0, Math.round((calories - proteinGrams * 4 - fatGrams * 9) / 4));
-  return { calories, proteinGrams, carbsGrams, fatGrams };
+  const fiberGrams = Math.round((calories / 1000) * FIBER_GRAMS_PER_1000_KCAL);
+  return { calories, proteinGrams, carbsGrams, fatGrams, fiberGrams };
 };
 
 export interface WeightGoalProgress {

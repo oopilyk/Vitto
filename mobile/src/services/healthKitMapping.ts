@@ -101,6 +101,10 @@ export interface RawNutritionSamples {
   carbohydrates: readonly RawNutrientSample[];
   fat: readonly RawNutrientSample[];
   fiber: readonly RawNutrientSample[];
+  /** Optional: only apps that log them write these, and only when access was granted. */
+  sugar?: readonly RawNutrientSample[];
+  saturatedFat?: readonly RawNutrientSample[];
+  sodium?: readonly RawNutrientSample[];
 }
 
 /**
@@ -126,6 +130,14 @@ export const reconstructMealsFromNutrientSamples = (
   const carbs = groupByStartDate(samples.carbohydrates);
   const fat = groupByStartDate(samples.fat);
   const fiber = groupByStartDate(samples.fiber);
+  const sugar = groupByStartDate(samples.sugar ?? []);
+  const saturatedFat = groupByStartDate(samples.saturatedFat ?? []);
+  const sodium = groupByStartDate(samples.sodium ?? []);
+  /** A figure the source actually logged for this meal, else nothing (not zero). */
+  const logged = (byStartDate: Map<string, RawNutrientSample>, key: string, round = (value: number) => Math.round(value)) => {
+    const quantity = byStartDate.get(key)?.quantity;
+    return typeof quantity === 'number' && Number.isFinite(quantity) ? round(quantity) : undefined;
+  };
 
   return samples.energy.map((energySample) => {
     const key = energySample.startDate.toISOString();
@@ -135,6 +147,9 @@ export const reconstructMealsFromNutrientSamples = (
       carbsGrams: Math.round(carbs.get(key)?.quantity ?? 0),
       fatGrams: Math.round(fat.get(key)?.quantity ?? 0),
       fiberGrams: Math.round(fiber.get(key)?.quantity ?? 0),
+      sugarGrams: logged(sugar, key),
+      saturatedFatGrams: logged(saturatedFat, key, (value) => Math.round(value * 10) / 10),
+      sodiumMg: logged(sodium, key),
     };
 
     const analysis: MealAnalysis = toMealAnalysis(

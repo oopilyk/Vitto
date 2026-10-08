@@ -62,7 +62,20 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
       species: text(pet.species, 32, 'pet'),
       ageDays: Math.round(num(pet.ageDays, 0, 100_000, 0)),
       level: Math.round(num(pet.level, 1, 999, 1)),
+      ...(typeof pet.xp === 'number' ? { xp: Math.round(num(pet.xp, 0, 100, 0)) } : {}),
       build: text(pet.build, 16, 'Balanced'),
+      ...(Array.isArray(pet.evolutions)
+        ? {
+            evolutions: (pet.evolutions as unknown[])
+              .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
+              .slice(0, 3)
+              .map((entry) => ({
+                build: text(entry.build, 16, 'Balanced'),
+                percent: Math.round(num(entry.percent, 0, 100, 0)),
+                earned: entry.earned === true,
+              })),
+          }
+        : {}),
       ...((TEMPERAMENTS as readonly string[]).includes(pet.temperament as string)
         ? { temperament: pet.temperament as string }
         : {}),

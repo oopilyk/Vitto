@@ -8,7 +8,16 @@ export interface FoodMacros {
   carbsGrams: number;
   fatGrams: number;
   fiberGrams: number;
+  /** Only when the source reports them: a missing figure is not a zero. */
+  sugarGrams?: number;
+  saturatedFatGrams?: number;
+  sodiumMg?: number;
 }
+
+/** The optional sub-macros, as a spread that leaves out whatever is unknown. */
+const optionalSubMacros = (values: Pick<FoodMacros, 'sugarGrams' | 'saturatedFatGrams' | 'sodiumMg'>) =>
+  Object.fromEntries(Object.entries(values).filter(([, value]) => typeof value === 'number' && Number.isFinite(value))) as
+    Pick<FoodMacros, 'sugarGrams' | 'saturatedFatGrams' | 'sodiumMg'>;
 
 export interface FoodSearchResult {
   id: string;
@@ -108,6 +117,15 @@ const per100gMacrosFromFdc = (food: FdcFood): FoodMacros => ({
   carbsGrams: nutrientValue(food.foodNutrients, 'Carbohydrate, by difference'),
   fatGrams: nutrientValue(food.foodNutrients, 'Total lipid (fat)'),
   fiberGrams: nutrientValue(food.foodNutrients, 'Fiber, total dietary'),
+  // Sugar is named differently across FDC's datasets.
+  ...optionalSubMacros({
+    sugarGrams:
+      findNutrient(food.foodNutrients, 'Sugars, total including NLEA') ??
+      findNutrient(food.foodNutrients, 'Total Sugars') ??
+      findNutrient(food.foodNutrients, 'Sugars, Total'),
+    saturatedFatGrams: findNutrient(food.foodNutrients, 'Fatty acids, total saturated'),
+    sodiumMg: findNutrient(food.foodNutrients, 'Sodium, Na', 'MG'),
+  }),
 });
 
 const scaleMacros = (macros: FoodMacros, factor: number): FoodMacros => ({
@@ -116,6 +134,11 @@ const scaleMacros = (macros: FoodMacros, factor: number): FoodMacros => ({
   carbsGrams: Math.round(macros.carbsGrams * factor),
   fatGrams: Math.round(macros.fatGrams * factor),
   fiberGrams: Math.round(macros.fiberGrams * factor),
+  ...optionalSubMacros({
+    sugarGrams: macros.sugarGrams === undefined ? undefined : Math.round(macros.sugarGrams * factor),
+    saturatedFatGrams: macros.saturatedFatGrams === undefined ? undefined : Math.round(macros.saturatedFatGrams * factor * 10) / 10,
+    sodiumMg: macros.sodiumMg === undefined ? undefined : Math.round(macros.sodiumMg * factor),
+  }),
 });
 
 const gramServingSize = (food: FdcFood): number | undefined => {
@@ -285,6 +308,12 @@ const offMacros = (
   carbsGrams: Math.round(toNumber(nutriments[`carbohydrates${basis}`]) ?? 0),
   fatGrams: Math.round(toNumber(nutriments[`fat${basis}`]) ?? 0),
   fiberGrams: Math.round(toNumber(nutriments[`fiber${basis}`]) ?? 0),
+  ...optionalSubMacros({
+    sugarGrams: toNumber(nutriments[`sugars${basis}`]),
+    saturatedFatGrams: toNumber(nutriments[`saturated-fat${basis}`]),
+    // OpenFoodFacts gives sodium in grams.
+    sodiumMg: ((value) => (value === undefined ? undefined : Math.round(value * 1000)))(toNumber(nutriments[`sodium${basis}`])),
+  }),
 });
 
 /**
@@ -388,6 +417,9 @@ export const toMealAnalysis = (food: FoodSearchResult, servings: number): MealAn
     proteinGrams: scaled.proteinGrams,
     carbsGrams: scaled.carbsGrams,
     fatGrams: scaled.fatGrams,
+    // Kept as numbers now, not only as the yes/no fiber flag below.
+    fiberGrams: scaled.fiberGrams,
+    ...optionalSubMacros({ sugarGrams: scaled.sugarGrams, saturatedFatGrams: scaled.saturatedFatGrams, sodiumMg: scaled.sodiumMg }),
   };
 
   const nutrients = {

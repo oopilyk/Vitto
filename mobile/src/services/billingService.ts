@@ -58,7 +58,7 @@ export interface PlusPlanOption {
 /**
  * Shown on the paywall. Nothing is charged (test mode); these are the intended
  * prices. Monthly is the anchor that makes Yearly's saving concrete ($7.99 x 12
- * is $95.88, so $39.99 saves 58%), which is why Yearly is preselected and the
+ * is $95.88, so $49.99 saves 48%), which is why Yearly is preselected and the
  * only plan with a trial. No Lifetime: every Plus message is a model call, so a
  * one-off payment would be an open-ended cost.
  */
@@ -67,11 +67,11 @@ export const PLUS_PLANS: PlusPlanOption[] = [
   {
     value: 'yearly',
     label: 'Yearly',
-    price: '$39.99',
+    price: '$49.99',
     per: '/ yr',
-    note: 'Only $3.33 a month',
-    badge: 'SAVE 58%',
-    terms: (trial) => (trial ? `Free for ${TRIAL_DAYS} days, then $39.99 / year. Cancel anytime.` : '$39.99 / year. Cancel anytime.'),
+    note: 'Only $4.16 a month',
+    badge: 'SAVE 48%',
+    terms: (trial) => (trial ? `Free for ${TRIAL_DAYS} days, then $49.99 / year. Cancel anytime.` : '$49.99 / year. Cancel anytime.'),
   },
 ];
 

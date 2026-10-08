@@ -52,8 +52,10 @@ const COMPARISON: { feature: string; detail: string; free: string; plus: string 
   {
     feature: 'Chat',
     detail: 'Messages to your pet',
+    // Free shows its number, since that is the limit people actually meet;
+    // Plus is simply more, so the table never has to change with the cap.
     free: `${ai.TIER_LIMITS.free.messagesPerDay} a day`,
-    plus: `${ai.TIER_LIMITS.plus.messagesPerDay} a day`,
+    plus: 'Many more',
   },
   {
     feature: 'Memory',
@@ -76,8 +78,8 @@ const COMPARISON: { feature: string; detail: string; free: string; plus: string 
   {
     feature: 'Voice',
     detail: 'Their personality in every reply',
-    free: 'Standard',
-    plus: 'Sharper',
+    free: 'Default',
+    plus: 'In character',
   },
   {
     feature: 'Check-ins',

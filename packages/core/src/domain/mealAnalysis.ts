@@ -39,13 +39,23 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const positiveNumber = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
 
+/** The sub-macros, kept only when the source actually gave a number. */
+const SUB_MACRO_KEYS = ['fiberGrams', 'sugarGrams', 'saturatedFatGrams', 'sodiumMg'] as const;
+
 const toMacros = (value: unknown): MealAnalysis['macros'] => {
   const record = isRecord(value) ? value : {};
+  const subMacros = Object.fromEntries(
+    SUB_MACRO_KEYS.filter((key) => typeof record[key] === 'number' && Number.isFinite(record[key])).map((key) => [
+      key,
+      positiveNumber(record[key]),
+    ]),
+  );
   return {
     calories: positiveNumber(record.calories),
     proteinGrams: positiveNumber(record.proteinGrams),
     carbsGrams: positiveNumber(record.carbsGrams),
     fatGrams: positiveNumber(record.fatGrams),
+    ...subMacros,
   };
 };
 

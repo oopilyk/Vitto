@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Platform, StatusBar, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   NavigationContainer,
   DarkTheme,
@@ -94,6 +95,8 @@ const engine = new PetHealthEngine();
 // everything except screen time, which it can actually read (see
 // mobile/SCREENTIME.md); web-via-react-native-web stays on the mock until a
 // Health Connect provider exists. See mobile/HEALTHKIT.md.
+/** Set once Apple Health is connected on this phone, so later launches reconnect quietly. */
+const HEALTH_CONNECTED_KEY = 'vitto.appleHealthConnected';
 /** How often steps re-sync while the app is open. */
 const STEP_AUTO_SYNC_MS = 5 * 60 * 1000;
 
@@ -1564,10 +1567,17 @@ function VittoApp() {
   useEffect(() => {
     if (!dataReady || Platform.OS !== 'ios' || isAppleHealthConnected) return;
     // A connection made on an earlier launch, picked back up without asking.
+    // Remembered here once connected; for a connection from before that was
+    // remembered, iOS's own "already asked" answer stands in.
     let cancelled = false;
-    void stepsProvider.restoreAuthorization().then((restored) => {
+    void (async () => {
+      const remembered = (await AsyncStorage.getItem(HEALTH_CONNECTED_KEY).catch(() => null)) === '1';
+      const restored = remembered
+        ? await stepsProvider.requestAuthorization().catch(() => false)
+        : await stepsProvider.restoreAuthorization();
+      if (restored && !remembered) await AsyncStorage.setItem(HEALTH_CONNECTED_KEY, '1').catch(() => undefined);
       if (!cancelled && restored) setIsAppleHealthConnected(true);
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -1596,6 +1606,8 @@ function VittoApp() {
         setError('Apple Health access was not granted.');
         return;
       }
+      // Remembered on this phone, so every later launch reconnects on its own.
+      await AsyncStorage.setItem(HEALTH_CONNECTED_KEY, '1').catch(() => undefined);
       setError(null);
       await syncAppleHealth();
     } catch (cause) {
@@ -2427,6 +2439,7 @@ function VittoApp() {
               onSeedTestData={isDev ? () => void seedTestData() : undefined}
               onClearSeededData={isDev ? () => void clearSeededData() : undefined}
               isSeeding={isSeeding}
+              onConnectHealth={Platform.OS === 'ios' && !isAppleHealthConnected ? () => void connectAppleHealth() : undefined}
               forcedTrophies={isDev ? forcedTrophies : undefined}
               onForceTrophies={isDev ? setForcedTrophies : undefined}
               onReplayAchievements={isDev ? replayAchievements : undefined}

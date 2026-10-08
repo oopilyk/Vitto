@@ -311,7 +311,7 @@ export function ProfileScreen({
           </View>
           <Text style={styles.targetLine}>
             Target {targets.calories.toLocaleString()} kcal · {targets.proteinGrams}g protein · {targets.carbsGrams}g carbs ·{' '}
-            {targets.fatGrams}g fat
+            {targets.fatGrams}g fat · {targets.fiberGrams}g fiber
           </Text>
         </Card>
 

@@ -1,17 +1,13 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
   DAY,
-  PUSH_LINES_MAX_AGE_MS,
   buildPetContext,
   inQuietHours,
   limitsFor,
   localDayStart,
   mockProactive,
-  parsePushLines,
   pickProactiveTrigger,
   pickPushLine,
-  pushVoiceKey,
-  renderPushLinesInstruction,
   tickMood,
   type CompanionEvent,
   type CompanionMemory,
@@ -21,8 +17,7 @@ import {
   type LifeContext,
   type PushLineBank,
 } from '../_shared/companion/index.ts';
-import { chatModelFor, generatePushLines } from '../_shared/model.ts';
-import { claimAiCall } from '../_shared/aiBudget.ts';
+import { bankFor } from '../_shared/pushLineBank.ts';
 import { sendPush, type PushMessage } from '../_shared/push.ts';
 
 /**
@@ -147,36 +142,6 @@ interface Candidate {
  * voice, otherwise rewritten now (one model call) and stored. An old bank beats
  * no bank if the rewrite fails.
  */
-/** Push-line rewrites one person's pet may have in 24 hours. */
-const PUSH_LINE_REWRITES_PER_DAY = 3;
-
-const bankFor = async (
-  db: SupabaseClient,
-  candidate: Candidate,
-  build: () => ReturnType<typeof buildPetContext>,
-  now: number,
-): Promise<{ bank: PushLineBank | null; usage: unknown }> => {
-  const key = pushVoiceKey(candidate.life, candidate.tier);
-  const fresh = candidate.pushLines && candidate.pushLinesKey === key
-    && candidate.pushLinesAt !== null && now - candidate.pushLinesAt < PUSH_LINES_MAX_AGE_MS;
-  if (fresh) return { bank: candidate.pushLines, usage: null };
-  // A rewrite is rare (the voice changed, or the bank aged out), so a few a day
-  // is plenty; past that, or past the app's ceiling, the old bank serves.
-  if ((await claimAiCall(db, candidate.userId, 'push_lines', PUSH_LINE_REWRITES_PER_DAY, candidate.tier === 'plus' ? 'plus' : 'free')) !== 'ok') {
-    return { bank: candidate.pushLines, usage: null };
-  }
-
-  const written = await generatePushLines(build(), [], renderPushLinesInstruction(), chatModelFor(candidate.tier, candidate.life.pet.temperament));
-  const bank = written ? parsePushLines(written.text) : null;
-  if (!bank) {
-    console.error(`[notify] could not write push lines for ${candidate.petId}; ${candidate.pushLines ? 'keeping the old ones' : 'using stock lines'}`);
-    return { bank: candidate.pushLines, usage: written?.usage ?? null };
-  }
-  await db.from('companion_state').update({ push_lines: bank, push_lines_key: key, push_lines_at: iso(now) })
-    .match({ user_id: candidate.userId, pet_id: candidate.petId });
-  return { bank, usage: written?.usage ?? null };
-};
-
 /** One person's pet, considered. Returns the push to send, or null for silence. */
 const consider = async (db: SupabaseClient, candidate: Candidate, now: number): Promise<PushMessage[]> => {
   const { userId, petId, devices } = candidate;
@@ -219,6 +184,7 @@ const consider = async (db: SupabaseClient, candidate: Candidate, now: number): 
 
   const { bank, usage } = await bankFor(
     db,
+    candidate,
     candidate,
     () => buildPetContext({ state, life: candidate.life, events, memories, messages: recentMessages, currentMessage: '', now }),
     now,

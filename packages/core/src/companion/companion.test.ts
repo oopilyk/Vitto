@@ -322,7 +322,9 @@ describe('the paywall seam', () => {
   });
 
   it('gives a paying account more room, and never trusts an unknown tier', () => {
-    expect(accessFor('plus', 50).canChat).toBe(true);
+    expect(accessFor('plus', 49).canChat).toBe(true);
+    expect(accessFor('plus', 50).canChat).toBe(false);
+    expect(accessFor('free', 5).canChat).toBe(false);
     expect(accessFor('admin' as any, 0).tier).toBe('free');
   });
 });
@@ -485,5 +487,33 @@ describe('reaching somebody at a civil hour', () => {
     // just because the server that runs them is on UTC.
     expect(at(-420)?.key).not.toBe('streak_at_risk');
     expect(at(-420)?.key).not.toBe('habit_deviation');
+  });
+});
+
+describe('answering questions about the app', () => {
+  it('knows its XP and how close each evolution is, as the Stats screen shows them', () => {
+    const known = sanitizeLifeContext({
+      pet: {
+        name: 'Blue', species: 'bear', ageDays: 41, level: 29, xp: 37, build: 'Runner',
+        evolutions: [
+          { build: 'Runner', percent: 100, earned: true },
+          { build: 'Lifter', percent: 412, earned: false },
+          { build: 'Scholar', percent: 18, earned: false },
+        ],
+      },
+    });
+    // Out-of-range values from a phone are clamped, never trusted.
+    expect(known.pet.evolutions?.[1]).toEqual({ build: 'Lifter', percent: 100, earned: false });
+    const ctx = buildPetContext({ state: newCompanionState('k', NOW), life: known, events: [], memories: [], messages: [], now: NOW });
+    const prompt = renderDynamicSystemPrompt(ctx);
+    expect(prompt).toContain('level 29 (37 of 100 XP toward level 30)');
+    expect(prompt).toContain('Runner (earned)');
+    expect(prompt).toContain('Scholar 18% of the way');
+  });
+
+  it('answers a direct question with the real number, but never volunteers one', () => {
+    expect(STABLE_SYSTEM_PROMPT).toContain('when they ASK');
+    expect(STABLE_SYSTEM_PROMPT).toContain('Never volunteer them');
+    expect(STABLE_SYSTEM_PROMPT).not.toContain('Never recite them');
   });
 });

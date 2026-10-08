@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BANKED_CHECK_IN_KINDS,
+  PUSH_LINE_SPECS,
   DAY,
   PUSH_LINE_KINDS,
   eventLineKind,
@@ -21,7 +23,7 @@ const life = (pet: Partial<LifeContext['pet']> = {}): LifeContext =>
 describe('free tier', () => {
   it('has the lower caps', () => {
     expect(TIER_LIMITS.free).toMatchObject({ messagesPerDay: 5, proactivePerDay: 2 });
-    expect(TIER_LIMITS.plus).toMatchObject({ messagesPerDay: 100, proactivePerDay: 12 });
+    expect(TIER_LIMITS.plus).toMatchObject({ messagesPerDay: 50, proactivePerDay: 12 });
   });
 
   it('speaks without a personality, whatever the phone sent', () => {
@@ -90,5 +92,14 @@ describe('push lines', () => {
     expect(fire?.key).toBe('absence');
     expect(PUSH_LINE_KINDS).toContain(fire!.lineKind);
     expect(fire!.lineVars).toEqual({ days: 10 });
+  });
+});
+
+describe('banked check-ins', () => {
+  it('answers the away and streak check-ins from the bank, and nothing that needs specifics', () => {
+    expect([...BANKED_CHECK_IN_KINDS].sort()).toEqual(['absence', 'absence_again', 'streak_at_risk']);
+    // Every banked kind is one the bank is written for.
+    for (const kind of BANKED_CHECK_IN_KINDS) expect(PUSH_LINE_SPECS[kind]).toBeDefined();
+    expect(BANKED_CHECK_IN_KINDS.has('important_event')).toBe(false);
   });
 });

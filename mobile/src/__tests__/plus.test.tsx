@@ -43,17 +43,17 @@ describe('Vitto Plus paywall (test mode)', () => {
     billingService.status.mockResolvedValue({ enabled: true, tier: 'free', expiresAt: null });
     const tree = await open();
     const all = strings(tree);
-    expect(all).toContain('SAVE 58%');
+    expect(all).toContain('SAVE 48%');
     // Free next to Plus, including photo meal tracking.
     expect(all).toContain('Photo meal tracking');
     expect(all).toContain('✓ Included');
     expect(all).toContain('5 a day');
-    expect(all).toContain('✓ 100 a day');
-    expect(all).toContain('Only $3.33 a month');
+    expect(all).toContain('✓ Many more');
+    expect(all).toContain('Only $4.16 a month');
     expect(byTestId(tree, 'trial-toggle')[0]!.props.value).toBe(true);
     expect(byTestId(tree, 'trial-timeline').length).toBeGreaterThan(0);
     expect(all).toContain('We remind you before it ends');
-    expect(byTestId(tree, 'plus-terms')[0]!.props.children).toBe('Free for 14 days, then $39.99 / year. Cancel anytime.');
+    expect(byTestId(tree, 'plus-terms')[0]!.props.children).toBe('Free for 14 days, then $49.99 / year. Cancel anytime.');
     expect(pressable(tree, 'Start Free Trial')).toBeDefined();
     expect(pressable(tree, 'Restore')).toBeDefined();
     tree.unmount();

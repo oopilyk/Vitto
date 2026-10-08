@@ -6,9 +6,16 @@ export interface MacroTotals {
   proteinGrams: number;
   carbsGrams: number;
   fatGrams: number;
+  /** Summed totals always carry these (0 when no meal reported one); targets only fiber. */
+  fiberGrams?: number;
+  sugarGrams?: number;
+  saturatedFatGrams?: number;
+  sodiumMg?: number;
 }
 
-const ZERO_MACROS: MacroTotals = { calories: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 };
+const ZERO_MACROS: MacroTotals = {
+  calories: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0, fiberGrams: 0, sugarGrams: 0, saturatedFatGrams: 0, sodiumMg: 0,
+};
 
 export const isSameDay = (isoDate: string, reference: Date): boolean =>
   new Date(isoDate).toDateString() === reference.toDateString();
@@ -34,6 +41,10 @@ export const sumMealMacros = (mealEvents: HealthEvent<MealMetadata>[]): MacroTot
       proteinGrams: total.proteinGrams + proteinGrams,
       carbsGrams: total.carbsGrams + carbsGrams,
       fatGrams: total.fatGrams + fatGrams,
+      fiberGrams: (total.fiberGrams ?? 0) + nonNegative(macros.fiberGrams ?? 0),
+      sugarGrams: (total.sugarGrams ?? 0) + nonNegative(macros.sugarGrams ?? 0),
+      saturatedFatGrams: (total.saturatedFatGrams ?? 0) + nonNegative(macros.saturatedFatGrams ?? 0),
+      sodiumMg: (total.sodiumMg ?? 0) + nonNegative(macros.sodiumMg ?? 0),
     };
   }, ZERO_MACROS);
 

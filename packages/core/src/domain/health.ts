@@ -277,4 +277,13 @@ export interface MacroNutrients {
   proteinGrams: number;
   carbsGrams: number;
   fatGrams: number;
+  /**
+   * The sub-macros, where the source gives them: fiber and sugar sit inside
+   * the carbs, saturated fat inside the fat. Absent on meals logged before they
+   * were kept, and on sources that do not report them.
+   */
+  fiberGrams?: number;
+  sugarGrams?: number;
+  saturatedFatGrams?: number;
+  sodiumMg?: number;
 }

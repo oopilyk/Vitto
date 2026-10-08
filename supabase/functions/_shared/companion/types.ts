@@ -138,7 +138,11 @@ export interface LifeContext {
     species: string;
     ageDays: number;
     level: number;
+    /** XP into the current level, out of 100. Absent from an older app. */
+    xp?: number;
     build: string;
+    /** How close it is to each evolution, as the Stats screen shows it. Absent from an older app. */
+    evolutions?: { build: string; percent: number; earned: boolean }[];
     /** The temperament chosen at adoption; the baseline its voice starts from. */
     temperament?: string;
     /** Their own notes on how the pet acts, on top of (or instead of) the temperament. */

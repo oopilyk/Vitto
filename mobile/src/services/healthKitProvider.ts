@@ -4,6 +4,7 @@ import {
   isHealthDataAvailableAsync,
   queryCategorySamples,
   queryQuantitySamples,
+  queryStatisticsForQuantity,
   queryWorkoutSamples,
   requestAuthorization,
   WorkoutActivityType,
@@ -53,6 +54,9 @@ const DIETARY_PROTEIN = 'HKQuantityTypeIdentifierDietaryProtein' as const;
 const DIETARY_CARBS = 'HKQuantityTypeIdentifierDietaryCarbohydrates' as const;
 const DIETARY_FAT = 'HKQuantityTypeIdentifierDietaryFatTotal' as const;
 const DIETARY_FIBER = 'HKQuantityTypeIdentifierDietaryFiber' as const;
+const DIETARY_SUGAR = 'HKQuantityTypeIdentifierDietarySugar' as const;
+const DIETARY_SATURATED_FAT = 'HKQuantityTypeIdentifierDietaryFatSaturated' as const;
+const DIETARY_SODIUM = 'HKQuantityTypeIdentifierDietarySodium' as const;
 const SLEEP_ANALYSIS = 'HKCategoryTypeIdentifierSleepAnalysis' as const;
 
 const byOccurredAtAscending = (a: HealthEvent<unknown>, b: HealthEvent<unknown>) =>
@@ -72,6 +76,9 @@ const READ_TYPES = [
   DIETARY_CARBS,
   DIETARY_FAT,
   DIETARY_FIBER,
+  DIETARY_SUGAR,
+  DIETARY_SATURATED_FAT,
+  DIETARY_SODIUM,
   SLEEP_ANALYSIS,
 ] as const;
 
@@ -125,19 +132,21 @@ export class HealthKitProvider implements HealthDataProvider {
     this.assertAuthorized();
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const filter = { date: { startDate: startOfToday } };
-    // Active energy is best-effort: some devices/permission states report no
-    // samples at all, and a missing calorie figure should never block steps.
-    const [stepSamples, energySamples] = await Promise.all([
-      queryQuantitySamples(STEP_COUNT, { filter, limit: 0, unit: 'count' }),
-      queryQuantitySamples(ACTIVE_ENERGY_BURNED, { filter, limit: 0, unit: 'kcal' }).catch(() => []),
+    const filter = { date: { startDate: startOfToday, endDate: now } };
+    // HealthKit's own cumulative sum, the number the Health app shows: it
+    // merges the iPhone's and the Watch's overlapping counts. Adding up the raw
+    // samples counted the same walk once per device.
+    // Active energy is best-effort: some devices/permission states report none,
+    // and a missing calorie figure should never block steps.
+    const [steps, energy] = await Promise.all([
+      queryStatisticsForQuantity(STEP_COUNT, ['cumulativeSum'], { filter, unit: 'count' }),
+      queryStatisticsForQuantity(ACTIVE_ENERGY_BURNED, ['cumulativeSum'], { filter, unit: 'kcal' }).catch(() => null),
     ]);
-    const totalSteps = stepSamples.reduce((sum, sample) => sum + sample.quantity, 0);
-    const totalCalories = energySamples.reduce((sum, sample) => sum + sample.quantity, 0);
+    const calories = energy?.sumQuantity?.quantity;
     return mapStepSample(userId, {
-      quantity: totalSteps,
+      quantity: Math.round(steps.sumQuantity?.quantity ?? 0),
       startDate: startOfToday,
-      ...(energySamples.length > 0 ? { caloriesBurned: totalCalories } : {}),
+      ...(typeof calories === 'number' && calories > 0 ? { caloriesBurned: Math.round(calories) } : {}),
     });
   }
 
@@ -173,12 +182,18 @@ export class HealthKitProvider implements HealthDataProvider {
   ): Promise<HealthEvent<MealMetadata>[]> {
     this.assertAuthorized();
     const filter = { date: { startDate: since } };
-    const [energy, protein, carbohydrates, fat, fiber] = await Promise.all([
+    // The sub-macros are best-effort: a phone that never granted them (they
+    // were added to the request later) still imports the meal.
+    const optional = <T,>(query: Promise<readonly T[]>) => query.catch((): readonly T[] => []);
+    const [energy, protein, carbohydrates, fat, fiber, sugar, saturatedFat, sodium] = await Promise.all([
       queryQuantitySamples(DIETARY_ENERGY, { filter, limit: 0, unit: 'kcal' }),
       queryQuantitySamples(DIETARY_PROTEIN, { filter, limit: 0, unit: 'g' }),
       queryQuantitySamples(DIETARY_CARBS, { filter, limit: 0, unit: 'g' }),
       queryQuantitySamples(DIETARY_FAT, { filter, limit: 0, unit: 'g' }),
       queryQuantitySamples(DIETARY_FIBER, { filter, limit: 0, unit: 'g' }),
+      optional(queryQuantitySamples(DIETARY_SUGAR, { filter, limit: 0, unit: 'g' })),
+      optional(queryQuantitySamples(DIETARY_SATURATED_FAT, { filter, limit: 0, unit: 'g' })),
+      optional(queryQuantitySamples(DIETARY_SODIUM, { filter, limit: 0, unit: 'mg' })),
     ]);
     const freshEnergy = excludeKnownExternalIds(energy, knownExternalIds);
     return reconstructMealsFromNutrientSamples(userId, {
@@ -187,6 +202,9 @@ export class HealthKitProvider implements HealthDataProvider {
       carbohydrates,
       fat,
       fiber,
+      sugar,
+      saturatedFat,
+      sodium,
     }).sort(byOccurredAtAscending);
   }
 

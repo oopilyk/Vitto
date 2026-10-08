@@ -1418,11 +1418,11 @@ export function OnboardingScreen({
               {!short ? (
                 <Text
                   style={styles.sub}
-                >{`A sharper, more in-character ${petName} who remembers your week and checks in on you more.`}</Text>
+                >{`A more in-character ${petName} who remembers your week and checks in on you more.`}</Text>
               ) : null}
               <PerkCompare
                 free={`${ai.TIER_LIMITS.free.messagesPerDay} messages a day`}
-                plus={`${ai.TIER_LIMITS.plus.messagesPerDay} a day, and remembers you`}
+                plus="Many more, and remembers you"
               />
             </View>
           ) : null}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { type HealthEvent, type MealMetadata, calorieEstimate } from '@vitto/core';
+import { type HealthEvent, type MealMetadata, calorieEstimate, describeSubMacros } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
 
 const LOGGED_VIA_ICON: Record<NonNullable<MealMetadata['loggedVia']>, string> = {
@@ -67,6 +67,9 @@ export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {
               </View>
             ))}
           </View>
+          {describeSubMacros(analysis.macros) ? (
+            <Text style={styles.subMacros}>{describeSubMacros(analysis.macros)}</Text>
+          ) : null}
           {loggedVia === 'ai' && analysis.summary ? (
             <Text style={styles.summaryText}>{analysis.summary}</Text>
           ) : null}
@@ -103,6 +106,7 @@ const styles = themedStyles(() => ({
   },
   macroValue: { fontSize: 16, fontWeight: '700', color: colors.ink },
   macroLabel: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 3 },
+  subMacros: { fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 8 },
   summaryText: {
     marginTop: 12,
     fontSize: 13,

@@ -279,3 +279,11 @@ describe('normalizeBio', () => {
     expect(normalizeBio('')).toBe('');
   });
 });
+
+describe('fiber target', () => {
+  it("is 14 g for every 1,000 kcal of the day's target", () => {
+    const targets = calculateMacroTargets(withSurveyDefaults({ age: 30, sex: 'male', heightCm: 180, weightKg: 80, activity: 'moderate', goal: 'maintain' } as never));
+    expect(targets.fiberGrams).toBe(Math.round((targets.calories / 1000) * 14));
+    expect(targets.fiberGrams).toBeGreaterThan(20);
+  });
+});

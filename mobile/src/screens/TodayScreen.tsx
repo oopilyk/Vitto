@@ -25,6 +25,7 @@ import {
   mindScoreLabel,
   toDateKey,
   tracksArea,
+  describeSubMacros,
 } from '@vitto/core';
 import { ChoiceRow, TextButton } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
@@ -75,6 +76,11 @@ interface Props {
   onSeedTestData?: () => void;
   onClearSeededData?: () => void;
   isSeeding?: boolean;
+  /**
+   * iPhone, while Apple Health is not connected: steps come only from there,
+   * so the steps card offers the connection instead of sitting at 0.
+   */
+  onConnectHealth?: () => void;
   forcedTrophies?: ForcedTrophies | null;
   onForceTrophies?: (state: ForcedTrophies | null) => void;
   /** Forgets which achievement unlocks have been shown, so every earned one pops again. */
@@ -153,6 +159,7 @@ export function TodayScreen({
   onSeedTestData,
   onClearSeededData,
   isSeeding,
+  onConnectHealth,
   forcedTrophies,
   onForceTrophies,
   onReplayAchievements,
@@ -314,8 +321,11 @@ export function TodayScreen({
             done={outdoors.goalReached}
             xp={outdoors.xp}
             headline={`${outdoors.steps.toLocaleString()} / ${outdoors.goal.toLocaleString()} steps`}
+            actions={onConnectHealth ? [{ label: 'Connect Apple Health', onPress: onConnectHealth }] : undefined}
             detail={
-              outdoors.steps > 0
+              onConnectHealth && outdoors.steps === 0
+                ? `Connect Apple Health and ${petName} counts every step you take, on its own.`
+                : outdoors.steps > 0
                 ? outdoors.goalReached
                   ? `${petName} explored every corner with you today.`
                   : `${outdoors.percent}% of today's goal — ${petName} is enjoying the walk.`
@@ -405,6 +415,8 @@ export function TodayScreen({
                     ['Protein', food.consumed.proteinGrams, food.targets.proteinGrams],
                     ['Carbs', food.consumed.carbsGrams, food.targets.carbsGrams],
                     ['Fat', food.consumed.fatGrams, food.targets.fatGrams],
+                    // The one sub-macro with a target (14 g per 1,000 kcal).
+                    ['Fiber', food.consumed.fiberGrams ?? 0, food.targets.fiberGrams ?? 0],
                   ] as const
                 ).map(([label, value, target]) => (
                   <View key={label} style={styles.macroRow}>
@@ -423,6 +435,10 @@ export function TodayScreen({
                     </Text>
                   </View>
                 ))}
+                {/* The rest as plain totals, no bars and no targets. */}
+                {describeSubMacros(food.consumed, { includeFiber: false }) ? (
+                  <Text style={[styles.subMacros, { color: c.soft }]}>{describeSubMacros(food.consumed, { includeFiber: false })}</Text>
+                ) : null}
               </View>
             ) : null}
           </Pillar>
@@ -788,6 +804,7 @@ const styles = themedStyles(() => ({
   },
 
   macros: { gap: 9, marginTop: 4 },
+  subMacros: { fontSize: 12, lineHeight: 17, marginTop: 6 },
   macroRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   macroLabel: { width: 48, fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.4 },
   macroTrack: { flex: 1, minWidth: 0, height: 4, borderRadius: 2, overflow: 'hidden' },

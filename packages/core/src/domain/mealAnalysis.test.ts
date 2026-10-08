@@ -104,3 +104,19 @@ describe('parseMealAnalysisResponse — the pet\'s reaction', () => {
     expect(parseMealAnalysisResponse({ analysis: { ...base, petReaction: 42 } })).not.toHaveProperty('petReaction');
   });
 });
+
+describe('sub-macros from a photo', () => {
+  it('keeps the fiber, sugar, saturated fat and sodium the model estimated', () => {
+    const analysis = parseMealAnalysisResponse({
+      analysis: { ...validAnalysis, macros: { ...validAnalysis.macros, fiberGrams: 2, sugarGrams: 1.5, saturatedFatGrams: 2.2, sodiumMg: 480 } },
+    });
+    expect(analysis.macros).toMatchObject({ fiberGrams: 2, sugarGrams: 1.5, saturatedFatGrams: 2.2, sodiumMg: 480 });
+  });
+
+  it('leaves them off an older response that never had them, and drops nonsense', () => {
+    expect(parseMealAnalysisResponse({ analysis: validAnalysis }).macros).not.toHaveProperty('fiberGrams');
+    const odd = parseMealAnalysisResponse({ analysis: { ...validAnalysis, macros: { ...validAnalysis.macros, sodiumMg: -40, sugarGrams: 'lots' } } });
+    expect(odd.macros.sodiumMg).toBe(0);
+    expect(odd.macros).not.toHaveProperty('sugarGrams');
+  });
+});

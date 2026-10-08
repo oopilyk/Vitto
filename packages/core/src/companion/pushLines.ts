@@ -76,6 +76,14 @@ export const PUSH_LINE_SPECS: Record<PushLineKind, { brief: string; placeholders
 export const PUSH_LINE_KINDS = Object.keys(PUSH_LINE_SPECS) as PushLineKind[];
 
 /** Lines written per kind: enough that a person rarely sees the same one twice in a row. */
+/**
+ * In-app check-ins answered from the bank too, rather than by a live model
+ * call: the nudges whose whole point is a few warm words in the pet's voice
+ * (you've been away; the streak is at risk), not a reply to anything specific.
+ * The rest (reactions, remembered events) still talk about the particulars.
+ */
+export const BANKED_CHECK_IN_KINDS: ReadonlySet<PushLineKind> = new Set<PushLineKind>(['absence', 'absence_again', 'streak_at_risk']);
+
 export const PUSH_LINES_PER_KIND = 4;
 
 /** A bank older than this is rewritten, so the pet's pushes do not calcify. */

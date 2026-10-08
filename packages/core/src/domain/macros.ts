@@ -28,3 +28,23 @@ export const withEstimatedCalories = (analysis: MealAnalysis): MealAnalysis => (
   ...analysis,
   macros: { ...analysis.macros, calories: calorieEstimate(analysis.macros) },
 });
+
+/**
+ * The sub-macros as one quiet line ("Fiber 6g · Sugar 12g · Sat. fat 3.5g ·
+ * Sodium 640mg"), leaving out any the source never reported. Plain totals,
+ * deliberately with no targets or verdicts beside them (fiber's target lives
+ * on its own bar): what was eaten, not whether it was too much.
+ */
+export const describeSubMacros = (
+  macros: { fiberGrams?: number; sugarGrams?: number; saturatedFatGrams?: number; sodiumMg?: number },
+  { includeFiber = true }: { includeFiber?: boolean } = {},
+): string | null => {
+  const known = (value: number | undefined): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
+  const parts = [
+    includeFiber && known(macros.fiberGrams) ? `Fiber ${Math.round(macros.fiberGrams)}g` : null,
+    known(macros.sugarGrams) ? `Sugar ${Math.round(macros.sugarGrams)}g` : null,
+    known(macros.saturatedFatGrams) ? `Sat. fat ${Math.round(macros.saturatedFatGrams * 10) / 10}g` : null,
+    known(macros.sodiumMg) ? `Sodium ${Math.round(macros.sodiumMg).toLocaleString('en-US')}mg` : null,
+  ].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join(' · ') : null;
+};

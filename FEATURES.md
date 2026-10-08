@@ -175,7 +175,7 @@ Every session fully restores your pet's mind.
   - never pushes you to eat less;
   - no guilt trips.
   - If you seem to be in real distress, it drops the act and points you to real help.
-- **Limits:** 5 messages a day free, 100 with Plus.
+- **Limits:** 5 messages a day free, many more with Plus.
 
 ---
 
@@ -222,15 +222,15 @@ Every session fully restores your pet's mind.
 |---|---|---|
 | Logging meals (search, barcode, Apple Health), workouts, steps, sleep, screen time | ✓ | ✓ |
 | All mind games, evolution, friends, shared pets | ✓ | ✓ |
-| Photo meal tracking | | ✓ |
+| Photo meal tracking | | ✓ (10 a day) |
 | Choose or write your pet's personality, and tune its dials | | ✓ |
-| Chat messages per day | 5 | 100 |
+| Chat messages per day | 5 | Many more |
 | Pet remembers what you tell it | | ✓ |
 | Check-ins from your pet per day | 2 | 12 |
 | Insights into your habits | | ✓ |
 | Lift progress graph | | ✓ |
 
-- **Price:** $7.99 a month, or $39.99 a year with a 14-day free trial.
+- **Price:** $7.99 a month, or $49.99 a year with a 14-day free trial.
 - **Cancelling:** easy, from Settings → Vitto Plus → Manage subscription, which opens Apple's subscription settings.
 - **Platform:** Plus is sold on iPhone through the App Store.
 

@@ -9,7 +9,7 @@ import type { BrainTrainingMetadata, HealthEvent, MealMetadata, SleepMetadata, S
 import { calorieEstimate } from './macros';
 import type { BodyProfile } from './macroTargets';
 import { personalRecords } from './personalRecords';
-import { PET_BUILD_LABEL, chargeOf, getPetBuild, hasEvolved, type PetState } from './pet';
+import { EVOLVED_BUILDS, PET_BUILD_LABEL, chargeOf, evolutionProgress, getPetBuild, hasEvolved, type PetState } from './pet';
 import { assessCondition, type PetAilment } from './petCondition';
 import { daysWithPet } from './petStats';
 import { calculateStreakStatus } from './streaks';
@@ -193,7 +193,13 @@ export const buildLifeContext = (input: {
       species: SPECIES[pet.breed ?? ''] ?? 'pet',
       ageDays: Math.max(0, daysWithPet(pet, now) - 1),
       level: pet.level,
+      xp: pet.xp,
       build: hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : 'Balanced',
+      // So "what am I evolving into?" gets the same answer the Stats screen gives.
+      evolutions: EVOLVED_BUILDS.map((build) => {
+        const progress = evolutionProgress(pet, build);
+        return { build: PET_BUILD_LABEL[build], percent: Math.round(progress.progress * 100), earned: progress.earned };
+      }),
       ...(pet.personality ? { temperament: pet.personality } : {}),
       // Notes are the character only for "Your own"; with a base temperament
       // they are not offered any more, and old ones are no longer sent.
