@@ -6,13 +6,10 @@ import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
 
 /**
- * Outdoors: reached by tapping Outdoors from any other scene. Syncing steps is
- * the point of the scene, so it gets the floating call to action, mirroring
- * Kitchen's "Log meal" and the Gym's "Log workout". Same shape as those two --
- * no new UI, just the existing action dressed as a place the pet can stand in.
- *
- * The row's own Outdoors button logs steps here rather than navigating, since
- * the pet is already outside -- see `EnvironmentActionRow`.
+ * Outdoors: reached by tapping Outdoors from any other scene. Logging a run,
+ * walk or ride is the point of the scene, so it gets the floating call to
+ * action, mirroring Kitchen's "Log meal" and the Gym's "Log workout". Steps
+ * need no button: they sync from Apple Health on their own (see App.tsx).
  */
 
 const OUTSIDE_DAY = require('../../assets/environments/outside-day.png');
@@ -27,28 +24,30 @@ const DAY_SKY = '#808463';
 const NIGHT_SKY = '#252c4f';
 
 interface OutsideEnvironmentControlsProps {
-  onSyncSteps: () => void;
+  /** Opens the workout logger straight on its runs-and-rides list. */
+  onLogRun: () => void;
 }
 
-function LogStepsButton({ onPress }: { onPress: () => void }) {
+/** Outdoors is for runs, walks and rides. Steps sync on their own. */
+function LogRunButton({ onPress }: { onPress: () => void }) {
   return (
     <RoomActionSlot>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Log steps"
+        accessibilityLabel="Log a run"
         onPress={onPress}
         style={({ pressed }) => [styles.steps, pressed && styles.stepsPressed]}
       >
-        <Text style={styles.stepsLabel}>Log steps</Text>
+        <Text style={styles.stepsLabel}>Log a run</Text>
       </Pressable>
     </RoomActionSlot>
   );
 }
 
 function OutsideEnvironmentControls({
-  onSyncSteps,
+  onLogRun,
 }: OutsideEnvironmentControlsProps) {
-  return <LogStepsButton onPress={onSyncSteps} />;
+  return <LogRunButton onPress={onLogRun} />;
 }
 
 export function outsideEnvironment(props: OutsideEnvironmentControlsProps): EnvironmentDressing {

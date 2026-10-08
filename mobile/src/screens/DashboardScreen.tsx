@@ -46,7 +46,8 @@ interface Props {
    * user has actually chosen to pick food, not the top-level Feed tap. */
   onLogMeal: () => void;
   onLogWorkout: () => void;
-  onSyncSteps: () => void;
+  /** Outdoors' action: opens the workout logger on its runs-and-rides list. */
+  onLogRun: () => void;
   onTrainMind: () => void;
   onOpenProfile: () => void;
   /** Opens Settings from the account menu. Absent where the route is not wired up. */
@@ -107,7 +108,7 @@ export function DashboardScreen({
   onOpenChat,
   onLogMeal,
   onLogWorkout,
-  onSyncSteps,
+  onLogRun,
   onTrainMind,
   onOpenProfile,
   onOpenSettings,
@@ -238,7 +239,7 @@ export function DashboardScreen({
         kitchen: kitchenEnvironment({ onChooseFood: onLogMeal }),
         gym: gymEnvironment({ onStartWorkout: onLogWorkout }),
         study: studyEnvironment({ onTrainMind }),
-        outside: outsideEnvironment({ onSyncSteps }),
+        outside: outsideEnvironment({ onLogRun }),
       }}
     />
       {celebration?.kind === 'levelUp' ? (

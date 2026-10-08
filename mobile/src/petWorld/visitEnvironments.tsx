@@ -30,7 +30,7 @@ export const visitEnvironments = (): Record<EnvironmentId, EnvironmentDressing> 
     main: quiet(mainEnvironment({})),
     kitchen: quiet(kitchenEnvironment({ onChooseFood: noop })),
     gym: quiet(gymEnvironment({ onStartWorkout: noop })),
-    outside: quiet(outsideEnvironment({ onSyncSteps: noop })),
+    outside: quiet(outsideEnvironment({ onLogRun: noop })),
     study: quiet(studyEnvironment({ onTrainMind: noop })),
   };
 };

@@ -94,6 +94,9 @@ const engine = new PetHealthEngine();
 // everything except screen time, which it can actually read (see
 // mobile/SCREENTIME.md); web-via-react-native-web stays on the mock until a
 // Health Connect provider exists. See mobile/HEALTHKIT.md.
+/** How often steps re-sync while the app is open. */
+const STEP_AUTO_SYNC_MS = 5 * 60 * 1000;
+
 const stepsProvider: HealthDataProvider =
   Platform.OS === 'ios'
     ? new HealthKitProvider()
@@ -148,7 +151,8 @@ type RootStackParamList = {
   DeleteAccount: undefined;
   Appearance: undefined;
   MealCapture: undefined;
-  Workout: undefined;
+  /** `cardio` opens it on the runs-and-rides list (Outdoors' "Log a run"). */
+  Workout: { cardio?: boolean } | undefined;
   MindGym: undefined;
   WordPuzzle: undefined;
   // A mind game with its own full-screen play area (the pet stands in the middle
@@ -531,6 +535,7 @@ function VittoApp() {
     onEatingFinished: playCelebrationSound,
   });
   const [isAppleHealthConnected, setIsAppleHealthConnected] = useState(false);
+  const stepSyncInFlight = useRef(false);
   const [isSyncingAppleHealth, setIsSyncingAppleHealth] = useState(false);
   // Android only: whether Settings → Usage access has been granted. Re-read on
   // every return to the foreground, since granting it happens in Settings.
@@ -1479,17 +1484,17 @@ function VittoApp() {
     void repository.clearWordPuzzleProgress().catch(() => undefined);
   };
 
+  /**
+   * Today's steps from Apple Health into the day's one STEP_ACTIVITY row. Runs
+   * on its own (see below) and with "Sync now", so it never asks for access
+   * and never shows an error: nobody pressed anything, and the next sync is a
+   * few minutes away. One at a time, or two syncs at once would both find no
+   * row for today and log the day twice.
+   */
   const syncSteps = async () => {
+    if (stepSyncInFlight.current || !isAppleHealthConnected || !pet) return;
+    stepSyncInFlight.current = true;
     try {
-      if (!isAppleHealthConnected) {
-        const granted = await stepsProvider.requestAuthorization();
-        setIsAppleHealthConnected(granted);
-        if (!granted) {
-          setError('Connect Apple Health (in Profile) to sync steps.');
-          return;
-        }
-      }
-      interaction.startExploring();
       const event = (await stepsProvider.getTodaySteps(userId)) as HealthEvent<StepMetadata>;
       const newSteps = event.metadata.steps ?? 0;
 
@@ -1543,11 +1548,45 @@ function VittoApp() {
       } else {
         await recordEvent(event);
       }
-      setError(null);
-    } catch (cause) {
-      setError(errorMessage(cause, 'Could not sync steps.'));
+    } catch {
+      // Quiet by design; the next sync tries again.
+    } finally {
+      stepSyncInFlight.current = false;
     }
   };
+
+  // Steps keep themselves up to date: synced on open, on every return to the
+  // app, and every few minutes while it is on screen. Apple Health only hands
+  // them over while Vitto is running, so this is as live as they get without
+  // background delivery.
+  const syncStepsRef = useRef(syncSteps);
+  syncStepsRef.current = syncSteps;
+  useEffect(() => {
+    if (!dataReady || Platform.OS !== 'ios' || isAppleHealthConnected) return;
+    // A connection made on an earlier launch, picked back up without asking.
+    let cancelled = false;
+    void stepsProvider.restoreAuthorization().then((restored) => {
+      if (!cancelled && restored) setIsAppleHealthConnected(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [dataReady, isAppleHealthConnected]);
+  useEffect(() => {
+    if (!dataReady || !isAppleHealthConnected || !pet?.id) return;
+    const sync = () => void syncStepsRef.current();
+    sync();
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') sync();
+    }, STEP_AUTO_SYNC_MS);
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
+    });
+    return () => {
+      clearInterval(timer);
+      foreground.remove();
+    };
+  }, [dataReady, isAppleHealthConnected, pet?.id]);
 
   const connectAppleHealth = async () => {
     try {
@@ -1666,6 +1705,7 @@ function VittoApp() {
       const since = new Date(Math.max(windowStart, ownNewestMs));
       const knownExternalIds = getKnownHealthKitExternalIds(events);
 
+      await syncSteps();
       const [workouts, meals, sleep] = await Promise.all([
         stepsProvider.getNewWorkouts(userId, since, knownExternalIds),
         stepsProvider.getNewMeals(userId, since, knownExternalIds),
@@ -2013,7 +2053,7 @@ function VittoApp() {
               onOpenChat={isOnline ? () => navigation.navigate('Companion') : undefined}
               onLogMeal={() => navigation.navigate('MealCapture')}
               onLogWorkout={() => navigation.navigate('Workout')}
-              onSyncSteps={() => void syncSteps()}
+              onLogRun={() => navigation.navigate('Workout', { cardio: true })}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenSettings={() => navigation.navigate('Settings')}
@@ -2426,8 +2466,9 @@ function VittoApp() {
             )}
           </RootStack.Screen>
           <RootStack.Screen name="Workout">
-            {({ navigation }) => (
+            {({ navigation, route }) => (
               <WorkoutScreen
+                startWithCardio={route.params?.cardio === true}
                 weightUnit={profile.weightUnit}
                 templates={workoutTemplates}
                 onSaveTemplate={saveWorkoutTemplate}

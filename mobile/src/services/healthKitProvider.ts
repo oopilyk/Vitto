@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import {
+  getRequestStatusForAuthorization,
   isHealthDataAvailableAsync,
   queryCategorySamples,
   queryQuantitySamples,
@@ -61,6 +62,19 @@ const byOccurredAtAscending = (a: HealthEvent<unknown>, b: HealthEvent<unknown>)
 const workoutActivityName = (activityType: WorkoutActivityType): string =>
   WorkoutActivityType[activityType] ?? 'other';
 
+/** Everything Vitto reads from Apple Health. Asked for once, all together. */
+const READ_TYPES = [
+  STEP_COUNT,
+  ACTIVE_ENERGY_BURNED,
+  'HKWorkoutTypeIdentifier',
+  DIETARY_ENERGY,
+  DIETARY_PROTEIN,
+  DIETARY_CARBS,
+  DIETARY_FAT,
+  DIETARY_FIBER,
+  SLEEP_ANALYSIS,
+] as const;
+
 export class HealthKitProvider implements HealthDataProvider {
   private authorized = false;
 
@@ -69,22 +83,28 @@ export class HealthKitProvider implements HealthDataProvider {
     return isHealthDataAvailableAsync();
   }
 
+  /**
+   * Picks up a connection made on an earlier launch, without ever asking.
+   * iOS never says whether READ access was granted, only whether the person
+   * has already been asked (`unnecessary`, 2); once they have, re-requesting
+   * shows nothing and simply re-arms this provider. A person who has never
+   * been asked is left alone: that sheet only appears when they tap Connect.
+   */
+  async restoreAuthorization(): Promise<boolean> {
+    if (Platform.OS !== 'ios') return false;
+    try {
+      const status = await getRequestStatusForAuthorization({ toRead: READ_TYPES });
+      if (Number(status) !== 2) return false;
+      return await this.requestAuthorization();
+    } catch {
+      return false;
+    }
+  }
+
   async requestAuthorization(): Promise<boolean> {
     if (Platform.OS !== 'ios') return false;
     try {
-      const granted = await requestAuthorization({
-        toRead: [
-          STEP_COUNT,
-          ACTIVE_ENERGY_BURNED,
-          'HKWorkoutTypeIdentifier',
-          DIETARY_ENERGY,
-          DIETARY_PROTEIN,
-          DIETARY_CARBS,
-          DIETARY_FAT,
-          DIETARY_FIBER,
-          SLEEP_ANALYSIS,
-        ],
-      });
+      const granted = await requestAuthorization({ toRead: READ_TYPES });
       this.authorized = granted;
       return granted;
     } catch (cause) {

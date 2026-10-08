@@ -36,7 +36,7 @@ const render = (celebration: CelebrationEvent | null, onComplete = () => {}) => 
         reaction={null}
         onLogMeal={() => {}}
         onLogWorkout={() => {}}
-        onSyncSteps={() => {}}
+        onLogRun={() => {}}
         onTrainMind={() => {}}
         onOpenProfile={() => {}}
         onOpenStats={() => {}}
@@ -80,7 +80,7 @@ describe('DashboardScreen level-up celebration', () => {
 
 describe('the pet speaking when something is logged', () => {
   const props = {
-    pet, events: [], onLogMeal: () => {}, onLogWorkout: () => {}, onSyncSteps: () => {}, onTrainMind: () => {},
+    pet, events: [], onLogMeal: () => {}, onLogWorkout: () => {}, onLogRun: () => {}, onTrainMind: () => {},
     onOpenProfile: () => {}, onOpenStats: () => {}, onOpenToday: () => {}, interaction: idleInteraction,
     celebration: null, onCelebrationComplete: () => {}, onOpenChat: () => {},
   };

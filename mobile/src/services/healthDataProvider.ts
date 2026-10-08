@@ -12,6 +12,8 @@ export interface HealthDataProvider {
   isAvailable(): Promise<boolean>;
   /** Prompts the user for read permission. Resolves to whether it was granted. */
   requestAuthorization(): Promise<boolean>;
+  /** Re-arms a connection made on an earlier launch, never prompting. False if there was none. */
+  restoreAuthorization(): Promise<boolean>;
   getTodaySteps(userId: string): Promise<HealthEvent<StepMetadata>>;
   /**
    * Workouts logged in a source app (e.g. Strong) since `since`, excluding any
@@ -67,6 +69,10 @@ export class MockHealthDataProvider implements HealthDataProvider {
 
   async requestAuthorization(): Promise<boolean> {
     return true;
+  }
+
+  async restoreAuthorization(): Promise<boolean> {
+    return false;
   }
 
   async getTodaySteps(userId: string): Promise<HealthEvent<StepMetadata>> {

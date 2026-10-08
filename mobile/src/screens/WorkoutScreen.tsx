@@ -38,12 +38,15 @@ interface Props {
   templates?: readonly WorkoutTemplate[];
   onSaveTemplate?: (template: WorkoutTemplate) => Promise<void> | void;
   onDeleteTemplate?: (id: string) => Promise<void> | void;
+  /**
+   * Open straight on the runs-and-rides list (the Outdoors room's "Log a
+   * run"): only the activities logged by distance, and one tap picks it.
+   */
+  startWithCardio?: boolean;
 }
 
 /** The unnamed session. Saving a routine still called this asks for a real name. */
 const DEFAULT_SESSION_NAME = 'Strength session';
-
-/** One-tap session lengths; anything else goes in the box beside them. */
 
 /**
  * Two jobs on one builder.
@@ -67,6 +70,7 @@ export function WorkoutScreen({
   templates = [],
   onSaveTemplate,
   onDeleteTemplate,
+  startWithCardio = false,
 }: Props) {
   const [mode, setMode] = useState<Mode>('log');
   const [name, setName] = useState(DEFAULT_SESSION_NAME);
@@ -94,7 +98,9 @@ export function WorkoutScreen({
   const [routineName, setRoutineName] = useState('');
 
   /** The exercise picker overlay. */
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(startWithCardio);
+  /** The picker as a "what did you do?" list of runs, rides and swims, until something is picked. */
+  const [cardioOnly, setCardioOnly] = useState(startWithCardio);
   const [search, setSearch] = useState('');
 
   const routineMode = mode === 'routine';
@@ -105,6 +111,13 @@ export function WorkoutScreen({
       createExercise(exerciseName, muscle, bodyweight, weightUnit),
     ]);
     setError(null);
+    // A run is one thing: picking it is the whole choice, so straight to its
+    // distance and minutes, and the session takes its name.
+    if (cardioOnly) {
+      setCardioOnly(false);
+      setPicking(false);
+      if (name === DEFAULT_SESSION_NAME) setName(exerciseName);
+    }
   };
 
   const removeExercise = (id: string) =>
@@ -266,7 +279,8 @@ export function WorkoutScreen({
     }
   };
 
-  const matches = exerciseLibrary.filter(([exerciseName, muscle]) => {
+  const matches = exerciseLibrary.filter(([exerciseName, muscle, kind]) => {
+    if (cardioOnly && kind !== 'distance') return false;
     const query = search.trim().toLowerCase();
     if (!query) return true;
     return exerciseName.toLowerCase().includes(query) || muscle.toLowerCase().includes(query);
@@ -319,6 +333,7 @@ export function WorkoutScreen({
 
   const openPicker = () => {
     setSearch('');
+    setCardioOnly(false);
     setPicking(true);
   };
 
@@ -648,20 +663,23 @@ export function WorkoutScreen({
           <View style={styles.picker}>
             <View style={styles.pickerHead}>
               <View style={{ flex: 1 }}>
-                <Kicker>Vitto / exercises</Kicker>
-                <Text style={styles.title}>Add exercise</Text>
+                <Kicker>{cardioOnly ? 'Vitto / outdoors' : 'Vitto / exercises'}</Kicker>
+                <Text style={styles.title}>{cardioOnly ? 'What did you do?' : 'Add exercise'}</Text>
               </View>
-              <TextButton label="Done" onPress={() => setPicking(false)} />
+              <TextButton label={cardioOnly ? 'Close' : 'Done'} onPress={() => (cardioOnly ? onClose() : setPicking(false))} />
             </View>
             <View style={styles.pickerBody}>
-              <TextInput
-                style={layout.input}
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search exercises to add"
-                placeholderTextColor={colors.faint}
-                autoFocus
-              />
+              {/* A short list needs no search, and no keyboard over it. */}
+              {cardioOnly ? null : (
+                <TextInput
+                  style={layout.input}
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Search exercises to add"
+                  placeholderTextColor={colors.faint}
+                  autoFocus
+                />
+              )}
               <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
                 {matches.map(([exerciseName, muscle, bodyweight]) => {
                   const added = countOf(exerciseName);

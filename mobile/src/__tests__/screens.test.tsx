@@ -202,7 +202,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -241,7 +241,7 @@ describe('screens render', () => {
           careToast={{ headline: '1,240 steps logged', detail: '+3 vitality · +8 XP' }}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -284,7 +284,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => pressed.push('meal')}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -334,7 +334,7 @@ describe('screens render', () => {
           onSelectPet={(id: string) => selected.push(id)}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -372,7 +372,7 @@ describe('screens render', () => {
           onSelectPet={() => {}}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -439,6 +439,42 @@ describe('screens render', () => {
       .findAllByType(WorkoutInput)
       .find((node: any) => node.props.placeholder === 'lb');
     expect(weightField!.props.value).toBe('45');
+    tree.unmount();
+  });
+
+  it('opens Outdoors\' "Log a run" on the runs-and-rides list, and one tap picks it', async () => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    const { Text } = require('react-native');
+    const logged: any[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen startWithCardio weightUnit="lb" templates={[]} onFinish={async (m: any) => { logged.push(m); }} onClose={() => {}} />,
+      );
+    });
+    const labels = () => tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
+    const press = (label: string) =>
+      tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
+
+    // Only distance activities, no strength moves and no search box.
+    expect(labels()).toContain('What did you do?');
+    expect(press('Add Running')).toBeTruthy();
+    expect(press('Add Cycling')).toBeTruthy();
+    expect(press('Add Bench Press')).toBeUndefined();
+    expect(tree.root.findAllByProps({ placeholder: 'Search exercises to add' })).toHaveLength(0);
+
+    // One tap: the list closes, the run's own card asks for miles and minutes,
+    // and the session is named after it.
+    act(() => press('Add Running')!.props.onPress());
+    expect(labels()).not.toContain('What did you do?');
+    expect(labels()).toContain('MILES');
+    act(() => tree.root.findAllByProps({ accessibilityLabel: 'Distance in miles' }).find((n: any) => n.props.onChangeText)!.props.onChangeText('3.1'));
+    act(() => tree.root.findAllByProps({ accessibilityLabel: 'Minutes' }).find((n: any) => n.props.onChangeText)!.props.onChangeText('28'));
+    const finish = tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => String(t.props.children).startsWith('Finish')));
+    await act(async () => { finish!.props.onPress(); await Promise.resolve(); });
+    expect(logged[0]).toMatchObject({ name: 'Running', workoutType: 'cardio', durationMinutes: 28 });
     tree.unmount();
   });
 
@@ -867,7 +903,7 @@ describe('screens render', () => {
             trophies={trophies as any}
             onLogMeal={() => {}}
             onLogWorkout={() => {}}
-            onSyncSteps={() => {}}
+            onLogRun={() => {}}
             onTrainMind={() => {}}
             onOpenProfile={() => {}}
             onOpenStats={() => {}}
@@ -926,7 +962,7 @@ describe('screens render', () => {
           reaction={{ message: 'Miso loved the variety in that meal.', eventLabel: 'Shared a meal', delta: {}, effects }}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -962,7 +998,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -1002,7 +1038,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -1025,7 +1061,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -1162,7 +1198,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {
             opened += 1;
@@ -1205,7 +1241,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {
@@ -1237,7 +1273,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => pressed.push('meal')}
           onLogWorkout={() => pressed.push('workout')}
-          onSyncSteps={() => pressed.push('steps')}
+          onLogRun={() => pressed.push('steps')}
           onTrainMind={() => pressed.push('mind')}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -1273,10 +1309,10 @@ describe('screens render', () => {
     expect(pressed).toEqual(['mind', 'workout']);
     act(() => findButton('Back to the living room')!.props.onPress());
 
-    // Outdoors: same shape, with "Log steps" as its call to action.
+    // Outdoors: same shape, with "Log a run" as its call to action.
     act(() => findButton('Go outdoors')!.props.onPress());
     expect(pressed).toEqual(['mind', 'workout']);
-    act(() => findButton('Log steps')!.props.onPress());
+    act(() => findButton('Log a run')!.props.onPress());
     expect(pressed).toEqual(['mind', 'workout', 'steps']);
     act(() => findButton('Back to the living room')!.props.onPress());
 
@@ -1314,7 +1350,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -1356,7 +1392,7 @@ describe('screens render', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -2923,7 +2959,7 @@ describe('care partners', () => {
             reaction={null}
             onLogMeal={() => {}}
             onLogWorkout={() => {}}
-            onSyncSteps={() => {}}
+            onLogRun={() => {}}
             onTrainMind={() => {}}
             onOpenProfile={() => {}}
             onOpenStats={() => {}}
@@ -3159,7 +3195,7 @@ describe('care partners', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -3191,7 +3227,7 @@ describe('care partners', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
@@ -3218,7 +3254,7 @@ describe('care partners', () => {
           reaction={null}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
-          onSyncSteps={() => {}}
+          onLogRun={() => {}}
           onTrainMind={() => {}}
           onOpenProfile={() => {}}
           onOpenStats={() => {}}
