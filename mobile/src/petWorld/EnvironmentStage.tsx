@@ -384,8 +384,15 @@ function FadeSwap({
   style?: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
-  const opacity = useRef(new Animated.Value(0)).current;
+  // Starts visible, and only fades on an actual swap. Fading the first room in
+  // too left it invisible on the first open of a release build: the native
+  // animation could start before the view was mounted natively, and opacity
+  // then stayed at 0 until a room change ran the fade again.
+  const opacity = useRef(new Animated.Value(1)).current;
+  const firstKey = useRef(swapKey);
   useEffect(() => {
+    if (swapKey === firstKey.current) return;
+    firstKey.current = '';
     opacity.setValue(0);
     Animated.timing(opacity, {
       toValue: 1,

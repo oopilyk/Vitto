@@ -1,6 +1,6 @@
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
 import type { PetAnimation, PetSheet, PetVideoClip, PetVideos } from './petSprites';
 
 /**
@@ -56,6 +56,19 @@ export function PetVideo({ videos, clip, size, artScale = 1 }: Props) {
   useEffect(() => {
     if (Platform.OS === 'web') player.play();
   }, [player]);
+
+  // iOS pauses every player when the app goes to the background and nothing
+  // starts it again, so the pet froze mid-pose after a trip out of the app.
+  // Resume on return: a looping clip always, a play-once clip (a fall, a
+  // slump) only if it had not reached its held last pose yet.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const finished = player.duration > 0 && player.currentTime >= player.duration - 0.05;
+      if (clip.loop || !finished) player.play();
+    });
+    return () => subscription.remove();
+  }, [player, clip.loop]);
 
   const cell = size * artScale;
   const scale = cell / videos.cell.size;

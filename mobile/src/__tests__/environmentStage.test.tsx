@@ -108,3 +108,24 @@ describe('EnvironmentStage pet tap reaction', () => {
     tree.unmount();
   });
 });
+
+describe('EnvironmentStage first open', () => {
+  it('shows the first room at full opacity instead of fading it in', () => {
+    // Fading the first room in left the TestFlight build with a blank
+    // background on first open: the native fade could start before the view
+    // existed natively, and opacity stayed at 0 until a room change.
+    const { StyleSheet } = require('react-native');
+    const tree = render();
+    const background = tree.root.findAll((node) => node.props.children === 'main bg')[0]!;
+    let node: any = background;
+    const opacities: number[] = [];
+    while (node) {
+      const opacity = StyleSheet.flatten(node.props.style)?.opacity;
+      if (opacity !== undefined) opacities.push(typeof opacity === 'number' ? opacity : opacity.__getValue());
+      node = node.parent;
+    }
+    expect(opacities.length).toBeGreaterThan(0);
+    expect(opacities.every((value) => value === 1)).toBe(true);
+    tree.unmount();
+  });
+});
