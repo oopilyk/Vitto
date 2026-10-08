@@ -217,8 +217,8 @@ const BICHON_ART_SCALE = 0.78;
  * one band of poses at the generator's own spacing; `scripts/assembleSpriteSlices.mjs`
  * cuts the poses out, halves them, and lays them onto the 4-column grid feet
  * centred on one baseline, sized so the idle art fills the same share of its
- * cell as the base bichon. Re-running that script rebuilds this sheet from
- * `assets/pet/source/bichonRunner/`.
+ * cell as the base bichon. Its slice images are no longer kept, so this sheet
+ * is now the source of truth.
  *
  * It is a 4x9 sheet — five bands, no cheer band:
  *
@@ -471,12 +471,8 @@ const OTTER_LAYOUT: SheetLayout = {
   frameMs: { unwell: 340, sad: 340 },
 };
 
-const OTTER_LIFTER = sheetFrom(OTTER_LAYOUT, 'Otter · Lifter', require('../../assets/pet/otterLifter.png'));
-const OTTER_SCHOLAR = sheetFrom(OTTER_LAYOUT, 'Otter · Scholar', require('../../assets/pet/otterScholar.png'));
-
 const OTTER: PetSheet = {
   ...sheetFrom(OTTER_LAYOUT, 'Otter', require('../../assets/pet/otter.png')),
-  evolutions: { lifter: OTTER_LIFTER, scholar: OTTER_SCHOLAR },
 };
 
 // ---------------------------------------------------------------------------
@@ -515,12 +511,8 @@ const TABBY_CAT_LAYOUT: SheetLayout = {
   },
 };
 
-const TABBY_CAT_LIFTER = sheetFrom(TABBY_CAT_LAYOUT, 'Tabby Cat · Lifter', require('../../assets/pet/tabbyCatLifter.png'));
-const TABBY_CAT_SCHOLAR = sheetFrom(TABBY_CAT_LAYOUT, 'Tabby Cat · Scholar', require('../../assets/pet/tabbyCatScholar.png'));
-
 const TABBY_CAT: PetSheet = {
   ...sheetFrom(TABBY_CAT_LAYOUT, 'Tabby Cat', require('../../assets/pet/tabbyCat.png')),
-  evolutions: { lifter: TABBY_CAT_LIFTER, scholar: TABBY_CAT_SCHOLAR },
 };
 
 /**
@@ -710,12 +702,8 @@ const FOX_LAYOUT: SheetLayout = {
   },
 };
 
-const FOX_LIFTER = sheetFrom(FOX_LAYOUT, 'Fox · Lifter', require('../../assets/pet/foxLifter.png'));
-const FOX_SCHOLAR = sheetFrom(FOX_LAYOUT, 'Fox · Scholar', require('../../assets/pet/foxScholar.png'));
-
 const FOX: PetSheet = {
   ...sheetFrom(FOX_LAYOUT, 'Fox', require('../../assets/pet/fox.png')),
-  evolutions: { lifter: FOX_LIFTER, scholar: FOX_SCHOLAR },
 };
 
 /**
@@ -749,12 +737,8 @@ const KOALA_LAYOUT: SheetLayout = {
   },
 };
 
-const KOALA_LIFTER = sheetFrom(KOALA_LAYOUT, 'Koala · Lifter', require('../../assets/pet/koalaLifter.png'));
-const KOALA_SCHOLAR = sheetFrom(KOALA_LAYOUT, 'Koala · Scholar', require('../../assets/pet/koalaScholar.png'));
-
 const KOALA: PetSheet = {
   ...sheetFrom(KOALA_LAYOUT, 'Koala', require('../../assets/pet/koala.png')),
-  evolutions: { lifter: KOALA_LIFTER, scholar: KOALA_SCHOLAR },
 };
 
 /**
@@ -1021,12 +1005,8 @@ const AXOLOTL_LAYOUT: SheetLayout = {
   },
 };
 
-const AXOLOTL_LIFTER = sheetFrom(AXOLOTL_LAYOUT, 'Axolotl · Lifter', require('../../assets/pet/axolotlLifter.png'));
-const AXOLOTL_SCHOLAR = sheetFrom(AXOLOTL_LAYOUT, 'Axolotl · Scholar', require('../../assets/pet/axolotlScholar.png'));
-
 const AXOLOTL: PetSheet = {
   ...sheetFrom(AXOLOTL_LAYOUT, 'Axolotl', require('../../assets/pet/axolotl.png')),
-  evolutions: { lifter: AXOLOTL_LIFTER, scholar: AXOLOTL_SCHOLAR },
 };
 
 /**
@@ -1053,12 +1033,8 @@ const DINO_LAYOUT: SheetLayout = {
   },
 };
 
-const DINO_LIFTER = sheetFrom(DINO_LAYOUT, 'Dino · Lifter', require('../../assets/pet/dinoLifter.png'));
-const DINO_SCHOLAR = sheetFrom(DINO_LAYOUT, 'Dino · Scholar', require('../../assets/pet/dinoScholar.png'));
-
 const DINO: PetSheet = {
   ...sheetFrom(DINO_LAYOUT, 'Dino', require('../../assets/pet/dino.png')),
-  evolutions: { lifter: DINO_LIFTER, scholar: DINO_SCHOLAR },
 };
 
 /** Adoptable companions, in the order the breed picker offers them. */

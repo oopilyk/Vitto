@@ -2369,16 +2369,16 @@ describe('pet sprite', () => {
     expect(runner.animations).not.toBe(base.animations);
   });
 
-  it('evolves a grown, strength-built cat onto the lifter sheet', () => {
+  it('evolves a grown, strength-built bunny onto the lifter sheet', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const lifter = { id: 'p', breed: 'tabbyCat', level: 16, strength: 80, endurance: 10, mind: 10 };
-    expect(sheetForPet(lifter).label).toBe('Tabby Cat · Lifter');
+    const lifter = { id: 'p', breed: 'bunny', level: 16, strength: 80, endurance: 10, mind: 10 };
+    expect(sheetForPet(lifter).label).toBe('Bunny · Lifter');
   });
 
-  it('evolves a grown, mind-built otter onto the scholar sheet', () => {
+  it('keeps an evolved otter on its own art while it has no evolved forms', () => {
     const { sheetForPet } = require('../components/petSprites');
     const scholar = { id: 'p', breed: 'otter', level: 16, mindSessions: 27, endurance: 10, strength: 10 };
-    expect(sheetForPet(scholar).label).toBe('Otter · Scholar');
+    expect(sheetForPet(scholar).label).toBe('Otter');
   });
 
   it('evolves a grown, mind-built shiba onto the scholar sheet', () => {
@@ -2393,12 +2393,14 @@ describe('pet sprite', () => {
     expect(sheetForPet(baby).label).toBe('Bichon');
   });
 
-  it('gives every breed a lifter and a scholar form', () => {
+  it('names every evolved form after its animal, and only the drawn animals have them', () => {
+    const withForms = (PET_SHEETS as any[]).filter((sheet) => sheet.evolutions).map((sheet) => sheet.name).sort();
+    expect(withForms).toEqual(['bear', 'bichon', 'bunny', 'shiba']);
     for (const sheet of PET_SHEETS as any[]) {
-      expect(sheet.evolutions?.lifter?.label).toBe(`${sheet.label} · Lifter`);
-      expect(sheet.evolutions?.scholar?.label).toBe(`${sheet.label} · Scholar`);
-      expect(sheet.evolutions.lifter.name).toBe(sheet.name);
-      expect(sheet.evolutions.scholar.name).toBe(sheet.name);
+      for (const [build, form] of Object.entries(sheet.evolutions ?? {}) as [string, any][]) {
+        expect(form.label).toBe(`${sheet.label} · ${build[0]!.toUpperCase()}${build.slice(1)}`);
+        expect(form.name).toBe(sheet.name);
+      }
     }
   });
 
