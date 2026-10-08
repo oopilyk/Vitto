@@ -2,10 +2,8 @@ import { Pressable, Text } from 'react-native';
 import { RoomActionSlot } from './RoomActionSlot';
 import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
-import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
-import type { EnvironmentId } from './types';
 
 /**
  * The Gym: reached by tapping Gym from any other scene, it opens the existing
@@ -29,8 +27,6 @@ const NIGHT_TINT = '#433558';
 
 interface GymEnvironmentControlsProps {
   onStartWorkout: () => void;
-  /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
-  onNavigate: (id: EnvironmentId) => void;
 }
 
 /** The Gym's dedicated call to action, in the same slot as Kitchen's "Log meal". */
@@ -51,15 +47,8 @@ function LogWorkoutButton({ onPress }: { onPress: () => void }) {
 
 function GymEnvironmentControls({
   onStartWorkout,
-  onNavigate,
-  night,
-}: GymEnvironmentControlsProps & { night: boolean }) {
-  return (
-    <>
-      <LogWorkoutButton onPress={onStartWorkout} />
-      <EnvironmentActionRow current="gym" onNavigate={onNavigate} night={night} />
-    </>
-  );
+}: GymEnvironmentControlsProps) {
+  return <LogWorkoutButton onPress={onStartWorkout} />;
 }
 
 export function gymEnvironment(props: GymEnvironmentControlsProps): EnvironmentDressing {
@@ -67,7 +56,7 @@ export function gymEnvironment(props: GymEnvironmentControlsProps): EnvironmentD
   return {
     background: <EnvironmentBackdrop source={night ? GYM_NIGHT : GYM_DAY} />,
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
-    controls: <GymEnvironmentControls {...props} night={night} />,
+    controls: <GymEnvironmentControls {...props} />,
   };
 }
 

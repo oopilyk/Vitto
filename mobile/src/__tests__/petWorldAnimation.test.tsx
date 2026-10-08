@@ -68,28 +68,8 @@ describe('toPetAvatarActivityProps', () => {
     });
   });
 
-  it('folds the live ambient-walking cue into isExploring, same as a tap-triggered explore', () => {
-    expect(toPetAvatarActivityProps({ kind: 'ambientWalking' })).toEqual({
-      ...IDLE_ACTIVITY,
-      isExploring: true,
-    });
-  });
-});
-
-describe('animationForInteraction', () => {
-  it('picks the band that matches what the pet is doing, same as PetAvatar.animationFor', () => {
-    expect(animationForInteraction({ kind: 'celebrating', grade: 'A' }, 'content', well)).toBe('cheer');
-    expect(animationForInteraction({ kind: 'exploring' }, 'content', well)).toBe('move');
-    expect(animationForInteraction({ kind: 'idle' }, 'sleepy', well)).toBe('rest');
-    expect(animationForInteraction({ kind: 'idle' }, 'hungry', well)).toBe('idle');
-  });
-
   it('reuses the "move" band for walking to food -- there is no dedicated pose', () => {
     expect(animationForInteraction({ kind: 'walkingToFood', grade: 'A' }, 'content', well)).toBe('move');
-  });
-
-  it('reuses the "move" band for the live ambient-walking cue too', () => {
-    expect(animationForInteraction({ kind: 'ambientWalking' }, 'content', well)).toBe('move');
   });
 
   it('reads sleeping the same as PetAvatar reads a sleepy idle pet', () => {

@@ -2,10 +2,8 @@ import { Pressable, Text } from 'react-native';
 import { RoomActionSlot } from './RoomActionSlot';
 import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
-import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
-import type { EnvironmentId } from './types';
 
 /**
  * The Study: reached by tapping Study from any other scene, it opens the
@@ -38,8 +36,6 @@ const NIGHT_FLOOR = '#54435d';
 
 interface StudyEnvironmentControlsProps {
   onTrainMind: () => void;
-  /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
-  onNavigate: (id: EnvironmentId) => void;
 }
 
 /** The Study's call to action, in the same slot as the Gym's "Log workout". */
@@ -60,15 +56,8 @@ function TrainMindButton({ onPress }: { onPress: () => void }) {
 
 function StudyEnvironmentControls({
   onTrainMind,
-  onNavigate,
-  night,
-}: StudyEnvironmentControlsProps & { night: boolean }) {
-  return (
-    <>
-      <TrainMindButton onPress={onTrainMind} />
-      <EnvironmentActionRow current="study" onNavigate={onNavigate} night={night} />
-    </>
-  );
+}: StudyEnvironmentControlsProps) {
+  return <TrainMindButton onPress={onTrainMind} />;
 }
 
 export function studyEnvironment(props: StudyEnvironmentControlsProps): EnvironmentDressing {
@@ -82,7 +71,7 @@ export function studyEnvironment(props: StudyEnvironmentControlsProps): Environm
       />
     ),
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
-    controls: <StudyEnvironmentControls {...props} night={night} />,
+    controls: <StudyEnvironmentControls {...props} />,
   };
 }
 

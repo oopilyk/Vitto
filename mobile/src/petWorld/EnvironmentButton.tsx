@@ -71,6 +71,10 @@ export function EnvironmentButton({
       // can go, and a screen reader should not offer it as a destination.
       accessibilityState={{ selected: isActive, disabled: isActive }}
       disabled={isActive}
+      // On touch-down, not release: the room changes the instant a finger
+      // lands, which is what makes the bar feel immediate. `onPress` stays for
+      // VoiceOver, whose activation only fires that; a second call is a no-op.
+      onPressIn={onPress}
       onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => [styles.slot, pressed && !isActive && styles.pressed]}

@@ -68,18 +68,18 @@ interface EnvironmentStageProps {
   pet: PetState;
   activityProps: PetAvatarActivityProps;
   /**
-   * Live "the user is at their saved gym" cue (see mobile/AMBIENT.md). A prop
-   * rather than part of `activityProps`/`PetInteractionState`: being at the gym
-   * says where the user is, not what the pet is doing, so it must not change
-   * the animation band — it only parks a dumbbell beside the pet.
-   */
-  atGym?: boolean;
-  /**
    * Chrome that doesn't belong to either scene — the level ring, status chips,
    * profile/today icons. Shown over the pet in both environments, same as the
    * pet itself is persistent across them.
    */
   hudOverlay?: ReactNode;
+  /**
+   * The bar of room buttons. Drawn once, outside the per-room fade, so it
+   * stays put and stays tappable while the room behind it changes. It used to
+   * live inside each room's controls and so faded in from nothing on every
+   * switch, which made the buttons feel slow.
+   */
+  navBar?: ReactNode;
   /**
    * Every scene's dressing, keyed by id. A record rather than one prop per
    * scene: with two it was `main`/`kitchen` and a single 0..1 blend between
@@ -108,8 +108,8 @@ export function EnvironmentStage({
   environment,
   pet,
   activityProps,
-  atGym,
   hudOverlay,
+  navBar,
   environments,
   onPetTap,
   night,
@@ -293,7 +293,6 @@ export function EnvironmentStage({
           <PetAvatar
             pet={pet}
             {...activityProps}
-            atGym={atGym}
             stageStyle={[styles.petStage, { paddingBottom: metrics.petBottom }]}
             hideStatusCaption
             size={metrics.petSize}
@@ -339,6 +338,14 @@ export function EnvironmentStage({
           {regions.controls}
         </Animated.View>
       </FadeSwap>
+
+      {navBar ? (
+        // Above the pet's full-screen tap layer, like the room controls, or
+        // every tap on the bar would land on the pet instead.
+        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.controlsLayer]}>
+          {navBar}
+        </View>
+      ) : null}
 
       {hudOverlay ? (
         <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.hudLayer]}>

@@ -11,7 +11,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type GeoPoint, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
+import {  assessCondition, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -35,7 +35,6 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
 import type { CelebrationEvent } from './src/celebrations/types';
-import { readCurrentLocation, useAtGym, useWalking } from './src/services/ambient';
 import {
   type NotificationPermission,
   reminderPermissionStatus,
@@ -49,7 +48,7 @@ import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { ShareCardScreen } from './src/screens/ShareCardScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { FriendPetScreen } from './src/screens/FriendPetScreen';
-import {  type ForcedTrophies,TodayScreen, type ForcedAmbient } from './src/screens/TodayScreen';
+import { type ForcedTrophies, TodayScreen } from './src/screens/TodayScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { FourCornersScreen } from './src/screens/FourCornersScreen';
 import { CompanionChatScreen } from './src/screens/CompanionChatScreen';
@@ -65,7 +64,6 @@ import { friendsService } from './src/services/friendsService';
 import { EditProfileScreen } from './src/screens/EditProfileScreen';
 import { ScreenTimeScreen } from './src/screens/ScreenTimeScreen';
 import { RemindersScreen } from './src/screens/RemindersScreen';
-import { GymScreen } from './src/screens/GymScreen';
 import { AppleHealthScreen } from './src/screens/AppleHealthScreen';
 import { ActivityHistoryScreen } from './src/screens/ActivityHistoryScreen';
 import { LiftProgressScreen } from './src/screens/LiftProgressScreen';
@@ -138,7 +136,6 @@ type RootStackParamList = {
   EditProfile: undefined;
   ScreenTime: undefined;
   Reminders: undefined;
-  Gym: undefined;
   AppleHealth: undefined;
   ActivityHistory: undefined;
   LiftProgress: undefined;
@@ -298,28 +295,12 @@ function VittoApp() {
   const [forcedAilment, setForcedAilment] = useState<ForcedPetStatus | null>(null);
   // Same deal for which form is drawn — display only, never persisted.
   const [forcedForm, setForcedForm] = useState<ForcedPetForm | null>(null);
-  // Same deal for the ambient cues: forced from the "Dev · force ambient" panel
-  // on the Today screen, resolved below into `walkingNow`/`atGymNow` the same
-  // way `livePet` bakes in `forcedAilment`/`forcedForm` before anything
-  // downstream sees it.
-  const [forcedAmbient, setForcedAmbient] = useState<ForcedAmbient | null>(null);
   // Dev-only: put trophies on the shelf without the month of logging.
   const [forcedTrophies, setForcedTrophies] = useState<ForcedTrophies | null>(null);
-  /**
-   * Ambient cues (mobile/AMBIENT.md). The saved gym is one coordinate held on
-   * this device; the two hooks read live sensors while the app is open and keep
-   * nothing. Both resolve false anywhere they cannot run, so they are wired
-   * unconditionally.
-   */
-  const [gym, setGym] = useState<GeoPoint | null>(null);
-  const [gymBusy, setGymBusy] = useState(false);
-  const [gymError, setGymError] = useState<string | null>(null);
-  const walkingState = useWalking();
-  const gymState = useAtGym(gym);
 
   /**
-   * Personal reminders ("take creatine at 8am"). Device-local like the gym
-   * coordinate: the list lives in AsyncStorage and the OS owns the alarms, so
+   * Personal reminders ("take creatine at 8am"). Device-local: the list lives
+   * in AsyncStorage and the OS owns the alarms, so
    * nothing about them reaches the server.
    */
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -372,7 +353,6 @@ function VittoApp() {
     };
   }, [achievementScope]);
   useEffect(() => {
-    void repository.loadGymLocation().then(setGym).catch(() => setGym(null));
     void repository.loadWorkoutTemplates().then(setWorkoutTemplates).catch(() => setWorkoutTemplates([]));
     void repository
       .loadReminders()
@@ -1629,26 +1609,6 @@ function VittoApp() {
     }
   };
 
-  const setGymHere = async () => {
-    setGymBusy(true);
-    setGymError(null);
-    try {
-      const here = await readCurrentLocation();
-      await repository.saveGymLocation(here);
-      setGym(here);
-    } catch (cause) {
-      setGymError(errorMessage(cause, 'Could not read your location.'));
-    } finally {
-      setGymBusy(false);
-    }
-  };
-
-  const clearGym = async () => {
-    await repository.clearGymLocation();
-    setGym(null);
-    setGymError(null);
-  };
-
   /** Saves the list, then makes the OS schedule match it. */
   const commitReminders = async (next: Reminder[]) => {
     setReminders(next);
@@ -2028,9 +1988,6 @@ function VittoApp() {
     : { ...projected, personality: undefined, persona: undefined, dials: undefined };
   // A forced cue (dev-only) wins over the sensors, the same way a forced status
   // wins over the pet's real stats above.
-  const activeForcedAmbient = isDev ? forcedAmbient : null;
-  const walkingNow = activeForcedAmbient ? activeForcedAmbient === 'walking' : walkingState.walking;
-  const atGymNow = activeForcedAmbient ? activeForcedAmbient === 'gym' : gymState.atGym;
 
   return (
     <NavigationContainer
@@ -2067,8 +2024,6 @@ function VittoApp() {
               // the HealthKit import. Telling an exhausted pet's owner to "get
               // some rest" anywhere else asks for the one thing they cannot do.
               canLogSleep={Platform.OS === 'ios' && isAppleHealthConnected}
-              isWalking={walkingNow}
-              atGym={atGymNow}
               trophies={trophiesNow}
               accountInitial={session?.user.email?.charAt(0)}
               pets={pets.map((candidate) => ({
@@ -2110,8 +2065,6 @@ function VittoApp() {
               onOpenScreenTime={() => navigation.navigate('ScreenTime')}
               reminders={reminders}
               onOpenReminders={() => navigation.navigate('Reminders')}
-              gymSaved={Platform.OS === 'web' ? undefined : gym !== null}
-              onOpenGym={() => navigation.navigate('Gym')}
               appleHealthStatus={Platform.OS === 'ios' ? (isAppleHealthConnected ? 'connected' : 'disconnected') : undefined}
               onOpenAppleHealth={() => navigation.navigate('AppleHealth')}
               onOpenHistory={() => navigation.navigate('ActivityHistory')}
@@ -2159,20 +2112,6 @@ function VittoApp() {
                 onAdd: addReminder,
                 onToggle: toggleReminder,
                 onRemove: removeReminder,
-              }}
-              onClose={() => navigation.goBack()}
-            />
-          )}
-        </RootStack.Screen>
-        <RootStack.Screen name="Gym">
-          {({ navigation }) => (
-            <GymScreen
-              gym={{
-                saved: gym !== null,
-                busy: gymBusy,
-                error: gymError,
-                onSetHere: () => void setGymHere(),
-                onClear: () => void clearGym(),
               }}
               onClose={() => navigation.goBack()}
             />
@@ -2448,23 +2387,10 @@ function VittoApp() {
               onSeedTestData={isDev ? () => void seedTestData() : undefined}
               onClearSeededData={isDev ? () => void clearSeededData() : undefined}
               isSeeding={isSeeding}
-              forcedAmbient={isDev ? forcedAmbient : undefined}
-              onForceAmbient={isDev ? setForcedAmbient : undefined}
               forcedTrophies={isDev ? forcedTrophies : undefined}
               onForceTrophies={isDev ? setForcedTrophies : undefined}
               onReplayAchievements={isDev ? replayAchievements : undefined}
               onOpenCompanionDebug={isDev && isOnline ? () => navigation.navigate('CompanionDebug') : undefined}
-              ambientDebug={
-                isDev
-                  ? {
-                      walkingPermission: walkingState.permission,
-                      steps: walkingState.steps,
-                      gymPermission: gymState.permission,
-                      gymSaved: gym !== null,
-                      distance: gymState.distance,
-                    }
-                  : undefined
-              }
             />
           )}
         </RootStack.Screen>

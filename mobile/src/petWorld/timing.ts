@@ -66,9 +66,10 @@ export const NOTICE_MS = 900;
 /**
  * How long the crossfade between environments takes -- the background-colour
  * blend, the content fade-swap and the settle-pulse all run for this long.
- * Longer than the original 380ms so the room change eases rather than snaps.
+ * Short, so a tap on a room button lands at once: at 560ms the switch read as
+ * the app being slow rather than as a transition.
  */
-export const ENVIRONMENT_TRANSITION_MS = 560;
+export const ENVIRONMENT_TRANSITION_MS = 200;
 
 /**
  * How long the pet runs when a scene button is tapped -- a dash that reads as

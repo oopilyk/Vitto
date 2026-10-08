@@ -54,14 +54,6 @@ export interface UsePetInteractionResult {
   /** A short timed dash for a room change — the pet runs, then settles into the
    *  new scene. Only takes over an idle/noticing pet (see the reducer). */
   startTravel: () => void;
-  /**
-   * Live ambient walking cue (see mobile/AMBIENT.md), not a timed one-shot like
-   * `startExploring`: the caller re-asserts this on every render with the
-   * current live value (`useEffect` keyed on the signal and on `state.kind` —
-   * see `DashboardScreen`), so it starts, stops, and resumes exactly in step
-   * with the sensor rather than on any timer of its own.
-   */
-  setAmbientWalking: (walking: boolean) => void;
   reset: () => void;
 }
 
@@ -164,12 +156,6 @@ export function usePetInteraction(callbacks: PetInteractionCallbacks = {}): UseP
     after(TRAVEL_DURATION_MS, () => dispatch({ type: 'TRAVEL_FINISHED' }));
   }, [after]);
 
-  const setAmbientWalking = useCallback(
-    (walking: boolean) =>
-      dispatch({ type: walking ? 'AMBIENT_WALKING_STARTED' : 'AMBIENT_WALKING_STOPPED' }),
-    [],
-  );
-
   const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
 
   return {
@@ -182,7 +168,6 @@ export function usePetInteraction(callbacks: PetInteractionCallbacks = {}): UseP
     celebrate,
     startExploring,
     startTravel,
-    setAmbientWalking,
     reset,
   };
 }

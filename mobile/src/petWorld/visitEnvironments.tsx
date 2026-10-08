@@ -27,11 +27,11 @@ export const visitEnvironments = (): Record<EnvironmentId, EnvironmentDressing> 
   return {
     // No trophies: those derive from the OWNER's event history, which a
     // visitor cannot read (health_events is author-only by design).
-    main: quiet(mainEnvironment({ onNavigate: noop })),
-    kitchen: quiet(kitchenEnvironment({ onChooseFood: noop, onNavigate: noop })),
-    gym: quiet(gymEnvironment({ onStartWorkout: noop, onNavigate: noop })),
-    outside: quiet(outsideEnvironment({ onSyncSteps: noop, onNavigate: noop })),
-    study: quiet(studyEnvironment({ onTrainMind: noop, onNavigate: noop })),
+    main: quiet(mainEnvironment({})),
+    kitchen: quiet(kitchenEnvironment({ onChooseFood: noop })),
+    gym: quiet(gymEnvironment({ onStartWorkout: noop })),
+    outside: quiet(outsideEnvironment({ onSyncSteps: noop })),
+    study: quiet(studyEnvironment({ onTrainMind: noop })),
   };
 };
 

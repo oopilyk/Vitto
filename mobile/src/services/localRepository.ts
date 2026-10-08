@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
  type WorkoutTemplate,  type CareLogEntry,
-  type GeoPoint,
   type Reminder,
   type HealthEvent,
   type PetInvite,
@@ -14,12 +13,8 @@ import {
 const petKey = 'vitto.pet';
 const eventKey = 'vitto.events';
 const wordPuzzleKey = 'vitto.wordpuzzle.progress';
-/**
- * One coordinate, on this device only. The gym check compares live position
- * against this and stores nothing else — no fixes, no trail. Kept local rather
- * than in the profile row so "where you train" never leaves the phone.
- */
-const gymKey = 'vitto.gym';
+/** Where a saved gym used to be kept, before that feature went. Still wiped on reset. */
+const legacyGymKey = 'vitto.gym';
 /**
  * The user's own reminders. Local rather than in the profile row: they schedule
  * OS notifications on this device, so a copy on another phone would either fire
@@ -131,7 +126,7 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, gymKey, remindersKey, seenAchievementsKey, workoutTemplatesKey, islandKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, legacyGymKey, remindersKey, seenAchievementsKey, workoutTemplatesKey, islandKey, 'vitto.profile']);
   }
 
   /** Whether the pet shows in the Dynamic Island. Null until chosen, which reads as on. */
@@ -195,23 +190,6 @@ export class LocalRepository {
 
   async saveWorkoutTemplates(templates: readonly WorkoutTemplate[]): Promise<void> {
     await AsyncStorage.setItem(workoutTemplatesKey, JSON.stringify(templates));
-  }
-
-  async loadGymLocation(): Promise<GeoPoint | null> {
-    const value = await AsyncStorage.getItem(gymKey);
-    if (!value) return null;
-    const parsed = JSON.parse(value) as Partial<GeoPoint>;
-    return typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number'
-      ? { latitude: parsed.latitude, longitude: parsed.longitude }
-      : null;
-  }
-
-  async saveGymLocation(point: GeoPoint): Promise<void> {
-    await AsyncStorage.setItem(gymKey, JSON.stringify({ latitude: point.latitude, longitude: point.longitude }));
-  }
-
-  async clearGymLocation(): Promise<void> {
-    await AsyncStorage.removeItem(gymKey);
   }
 
   // --- Care partners -------------------------------------------------------

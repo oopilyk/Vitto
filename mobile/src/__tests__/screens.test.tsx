@@ -19,6 +19,7 @@ import {
 } from '@vitto/core';
 
 jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
@@ -69,7 +70,6 @@ const idleInteraction: UsePetInteractionResult = {
   startExploring: () => {},
   startTravel: () => {},
   celebrate: () => {},
-  setAmbientWalking: () => {},
   reset: () => {},
 };
 
@@ -300,7 +300,11 @@ describe('screens render', () => {
 
     expect(JSON.stringify(tree.toJSON())).toContain('LIVING ROOM');
 
+    const haptics = require('expo-haptics');
+    haptics.selectionAsync.mockClear();
     act(() => findButton('Go to the kitchen')!.props.onPress());
+    // Felt as well as seen: one tick per real room change.
+    expect(haptics.selectionAsync).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(tree.toJSON())).toContain('KITCHEN');
 
     act(() => findButton('Go to the study')!.props.onPress());
@@ -1537,8 +1541,6 @@ describe('profile screen', () => {
           onOpenScreenTime={() => opened.push('screen')}
           reminders={[{ id: 'r', label: 'Creatine', hour: 8, minute: 0, days: [], enabled: true }]}
           onOpenReminders={() => opened.push('reminders')}
-          gymSaved={false}
-          onOpenGym={() => opened.push('gym')}
           appleHealthStatus="connected"
           onOpenAppleHealth={() => opened.push('health')}
           onOpenHistory={() => opened.push('history')}
@@ -1548,13 +1550,14 @@ describe('profile screen', () => {
     const rendered = JSON.stringify(tree.toJSON());
     expect(rendered).toContain('Budget 2h');
     expect(rendered).toContain('1 of 1 on');
-    expect(rendered).toContain('Not set');
     expect(rendered).toContain('Connected');
-    for (const label of ['Screen time', 'Reminders', 'My gym', 'Apple Health', 'Activity history']) {
+    for (const label of ['Screen time', 'Reminders', 'Apple Health', 'Activity history']) {
       const row = tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
       act(() => row!.props.onPress());
     }
-    expect(opened).toEqual(['screen', 'reminders', 'gym', 'health', 'history']);
+    expect(opened).toEqual(['screen', 'reminders', 'health', 'history']);
+    // The saved-gym feature is gone.
+    expect(rendered).not.toContain('My gym');
     // No forms here any more.
     expect(rendered).not.toContain('Add reminder');
     expect(rendered).not.toContain("Log today's screen time");

@@ -13,8 +13,6 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Vitto uses the camera to photograph meals and scan barcodes.",
         "NSPhotoLibraryUsageDescription": "Vitto reads meal photos you choose so it can grade the plate.",
-        "NSMotionUsageDescription": "Vitto notices when you're walking so your pet can walk with you. Nothing is stored — it only ever looks at the last few seconds.",
-        "NSLocationWhenInUseUsageDescription": "Vitto checks whether you're at the gym you saved so your pet can join you. Your location is never stored or sent anywhere.",
         "NSSupportsLiveActivities": true,
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -30,10 +28,7 @@
       "package": "com.vitto.app",
       "permissions": [
         "CAMERA",
-        "READ_MEDIA_IMAGES",
-        "ACTIVITY_RECOGNITION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "READ_MEDIA_IMAGES"
       ]
     },
     "web": {
@@ -45,13 +40,15 @@
         "expo-image-picker",
         {
           "photosPermission": "Vitto reads meal photos you choose so it can grade the plate.",
-          "cameraPermission": "Vitto uses the camera to photograph meals."
+          "cameraPermission": "Vitto uses the camera to photograph meals.",
+          "microphonePermission": "Vitto never records audio. The camera is only used for meal photos and barcodes."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Vitto uses the camera to scan product barcodes."
+          "cameraPermission": "Vitto uses the camera to scan product barcodes.",
+          "microphonePermission": "Vitto never records audio. The camera is only used for meal photos and barcodes."
         }
       ],
       [
@@ -59,20 +56,7 @@
         {
           "background": false,
           "NSHealthShareUsageDescription": "Vitto reads your steps, workouts, and logged meals from Apple Health so apps like Strong or MyFitnessPal can feed your pet automatically.",
-          "NSHealthUpdateUsageDescription": false
-        }
-      ],
-      [
-        "expo-sensors",
-        {
-          "motionPermission": "Vitto notices when you're walking so your pet can walk with you. Nothing is stored."
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "Vitto checks whether you're at the gym you saved so your pet can join you. Your location is never stored or sent anywhere.",
-          "isAndroidBackgroundLocationEnabled": false
+          "NSHealthUpdateUsageDescription": "Vitto does not save anything to Apple Health. It only reads your steps, workouts, sleep and meals to care for your pet."
         }
       ],
       "expo-notifications",

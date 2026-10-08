@@ -1,7 +1,7 @@
 /**
  * Builds a pet form's sprite sheet from the source videos it was animated as.
  *
- *   node scripts/buildVideoSheet.mjs <bearLifter | bearRunner | bearScholar>
+ *   node scripts/buildVideoSheet.mjs <bearLifter | bearRunner | bearScholar | bunnyLifter | bunnyRunner | bunnyScholar>
  *
  * The forms animated as video still need a sheet: `SpriteFrame` works by
  * sliding one PNG behind a 128px window, and everything built on it -- the tint
@@ -137,6 +137,86 @@ const FORMS = {
       sad: ['cry', [5, 8, 11, 15, 18, 21, 25, 28]],
       // Ends flat out: the last cell is the one HOLDS_LAST_FRAME parks on.
       faint: ['collapse', [12, 14, 15, 16, 17, 18, 19, 22]],
+    },
+  },
+  /*
+   * The bunny's forms share one box. Every clip stands the bunny 378px tall
+   * with its feet at y≈614, centred on x≈385; this box makes that the base
+   * bunny's 72px with its feet at y=106, centred, so evolving does not resize
+   * it. The highest jump (y≈96) and lowest sprawl (y≈650) both still fit.
+   *
+   * Fur near white, so the default key (see buildLifterVideos.mjs).
+   */
+  bunnyLifter: {
+    source: 'bunny-lifter',
+    output: 'bunnyLifter.png',
+    box: { x: 52, y: 58, size: 672 },
+    key: {},
+    /*
+     *   idle-flex.gif  124 frames: 0-96 standing, ~100-116 flexes, then stands
+     *   cheer.gif      0-4 stands, 7-20 jumps and pumps a fist
+     *   run.gif        a hop, ONE CYCLE IS 18 FRAMES (6 matches 24)
+     *   dizzy.gif      4+ spiral eyes, a ring of stars
+     *   sad.gif        3 droops, 4+ ears down and crying
+     *   collapse.gif   10-15 winces, 16 drops, 17+ lies flat
+     */
+    band: {
+      idle: ['idle-flex', [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88]],
+      cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
+      move: ['run', [6, 8, 11, 13, 15, 17, 20, 22]],
+      rest: ['collapse', [17, 19, 21, 23, 25, 27, 29, 30]],
+      unwell: ['dizzy', [5, 8, 11, 14, 17, 20, 23, 26]],
+      sad: ['sad', [5, 8, 11, 14, 17, 20, 23, 26]],
+      // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+      faint: ['collapse', [8, 10, 12, 14, 15, 16, 17, 19]],
+    },
+  },
+  bunnyRunner: {
+    source: 'bunny-runner',
+    output: 'bunnyRunner.png',
+    box: { x: 52, y: 58, size: 672 },
+    key: {},
+    /*
+     *   idle.gif      27 frames, standing, blinking
+     *   cheer.gif     6-20 jumps, medal flying
+     *   run.gif       a quick hop, ONE STRIDE IS 3 FRAMES
+     *   dizzy.gif     2+ a ring of stars
+     *   tired.gif     3 droops, 4+ ears down and crying
+     *   lie-down.gif  0-11 winces, 12-14 drops, 15+ lies flat
+     */
+    band: {
+      idle: ['idle', [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]],
+      cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
+      // Two whole strides, so it loops.
+      move: ['run', [6, 7, 8, 9, 10, 11]],
+      rest: ['lie-down', [16, 18, 20, 22, 24, 26, 28, 30]],
+      unwell: ['dizzy', [4, 7, 10, 13, 16, 19, 22, 25]],
+      sad: ['tired', [5, 8, 11, 14, 17, 20, 23, 26]],
+      faint: ['lie-down', [8, 10, 11, 12, 13, 14, 15, 17]],
+    },
+  },
+  bunnyScholar: {
+    source: 'bunny-scholar',
+    output: 'bunnyScholar.png',
+    box: { x: 52, y: 58, size: 672 },
+    key: {},
+    /*
+     *   idle.gif      27 frames, standing with its book, blinking
+     *   cheer.gif     10-21 jumps, holding the book up
+     *   walk.gif      ONE STEP IS 5 FRAMES
+     *   dizzy.gif     1+ a ring of stars
+     *   cry.gif       2 droops, 3+ ears down and crying
+     *   collapse.gif  0-15 winces, drops the book, 16-17 falls, 18+ flat out
+     */
+    band: {
+      idle: ['idle', [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]],
+      cheer: ['cheer', [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]],
+      // Two whole steps, so it loops.
+      move: ['walk', [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+      rest: ['collapse', [18, 20, 22, 24, 26, 27, 28, 30]],
+      unwell: ['dizzy', [3, 6, 9, 12, 15, 18, 21, 24]],
+      sad: ['cry', [4, 7, 10, 13, 16, 19, 22, 25]],
+      faint: ['collapse', [9, 11, 13, 14, 15, 16, 17, 19]],
     },
   },
 };

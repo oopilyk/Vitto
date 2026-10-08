@@ -23,7 +23,6 @@ const idleInteraction: UsePetInteractionResult = {
   startExploring: () => {},
   startTravel: () => {},
   celebrate: () => {},
-  setAmbientWalking: () => {},
   reset: () => {},
 };
 

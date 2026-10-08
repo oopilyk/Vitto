@@ -2,10 +2,8 @@ import { Pressable, Text } from 'react-native';
 import { RoomActionSlot } from './RoomActionSlot';
 import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
-import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
-import type { EnvironmentId } from './types';
 
 /**
  * The Kitchen: reached by tapping Kitchen in the living room, it opens the
@@ -40,8 +38,6 @@ const NIGHT_FLOOR = '#523961';
 
 interface KitchenEnvironmentControlsProps {
   onChooseFood: () => void;
-  /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
-  onNavigate: (id: EnvironmentId) => void;
 }
 
 /** The Kitchen's dedicated call to action, floating between the name card and
@@ -63,15 +59,8 @@ function LogMealButton({ onPress }: { onPress: () => void }) {
 
 function KitchenEnvironmentControls({
   onChooseFood,
-  onNavigate,
-  night,
-}: KitchenEnvironmentControlsProps & { night: boolean }) {
-  return (
-    <>
-      <LogMealButton onPress={onChooseFood} />
-      <EnvironmentActionRow current="kitchen" onNavigate={onNavigate} night={night} />
-    </>
-  );
+}: KitchenEnvironmentControlsProps) {
+  return <LogMealButton onPress={onChooseFood} />;
 }
 
 export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): EnvironmentDressing {
@@ -83,7 +72,7 @@ export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): Envi
         floorColor={night ? NIGHT_FLOOR : DAY_FLOOR}
       />,
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
-    controls: <KitchenEnvironmentControls {...props} night={night} />,
+    controls: <KitchenEnvironmentControls {...props} />,
   };
 }
 

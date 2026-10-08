@@ -5,7 +5,6 @@ export const CELEBRATES_FROM: ReadonlySet<PetInteractionState['kind']> = new Set
   'idle',
   'noticing',
   'sleeping',
-  'ambientWalking',
   'travelling',
   'exploring',
 ]);
@@ -73,16 +72,6 @@ export function petInteractionReducer(
     case 'TRAVEL_FINISHED':
       return state.kind === 'travelling' ? IDLE_STATE : state;
 
-    case 'AMBIENT_WALKING_STARTED':
-      // A background cue must not interrupt anything more specific already
-      // happening — feeding, a tap-triggered explore, celebrating — the same
-      // way `PET_NOTICED` only takes over idle/noticing. It only starts from
-      // idle/noticing and is otherwise a no-op, so re-dispatching it while
-      // already ambient-walking (see `usePetInteraction.setAmbientWalking`,
-      // which re-asserts on every render) is safely idempotent.
-      return state.kind === 'idle' || state.kind === 'noticing' ? { kind: 'ambientWalking' } : state;
-    case 'AMBIENT_WALKING_STOPPED':
-      return state.kind === 'ambientWalking' ? IDLE_STATE : state;
 
     case 'SLEEP_STARTED':
       return state.kind === 'idle' ? { kind: 'sleeping' } : state;

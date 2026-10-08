@@ -549,12 +549,143 @@ const BUNNY_LAYOUT: SheetLayout = {
   },
 };
 
-const BUNNY_LIFTER = sheetFrom(BUNNY_LAYOUT, 'Bunny · Lifter', require('../../assets/pet/bunnyLifter.png'));
-const BUNNY_SCHOLAR = sheetFrom(BUNNY_LAYOUT, 'Bunny · Scholar', require('../../assets/pet/bunnyScholar.png'));
+/*
+ * The bunny's three forms, animated as GIFs like the bear's: each has its own
+ * clips and its own sheet, cut by `node scripts/buildVideoSheet.mjs <form>`
+ * (which prints these frame maps) in one box shared by all three, chosen so
+ * every form stands exactly the base bunny's size. 6fps throughout, so the
+ * sheet bands are paced to the frames they were sampled from.
+ */
+const bunnyClip = (form: string, name: string): { hevc: number; webm: number } => BUNNY_CLIP_FILES[`${form}/${name}`]!;
+const BUNNY_CLIP_FILES: Record<string, { hevc: number; webm: number }> = {
+  'bunnyLifter/idle-flex': { hevc: require('../../assets/pet/video/bunnyLifter/idle-flex.mov'), webm: require('../../assets/pet/video/bunnyLifter/idle-flex.webm') },
+  'bunnyLifter/cheer': { hevc: require('../../assets/pet/video/bunnyLifter/cheer.mov'), webm: require('../../assets/pet/video/bunnyLifter/cheer.webm') },
+  'bunnyLifter/run': { hevc: require('../../assets/pet/video/bunnyLifter/run.mov'), webm: require('../../assets/pet/video/bunnyLifter/run.webm') },
+  'bunnyLifter/dizzy': { hevc: require('../../assets/pet/video/bunnyLifter/dizzy.mov'), webm: require('../../assets/pet/video/bunnyLifter/dizzy.webm') },
+  'bunnyLifter/sad': { hevc: require('../../assets/pet/video/bunnyLifter/sad.mov'), webm: require('../../assets/pet/video/bunnyLifter/sad.webm') },
+  'bunnyLifter/collapse': { hevc: require('../../assets/pet/video/bunnyLifter/collapse.mov'), webm: require('../../assets/pet/video/bunnyLifter/collapse.webm') },
+  'bunnyLifter/lie': { hevc: require('../../assets/pet/video/bunnyLifter/lie.mov'), webm: require('../../assets/pet/video/bunnyLifter/lie.webm') },
+  'bunnyRunner/idle': { hevc: require('../../assets/pet/video/bunnyRunner/idle.mov'), webm: require('../../assets/pet/video/bunnyRunner/idle.webm') },
+  'bunnyRunner/cheer': { hevc: require('../../assets/pet/video/bunnyRunner/cheer.mov'), webm: require('../../assets/pet/video/bunnyRunner/cheer.webm') },
+  'bunnyRunner/run': { hevc: require('../../assets/pet/video/bunnyRunner/run.mov'), webm: require('../../assets/pet/video/bunnyRunner/run.webm') },
+  'bunnyRunner/dizzy': { hevc: require('../../assets/pet/video/bunnyRunner/dizzy.mov'), webm: require('../../assets/pet/video/bunnyRunner/dizzy.webm') },
+  'bunnyRunner/tired': { hevc: require('../../assets/pet/video/bunnyRunner/tired.mov'), webm: require('../../assets/pet/video/bunnyRunner/tired.webm') },
+  'bunnyRunner/lie-down': { hevc: require('../../assets/pet/video/bunnyRunner/lie-down.mov'), webm: require('../../assets/pet/video/bunnyRunner/lie-down.webm') },
+  'bunnyScholar/idle': { hevc: require('../../assets/pet/video/bunnyScholar/idle.mov'), webm: require('../../assets/pet/video/bunnyScholar/idle.webm') },
+  'bunnyScholar/cheer': { hevc: require('../../assets/pet/video/bunnyScholar/cheer.mov'), webm: require('../../assets/pet/video/bunnyScholar/cheer.webm') },
+  'bunnyScholar/walk': { hevc: require('../../assets/pet/video/bunnyScholar/walk.mov'), webm: require('../../assets/pet/video/bunnyScholar/walk.webm') },
+  'bunnyScholar/dizzy': { hevc: require('../../assets/pet/video/bunnyScholar/dizzy.mov'), webm: require('../../assets/pet/video/bunnyScholar/dizzy.webm') },
+  'bunnyScholar/cry': { hevc: require('../../assets/pet/video/bunnyScholar/cry.mov'), webm: require('../../assets/pet/video/bunnyScholar/cry.webm') },
+  'bunnyScholar/collapse': { hevc: require('../../assets/pet/video/bunnyScholar/collapse.mov'), webm: require('../../assets/pet/video/bunnyScholar/collapse.webm') },
+};
+
+/** The box buildVideoSheet.mjs cuts every bunny form from, so a clip and its sheet frame line up. */
+const BUNNY_FORM_CELL = { x: 52, y: 58, size: 672 };
+
+/** The same seven bands in the same rows for all three forms (the scholar's walk takes an extra row). */
+const bunnyFormBands = (moveCells: [number, number][], after: number): PetSheet['animations'] => {
+  const band = (row: number, count: number): [number, number][] =>
+    Array.from({ length: count }, (_, i) => [row + Math.floor(i / 4), i % 4] as [number, number]);
+  return {
+    idle: band(0, 12),
+    cheer: band(3, 12),
+    move: moveCells,
+    rest: band(after, 8),
+    unwell: band(after + 2, 8),
+    sad: band(after + 4, 8),
+    // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+    faint: band(after + 6, 8),
+  };
+};
+
+/**
+ * Bunny · Lifter, 4x16: red headband. Stands about, then rears up into a
+ * double-bicep flex (the idle clip), jumps and pumps a fist (cheer), hops
+ * (move), lies flat (rest), dizzy, ears down crying (sad), winces and drops
+ * (faint).
+ */
+const BUNNY_LIFTER: PetSheet = {
+  name: 'bunny',
+  label: 'Bunny · Lifter',
+  source: require('../../assets/pet/bunnyLifter.png'),
+  rows: 16,
+  animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3]], 8),
+  selfDrawn: ['foggy'],
+  frameMs: { idle: 400, cheer: 167, move: 375, rest: 333, unwell: 500, sad: 500, faint: 250 },
+  videos: {
+    frameSize: 768,
+    cell: BUNNY_FORM_CELL,
+    clips: {
+      idle: { ...bunnyClip('bunnyLifter', 'idle-flex'), loop: true },
+      cheer: { ...bunnyClip('bunnyLifter', 'cheer'), loop: true },
+      // One whole 18-frame hop, so the loop never stutters.
+      move: { ...bunnyClip('bunnyLifter', 'run'), loop: true },
+      unwell: { ...bunnyClip('bunnyLifter', 'dizzy'), loop: true },
+      // Lying still, looped: the collapse's last frames, without the fall.
+      rest: { ...bunnyClip('bunnyLifter', 'lie'), loop: true },
+      // Settle into a pose and stay there, rather than starting over.
+      sad: { ...bunnyClip('bunnyLifter', 'sad'), loop: false },
+      faint: { ...bunnyClip('bunnyLifter', 'collapse'), loop: false },
+    },
+    // The dizzy clip has its own spiral eyes and ring of stars.
+    selfDrawn: ['foggy'],
+  },
+};
+
+/** Bunny · Runner, 4x16: orange headband and a gold medal. Its run is a quick three-frame hop. */
+const BUNNY_RUNNER: PetSheet = {
+  name: 'bunny',
+  label: 'Bunny · Runner',
+  source: require('../../assets/pet/bunnyRunner.png'),
+  rows: 16,
+  animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1]], 8),
+  selfDrawn: ['foggy'],
+  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 },
+  videos: {
+    frameSize: 768,
+    cell: BUNNY_FORM_CELL,
+    clips: {
+      idle: { ...bunnyClip('bunnyRunner', 'idle'), loop: true },
+      cheer: { ...bunnyClip('bunnyRunner', 'cheer'), loop: true },
+      move: { ...bunnyClip('bunnyRunner', 'run'), loop: true },
+      unwell: { ...bunnyClip('bunnyRunner', 'dizzy'), loop: true },
+      // Settle into a pose and stay there, rather than starting over.
+      sad: { ...bunnyClip('bunnyRunner', 'tired'), loop: false },
+      rest: { ...bunnyClip('bunnyRunner', 'lie-down'), loop: false },
+      faint: { ...bunnyClip('bunnyRunner', 'lie-down'), loop: false },
+    },
+    selfDrawn: ['foggy'],
+  },
+};
+
+/** Bunny · Scholar, 4x17: carries a red book with a gold star. Its walk takes an extra row. */
+const BUNNY_SCHOLAR: PetSheet = {
+  name: 'bunny',
+  label: 'Bunny · Scholar',
+  source: require('../../assets/pet/bunnyScholar.png'),
+  rows: 17,
+  animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3], [8, 0], [8, 1]], 9),
+  selfDrawn: ['foggy'],
+  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 },
+  videos: {
+    frameSize: 768,
+    cell: BUNNY_FORM_CELL,
+    clips: {
+      idle: { ...bunnyClip('bunnyScholar', 'idle'), loop: true },
+      cheer: { ...bunnyClip('bunnyScholar', 'cheer'), loop: true },
+      move: { ...bunnyClip('bunnyScholar', 'walk'), loop: true },
+      unwell: { ...bunnyClip('bunnyScholar', 'dizzy'), loop: true },
+      sad: { ...bunnyClip('bunnyScholar', 'cry'), loop: false },
+      faint: { ...bunnyClip('bunnyScholar', 'collapse'), loop: false },
+      // No sleeping clip: `rest` lies flat on the sheet's after-the-fall frames.
+    },
+    selfDrawn: ['foggy'],
+  },
+};
 
 const BUNNY: PetSheet = {
   ...sheetFrom(BUNNY_LAYOUT, 'Bunny', require('../../assets/pet/bunny.png')),
-  evolutions: { lifter: BUNNY_LIFTER, scholar: BUNNY_SCHOLAR },
+  evolutions: { runner: BUNNY_RUNNER, lifter: BUNNY_LIFTER, scholar: BUNNY_SCHOLAR },
 };
 
 /**

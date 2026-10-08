@@ -83,6 +83,36 @@ const PETS = {
     clips: ['idle', 'walk', 'cheer', 'dizzy', 'cry', 'collapse'],
     key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true },
   },
+  // The bunny's three forms: GIFs at 6fps, already cut out. Its fur is near
+  // white, so like the bichon it takes the default key: no pockets and no
+  // grey fringe, either of which would eat into the fur.
+  bunnyLifter: {
+    source: 'bunny-lifter',
+    output: 'bunnyLifter',
+    // The run loops one whole 18-frame hop (6 matches 24); `lie` is the
+    // collapse's lying-still tail, looped, for rest.
+    clips: [
+      'idle-flex',
+      'cheer',
+      { name: 'run', frames: [6, 23] },
+      'dizzy',
+      'sad',
+      'collapse',
+      { name: 'lie', from: 'collapse', frames: [17, 30] },
+    ],
+  },
+  bunnyRunner: {
+    source: 'bunny-runner',
+    output: 'bunnyRunner',
+    // A quick hop, three frames a stride: eight strides loop cleanly.
+    clips: ['idle', 'cheer', { name: 'run', frames: [6, 29] }, 'dizzy', 'tired', 'lie-down'],
+  },
+  bunnyScholar: {
+    source: 'bunny-scholar',
+    output: 'bunnyScholar',
+    // Five frames a step: five steps loop cleanly.
+    clips: ['idle', 'cheer', { name: 'walk', frames: [6, 30] }, 'dizzy', 'cry', 'collapse'],
+  },
 };
 
 const pet = PETS[process.argv[2]];

@@ -2,10 +2,8 @@ import { Pressable, Text } from 'react-native';
 import { RoomActionSlot } from './RoomActionSlot';
 import { colors, fonts, themedStyles } from '../theme';
 import type { EnvironmentDressing } from './EnvironmentStage';
-import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
-import type { EnvironmentId } from './types';
 
 /**
  * Outdoors: reached by tapping Outdoors from any other scene. Syncing steps is
@@ -30,8 +28,6 @@ const NIGHT_SKY = '#252c4f';
 
 interface OutsideEnvironmentControlsProps {
   onSyncSteps: () => void;
-  /** Walks the pet into the tapped scene (row buttons and "Living room" back). */
-  onNavigate: (id: EnvironmentId) => void;
 }
 
 function LogStepsButton({ onPress }: { onPress: () => void }) {
@@ -51,15 +47,8 @@ function LogStepsButton({ onPress }: { onPress: () => void }) {
 
 function OutsideEnvironmentControls({
   onSyncSteps,
-  onNavigate,
-  night,
-}: OutsideEnvironmentControlsProps & { night: boolean }) {
-  return (
-    <>
-      <LogStepsButton onPress={onSyncSteps} />
-      <EnvironmentActionRow current="outside" onNavigate={onNavigate} night={night} />
-    </>
-  );
+}: OutsideEnvironmentControlsProps) {
+  return <LogStepsButton onPress={onSyncSteps} />;
 }
 
 export function outsideEnvironment(props: OutsideEnvironmentControlsProps): EnvironmentDressing {
@@ -69,7 +58,7 @@ export function outsideEnvironment(props: OutsideEnvironmentControlsProps): Envi
     // path, so covering the screen costs sides that carry nothing. See `fill`.
     background: <EnvironmentBackdrop source={night ? OUTSIDE_NIGHT : OUTSIDE_DAY} fill />,
     backgroundColor: night ? NIGHT_SKY : DAY_SKY,
-    controls: <OutsideEnvironmentControls {...props} night={night} />,
+    controls: <OutsideEnvironmentControls {...props} />,
   };
 }
 

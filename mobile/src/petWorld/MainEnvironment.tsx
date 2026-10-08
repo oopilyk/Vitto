@@ -1,10 +1,8 @@
 import type { TrophyId } from '@vitto/core';
 import type { EnvironmentDressing } from './EnvironmentStage';
-import { EnvironmentActionRow } from './EnvironmentActionRow';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { TrophyShelf } from './TrophyShelf';
 import { isNightTime } from './timeOfDay';
-import type { EnvironmentId } from './types';
 
 /**
  * The default/"bedroom" environment. Idle, tired and asleep are already
@@ -42,13 +40,11 @@ const DAY_FLOOR = '#c28d73';
 const NIGHT_FLOOR = '#473a6d';
 
 interface MainControlsProps {
-  /** Walks the pet into the tapped scene. */
-  onNavigate: (id: EnvironmentId) => void;
   /** Earned trophies, shown on the wall shelf — see `TrophyShelf`. */
   trophies?: readonly TrophyId[];
 }
 
-export function mainEnvironment({ onNavigate, trophies = [] }: MainControlsProps): EnvironmentDressing {
+export function mainEnvironment({ trophies = [] }: MainControlsProps): EnvironmentDressing {
   const night = isNightTime();
   return {
     // The shelf rides inside the backdrop so its positions are art-relative.
@@ -62,6 +58,7 @@ export function mainEnvironment({ onNavigate, trophies = [] }: MainControlsProps
       </EnvironmentBackdrop>
     ),
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
-    controls: <EnvironmentActionRow current="main" onNavigate={onNavigate} night={night} />,
+    // The room bar is drawn once by the stage (see EnvironmentStage `navBar`).
+    controls: null,
   };
 }

@@ -487,34 +487,6 @@ interface SidePropProps {
   size: number;
 }
 
-/**
- * A dumbbell parked beside the pet while the user is at the gym.
- *
- * Deliberately still. The other overlays animate because they describe a
- * feeling the pet is having; this one describes where the user is, and a prop
- * that bobbed or spun would read as the pet doing something, which it is not.
- */
-export function Dumbbell({ active, size }: SidePropProps) {
-  if (!active) return null;
-  return (
-    <View
-      style={[
-        styles.sideProp,
-        { marginLeft: size * PROP_SIDE_OFFSET * 2, marginTop: size * PROP_BASELINE_OFFSET },
-      ]}
-      pointerEvents="none"
-    >
-      <Svg width={34} height={16} viewBox="0 0 34 16">
-        <Rect x={2} y={1} width={6} height={14} rx={1.5} fill={colors.slateDeep} />
-        <Rect x={26} y={1} width={6} height={14} rx={1.5} fill={colors.slateDeep} />
-        <Rect x={0} y={4} width={3} height={8} rx={1} fill={colors.slateDeep} fillOpacity={0.7} />
-        <Rect x={31} y={4} width={3} height={8} rx={1} fill={colors.slateDeep} fillOpacity={0.7} />
-        <Rect x={8} y={6} width={18} height={4} rx={2} fill={colors.slateDeep} fillOpacity={0.85} />
-      </Svg>
-    </View>
-  );
-}
-
 export function PetAura({ color, size }: PetAuraProps) {
   // react-native-svg resolves gradient ids globally, so two auras mounted at
   // once (a picker beside the stage) would otherwise share whichever painted last.

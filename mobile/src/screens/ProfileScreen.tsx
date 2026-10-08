@@ -61,9 +61,6 @@ interface Props {
   /** The reminders, for the row's count. Absent where notifications cannot be scheduled. */
   reminders?: readonly Reminder[];
   onOpenReminders?: () => void;
-  /** Whether "My gym" is saved. Absent where location cannot be read (web). */
-  gymSaved?: boolean;
-  onOpenGym?: () => void;
   /** Omitted entirely on platforms with no HealthKit provider (Android, web). */
   appleHealthStatus?: 'disconnected' | 'connected';
   onOpenAppleHealth?: () => void;
@@ -153,8 +150,6 @@ export function ProfileScreen({
   onOpenScreenTime,
   reminders,
   onOpenReminders,
-  gymSaved,
-  onOpenGym,
   appleHealthStatus,
   onOpenAppleHealth,
   onOpenHistory,
@@ -420,9 +415,6 @@ export function ProfileScreen({
                 onPress={onOpenReminders}
                 testID="open-reminders"
               />
-            ) : null}
-            {typeof gymSaved === 'boolean' && onOpenGym ? (
-              <NavRow title="My gym" value={gymSaved ? 'Saved' : 'Not set'} onPress={onOpenGym} testID="open-gym" />
             ) : null}
             {appleHealthStatus && onOpenAppleHealth ? (
               <NavRow

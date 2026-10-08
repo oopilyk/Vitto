@@ -75,32 +75,13 @@ interface Props {
   onSeedTestData?: () => void;
   onClearSeededData?: () => void;
   isSeeding?: boolean;
-  /** Dev tool: pretend to be walking or at the gym, so both ambient cues (see
-   * mobile/AMBIENT.md) can be checked at a desk without real sensors. */
-  forcedAmbient?: ForcedAmbient | null;
-  onForceAmbient?: (state: ForcedAmbient | null) => void;
   forcedTrophies?: ForcedTrophies | null;
   onForceTrophies?: (state: ForcedTrophies | null) => void;
   /** Forgets which achievement unlocks have been shown, so every earned one pops again. */
   onReplayAchievements?: () => void;
   /** DEV: the companion's prompt, memories and triggers. Needs an account. */
   onOpenCompanionDebug?: () => void;
-  /**
-   * What the sensors are actually reporting. Both ambient hooks fail quietly by
-   * design, so on a device "permission denied", "no such sensor" and "you are
-   * standing still" are indistinguishable from the outside — this is how you
-   * tell them apart while testing.
-   */
-  ambientDebug?: {
-    walkingPermission: string;
-    steps: number;
-    gymPermission: string;
-    gymSaved: boolean;
-    distance: number | null;
-  };
 }
-
-export type ForcedAmbient = 'walking' | 'gym';
 
 /**
  * Dev-only override for the living-room shelf: a single trophy, all of them,
@@ -109,7 +90,6 @@ export type ForcedAmbient = 'walking' | 'gym';
  */
 export type ForcedTrophies = 'none' | TrophyId | 'all';
 type DevTrophyChoice = 'live' | ForcedTrophies;
-type DevAmbientChoice = ForcedAmbient | 'live';
 type DevAilmentChoice = ForcedPetStatus | 'live';
 type DevFormChoice = ForcedPetForm | 'live';
 
@@ -121,11 +101,6 @@ const DEV_TROPHY_OPTIONS: { value: DevTrophyChoice; label: string; detail?: stri
   { value: 'drumstick', label: 'Drumstick' },
   { value: 'book', label: 'Book' },
   { value: 'all', label: 'All four' },
-];
-const DEV_AMBIENT_OPTIONS: { value: DevAmbientChoice; label: string; detail?: string }[] = [
-  { value: 'live', label: 'Live', detail: 'real sensors' },
-  { value: 'walking', label: 'Walking' },
-  { value: 'gym', label: 'At gym' },
 ];
 /**
  * Built from the precedence list so a new ailment shows up here for free.
@@ -178,13 +153,10 @@ export function TodayScreen({
   onSeedTestData,
   onClearSeededData,
   isSeeding,
-  forcedAmbient,
-  onForceAmbient,
   forcedTrophies,
   onForceTrophies,
   onReplayAchievements,
   onOpenCompanionDebug,
-  ambientDebug,
 }: Props) {
   // Dark mode takes the night palette, whatever the hour: the panels as well
   // as the type on them. Deciding those two separately once put the night's
@@ -547,19 +519,6 @@ export function TodayScreen({
             />
           </DevPanel>
         ) : null}
-        {onForceAmbient ? (
-          <DevPanel
-            c={c}
-            title="Dev · force ambient"
-            hint="Pretends the user is walking or at the gym so both cues can be checked without real sensors."
-          >
-            <ChoiceRow
-              options={DEV_AMBIENT_OPTIONS}
-              value={forcedAmbient ?? 'live'}
-              onChange={(next) => onForceAmbient(next === 'live' ? null : next)}
-            />
-          </DevPanel>
-        ) : null}
         {onForceTrophies ? (
           <DevPanel
             c={c}
@@ -579,25 +538,6 @@ export function TodayScreen({
                 <TextButton label="Replay achievement unlocks" onPress={onReplayAchievements} />
               </View>
             ) : null}
-          </DevPanel>
-        ) : null}
-        {ambientDebug ? (
-          <DevPanel
-            c={c}
-            title="Dev · sensors"
-            hint="Live, not forced. `denied` / `unavailable` means the cue can never fire — walking needs a real device."
-          >
-            <Text style={[styles.devReadout, { color: c.ink }]}>
-              walking: {ambientDebug.walkingPermission} · {ambientDebug.steps} steps in window
-            </Text>
-            <Text style={[styles.devReadout, { color: c.ink }]}>
-              gym: {ambientDebug.gymPermission} ·{' '}
-              {ambientDebug.gymSaved
-                ? ambientDebug.distance === null
-                  ? 'saved, no fix yet'
-                  : `${ambientDebug.distance}m away`
-                : 'not set'}
-            </Text>
           </DevPanel>
         ) : null}
         {onSeedTestData ? (
@@ -899,6 +839,5 @@ const styles = themedStyles(() => ({
     textTransform: 'uppercase',
   },
   devHint: { fontSize: 11, lineHeight: 16, marginTop: 10 },
-  devReadout: { fontFamily: fonts.mono, fontSize: 11, marginTop: 6 },
   devButtons: { flexDirection: 'row', gap: 16 },
 }));

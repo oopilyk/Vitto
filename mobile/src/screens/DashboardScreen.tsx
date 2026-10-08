@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import {
 
   type AchievementId,
@@ -17,6 +18,7 @@ import {
 import { LevelUpCelebration } from '../celebrations/LevelUpCelebration';
 import { AchievementUnlock } from '../celebrations/AchievementUnlock';
 import type { CelebrationEvent } from '../celebrations/types';
+import { EnvironmentActionRow } from '../petWorld/EnvironmentActionRow';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
 import { PetWorldHud } from '../petWorld/PetWorldHud';
 import { mainEnvironment } from '../petWorld/MainEnvironment';
@@ -73,21 +75,6 @@ interface Props {
   /** Named under the kicker: "Raised with Alex". Absent for a solo pet. */
   partnerName?: string;
   /**
-   * Ambient signals, live and foreground-only (see mobile/AMBIENT.md). Already
-   * resolved by `App.tsx` — a dev override (see `TodayScreen`'s "Dev · force
-   * ambient" panel) wins over the live sensors before either prop reaches here,
-   * the same way `pet` arrives with `forcedAilment`/`forcedForm` already baked
-   * in rather than threaded down as separate override props.
-   *
-   * `isWalking` feeds `usePetInteraction`'s state machine as a new input (see
-   * `setAmbientWalking`) so it folds into the same `exploring` sprite band a
-   * button-triggered explore uses. `atGym` stays a passive prop straight
-   * through to `PetAvatar` — being at the gym says where the user is, not what
-   * the pet is doing, so it must not change the animation band.
-   */
-  isWalking?: boolean;
-  atGym?: boolean;
-  /**
    * Whether a night's sleep can reach the app at all (Apple Health, connected).
    * Changes what an exhausted pet asks for — see `AilmentAdvice`.
    */
@@ -133,8 +120,6 @@ export function DashboardScreen({
   onSelectPet,
   interaction,
   partnerName,
-  isWalking,
-  atGym,
   canLogSleep,
   trophies,
   celebration,
@@ -154,25 +139,16 @@ export function DashboardScreen({
     // renders (see `usePetInteraction`), so this isn't re-run by its identity.
   }, [interaction]);
 
-  // The live "is the user walking right now" cue, re-asserted on every render
-  // where it or the interaction state changes — see `setAmbientWalking` for why
-  // this needs to run again once a higher-priority activity (feeding, workout)
-  // finishes and hands the state back to idle while the user is still walking.
-  useEffect(() => {
-    interaction.setAmbientWalking(Boolean(isWalking));
-    // `interaction.setAmbientWalking` is stable (see `usePetInteraction`);
-    // `interaction.state.kind` is the real second dependency, so this fires
-    // again once a higher-priority activity hands control back to idle while
-    // the user is still walking, rather than only on `isWalking` itself
-    // changing — see the doc comment on `setAmbientWalking`.
-  }, [isWalking, interaction.state.kind, interaction.setAmbientWalking]);
-
   const formLabel = hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : `Level ${pet.level}`;
 
   // One move for every scene change — a row button, or "Living room" back out of
   // a scene. The pet is simply in the new room: no dash between them.
   const navigate = (id: EnvironmentId) => {
     if (id === environment) return;
+    // The selection tick iOS gives a tab switch, so the room change is felt
+    // as well as seen. Only on a real change: the button fires on touch-down
+    // and again on release, and the second call returns above.
+    if (Platform.OS !== 'web') void Haptics.selectionAsync().catch(() => {});
     setEnvironment(id);
   };
 
@@ -228,7 +204,6 @@ export function DashboardScreen({
       environment={environment}
       pet={pet}
       activityProps={toPetAvatarActivityProps(interaction.state)}
-      atGym={atGym}
       onPetTap={interaction.notice}
       night={night}
       petSaid={said}
@@ -257,12 +232,13 @@ export function DashboardScreen({
           night={night}
         />
       }
+      navBar={<EnvironmentActionRow current={environment} onNavigate={navigate} night={night} />}
       environments={{
-        main: mainEnvironment({ onNavigate: navigate, trophies }),
-        kitchen: kitchenEnvironment({ onChooseFood: onLogMeal, onNavigate: navigate }),
-        gym: gymEnvironment({ onStartWorkout: onLogWorkout, onNavigate: navigate }),
-        study: studyEnvironment({ onTrainMind, onNavigate: navigate }),
-        outside: outsideEnvironment({ onSyncSteps, onNavigate: navigate }),
+        main: mainEnvironment({ trophies }),
+        kitchen: kitchenEnvironment({ onChooseFood: onLogMeal }),
+        gym: gymEnvironment({ onStartWorkout: onLogWorkout }),
+        study: studyEnvironment({ onTrainMind }),
+        outside: outsideEnvironment({ onSyncSteps }),
       }}
     />
       {celebration?.kind === 'levelUp' ? (
