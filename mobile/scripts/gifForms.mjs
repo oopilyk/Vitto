@@ -39,7 +39,7 @@ const FORMS = {
   dinoScholar: ['dino-scholar', 'dino', 'idle', [5, 25], 20],
   foxLifter: ['fox-lifter', 'fox', 'idle-flex', [8, 25], 21],
   foxRunner: ['fox-runner', 'fox', 'idle', [3, 29], 20],
-  foxScholar: ['fox-scholar', 'fox', 'idle', [6, 23], 19],
+  foxScholar: ['fox-scholar', 'fox', 'idle', [6, 23], 20],
   koalaLifter: ['koala-lifter', 'koala', 'idle-flex', [3, 25], 20],
   koalaRunner: ['koala-runner', 'koala', 'idle', [1, 30], 22],
   koalaScholar: ['koala-scholar', 'koala', 'idle', [4, 18], 19],

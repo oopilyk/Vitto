@@ -21,7 +21,8 @@ const isSafari = () => {
   return /Safari/.test(agent) && !/Chrome|Chromium|CriOS|Edg|Android/.test(agent);
 };
 
-const sourceFor = (clip: PetVideoClip) => (Platform.OS === 'web' && !isSafari() ? clip.webm : clip.hevc);
+// Only the web build carries `.webm` (see petClips); the phone plays the HEVC.
+const sourceFor = (clip: PetVideoClip) => (Platform.OS === 'web' && !isSafari() && clip.webm ? clip.webm : clip.hevc);
 
 interface Props {
   videos: PetVideos;
