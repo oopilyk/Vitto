@@ -48,6 +48,20 @@ const FORMS = {
   otterScholar: ['otter-scholar', 'otter', 'idle', [3, 27], 18],
 };
 
+/**
+ * Extra keying for a form whose GIFs left background behind inside the art.
+ *
+ * The fox scholar's has white matte trapped where its tail meets its body (a
+ * patch of ~1,000px beside the scarf) and in thin creases behind its head:
+ * `clearCreases` takes the creases, and cutting out pockets with a long reach
+ * takes the patch, which sits too deep in the art for the default. Not the
+ * dizzy clip: there the same reach would take its white spiral eyes.
+ */
+const EXTRA_KEY = {
+  foxScholar: { key: { clearCreases: true, pocketArea: 40, pocketReach: 140 }, cutOutPockets: ['idle', 'celebrating', 'run', 'sad', 'dying'] },
+};
+const keyFor = (name, pet) => ({ ...PETS[pet].key, ...EXTRA_KEY[name]?.key });
+
 /** For buildVideoSheet.mjs: each form's sheet, in the standard seven bands. */
 export const gifFormSheets = () =>
   Object.fromEntries(
@@ -57,7 +71,8 @@ export const gifFormSheets = () =>
         source,
         output: `${name}.png`,
         box: PETS[pet].box,
-        key: PETS[pet].key,
+        key: keyFor(name, pet),
+        ...(EXTRA_KEY[name]?.cutOutPockets ? { cutOutPockets: EXTRA_KEY[name].cutOutPockets } : {}),
         band: {
           // The flex comes late in a lifter's long idle; the sheet keeps the standing part.
           idle: [idle, idle === 'idle-flex' ? spread(0, 88, 12) : spread(1, 23, 12)],
@@ -81,7 +96,8 @@ export const gifFormClips = () =>
       {
         source,
         output: name,
-        key: PETS[pet].key,
+        key: keyFor(name, pet),
+        ...(EXTRA_KEY[name]?.cutOutPockets ? { cutOutPockets: EXTRA_KEY[name].cutOutPockets } : {}),
         clips: [
           idle,
           'celebrating',
