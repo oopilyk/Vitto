@@ -1510,11 +1510,24 @@ function VittoApp() {
       );
       if (existing) {
         const had = (existing.metadata as StepMetadata).steps ?? 0;
-        if (newSteps > had) {
+        // Apple Health is the truth for steps, so the day's count follows it
+        // down as well as up: a count that only ever rose kept an over-count
+        // (the iPhone and Watch once both being added up) for the rest of the
+        // day. Only a rise pays XP, below, so a correction never takes any.
+        // The most steps already paid for today, so a count corrected down and
+        // then climbing again is not rewarded twice for the same ground.
+        const rewarded = Math.max(had, (existing.metadata as StepMetadata).rewardedSteps ?? 0);
+        if (newSteps !== had) {
+          const fresh = event.metadata as StepMetadata;
           const updated: HealthEvent<StepMetadata> = {
             ...(existing as HealthEvent<StepMetadata>),
             occurredAt: today.toISOString(),
-            metadata: { ...(existing.metadata as StepMetadata), steps: newSteps },
+            metadata: {
+              ...(existing.metadata as StepMetadata),
+              steps: newSteps,
+              rewardedSteps: Math.max(rewarded, newSteps),
+              ...(typeof fresh.caloriesBurned === 'number' ? { caloriesBurned: fresh.caloriesBurned } : {}),
+            },
           };
 
           // The first sync of the day already ran the full engine once,
@@ -1523,8 +1536,8 @@ function VittoApp() {
           // the difference, via the SAME formula, so reaching 8,000 steps at
           // 4pm counts the same as it would have at 9am, without re-paying
           // the reward already granted at the first sync.
-          if (pet) {
-            const topUp = stepSyncTopUp(engine, pet, updated, had, {
+          if (pet && newSteps > rewarded) {
+            const topUp = stepSyncTopUp(engine, pet, updated, rewarded, {
               history: events,
               bodyWeightKg: profile.weightKg,
             });
