@@ -77,6 +77,7 @@ export function WordPuzzleGrid({ length, maxGuesses, guesses, marks, entry }: Pr
                 >
                   <Text
                     style={[styles.letter, appearance ? { color: appearance.foreground } : null]}
+                    numberOfLines={1}
                   >
                     {letter.toUpperCase()}
                   </Text>
@@ -112,7 +113,10 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
   },
   tileTyped: { borderColor: colors.border, backgroundColor: colors.cardSoft },
-  letter: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, lineHeight: 26 },
+  // As wide as the tile, centred, rather than as wide as the glyph: iOS sized
+  // a lone serif I a hair too narrow for itself, wrapped it onto a second line
+  // outside the tile, and the tile showed blank.
+  letter: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, lineHeight: 26, alignSelf: 'stretch', textAlign: 'center' },
   // The shape marker sits under the letter so feedback survives a colourblind reading.
   glyph: { fontSize: 8, lineHeight: 10, marginTop: 1 },
 }));

@@ -230,6 +230,11 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
         <ScrollView
           contentContainerStyle={[styles.body, { paddingBottom: 40 + HOME_INDICATOR_INSET }]}
           keyboardShouldPersistTaps="handled"
+          // The search box and its results sit above the keyboard: iOS insets
+          // the list by the keyboard's height, so the results can be scrolled
+          // into view, and a drag down puts the keyboard away.
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
         >
           {carePartner ? <CarePartnerCard carePartner={carePartner} openJoin={openJoin} palette={palette} /> : null}
 

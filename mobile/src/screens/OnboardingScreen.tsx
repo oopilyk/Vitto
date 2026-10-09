@@ -67,6 +67,7 @@ import {
   type PlusPlan,
   type PlusStatus,
 } from '../services/billingService';
+import type { OnboardingProgress } from '../services/onboardingDraft';
 import { scheduleTrialReminder } from '../services/pushService';
 import { colors, getColorScheme, themedStyles } from '../theme';
 import { ONB_FONT as FONT, OnbButton as FButton, OnbInput as FInput, onboardingPalette as palette } from '../components/onboardingKit';
@@ -116,6 +117,10 @@ interface Props {
   knownAge?: number;
   /** Asks the OS for notifications; resolves to whether they are on. Absent where push cannot work. */
   onEnableNotifications?: () => Promise<boolean>;
+  /** Where a previous visit got to, to pick up from (see onboardingDraft). */
+  resume?: OnboardingProgress | null;
+  /** Called as they go, with where they are, so it can be kept for next time. */
+  onProgress?: (progress: OnboardingProgress) => void;
 }
 
 /** The longest code with its dash, 'ABCD-EFGH'. */
@@ -287,6 +292,25 @@ const FULL_SEQUENCE: StepId[] = [
 ];
 
 /** The questions about you; skipped on a resume once they are answered (they persist per answer). */
+/** Everything onboardingDraft keeps of this screen; see `resume` / `onProgress`. */
+interface SavedProgress extends OnboardingProgress {
+  stepId: StepId;
+  picked: Partial<Record<StepId, true>>;
+  goalChoice: 'lose' | 'maintain' | 'gain' | null;
+  ageChoice: number | null;
+  sexChoice: BodyProfile['sex'] | null;
+  trainingTypes: TrainingType[];
+  motivations: Motivation[];
+  body: { feet: string; inches: string; cm: string; weight: string };
+  goalText: string;
+  commitDays: number | null;
+  careAreas: CareArea[];
+  handle: string;
+  answeredAtStart: boolean;
+  offerPlus: boolean;
+  hadUsername: boolean;
+}
+
 const QUESTION_STEPS = new Set<StepId>([
   'aboutIntro',
   'age',
@@ -366,33 +390,38 @@ export function OnboardingScreen({
   onClaimUsername,
   knownAge,
   onEnableNotifications,
+  resume,
+  onProgress,
 }: Props) {
   useFonts({ Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_700Bold });
 
   // Decided once: answers persist as they are given, so a returning user skips
   // the questions, and buying Plus mid-flow must not reshuffle the steps behind them.
-  const answeredAtStart = useRef(hasCompletedQuestionnaire(profile)).current;
-  const offerPlus = useRef(Boolean(paywall) && !canCustomise).current;
-  const hadUsername = useRef(Boolean(profile.username)).current;
+  // A resumed visit keeps the first visit's decisions, so the step it stopped
+  // on is still in the sequence.
+  const saved = useRef((resume ?? null) as SavedProgress | null).current;
+  const answeredAtStart = useRef(saved ? saved.answeredAtStart : hasCompletedQuestionnaire(profile)).current;
+  const offerPlus = useRef(saved ? saved.offerPlus : Boolean(paywall) && !canCustomise).current;
+  const hadUsername = useRef(saved ? saved.hadUsername : Boolean(profile.username)).current;
 
   // What they have actually picked. The props carry the app's starting values
   // (a breed, a name, 10,000 steps...); none of those count as an answer, so
   // none of them shows as chosen until it is tapped.
-  const [picked, setPicked] = useState<Partial<Record<StepId, true>>>({});
+  const [picked, setPicked] = useState<Partial<Record<StepId, true>>>(saved?.picked ?? {});
   const pick = (step: StepId) => setPicked((current) => (current[step] ? current : { ...current, [step]: true }));
-  const [goalChoice, setGoalChoice] = useState<'lose' | 'maintain' | 'gain' | null>(null);
-  const [ageChoice, setAgeChoice] = useState<number | null>(null);
+  const [goalChoice, setGoalChoice] = useState<'lose' | 'maintain' | 'gain' | null>(saved?.goalChoice ?? null);
+  const [ageChoice, setAgeChoice] = useState<number | null>(saved?.ageChoice ?? null);
   // Sign-up's answer stands in for the question it would have asked.
   useEffect(() => {
     if (knownAge !== undefined) onUpdate('age', knownAge);
     // Once, on arrival: the answer does not change during onboarding.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [sexChoice, setSexChoice] = useState<BodyProfile['sex'] | null>(null);
-  const [trainingTypes, setTrainingTypes] = useState<TrainingType[]>([]);
-  const [motivations, setMotivations] = useState<Motivation[]>([]);
-  const [body, setBody] = useState({ feet: '', inches: '', cm: '', weight: '' });
-  const [goalText, setGoalText] = useState('');
+  const [sexChoice, setSexChoice] = useState<BodyProfile['sex'] | null>(saved?.sexChoice ?? null);
+  const [trainingTypes, setTrainingTypes] = useState<TrainingType[]>(saved?.trainingTypes ?? []);
+  const [motivations, setMotivations] = useState<Motivation[]>(saved?.motivations ?? []);
+  const [body, setBody] = useState(saved?.body ?? { feet: '', inches: '', cm: '', weight: '' });
+  const [goalText, setGoalText] = useState(saved?.goalText ?? '');
 
   const sequenceFor = (goal: typeof goalChoice) =>
     FULL_SEQUENCE.filter((step) => {
@@ -410,16 +439,16 @@ export function OnboardingScreen({
     });
   const sequence = sequenceFor(goalChoice);
 
-  const [stepId, setStepId] = useState<StepId>('welcome');
+  const [stepId, setStepId] = useState<StepId>(saved?.stepId ?? 'welcome');
   const [stepError, setStepError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
-  const [commitDays, setCommitDays] = useState<number | null>(null);
+  const [commitDays, setCommitDays] = useState<number | null>(saved?.commitDays ?? null);
   const [celebrating, setCelebrating] = useState(false);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
-  const [handle, setHandle] = useState('');
+  const [handle, setHandle] = useState(saved?.handle ?? '');
   const [claiming, setClaiming] = useState(false);
   const [plusBusy, setPlusBusy] = useState<PlusPlan | null>(null);
   /** How Plus is sold here (store or test) and at what price, read once the offer is on screen. */
@@ -433,6 +462,17 @@ export function OnboardingScreen({
     setArea((current) => (Math.abs(current.width - width) < 1 && Math.abs(current.height - height) < 1 ? current : { width, height }));
   };
   const short = area.height > 0 && area.height < 520;
+
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const index = Math.max(0, sequence.indexOf(stepId));
   const isLast = index === sequence.length - 1;
@@ -618,7 +658,18 @@ export function OnboardingScreen({
   };
 
   /** What should affect the pet. Nothing preselected; carried on the profile until the pet is adopted. */
-  const [careAreas, setCareAreas] = useState<CareArea[]>([]);
+  const [careAreas, setCareAreas] = useState<CareArea[]>(saved?.careAreas ?? []);
+
+  // Where they are, handed up as it changes, so closing the app is not starting over.
+  useEffect(() => {
+    if (!onProgress) return;
+    const progress: SavedProgress = {
+      stepId, picked, goalChoice, ageChoice, sexChoice, trainingTypes, motivations, body, goalText, commitDays, careAreas, handle,
+      answeredAtStart, offerPlus, hadUsername,
+    };
+    onProgress(progress);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepId, picked, goalChoice, ageChoice, sexChoice, trainingTypes, motivations, body, goalText, commitDays, careAreas, handle]);
   const toggleCareArea = (value: CareArea) => {
     tick();
     const next = careAreas.includes(value)
@@ -813,6 +864,18 @@ export function OnboardingScreen({
       )}
 
       <View style={styles.area} onLayout={onAreaLayout}>
+        {/* Scrolls only when a page does not fit: with the keyboard up the area
+            is what is left above it, and a page that was laid out to fit the
+            whole screen was cut off (the area clips) rather than reachable. */}
+        <ScrollView
+          testID="onboarding-page-scroll"
+          style={styles.fill}
+          contentContainerStyle={styles.pageScroll}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+          alwaysBounceVertical={false}
+        >
         <Animated.View style={[styles.page, { opacity: enter, transform: [{ translateX }] }]}>
           {stepId === 'welcome' ? (
             <View style={[styles.fill, styles.centred]}>
@@ -1613,9 +1676,10 @@ export function OnboardingScreen({
             </View>
           ) : null}
         </Animated.View>
+        </ScrollView>
       </View>
 
-      <View style={[styles.footer, { backgroundColor: F.bg }]}>
+      <View style={[styles.footer, { backgroundColor: F.bg }, keyboardUp && styles.footerOverKeyboard]}>
         <View style={styles.footerInner}>
           {(stepError ?? error) ? <Text style={styles.error}>{stepError ?? error}</Text> : null}
           {stepId === 'plusOffer' ? (
@@ -1853,6 +1917,7 @@ const styles = themedStyles(() => {
     // The page: a fixed area, measured, that nothing scrolls inside.
     area: { flex: 1, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 4, overflow: 'hidden' },
     page: { flex: 1, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
+    pageScroll: { flexGrow: 1 },
     fill: { flex: 1, minHeight: 0 },
     centred: { alignItems: 'center', justifyContent: 'center' },
     row: { flexDirection: 'row', gap: 12, alignSelf: 'stretch' },
@@ -2171,6 +2236,8 @@ const styles = themedStyles(() => {
     },
 
     footer: { paddingHorizontal: 30, paddingTop: 8, paddingBottom: HOME_INDICATOR_INSET + 8 },
+    // The keyboard covers the home indicator, so its inset is room wasted.
+    footerOverKeyboard: { paddingBottom: 8 },
     footerInner: { width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center', gap: 10 },
 
   };

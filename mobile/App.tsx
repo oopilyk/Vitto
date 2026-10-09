@@ -32,6 +32,7 @@ import { playCelebrationSound, playMealSound, playMunchSound } from './src/servi
 import { PrimaryButton, TextButton } from './src/components/ui';
 import { usePetInteraction } from './src/petWorld/usePetInteraction';
 import { AuthScreen, HAS_SIGNED_IN_KEY } from './src/screens/AuthScreen';
+import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft, type OnboardingProgress } from './src/services/onboardingDraft';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
@@ -553,6 +554,65 @@ function VittoApp() {
   const [now, setNow] = useState(() => new Date());
 
   const userId = session?.user.id ?? 'demo-user';
+
+  /**
+   * Onboarding part way through, kept on the phone (see onboardingDraft) so
+   * closing the app does not start it over. `undefined` until it has been
+   * looked for; onboarding is not shown before then, or it would open on the
+   * first page and jump.
+   */
+  const [onboardingResume, setOnboardingResume] = useState<OnboardingProgress | null | undefined>(undefined);
+  const onboardingProgress = useRef<OnboardingProgress | null>(null);
+  const [onboardingTick, setOnboardingTick] = useState(0);
+  const needsOnboarding = dataReady && !pet;
+  useEffect(() => {
+    setOnboardingResume(undefined);
+    onboardingProgress.current = null;
+  }, [userId]);
+  useEffect(() => {
+    if (!needsOnboarding || onboardingResume !== undefined) return;
+    let cancelled = false;
+    void loadOnboardingDraft(userId).then((draft) => {
+      if (cancelled) return;
+      if (draft) {
+        setName(draft.name);
+        setBreed(draft.breed);
+        setPersonality(draft.personality);
+        setPersona(draft.persona);
+        setDials(draft.dials);
+        // Over what the server had: the draft is the newer of the two.
+        setProfile((current) => withSurveyDefaults({ ...current, ...draft.profile }));
+        onboardingProgress.current = draft.progress;
+      }
+      setOnboardingResume(draft?.progress ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsOnboarding, onboardingResume, userId]);
+  const saveDraftNow = () => {
+    const progress = onboardingProgress.current;
+    if (!needsOnboarding || onboardingResume === undefined || !progress) return;
+    void saveOnboardingDraft(userId, { version: 1, progress, name, breed, personality, persona, dials, profile });
+  };
+  const saveDraftRef = useRef(saveDraftNow);
+  saveDraftRef.current = saveDraftNow;
+  // Saved a moment after each change, and at once when the app is put away:
+  // closing the app goes through the background first.
+  useEffect(() => {
+    const timer = setTimeout(() => saveDraftRef.current(), 300);
+    return () => clearTimeout(timer);
+  }, [onboardingTick, name, breed, personality, persona, dials, profile]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') saveDraftRef.current();
+    });
+    return () => subscription.remove();
+  }, []);
+  // Adopted: the draft has done its job.
+  useEffect(() => {
+    if (pet) void clearOnboardingDraft(userId);
+  }, [Boolean(pet), userId]); // eslint-disable-line react-hooks/exhaustive-deps
   sessionUserRef.current = session?.user.id ?? null;
   const shared = isSharedPet(members);
   const partner = activeMembers(members).find((member) => member.userId !== userId);
@@ -1994,10 +2054,17 @@ function VittoApp() {
   // Gated on the STORED pet: a pet whose projection has bottomed out is still an
   // adopted pet, and must never be sent back through onboarding.
   if (!pet) {
+    // Until any saved progress has been read: a blank screen, not page one.
+    if (onboardingResume === undefined) return <View style={layout.screen} />;
     return (
       <View style={layout.screen}>
         <StatusBar barStyle={statusBarStyle} />
         <OnboardingScreen
+          resume={onboardingResume}
+          onProgress={(progress) => {
+            onboardingProgress.current = progress;
+            setOnboardingTick((tick) => tick + 1);
+          }}
           knownAge={signUpAge(session?.user.user_metadata?.age)}
           name={name}
           onNameChange={setName}

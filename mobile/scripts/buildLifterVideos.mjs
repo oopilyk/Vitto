@@ -29,6 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { fillBehindGaps, fillHoles, keyBackground } from './keyBackground.mjs';
+import { gifFormClips } from './gifForms.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -114,6 +115,27 @@ const PETS = {
     // Five frames a step: five steps loop cleanly.
     clips: ['idle', 'cheer', { name: 'walk', frames: [6, 30] }, 'dizzy', 'cry', 'collapse'],
   },
+  // The axolotl's three forms: GIFs at 6fps, already cut out, keyed as their
+  // sheets are. Runs loop on frames 1-30 (whole strides for all three); `lie`
+  // is each collapse's lying-flat tail (22+), looped, for rest.
+  axolotlLifter: {
+    source: 'axolotl-lifter',
+    output: 'axolotlLifter',
+    key: { fringePasses: 4 },
+    clips: ['idle-flex', 'cheer', { name: 'run', frames: [1, 30] }, 'dizzy', 'sad', 'collapse', { name: 'lie', from: 'collapse', frames: [22, 30] }],
+  },
+  axolotlRunner: {
+    source: 'axolotl-runner',
+    output: 'axolotlRunner',
+    key: { fringePasses: 4 },
+    clips: ['idle', 'cheer', { name: 'run', frames: [1, 30] }, { name: 'dizzy', frames: [3, 30] }, 'tired', 'lie-down', { name: 'lie', from: 'lie-down', frames: [22, 30] }],
+  },
+  axolotlScholar: {
+    source: 'axolotl-scholar',
+    output: 'axolotlScholar',
+    key: { fringePasses: 4 },
+    clips: ['idle', 'cheer', { name: 'walk', frames: [1, 30] }, 'dizzy', 'cry', 'collapse', { name: 'lie', from: 'collapse', frames: [22, 30] }],
+  },
   // The bichon and shiba runners: GIFs at 6fps, already cut out, keyed as
   // their sheets are in buildVideoSheet.mjs. Loops are cut to whole strides
   // and cycles; `lie` is the lie-down's lying-still tail, looped, for rest.
@@ -170,6 +192,9 @@ const PETS = {
     ],
   },
 };
+
+// The generated set of evolved forms (see gifForms.mjs).
+Object.assign(PETS, gifFormClips());
 
 const pet = PETS[process.argv[2]];
 if (!pet) {

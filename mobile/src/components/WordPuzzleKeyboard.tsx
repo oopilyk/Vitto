@@ -53,7 +53,7 @@ export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disable
                   disabled && styles.dim,
                 ]}
               >
-                <Text style={[styles.keyLabel, appearance ? { color: appearance.foreground } : null]}>
+                <Text style={[styles.keyLabel, appearance ? { color: appearance.foreground } : null]} numberOfLines={1}>
                   {letter.toUpperCase()}
                 </Text>
                 {appearance ? (
@@ -110,7 +110,8 @@ const styles = themedStyles(() => ({
    * round U and O and reads as an empty key. The serif face draws it with
    * crossbars, which is unmistakable at any width.
    */
-  keyLabel: { fontFamily: fonts.display, fontSize: 17, color: colors.ink },
+  // Tile-wide and centred, for the reason WordPuzzleGrid's letters are.
+  keyLabel: { fontFamily: fonts.display, fontSize: 17, color: colors.ink, alignSelf: 'stretch', textAlign: 'center' },
   keyGlyph: { fontSize: 7, lineHeight: 9 },
   actionLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.6, color: colors.inkSoft },
 }));

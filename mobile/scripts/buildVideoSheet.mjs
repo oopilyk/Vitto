@@ -1,7 +1,7 @@
 /**
  * Builds a pet form's sprite sheet from the source videos it was animated as.
  *
- *   node scripts/buildVideoSheet.mjs <bearLifter | bearRunner | bearScholar | bunnyLifter | bunnyRunner | bunnyScholar | otter | bichonRunner | shibaRunner>
+ *   node scripts/buildVideoSheet.mjs <bearLifter | bearRunner | bearScholar | bunnyLifter | bunnyRunner | bunnyScholar | otter | bichonRunner | shibaRunner | axolotlLifter | axolotlRunner | axolotlScholar>
  *
  * The forms animated as video still need a sheet: `SpriteFrame` works by
  * sliding one PNG behind a 128px window, and everything built on it -- the tint
@@ -28,6 +28,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { fillBehindGaps, fillHoles, keyBackground } from './keyBackground.mjs';
+import { gifFormSheets } from './gifForms.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pets = path.join(root, 'assets/pet');
@@ -220,6 +221,87 @@ const FORMS = {
     },
   },
   /*
+   * The axolotl's three forms share one box. Every clip stands it 269px tall
+   * with its feet at y≈551, centred on x≈384; this box makes that the base
+   * axolotl's 58px with its feet at y≈103, so evolving does not resize it. The
+   * highest jump (the lifter's cheer, y≈72) and the lowest sprawl (feet
+   * y≈587) both fit. A white halo sits outside its outline, two passes deeper
+   * than the default peel; not `greyFringe`, which thins its dark-purple
+   * outline.
+   *
+   * Every collapse lies flat from frame 22.
+   */
+  axolotlLifter: {
+    source: 'axolotl-lifter',
+    output: 'axolotlLifter.png',
+    box: { x: 87, y: 72, size: 594 },
+    key: { fringePasses: 4 },
+    /*
+     *   idle-flex.gif  124 frames: stands, then flexes
+     *   cheer.gif      7-16 jumps, 17-20 lands in a puff of dust
+     *   run.gif        ONE STRIDE IS 6 FRAMES (1 matches 7)
+     *   dizzy.gif      2+ spiral eyes, a ring of stars
+     *   sad.gif        4+ slumps and cries
+     *   collapse.gif   6-21 X eyes and staggers, 22+ flat
+     */
+    band: {
+      idle: ['idle-flex', [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88]],
+      cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
+      move: ['run', [1, 2, 3, 4, 5, 6]],
+      rest: ['collapse', [22, 23, 24, 25, 26, 27, 28, 30]],
+      unwell: ['dizzy', [4, 7, 10, 13, 16, 19, 22, 25]],
+      sad: ['sad', [6, 9, 12, 15, 18, 21, 24, 27]],
+      // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+      faint: ['collapse', [6, 9, 12, 15, 18, 20, 21, 23]],
+    },
+  },
+  axolotlRunner: {
+    source: 'axolotl-runner',
+    output: 'axolotlRunner.png',
+    box: { x: 87, y: 72, size: 594 },
+    key: { fringePasses: 4 },
+    /*
+     *   idle.gif      standing, blinking
+     *   cheer.gif     7-17 jumps, 18-21 lands in a puff of dust
+     *   run.gif       ONE STRIDE IS 2 FRAMES
+     *   dizzy.gif     spiral eyes and stars
+     *   tired.gif     4+ slumps
+     *   lie-down.gif  10-21 X eyes and staggers, 22+ flat
+     */
+    band: {
+      idle: ['idle', [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]],
+      cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
+      move: ['run', [1, 2, 3, 4, 5, 6]],
+      rest: ['lie-down', [22, 23, 24, 25, 26, 27, 28, 30]],
+      unwell: ['dizzy', [4, 7, 10, 13, 16, 19, 22, 25]],
+      sad: ['tired', [6, 9, 12, 15, 18, 21, 24, 27]],
+      faint: ['lie-down', [10, 13, 16, 19, 20, 21, 22, 23]],
+    },
+  },
+  axolotlScholar: {
+    source: 'axolotl-scholar',
+    output: 'axolotlScholar.png',
+    box: { x: 87, y: 72, size: 594 },
+    key: { fringePasses: 4 },
+    /*
+     *   idle.gif      standing with its book, blinking
+     *   cheer.gif     6-15 jumps holding the book up, 16-20 lands
+     *   walk.gif      ONE STEP IS 3 FRAMES
+     *   dizzy.gif     3+ spiral eyes and stars
+     *   cry.gif       4+ slumps and cries
+     *   collapse.gif  9-21 X eyes and staggers, 22+ flat
+     */
+    band: {
+      idle: ['idle', [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]],
+      cheer: ['cheer', [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]],
+      move: ['walk', [1, 2, 3, 4, 5, 6]],
+      rest: ['collapse', [22, 23, 24, 25, 26, 27, 28, 30]],
+      unwell: ['dizzy', [4, 7, 10, 13, 16, 19, 22, 25]],
+      sad: ['cry', [6, 9, 12, 15, 18, 21, 24, 27]],
+      faint: ['collapse', [9, 12, 15, 18, 20, 21, 22, 23]],
+    },
+  },
+  /*
    * The bichon runner, redrawn as GIFs (replacing the sheet assembled from
    * slices). It stands 374px tall with its feet at y≈593, centred on x≈385;
    * this box makes that 80px with its feet at y=110, as the base bichon's art
@@ -334,6 +416,9 @@ const FORMS = {
     },
   },
 };
+
+// The generated set of evolved forms (see gifForms.mjs).
+Object.assign(FORMS, gifFormSheets());
 
 const form = FORMS[process.argv[2]];
 if (!form) {

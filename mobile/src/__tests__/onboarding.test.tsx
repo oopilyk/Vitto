@@ -281,8 +281,13 @@ describe('onboarding', () => {
     const enable = jest.fn(() => Promise.resolve(true));
     const { tree } = mount(baseProfile, { onEnableNotifications: enable });
     const check = () => {
-      // The only scroller allowed is the sideways strip of months.
-      for (const scroller of tree.root.findAllByType(ScrollView)) expect(scroller.props.horizontal).toBe(true);
+      // The only scrollers allowed are the sideways strip of months and the
+      // page's own fallback, which only moves when the keyboard leaves a page
+      // too little room (it grows to fill, so a page that fits does not scroll).
+      for (const scroller of tree.root.findAllByType(ScrollView)) {
+        if (scroller.props.testID === 'onboarding-page-scroll') expect(scroller.props.contentContainerStyle).toMatchObject({ flexGrow: 1 });
+        else expect(scroller.props.horizontal).toBe(true);
+      }
       for (const line of strings(tree)) expect(line).not.toMatch(/\p{Extended_Pictographic}/u);
     };
     check();
@@ -400,5 +405,24 @@ describe('onboarding character (Plus)', () => {
     expect(has(teen, 'Your own')).toBe(false);
     press(teen, 'Cute');
     expect(has(teen, 'Who are they?')).toBe(false);
+  });
+});
+
+describe('onboarding, closed part way through', () => {
+  it('picks up on the page it was left on, with the questions it was asked', () => {
+    const saved: Record<string, unknown>[] = [];
+    const first = mount(baseProfile, { onProgress: (progress) => saved.push(progress) });
+    meetPet(first.tree);
+    const page = strings(first.tree).join(' | ');
+    const progress = saved[saved.length - 1]!;
+    expect(progress.stepId).not.toBe('welcome');
+    act(() => first.tree.unmount());
+
+    // The answers so far are already on the profile, which would normally skip
+    // the questions; a resumed visit keeps the sequence it started with.
+    const again = mount(baseProfile, { resume: progress as never });
+    expect(has(again.tree, 'Get started')).toBe(false);
+    expect(strings(again.tree).join(' | ')).toBe(page);
+    act(() => again.tree.unmount());
   });
 });

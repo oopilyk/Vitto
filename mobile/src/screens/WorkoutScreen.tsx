@@ -8,6 +8,7 @@ import {
   addSet,
   calculateWorkoutStats,
   sessionMinutes,
+  tracksDistance,
   createExercise,
   errorMessage,
   exerciseLibrary,
@@ -106,6 +107,9 @@ export function WorkoutScreen({
   const routineMode = mode === 'routine';
 
   const addExercise = (exerciseName: string, muscle: string, bodyweight: boolean) => {
+    // A session that starts with a walk or a run is that, not a "Strength
+    // session" (the name a tester saw on their walk).
+    if (exercises.length === 0 && name === DEFAULT_SESSION_NAME && tracksDistance(exerciseName)) setName(exerciseName);
     setExercises((current) => [
       ...current,
       createExercise(exerciseName, muscle, bodyweight, weightUnit),
@@ -242,12 +246,19 @@ export function WorkoutScreen({
         ]
       : []),
     ...(goesSomewhere && Number(distance) > 0 ? [`${Number(distance)} ${distanceUnit}`] : []),
-    `${stats.durationMinutes} min`,
+    // A walk with no time yet has no length to show; "1 min" read as logged.
+    goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0) ? 'Add the time' : `${stats.durationMinutes} min`,
   ].join(' · ');
 
   const finish = async () => {
     if (!exercises.length) {
       setError('Add an exercise first.');
+      return;
+    }
+    // With no sets there is no clock to fall back on: an empty time would log
+    // the walk as a single minute.
+    if (goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0)) {
+      setError('Add how many minutes it took.');
       return;
     }
     setSaving(true);
@@ -479,21 +490,13 @@ export function WorkoutScreen({
                 routineMode ? (
                   <Text style={styles.cardioNote}>Distance and time are filled in each time you log it.</Text>
                 ) : (
+                  // Time first and on its own row: it is the one that matters
+                  // (a session with no sets has no clock to fall back on).
+                  // Distance is extra, and says so. Side by side, testers
+                  // could not tell which of the two was required.
                   <View style={styles.cardioFields}>
-                    <View style={styles.cardioField}>
-                      <Text style={styles.setHeadLabel}>{distanceUnit === 'mi' ? 'MILES' : 'KM'}</Text>
-                      <TextInput
-                        style={[layout.input, styles.cardioInput]}
-                        value={distance}
-                        onChangeText={setDistance}
-                        keyboardType="decimal-pad"
-                        placeholder="0.0"
-                        placeholderTextColor={colors.faint}
-                        accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}`}
-                      />
-                    </View>
-                    <View style={styles.cardioField}>
-                      <Text style={styles.setHeadLabel}>MINUTES</Text>
+                    <View style={styles.cardioRow}>
+                      <Text style={styles.cardioLabel}>Time</Text>
                       <TextInput
                         style={[layout.input, styles.cardioInput]}
                         value={duration}
@@ -503,6 +506,22 @@ export function WorkoutScreen({
                         placeholderTextColor={colors.faint}
                         accessibilityLabel="Minutes"
                       />
+                      <Text style={styles.cardioUnit}>min</Text>
+                    </View>
+                    <View style={styles.cardioRow}>
+                      <Text style={styles.cardioLabel}>
+                        Distance <Text style={styles.cardioOptional}>(optional)</Text>
+                      </Text>
+                      <TextInput
+                        style={[layout.input, styles.cardioInput]}
+                        value={distance}
+                        onChangeText={setDistance}
+                        keyboardType="decimal-pad"
+                        placeholder="0.0"
+                        placeholderTextColor={colors.faint}
+                        accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}, optional`}
+                      />
+                      <Text style={styles.cardioUnit}>{distanceUnit}</Text>
                     </View>
                   </View>
                 )
@@ -880,9 +899,12 @@ const styles = themedStyles(() => ({
   },
   addSetLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
   cardioNote: { fontSize: 13, color: colors.muted, marginTop: 10, lineHeight: 18 },
-  cardioFields: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  cardioField: { flex: 1, gap: 6, alignItems: 'center' },
-  cardioInput: { alignSelf: 'stretch', textAlign: 'center', fontSize: 18, fontWeight: '600' },
+  cardioFields: { gap: 8, marginTop: 12 },
+  cardioRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardioLabel: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.ink },
+  cardioOptional: { fontWeight: '400', color: colors.muted },
+  cardioInput: { width: 96, textAlign: 'center', fontSize: 18, fontWeight: '600' },
+  cardioUnit: { width: 30, fontSize: 14, color: colors.muted },
 
   addExercise: {
     marginTop: 14,

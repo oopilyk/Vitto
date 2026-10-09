@@ -495,8 +495,8 @@ describe('screens render', () => {
     // and the session is named after it.
     act(() => press('Add Running')!.props.onPress());
     expect(labels()).not.toContain('What did you do?');
-    expect(labels()).toContain('MILES');
-    act(() => tree.root.findAllByProps({ accessibilityLabel: 'Distance in miles' }).find((n: any) => n.props.onChangeText)!.props.onChangeText('3.1'));
+    expect(labels()).toContain('Time');
+    act(() => tree.root.findAllByProps({ accessibilityLabel: 'Distance in miles, optional' }).find((n: any) => n.props.onChangeText)!.props.onChangeText('3.1'));
     act(() => tree.root.findAllByProps({ accessibilityLabel: 'Minutes' }).find((n: any) => n.props.onChangeText)!.props.onChangeText('28'));
     const finish = tree.root
       .findAll((n: any) => typeof n.props.onPress === 'function')
@@ -532,15 +532,29 @@ describe('screens render', () => {
     expect(placeholders).not.toContain('BW');
     const labels = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
     expect(labels).not.toContain('+ Add set');
-    // Distance and minutes are asked for right on the run's card.
-    expect(labels).toContain('MILES');
-    expect(labels).toContain('MINUTES');
-
+    // Time and distance are asked for right on the run's card: time first,
+    // distance marked optional, each with its unit beside it.
+    expect(labels).toContain('Time');
+    expect(labels).toContain('min');
+    expect(labels).toContain('(optional)');
     // Miles, because the profile is in pounds.
-    const distanceField = tree.root.findAllByProps({ accessibilityLabel: 'Distance in miles' })
+    expect(labels).toContain('mi');
+    // The session is the run, not a "Strength session".
+    expect(tree.root.findAllByType(TextInput).some((n: any) => n.props.value === 'Running')).toBe(true);
+
+    const distanceField = tree.root.findAllByProps({ accessibilityLabel: 'Distance in miles, optional' })
       .find((n: any) => typeof n.props.onChangeText === 'function');
     expect(distanceField).toBeTruthy();
     act(() => distanceField!.props.onChangeText('6.2'));
+
+    const finishButton = () => tree.root
+      .findAll((n: any) => typeof n.props.onPress === 'function')
+      .find((n: any) => n.findAllByType(Text).some((t: any) => String(t.props.children).startsWith('Finish')));
+    // Without its minutes a run would log as one minute: it asks instead.
+    await act(async () => { finishButton()!.props.onPress(); await Promise.resolve(); });
+    expect(logged).toHaveLength(0);
+    expect(tree.root.findAllByType(Text).some((t: any) => t.props.children === 'Add how many minutes it took.')).toBe(true);
+    act(() => tree.root.findAllByProps({ accessibilityLabel: 'Minutes' }).find((n: any) => n.props.onChangeText)!.props.onChangeText('50'));
 
     // The summary reports the run, not three zeroes.
     const line = tree.root.findAllByType(Text)
@@ -2398,10 +2412,23 @@ describe('pet sprite', () => {
     expect(sheetForPet(runnerStats).label).toBe('Tabby Cat');
   });
 
-  it('keeps an endurance-built pack animal on its base sheet — none has runner art', () => {
+  it('evolves every pack animal into the form its training earned, with its own clips', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const runner = { id: 'p', breed: 'tabbyCat', level: 16, endurance: 80, strength: 10 };
-    expect(sheetForPet(runner).label).toBe('Tabby Cat');
+    const builds = [
+      ['Runner', { endurance: 90, strength: 10, mind: 10, level: 40 }],
+      ['Lifter', { strength: 80, endurance: 10, mind: 10, level: 16 }],
+      ['Scholar', { mindSessions: 27, endurance: 10, strength: 10, level: 16 }],
+    ] as const;
+    for (const [breed, label] of [['tabbyCat', 'Tabby Cat'], ['dino', 'Dino'], ['fox', 'Fox'], ['koala', 'Koala'], ['otter', 'Otter']]) {
+      for (const [form, stats] of builds) {
+        const sheet = sheetForPet({ id: 'p', breed, ...stats });
+        expect(sheet.label).toBe(`${label} · ${form}`);
+        for (const animation of ['idle', 'cheer', 'move', 'rest', 'unwell', 'sad', 'faint']) expect(sheet.videos.clips[animation]).toBeDefined();
+        expect(sheet.videos.clips.faint.loop).toBe(false);
+      }
+    }
+    // The otter's forms share its smaller drawing, so evolving does not resize it.
+    expect(sheetForPet({ id: 'p', breed: 'otter', ...builds[0][1] }).artScale).toBe(sheetForPet({ id: 'p', breed: 'otter', level: 5 }).artScale);
   });
 
   it('leaves a grown cat with no specialism on its base sheet', () => {
@@ -2439,10 +2466,14 @@ describe('pet sprite', () => {
     expect(sheetForPet(lifter).label).toBe('Bunny · Lifter');
   });
 
-  it('keeps an evolved otter on its own art while it has no evolved forms', () => {
+  it('evolves a grown axolotl into the form its training earned', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const scholar = { id: 'p', breed: 'otter', level: 16, mindSessions: 27, endurance: 10, strength: 10 };
-    expect(sheetForPet(scholar).label).toBe('Otter');
+    expect(sheetForPet({ id: 'p', breed: 'axolotl', level: 16, strength: 80, endurance: 10, mind: 10 }).label).toBe('Axolotl · Lifter');
+    expect(sheetForPet({ id: 'p', breed: 'axolotl', level: 40, endurance: 90, strength: 10, mind: 10 }).label).toBe('Axolotl · Runner');
+    expect(sheetForPet({ id: 'p', breed: 'axolotl', level: 16, mindSessions: 27, endurance: 10, strength: 10 }).label).toBe('Axolotl · Scholar');
+    // Every form, the runner included, draws its own dizzy stars.
+    const runner = sheetForPet({ id: 'p', breed: 'axolotl', level: 40, endurance: 90, strength: 10, mind: 10 });
+    expect(runner.videos.selfDrawn).toEqual(['foggy']);
   });
 
   it('evolves a grown, mind-built shiba onto the scholar sheet', () => {
@@ -2459,7 +2490,7 @@ describe('pet sprite', () => {
 
   it('names every evolved form after its animal, and only the drawn animals have them', () => {
     const withForms = (PET_SHEETS as any[]).filter((sheet) => sheet.evolutions).map((sheet) => sheet.name).sort();
-    expect(withForms).toEqual(['bear', 'bichon', 'bunny', 'shiba']);
+    expect(withForms).toEqual(['axolotl', 'bear', 'bichon', 'bunny', 'dino', 'fox', 'koala', 'otter', 'shiba', 'tabbyCat']);
     for (const sheet of PET_SHEETS as any[]) {
       for (const [build, form] of Object.entries(sheet.evolutions ?? {}) as [string, any][]) {
         expect(form.label).toBe(`${sheet.label} · ${build[0]!.toUpperCase()}${build.slice(1)}`);
@@ -2636,15 +2667,6 @@ describe('pet sprite', () => {
         expect(sheet.animations[name].length).toBeGreaterThan(0);
       }
     }
-  });
-
-  it('keeps a build with no evolved art on the base sheet, however trained', () => {
-    // The otter has no evolved art, so an endurance build grows up and stays
-    // exactly where it was. (This used to be the shiba's case, until the shiba
-    // got runner art of its own.)
-    const { sheetForPet } = require('../components/petSprites');
-    const otter = { id: 'p', breed: 'otter', level: 40, endurance: 90, strength: 10, mind: 10 };
-    expect(sheetForPet(otter).label).toBe('Otter');
   });
 
   it('sends a well-run shiba to its runner sheet', () => {

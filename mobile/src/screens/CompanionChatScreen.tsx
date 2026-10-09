@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { companion as ai, errorMessage, type PetState } from '@vitto/core';
 import { TextButton } from '../components/ui';
 import { PetSpriteAvatar } from '../components/PetSpriteAvatar';
@@ -42,6 +42,16 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const list = useRef<ScrollView>(null);
+  // The keyboard takes the bottom of the screen, and the newest messages are
+  // at the bottom of the thread: keep them in view as it opens (and as the
+  // thread's window shrinks to make room), rather than hidden behind it.
+  useEffect(() => {
+    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const subscription = Keyboard.addListener(event, () => {
+      requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
+    });
+    return () => subscription.remove();
+  }, []);
   // Read through a ref so `load` does not re-run every time the day's numbers tick.
   const lifeRef = useRef(life);
   lifeRef.current = life;
@@ -130,6 +140,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
         ref={list}
         contentContainerStyle={styles.thread}
         onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
+        onLayout={() => list.current?.scrollToEnd({ animated: false })}
         keyboardShouldPersistTaps="handled"
       >
         {messages.length === 0 ? (

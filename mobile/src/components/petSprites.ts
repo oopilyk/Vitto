@@ -427,6 +427,219 @@ const SHIBA: PetSheet = {
   evolutions: { runner: SHIBA_RUNNER, lifter: SHIBA_LIFTER, scholar: SHIBA_SCHOLAR },
 };
 
+/**
+ * The otter is cut at the bunny's size, but its round, chunky build read as
+ * bigger than the rest, so it is drawn a little smaller, feet still on the
+ * floor. Its evolved forms share it.
+ */
+const OTTER_ART_SCALE = 0.85;
+
+// ---------------------------------------------------------------------------
+// The generated set of evolved forms: tabby cat, dino, fox, koala and otter
+// ---------------------------------------------------------------------------
+
+/*
+ * Every one of these forms arrived as the same six GIFs (idle or idle-flex,
+ * celebrating, run, dizzy, sad, dying) drawn to the same timing, so they share
+ * one shape: scripts/gifForms.mjs holds their boxes and loop points, and
+ * buildVideoSheet.mjs / buildLifterVideos.mjs expand it into each form's sheet
+ * and clips. Each pet's three forms share one box (`GIF_FORM_CELLS`), sized so
+ * evolving does not resize the pet.
+ */
+type GifFormFiles = Record<'idle' | 'celebrating' | 'run' | 'dizzy' | 'sad' | 'dying' | 'lie', { hevc: number; webm: number }>;
+
+const GIF_FORM_CELLS = {
+  tabbyCat: { x: -14, y: -4, size: 795 },
+  dino: { x: -4, y: -16, size: 779 },
+  fox: { x: -8, y: -34, size: 783 },
+  koala: { x: -43, y: -116, size: 856 },
+  otter: { x: 25, y: 15, size: 720 },
+} as const;
+
+const gifFormSheet = (
+  breed: PetBreed,
+  label: string,
+  source: ImageSourcePropType,
+  files: GifFormFiles,
+  artScale?: number,
+): PetSheet => ({
+  name: breed,
+  label,
+  source,
+  rows: 16,
+  ...(artScale ? { artScale } : {}),
+  animations: gifFormBands({ unwell: 8 }),
+  // Every form's dizzy clip draws its own spiral eyes and stars.
+  selfDrawn: ['foggy'],
+  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 },
+  videos: {
+    frameSize: 768,
+    cell: GIF_FORM_CELLS[breed as keyof typeof GIF_FORM_CELLS],
+    clips: {
+      idle: { ...files.idle, loop: true },
+      cheer: { ...files.celebrating, loop: true },
+      move: { ...files.run, loop: true },
+      unwell: { ...files.dizzy, loop: true },
+      // Lying still, looped: the dying clip's last frames, without the fall.
+      rest: { ...files.lie, loop: true },
+      // Settle into a pose and stay there, rather than starting over.
+      sad: { ...files.sad, loop: false },
+      faint: { ...files.dying, loop: false },
+    },
+    selfDrawn: ['foggy'],
+  },
+});
+
+const TABBY_CAT_LIFTER = gifFormSheet('tabbyCat', 'Tabby Cat · Lifter', require('../../assets/pet/tabbyCatLifter.png'), {
+  idle: { hevc: require('../../assets/pet/video/tabbyCatLifter/idle-flex.mov'), webm: require('../../assets/pet/video/tabbyCatLifter/idle-flex.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/tabbyCatLifter/celebrating.mov'), webm: require('../../assets/pet/video/tabbyCatLifter/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/tabbyCatLifter/run.mov'), webm: require('../../assets/pet/video/tabbyCatLifter/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/tabbyCatLifter/dizzy.mov'), webm: require('../../assets/pet/video/tabbyCatLifter/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/tabbyCatLifter/sad.mov'), webm: require('../../assets/pet/video/tabbyCatLifter/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/tabbyCatLifter/dying.mov'), webm: require('../../assets/pet/video/tabbyCatLifter/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/tabbyCatLifter/lie.mov'), webm: require('../../assets/pet/video/tabbyCatLifter/lie.webm') },
+});
+
+const TABBY_CAT_RUNNER = gifFormSheet('tabbyCat', 'Tabby Cat · Runner', require('../../assets/pet/tabbyCatRunner.png'), {
+  idle: { hevc: require('../../assets/pet/video/tabbyCatRunner/idle.mov'), webm: require('../../assets/pet/video/tabbyCatRunner/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/tabbyCatRunner/celebrating.mov'), webm: require('../../assets/pet/video/tabbyCatRunner/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/tabbyCatRunner/run.mov'), webm: require('../../assets/pet/video/tabbyCatRunner/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/tabbyCatRunner/dizzy.mov'), webm: require('../../assets/pet/video/tabbyCatRunner/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/tabbyCatRunner/sad.mov'), webm: require('../../assets/pet/video/tabbyCatRunner/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/tabbyCatRunner/dying.mov'), webm: require('../../assets/pet/video/tabbyCatRunner/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/tabbyCatRunner/lie.mov'), webm: require('../../assets/pet/video/tabbyCatRunner/lie.webm') },
+});
+
+const TABBY_CAT_SCHOLAR = gifFormSheet('tabbyCat', 'Tabby Cat · Scholar', require('../../assets/pet/tabbyCatScholar.png'), {
+  idle: { hevc: require('../../assets/pet/video/tabbyCatScholar/idle.mov'), webm: require('../../assets/pet/video/tabbyCatScholar/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/tabbyCatScholar/celebrating.mov'), webm: require('../../assets/pet/video/tabbyCatScholar/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/tabbyCatScholar/run.mov'), webm: require('../../assets/pet/video/tabbyCatScholar/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/tabbyCatScholar/dizzy.mov'), webm: require('../../assets/pet/video/tabbyCatScholar/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/tabbyCatScholar/sad.mov'), webm: require('../../assets/pet/video/tabbyCatScholar/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/tabbyCatScholar/dying.mov'), webm: require('../../assets/pet/video/tabbyCatScholar/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/tabbyCatScholar/lie.mov'), webm: require('../../assets/pet/video/tabbyCatScholar/lie.webm') },
+});
+
+const DINO_LIFTER = gifFormSheet('dino', 'Dino · Lifter', require('../../assets/pet/dinoLifter.png'), {
+  idle: { hevc: require('../../assets/pet/video/dinoLifter/idle-flex.mov'), webm: require('../../assets/pet/video/dinoLifter/idle-flex.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/dinoLifter/celebrating.mov'), webm: require('../../assets/pet/video/dinoLifter/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/dinoLifter/run.mov'), webm: require('../../assets/pet/video/dinoLifter/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/dinoLifter/dizzy.mov'), webm: require('../../assets/pet/video/dinoLifter/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/dinoLifter/sad.mov'), webm: require('../../assets/pet/video/dinoLifter/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/dinoLifter/dying.mov'), webm: require('../../assets/pet/video/dinoLifter/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/dinoLifter/lie.mov'), webm: require('../../assets/pet/video/dinoLifter/lie.webm') },
+});
+
+const DINO_RUNNER = gifFormSheet('dino', 'Dino · Runner', require('../../assets/pet/dinoRunner.png'), {
+  idle: { hevc: require('../../assets/pet/video/dinoRunner/idle.mov'), webm: require('../../assets/pet/video/dinoRunner/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/dinoRunner/celebrating.mov'), webm: require('../../assets/pet/video/dinoRunner/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/dinoRunner/run.mov'), webm: require('../../assets/pet/video/dinoRunner/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/dinoRunner/dizzy.mov'), webm: require('../../assets/pet/video/dinoRunner/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/dinoRunner/sad.mov'), webm: require('../../assets/pet/video/dinoRunner/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/dinoRunner/dying.mov'), webm: require('../../assets/pet/video/dinoRunner/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/dinoRunner/lie.mov'), webm: require('../../assets/pet/video/dinoRunner/lie.webm') },
+});
+
+const DINO_SCHOLAR = gifFormSheet('dino', 'Dino · Scholar', require('../../assets/pet/dinoScholar.png'), {
+  idle: { hevc: require('../../assets/pet/video/dinoScholar/idle.mov'), webm: require('../../assets/pet/video/dinoScholar/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/dinoScholar/celebrating.mov'), webm: require('../../assets/pet/video/dinoScholar/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/dinoScholar/run.mov'), webm: require('../../assets/pet/video/dinoScholar/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/dinoScholar/dizzy.mov'), webm: require('../../assets/pet/video/dinoScholar/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/dinoScholar/sad.mov'), webm: require('../../assets/pet/video/dinoScholar/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/dinoScholar/dying.mov'), webm: require('../../assets/pet/video/dinoScholar/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/dinoScholar/lie.mov'), webm: require('../../assets/pet/video/dinoScholar/lie.webm') },
+});
+
+const FOX_LIFTER = gifFormSheet('fox', 'Fox · Lifter', require('../../assets/pet/foxLifter.png'), {
+  idle: { hevc: require('../../assets/pet/video/foxLifter/idle-flex.mov'), webm: require('../../assets/pet/video/foxLifter/idle-flex.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/foxLifter/celebrating.mov'), webm: require('../../assets/pet/video/foxLifter/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/foxLifter/run.mov'), webm: require('../../assets/pet/video/foxLifter/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/foxLifter/dizzy.mov'), webm: require('../../assets/pet/video/foxLifter/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/foxLifter/sad.mov'), webm: require('../../assets/pet/video/foxLifter/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/foxLifter/dying.mov'), webm: require('../../assets/pet/video/foxLifter/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/foxLifter/lie.mov'), webm: require('../../assets/pet/video/foxLifter/lie.webm') },
+});
+
+const FOX_RUNNER = gifFormSheet('fox', 'Fox · Runner', require('../../assets/pet/foxRunner.png'), {
+  idle: { hevc: require('../../assets/pet/video/foxRunner/idle.mov'), webm: require('../../assets/pet/video/foxRunner/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/foxRunner/celebrating.mov'), webm: require('../../assets/pet/video/foxRunner/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/foxRunner/run.mov'), webm: require('../../assets/pet/video/foxRunner/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/foxRunner/dizzy.mov'), webm: require('../../assets/pet/video/foxRunner/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/foxRunner/sad.mov'), webm: require('../../assets/pet/video/foxRunner/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/foxRunner/dying.mov'), webm: require('../../assets/pet/video/foxRunner/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/foxRunner/lie.mov'), webm: require('../../assets/pet/video/foxRunner/lie.webm') },
+});
+
+const FOX_SCHOLAR = gifFormSheet('fox', 'Fox · Scholar', require('../../assets/pet/foxScholar.png'), {
+  idle: { hevc: require('../../assets/pet/video/foxScholar/idle.mov'), webm: require('../../assets/pet/video/foxScholar/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/foxScholar/celebrating.mov'), webm: require('../../assets/pet/video/foxScholar/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/foxScholar/run.mov'), webm: require('../../assets/pet/video/foxScholar/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/foxScholar/dizzy.mov'), webm: require('../../assets/pet/video/foxScholar/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/foxScholar/sad.mov'), webm: require('../../assets/pet/video/foxScholar/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/foxScholar/dying.mov'), webm: require('../../assets/pet/video/foxScholar/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/foxScholar/lie.mov'), webm: require('../../assets/pet/video/foxScholar/lie.webm') },
+});
+
+const KOALA_LIFTER = gifFormSheet('koala', 'Koala · Lifter', require('../../assets/pet/koalaLifter.png'), {
+  idle: { hevc: require('../../assets/pet/video/koalaLifter/idle-flex.mov'), webm: require('../../assets/pet/video/koalaLifter/idle-flex.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/koalaLifter/celebrating.mov'), webm: require('../../assets/pet/video/koalaLifter/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/koalaLifter/run.mov'), webm: require('../../assets/pet/video/koalaLifter/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/koalaLifter/dizzy.mov'), webm: require('../../assets/pet/video/koalaLifter/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/koalaLifter/sad.mov'), webm: require('../../assets/pet/video/koalaLifter/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/koalaLifter/dying.mov'), webm: require('../../assets/pet/video/koalaLifter/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/koalaLifter/lie.mov'), webm: require('../../assets/pet/video/koalaLifter/lie.webm') },
+});
+
+const KOALA_RUNNER = gifFormSheet('koala', 'Koala · Runner', require('../../assets/pet/koalaRunner.png'), {
+  idle: { hevc: require('../../assets/pet/video/koalaRunner/idle.mov'), webm: require('../../assets/pet/video/koalaRunner/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/koalaRunner/celebrating.mov'), webm: require('../../assets/pet/video/koalaRunner/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/koalaRunner/run.mov'), webm: require('../../assets/pet/video/koalaRunner/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/koalaRunner/dizzy.mov'), webm: require('../../assets/pet/video/koalaRunner/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/koalaRunner/sad.mov'), webm: require('../../assets/pet/video/koalaRunner/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/koalaRunner/dying.mov'), webm: require('../../assets/pet/video/koalaRunner/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/koalaRunner/lie.mov'), webm: require('../../assets/pet/video/koalaRunner/lie.webm') },
+});
+
+const KOALA_SCHOLAR = gifFormSheet('koala', 'Koala · Scholar', require('../../assets/pet/koalaScholar.png'), {
+  idle: { hevc: require('../../assets/pet/video/koalaScholar/idle.mov'), webm: require('../../assets/pet/video/koalaScholar/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/koalaScholar/celebrating.mov'), webm: require('../../assets/pet/video/koalaScholar/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/koalaScholar/run.mov'), webm: require('../../assets/pet/video/koalaScholar/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/koalaScholar/dizzy.mov'), webm: require('../../assets/pet/video/koalaScholar/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/koalaScholar/sad.mov'), webm: require('../../assets/pet/video/koalaScholar/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/koalaScholar/dying.mov'), webm: require('../../assets/pet/video/koalaScholar/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/koalaScholar/lie.mov'), webm: require('../../assets/pet/video/koalaScholar/lie.webm') },
+});
+
+const OTTER_LIFTER = gifFormSheet('otter', 'Otter · Lifter', require('../../assets/pet/otterLifter.png'), {
+  idle: { hevc: require('../../assets/pet/video/otterLifter/idle-flex.mov'), webm: require('../../assets/pet/video/otterLifter/idle-flex.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/otterLifter/celebrating.mov'), webm: require('../../assets/pet/video/otterLifter/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/otterLifter/run.mov'), webm: require('../../assets/pet/video/otterLifter/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/otterLifter/dizzy.mov'), webm: require('../../assets/pet/video/otterLifter/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/otterLifter/sad.mov'), webm: require('../../assets/pet/video/otterLifter/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/otterLifter/dying.mov'), webm: require('../../assets/pet/video/otterLifter/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/otterLifter/lie.mov'), webm: require('../../assets/pet/video/otterLifter/lie.webm') },
+}, OTTER_ART_SCALE);
+
+const OTTER_RUNNER = gifFormSheet('otter', 'Otter · Runner', require('../../assets/pet/otterRunner.png'), {
+  idle: { hevc: require('../../assets/pet/video/otterRunner/idle.mov'), webm: require('../../assets/pet/video/otterRunner/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/otterRunner/celebrating.mov'), webm: require('../../assets/pet/video/otterRunner/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/otterRunner/run.mov'), webm: require('../../assets/pet/video/otterRunner/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/otterRunner/dizzy.mov'), webm: require('../../assets/pet/video/otterRunner/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/otterRunner/sad.mov'), webm: require('../../assets/pet/video/otterRunner/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/otterRunner/dying.mov'), webm: require('../../assets/pet/video/otterRunner/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/otterRunner/lie.mov'), webm: require('../../assets/pet/video/otterRunner/lie.webm') },
+}, OTTER_ART_SCALE);
+
+const OTTER_SCHOLAR = gifFormSheet('otter', 'Otter · Scholar', require('../../assets/pet/otterScholar.png'), {
+  idle: { hevc: require('../../assets/pet/video/otterScholar/idle.mov'), webm: require('../../assets/pet/video/otterScholar/idle.webm') },
+  celebrating: { hevc: require('../../assets/pet/video/otterScholar/celebrating.mov'), webm: require('../../assets/pet/video/otterScholar/celebrating.webm') },
+  run: { hevc: require('../../assets/pet/video/otterScholar/run.mov'), webm: require('../../assets/pet/video/otterScholar/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/otterScholar/dizzy.mov'), webm: require('../../assets/pet/video/otterScholar/dizzy.webm') },
+  sad: { hevc: require('../../assets/pet/video/otterScholar/sad.mov'), webm: require('../../assets/pet/video/otterScholar/sad.webm') },
+  dying: { hevc: require('../../assets/pet/video/otterScholar/dying.mov'), webm: require('../../assets/pet/video/otterScholar/dying.webm') },
+  lie: { hevc: require('../../assets/pet/video/otterScholar/lie.mov'), webm: require('../../assets/pet/video/otterScholar/lie.webm') },
+}, OTTER_ART_SCALE);
+
 // ---------------------------------------------------------------------------
 // Otter
 // ---------------------------------------------------------------------------
@@ -460,10 +673,9 @@ const OTTER: PetSheet = {
   name: 'otter',
   label: 'Otter',
   source: require('../../assets/pet/otter.png'),
+  evolutions: { runner: OTTER_RUNNER, lifter: OTTER_LIFTER, scholar: OTTER_SCHOLAR },
   rows: 16,
-  // Cut at the bunny's size, but its round, chunky build read as bigger than
-  // the rest; drawn a little smaller, feet still on the floor.
-  artScale: 0.85,
+  artScale: OTTER_ART_SCALE,
   animations: gifFormBands({ unwell: 6 }),
   // The dizzy art has its own spiral eyes and stars.
   selfDrawn: ['foggy'],
@@ -525,6 +737,7 @@ const TABBY_CAT_LAYOUT: SheetLayout = {
 
 const TABBY_CAT: PetSheet = {
   ...sheetFrom(TABBY_CAT_LAYOUT, 'Tabby Cat', require('../../assets/pet/tabbyCat.png')),
+  evolutions: { runner: TABBY_CAT_RUNNER, lifter: TABBY_CAT_LIFTER, scholar: TABBY_CAT_SCHOLAR },
 };
 
 /**
@@ -716,6 +929,7 @@ const FOX_LAYOUT: SheetLayout = {
 
 const FOX: PetSheet = {
   ...sheetFrom(FOX_LAYOUT, 'Fox', require('../../assets/pet/fox.png')),
+  evolutions: { runner: FOX_RUNNER, lifter: FOX_LIFTER, scholar: FOX_SCHOLAR },
 };
 
 /**
@@ -751,6 +965,7 @@ const KOALA_LAYOUT: SheetLayout = {
 
 const KOALA: PetSheet = {
   ...sheetFrom(KOALA_LAYOUT, 'Koala', require('../../assets/pet/koala.png')),
+  evolutions: { runner: KOALA_RUNNER, lifter: KOALA_LIFTER, scholar: KOALA_SCHOLAR },
 };
 
 /**
@@ -1017,8 +1232,94 @@ const AXOLOTL_LAYOUT: SheetLayout = {
   },
 };
 
+/*
+ * The axolotl's three forms, animated as GIFs like the bunny's: each has its
+ * own clips and a sheet cut from them by `node scripts/buildVideoSheet.mjs
+ * <form>`, in one box shared by all three (`AXOLOTL_FORM_CELL`) so every form
+ * stands the base axolotl's size. 6fps throughout.
+ */
+const AXOLOTL_FORM_CELL = { x: 87, y: 72, size: 594 };
+const AXOLOTL_FORM_TIMING: PetSheet['frameMs'] = { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 };
+
+/** Axolotl · Lifter: red headband. Stands about, then flexes (idle); hops (move). */
+const AXOLOTL_LIFTER: PetSheet = {
+  name: 'axolotl',
+  label: 'Axolotl · Lifter',
+  source: require('../../assets/pet/axolotlLifter.png'),
+  rows: 16,
+  animations: gifFormBands({ unwell: 8 }),
+  selfDrawn: ['foggy'],
+  frameMs: AXOLOTL_FORM_TIMING,
+  videos: {
+    frameSize: 768,
+    cell: AXOLOTL_FORM_CELL,
+    clips: {
+      idle: { hevc: require('../../assets/pet/video/axolotlLifter/idle-flex.mov'), webm: require('../../assets/pet/video/axolotlLifter/idle-flex.webm'), loop: true },
+      cheer: { hevc: require('../../assets/pet/video/axolotlLifter/cheer.mov'), webm: require('../../assets/pet/video/axolotlLifter/cheer.webm'), loop: true },
+      move: { hevc: require('../../assets/pet/video/axolotlLifter/run.mov'), webm: require('../../assets/pet/video/axolotlLifter/run.webm'), loop: true },
+      unwell: { hevc: require('../../assets/pet/video/axolotlLifter/dizzy.mov'), webm: require('../../assets/pet/video/axolotlLifter/dizzy.webm'), loop: true },
+      rest: { hevc: require('../../assets/pet/video/axolotlLifter/lie.mov'), webm: require('../../assets/pet/video/axolotlLifter/lie.webm'), loop: true },
+      sad: { hevc: require('../../assets/pet/video/axolotlLifter/sad.mov'), webm: require('../../assets/pet/video/axolotlLifter/sad.webm'), loop: false },
+      faint: { hevc: require('../../assets/pet/video/axolotlLifter/collapse.mov'), webm: require('../../assets/pet/video/axolotlLifter/collapse.webm'), loop: false },
+    },
+    // The dizzy clip has its own spiral eyes and ring of stars.
+    selfDrawn: ['foggy'],
+  },
+};
+
+/** Axolotl · Runner: orange headband and a gold medal. */
+const AXOLOTL_RUNNER: PetSheet = {
+  name: 'axolotl',
+  label: 'Axolotl · Runner',
+  source: require('../../assets/pet/axolotlRunner.png'),
+  rows: 16,
+  animations: gifFormBands({ unwell: 8 }),
+  selfDrawn: ['foggy'],
+  frameMs: AXOLOTL_FORM_TIMING,
+  videos: {
+    frameSize: 768,
+    cell: AXOLOTL_FORM_CELL,
+    clips: {
+      idle: { hevc: require('../../assets/pet/video/axolotlRunner/idle.mov'), webm: require('../../assets/pet/video/axolotlRunner/idle.webm'), loop: true },
+      cheer: { hevc: require('../../assets/pet/video/axolotlRunner/cheer.mov'), webm: require('../../assets/pet/video/axolotlRunner/cheer.webm'), loop: true },
+      move: { hevc: require('../../assets/pet/video/axolotlRunner/run.mov'), webm: require('../../assets/pet/video/axolotlRunner/run.webm'), loop: true },
+      unwell: { hevc: require('../../assets/pet/video/axolotlRunner/dizzy.mov'), webm: require('../../assets/pet/video/axolotlRunner/dizzy.webm'), loop: true },
+      rest: { hevc: require('../../assets/pet/video/axolotlRunner/lie.mov'), webm: require('../../assets/pet/video/axolotlRunner/lie.webm'), loop: true },
+      sad: { hevc: require('../../assets/pet/video/axolotlRunner/tired.mov'), webm: require('../../assets/pet/video/axolotlRunner/tired.webm'), loop: false },
+      faint: { hevc: require('../../assets/pet/video/axolotlRunner/lie-down.mov'), webm: require('../../assets/pet/video/axolotlRunner/lie-down.webm'), loop: false },
+    },
+    selfDrawn: ['foggy'],
+  },
+};
+
+/** Axolotl · Scholar: carries a red book with a gold star; walks rather than runs. */
+const AXOLOTL_SCHOLAR: PetSheet = {
+  name: 'axolotl',
+  label: 'Axolotl · Scholar',
+  source: require('../../assets/pet/axolotlScholar.png'),
+  rows: 16,
+  animations: gifFormBands({ unwell: 8 }),
+  selfDrawn: ['foggy'],
+  frameMs: AXOLOTL_FORM_TIMING,
+  videos: {
+    frameSize: 768,
+    cell: AXOLOTL_FORM_CELL,
+    clips: {
+      idle: { hevc: require('../../assets/pet/video/axolotlScholar/idle.mov'), webm: require('../../assets/pet/video/axolotlScholar/idle.webm'), loop: true },
+      cheer: { hevc: require('../../assets/pet/video/axolotlScholar/cheer.mov'), webm: require('../../assets/pet/video/axolotlScholar/cheer.webm'), loop: true },
+      move: { hevc: require('../../assets/pet/video/axolotlScholar/walk.mov'), webm: require('../../assets/pet/video/axolotlScholar/walk.webm'), loop: true },
+      unwell: { hevc: require('../../assets/pet/video/axolotlScholar/dizzy.mov'), webm: require('../../assets/pet/video/axolotlScholar/dizzy.webm'), loop: true },
+      rest: { hevc: require('../../assets/pet/video/axolotlScholar/lie.mov'), webm: require('../../assets/pet/video/axolotlScholar/lie.webm'), loop: true },
+      sad: { hevc: require('../../assets/pet/video/axolotlScholar/cry.mov'), webm: require('../../assets/pet/video/axolotlScholar/cry.webm'), loop: false },
+      faint: { hevc: require('../../assets/pet/video/axolotlScholar/collapse.mov'), webm: require('../../assets/pet/video/axolotlScholar/collapse.webm'), loop: false },
+    },
+    selfDrawn: ['foggy'],
+  },
+};
+
 const AXOLOTL: PetSheet = {
   ...sheetFrom(AXOLOTL_LAYOUT, 'Axolotl', require('../../assets/pet/axolotl.png')),
+  evolutions: { runner: AXOLOTL_RUNNER, lifter: AXOLOTL_LIFTER, scholar: AXOLOTL_SCHOLAR },
 };
 
 /**
@@ -1047,6 +1348,7 @@ const DINO_LAYOUT: SheetLayout = {
 
 const DINO: PetSheet = {
   ...sheetFrom(DINO_LAYOUT, 'Dino', require('../../assets/pet/dino.png')),
+  evolutions: { runner: DINO_RUNNER, lifter: DINO_LIFTER, scholar: DINO_SCHOLAR },
 };
 
 /** Adoptable companions, in the order the breed picker offers them. */
