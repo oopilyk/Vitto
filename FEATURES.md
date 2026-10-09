@@ -230,7 +230,7 @@ Every session fully restores your pet's mind.
 | Insights into your habits | | ✓ |
 | Lift progress graph | | ✓ |
 
-- **Price:** $7.99 a month, or $49.99 a year with a 14-day free trial.
+- **Price:** $9.99 a month, or $59.99 a year with a 14-day free trial.
 - **Cancelling:** easy, from Settings → Vitto Plus → Manage subscription, which opens Apple's subscription settings.
 - **Platform:** Plus is sold on iPhone through the App Store.
 

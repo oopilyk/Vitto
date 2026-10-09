@@ -39,10 +39,10 @@ const server = (body: object) => ({ data: { enabled: false, store: true, tier: '
 
 const offerings = (withTrial: boolean) => ({
   current: {
-    monthly: { product: product('plus_monthly', 7.99, '$7.99') },
+    monthly: { product: product('plus_monthly', 9.99, '$9.99') },
     annual: {
-      product: product('plus_yearly', 49.99, '$49.99', {
-        pricePerMonthString: '$4.16',
+      product: product('plus_yearly', 59.99, '$59.99', {
+        pricePerMonthString: '$4.99',
         introPrice: withTrial ? { price: 0, periodUnit: 'DAY', periodNumberOfUnits: 7, cycles: 1 } : null,
       }),
     },
@@ -77,10 +77,10 @@ describe('billingService on the App Store', () => {
     expect(mockPurchases.configure).toHaveBeenCalledWith({ apiKey: 'appl_test', appUserID: 'user-1' });
     expect(status).toMatchObject({ enabled: true, mode: 'store', trialDays: 7 });
     const yearly = status.plans!.find((plan) => plan.value === 'yearly')!;
-    expect(yearly.price).toBe('$49.99');
-    expect(yearly.note).toBe('Only $4.16 a month');
-    expect(yearly.badge).toBe('SAVE 48%');
-    expect(yearly.terms(true)).toContain('Free for 7 days, then $49.99 / year');
+    expect(yearly.price).toBe('$59.99');
+    expect(yearly.note).toBe('Only $4.99 a month');
+    expect(yearly.badge).toBe('SAVE 50%');
+    expect(yearly.terms(true)).toContain('Free for 7 days, then $59.99 / year');
   });
 
   it('offers no trial to someone Apple says has had one', async () => {

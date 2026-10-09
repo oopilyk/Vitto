@@ -1,0 +1,42 @@
+# What EAS leaves out of the project archive it uploads for a build. While this
+# file exists EAS ignores the .gitignore files, so it repeats them first.
+
+# --- from .gitignore ---
+node_modules/
+dist/
+.env
+.env.local
+supabase/.temp/
+/ios/
+/vittoAI/
+/mobile/targets/*/Assets.xcassets/
+/mobile/targets/*/Info.plist
+
+# --- from mobile/.gitignore ---
+.expo/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env*.local
+*.tsbuildinfo
+/mobile/ios
+/mobile/android
+
+# --- build-only extras ---
+# The original GIFs and videos the pet clips and sheets are cut from. Only the
+# scripts in mobile/scripts read them; the app ships what those scripts write.
+/mobile/assets/source/
+# Model evals: run on a laptop, never in the app.
+/evals/

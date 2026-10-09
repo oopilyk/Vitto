@@ -45,8 +45,8 @@ RevenueCat ──webhook──► revenuecat-webhook ─────────
    (Business → Agreements). Products won't load until this is done.
 4. Create a subscription group called "Vitto Plus" with two auto-renewable
    subscriptions:
-   - `vitto_plus_monthly`: 1 month, $7.99
-   - `vitto_plus_yearly`: 1 year, $49.99, with an introductory offer of
+   - `vitto_plus_monthly`: 1 month, $9.99
+   - `vitto_plus_yearly`: 1 year, $59.99, with an introductory offer of
      **Free, 2 weeks**
 5. Create an In-App Purchase key (Users and Access → Integrations →
    In-App Purchase) and download the `.p8` file. RevenueCat needs it.
