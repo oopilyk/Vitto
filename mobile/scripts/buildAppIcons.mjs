@@ -8,7 +8,6 @@
  *
  *   icon.png            1024, NO alpha   iOS rejects an icon with transparency,
  *                                        and renders a black square for one.
- *   splash-icon.png     1024, alpha      sits on the splash background colour.
  *   favicon.png         48, alpha
  *   android-icon-*      512 / 432, alpha adaptive icon, see the safe zone below.
  *
@@ -161,8 +160,7 @@ try {
   // room every other icon on a home screen has.
   writeOpaque(place(art, 1024, 0.84, CREAM), path.join(assets, 'icon.png'));
 
-  // Splash and favicon keep their transparency.
-  write(place(art, 1024, 0.62, null), path.join(assets, 'splash-icon.png'));
+  // The favicon keeps its transparency.
   write(place(art, 48, 0.92, null), path.join(assets, 'favicon.png'));
 
   // Android adaptive icons are masked to a shape the manufacturer chooses, and
@@ -177,7 +175,7 @@ try {
   write(background, path.join(assets, 'android-icon-background.png'));
   write(silhouette(place(art, 432, 0.62, null), [38, 49, 45]), path.join(assets, 'android-icon-monochrome.png'));
 
-  console.log('wrote icon, splash-icon, favicon and the three android icons to assets/');
+  console.log('wrote icon, favicon and the three android icons to assets/');
 } finally {
   fs.rmSync(work, { recursive: true, force: true });
 }
