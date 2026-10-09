@@ -3,6 +3,7 @@ import {
   Animated,
   Easing,
   Keyboard,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -108,11 +109,19 @@ interface Props {
    * message, e.g. when it is taken. Absent offline, which skips the step.
    */
   onClaimUsername?: (username: string) => Promise<void>;
+  /**
+   * Their age from the sign-up age check, when there was one: filled in for
+   * them, and the age question skipped. Absent for an account made before.
+   */
+  knownAge?: number;
   /** Asks the OS for notifications; resolves to whether they are on. Absent where push cannot work. */
   onEnableNotifications?: () => Promise<boolean>;
 }
 
 /** The longest code with its dash, 'ABCD-EFGH'. */
+
+/** The meal in the Plus photo-log pitch: a real plate, with real macros on its chips. */
+const PLUS_MEAL_PHOTO = require('../../assets/onboarding/plus-meal.jpg');
 const INVITE_INPUT_MAX_LENGTH = INVITE_CODE_LENGTH + 1;
 const LB_PER_KG = 2.20462;
 
@@ -355,6 +364,7 @@ export function OnboardingScreen({
   onRedeemInvite,
   paywall,
   onClaimUsername,
+  knownAge,
   onEnableNotifications,
 }: Props) {
   useFonts({ Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_700Bold });
@@ -372,6 +382,12 @@ export function OnboardingScreen({
   const pick = (step: StepId) => setPicked((current) => (current[step] ? current : { ...current, [step]: true }));
   const [goalChoice, setGoalChoice] = useState<'lose' | 'maintain' | 'gain' | null>(null);
   const [ageChoice, setAgeChoice] = useState<number | null>(null);
+  // Sign-up's answer stands in for the question it would have asked.
+  useEffect(() => {
+    if (knownAge !== undefined) onUpdate('age', knownAge);
+    // Once, on arrival: the answer does not change during onboarding.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sexChoice, setSexChoice] = useState<BodyProfile['sex'] | null>(null);
   const [trainingTypes, setTrainingTypes] = useState<TrainingType[]>([]);
   const [motivations, setMotivations] = useState<Motivation[]>([]);
@@ -388,6 +404,8 @@ export function OnboardingScreen({
       if (step === 'notifications') return Boolean(onEnableNotifications);
       // Asked once: someone who already has one is not asked again.
       if (step === 'username') return Boolean(onClaimUsername) && !hadUsername;
+      // Sign-up already settled the age (see checkBirthYear).
+      if (step === 'age') return knownAge === undefined;
       return true;
     });
   const sequence = sequenceFor(goalChoice);
@@ -1041,6 +1059,8 @@ export function OnboardingScreen({
                   sub: 'Just for your calorie target. Nobody else sees it.',
                   count: 4,
                   wanted: 100,
+                  // The feet and inches buttons stand taller than one box.
+                  extraRoom: metric ? 0 : 110,
                 },
                 <>
                   {/* Seeded from the device locale, so a US phone opens on pounds and feet already. */}
@@ -1075,24 +1095,49 @@ export function OnboardingScreen({
                       accessibilityLabel="Height in centimetres"
                     />
                   ) : (
-                    <View style={styles.row}>
-                      <View style={styles.rowItem}>
-                        <FInput
-                          keyboardType="number-pad"
-                          value={body.feet}
-                          onChangeText={(value) => updateBody({ ...body, feet: digits(value) })}
-                          placeholder="Height (ft)"
-                          accessibilityLabel="Height in feet"
-                        />
+                    // Feet and inches by tapping: two short lists beat two
+                    // number boxes whose units only lived in their placeholders.
+                    <View style={styles.heightPick}>
+                      <Text style={styles.heightLabel}>Height</Text>
+                      <View style={styles.toggle}>
+                        {[4, 5, 6, 7].map((feet) => {
+                          const on = body.feet === String(feet);
+                          return (
+                            <Pressable
+                              key={feet}
+                              accessibilityRole="radio"
+                              accessibilityLabel={`${feet} feet`}
+                              accessibilityState={{ selected: on }}
+                              onPress={() => {
+                                tick();
+                                updateBody({ ...body, feet: String(feet), inches: body.inches || '0' });
+                              }}
+                              style={[styles.toggleOption, on && styles.toggleOptionOn]}
+                            >
+                              <Text style={[styles.toggleLabel, on && styles.toggleLabelOn]}>{`${feet} ft`}</Text>
+                            </Pressable>
+                          );
+                        })}
                       </View>
-                      <View style={styles.rowItem}>
-                        <FInput
-                          keyboardType="number-pad"
-                          value={body.inches}
-                          onChangeText={(value) => updateBody({ ...body, inches: digits(value) })}
-                          placeholder="(in)"
-                          accessibilityLabel="Height in inches"
-                        />
+                      <View style={styles.inchGrid}>
+                        {Array.from({ length: 12 }, (_, inches) => {
+                          const on = body.feet !== '' && body.inches === String(inches);
+                          return (
+                            <Pressable
+                              key={inches}
+                              accessibilityRole="radio"
+                              accessibilityLabel={`${inches} inches`}
+                              accessibilityState={{ selected: on }}
+                              onPress={() => {
+                                tick();
+                                updateBody({ ...body, inches: String(inches) });
+                              }}
+                              style={[styles.inchOption, on && styles.toggleOptionOn]}
+                            >
+                              <Text style={[styles.toggleLabel, on && styles.toggleLabelOn]}>{`${inches}″`}</Text>
+                            </Pressable>
+                          );
+                        })}
                       </View>
                     </View>
                   )}
@@ -1100,7 +1145,7 @@ export function OnboardingScreen({
                     keyboardType="number-pad"
                     value={body.weight}
                     onChangeText={(value) => updateBody({ ...body, weight: digits(value) })}
-                    placeholder={`Weight (${profile.weightUnit})`}
+                    placeholder={`Weight in ${profile.weightUnit}`}
                     accessibilityLabel={`Weight in ${profile.weightUnit}`}
                   />
                 </>,
@@ -1375,24 +1420,28 @@ export function OnboardingScreen({
               <Text style={styles.plusKicker}>Vitto Plus</Text>
               <Text style={styles.title}>Snap a photo, get the macros</Text>
               <View style={styles.mealCard}>
-                {/* A viewfinder over a plate: the camera finding the meal. */}
+                {/* A real plate in the viewfinder, and what the photo log would
+                    make of it: eggs scrambled with chorizo, home fries, salsa. */}
                 <View style={styles.viewfinder}>
+                  <Image
+                    source={PLUS_MEAL_PHOTO}
+                    style={styles.mealPhoto}
+                    resizeMode="cover"
+                    accessibilityLabel="A plate of scrambled eggs with chorizo, home fries and salsa"
+                  />
                   {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => (
                     <View key={corner} style={[styles.corner, styles[`corner_${corner}`]]} />
                   ))}
-                  <View style={styles.plate}>
-                    <View style={styles.plateInner} />
-                  </View>
                 </View>
                 <View style={styles.mealChips}>
-                  {['520 kcal', '32g protein', '48g carbs', '18g fat'].map((chip) => (
+                  {['840 kcal', '33g protein', '50g carbs', '56g fat'].map((chip) => (
                     <View key={chip} style={styles.mealChip}>
                       <Text style={styles.mealChipLabel}>{chip}</Text>
                     </View>
                   ))}
                 </View>
               </View>
-              {pet(petRoom(100, 80 + 200 + 70 + 90))}
+              {pet(petRoom(100, 80 + 230 + 70 + 90))}
               {!short ? (
                 <Text
                   style={styles.sub}
@@ -1919,6 +1968,20 @@ const styles = themedStyles(() => {
     checkMark: { fontFamily: FONT.bold, fontSize: 14, lineHeight: 18, color: '#ffffff' },
 
     toggle: { flexDirection: 'row', gap: 10 },
+    heightPick: { alignSelf: 'stretch', gap: 8 },
+    heightLabel: { fontFamily: FONT.semibold, fontSize: 15, lineHeight: 20, color: F.text },
+    inchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    inchOption: {
+      width: '14%',
+      flexGrow: 1,
+      height: 42,
+      borderRadius: 21,
+      borderWidth: 2,
+      borderColor: F.border,
+      backgroundColor: F.input,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     toggleOption: {
       flex: 1,
       height: 46,
@@ -1978,23 +2041,13 @@ const styles = themedStyles(() => {
       alignItems: 'center',
       gap: 12,
     },
-    viewfinder: { width: 120, height: 92, alignItems: 'center', justifyContent: 'center' },
+    viewfinder: { width: 200, height: 124, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+    mealPhoto: { position: 'absolute', top: 6, left: 6, right: 6, bottom: 6, borderRadius: 14 },
     corner: { position: 'absolute', width: 22, height: 22, borderColor: F.green },
     corner_tl: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 10 },
     corner_tr: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 10 },
     corner_bl: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 10 },
     corner_br: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 10 },
-    plate: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: '#ffffff',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 2,
-      borderColor: '#efe3cc',
-    },
-    plateInner: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#8cc56f' },
     mealChips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
     mealChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: F.bg, borderWidth: 2, borderColor: F.border },
     mealChipLabel: { fontFamily: FONT.semibold, fontSize: 14, lineHeight: 19, color: F.text },

@@ -86,6 +86,11 @@ export interface WorkoutStats {
 
 export interface StepMetadata {
   steps: number;
+  /**
+   * The highest count already paid XP for today. Steps follow Apple Health down
+   * as well as up, so XP is only paid for ground beyond this.
+   */
+  rewardedSteps?: number;
   date?: string;
   /**
    * Active energy burned today (kcal), from Apple Health's own reading —

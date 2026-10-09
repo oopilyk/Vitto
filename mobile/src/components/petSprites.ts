@@ -2,8 +2,8 @@ import type { ImageSourcePropType } from 'react-native';
 import { EVOLUTION_LEVEL, getPetBuild, type PetAilment, type PetBreed, type PetBuild, type PetState } from '@vitto/core';
 
 /**
- * The dogs and cat are 4-column grids of square cells; the otter is a 6x10 grid
- * and carries its own `columns`/`rows`. Rows come in bands, and the frame lists
+ * Every sheet is a 4-column grid of square cells; a sheet with more or fewer
+ * than 11 rows carries its own `rows`. Rows come in bands, and the frame lists
  * below were read off the sheets rather than assumed — the sheets do not agree on
  * how many frames a band has, or even which bands they own.
  *
@@ -77,7 +77,7 @@ export interface PetSheet {
    * Grid shape of this sheet, when it is not the 4x11 the dogs and cat use. Only
    * the shape matters — `SpriteFrame` derives every pixel from `size`, so the
    * cell's actual resolution cancels out (see the note at the top of this file).
-   * The otter is a 6x10 sheet and the pack sheets set their own row counts;
+   * The pack sheets and the video-cut forms set their own row counts;
    * everything else omits these and takes the default.
    */
   columns?: number;
@@ -190,6 +190,40 @@ const sheetFrom = (layout: SheetLayout, label: string, source: ImageSourcePropTy
   animations: { ...layout.animations },
 });
 
+/** `count` cells laid four to a row from `row` on: one band of a sheet cut by buildVideoSheet.mjs. */
+const gridBand = (row: number, count: number): [number, number][] =>
+  Array.from({ length: count }, (_, i) => [row + Math.floor(i / 4), i % 4] as [number, number]);
+
+/**
+ * The band layout buildVideoSheet.mjs lays every GIF-cut form out in (the otter
+ * and the bichon and shiba runners): seven bands, each on fresh rows, 16 rows.
+ */
+const gifFormBands = (unwell: number): PetSheet['animations'] => ({
+  idle: gridBand(0, 12),
+  cheer: gridBand(3, 12),
+  move: gridBand(6, 6),
+  rest: gridBand(8, 8),
+  unwell: gridBand(10, unwell),
+  sad: gridBand(12, 8),
+  // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+  faint: gridBand(14, 8),
+});
+
+/**
+ * A runner's clips, as buildLifterVideos.mjs names them, mapped onto the
+ * animations. `lie` is the lie-down's lying-still tail, looped, so resting
+ * does not replay the fall; sad and faint play once and stay put.
+ */
+const runnerClips = (files: Record<'idle' | 'cheer' | 'run' | 'dizzy' | 'tired' | 'lie-down' | 'lie', { hevc: number; webm: number }>): PetVideos['clips'] => ({
+  idle: { ...files.idle, loop: true },
+  cheer: { ...files.cheer, loop: true },
+  move: { ...files.run, loop: true },
+  unwell: { ...files.dizzy, loop: true },
+  rest: { ...files.lie, loop: true },
+  sad: { ...files.tired, loop: false },
+  faint: { ...files['lie-down'], loop: false },
+});
+
 // ---------------------------------------------------------------------------
 // Bichon
 //
@@ -209,54 +243,36 @@ const sheetFrom = (layout: SheetLayout, label: string, source: ImageSourcePropTy
 const BICHON_ART_SCALE = 0.78;
 
 /**
- * The bichon's runner evolution: a show-cut bichon on longer legs, fuller
- * plume of a tail, blue bow at the collar — the athlete of the litter.
- *
- * Unlike the other hand-drawn runners this one did not arrive as a sheet. It
- * came as four slice images (idle, run, queasy, sad-to-collapse), each holding
- * one band of poses at the generator's own spacing; `scripts/assembleSpriteSlices.mjs`
- * cuts the poses out, halves them, and lays them onto the 4-column grid feet
- * centred on one baseline, sized so the idle art fills the same share of its
- * cell as the base bichon. Its slice images are no longer kept, so this sheet
- * is now the source of truth.
- *
- * It is a 4x9 sheet — five bands, no cheer band:
- *
- *   rows 0–1   idle standing, 6 frames (two with eyes closed, smiling)
- *   rows 2–3   run, 6 frames
- *   rows 4–6   queasy / worried standing, 10 frames
- *   rows 7–8   sad standing → sink → lying → 4 frames lying with X eyes
- *
- * There is no drawn cheer, so `cheer` hops: it alternates the two closed-eye
- * smiling idles with the two gathered, tail-up run frames, which reads as the
- * dog bouncing on the spot. And like the base bichon it has no true sleep pose,
- * so `rest` borrows the one lying-still frame with its eyes closed.
+ * The bichon's runner evolution: orange headband, blue bow and a gold medal.
+ * Animated as GIFs like the bunny's forms; its sheet is cut from the same clips
+ * by `node scripts/buildVideoSheet.mjs bichonRunner` in the box `cell` gives
+ * the clips, so the two line up, and it shares the family's artScale.
  */
+const BICHON_RUNNER_CLIPS = {
+  idle: { hevc: require('../../assets/pet/video/bichonRunner/idle.mov'), webm: require('../../assets/pet/video/bichonRunner/idle.webm') },
+  cheer: { hevc: require('../../assets/pet/video/bichonRunner/cheer.mov'), webm: require('../../assets/pet/video/bichonRunner/cheer.webm') },
+  run: { hevc: require('../../assets/pet/video/bichonRunner/run.mov'), webm: require('../../assets/pet/video/bichonRunner/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/bichonRunner/dizzy.mov'), webm: require('../../assets/pet/video/bichonRunner/dizzy.webm') },
+  tired: { hevc: require('../../assets/pet/video/bichonRunner/tired.mov'), webm: require('../../assets/pet/video/bichonRunner/tired.webm') },
+  'lie-down': { hevc: require('../../assets/pet/video/bichonRunner/lie-down.mov'), webm: require('../../assets/pet/video/bichonRunner/lie-down.webm') },
+  lie: { hevc: require('../../assets/pet/video/bichonRunner/lie.mov'), webm: require('../../assets/pet/video/bichonRunner/lie.webm') },
+};
+
 const BICHON_RUNNER: PetSheet = {
   name: 'bichon',
   label: 'Bichon · Runner',
   source: require('../../assets/pet/bichonRunner.png'),
-  rows: 9,
+  rows: 16,
   artScale: BICHON_ART_SCALE,
-  animations: {
-    idle: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 0], [1, 1]],
-    // No cheer band: a bounce, built from the happy idles and the gathered run
-    // frames (the two with all four feet under the dog and the tail up).
-    cheer: [[0, 2], [2, 1], [1, 1], [3, 0], [0, 2], [2, 1], [1, 1]],
-    // Gather → reach → full stretch → land → gather → stretch: the slice's six
-    // frames re-ordered into a gallop, since the generator drew them as a set
-    // of poses rather than a cycle.
-    move: [[2, 1], [2, 2], [2, 0], [2, 3], [3, 0], [3, 1]],
-    // Lying flat, eyes closed — the beat before the X eyes; alone it is a dog
-    // having a lie-down. Single frame on purpose: PetAvatar skips the frame
-    // timer under two frames and its bob keeps the pet alive.
-    rest: [[7, 3]],
-    // Worried, blushing, tearful: the whole queasy band.
-    unwell: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3], [6, 0], [6, 1]],
-    // Just the standing-sad beats; the collapse belongs to `faint`.
-    sad: [[7, 0], [7, 1]],
-    // Head down → sink → lying → down for good. Row 8 is four frames of lying still.
-    faint: [[7, 1], [7, 2], [7, 3], [8, 0], [8, 1], [8, 2], [8, 3]],
+  animations: gifFormBands(6),
+  selfDrawn: ['foggy'],
+  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
+  videos: {
+    frameSize: 768,
+    cell: { x: 86, y: 79, size: 598 },
+    clips: runnerClips(BICHON_RUNNER_CLIPS),
+    // The dizzy clip has its own spiral eyes and ring of stars.
+    selfDrawn: ['foggy'],
   },
 };
 
@@ -344,50 +360,34 @@ const BICHON: PetSheet = {
 // ---------------------------------------------------------------------------
 
 /**
- * The shiba's runner evolution: a leaner, sharper-faced shiba with the base's
- * red bandana dropped. Unlike the bichon's and the cat's runners, this sheet was
- * NOT drawn to the base sheet's layout, so it gets its own frame map.
- *
- * It also did not arrive on a grid. The source was 756x2079 -- nominally eleven
- * 189px rows -- but the drawn rows were spaced 183 to 206px apart, so the drift
- * accumulated until row 5's sprite touched the bottom of its cell and row 6's
- * bled into the one above; sliced on the nominal grid it clipped heads and feet.
- * `mobile/scripts/normalizeSpriteSheet.mjs` re-laid it onto a true 4x11 grid,
- * feet-anchored on one baseline, at a 279px cell chosen so the art fills the same
- * share of its cell as the base shiba does (no pixel was resampled -- the cell
- * was sized to the art, not the art to the cell). Every frame now sits 55px off
- * its cell floor with its feet centred within half a pixel, so the pet neither
- * bobs nor slides between frames.
- *
- * What the sheet actually contains, verified band by band: rows 0-1 and 5 are
- * standing, rows 2-4 mix standing with the only five running poses on the sheet,
- * rows 6-7, 9 and 10 are all sitting, and row 8 is lying down. There is no dizzy
- * art, no crying and no collapse -- the same gaps the base shiba has, handled the
- * same way, so `selfDrawn` stays unset and DizzyOrbit keeps carrying `foggy`.
+ * The shiba's runner evolution: orange headband, red bandana and a gold
+ * medal. Animated as GIFs like the bichon runner; its sheet is cut from the
+ * same clips by `node scripts/buildVideoSheet.mjs shibaRunner` in the box
+ * `cell` gives the clips. Unlike the base shiba it has real dizzy art.
  */
+const SHIBA_RUNNER_CLIPS = {
+  idle: { hevc: require('../../assets/pet/video/shibaRunner/idle.mov'), webm: require('../../assets/pet/video/shibaRunner/idle.webm') },
+  cheer: { hevc: require('../../assets/pet/video/shibaRunner/cheer.mov'), webm: require('../../assets/pet/video/shibaRunner/cheer.webm') },
+  run: { hevc: require('../../assets/pet/video/shibaRunner/run.mov'), webm: require('../../assets/pet/video/shibaRunner/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/shibaRunner/dizzy.mov'), webm: require('../../assets/pet/video/shibaRunner/dizzy.webm') },
+  tired: { hevc: require('../../assets/pet/video/shibaRunner/tired.mov'), webm: require('../../assets/pet/video/shibaRunner/tired.webm') },
+  'lie-down': { hevc: require('../../assets/pet/video/shibaRunner/lie-down.mov'), webm: require('../../assets/pet/video/shibaRunner/lie-down.webm') },
+  lie: { hevc: require('../../assets/pet/video/shibaRunner/lie.mov'), webm: require('../../assets/pet/video/shibaRunner/lie.webm') },
+};
+
 const SHIBA_RUNNER: PetSheet = {
   name: 'shiba',
   label: 'Shiba · Runner',
   source: require('../../assets/pet/shibaRunner.png'),
-  animations: {
-    // Row 0 only. Its four standing frames are near-redraws of one pose, which
-    // reads as a dog shifting its weight; row 1 and row 5 are separate standing
-    // draws that differ enough (40-60% of pixels) to look like a jump cut.
-    idle: [[0, 3], [0, 3], [0, 2], [0, 3]],
-    cheer: [[2, 0], [2, 1], [2, 2], [2, 3]],
-    // Every running pose the sheet has, in sheet order. They are scattered
-    // across three rows rather than laid out as one band, so this is a gathered
-    // cycle rather than the artist's -- the one band worth re-checking on-device.
-    move: [[2, 2], [2, 3], [3, 2], [3, 3], [4, 2]],
-    // Lying down, eyes open: a dog resting, distinct from the eyes-closed frame
-    // that ends `faint`, so exhausted and out-cold do not look identical.
-    rest: [[8, 0]],
-    // No dizzy band, so the sitting row stands in and DizzyOrbit carries it.
-    unwell: [[7, 0], [7, 1], [7, 2], [7, 3]],
-    sad: [[6, 0], [6, 1], [6, 2], [6, 3]],
-    // Sits, goes down, and stays down: row 8's last frame has the eyes shut,
-    // which is the frame HOLDS_LAST_FRAME parks on.
-    faint: [[7, 0], [8, 1], [8, 2], [8, 3]],
+  rows: 16,
+  animations: gifFormBands(8),
+  selfDrawn: ['foggy'],
+  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
+  videos: {
+    frameSize: 768,
+    cell: { x: -13, y: -26, size: 796 },
+    clips: runnerClips(SHIBA_RUNNER_CLIPS),
+    selfDrawn: ['foggy'],
   },
 };
 
@@ -420,59 +420,60 @@ const SHIBA: PetSheet = {
 // Otter
 // ---------------------------------------------------------------------------
 
-/**
- * A 6-column, 10-row sheet — its own shape, so the layout sets `columns`/`rows`.
- * The source art was not on a clean grid (poses drifted cell to cell and the wide
- * lying poses overran their column), so it was repacked: each pose lifted onto a
- * uniform square cell, centred and stood on a common floor line. The bands, as
- * repacked:
+/*
+ * The otter, animated as GIFs like the bunny's forms: its clips play on iOS and
+ * web, and its sheet is cut from the same clips by
+ * `node scripts/buildVideoSheet.mjs otter` (which prints this frame map), in
+ * the box `OTTER_CELL` gives the clips, so the two line up. 6fps throughout.
  *
- *   row 0  standing idle (6, last is a back view)
- *   row 1  sitting (6, unused)
- *   row 2  [0] wave  [1] empty  [2] turn  [3-5] arms-up cheer with sparkles
- *   row 3  leaping play (6, unused — cheer already reads as celebration)
- *   row 4  run / swim dash (5, then [4,5] is a dizzy sit)
- *   row 5  crying, hunched (6)
- *   row 6  dizzy: spiral eyes, orbiting stars (3, then a lying beat + scraps)
- *   row 7  curled asleep (6 — a real sleep pose, like the cat's)
- *   row 8  tearful sitting (4, then a back view + scraps)
- *   row 9  stagger → flop → out cold, X eyes (col 4 is messy; [9,5] holds)
+ *   rows 0-2   sitting, blinking (12)    rows 8-9   lying flat, eyes shut (8)
+ *   rows 3-5   jumps, arms up (12)       rows 10-11 dizzy, stars (6)
+ *   rows 6-7   run, two strides (6)      rows 12-13 hunched and crying (8)
+ *                                        rows 14-15 winces, drops, lies flat (8)
  */
-const OTTER_ANIMATIONS: PetSheet['animations'] = {
-  // Body holds still; the face does the work. Eases out to [0,4] and back so
-  // it reads as the otter emoting, not fidgeting.
-  idle: [[0, 0], [0,0], [0,0], [0, 1],[0,3], [0,3]],
-  // The arms-up, open-mouthed band with the sparkles. Only three drawn frames,
-  // so it bounces off the last one rather than cutting straight back.
-  cheer: [[2, 3], [2, 4], [2, 5], [2, 4]],
-  // The dash band. [4,5] is left out — it is a dizzy sit, not a stride.
-  move: [[4, 0], [4, 1], [4, 2], [4, 3], [4, 4],[3,3],[3,2]],
-  // Curled asleep. Two near-identical tight curls, so the loop is a breath.
-  rest: [[7, 0]],
-  // Real dizzy art — spiral eyes and its own orbiting stars, so `selfDrawn`
-  // drops the DizzyOrbit overlay the shiba leans on.
-  unwell: [[6, 0], [6, 1]],
-  sad: [[5, 0], [5, 2]],
-  // Stagger, stagger, flop forward, down for good. [9,3]/[9,4] are skipped
-  // (near-duplicate / muddy); [9,5] is the clean X-eyed collapse
-  // HOLDS_LAST_FRAME parks on.
-  faint: [[9, 1], [9, 2], [9, 5]],
+const otterClip = (name: string, loop: boolean): PetVideoClip => ({ ...OTTER_CLIP_FILES[name]!, loop });
+const OTTER_CLIP_FILES: Record<string, { hevc: number; webm: number }> = {
+  idle: { hevc: require('../../assets/pet/video/otter/idle.mov'), webm: require('../../assets/pet/video/otter/idle.webm') },
+  cheer: { hevc: require('../../assets/pet/video/otter/cheer.mov'), webm: require('../../assets/pet/video/otter/cheer.webm') },
+  run: { hevc: require('../../assets/pet/video/otter/run.mov'), webm: require('../../assets/pet/video/otter/run.webm') },
+  dizzy: { hevc: require('../../assets/pet/video/otter/dizzy.mov'), webm: require('../../assets/pet/video/otter/dizzy.webm') },
+  cry: { hevc: require('../../assets/pet/video/otter/cry.mov'), webm: require('../../assets/pet/video/otter/cry.webm') },
+  collapse: { hevc: require('../../assets/pet/video/otter/collapse.mov'), webm: require('../../assets/pet/video/otter/collapse.webm') },
+  lie: { hevc: require('../../assets/pet/video/otter/lie.mov'), webm: require('../../assets/pet/video/otter/lie.webm') },
 };
 
-// `columns`/`rows` live here so the derived sheets inherit them: a 6x10 sheet
-// read as 4x11 slices every cell in the wrong place and renders garbage.
-const OTTER_LAYOUT: SheetLayout = {
-  name: 'otter',
-  columns: 6,
-  rows: 10,
-  animations: OTTER_ANIMATIONS,
-  selfDrawn: ['foggy'],
-  // Short bands, same as the cat — the shared table is paced for the dogs.
-  frameMs: { unwell: 340, sad: 340 },
-};
+/** The box buildVideoSheet.mjs cuts the otter from, so a clip and its sheet frame line up. */
+const OTTER_CELL = { x: 25, y: 15, size: 720 };
 
 const OTTER: PetSheet = {
-  ...sheetFrom(OTTER_LAYOUT, 'Otter', require('../../assets/pet/otter.png')),
+  name: 'otter',
+  label: 'Otter',
+  source: require('../../assets/pet/otter.png'),
+  rows: 16,
+  // Cut at the bunny's size, but its round, chunky build read as bigger than
+  // the rest; drawn a little smaller, feet still on the floor.
+  artScale: 0.85,
+  animations: gifFormBands(6),
+  // The dizzy art has its own spiral eyes and stars.
+  selfDrawn: ['foggy'],
+  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
+  videos: {
+    frameSize: 768,
+    cell: OTTER_CELL,
+    clips: {
+      idle: otterClip('idle', true),
+      cheer: otterClip('cheer', true),
+      // Whole strides and whole dizzy cycles, so neither loop stutters.
+      move: otterClip('run', true),
+      unwell: otterClip('dizzy', true),
+      // Lying still, looped: the collapse's last frames, without the fall.
+      rest: otterClip('lie', true),
+      // Settle into a pose and stay there, rather than starting over.
+      sad: otterClip('cry', false),
+      faint: otterClip('collapse', false),
+    },
+    selfDrawn: ['foggy'],
+  },
 };
 
 // ---------------------------------------------------------------------------

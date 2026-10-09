@@ -167,12 +167,12 @@ describe('onboarding', () => {
     expect(has(tree, 'What’s your sex?')).toBe(true);
     press(tree, 'Prefer not to answer');
     expect(updates).toContainEqual(['sex', 'other']);
-    // Height and weight in the user's own units, empty until typed.
+    // Height by tapping feet and inches, weight typed, in the user's own units.
     expect(byLabel(tree, 'Weight in lb')!.props.value).toBe('');
-    expect(byLabel(tree, 'Height in feet')).toBeTruthy();
+    expect(byLabel(tree, '5 feet')).toBeTruthy();
     expect(button(tree, 'Next')!.props.disabled).toBe(true);
-    type(tree, 'Height in feet', '5');
-    type(tree, 'Height in inches', '10');
+    tapLabel(tree, '5 feet');
+    tapLabel(tree, '10 inches');
     type(tree, 'Weight in lb', '180');
     expect(button(tree, 'Next')!.props.disabled).toBe(false);
   });
@@ -183,7 +183,7 @@ describe('onboarding', () => {
       press(tree, 'Next');
       press(tree, '25-34');
       press(tree, 'Male');
-      type(tree, 'Height in feet', '5');
+      tapLabel(tree, '5 feet');
       type(tree, 'Weight in lb', '180');
       press(tree, 'Next');
     };
@@ -305,7 +305,7 @@ describe('onboarding', () => {
       press(tree, tap);
     }
     check();
-    type(tree, 'Height in feet', '5');
+    tapLabel(tree, '5 feet');
     type(tree, 'Weight in lb', '180');
     press(tree, 'Next');
     for (const tap of ['Stay where I am', 'On my feet some', '3 days']) {

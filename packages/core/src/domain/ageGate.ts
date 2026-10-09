@@ -31,3 +31,34 @@ export const checkBirthday = (month: string, year: string, now = new Date()): Bi
   const monthsOld = nowMonthIndex - birthMonthIndex - 1;
   return monthsOld >= MINIMUM_AGE * 12 ? { ok: true } : { ok: false, reason: 'too-young' };
 };
+
+export type BirthYearCheck =
+  | { ok: true; age: number }
+  | { ok: false; reason: 'incomplete' | 'invalid' | 'too-young' | 'needs-month' };
+
+/**
+ * The age check from a birth year, asking for the month only when the year
+ * alone cannot settle it: someone born 13 years ago this year may or may not
+ * have turned 13 yet. Still a neutral question (the year, not "are you 13?"),
+ * and quicker than any date picker. `age` is the person's age in whole years,
+ * as near as the answer allows; it feeds the calorie targets, while the year
+ * and month themselves are never stored.
+ */
+export const checkBirthYear = (year: string, month = '', now = new Date()): BirthYearCheck => {
+  if (year.trim().length < 4) return { ok: false, reason: 'incomplete' };
+  const y = Number(year);
+  if (!Number.isInteger(y) || y < now.getFullYear() - 120 || y > now.getFullYear()) return { ok: false, reason: 'invalid' };
+  const byYear = now.getFullYear() - y;
+  if (byYear < MINIMUM_AGE) return { ok: false, reason: 'too-young' };
+  if (byYear === MINIMUM_AGE) {
+    if (!month.trim()) return { ok: false, reason: 'needs-month' };
+    const exact = checkBirthday(month, year, now);
+    return exact.ok ? { ok: true, age: MINIMUM_AGE } : exact;
+  }
+  // With a month, the exact age; without one, the age they turn this year
+  // less one until their birthday is likely past (mid-year), so it is never
+  // more than a year out either way.
+  const m = Number(month);
+  const hadBirthday = Number.isInteger(m) && m >= 1 && m <= 12 ? now.getMonth() + 1 > m : now.getMonth() >= 6;
+  return { ok: true, age: hadBirthday ? byYear : byYear - 1 };
+};

@@ -1,7 +1,7 @@
 /**
  * Builds a pet form's sprite sheet from the source videos it was animated as.
  *
- *   node scripts/buildVideoSheet.mjs <bearLifter | bearRunner | bearScholar | bunnyLifter | bunnyRunner | bunnyScholar>
+ *   node scripts/buildVideoSheet.mjs <bearLifter | bearRunner | bearScholar | bunnyLifter | bunnyRunner | bunnyScholar | otter | bichonRunner | shibaRunner>
  *
  * The forms animated as video still need a sheet: `SpriteFrame` works by
  * sliding one PNG behind a 128px window, and everything built on it -- the tint
@@ -217,6 +217,112 @@ const FORMS = {
       unwell: ['dizzy', [3, 6, 9, 12, 15, 18, 21, 24]],
       sad: ['cry', [4, 7, 10, 13, 16, 19, 22, 25]],
       faint: ['collapse', [9, 11, 13, 14, 15, 16, 17, 19]],
+    },
+  },
+  /*
+   * The bichon runner, redrawn as GIFs (replacing the sheet assembled from
+   * slices). It stands 374px tall with its feet at y≈593, centred on x≈385;
+   * this box makes that 80px with its feet at y=110, as the base bichon's art
+   * sits (every bichon form also shares its 0.78 artScale). The top of the
+   * cheer's jump (y≈117) and the lie-down's sprawl (feet y≈605) both fit.
+   * White fur, so the default key.
+   */
+  bichonRunner: {
+    source: 'bichon-runner',
+    output: 'bichonRunner.png',
+    box: { x: 86, y: 79, size: 598 },
+    key: {},
+    /*
+     * GIFs at 6fps, already cut out:
+     *   idle.gif      28 frames, standing, blinking, wagging; 0 matches 27
+     *   cheer.gif     0-5 stands, 6-23 jumps, 24+ lands
+     *   run.gif       ONE STRIDE IS 3 FRAMES (0 matches 3, 6 ... 27)
+     *   dizzy.gif     2+ spiral eyes and stars, ONE CYCLE IS 3 FRAMES
+     *   tired.gif     0-3 stands, 4-11 slumps, 12+ hunched and teary
+     *   lie-down.gif  0-9 winces, 10-16 drops, 17+ lies flat
+     */
+    band: {
+      idle: ['idle', [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]],
+      cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
+      // Two whole strides, so it loops.
+      move: ['run', [0, 1, 2, 3, 4, 5]],
+      rest: ['lie-down', [17, 19, 21, 23, 25, 27, 29, 30]],
+      // Two whole cycles, so it loops.
+      unwell: ['dizzy', [2, 3, 4, 5, 6, 7]],
+      sad: ['tired', [5, 8, 11, 14, 17, 20, 23, 26]],
+      // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+      faint: ['lie-down', [6, 8, 10, 12, 14, 15, 16, 17]],
+    },
+  },
+  /*
+   * The shiba runner, redrawn as GIFs (replacing the re-gridded sheet). It
+   * stands 398px tall with its feet at y≈602, centred on x≈385; this box makes
+   * that the base shiba's 64px with its feet at y=101. The top of the cheer's
+   * jump (y≈63) and the lie-down's sprawl (feet y≈620) both fit. Strong
+   * colours, so like the otter it peels the light-grey ring round its outline.
+   */
+  shibaRunner: {
+    source: 'shiba-runner',
+    output: 'shibaRunner.png',
+    box: { x: -13, y: -26, size: 796 },
+    key: { greyFringe: true, fringePasses: 4 },
+    /*
+     * GIFs at 6fps, already cut out:
+     *   idle.gif      28 frames, standing, blinking, wagging; 0 matches 27
+     *   cheer.gif     0-2 stands, 3-22 jumps, 23+ lands
+     *   run.gif       0-11: ONE STRIDE IS 3 FRAMES; after that it drifts
+     *   dizzy.gif     2+ spiral eyes and a ring of stars
+     *   tired.gif     0-2 stands, 3+ lies with its head down
+     *   lie-down.gif  0-12 winces, 13-14 drops, 15+ lies flat
+     */
+    band: {
+      idle: ['idle', [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]],
+      cheer: ['cheer', [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+      // Two whole strides, so it loops.
+      move: ['run', [0, 1, 2, 3, 4, 5]],
+      rest: ['lie-down', [15, 17, 19, 21, 23, 25, 27, 30]],
+      unwell: ['dizzy', [2, 3, 4, 5, 6, 7, 8, 9]],
+      sad: ['tired', [4, 7, 10, 13, 16, 19, 22, 25]],
+      // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+      faint: ['lie-down', [5, 7, 9, 11, 12, 13, 14, 15]],
+    },
+  },
+  /*
+   * The base otter, redrawn as GIFs (replacing the old hand-packed 6x10
+   * sheet). It sits 408px tall with its feet at y≈611, centred on x≈385;
+   * this box makes that the bunny's 72px with its feet at y=106, centred. The
+   * top of the cheer's jump (y≈18) and the collapse's sprawl (x 66-677, feet
+   * y≈623) both still fit.
+   */
+  otter: {
+    source: 'otter',
+    output: 'otter.png',
+    box: { x: 25, y: 15, size: 720 },
+    // The GIFs carry a light-grey ring round the outline (the art's edge
+    // blended into the white it was drawn on), which shows on a dark room.
+    // The otter's browns are strong, so like the bears it can peel grey edge
+    // pixels; four passes take the whole ring without thinning the sparkles.
+    key: { greyFringe: true, fringePasses: 4 },
+    /*
+     * GIFs at 6fps, already cut out:
+     *   idle.gif      27 frames, sitting, blinking and smiling; 0 matches 26
+     *   cheer.gif     0-6 sits, 7-18 jumps with its arms up, 19+ lands
+     *   run.gif       0 sets off; from 1 ONE STRIDE IS 3 FRAMES
+     *   dizzy.gif     1+ spiral eyes and stars, ONE CYCLE IS 6 FRAMES
+     *   cry.gif       0-2 sits, 3-5 slumps, 6+ hunched and crying
+     *   collapse.gif  0-12 winces, 13-16 drops, 17+ lies flat, eyes shut
+     */
+    band: {
+      idle: ['idle', [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]],
+      cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
+      // Two whole strides, so it loops.
+      move: ['run', [1, 2, 3, 4, 5, 6]],
+      rest: ['collapse', [17, 19, 21, 23, 25, 27, 29, 30]],
+      // One whole cycle, so it loops.
+      unwell: ['dizzy', [1, 2, 3, 4, 5, 6]],
+      sad: ['cry', [6, 9, 12, 15, 18, 21, 24, 27]],
+      // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+      faint: ['collapse', [4, 7, 10, 12, 13, 14, 15, 17]],
     },
   },
 };

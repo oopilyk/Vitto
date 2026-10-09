@@ -4,6 +4,7 @@
  *   node scripts/buildLifterVideos.mjs bichon
  *   node scripts/buildLifterVideos.mjs bear
  *   node scripts/buildLifterVideos.mjs bearRunner
+ *   node scripts/buildLifterVideos.mjs otter
  *
  * The clips in `assets/source/video/<pet>-lifter/` are played as-is by
  * `PetVideo` — every frame, at their own frame rate, at full size. The only
@@ -112,6 +113,55 @@ const PETS = {
     output: 'bunnyScholar',
     // Five frames a step: five steps loop cleanly.
     clips: ['idle', 'cheer', { name: 'walk', frames: [6, 30] }, 'dizzy', 'cry', 'collapse'],
+  },
+  // The bichon and shiba runners: GIFs at 6fps, already cut out, keyed as
+  // their sheets are in buildVideoSheet.mjs. Loops are cut to whole strides
+  // and cycles; `lie` is the lie-down's lying-still tail, looped, for rest.
+  bichonRunner: {
+    source: 'bichon-runner',
+    output: 'bichonRunner',
+    clips: [
+      'idle',
+      'cheer',
+      { name: 'run', frames: [0, 29] },
+      { name: 'dizzy', frames: [2, 28] },
+      'tired',
+      'lie-down',
+      { name: 'lie', from: 'lie-down', frames: [17, 30] },
+    ],
+  },
+  shibaRunner: {
+    source: 'shiba-runner',
+    output: 'shibaRunner',
+    clips: [
+      'idle',
+      'cheer',
+      { name: 'run', frames: [0, 11] },
+      { name: 'dizzy', frames: [2, 30] },
+      'tired',
+      'lie-down',
+      { name: 'lie', from: 'lie-down', frames: [15, 30] },
+    ],
+    key: { greyFringe: true, fringePasses: 4 },
+  },
+  // The base otter: GIFs at 6fps, already cut out. Same key as its sheet in
+  // buildVideoSheet.mjs: peels the light-grey ring round the outline.
+  otter: {
+    source: 'otter',
+    output: 'otter',
+    key: { greyFringe: true, fringePasses: 4 },
+    // The run's ten whole strides and the dizzy's five whole cycles skip the
+    // still opening frame, so they loop without a hitch. `lie` is the
+    // collapse's lying-still tail, looped, for rest.
+    clips: [
+      'idle',
+      'cheer',
+      { name: 'run', frames: [1, 30] },
+      { name: 'dizzy', frames: [1, 30] },
+      'cry',
+      'collapse',
+      { name: 'lie', from: 'collapse', frames: [17, 30] },
+    ],
   },
 };
 

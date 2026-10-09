@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkBirthday } from './ageGate';
+import { checkBirthYear, checkBirthday } from './ageGate';
 
 describe('checkBirthday', () => {
   const now = new Date(2026, 9, 4); // 4 October 2026
@@ -24,5 +24,21 @@ describe('checkBirthday', () => {
     expect(checkBirthday('13', '2000', now)).toEqual({ ok: false, reason: 'invalid' });
     expect(checkBirthday('6', '1850', now)).toEqual({ ok: false, reason: 'invalid' });
     expect(checkBirthday('12', '2026', now)).toEqual({ ok: false, reason: 'invalid' });
+  });
+});
+
+describe('checkBirthYear', () => {
+  const now = new Date(2026, 9, 9); // 9 Oct 2026
+  it('settles most ages from the year alone, and asks the month only on the boundary', () => {
+    expect(checkBirthYear('1976', '', now)).toEqual({ ok: true, age: 50 });
+    expect(checkBirthYear('2015', '', now)).toEqual({ ok: false, reason: 'too-young' });
+    expect(checkBirthYear('2013', '', now)).toEqual({ ok: false, reason: 'needs-month' });
+    expect(checkBirthYear('2013', '3', now)).toEqual({ ok: true, age: 13 });
+    expect(checkBirthYear('2013', '11', now)).toEqual({ ok: false, reason: 'too-young' });
+  });
+  it('turns away nonsense and waits for four digits', () => {
+    expect(checkBirthYear('199', '', now)).toEqual({ ok: false, reason: 'incomplete' });
+    expect(checkBirthYear('2031', '', now)).toEqual({ ok: false, reason: 'invalid' });
+    expect(checkBirthYear('1850', '', now)).toEqual({ ok: false, reason: 'invalid' });
   });
 });

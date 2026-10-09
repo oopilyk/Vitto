@@ -31,7 +31,7 @@ import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
 import { PrimaryButton, TextButton } from './src/components/ui';
 import { usePetInteraction } from './src/petWorld/usePetInteraction';
-import { AuthScreen } from './src/screens/AuthScreen';
+import { AuthScreen, HAS_SIGNED_IN_KEY } from './src/screens/AuthScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
@@ -99,6 +99,10 @@ const engine = new PetHealthEngine();
 const HEALTH_CONNECTED_KEY = 'vitto.appleHealthConnected';
 /** How often steps re-sync while the app is open. */
 const STEP_AUTO_SYNC_MS = 5 * 60 * 1000;
+
+/** The age sign-up stored (see checkBirthYear), if it is a sane one. */
+const signUpAge = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 13 && value <= 120 ? value : undefined;
 
 const stepsProvider: HealthDataProvider =
   Platform.OS === 'ios'
@@ -600,6 +604,12 @@ function VittoApp() {
     setToast(next);
     toastTimer.current = setTimeout(() => setToast(null), CARE_TOAST_VISIBLE_MS);
   };
+
+  // Remembered once anyone signs in here, so the next launch after a sign-out
+  // opens on sign-in rather than on the first-time welcome (see AuthScreen).
+  useEffect(() => {
+    if (session?.user.id) void AsyncStorage.setItem(HAS_SIGNED_IN_KEY, '1').catch(() => undefined);
+  }, [session?.user.id]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -1988,6 +1998,7 @@ function VittoApp() {
       <View style={layout.screen}>
         <StatusBar barStyle={statusBarStyle} />
         <OnboardingScreen
+          knownAge={signUpAge(session?.user.user_metadata?.age)}
           name={name}
           onNameChange={setName}
           breed={breed}

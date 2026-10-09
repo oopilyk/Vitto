@@ -66,8 +66,8 @@ describe('the shareable card', () => {
   });
 
   it('names the file after the pet', () => {
-    expect(shareCardFilename('Blue')).toBe('blue-vitto.png');
-    expect(shareCardFilename('Mr. Wiggles!')).toBe('mr-wiggles-vitto.png');
-    expect(shareCardFilename('  ')).toBe('pet-vitto.png');
+    expect(shareCardFilename('Blue')).toBe('blue-vitto.jpg');
+    expect(shareCardFilename('Mr. Wiggles!')).toBe('mr-wiggles-vitto.jpg');
+    expect(shareCardFilename('  ')).toBe('pet-vitto.jpg');
   });
 });

@@ -2601,19 +2601,24 @@ describe('pet sprite', () => {
     expect(clipShown({ isExploring: true })).toBe(clips.move.hevc);
   });
 
-  it('keeps the otter grid shape and timings on its derived sheets', () => {
-    // A 6x10 sheet read with the default 4x11 grid slices every cell wrong, so
-    // the derived otters have to carry the base's shape, not just its frames.
+  it('animates the otter from its own clips, with a sheet cut to match', () => {
     const { sheetForPet } = require('../components/petSprites');
-    const base = sheetForPet({ id: 'p', breed: 'otter', level: 5 });
-    const lifter = sheetForPet({ id: 'p', breed: 'otter', level: 16, strength: 80, endurance: 10, mind: 10 });
-    const scholar = sheetForPet({ id: 'p', breed: 'otter', level: 16, mindSessions: 27, endurance: 10, strength: 10 });
-    for (const derived of [lifter, scholar]) {
-      expect(derived.columns).toBe(6);
-      expect(derived.rows).toBe(10);
-      expect(derived.selfDrawn).toEqual(base.selfDrawn);
-      expect(derived.frameMs).toEqual(base.frameMs);
-      expect(derived.animations).toEqual(base.animations);
+    const otter = sheetForPet({ id: 'p', breed: 'otter', level: 5 });
+    expect(otter.label).toBe('Otter');
+    // Cut into the standard 4-column grid now, not the old 6x10 sheet.
+    expect(otter.columns).toBeUndefined();
+    const { clips } = otter.videos;
+    for (const name of ['idle', 'cheer', 'move', 'rest', 'unwell', 'sad', 'faint']) expect(clips[name]).toBeDefined();
+    // A fallen or crying otter stays down rather than replaying the fall.
+    expect(clips.faint.loop).toBe(false);
+    expect(clips.sad.loop).toBe(false);
+    expect(clips.rest.loop).toBe(true);
+    // Every frame the sheet plays is inside its 16 rows and 4 columns.
+    for (const frames of Object.values(otter.animations) as [number, number][][]) {
+      for (const [row, column] of frames) {
+        expect(row).toBeLessThan(otter.rows);
+        expect(column).toBeLessThan(4);
+      }
     }
   });
 
@@ -2634,9 +2639,9 @@ describe('pet sprite', () => {
   });
 
   it('keeps a build with no evolved art on the base sheet, however trained', () => {
-    // The otter has lifter and scholar art but no runner, so an endurance build
-    // grows up and stays exactly where it was. (This used to be the shiba's
-    // case, until the shiba got runner art of its own.)
+    // The otter has no evolved art, so an endurance build grows up and stays
+    // exactly where it was. (This used to be the shiba's case, until the shiba
+    // got runner art of its own.)
     const { sheetForPet } = require('../components/petSprites');
     const otter = { id: 'p', breed: 'otter', level: 40, endurance: 90, strength: 10, mind: 10 };
     expect(sheetForPet(otter).label).toBe('Otter');

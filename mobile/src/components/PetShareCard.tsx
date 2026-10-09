@@ -24,7 +24,7 @@ import { colors, fonts, themedStyles } from '../theme';
  *
  * 3:4, which is the environment art's own ratio (so the scene is never cropped)
  * and the shape iMessage and Instagram both show whole. Laid out in logical
- * points and captured at `SHARE_CARD_SCALE` by `shareCard.ts`, so what is
+ * points and captured at 1080 px wide by `shareCard.ts`, so what is
  * previewed on screen is exactly what gets sent.
  *
  * The line the pet says is the point of the card. It is the same voice the HUD
@@ -36,8 +36,6 @@ export const SHARE_CARD_WIDTH = 330;
 export const SHARE_CARD_HEIGHT = 440;
 /** How far up the card the scrim reaches; it is fully clear at its top. */
 const SCRIM_HEIGHT = Math.round(SHARE_CARD_HEIGHT * 0.6);
-/** Captured at 3x, giving a 990x1320 PNG — sharp on any phone, and small enough to text. */
-export const SHARE_CARD_SCALE = 3;
 
 const BACKDROPS = {
   day: require('../../assets/environments/main-day.png'),

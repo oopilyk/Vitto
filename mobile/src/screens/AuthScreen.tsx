@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useFonts, Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_700Bold } from '@expo-google-fonts/rubik';
 import {
-  checkBirthday,
+  checkBirthYear,
   errorMessage,
   isEmailNotConfirmed,
   signInWithEmail,
@@ -13,9 +13,10 @@ import {
   signUpWithEmail,
   verifySignupCode,
 } from '@vitto/core';
-import { BirthdayPicker } from '../components/BirthdayPicker';
 import { ONB_FONT, OnbButton, OnbInput, onboardingPalette, onboardingText as T } from '../components/onboardingKit';
 import { LEGAL_LINKS } from '../services/billingService';
+import { SpriteFrame } from '../components/SpriteFrame';
+import { portraitFrame, sheetByBreed } from '../components/petSprites';
 import { themedStyles } from '../theme';
 
 /**
@@ -26,6 +27,8 @@ import { themedStyles } from '../theme';
  * or sent anywhere.
  */
 const UNDER_AGE_KEY = 'vitto.signupBlocked';
+/** Set once anyone has signed in on this phone (see App.tsx): after that, it opens on sign-in. */
+export const HAS_SIGNED_IN_KEY = 'vitto.hasSignedIn';
 const UNDER_AGE_BLOCK_MS = 24 * 60 * 60 * 1000;
 const MONTH_NAMES = [
   'January',
@@ -89,8 +92,18 @@ export function AuthScreen() {
   const [birthMonth, setBirthMonth] = useState('');
   const [birthYear, setBirthYear] = useState('');
   const [blocked, setBlocked] = useState(false);
-  /** The "is everything right?" page between the sign-up form and creating the account. */
+  /** The "Born in 2015?" check an under-13 answer gets before the phone is turned away. */
   const [reviewing, setReviewing] = useState(false);
+  /**
+   * A first launch opens on a welcome screen and then sign-up; a phone that has
+   * signed in before opens on sign-in. Null while that is being read.
+   */
+  const [welcome, setWelcome] = useState<boolean | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem(HAS_SIGNED_IN_KEY)
+      .then((value) => setWelcome(value !== '1'))
+      .catch(() => setWelcome(false));
+  }, []);
   /** The address a confirmation code went to; while set, the screen asks for the code. */
   const [confirming, setConfirming] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -156,41 +169,40 @@ export function AuthScreen() {
       .catch(() => undefined);
   }, []);
 
-  const birthday = checkBirthday(birthMonth, birthYear);
+  // The year first; the month only if that year alone cannot settle it.
+  const birthday = checkBirthYear(birthYear, birthMonth);
+  const yearAlone = checkBirthYear(birthYear);
+  const askMonth = !yearAlone.ok && yearAlone.reason === 'needs-month';
   /** Signing up from a phone that has already been turned away: only sign-in is offered. */
   const signUpClosed = mode === 'sign-up' && blocked;
 
-  const submit = async (reviewed = false) => {
-    // Sign-up goes through a review page first, for everyone and whatever age
-    // they picked, before anything is checked or sent: a mis-tap is caught
-    // there, and showing every age the same page gives nothing away about
-    // which ages are turned away.
-    if (mode === 'sign-up' && !reviewed) {
-      if (!birthday.ok && birthday.reason !== 'too-young') {
-        setError('Choose your birthday.');
+  /**
+   * `confirmedYoung`: an under-13 answer is checked back once ("Born in
+   * 2015?") before it turns the phone away, so a slip of the thumb is not a
+   * day's lockout. Every other answer goes straight through: no review page
+   * standing between someone and their account.
+   */
+  const submit = async (confirmedYoung = false) => {
+    if (mode === 'sign-up' && !birthday.ok) {
+      // First, before anything is sent anywhere.
+      if (birthday.reason === 'too-young') {
+        if (!confirmedYoung) {
+          setError(null);
+          setReviewing(true);
+          return;
+        }
+        setReviewing(false);
+        setBlocked(true);
+        await AsyncStorage.setItem(UNDER_AGE_KEY, String(Date.now())).catch(() => undefined);
         return;
       }
-      setError(null);
-      setReviewing(true);
+      setError(birthday.reason === 'needs-month' ? 'Choose the month you were born.' : 'Enter the year you were born.');
       return;
     }
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      if (mode === 'sign-up') {
-        // First, before anything is sent anywhere.
-        if (!birthday.ok) {
-          if (birthday.reason === 'too-young') {
-            setReviewing(false);
-            setBlocked(true);
-            await AsyncStorage.setItem(UNDER_AGE_KEY, String(Date.now())).catch(() => undefined);
-          } else {
-            setError('Choose your birthday.');
-          }
-          return;
-        }
-      }
 
       const result =
         mode === 'sign-in'
@@ -198,7 +210,15 @@ export function AuthScreen() {
           : // No name or username here: onboarding asks for both, once the
           // address is confirmed, so an unconfirmed sign-up never holds a
           // username.
-          await signUpWithEmail(email.trim(), password, '', undefined, process.env.EXPO_PUBLIC_EMAIL_CONFIRMED_URL || undefined);
+          await signUpWithEmail(
+            email.trim(),
+            password,
+            '',
+            undefined,
+            process.env.EXPO_PUBLIC_EMAIL_CONFIRMED_URL || undefined,
+            // The age only, so onboarding need not ask it again.
+            birthday.ok ? birthday.age : undefined,
+          );
       if (result.error) throw result.error;
       // An address that already has a confirmed account: Supabase answers as if
       // it had signed up (a user with no identities) but creates nothing and
@@ -226,6 +246,40 @@ export function AuthScreen() {
       setBusy(false);
     }
   };
+
+  // Nothing until it is known which to show, so a returning person never
+  // sees the welcome flash past on the way to sign-in.
+  if (welcome === null) return <View style={T.screen} />;
+
+  if (welcome) {
+    const sheet = sheetByBreed('bichon');
+    return (
+      <Page testID="welcome">
+        <View style={styles.welcomePet}>
+          <SpriteFrame sheet={sheet} frame={portraitFrame(sheet)} size={150} />
+        </View>
+        <Text style={T.eyebrow}>Vitto</Text>
+        <Text style={T.title}>Meet the pet that grows with you</Text>
+        <Text style={T.sub}>Eat well, move, rest and play, and your pet thrives, levels up and evolves right alongside you.</Text>
+        <View style={styles.actions}>
+          <OnbButton
+            label="Get started"
+            onPress={() => {
+              setWelcome(false);
+              setMode('sign-up');
+            }}
+          />
+          <TextLink
+            label="I already have an account"
+            onPress={() => {
+              setWelcome(false);
+              setMode('sign-in');
+            }}
+          />
+        </View>
+      </Page>
+    );
+  }
 
   if (confirming) {
     const complete = code.replace(/\D/g, '').length >= SIGNUP_CODE_MIN_LENGTH;
@@ -273,48 +327,16 @@ export function AuthScreen() {
   }
 
   if (reviewing && mode === 'sign-up' && !blocked) {
-    const rows: [string, string][] = [
-      ['Birthday', `${MONTH_NAMES[Number(birthMonth) - 1]} ${birthYear}`],
-      ['Email', email.trim()],
-    ];
+    const when = birthMonth ? `${MONTH_NAMES[Number(birthMonth) - 1]} ${birthYear}` : birthYear;
     return (
-      <Page testID="signup-review">
-        <Text style={T.eyebrow}>Almost there</Text>
-        <Text style={T.title}>Is everything right?</Text>
-        <Text style={T.sub}>Check your details before we create your account.</Text>
-
-        <View style={[T.card, styles.review]}>
-          {rows.map(([label, value], index) => (
-            <View key={label} style={[styles.reviewRow, index > 0 && styles.reviewRule]}>
-              <Text style={T.body}>{label}</Text>
-              <Text style={styles.reviewValue} numberOfLines={1}>
-                {value}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {error ? <Text style={[T.error, styles.notice]}>{error}</Text> : null}
-
+      <Page testID="signup-confirm-age">
+        <Text style={T.eyebrow}>Just checking</Text>
+        <Text style={T.title}>{`Born in ${when}?`}</Text>
+        <Text style={T.sub}>Make sure that's right before we go on.</Text>
         <View style={styles.actions}>
-          <OnbButton label="Create account" busy={busy} onPress={() => void submit(true)} />
-          <Text style={styles.legal} testID="signup-legal">
-            {'By creating an account, you agree to our '}
-            <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
-              Terms of Use
-            </Text>
-            {LEGAL_LINKS.privacy ? (
-              <>
-                {' and '}
-                <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}>
-                  Privacy Policy
-                </Text>
-              </>
-            ) : null}
-            .
-          </Text>
+          <OnbButton label="Yes, that's right" onPress={() => void submit(true)} />
           <TextLink
-            label="Go back and edit"
+            label="No, let me fix it"
             onPress={() => {
               setReviewing(false);
               setError(null);
@@ -351,17 +373,46 @@ export function AuthScreen() {
       ) : null}
 
       {mode === 'sign-up' && !blocked ? (
-        <Field label="Birthday">
-          <BirthdayPicker
-            month={birthMonth}
-            year={birthYear}
-            onChange={(month, year) => {
-              setBirthMonth(month);
-              setBirthYear(year);
-              setReviewing(false);
-            }}
-          />
-        </Field>
+        <>
+          <Field label="Year you were born">
+            <OnbInput
+              form
+              value={birthYear}
+              onChangeText={(next) => {
+                setBirthYear(next.replace(/\D/g, '').slice(0, 4));
+                setBirthMonth('');
+                setReviewing(false);
+              }}
+              placeholder="YYYY"
+              keyboardType="number-pad"
+              maxLength={4}
+              accessibilityLabel="Year you were born"
+            />
+          </Field>
+          {/* Only when the year alone cannot settle the age check. */}
+          {askMonth ? (
+            <Field label="And the month">
+              <View style={styles.months} accessibilityRole="radiogroup">
+                {MONTH_NAMES.map((name, index) => {
+                  const value = String(index + 1);
+                  const on = birthMonth === value;
+                  return (
+                    <Pressable
+                      key={name}
+                      accessibilityRole="radio"
+                      accessibilityLabel={name}
+                      accessibilityState={{ selected: on }}
+                      onPress={() => setBirthMonth(value)}
+                      style={[styles.month, on && styles.monthOn]}
+                    >
+                      <Text style={[styles.monthLabel, on && styles.monthLabelOn]}>{name.slice(0, 3)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Field>
+          ) : null}
+        </>
       ) : null}
 
       {signUpClosed ? null : (
@@ -391,7 +442,7 @@ export function AuthScreen() {
       <View style={styles.actions}>
         {signUpClosed ? null : (
           <OnbButton
-            label={mode === 'sign-in' ? 'Sign in' : 'Continue'}
+            label={mode === 'sign-in' ? 'Sign in' : 'Create account'}
             busy={busy}
             disabled={
               !email ||
@@ -401,6 +452,23 @@ export function AuthScreen() {
             onPress={() => void submit()}
           />
         )}
+        {mode === 'sign-up' && !signUpClosed ? (
+          <Text style={styles.legal} testID="signup-legal">
+            {'By creating an account, you agree to our '}
+            <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+              Terms of Use
+            </Text>
+            {LEGAL_LINKS.privacy ? (
+              <>
+                {' and '}
+                <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}>
+                  Privacy Policy
+                </Text>
+              </>
+            ) : null}
+            .
+          </Text>
+        ) : null}
         <TextLink
           label={mode === 'sign-in' ? 'Need an account?' : 'Already have an account?'}
           onPress={() => {
@@ -428,10 +496,21 @@ const styles = themedStyles(() => {
     blocked: { marginTop: 24, gap: 4 },
     blockedTitle: { fontFamily: ONB_FONT.semibold, fontSize: 17, lineHeight: 22, color: F.text },
     blockedBack: { marginTop: 14 },
-    review: { marginTop: 24, paddingVertical: 4 },
-    reviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, paddingVertical: 12 },
-    reviewRule: { borderTopWidth: 1, borderTopColor: F.border },
-    reviewValue: { flexShrink: 1, fontFamily: ONB_FONT.semibold, fontSize: 16, color: F.text, textAlign: 'right' },
+    welcomePet: { alignItems: 'center', marginBottom: 24, marginTop: 12 },
+    months: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    month: {
+      width: '22%',
+      flexGrow: 1,
+      paddingVertical: 12,
+      borderRadius: 16,
+      borderWidth: 2,
+      borderColor: F.border,
+      backgroundColor: F.input,
+      alignItems: 'center',
+    },
+    monthOn: { borderColor: F.green, backgroundColor: F.greenPale },
+    monthLabel: { fontFamily: ONB_FONT.medium, fontSize: 15, color: F.text },
+    monthLabelOn: { fontFamily: ONB_FONT.bold, color: F.green },
     legal: { fontFamily: ONB_FONT.regular, fontSize: 13, lineHeight: 18, color: F.sub, textAlign: 'center' },
     legalLink: { fontFamily: ONB_FONT.medium, color: F.text, textDecorationLine: 'underline' },
   };

@@ -24,26 +24,19 @@ const source = path.join(root, 'assets/pet');
 const target = path.join(root, 'targets/pet-island/sprites');
 
 /**
- * Cells are square, but not one size: most sheets are 512px across in four
- * columns (128px cells), the otter is six columns of 190, and the two runner
- * sheets are drawn at 338 and 279. The cell is therefore taken from each
- * sheet's own width and column count, never assumed — the first version of
- * this script assumed 128 everywhere and cut a blank corner out of the runner.
+ * Cells are square, but not always one size, so the cell is taken from each
+ * sheet's own width and column count (list a sheet with other than four
+ * columns in COLUMNS), never assumed: the first version of this script assumed
+ * 128 everywhere and cut a blank corner out of a runner.
  */
-export const COLUMNS = {
-  otter: 6,
-  otterLifter: 6,
-  otterScholar: 6,
-};
+export const COLUMNS = {};
 const DEFAULT_COLUMNS = 4;
 
 /**
- * [row, column] of the idle frame per sheet file. Every layout's idle starts at
- * the top-left cell except the shiba runner, whose calmest pose is at [0, 3].
+ * [row, column] of the idle frame per sheet file, for a sheet whose idle does
+ * not start at the top-left cell. None does now.
  */
-export const IDLE_FRAME = {
-  shibaRunner: [0, 3],
-};
+export const IDLE_FRAME = {};
 const DEFAULT_IDLE = [0, 0];
 
 const crop = (file) => {

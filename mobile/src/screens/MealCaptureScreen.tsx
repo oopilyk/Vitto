@@ -34,6 +34,16 @@ interface Props {
 
 type Mode = 'photo' | 'search' | 'scan';
 
+/**
+ * The camera to scan with, from the phone's own list (iOS names them in
+ * English, e.g. "Back Triple Camera"). Pro iPhones' main camera cannot focus
+ * nearer than about 20 cm, so a barcode held where it is natural to hold one
+ * stays blurred. The combined cameras switch to the ultra-wide lens up close,
+ * which focuses at a few centimetres. A phone without one keeps the default.
+ */
+export const closeUpLens = (lenses: readonly string[]): string | undefined =>
+  lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
+
 export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus }: Props) {
   const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
   const [image, setImage] = useState<PickedImage | null>(null);
@@ -48,6 +58,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  /** The close-focus camera for barcodes, once the phone has said which it has. */
+  const [scanLens, setScanLens] = useState<string | undefined>(undefined);
 
   const reset = () => {
     setAnalysis(null);
@@ -329,6 +341,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   <CameraView
                     style={StyleSheet.absoluteFill}
                     facing="back"
+                    // A camera that can focus close: see closeUpLens.
+                    selectedLens={scanLens}
+                    onAvailableLensesChanged={({ lenses }) => setScanLens(closeUpLens(lenses))}
                     barcodeScannerSettings={{
                       barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128'],
                     }}

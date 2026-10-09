@@ -72,6 +72,11 @@ export const signUpWithEmail = (
    * project's Site URL.
    */
   confirmedUrl?: string,
+  /**
+   * Their age in whole years, from the sign-up age check, so onboarding does
+   * not ask again. The age only: the birth year and month are never stored.
+   */
+  age?: number,
 ) =>
   requireClient().auth.signUp({
     email,
@@ -81,6 +86,7 @@ export const signUpWithEmail = (
       data: {
         display_name: displayName,
         ...(username ? { username: normalizeUsername(username) } : {}),
+        ...(typeof age === 'number' && Number.isFinite(age) ? { age: Math.round(age) } : {}),
       },
     },
   });
