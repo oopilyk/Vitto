@@ -196,18 +196,28 @@ const gridBand = (row: number, count: number): [number, number][] =>
 
 /**
  * The band layout buildVideoSheet.mjs lays every GIF-cut form out in (the otter
- * and the bichon and shiba runners): seven bands, each on fresh rows, 16 rows.
+ * and the bichon and shiba runners): seven bands in this order, each starting
+ * on a fresh row, `counts` frames apiece. It prints the same map when it runs.
  */
-const gifFormBands = (unwell: number): PetSheet['animations'] => ({
-  idle: gridBand(0, 12),
-  cheer: gridBand(3, 12),
-  move: gridBand(6, 6),
-  rest: gridBand(8, 8),
-  unwell: gridBand(10, unwell),
-  sad: gridBand(12, 8),
-  // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
-  faint: gridBand(14, 8),
-});
+const gifFormBands = (counts: { idle?: number; unwell: number }): PetSheet['animations'] => {
+  const order: [PetAnimation, number][] = [
+    ['idle', counts.idle ?? 12],
+    ['cheer', 12],
+    ['move', 6],
+    ['rest', 8],
+    ['unwell', counts.unwell],
+    ['sad', 8],
+    // Ends lying still: the last cell is the one HOLDS_LAST_FRAME parks on.
+    ['faint', 8],
+  ];
+  const bands = {} as PetSheet['animations'];
+  let row = 0;
+  for (const [name, count] of order) {
+    bands[name] = gridBand(row, count);
+    row += Math.ceil(count / 4);
+  }
+  return bands;
+};
 
 /**
  * A runner's clips, as buildLifterVideos.mjs names them, mapped onto the
@@ -262,11 +272,12 @@ const BICHON_RUNNER: PetSheet = {
   name: 'bichon',
   label: 'Bichon · Runner',
   source: require('../../assets/pet/bichonRunner.png'),
-  rows: 16,
+  // Its idle is just the tail wag (eight frames, eyes open), a row shorter.
+  rows: 15,
   artScale: BICHON_ART_SCALE,
-  animations: gifFormBands(6),
+  animations: gifFormBands({ idle: 8, unwell: 6 }),
   selfDrawn: ['foggy'],
-  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
+  frameMs: { idle: 167, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
   videos: {
     frameSize: 768,
     cell: { x: 86, y: 79, size: 598 },
@@ -380,7 +391,7 @@ const SHIBA_RUNNER: PetSheet = {
   label: 'Shiba · Runner',
   source: require('../../assets/pet/shibaRunner.png'),
   rows: 16,
-  animations: gifFormBands(8),
+  animations: gifFormBands({ unwell: 8 }),
   selfDrawn: ['foggy'],
   frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
   videos: {
@@ -453,7 +464,7 @@ const OTTER: PetSheet = {
   // Cut at the bunny's size, but its round, chunky build read as bigger than
   // the rest; drawn a little smaller, feet still on the floor.
   artScale: 0.85,
-  animations: gifFormBands(6),
+  animations: gifFormBands({ unwell: 6 }),
   // The dizzy art has its own spiral eyes and stars.
   selfDrawn: ['foggy'],
   frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },

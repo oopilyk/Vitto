@@ -28,7 +28,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import { fillHoles, keyBackground } from './keyBackground.mjs';
+import { fillBehindGaps, fillHoles, keyBackground } from './keyBackground.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -120,8 +120,14 @@ const PETS = {
   bichonRunner: {
     source: 'bichon-runner',
     output: 'bichonRunner',
+    // The GIFs make the fur above the headband see-through on some frames,
+    // behind gaps in the dashed outline (see fillBehindGaps).
+    capBehindGaps: { radius: 8, nextTo: (r, g, b) => r > 190 && g > 80 && g < 170 && b < 90 },
+    // Same key as its sheet: peels the pale rim under its outline.
+    key: { fringePasses: 6 },
     clips: [
-      'idle',
+      // Just the tail wag, which loops cleanly.
+      { name: 'idle', frames: [16, 23] },
       'cheer',
       { name: 'run', frames: [0, 29] },
       { name: 'dizzy', frames: [2, 28] },
@@ -202,6 +208,7 @@ try {
     for (const file of fs.readdirSync(frames)) {
       const raw = PNG.sync.read(fs.readFileSync(path.join(frames, file)));
       if (pet.fillHoles?.clips.includes(from)) fillHoles(raw, pet.fillHoles.maxArea);
+      if (pet.capBehindGaps) fillBehindGaps(raw, pet.capBehindGaps);
       const png = keyBackground(raw, key);
       fs.writeFileSync(path.join(frames, file), PNG.sync.write(png));
     }

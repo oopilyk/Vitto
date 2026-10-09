@@ -38,12 +38,12 @@ export function useReportHudEdge() {
 
 /** Breathing room between the HUD and the button. */
 const GAP = 14;
-/** The usual spot, as a share of the stage's height: between the HUD and the pet. */
-const USUAL_TOP = 0.32;
+/** The button's height (RoomActionButton), so the slot can centre it. */
+export const ROOM_ACTION_HEIGHT = 38;
 
 /**
- * Every room's call to action sits in one of these: at its usual height, or
- * just under the HUD when the HUD reaches further down than that.
+ * Every room's call to action sits in one of these: in the middle of the
+ * screen, or just under the HUD when the HUD reaches further down than that.
  */
 export function RoomActionSlot({ children }: { children: ReactNode }) {
   const { bottom } = useContext(HudEdgeContext);
@@ -54,9 +54,9 @@ export function RoomActionSlot({ children }: { children: ReactNode }) {
     ref.current?.measureInWindow((_x, y) => setFrame({ y, height }));
   }, []);
 
-  const usual = frame ? frame.height * USUAL_TOP : null;
+  const usual = frame ? (frame.height - ROOM_ACTION_HEIGHT) / 2 : null;
   const belowHud = frame && bottom > 0 ? bottom - frame.y + GAP : 0;
-  const top: DimensionValue = usual === null ? `${USUAL_TOP * 100}%` : Math.max(usual, belowHud);
+  const top: DimensionValue = usual === null ? '50%' : Math.max(usual, belowHud);
 
   return (
     <View ref={ref} onLayout={onLayout} pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>

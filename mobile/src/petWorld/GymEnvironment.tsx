@@ -1,6 +1,4 @@
-import { Pressable, Text } from 'react-native';
-import { RoomActionSlot } from './RoomActionSlot';
-import { colors, fonts, themedStyles } from '../theme';
+import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
@@ -31,18 +29,7 @@ interface GymEnvironmentControlsProps {
 
 /** The Gym's dedicated call to action, in the same slot as Kitchen's "Log meal". */
 function LogWorkoutButton({ onPress }: { onPress: () => void }) {
-  return (
-    <RoomActionSlot>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Log workout"
-        onPress={onPress}
-        style={({ pressed }) => [styles.workout, pressed && styles.workoutPressed]}
-      >
-        <Text style={styles.workoutLabel}>Log workout</Text>
-      </Pressable>
-    </RoomActionSlot>
-  );
+  return <RoomActionButton label="Log workout" onPress={onPress} />;
 }
 
 function GymEnvironmentControls({
@@ -59,24 +46,3 @@ export function gymEnvironment(props: GymEnvironmentControlsProps): EnvironmentD
     controls: <GymEnvironmentControls {...props} />,
   };
 }
-
-const styles = themedStyles(() => ({
-  workout: {
-    backgroundColor: colors.coral,
-    paddingVertical: 12,
-    paddingHorizontal: 26,
-    borderRadius: 22,
-    shadowColor: '#26312d',
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  workoutPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
-  workoutLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    letterSpacing: 0.8,
-    color: '#fff',
-  },
-}));

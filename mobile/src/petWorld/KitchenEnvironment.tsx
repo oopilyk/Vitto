@@ -1,6 +1,4 @@
-import { Pressable, Text } from 'react-native';
-import { RoomActionSlot } from './RoomActionSlot';
-import { colors, fonts, themedStyles } from '../theme';
+import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
@@ -43,18 +41,7 @@ interface KitchenEnvironmentControlsProps {
 /** The Kitchen's dedicated call to action, floating between the name card and
  *  the pet. Coral on white reads on both the day and night kitchen art. */
 function LogMealButton({ onPress }: { onPress: () => void }) {
-  return (
-    <RoomActionSlot>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Log meal"
-        onPress={onPress}
-        style={({ pressed }) => [styles.meal, pressed && styles.mealPressed]}
-      >
-        <Text style={styles.mealLabel}>Log meal</Text>
-      </Pressable>
-    </RoomActionSlot>
-  );
+  return <RoomActionButton label="Log meal" onPress={onPress} />;
 }
 
 function KitchenEnvironmentControls({
@@ -75,24 +62,3 @@ export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): Envi
     controls: <KitchenEnvironmentControls {...props} />,
   };
 }
-
-const styles = themedStyles(() => ({
-  meal: {
-    backgroundColor: colors.coral,
-    paddingVertical: 12,
-    paddingHorizontal: 26,
-    borderRadius: 22,
-    shadowColor: '#26312d',
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  mealPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
-  mealLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    letterSpacing: 0.8,
-    color: '#fff',
-  },
-}));

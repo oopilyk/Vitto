@@ -52,11 +52,16 @@ const PALE_LUMA = 170;
  *   `pocketReach` of the outside: a generator that left the inside of the
  *   dizzy ring of stars filled white. Off by default, because white inside a
  *   cut-out's outline is usually art (the scholar's paper).
+ *   `matteRim`: for frames that arrive already cut out, how many pixels of
+ *   white matte to walk in from the transparency (default MATTE_RIM). Set it,
+ *   and `fringePasses`, to 0 for a cleanly cut GIF of a white pet whose
+ *   outline has gaps (the bichon runner's head): there the walk and the peel
+ *   slip through the gaps and eat the fur behind them.
  *   `clearCreases`: background trapped deep in a crease (a white slit up
  *   under an arm) is made see-through rather than painted over, so it reads
  *   as the same gap the rest of the armpit is. See fillCreaseSpecks.
  */
-export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLuma = FRINGE_LUMA_DEFAULT, pocketArea, pocketReach, greyFringe = false, closeGaps = 0, clearCreases = false, cutOutPockets = false } = {}) => {
+export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLuma = FRINGE_LUMA_DEFAULT, pocketArea, pocketReach, greyFringe = false, closeGaps = 0, clearCreases = false, cutOutPockets = false, matteRim = MATTE_RIM } = {}) => {
   const { width, height, data } = png;
   // A frame that arrives already cut out (a GIF) has hard 1-bit alpha with the
   // generator's white matte left on the pixels next to it. Its transparent
@@ -108,7 +113,7 @@ export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLum
     }
     for (let k = 0; k < ring.length; k += 1) {
       const flat = ring[k];
-      if (depth[flat] >= MATTE_RIM) continue;
+      if (depth[flat] >= matteRim) continue;
       for (const n of neighbours(flat)) {
         if (depth[n] >= 0 || !isBackground(n)) continue;
         depth[n] = depth[flat] + 1;
@@ -515,4 +520,117 @@ export const fillHoles = (png, maxArea) => {
     }
   }
   return png;
+};
+
+/** Square dilation of a 0/1 mask by `radius` pixels (separable running max). */
+const dilateMask = (mask, width, height, radius) => {
+  const rows = new Uint8Array(width * height);
+  const out = new Uint8Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    let last = -Infinity;
+    for (let x = 0; x < width; x += 1) {
+      if (mask[y * width + x]) last = x;
+      rows[y * width + x] = x - last <= radius ? 1 : 0;
+    }
+    last = Infinity;
+    for (let x = width - 1; x >= 0; x -= 1) {
+      if (mask[y * width + x]) last = x;
+      if (last - x <= radius) rows[y * width + x] = 1;
+    }
+  }
+  for (let x = 0; x < width; x += 1) {
+    let last = -Infinity;
+    for (let y = 0; y < height; y += 1) {
+      if (rows[y * width + x]) last = y;
+      out[y * width + x] = y - last <= radius ? 1 : 0;
+    }
+    last = Infinity;
+    for (let y = height - 1; y >= 0; y -= 1) {
+      if (rows[y * width + x]) last = y;
+      if (last - y <= radius) out[y * width + x] = 1;
+    }
+  }
+  return out;
+};
+
+/**
+ * Fills the see-through holes behind gaps in an outline, where they border a
+ * given colour, in a frame that arrives already cut out (a GIF).
+ *
+ * The bichon runner's GIFs make the white fur above its headband transparent on
+ * some frames, and the dashed outline round the top of its head leaves gaps, so
+ * it is not an enclosed hole `fillHoles` would find: on screen the dome of its
+ * head vanishes above the band. Gaps up to 2 x `radius` wide are treated as
+ * closed, which finds what lies behind them. Only regions touching `nextTo`
+ * (the headband) are filled, because the same closing also finds real gaps (the
+ * crease under the tail, between the legs). Filled with the light pixels round
+ * the region's edge: the fur. Run it before keyBackground.
+ */
+const NEXT_TO_REACH = 10;
+
+export const fillBehindGaps = (png, { radius, nextTo }) => {
+  const { width, height, data } = png;
+  const opaque = new Uint8Array(width * height);
+  for (let flat = 0; flat < width * height; flat += 1) opaque[flat] = data[(flat << 2) + 3] ? 1 : 0;
+  const closed = dilateMask(opaque, width, height, radius);
+  const outside = new Uint8Array(width * height);
+  const stack = [];
+  for (let x = 0; x < width; x += 1) stack.push(x, (height - 1) * width + x);
+  for (let y = 0; y < height; y += 1) stack.push(y * width, y * width + width - 1);
+  while (stack.length) {
+    const flat = stack.pop();
+    if (outside[flat] || closed[flat]) continue;
+    outside[flat] = 1;
+    const x = flat % width;
+    if (x > 0) stack.push(flat - 1);
+    if (x < width - 1) stack.push(flat + 1);
+    if (flat >= width) stack.push(flat - width);
+    if (flat < width * (height - 1)) stack.push(flat + width);
+  }
+  // Grown back by the radius, so the outside reaches the art again everywhere
+  // but behind a gap.
+  const nearOutside = dilateMask(outside, width, height, radius);
+  const hole = (flat) => !opaque[flat] && !nearOutside[flat];
+  const seen = new Uint8Array(width * height);
+  for (let start = 0; start < width * height; start += 1) {
+    if (seen[start] || !hole(start)) continue;
+    const region = [start];
+    seen[start] = 1;
+    let touches = false;
+    const sum = [0, 0, 0];
+    let count = 0;
+    for (let k = 0; k < region.length; k += 1) {
+      const flat = region[k];
+      const x = flat % width;
+      const y = (flat / width) | 0;
+      // Within NEXT_TO_REACH: a band's own highlight and shadow lines can sit
+      // between it and the hole.
+      for (let dy = -NEXT_TO_REACH; dy <= NEXT_TO_REACH && !touches; dy += 1) {
+        for (let dx = -NEXT_TO_REACH; dx <= NEXT_TO_REACH; dx += 1) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const i = (ny * width + nx) << 2;
+          if (data[i + 3] && nextTo(data[i], data[i + 1], data[i + 2])) { touches = true; break; }
+        }
+      }
+      for (const next of [x > 0 ? flat - 1 : -1, x < width - 1 ? flat + 1 : -1, flat - width, flat + width]) {
+        if (next < 0 || next >= width * height) continue;
+        if (hole(next)) {
+          if (!seen[next]) { seen[next] = 1; region.push(next); }
+          continue;
+        }
+        const i = next << 2;
+        // Only true fur: the pale grey blended into the outline would dull it.
+        if (data[i + 3] && Math.min(data[i], data[i + 1], data[i + 2]) >= 235) {
+          sum[0] += data[i]; sum[1] += data[i + 1]; sum[2] += data[i + 2]; count += 1;
+        }
+      }
+    }
+    if (!touches) continue;
+    const fill = count ? sum.map((total) => Math.round(total / count)) : [250, 250, 250];
+    for (const flat of region) {
+      const i = flat << 2;
+      [data[i], data[i + 1], data[i + 2], data[i + 3]] = [...fill, 255];
+    }
+  }
 };

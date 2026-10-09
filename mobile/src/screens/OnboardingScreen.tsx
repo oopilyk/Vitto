@@ -2041,8 +2041,10 @@ const styles = themedStyles(() => {
       alignItems: 'center',
       gap: 12,
     },
-    viewfinder: { width: 200, height: 124, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-    mealPhoto: { position: 'absolute', top: 6, left: 6, right: 6, bottom: 6, borderRadius: 14 },
+    viewfinder: { width: 200, height: 124, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' },
+    // A fixed size, not just pinned edges: iOS drew the photo at its own 900px
+    // across the whole page when only the edges were given.
+    mealPhoto: { position: 'absolute', top: 6, left: 6, width: 188, height: 112, borderRadius: 14, overflow: 'hidden' },
     corner: { position: 'absolute', width: 22, height: 22, borderColor: F.green },
     corner_tl: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 10 },
     corner_tr: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 10 },

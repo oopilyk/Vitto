@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import { fillHoles, keyBackground } from './keyBackground.mjs';
+import { fillBehindGaps, fillHoles, keyBackground } from './keyBackground.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pets = path.join(root, 'assets/pet');
@@ -225,16 +225,23 @@ const FORMS = {
    * this box makes that 80px with its feet at y=110, as the base bichon's art
    * sits (every bichon form also shares its 0.78 artScale). The top of the
    * cheer's jump (y≈117) and the lie-down's sprawl (feet y≈605) both fit.
-   * White fur, so the default key.
    */
   bichonRunner: {
     source: 'bichon-runner',
     output: 'bichonRunner.png',
     box: { x: 86, y: 79, size: 598 },
-    key: {},
+    // Under its outline the GIFs carry a pale rim two art pixels (six source
+    // pixels) deep, grey then near white, which showed as a white line under
+    // its feet; three passes only took the outer half. Not `greyFringe`: its
+    // outline is a low-saturation blue-grey that that would peel too.
+    key: { fringePasses: 6 },
+    // The GIFs make the fur above the headband see-through on some frames,
+    // behind gaps in the dashed outline (see fillBehindGaps).
+    capBehindGaps: { radius: 8, nextTo: (r, g, b) => r > 190 && g > 80 && g < 170 && b < 90 },
     /*
      * GIFs at 6fps, already cut out:
-     *   idle.gif      28 frames, standing, blinking, wagging; 0 matches 27
+     *   idle.gif      28 frames: 0-15 stands and blinks, 16-23 wags its
+     *                 tail (ONE WAG IS ABOUT 3 FRAMES), 24+ settles
      *   cheer.gif     0-5 stands, 6-23 jumps, 24+ lands
      *   run.gif       ONE STRIDE IS 3 FRAMES (0 matches 3, 6 ... 27)
      *   dizzy.gif     2+ spiral eyes and stars, ONE CYCLE IS 3 FRAMES
@@ -242,7 +249,8 @@ const FORMS = {
      *   lie-down.gif  0-9 winces, 10-16 drops, 17+ lies flat
      */
     band: {
-      idle: ['idle', [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]],
+      // Just the tail wag, every frame of it.
+      idle: ['idle', [16, 17, 18, 19, 20, 21, 22, 23]],
       cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
       // Two whole strides, so it loops.
       move: ['run', [0, 1, 2, 3, 4, 5]],
@@ -393,6 +401,7 @@ try {
       const key = { ...form.key, cutOutPockets: form.cutOutPockets?.includes(band.video) ?? false };
       const frameIn = read(raw);
       if (form.fillHoles?.clips.includes(band.video)) fillHoles(frameIn, form.fillHoles.maxArea);
+      if (form.capBehindGaps) fillBehindGaps(frameIn, form.capBehindGaps);
       write(cut(keyBackground(frameIn, key), form.box), keyed);
       execFileSync('sips', ['-z', String(CELL), String(CELL), keyed, '--out', small], { stdio: 'ignore' });
 

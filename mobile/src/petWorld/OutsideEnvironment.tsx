@@ -1,6 +1,4 @@
-import { Pressable, Text } from 'react-native';
-import { RoomActionSlot } from './RoomActionSlot';
-import { colors, fonts, themedStyles } from '../theme';
+import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
@@ -30,18 +28,7 @@ interface OutsideEnvironmentControlsProps {
 
 /** Outdoors is for runs, walks and rides. Steps sync on their own. */
 function LogRunButton({ onPress }: { onPress: () => void }) {
-  return (
-    <RoomActionSlot>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Log a run"
-        onPress={onPress}
-        style={({ pressed }) => [styles.steps, pressed && styles.stepsPressed]}
-      >
-        <Text style={styles.stepsLabel}>Log a run</Text>
-      </Pressable>
-    </RoomActionSlot>
-  );
+  return <RoomActionButton label="Log a run" onPress={onPress} />;
 }
 
 function OutsideEnvironmentControls({
@@ -60,19 +47,3 @@ export function outsideEnvironment(props: OutsideEnvironmentControlsProps): Envi
     controls: <OutsideEnvironmentControls {...props} />,
   };
 }
-
-const styles = themedStyles(() => ({
-  steps: {
-    backgroundColor: colors.coral,
-    paddingVertical: 12,
-    paddingHorizontal: 26,
-    borderRadius: 22,
-    shadowColor: '#26312d',
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  stepsPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
-  stepsLabel: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 0.8, color: '#fff' },
-}));
