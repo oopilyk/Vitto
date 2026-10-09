@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FOCUS_AREAS, MAX_BIO_LENGTH, PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, convertHeightToFeetAndInches, convertWeightValue, feetAndInchesToCm, measurementSystemForLocale, measurementSystemOf, normalizeBio, planForGoal, type BodyProfile, unitsFor, weightGoalProgress, withMeasurementSystem, withSurveyDefaults } from './macroTargets';
+import { FOCUS_AREAS, MAX_BIO_LENGTH, PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, convertHeightToFeetAndInches, convertWeightValue, feetAndInchesToCm, measurementSystemForLocale, measurementSystemOf, normalizeBio, planForGoal, type BodyProfile, unitsFor, weightGoalProgress, withMeasurementSystem, withSurveyDefaults, recommendedCalories, customCalorieGoal, CALORIE_GOAL_RANGE } from './macroTargets';
 
 const baseProfile: BodyProfile = {
   age: 30,
@@ -285,5 +285,30 @@ describe('fiber target', () => {
     const targets = calculateMacroTargets(withSurveyDefaults({ age: 30, sex: 'male', heightCm: 180, weightKg: 80, activity: 'moderate', goal: 'maintain' } as never));
     expect(targets.fiberGrams).toBe(Math.round((targets.calories / 1000) * 14));
     expect(targets.fiberGrams).toBeGreaterThan(20);
+  });
+});
+
+describe('a calorie goal of your own', () => {
+  const profile = withSurveyDefaults({ age: 30, sex: 'male', heightCm: 180, heightUnit: 'cm', weightKg: 80, weightUnit: 'kg', activity: 'moderate', goal: 'maintain' });
+
+  it('replaces the recommended calories, with carbs, fat and fiber following it', () => {
+    const recommended = calculateMacroTargets(profile);
+    expect(recommendedCalories(profile)).toBe(recommended.calories);
+    const own = calculateMacroTargets({ ...profile, calorieGoal: 1800 });
+    expect(own.calories).toBe(1800);
+    expect(own.fatGrams).toBe(Math.round((1800 * 0.28) / 9));
+    expect(own.fiberGrams).toBe(Math.round(1.8 * 14));
+    expect(own.carbsGrams).toBe(Math.round((1800 - own.proteinGrams * 4 - own.fatGrams * 9) / 4));
+    // Protein is about muscle, not the budget: it stays where body weight puts it.
+    expect(own.proteinGrams).toBe(recommended.proteinGrams);
+  });
+
+  it('is ignored when unset or out of range, so the recommendation stands', () => {
+    const recommended = calculateMacroTargets(profile).calories;
+    for (const calorieGoal of [undefined, 0, 500, 9000, Number.NaN]) {
+      expect(calculateMacroTargets({ ...profile, calorieGoal }).calories).toBe(recommended);
+    }
+    expect(customCalorieGoal({ calorieGoal: CALORIE_GOAL_RANGE.min })).toBe(1000);
+    expect(customCalorieGoal({ calorieGoal: CALORIE_GOAL_RANGE.max + 1 })).toBeUndefined();
   });
 });

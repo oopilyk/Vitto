@@ -8,6 +8,8 @@ import {
   feetAndInchesToCm,
   measurementSystemOf,
   planForGoal,
+  CALORIE_GOAL_RANGE,
+  recommendedCalories,
   withMeasurementSystem,
 } from '@vitto/core';
 import {
@@ -66,8 +68,20 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
   const displayedHeight = convertHeightToFeetAndInches(profile.heightCm);
   const digits = (value: string, decimals = false) => value.replace(decimals ? /[^0-9.]/g : /[^0-9]/g, '');
   const plan = planForGoal(profile);
+  const recommended = recommendedCalories(profile);
+  /** Typed separately so a half-typed "18" is not rejected or rounded while typing. */
+  const [calorieText, setCalorieText] = useState(initial.calorieGoal ? String(initial.calorieGoal) : '');
+  const ownCalories = profile.calorieGoal !== undefined;
+  const calorieGoalProblem =
+    ownCalories && !(profile.calorieGoal! >= CALORIE_GOAL_RANGE.min && profile.calorieGoal! <= CALORIE_GOAL_RANGE.max)
+      ? `Choose between ${CALORIE_GOAL_RANGE.min.toLocaleString()} and ${CALORIE_GOAL_RANGE.max.toLocaleString()} kcal.`
+      : null;
 
   const save = async () => {
+    if (calorieGoalProblem) {
+      setError(calorieGoalProblem);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -79,7 +93,10 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
     }
   };
 
-  const saveBar = dirty ? <SaveBar saving={saving} error={error} onSave={() => void save()} onDiscard={() => setProfile(initial)} /> : null;
+  const saveBar = dirty ? <SaveBar saving={saving} error={error} onSave={() => void save()} onDiscard={() => {
+          setProfile(initial);
+          setCalorieText(initial.calorieGoal ? String(initial.calorieGoal) : '');
+        }} /> : null;
 
   return (
     <SettingsPage
@@ -229,6 +246,49 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
             )}
           </>
         ) : null}
+      </SettingsSection>
+
+      <SettingsSection
+        title="Daily calories"
+        description="Vitto works this out from your body, activity and goal. Set your own if you already follow a number."
+      >
+        <SegmentedControl
+          options={[
+            { value: 'recommended' as const, label: 'Recommended' },
+            { value: 'own' as const, label: 'My own' },
+          ]}
+          value={ownCalories ? 'own' : 'recommended'}
+          onChange={(value) => {
+            if (value === 'recommended') {
+              update('calorieGoal', undefined);
+            } else {
+              // Starts from the recommendation, ready to adjust.
+              setCalorieText(String(recommended));
+              update('calorieGoal', recommended);
+            }
+          }}
+        />
+        {ownCalories ? (
+          <FormField label="Calories a day" hint={`recommended ${recommended.toLocaleString()}`}>
+            <TextField
+              keyboardType="number-pad"
+              value={calorieText}
+              accessibilityLabel="Your daily calorie goal"
+              onChangeText={(value) => {
+                const next = digits(value).slice(0, 4);
+                setCalorieText(next);
+                update('calorieGoal', next === '' ? 0 : Number(next));
+              }}
+            />
+          </FormField>
+        ) : (
+          <View style={styles.plan}>
+            <Text style={styles.planText}>
+              <Text style={styles.planValue}>{recommended.toLocaleString()} kcal</Text> a day, from your details above.
+            </Text>
+          </View>
+        )}
+        {calorieGoalProblem ? <Text style={styles.planWarning}>{calorieGoalProblem}</Text> : null}
       </SettingsSection>
 
       <SettingsSection title="Your training" description="Training days lift calories; lifting raises protein.">

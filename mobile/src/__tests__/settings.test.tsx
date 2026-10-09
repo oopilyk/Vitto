@@ -1,6 +1,6 @@
 import renderer, { act } from 'react-test-renderer';
 import { Text, TextInput } from 'react-native';
-import { type BodyProfile, PROFILE_SURVEY_DEFAULTS, measurementSystemOf } from '@vitto/core';
+import { type BodyProfile, PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, measurementSystemOf, recommendedCalories } from '@vitto/core';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { PreferencesScreen } from '../screens/PreferencesScreen';
@@ -77,6 +77,50 @@ describe('preferences screen', () => {
     });
     expect(saved).toHaveLength(1);
     expect(saved[0]!.goal).toBe('gain');
+    tree.unmount();
+  });
+
+  it('lets you set your own daily calories over the recommended ones', async () => {
+    const saved: BodyProfile[] = [];
+    const tree = render(profile, async (next) => {
+      saved.push(next);
+    });
+    const recommended = recommendedCalories(profile);
+    expect(json(tree)).toContain(`"${recommended.toLocaleString()}"," kcal"`);
+
+    act(() => findButton(tree, 'My own')!.props.onPress());
+    const field = () => tree.root.findAllByProps({ accessibilityLabel: 'Your daily calorie goal' }).find((n: any) => n.props.onChangeText)!;
+    // Starts from the recommendation, ready to adjust.
+    expect(field().props.value).toBe(String(recommended));
+
+    // Out of range: nothing is saved, and it says why.
+    act(() => field().props.onChangeText('600'));
+    await act(async () => {
+      await findButton(tree, 'Save changes')!.props.onPress();
+    });
+    expect(saved).toHaveLength(0);
+    expect(json(tree)).toContain('Choose between 1,000 and 6,000 kcal.');
+
+    act(() => field().props.onChangeText('1850'));
+    await act(async () => {
+      await findButton(tree, 'Save changes')!.props.onPress();
+    });
+    expect(saved).toHaveLength(1);
+    expect(saved[0]!.calorieGoal).toBe(1850);
+    expect(calculateMacroTargets(saved[0]!).calories).toBe(1850);
+    tree.unmount();
+  });
+
+  it('goes back to the recommendation when you switch it off', async () => {
+    const saved: BodyProfile[] = [];
+    const tree = render({ ...profile, calorieGoal: 2100 }, async (next) => {
+      saved.push(next);
+    });
+    act(() => findButton(tree, 'Recommended')!.props.onPress());
+    await act(async () => {
+      await findButton(tree, 'Save changes')!.props.onPress();
+    });
+    expect(saved[0]!.calorieGoal).toBeUndefined();
     tree.unmount();
   });
 

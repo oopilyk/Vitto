@@ -77,6 +77,12 @@ export interface BodyProfile {
    */
   goalTargetDate?: string;
   stepGoal?: number;
+  /**
+   * The daily calories the person chose themselves, over the one worked out
+   * from their body and goal. Unset means "work it out" (the default); see
+   * `calculateMacroTargets` and `CALORIE_GOAL_RANGE`.
+   */
+  calorieGoal?: number;
   trainingTypes?: TrainingType[];
   dietaryPreference?: DietaryPreference;
   motivations?: Motivation[];
@@ -321,12 +327,30 @@ const baseCaloriesFor = (profile: BodyProfile): number => {
 export const maintenanceCalories = (profile: BodyProfile): number =>
   Math.max(1200, Math.round(baseCaloriesFor(profile) * activityFactorFor(profile)));
 
+/** The range a chosen calorie goal may take. The same bounds as the database's CHECK. */
+export const CALORIE_GOAL_RANGE = { min: 1000, max: 6000 } as const;
+
+/** A chosen calorie goal, or undefined when it is unset or out of range (and so ignored). */
+export const customCalorieGoal = (profile: Pick<BodyProfile, 'calorieGoal'>): number | undefined => {
+  const goal = profile.calorieGoal;
+  return typeof goal === 'number' && Number.isFinite(goal) && goal >= CALORIE_GOAL_RANGE.min && goal <= CALORIE_GOAL_RANGE.max
+    ? Math.round(goal)
+    : undefined;
+};
+
+/** The daily calories worked out from body, activity and goal: what Vitto recommends. */
+export const recommendedCalories = (profile: BodyProfile): number =>
+  Math.max(1200, Math.round(baseCaloriesFor(profile) * activityFactorFor(profile) + calorieAdjustmentFor(profile)));
+
+/**
+ * The day's targets. Calories are the person's own goal when they set one,
+ * otherwise the recommendation; carbs, fat and fiber follow from whichever it
+ * is. Protein stays tied to body weight either way, since it is about muscle,
+ * not the calorie budget.
+ */
 export const calculateMacroTargets = (profile: BodyProfile): MacroTargets => {
   const weightKg = finite(profile.weightKg, 70);
-  const calories = Math.max(
-    1200,
-    Math.round(baseCaloriesFor(profile) * activityFactorFor(profile) + calorieAdjustmentFor(profile)),
-  );
+  const calories = customCalorieGoal(profile) ?? recommendedCalories(profile);
   const proteinGrams = Math.round(weightKg * proteinPerKgFor(profile));
   const fatGrams = Math.round((calories * 0.28) / 9);
   const carbsGrams = Math.max(0, Math.round((calories - proteinGrams * 4 - fatGrams * 9) / 4));

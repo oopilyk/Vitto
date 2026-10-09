@@ -211,6 +211,7 @@ export class SupabaseRepository {
       bio: data.bio ?? undefined,
       goalTargetDate: data.goal_target_date ?? undefined,
       stepGoal: data.step_goal ?? undefined,
+      calorieGoal: data.calorie_goal ?? undefined,
       trainingTypes: Array.isArray(data.training_types) ? data.training_types : undefined,
       dietaryPreference: data.dietary_preference ?? undefined,
       motivations: Array.isArray(data.motivations) ? data.motivations : undefined,
@@ -241,6 +242,9 @@ export class SupabaseRepository {
       // on a database that has not run 20260910120000 yet, so the rest saves.
       goal_target_date: profile.goalTargetDate ?? null,
       step_goal: profile.stepGoal ?? null,
+      // Dropped and retried by saveDroppingMissingColumns on a database that has
+      // not run 20261009120000 yet.
+      calorie_goal: profile.calorieGoal ?? null,
       training_types: profile.trainingTypes ?? [],
       dietary_preference: profile.dietaryPreference ?? null,
       motivations: profile.motivations ?? [],
