@@ -126,7 +126,7 @@ const styles = themedStyles(() => ({
 }));
 
 /** The rooms the first-run tour points at (see FirstRunTour); the others need no wrapper. */
-const TOUR_ROOMS: Partial<Record<EnvironmentId, TourTargetId>> = { kitchen: 'kitchen', gym: 'gym', outside: 'outside' };
+const TOUR_ROOMS: Partial<Record<EnvironmentId, TourTargetId>> = { kitchen: 'kitchen', gym: 'gym', outside: 'outside', study: 'study' };
 
 function TourableScene({ id, children }: { id: EnvironmentId; children: React.ReactNode }) {
   const target = TOUR_ROOMS[id];

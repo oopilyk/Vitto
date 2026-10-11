@@ -15,7 +15,7 @@ import { fonts, themedStyles, world } from '../theme';
  * than guessing coordinates that would drift between phones.
  */
 
-export type TourTargetId = 'kitchen' | 'gym' | 'outside' | 'today' | 'chat' | 'account';
+export type TourTargetId = 'kitchen' | 'gym' | 'outside' | 'study' | 'today' | 'chat' | 'account';
 
 export interface TourStep {
   target: TourTargetId;
@@ -78,6 +78,11 @@ export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
     body: 'Log your runs and walks out here. Connect Apple Health and your steps come in on their own.',
   },
   {
+    target: 'study',
+    title: 'The study',
+    body: 'Play a quick mind game in here each day: word puzzles, trivia and more. They keep my mind sharp!',
+  },
+  {
     target: 'today',
     title: 'Today',
     body: 'Tap TODAY to see how the day is going: calories, macros, steps and your goals.',
@@ -108,10 +113,19 @@ export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; on
   const registry = useContext(TourContext);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
-  const [index, setIndex] = useState(0);
+  // -1 is the welcome card, before the first step: the tour is offered, not sprung.
+  const [index, setIndex] = useState(-1);
   const [rect, setRect] = useState<Rect | null>(null);
   const [cardHeight, setCardHeight] = useState<number | null>(null);
-  const step = steps[index];
+  const intro = index < 0;
+  const step: { target?: TourTargetId; title: string; body: string } | undefined = intro
+    ? {
+        title: 'Welcome home!',
+        body: speaker
+          ? `This is where ${speaker} lives. Want a quick look around?`
+          : 'This is your new home. Want a quick look around?',
+      }
+    : steps[index];
 
   // Where the current target is, kept current while its step shows: the
   // screen is still settling when the tour opens (the bottom bar lays out
@@ -122,7 +136,7 @@ export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; on
     let cancelled = false;
     setRect(null);
     const look = () => {
-      const node = registry?.find(step.target)?.current;
+      const node = step.target ? registry?.find(step.target)?.current : undefined;
       node?.measureInWindow((x, y, width, height) => {
         if (cancelled || !(width > 0 && height > 0)) return;
         setRect((current) =>
@@ -271,24 +285,28 @@ export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; on
             <Text style={styles.unshown}>{full.slice(shown)}</Text>
           </Text>
           <View style={styles.footer}>
-            <View style={styles.progress} accessibilityLabel={`${index + 1} of ${steps.length}`}>
-              {steps.map((_, n) => (
-                <View key={n} style={[styles.pip, n <= index && styles.pipOn]} />
-              ))}
-            </View>
+            {intro ? (
+              <View />
+            ) : (
+              <View style={styles.progress} accessibilityLabel={`${index + 1} of ${steps.length}`}>
+                {steps.map((_, n) => (
+                  <View key={n} style={[styles.pip, n <= index && styles.pipOn]} />
+                ))}
+              </View>
+            )}
             <View style={styles.actions}>
               {last ? null : (
-                <Pressable accessibilityRole="button" onPress={finish} hitSlop={10}>
-                  <Text style={styles.skip}>SKIP</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={intro ? 'Maybe later' : 'Skip'} onPress={finish} hitSlop={10}>
+                  <Text style={styles.skip}>{intro ? 'MAYBE LATER' : 'SKIP'}</Text>
                 </Pressable>
               )}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={last ? "Let's go" : 'Next'}
+                accessibilityLabel={intro ? 'Show me around' : last ? "Let's go" : 'Next'}
                 onPress={next}
                 style={({ pressed }) => [styles.next, pressed && retroPressed]}
               >
-                <Text style={styles.nextLabel}>{last ? "LET'S GO" : 'NEXT ▶'}</Text>
+                <Text style={styles.nextLabel}>{intro ? 'SHOW ME ▶' : last ? "LET'S GO" : 'NEXT ▶'}</Text>
               </Pressable>
             </View>
           </View>
