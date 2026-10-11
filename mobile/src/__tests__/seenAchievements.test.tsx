@@ -52,3 +52,27 @@ describe('seen achievements are remembered per account', () => {
     expect(await repository.loadSeenAchievements('user-a')).toEqual(['first_meal']);
   });
 });
+
+describe('seen achievements, saved more than once at a time', () => {
+  const repository = new LocalRepository();
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it('never loses an unlock to two saves landing out of order', async () => {
+    // Fired together, as the announcer does when two unlocks land close by:
+    // the older, shorter list must not win.
+    await Promise.all([
+      repository.saveSeenAchievements('user-a', ['first_meal', 'level_5']),
+      repository.saveSeenAchievements('user-a', ['first_meal']),
+    ]);
+    expect((await repository.loadSeenAchievements('user-a'))?.sort()).toEqual(['first_meal', 'level_5']);
+  });
+
+  it('still forgets on purpose when asked to replace', async () => {
+    await repository.saveSeenAchievements('user-a', ['first_meal', 'level_5']);
+    await repository.saveSeenAchievements('user-a', [], true);
+    expect(await repository.loadSeenAchievements('user-a')).toEqual([]);
+  });
+});

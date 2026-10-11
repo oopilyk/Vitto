@@ -170,16 +170,33 @@ export class LocalRepository {
     return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : null;
   }
 
-  async saveSeenAchievements(scope: string, ids: readonly string[]): Promise<void> {
-    const value = await AsyncStorage.getItem(seenAchievementsKey);
-    const parsed = value === null ? null : (JSON.parse(value) as unknown);
-    const byScope =
-      parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-        ? { ...(parsed as Record<string, string[]>) }
-        : {};
-    byScope[scope] = [...ids];
-    await AsyncStorage.setItem(seenAchievementsKey, JSON.stringify(byScope));
+  /**
+   * Adds to what this scope has been shown; never takes away. Each save used
+   * to read the whole record, replace this scope's list and write it back, so
+   * two saves in flight together could land out of order and the older,
+   * shorter list won: the next launch then found the missing unlocks "new" and
+   * announced them all again. Saves now run one at a time, and each merges into
+   * what is stored. `replace` is for deliberately forgetting (the dev replay).
+   */
+  saveSeenAchievements(scope: string, ids: readonly string[], replace = false): Promise<void> {
+    const run = async () => {
+      const value = await AsyncStorage.getItem(seenAchievementsKey);
+      const parsed = value === null ? null : (JSON.parse(value) as unknown);
+      const byScope =
+        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? { ...(parsed as Record<string, string[]>) }
+          : {};
+      const stored = Array.isArray(byScope[scope]) ? byScope[scope] : [];
+      byScope[scope] = replace ? [...ids] : [...new Set([...stored, ...ids])];
+      await AsyncStorage.setItem(seenAchievementsKey, JSON.stringify(byScope));
+    };
+    const next = this.seenAchievementsWrites.then(run, run);
+    this.seenAchievementsWrites = next.catch(() => undefined);
+    return next;
   }
+
+  /** The last seen-achievements write in flight; the next one waits for it. */
+  private seenAchievementsWrites: Promise<void> = Promise.resolve();
 
   async loadWorkoutTemplates(): Promise<WorkoutTemplate[]> {
     const value = await AsyncStorage.getItem(workoutTemplatesKey);

@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { configureCore } from '@vitto/core';
 
@@ -54,6 +55,22 @@ export const supabase = isSupabaseConfigured
       },
     })
   : null;
+
+/**
+ * Token refresh only while the app is in front, as Supabase prescribes for
+ * React Native. Left running, the refresh timer and the first request after a
+ * long time away could both refresh at once; the auth server rotates the
+ * refresh token on every use and treats the second use of an old one as theft,
+ * revoking the session, and the person found themselves signed out after not
+ * opening the app for a while. Started at once if the app opens in front.
+ */
+if (supabase) {
+  if (AppState.currentState === 'active') supabase.auth.startAutoRefresh();
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  });
+}
 
 // Hand the device's client to the shared package, which stays platform-agnostic.
 configureCore({

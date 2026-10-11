@@ -287,6 +287,9 @@ const confirmDialog = (title: string, message: string, confirmLabel: string): Pr
  * anything below renders, so every colour read and every themed sheet in this
  * pass answers in it; see `setActiveColorScheme`.
  */
+/** More newly earned achievements than this at once are recorded quietly (see the announcer). */
+const MAX_ANNOUNCED_AT_ONCE = 3;
+
 export default function App() {
   // The pet world's pixel face (fonts.pixel). Nothing waits on it: text falls
   // back to the platform font for the moment it takes to load.
@@ -1932,6 +1935,10 @@ function VittoApp() {
     const next = new Set([...seenAchievements, ...fresh]);
     setSeenAchievements(next);
     void repository.saveSeenAchievements(achievementScope, [...next]).catch(() => undefined);
+    // Real progress unlocks one or two at a time. A pile at once means the
+    // record was lost or the history arrived late, not a moment worth a
+    // parade: remember them quietly rather than announce them all again.
+    if (fresh.length > MAX_ANNOUNCED_AT_ONCE) return;
     setUnlockQueue((queue) => [...queue, ...fresh]);
     // `repository` is a stable module-level instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1954,7 +1961,7 @@ function VittoApp() {
   const replayAchievements = () => {
     seenEverStored.current = true;
     setSeenAchievements(new Set());
-    void repository.saveSeenAchievements(achievementScope, []).catch(() => undefined);
+    void repository.saveSeenAchievements(achievementScope, [], true).catch(() => undefined);
   };
 
   // When the app opens on an account, ask the companion whether it has anything
