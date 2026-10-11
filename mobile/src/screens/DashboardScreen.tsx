@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useScreenFocused } from '../hooks/useScreenFocused';
 import { FirstRunTour, TourProvider, type TourStep } from '../tour/FirstRunTour';
 import { Platform, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -203,10 +204,14 @@ export function DashboardScreen({
     }
   }, [celebrating, interaction.notice]);
 
+  // Out of sight under Today, Settings or a chat: the pet holds still.
+  const focused = useScreenFocused();
+
   return (
     <TourProvider>
     <View style={{ flex: 1 }}>
     <EnvironmentStage
+      paused={!focused}
       environment={environment}
       pet={pet}
       activityProps={toPetAvatarActivityProps(interaction.state)}

@@ -90,6 +90,8 @@ interface EnvironmentStageProps {
   onPetTap?: () => void;
   /** Dark-mode the pet's name bubble so it stays legible on night backdrops. */
   night?: boolean;
+  /** Hold the pet still: another screen covers this one (see useScreenFocused). */
+  paused?: boolean;
   /** The newest thing the pet said unprompted — spoken from over its head. */
   petSaid?: { id: string; text: string } | null;
   /** Opens the conversation; what a tap on the speech bubble does. */
@@ -113,6 +115,7 @@ export function EnvironmentStage({
   environments,
   onPetTap,
   night,
+  paused,
   petSaid,
   onOpenChat,
 }: EnvironmentStageProps) {
@@ -296,6 +299,7 @@ export function EnvironmentStage({
             stageStyle={[styles.petStage, { paddingBottom: metrics.petBottom }]}
             hideStatusCaption
             size={metrics.petSize}
+            paused={paused}
           >
             {null}
           </PetAvatar>

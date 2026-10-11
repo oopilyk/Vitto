@@ -58,3 +58,28 @@ describe('PetVideo after a trip out of the app', () => {
     tree.unmount();
   });
 });
+
+describe('PetVideo while another screen covers the pet', () => {
+  it('pauses, stays paused through a return to the app, and picks back up once uncovered', () => {
+    let onChange: ((state: string) => void) | undefined;
+    const spy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, handler) => {
+      onChange = handler as (state: string) => void;
+      return { remove: () => {} } as never;
+    });
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<PetVideo videos={videos} clip={{ hevc: 1, loop: true }} size={128} paused />);
+    });
+    const player = players[players.length - 1]! as { play: jest.Mock; pause?: jest.Mock };
+    expect((player as any).pause).toHaveBeenCalled();
+    player.play.mockClear();
+    act(() => onChange?.('active'));
+    expect(player.play).not.toHaveBeenCalled();
+
+    act(() => tree.update(<PetVideo videos={videos} clip={{ hevc: 1, loop: true }} size={128} paused={false} />));
+    // (The mock hands out a fresh player per render; the real hook keeps one.)
+    expect(players[players.length - 1]!.play).toHaveBeenCalled();
+    spy.mockRestore();
+    tree.unmount();
+  });
+});

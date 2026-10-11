@@ -31,6 +31,8 @@ interface Props {
   size: number;
   /** The sheet's `artScale`, so a clip sits exactly where the sheet's art would. */
   artScale?: number;
+  /** Held on its current frame while the pet is out of sight (see PetAvatar). */
+  paused?: boolean;
 }
 
 /**
@@ -42,7 +44,7 @@ interface Props {
  * Mount it with a `key` per clip, so switching animation starts the new clip
  * from its first frame on a fresh player.
  */
-export function PetVideo({ videos, clip, size, artScale = 1 }: Props) {
+export function PetVideo({ videos, clip, size, artScale = 1, paused = false }: Props) {
   const player = useVideoPlayer(sourceFor(clip), (created) => {
     created.loop = clip.loop;
     created.muted = true;
@@ -63,13 +65,18 @@ export function PetVideo({ videos, clip, size, artScale = 1 }: Props) {
   // Resume on return: a looping clip always, a play-once clip (a fall, a
   // slump) only if it had not reached its held last pose yet.
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') return;
+    const resume = () => {
       const finished = player.duration > 0 && player.currentTime >= player.duration - 0.05;
       if (clip.loop || !finished) player.play();
+    };
+    // Paused while another screen covers the pet; picked up where it was after.
+    if (paused) player.pause();
+    else resume();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && !paused) resume();
     });
     return () => subscription.remove();
-  }, [player, clip.loop]);
+  }, [player, clip.loop, paused]);
 
   const cell = size * artScale;
   const scale = cell / videos.cell.size;

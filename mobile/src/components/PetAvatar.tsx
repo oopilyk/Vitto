@@ -55,6 +55,11 @@ interface PetAvatarProps {
    * full-bleed scene, without resizing it anywhere else it's used.
    */
   size?: number;
+  /**
+   * Hold everything still: the clip, the frames and the bob. For when the pet
+   * is not on screen (another screen covers it), so it costs nothing there.
+   */
+  paused?: boolean;
 }
 
 const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
@@ -177,6 +182,7 @@ export function PetAvatar({
   stageStyle,
   hideStatusCaption,
   size: sizeOverride,
+  paused = false,
 }: PetAvatarProps) {
   const activity: PetActivity = isCelebrating
     ? 'celebrating'
@@ -205,7 +211,9 @@ export function PetAvatar({
   const [frameIndex, setFrameIndex] = useState(0);
   useEffect(() => {
     setFrameIndex(0);
-    if (frames.length < 2) return;
+    // A clip is what shows: stepping the hidden frames would only redraw the
+    // pet several times a second for nothing.
+    if (frames.length < 2 || clip || paused) return;
     // A collapse plays once and stays down. Looping it would stand the pet back
     // up every couple of seconds, which reads as recovery that never happened.
     const holds = HOLDS_LAST_FRAME.has(animation);
@@ -217,7 +225,7 @@ export function PetAvatar({
       sheet.frameMs?.[animation] ?? FRAME_MS[animation],
     );
     return () => clearInterval(timer);
-  }, [animation, frames.length, sheet]);
+  }, [animation, frames.length, sheet, clip, paused]);
 
   // A gentle bob on top of the frame animation, so idle never sits perfectly still.
   // A sleeping or sleepy pet breathes slower; a fainted one not at all.
@@ -226,7 +234,7 @@ export function PetAvatar({
   useEffect(() => {
     // A fainted pet does not breathe up and down. Nothing else about the stage
     // moves at that point, and that stillness is the whole read.
-    if (animation === 'faint') {
+    if (animation === 'faint' || paused) {
       bob.setValue(0);
       return;
     }
@@ -249,7 +257,7 @@ export function PetAvatar({
     );
     loop.start();
     return () => loop.stop();
-  }, [animation, bob, slowBob]);
+  }, [animation, bob, slowBob, paused]);
 
   const bobTransform: ViewStyle['transform'] = [
     {
@@ -364,7 +372,7 @@ export function PetAvatar({
         style={[styles.window, { transform: bobTransform }]}
       >
         {clip && sheet.videos ? (
-          <PetVideo key={animation} videos={sheet.videos} clip={clip} size={size} artScale={sheet.artScale} />
+          <PetVideo key={animation} videos={sheet.videos} clip={clip} size={size} artScale={sheet.artScale} paused={paused} />
         ) : (
           <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
         )}
