@@ -1,4 +1,6 @@
 import { tracksArea } from './careAreas';
+import { convertWeightValue } from './macroTargets';
+import { liftScores, STANDARD_LIFT_LABEL } from './strengthRanks';
 import type { CompanionEventInput, LifeContext } from '../companion/types';
 import { timeOfDayFor, WEEKDAYS } from '../companion/util';
 import { bondFor } from './bond';
@@ -213,6 +215,15 @@ export const buildLifeContext = (input: {
     needs: { nutrition: pet.nutrition, energy: pet.energy, happiness: pet.happiness, mind: pet.mind },
     bond: bond.stage,
     silentDays: bond.silentDays,
+    // Their strength, as the Strength map scores it, so a gym question gets a real answer.
+    lifts: liftScores(events, input.profile)
+      .filter((score) => score.oneRepMaxKg !== null && score.from)
+      .map((score) => ({
+        lift: STANDARD_LIFT_LABEL[score.lift],
+        unit: input.profile.weightUnit,
+        oneRepMax: Math.round(convertWeightValue(score.oneRepMaxKg!, 'kg', input.profile.weightUnit)),
+        from: `${score.from!.weight} ${score.from!.unit} x ${score.from!.reps}`,
+      })),
     today: {
       meals: recap.food.mealCount,
       calories: Math.round(recap.food.consumed.calories),

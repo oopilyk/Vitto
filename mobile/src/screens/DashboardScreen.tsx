@@ -11,11 +11,8 @@ import {
   type HealthEvent,
   type PetReaction,
   type PetState,
-  assessCondition,
-  bondFor,
   getPetBuild,
   hasEvolved,
-  petVoice,
 } from '@vitto/core';
 import { LevelUpCelebration } from '../celebrations/LevelUpCelebration';
 import { AchievementUnlock } from '../celebrations/AchievementUnlock';
@@ -23,6 +20,7 @@ import type { CelebrationEvent } from '../celebrations/types';
 import { EnvironmentActionRow } from '../petWorld/EnvironmentActionRow';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
 import { PetWorldHud } from '../petWorld/PetWorldHud';
+import { reactionLine } from '../petWorld/reactionLine';
 import { mainEnvironment } from '../petWorld/MainEnvironment';
 import { kitchenEnvironment } from '../petWorld/KitchenEnvironment';
 import { gymEnvironment } from '../petWorld/GymEnvironment';
@@ -42,6 +40,11 @@ interface Props {
   /** Unread things the pet has said; shown as a dot on the message button. */
   unreadMessages?: number;
   petSaid?: { id: string; text: string } | null;
+  /**
+   * The pet is being asked what it thinks of what was just logged. The stock
+   * reaction waits for it, and is said only if the pet has nothing of its own.
+   */
+  awaitingPetLine?: boolean;
   /** Opens the conversation with the pet. Absent offline, where there is no companion. */
   onOpenChat?: () => void;
   /** Opens the meal-capture modal — now the Kitchen's job to call, once the
@@ -102,6 +105,9 @@ interface Props {
   tour?: { steps: TourStep[]; onDone: () => void } | null;
 }
 
+/** How long the bubble waits for the pet's own remark before saying the stock line. */
+const PET_LINE_WAIT_MS = 6000;
+
 export function DashboardScreen({
   pet,
   events,
@@ -109,6 +115,7 @@ export function DashboardScreen({
   careToast,
   unreadMessages,
   petSaid,
+  awaitingPetLine = false,
   onOpenChat,
   onLogMeal,
   onLogWorkout,
@@ -168,22 +175,43 @@ export function DashboardScreen({
   // and most logs were met with silence.
   const [said, setSaid] = useState<{ id: string; text: string } | null>(null);
   const reactionCount = useRef(0);
+  /** The stock line, held while the pet's own remark is on its way. */
+  const held = useRef<string | null>(null);
+  const awaiting = useRef(awaitingPetLine);
+  awaiting.current = awaitingPetLine;
+  const sayReaction = (text: string) => {
+    reactionCount.current += 1;
+    setSaid({ id: `reaction-${reactionCount.current}`, text });
+  };
   useEffect(() => {
     if (!reaction) return;
-    const line = reaction.authored ? reaction.message : (reaction.effects?.[0]?.reaction ?? reaction.message);
-    // Only the conditions that change how it can speak at all (fading, foggy):
-    // this is a reaction, not a complaint, so hunger must not restyle it as one.
-    const ailments = assessCondition(pet).ailments.filter((ailment) => ailment === 'dying' || ailment === 'foggy');
-    const bond = bondFor(events, new Date(), { adoptedAt: pet.adoptedAt });
-    reactionCount.current += 1;
-    setSaid({
-      id: `reaction-${reactionCount.current}`,
-      text: petVoice(line, { personality: pet.personality, ailments, bond: bond.stage }),
-    });
+    const line = reactionLine(reaction, pet, events);
+    if (awaiting.current) held.current = line;
+    else sayReaction(line);
     // The reaction object is the trigger; the pet and events are read as of then.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reaction]);
+  // The pet answered, or had nothing to say: say the held line only in the second case.
   useEffect(() => {
+    if (awaitingPetLine || !held.current) return;
+    const line = held.current;
+    held.current = null;
+    sayReaction(line);
+  }, [awaitingPetLine]);
+  // Never left waiting: a slow answer gets the stock line after a few seconds.
+  useEffect(() => {
+    if (!awaitingPetLine) return undefined;
+    const timer = setTimeout(() => {
+      if (!held.current) return;
+      const line = held.current;
+      held.current = null;
+      sayReaction(line);
+    }, PET_LINE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [awaitingPetLine]);
+  useEffect(() => {
+    // The pet's own line arrived: it is the one said, and the held one is dropped.
+    if (petSaid) held.current = null;
     // Cleared (the conversation was opened): take the companion's line down, but
     // leave a reaction that is still up — on mount this runs with nothing to say,
     // right after the effect above may have spoken.
@@ -224,7 +252,6 @@ export function DashboardScreen({
           pet={pet}
           canLogSleep={canLogSleep}
           events={events}
-          reaction={reaction}
           careToast={careToast}
           unreadMessages={unreadMessages}
           onOpenChat={onOpenChat}

@@ -7,7 +7,6 @@ import {
   activeFoodEffects,
   type CareToast,
   type HealthEvent,
-  type PetReaction,
   type PetState,
   calculateStreakStatus,
   daysWithPet,
@@ -45,7 +44,6 @@ const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
 interface PetWorldHudProps {
   pet: PetState;
   events: HealthEvent[];
-  reaction: PetReaction | null;
   /**
    * Confirmation of the care moment just logged. Separate from `reaction`
    * because an ailment outranks that line, which left the user with no
@@ -127,7 +125,6 @@ const moodLine = (mood: PetState['mood'], canLogSleep?: boolean): string => {
 export function PetWorldHud({
   pet,
   events,
-  reaction,
   careToast,
   environment,
   formLabel,
@@ -153,20 +150,13 @@ export function PetWorldHud({
   const streakAtRisk = streaks.currentStreak > 0 && !streaks.todayQualifies;
   const condition = assessCondition(pet);
 
-  // An ailment outranks the reaction: a message about the meal just logged must
-  // not sit on top of "Miso is fading". Otherwise it's the plain feeling line.
-  // A food effect's own line ("That was hot!") beats the meal's stock reaction
-  // while the reaction is up: it is the fun part, and the toast already carries
-  // the rest. An ailment still outranks both.
-  // A line the model wrote for this exact plate beats a food effect's generic
-  // one-liner; the generic one still beats the engine's stock line.
+  // How it feels: an ailment if something is wrong, the mood line otherwise.
+  // What it says about the thing just logged is said once, in its own voice,
+  // in the speech bubble over it (see DashboardScreen); repeating the stock
+  // line here made every log answer twice.
   const baseFeeling = condition.primary
     ? AILMENT_MESSAGE[condition.primary](pet.name, { canLogSleep })
-    : reaction?.authored
-      ? reaction.message
-      : reaction?.effects?.[0]
-        ? reaction.effects[0].reaction
-        : (reaction?.message ?? moodLine(pet.mood, canLogSleep));
+    : moodLine(pet.mood, canLogSleep);
   // Then said the way THIS pet would say it: its personality, filtered through
   // whatever is wrong with it right now. See `petVoice`.
   // How it feels about you, from your own care history. Derived on every

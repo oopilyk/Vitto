@@ -162,6 +162,11 @@ export interface LifeContext {
   /** How it has been going lately — see `bondFor`. Closeness is separate. */
   bond: 'devoted' | 'warm' | 'neutral' | 'wary' | 'sulking';
   silentDays: number;
+  /**
+   * Their best estimated one-rep max on each main lift they have logged, in
+   * their own unit, so "how many reps of 205 should I get?" has an answer.
+   */
+  lifts?: { lift: string; unit: 'kg' | 'lb'; oneRepMax: number; from: string }[];
   today: {
     meals: number;
     calories: number;

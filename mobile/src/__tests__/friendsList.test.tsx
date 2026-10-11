@@ -18,7 +18,6 @@ const renderHud = (props: Partial<React.ComponentProps<typeof PetWorldHud>>) => 
       <PetWorldHud
         pet={pet}
         events={[]}
-        reaction={null}
         environment="main"
         formLabel="Level 1"
         onOpenProfile={() => {}}

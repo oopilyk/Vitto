@@ -511,6 +511,22 @@ describe('answering questions about the app', () => {
     expect(prompt).toContain('Scholar 18% of the way');
   });
 
+  it('knows the day\'s calorie and protein targets before the first meal is logged', () => {
+    const base = sanitizeLifeContext({});
+    const known = sanitizeLifeContext({ today: { ...base.today, meals: 0, calories: 0, calorieTarget: 2375, proteinTarget: 147 } });
+    const ctx = buildPetContext({ state: newCompanionState('k', NOW), life: known, events: [], memories: [], messages: [], now: NOW });
+    expect(renderDynamicSystemPrompt(ctx)).toContain('no meals logged yet (aiming for about 2375 kcal and 147 g protein today)');
+  });
+
+  it('knows their best lifts, and may answer a simple gym question from them', () => {
+    const known = sanitizeLifeContext({ lifts: [{ lift: 'Bench', unit: 'lb', oneRepMax: 231.4, from: '205 lb x 4' }, { lift: 'Junk', oneRepMax: -5 }] });
+    expect(known.lifts).toEqual([{ lift: 'Bench', unit: 'lb', oneRepMax: 231, from: '205 lb x 4' }]);
+    const ctx = buildPetContext({ state: newCompanionState('k', NOW), life: known, events: [], memories: [], messages: [], now: NOW });
+    expect(renderDynamicSystemPrompt(ctx)).toContain('Bench: about 231 lb (from 205 lb x 4)');
+    expect(STABLE_SYSTEM_PROMPT).toContain('simple training questions are fair game');
+    expect(STABLE_SYSTEM_PROMPT).not.toContain('a coach');
+  });
+
   it('answers a direct question with the real number, but never volunteers one', () => {
     expect(STABLE_SYSTEM_PROMPT).toContain('when they ASK');
     expect(STABLE_SYSTEM_PROMPT).toContain('Never volunteer them');

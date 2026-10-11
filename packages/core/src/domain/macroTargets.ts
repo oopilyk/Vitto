@@ -83,6 +83,12 @@ export interface BodyProfile {
    * `calculateMacroTargets` and `CALORIE_GOAL_RANGE`.
    */
   calorieGoal?: number;
+  /**
+   * Building muscle alongside the weight goal: losing fat while building it,
+   * or building it at the same weight (a "recomp"). Raises protein, and keeps
+   * a fat-loss deficit gentle enough to build on. Unset means no.
+   */
+  buildMuscle?: boolean;
   trainingTypes?: TrainingType[];
   dietaryPreference?: DietaryPreference;
   motivations?: Motivation[];
@@ -289,13 +295,19 @@ export const planForGoal = (profile: BodyProfile): GoalPlan | null => {
   };
 };
 
+/** The most a fat-loss day may fall short while also building muscle: past it, muscle stops growing. */
+export const RECOMP_MAX_DEFICIT = 400;
+
 export const calorieAdjustmentFor = (profile: BodyProfile): number => {
-  const plan = planForGoal(profile);
-  if (plan) return plan.dailyAdjustment;
-  const pace = PACE_DEFICIT[profile.goalPace] ? profile.goalPace : 'steady';
-  if (profile.goal === 'lose') return -PACE_DEFICIT[pace];
-  if (profile.goal === 'gain') return PACE_SURPLUS[pace];
-  return 0;
+  const adjustment = (() => {
+    const plan = planForGoal(profile);
+    if (plan) return plan.dailyAdjustment;
+    const pace = PACE_DEFICIT[profile.goalPace] ? profile.goalPace : 'steady';
+    if (profile.goal === 'lose') return -PACE_DEFICIT[pace];
+    if (profile.goal === 'gain') return PACE_SURPLUS[pace];
+    return 0;
+  })();
+  return profile.goal === 'lose' && profile.buildMuscle ? Math.max(adjustment, -RECOMP_MAX_DEFICIT) : adjustment;
 };
 
 /**
@@ -305,6 +317,9 @@ export const calorieAdjustmentFor = (profile: BodyProfile): number => {
 export const proteinPerKgFor = (profile: BodyProfile): number => {
   const days = finite(profile.trainingDaysPerWeek, 3);
   const lifts = profile.trainingStyle !== 'cardio' && days >= 3;
+  // Building muscle wants the top of the range, on a deficit most of all.
+  if (profile.buildMuscle && profile.goal === 'lose') return 2.2;
+  if (profile.buildMuscle && profile.goal === 'maintain') return 2;
   if (profile.goal === 'lose') return lifts ? 2 : 1.8;
   if (profile.goal === 'gain') return 1.8;
   return lifts ? 1.8 : 1.5;

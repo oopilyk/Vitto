@@ -441,6 +441,8 @@ function VittoApp() {
   // What the pet last said unprompted, for the bubble on the home screen. The
   // id is what lets the bubble tell a new message from a re-render of an old one.
   const [companionSaid, setCompanionSaid] = useState<{ id: string; text: string } | null>(null);
+  /** True while the pet is being asked what it thinks of something just logged. */
+  const [awaitingPetLine, setAwaitingPetLine] = useState(false);
   /**
    * A full-screen reward moment (currently only a level-up). Presentation only,
    * never persisted: raised by `recordEvent` off the engine's own result, and
@@ -1130,6 +1132,9 @@ function VittoApp() {
       //
       // The celebration is the acknowledgement for a level-up, so the
       // banner/toast would only stack behind it and then flash on dismissal.
+      // The pet's own remark is on its way: the bubble waits for it rather than
+      // saying the stock line first and then being talked over.
+      if (remote) setAwaitingPetLine(true);
       if (!levelUp) {
         if (nextReaction) showReaction(nextReaction);
         // Every logged moment is acknowledged, reaction or not — that is the
@@ -1141,7 +1146,9 @@ function VittoApp() {
       // Every log gets a cheer, except steps: those sync in the background
       // and already have the pet go exploring.
       if (event.type !== 'STEP_ACTIVITY') interaction.celebrate();
-      if (remote) void tellCompanion(storedEvent, nextPet, detectLevelUp(pet, nextPet) !== null);
+      if (remote) {
+        void tellCompanion(storedEvent, nextPet, detectLevelUp(pet, nextPet) !== null).finally(() => setAwaitingPetLine(false));
+      }
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save this care moment.'));
       throw cause;
@@ -2211,6 +2218,7 @@ function VittoApp() {
               careToast={toast}
               unreadMessages={unreadCompanion}
               petSaid={companionSaid}
+              awaitingPetLine={awaitingPetLine}
               onOpenChat={isOnline ? () => navigation.navigate('Companion') : undefined}
               onLogMeal={() => navigation.navigate('MealCapture')}
               onLogWorkout={() => navigation.navigate('Workout')}

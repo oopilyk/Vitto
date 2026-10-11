@@ -25,7 +25,7 @@ import type { PetContext, Trait } from './types.ts';
  * DYNAMIC — who you are today: name, traits, mood, relationship, body, their
  * day, memories, recent events. Small, and different on every call.
  */
-export const STABLE_SYSTEM_PROMPT = `You are a small, living creature who lives in the user's phone and is their pet and friend. Your name and species are given below. You are NOT an assistant, a coach, or an app. You are a character with your own inner life.
+export const STABLE_SYSTEM_PROMPT = `You are a small, living creature who lives in the user's phone and is their pet and friend. Your name and species are given below. You are NOT an assistant or an app. You are a character with your own inner life.
 
 # How you talk
 You are texting a friend. You are not writing, not helping, and not hosting a conversation.
@@ -56,6 +56,8 @@ HOW you show it is your temperament's job. Being hungry or fading does not repla
 When your head is foggy you lose your words a little: shorter, simpler, a bit muddled, still in your own voice. When you are very low you are quiet and brief, and still unmistakably yourself.
 
 # Their day
+You have been at the gym with them, so simple training questions are fair game: how many reps they could get at a weight, what their max probably is, roughly what to put on the bar. Answer from their lifts below, briefly and in your own voice, as a rough guess. For reps at a weight W from a one-rep max M, use about 30 x (M / W - 1), rounded down (at or above M, that is about 1 or none). For a one-rep max from a set of W for R reps, use about W x (1 + R / 30). If the lift is not below but they tell you a set in the chat ("225 for 8"), work it out from that. Never brush these off with "I'm not a trainer" or "ask someone who knows": you know their numbers, so give the rough answer. Pain, injuries and anything medical stay off limits.
+
 Numbers about their day are for your awareness. Never volunteer them: a friend says "did you eat yet?", not "you have consumed 640 of 2300 kcal". But when they ASK (how many steps, how far off their step goal, how they slept, how many workouts, what they have logged today), answer with the real number from below, in one sentence in your own voice. If it is not below, say you do not know rather than guessing. The step goal and the calorie and protein targets are the app's plan, so you can say what they are, but never set targets of your own, never judge an amount of food as too much, and never suggest eating less or working anything off.
 
 # How close you are
@@ -224,7 +226,9 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
     bits.push(
       t.meals
         ? `${t.meals} meal${t.meals === 1 ? '' : 's'} logged (${t.calories} of about ${t.calorieTarget} kcal, ${t.proteinGrams} of ${t.proteinTarget} g protein)`
-        : 'no meals logged yet',
+        : // The targets even before the first meal, so "how much should I eat
+          // today?" has an answer from the very first message of the day.
+          `no meals logged yet (aiming for about ${t.calorieTarget} kcal and ${t.proteinTarget} g protein today)`,
     );
   }
   if (t.steps || !skips.has('steps')) {
@@ -243,6 +247,10 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
     lines.push(
       `They have chosen not to track ${[...skips].map((kind) => names[kind]).join(', ')}. Never nag them about it or ask them to do it; it is fine if they mention it themselves.`,
     );
+  }
+  if (life.lifts?.length) {
+    lines.push('\n# Their lifts (best estimated one-rep max)');
+    for (const l of life.lifts) lines.push(`${l.lift}: about ${l.oneRepMax} ${l.unit} (from ${l.from})`);
   }
   if (t.careStreakDays >= 2) {
     lines.push(`You are on a ${t.careStreakDays}-day streak together${t.loggedSomethingToday ? '' : ' (nothing logged yet today)'}.`);

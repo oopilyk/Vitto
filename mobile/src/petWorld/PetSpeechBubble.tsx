@@ -20,7 +20,8 @@ const MAX_LINES = 6;
  *
  * A glance, not a notification to clear: it shows for half a minute per
  * message (keyed on the message id, so a re-render never replays it) and then
- * goes; the unread dot on CHAT keeps the record. A tap opens the conversation.
+ * goes; the unread dot on CHAT keeps the record. A tap opens the conversation;
+ * the × in its corner just puts it away.
  */
 export function PetSpeechBubble({
   said,
@@ -61,18 +62,31 @@ export function PetSpeechBubble({
         },
       ]}
     >
-      <Pressable
-        testID="companion-bubble"
-        accessibilityRole="button"
-        accessibilityLabel={`${petName} says: ${said.text}`}
-        onPress={onPress}
-        disabled={!onPress}
-        style={[retro.panel, night && retro.panelNight, styles.bubble]}
-      >
-        <Text numberOfLines={MAX_LINES} style={[styles.text, night && retro.labelNight]}>
-          {said.text}
-        </Text>
-      </Pressable>
+      {/* Hugs the bubble, so the × sits on its corner however short the line. */}
+      <View style={styles.bubbleBox}>
+        <Pressable
+          testID="companion-bubble"
+          accessibilityRole="button"
+          accessibilityLabel={`${petName} says: ${said.text}`}
+          onPress={onPress}
+          disabled={!onPress}
+          style={[retro.panel, night && retro.panelNight, styles.bubble]}
+        >
+          <Text numberOfLines={MAX_LINES} style={[styles.text, night && retro.labelNight]}>
+            {said.text}
+          </Text>
+        </Pressable>
+        <Pressable
+          testID="companion-bubble-close"
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          onPress={() => setShownFor(null)}
+          hitSlop={12}
+          style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.close, pressed && styles.closePressed]}
+        >
+          <Text style={[styles.closeMark, night && retro.labelNight]}>×</Text>
+        </Pressable>
+      </View>
       {/* The tail: a square turned on its corner, tucked under the panel's edge. */}
       <View pointerEvents="none" style={[retro.panel, night && retro.panelNight, styles.tail]} />
       <View pointerEvents="none" style={[styles.tailMask, night && styles.tailMaskNight]} />
@@ -91,6 +105,7 @@ const styles = themedStyles(() => ({
   // Wide, but never wider than a narrow phone leaves beside the side rails.
   wrap: { alignItems: 'center', width: '78%', maxWidth: 290 },
   // Hugs a short line rather than stretching to the wrap's full width.
+  bubbleBox: { alignSelf: 'center', maxWidth: '100%', zIndex: 1 },
   bubble: { alignSelf: 'center', maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, zIndex: 1 },
   text: { fontFamily: fonts.systemMono, fontSize: 12, lineHeight: 16, color: world.ink, textAlign: 'center' },
   tail: {
@@ -111,4 +126,20 @@ const styles = themedStyles(() => ({
     zIndex: 2,
   },
   tailMaskNight: { backgroundColor: world.nightSurface },
+  // Sits on the bubble's top-right corner, over its border.
+  close: {
+    position: 'absolute',
+    top: -9,
+    right: -9,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+    shadowOffset: { width: 1, height: 1 },
+  },
+  closePressed: { opacity: 0.7 },
+  closeMark: { fontFamily: fonts.systemMono, fontSize: 14, lineHeight: 16, fontWeight: '700', color: world.ink, marginTop: -1 },
 }));

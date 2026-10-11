@@ -2178,63 +2178,69 @@ describe('pet sprite', () => {
     }
   });
 
-  it('shows the line the model wrote for a plate over a food effect\'s generic one', () => {
+  it('says what was just logged once, in the bubble, never again on the plaque', () => {
     const { PetWorldHud } = require('../petWorld/PetWorldHud');
-    const { detectFoodEffects } = require('@vitto/core');
     const { Text } = require('react-native');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <PetWorldHud pet={{ ...pet, personality: 'energetic' }} events={[]} environment="main" formLabel="Level 1"
+          onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} />,
+      );
+    });
+    const shown = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
+    // The plaque is how it feels, not a second answer to the log.
+    expect(shown.some((t) => /explored somewhere new/.test(t))).toBe(false);
+    tree.unmount();
+  });
+
+  it('shows the line the model wrote for a plate over a food effect\'s generic one', () => {
+    const { reactionLine } = require('../petWorld/reactionLine');
+    const { detectFoodEffects } = require('@vitto/core');
     const spicyMeal = { protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false,
       analysis: { foodDescription: 'Spicy ramen', grade: 'B', summary: '', confidence: 1, detectedFoods: [], macros: { calories: 500, proteinGrams: 20, carbsGrams: 60, fatGrams: 15 },
         nutrients: { protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false } } };
     const effects = detectFoodEffects(spicyMeal);
     expect(effects[0].reaction).toBe('That was hot!');
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <PetWorldHud pet={pet} events={[]} environment="kitchen" formLabel="Level 1"
-          reaction={{ message: 'Ooh, spicy — my ears are tingling!', eventLabel: 'Shared a meal', delta: {}, effects, authored: true }}
-          onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} />,
-      );
-    });
-    const shown = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
-    expect(shown).toContain('Ooh, spicy — my ears are tingling!');
-    expect(shown).not.toContain('That was hot!');
-    tree.unmount();
+    const authored = reactionLine({ message: 'Ooh, spicy — my ears are tingling!', eventLabel: 'Shared a meal', delta: {}, effects, authored: true }, pet, []);
+    expect(authored).toContain('Ooh, spicy — my ears are tingling!');
+    // A stock line gives way to the effect's own.
+    expect(reactionLine({ message: 'Yum.', eventLabel: 'Shared a meal', delta: {}, effects }, pet, [])).toContain('That was hot!');
   });
 
   it('says every line the way this pet would — personality on a well pet, a mumble on a foggy one', () => {
+    const { reactionLine } = require('../petWorld/reactionLine');
+    const line = { message: 'I explored somewhere new today.', eventLabel: 'Went for a walk', delta: {} };
+    expect(reactionLine(line, { ...pet, personality: 'energetic' }, [])).toMatch(/^(Ooh|Yes|Let's go)! I explored somewhere new today!$/);
+    expect(reactionLine(line, { ...pet, personality: 'supportive' }, [])).toMatch(/^I explored somewhere new today\. (Proud of you\.|We've got this\.|Nice work\.)$/);
+    // Foggy: mumbled, and no personality flourish on top.
+    const foggy = reactionLine(line, { ...pet, personality: 'competitive', mind: 4 }, []);
+    expect(foggy).not.toMatch(/Beat that|New record|Top that/);
+    // The plaque still mumbles the ailment line itself.
     const { PetWorldHud } = require('../petWorld/PetWorldHud');
     const { Text } = require('react-native');
-    const render = (who: any, reaction: any) => {
-      let tree!: renderer.ReactTestRenderer;
-      act(() => {
-        tree = renderer.create(
-          <PetWorldHud pet={who} events={[]} environment="main" formLabel="Level 1" reaction={reaction}
-            onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} />,
-        );
-      });
-      const lines = tree.root.findAllByType(Text).map((t: any) => String(t.props.children));
-      tree.unmount();
-      return lines;
-    };
-    const line = { message: 'I explored somewhere new today.', eventLabel: 'Went for a walk', delta: {} };
-    expect(render({ ...pet, personality: 'energetic' }, line).some((t) => /^(Ooh|Yes|Let's go)! I explored somewhere new today!$/.test(t))).toBe(true);
-    expect(render({ ...pet, personality: 'supportive' }, line).some((t) => /^I explored somewhere new today\. (Proud of you\.|We've got this\.|Nice work\.)$/.test(t))).toBe(true);
-    // Foggy: the ailment line itself, mumbled — and no personality flourish on top.
-    const foggy = render({ ...pet, personality: 'competitive', mind: 4 }, null);
-    expect(foggy).toContain("my uh… head's all foggy. mind gym?");
-    expect(foggy.some((t) => /Beat that|New record|Top that/.test(t))).toBe(false);
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <PetWorldHud pet={{ ...pet, personality: 'competitive', mind: 4 }} events={[]} environment="main" formLabel="Level 1"
+          onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} />,
+      );
+    });
+    expect(tree.root.findAllByType(Text).map((t: any) => String(t.props.children))).toContain("my uh… head's all foggy. mind gym?");
+    tree.unmount();
   });
 
   it('sulks at an owner who has been away, and shows the bond on the meta row', () => {
     const { PetWorldHud } = require('../petWorld/PetWorldHud');
+    const { reactionLine } = require('../petWorld/reactionLine');
     const { Text } = require('react-native');
-    const render = (events: any[], adoptedDaysAgo: number) => {
+    const line = { message: 'I explored somewhere new today.', eventLabel: 'Went for a walk', delta: {} };
+    const who = (adoptedDaysAgo: number) => ({ ...pet, personality: 'energetic', adoptedAt: new Date(Date.now() - adoptedDaysAgo * 86_400_000).toISOString() });
+    const row = (events: any[], adoptedDaysAgo: number) => {
       let tree!: renderer.ReactTestRenderer;
-      const who = { ...pet, personality: 'energetic', adoptedAt: new Date(Date.now() - adoptedDaysAgo * 86_400_000).toISOString() };
       act(() => {
         tree = renderer.create(
-          <PetWorldHud pet={who} events={events} environment="main" formLabel="Level 1"
-            reaction={{ message: 'I explored somewhere new today.', eventLabel: 'Went for a walk', delta: {} }}
+          <PetWorldHud pet={who(adoptedDaysAgo)} events={events} environment="main" formLabel="Level 1"
             onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} />,
         );
       });
@@ -2250,18 +2256,16 @@ describe('pet sprite', () => {
 
     // Adopted two months ago, nothing logged in a fortnight: the cool opener
     // replaces the energetic one, and SULKING shows on the row.
-    const neglected = render([], 60);
-    expect(neglected.some((t) => /^(Oh\. You're back\.|Hm\.|Fine\.) I explored somewhere new today\.$/.test(t))).toBe(true);
-    expect(neglected).toContain('SULKING');
-    expect(neglected.some((t) => /^(Ooh|Yes|Let's go)!/.test(t))).toBe(false);
+    expect(reactionLine(line, who(60), [])).toMatch(/^(Oh\. You're back\.|Hm\.|Fine\.) I explored somewhere new today\.$/);
+    expect(row([], 60)).toContain('SULKING');
 
     // Cared for every day: personality comes through, and the affection with it.
-    const loved = render(Array.from({ length: 14 }, (_, i) => meal(i)), 60);
-    expect(loved.some((t) => /^(Ooh|Yes|Let's go)! I explored somewhere new today! (Love you\.|Missed you\.|Stay a while\?)$/.test(t))).toBe(true);
-    expect(loved).toContain('DEVOTED');
+    const loved = Array.from({ length: 14 }, (_, i) => meal(i));
+    expect(reactionLine(line, who(60), loved)).toMatch(/^(Ooh|Yes|Let's go)! I explored somewhere new today! (Love you\.|Missed you\.|Stay a while\?)$/);
+    expect(row(loved, 60)).toContain('DEVOTED');
 
     // Day one: neutral, and neutral says nothing on the row.
-    expect(render([meal(0)], 0)).not.toContain('NEUTRAL');
+    expect(row([meal(0)], 0)).not.toContain('NEUTRAL');
   });
 
   it('draws the breed the pet was given', () => {

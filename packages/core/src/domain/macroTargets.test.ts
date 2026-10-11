@@ -312,3 +312,21 @@ describe('a calorie goal of your own', () => {
     expect(customCalorieGoal({ calorieGoal: CALORIE_GOAL_RANGE.max + 1 })).toBeUndefined();
   });
 });
+
+describe('building muscle alongside the weight goal', () => {
+  const base = withSurveyDefaults({ age: 30, sex: 'male', heightCm: 180, heightUnit: 'cm', weightKg: 80, weightUnit: 'kg', activity: 'moderate', goal: 'lose', goalPace: 'focused' });
+
+  it('keeps a fat-loss deficit gentle enough to build on, and raises protein', () => {
+    const cut = calculateMacroTargets(base);
+    const recompCut = calculateMacroTargets({ ...base, buildMuscle: true });
+    expect(recompCut.calories).toBeGreaterThan(cut.calories);
+    expect(recompCut.calories).toBe(recommendedCalories({ ...base, goal: 'maintain' }) - 400);
+    expect(recompCut.proteinGrams).toBe(Math.round(80 * 2.2));
+  });
+
+  it('builds at the same weight on maintenance calories and high protein', () => {
+    const maintain = { ...base, goal: 'maintain' as const };
+    expect(calculateMacroTargets({ ...maintain, buildMuscle: true }).calories).toBe(calculateMacroTargets(maintain).calories);
+    expect(calculateMacroTargets({ ...maintain, buildMuscle: true }).proteinGrams).toBe(160);
+  });
+});

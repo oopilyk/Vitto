@@ -42,7 +42,6 @@ describe('the message button', () => {
     act(() => {
       tree = renderer.create(
         <PetWorldHud pet={pet} events={[]} environment="main" formLabel="Level 1"
-          reaction={{ message: 'I explored somewhere new today.', eventLabel: 'Went for a walk', delta: {} }}
           onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} {...props} />,
       );
     });
@@ -56,7 +55,7 @@ describe('the message button', () => {
     expect(opened).toBe(1);
     // What the pet says at length belongs in the conversation, never here: a
     // few sentences on the plaque pushed the pet and the day's stats off screen.
-    expect(texts(tree).some((t) => /^(Ooh|Yes|Let's go)! I explored somewhere new today!$/.test(t))).toBe(true);
+    expect(texts(tree).some((t) => /I'm feeling/.test(t))).toBe(true);
     expect(texts(tree)).not.toContain('TAP TO TALK');
     tree.unmount();
   });
@@ -284,6 +283,18 @@ describe('the debug screen', () => {
 });
 
 describe('the pet speaking from over its head', () => {
+  it('puts the bubble away from its ×, without opening the chat', () => {
+    let opened = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => { tree = renderer.create(<PetSpeechBubble said={{ id: 'm9', text: 'nice benches' }} petName="Blue" onPress={() => { opened += 1; }} />); });
+    const find = (id: string) => tree.root.findAll((node) => node.props.testID === id && typeof node.props.onPress === 'function');
+    expect(find('companion-bubble')).toHaveLength(1);
+    act(() => find('companion-bubble-close')[0]!.props.onPress());
+    expect(find('companion-bubble')).toHaveLength(0);
+    expect(opened).toBe(0);
+    tree.unmount();
+  });
+
   it('shows what it said, opens the chat on a tap, then lets it go', () => {
     jest.useFakeTimers();
     let opened = 0;

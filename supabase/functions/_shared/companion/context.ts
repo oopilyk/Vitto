@@ -100,6 +100,20 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
     },
     bond: (BONDS as readonly string[]).includes(source.bond as string) ? (source.bond as LifeContext['bond']) : 'neutral',
     silentDays: Math.round(num(source.silentDays, 0, 3650, 0)),
+    ...(Array.isArray(source.lifts)
+      ? {
+          lifts: (source.lifts as unknown[])
+            .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
+            .slice(0, 6)
+            .map((entry) => ({
+              lift: text(entry.lift, 24, 'Lift'),
+              unit: entry.unit === 'kg' ? ('kg' as const) : ('lb' as const),
+              oneRepMax: Math.round(num(entry.oneRepMax, 0, 1500, 0)),
+              from: text(entry.from, 32),
+            }))
+            .filter((entry) => entry.oneRepMax > 0),
+        }
+      : {}),
     today: {
       meals: Math.round(num(today.meals, 0, 50, 0)),
       calories: Math.round(num(today.calories, 0, 20_000, 0)),
