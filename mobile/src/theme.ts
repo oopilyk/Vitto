@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export type ColorScheme = 'light' | 'dark';
 /** What the user picked in Settings > Appearance. `system` follows the phone. */
@@ -221,6 +221,12 @@ export const fonts = {
   pixel: 'Jersey10_400Regular',
   // Jersey 10 has one weight: bold text uses the same face.
   pixelBold: 'Jersey10_400Regular',
+  /**
+   * The pet world's own HUD keeps the platform's faces it was designed in: the
+   * clean monospace sits better over the pixel-art rooms than the pixel font.
+   */
+  systemMono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) as string,
+  system: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }) as string,
 };
 
 export const text = themedStyles(() => ({

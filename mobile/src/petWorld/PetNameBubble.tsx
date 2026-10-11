@@ -69,8 +69,8 @@ const styles = themedStyles(() => ({
     borderColor: '#7d6d5e',
   },
   name: {
-    fontFamily: fonts.mono,
-    fontSize: 17,
+    fontFamily: fonts.systemMono,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1,
     color: '#43372c',

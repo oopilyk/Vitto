@@ -52,8 +52,8 @@ export const retro = themedStyles(() => ({
 
   // Type scale — mono throughout, 10px floor so nothing is a squint.
   kicker: {
-    fontFamily: fonts.mono,
-    fontSize: 13,
+    fontFamily: fonts.systemMono,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.4,
     color: world.inkSoft,
@@ -61,8 +61,8 @@ export const retro = themedStyles(() => ({
   },
   kickerNight: { color: world.nightTextSoft },
   label: {
-    fontFamily: fonts.mono,
-    fontSize: 16,
+    fontFamily: fonts.systemMono,
+    fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.2,
     color: world.ink,
@@ -70,16 +70,16 @@ export const retro = themedStyles(() => ({
   },
   labelNight: { color: world.nightText },
   caption: {
-    fontFamily: fonts.mono,
-    fontSize: 13,
+    fontFamily: fonts.systemMono,
+    fontSize: 10,
     letterSpacing: 0.6,
     color: world.inkSoft,
   },
   captionNight: { color: world.nightTextSoft },
   /** Retained name for callers not yet migrated to `caption`. */
   subtle: {
-    fontFamily: fonts.mono,
-    fontSize: 14,
+    fontFamily: fonts.systemMono,
+    fontSize: 11,
     letterSpacing: 0.5,
     color: world.inkSoft,
   },

@@ -448,10 +448,10 @@ const styles = themedStyles(() => ({
     paddingBottom: 8,
     alignItems: 'center',
   },
-  roomKicker: { fontSize: 13, marginBottom: 1 },
+  roomKicker: { fontSize: 10, marginBottom: 1 },
   name: {
-    fontFamily: fonts.mono,
-    fontSize: 23,
+    fontFamily: fonts.systemMono,
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: 1,
     color: world.ink,
@@ -467,10 +467,10 @@ const styles = themedStyles(() => ({
     paddingBottom: 9,
   },
   feeling: {
-    fontFamily: fonts.mono,
-    fontSize: 17,
+    fontFamily: fonts.systemMono,
+    fontSize: 13,
     fontWeight: '700',
-    lineHeight: 23,
+    lineHeight: 18,
     letterSpacing: 0.2,
     color: world.ink,
     textAlign: 'center',
@@ -496,8 +496,8 @@ const styles = themedStyles(() => ({
     marginTop: 6,
   },
   meta: {
-    fontFamily: fonts.mono,
-    fontSize: 13,
+    fontFamily: fonts.systemMono,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.8,
     color: world.inkSoft,
@@ -505,8 +505,8 @@ const styles = themedStyles(() => ({
     textTransform: 'uppercase',
   },
   metaPartner: {
-    fontFamily: fonts.mono,
-    fontSize: 13,
+    fontFamily: fonts.systemMono,
+    fontSize: 10,
     letterSpacing: 0.4,
     color: '#7d6d5e',
     textAlign: 'center',
@@ -534,9 +534,9 @@ const styles = themedStyles(() => ({
   // Food effect tags — warm gold, so they read as a state the pet is in. Each is
   // its own chip so a narrow screen wraps between them, not inside a separator.
   metaTag: {
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    lineHeight: 16,
+    fontFamily: fonts.systemMono,
+    fontSize: 9,
+    lineHeight: 12,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -556,7 +556,7 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  discInitial: { fontFamily: fonts.mono, fontSize: 25, fontWeight: '700', color: world.ink },
+  discInitial: { fontFamily: fonts.systemMono, fontSize: 19, fontWeight: '700', color: world.ink },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   // Hangs off the bottom of the account disc, wider than the side column so
   // the labels do not wrap; it overlaps the identity plate, which is fine —
@@ -579,7 +579,7 @@ const styles = themedStyles(() => ({
   menuItemDivider: { borderTopWidth: 1, borderTopColor: 'rgba(67,55,44,0.18)' },
   menuItemDividerNight: { borderTopColor: 'rgba(239,229,208,0.16)' },
   menuItemPressed: { opacity: 0.6 },
-  menuLabel: { fontSize: 16, letterSpacing: 1.2 },
+  menuLabel: { fontSize: 12, letterSpacing: 1.2 },
   menuIcon: { width: 18, height: 18 },
   toolRow: {
     flexDirection: 'row',
@@ -599,7 +599,7 @@ const styles = themedStyles(() => ({
   // Coral-outlined so TODAY reads as "your daily goals", not another nav disc.
   pillGoals: { borderColor: world.accent },
   pillGoalsNight: { borderColor: world.nightAccent },
-  pillLabel: { fontSize: 14, letterSpacing: 1.3 },
+  pillLabel: { fontSize: 11, letterSpacing: 1.3 },
   pillLabelGoals: { color: world.accentDeep },
   pillLabelNight: { color: world.nightAccent },
 
@@ -607,7 +607,7 @@ const styles = themedStyles(() => ({
   switcher: { flexDirection: 'row', height: TOOL, padding: 3, borderRadius: TOOL / 2, flexShrink: 1 },
   petTab: { paddingHorizontal: 12, borderRadius: (TOOL - 6) / 2, justifyContent: 'center', maxWidth: 110 },
   petTabOn: { backgroundColor: world.accentWash },
-  petTabJoint: { fontSize: 10, letterSpacing: 1, opacity: 0.75 },
-  petTabName: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: world.inkSoft },
+  petTabJoint: { fontSize: 8, letterSpacing: 1, opacity: 0.75 },
+  petTabName: { fontFamily: fonts.systemMono, fontSize: 12, fontWeight: '700', color: world.inkSoft },
   petTabTextOn: { color: world.accentDeep },
 }));

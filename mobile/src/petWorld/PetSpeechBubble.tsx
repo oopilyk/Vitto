@@ -92,7 +92,7 @@ const styles = themedStyles(() => ({
   wrap: { alignItems: 'center', width: '78%', maxWidth: 290 },
   // Hugs a short line rather than stretching to the wrap's full width.
   bubble: { alignSelf: 'center', maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, zIndex: 1 },
-  text: { fontFamily: fonts.mono, fontSize: 16, lineHeight: 21, color: world.ink, textAlign: 'center' },
+  text: { fontFamily: fonts.systemMono, fontSize: 12, lineHeight: 16, color: world.ink, textAlign: 'center' },
   tail: {
     width: TAIL,
     height: TAIL,
