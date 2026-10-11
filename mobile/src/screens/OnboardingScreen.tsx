@@ -117,6 +117,8 @@ interface Props {
   knownAge?: number;
   /** Asks the OS for notifications; resolves to whether they are on. Absent where push cannot work. */
   onEnableNotifications?: () => Promise<boolean>;
+  /** Asks for Apple Health access; resolves to whether it was given. Absent off iOS. */
+  onConnectHealth?: () => Promise<boolean>;
   /** Where a previous visit got to, to pick up from (see onboardingDraft). */
   resume?: OnboardingProgress | null;
   /** Called as they go, with where they are, so it can be kept for next time. */
@@ -250,6 +252,7 @@ type StepId =
   | 'plusOffer'
   | 'personality'
   | 'notifications'
+  | 'health'
   | 'commit'
   | 'dayOne';
 
@@ -287,6 +290,9 @@ const FULL_SEQUENCE: StepId[] = [
   'plusOffer',
   'personality',
   'notifications',
+  // After reminders: the other thing iOS asks permission for, while the person
+  // is already saying yes to the phone.
+  'health',
   'commit',
   'dayOne',
 ];
@@ -329,6 +335,14 @@ const QUESTION_STEPS = new Set<StepId>([
 const TAP_TO_ADVANCE = new Set<StepId>(['age', 'sex', 'goal', 'activity', 'trainingDays', 'steps']);
 
 /** Screens without the back button and progress bar. */
+/** What Apple Health brings in on its own, as the health page lists it. */
+const HEALTH_FEEDS = [
+  { label: 'Steps', detail: 'Counted all day, no logging' },
+  { label: 'Workouts', detail: 'From your Apple Watch or other apps' },
+  { label: 'Sleep', detail: 'How well you rested last night' },
+  { label: 'Meals', detail: 'From apps like MyFitnessPal' },
+] as const;
+
 const BARE = new Set<StepId>(['welcome', 'plusOffer', 'dayOne']);
 
 /** The Plus pages, shown together or not at all. */
@@ -390,6 +404,7 @@ export function OnboardingScreen({
   onClaimUsername,
   knownAge,
   onEnableNotifications,
+  onConnectHealth,
   resume,
   onProgress,
 }: Props) {
@@ -431,6 +446,7 @@ export function OnboardingScreen({
       // After the offer, so buying Plus there opens it up.
       if (step === 'personality') return canCustomise;
       if (step === 'notifications') return Boolean(onEnableNotifications);
+      if (step === 'health') return Boolean(onConnectHealth);
       // Asked once: someone who already has one is not asked again.
       if (step === 'username') return Boolean(onClaimUsername) && !hadUsername;
       // Sign-up already settled the age (see checkBirthYear).
@@ -448,6 +464,7 @@ export function OnboardingScreen({
   const [commitDays, setCommitDays] = useState<number | null>(saved?.commitDays ?? null);
   const [celebrating, setCelebrating] = useState(false);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
+  const [healthBusy, setHealthBusy] = useState(false);
   const [handle, setHandle] = useState(saved?.handle ?? '');
   const [claiming, setClaiming] = useState(false);
   const [plusBusy, setPlusBusy] = useState<PlusPlan | null>(null);
@@ -794,7 +811,7 @@ export function OnboardingScreen({
   };
 
   const footer: { label: string; disabled?: boolean } | null = (() => {
-    if (TAP_TO_ADVANCE.has(stepId) || stepId === 'plusOffer' || stepId === 'notifications') return null;
+    if (TAP_TO_ADVANCE.has(stepId) || stepId === 'plusOffer' || stepId === 'notifications' || stepId === 'health') return null;
     switch (stepId) {
       case 'welcome':
         return { label: 'Get started' };
@@ -1641,6 +1658,25 @@ export function OnboardingScreen({
             </View>
           ) : null}
 
+          {stepId === 'health' ? (
+            <View style={[styles.fill, styles.centred]}>
+              <Text style={styles.title}>Connect Apple Health</Text>
+              <Text style={styles.sub}>{`So ${petName} is looked after even on days you forget to log.`}</Text>
+              <View style={styles.healthList}>
+                {HEALTH_FEEDS.map((feed) => (
+                  <View key={feed.label} style={styles.healthRow}>
+                    <View style={styles.healthDot} />
+                    <View style={styles.healthText}>
+                      <Text style={styles.healthLabel}>{feed.label}</Text>
+                      <Text style={styles.healthDetail}>{feed.detail}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+              {pet(petRoom(150, 80 + 240))}
+            </View>
+          ) : null}
+
           {stepId === 'commit' ? (
             <View style={styles.fill}>
               <Text style={[styles.title, short && styles.titleShort]}>{`How many days in a row will you take care of ${petName}?`}</Text>
@@ -1740,6 +1776,24 @@ export function OnboardingScreen({
                 }}
               />
               <FButton label="Maybe later" tone="secondary" onPress={() => goNext('notifications')} />
+            </>
+          ) : stepId === 'health' ? (
+            <>
+              <FButton
+                label="Connect Apple Health"
+                busy={healthBusy}
+                onPress={() => {
+                  thump();
+                  setHealthBusy(true);
+                  void (onConnectHealth?.() ?? Promise.resolve(false))
+                    .catch(() => false)
+                    .finally(() => {
+                      setHealthBusy(false);
+                      goNext('health');
+                    });
+                }}
+              />
+              <FButton label="Maybe later" tone="secondary" onPress={() => goNext('health')} />
             </>
           ) : footer ? (
             <>
@@ -2196,6 +2250,12 @@ const styles = themedStyles(() => {
       overflow: 'hidden',
     },
     notificationText: { flex: 1 },
+    healthList: { alignSelf: 'stretch', marginTop: 18, padding: 16, gap: 12, borderRadius: 24, backgroundColor: F.soft },
+    healthRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    healthDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: F.green },
+    healthText: { flex: 1 },
+    healthLabel: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.text },
+    healthDetail: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 19, color: F.sub },
     notificationTitle: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.text },
     notificationBody: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.text, marginTop: 1 },
     notificationTime: { fontFamily: FONT.regular, fontSize: 13, lineHeight: 17, color: F.sub, alignSelf: 'flex-start' },

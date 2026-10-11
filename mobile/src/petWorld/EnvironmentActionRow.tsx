@@ -1,6 +1,8 @@
+import type React from 'react';
 import { type ImageSourcePropType, Platform, StyleSheet, View } from 'react-native';
 import { world, themedStyles } from '../theme';
 import { EnvironmentButton } from './EnvironmentButton';
+import { useTourTarget, type TourTargetId } from '../tour/FirstRunTour';
 import type { EnvironmentId } from './types';
 
 /**
@@ -88,15 +90,16 @@ export function EnvironmentActionRow({ current, onNavigate, night }: Environment
       <View style={styles.hairline} />
       <View style={styles.icons}>
         {SCENES.map((scene) => (
-          <EnvironmentButton
-            key={scene.id}
-            accessibilityLabel={scene.accessibilityLabel}
-            filledSource={scene.filledSource}
-            outlineSource={scene.outlineSource}
-            isActive={scene.id === current}
-            night={night}
-            onPress={() => onNavigate(scene.id)}
-          />
+          <TourableScene key={scene.id} id={scene.id}>
+            <EnvironmentButton
+              accessibilityLabel={scene.accessibilityLabel}
+              filledSource={scene.filledSource}
+              outlineSource={scene.outlineSource}
+              isActive={scene.id === current}
+              night={night}
+              onPress={() => onNavigate(scene.id)}
+            />
+          </TourableScene>
         ))}
       </View>
     </View>
@@ -121,3 +124,20 @@ const styles = themedStyles(() => ({
     paddingHorizontal: ICON_EDGE_PADDING,
   },
 }));
+
+/** The rooms the first-run tour points at (see FirstRunTour); the others need no wrapper. */
+const TOUR_ROOMS: Partial<Record<EnvironmentId, TourTargetId>> = { kitchen: 'kitchen', gym: 'gym', outside: 'outside' };
+
+function TourableScene({ id, children }: { id: EnvironmentId; children: React.ReactNode }) {
+  const target = TOUR_ROOMS[id];
+  return target ? <TourTarget id={target}>{children}</TourTarget> : <>{children}</>;
+}
+
+function TourTarget({ id, children }: { id: TourTargetId; children: React.ReactNode }) {
+  const ref = useTourTarget(id);
+  return (
+    <View ref={ref} collapsable={false}>
+      {children}
+    </View>
+  );
+}

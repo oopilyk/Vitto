@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { FirstRunTour, TourProvider, type TourStep } from '../tour/FirstRunTour';
 import { Platform, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -96,6 +97,8 @@ interface Props {
    */
   achievementUnlock?: { id: AchievementId; trainingDaysPerWeek: number } | null;
   onAchievementUnlockComplete?: () => void;
+  /** The first-run tour, while it is still to be seen (see FirstRunTour). */
+  tour?: { steps: TourStep[]; onDone: () => void } | null;
 }
 
 export function DashboardScreen({
@@ -127,6 +130,7 @@ export function DashboardScreen({
   onCelebrationComplete,
   achievementUnlock,
   onAchievementUnlockComplete,
+  tour,
 }: Props) {
   const [environment, setEnvironment] = useState<EnvironmentId>('main');
 
@@ -200,6 +204,7 @@ export function DashboardScreen({
   }, [celebrating, interaction.notice]);
 
   return (
+    <TourProvider>
     <View style={{ flex: 1 }}>
     <EnvironmentStage
       environment={environment}
@@ -258,7 +263,11 @@ export function DashboardScreen({
           night={night}
           onComplete={() => onAchievementUnlockComplete?.()}
         />
+      ) : tour ? (
+        // After any celebration, never on top of one.
+        <FirstRunTour steps={tour.steps} onDone={tour.onDone} />
       ) : null}
     </View>
+    </TourProvider>
   );
 }

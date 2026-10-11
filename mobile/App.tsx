@@ -33,6 +33,7 @@ import { PrimaryButton, TextButton } from './src/components/ui';
 import { usePetInteraction } from './src/petWorld/usePetInteraction';
 import { AuthScreen, HAS_SIGNED_IN_KEY } from './src/screens/AuthScreen';
 import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft, type OnboardingProgress } from './src/services/onboardingDraft';
+import { tourSteps } from './src/tour/FirstRunTour';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
@@ -609,6 +610,30 @@ function VittoApp() {
     });
     return () => subscription.remove();
   }, []);
+  /**
+   * The first-run tour of the main screen (see FirstRunTour): shown once per
+   * account on this phone, after adoption, and remembered when finished or
+   * skipped. Existing accounts see it once too.
+   */
+  const tourKey = `vitto.tourDone.${userId}`;
+  const [tourPending, setTourPending] = useState(false);
+  useEffect(() => {
+    if (!dataReady || !pet) return;
+    let cancelled = false;
+    void AsyncStorage.getItem(tourKey)
+      .then((value) => {
+        if (!cancelled) setTourPending(value !== '1');
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [dataReady, Boolean(pet), tourKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const finishTour = () => {
+    setTourPending(false);
+    void AsyncStorage.setItem(tourKey, '1').catch(() => undefined);
+  };
+
   // Adopted: the draft has done its job.
   useEffect(() => {
     if (pet) void clearOnboardingDraft(userId);
@@ -2096,6 +2121,20 @@ function VittoApp() {
                 }
               : undefined
           }
+          onConnectHealth={
+            Platform.OS === 'ios'
+              ? async () => {
+                  // Only the permission here: there is no pet to sync into yet.
+                  // Once it is adopted, the usual reconnect and step sync pick it up.
+                  const granted = await stepsProvider.requestAuthorization().catch(() => false);
+                  if (granted) {
+                    setIsAppleHealthConnected(true);
+                    await AsyncStorage.setItem(HEALTH_CONNECTED_KEY, '1').catch(() => undefined);
+                  }
+                  return granted;
+                }
+              : undefined
+          }
           onEnableNotifications={
             Platform.OS === 'web' || !session
               ? undefined
@@ -2191,6 +2230,7 @@ function VittoApp() {
                   : null
               }
               onAchievementUnlockComplete={() => setUnlockQueue((queue) => queue.slice(1))}
+              tour={tourPending ? { steps: tourSteps(livePet.name, canCustomise), onDone: finishTour } : null}
             />
           )}
         </RootStack.Screen>

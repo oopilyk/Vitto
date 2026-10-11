@@ -426,3 +426,38 @@ describe('onboarding, closed part way through', () => {
     act(() => again.tree.unmount());
   });
 });
+
+describe('onboarding, Apple Health', () => {
+  it('offers to connect Apple Health after reminders, and moves on whatever the answer', async () => {
+    const connect = jest.fn(async () => true);
+    const { tree } = mount(baseProfile, { onConnectHealth: connect, resume: { stepId: 'health', answeredAtStart: true, offerPlus: false, hadUsername: true } as never });
+    expect(has(tree, 'Connect Apple Health')).toBe(true);
+    expect(has(tree, 'From apps like MyFitnessPal')).toBe(true);
+    await act(async () => {
+      button(tree, 'Connect Apple Health')!.props.onPress();
+      await Promise.resolve();
+    });
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(has(tree, 'Get reminders')).toBe(false);
+    expect(strings(tree).some((s) => s.includes('Apple Health'))).toBe(false);
+    act(() => tree.unmount());
+  });
+
+  it('is skipped where there is no Apple Health', () => {
+    const resume = { stepId: 'notifications', answeredAtStart: true, offerPlus: false, hadUsername: true } as never;
+    const withHealth = mount(baseProfile, { resume, onEnableNotifications: async () => false, onConnectHealth: async () => true });
+    press(withHealth.tree, 'Maybe later');
+    expect(has(withHealth.tree, 'Connect Apple Health')).toBe(true);
+    act(() => withHealth.tree.unmount());
+
+    const without = mount(baseProfile, { resume, onEnableNotifications: async () => false });
+    press(without.tree, 'Maybe later');
+    expect(has(without.tree, 'Connect Apple Health')).toBe(false);
+    expect(has(without.tree, 'How many days in a row')).toBe(true);
+    act(() => without.tree.unmount());
+  });
+});
+

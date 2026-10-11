@@ -17,6 +17,7 @@ import {
 import { fonts, world, themedStyles } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
 import { useReportHudEdge } from './RoomActionSlot';
+import { useTourTarget } from '../tour/FirstRunTour';
 import { LevelRing } from './LevelRing';
 import { retro, retroPressed } from './retroStyle';
 import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
@@ -188,6 +189,10 @@ export function PetWorldHud({
 
   // The account menu. Closed on any choice and on a tap anywhere else.
   const [menuOpen, setMenuOpen] = useState(false);
+  // What the first-run tour points at (see FirstRunTour).
+  const accountTourRef = useTourTarget('account');
+  const todayTourRef = useTourTarget('today');
+  const chatTourRef = useTourTarget('chat');
   const { shown: shownTags, hidden: hiddenTags } = capEffectChips(foodTags);
   const choose = (open: () => void) => () => {
     setMenuOpen(false);
@@ -236,6 +241,7 @@ export function PetWorldHud({
 
         <View style={styles.accountSlot} pointerEvents="box-none">
           <Pressable
+            ref={accountTourRef}
             accessibilityRole="button"
             accessibilityLabel="Open account menu"
             accessibilityState={{ expanded: menuOpen }}
@@ -369,6 +375,7 @@ export function PetWorldHud({
 
         <View style={styles.tools} pointerEvents="box-none">
           <Pressable
+            ref={todayTourRef}
             accessibilityRole="button"
             accessibilityLabel="Open today's detail"
             accessibilityHint="Your goals for today"
@@ -389,6 +396,7 @@ export function PetWorldHud({
           {/* Talking to the pet, with a dot when it has said something unread. */}
           {onOpenChat ? (
             <Pressable
+              ref={chatTourRef}
               accessibilityRole="button"
               accessibilityLabel={unreadMessages > 0 ? `Talk to ${pet.name}, ${unreadMessages} unread` : `Talk to ${pet.name}`}
               onPress={onOpenChat}
