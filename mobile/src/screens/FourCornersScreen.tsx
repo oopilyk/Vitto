@@ -438,7 +438,7 @@ const styles = themedStyles(() => ({
   title: {
     fontFamily: fonts.pixelBold,
     fontSize: 21,
-    fontWeight: '700',
+    
     letterSpacing: 2,
     textTransform: 'uppercase',
     color: world.nightText,
@@ -455,7 +455,7 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: world.barHairline,
   },
-  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700', color: world.nightText },
+  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, color: world.nightText },
 
   prompt: { marginTop: 14, marginHorizontal: 18, paddingVertical: 14, paddingHorizontal: 16 },
   promptText: { fontFamily: fonts.pixel, fontSize: 25, lineHeight: 33, color: world.ink },
@@ -463,7 +463,7 @@ const styles = themedStyles(() => ({
 
   flashSlot: { height: 32, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   flashChip: { paddingVertical: 4, paddingHorizontal: 12 },
-  flash: { fontFamily: fonts.pixelBold, fontSize: 16, fontWeight: '700', letterSpacing: 1.4, color: world.ink },
+  flash: { fontFamily: fonts.pixelBold, fontSize: 16, letterSpacing: 1.4, color: world.ink },
   flashNight: { color: world.nightText },
 
   board: { flex: 1, marginTop: 6, marginHorizontal: 16, marginBottom: 8 },

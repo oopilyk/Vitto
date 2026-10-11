@@ -53,5 +53,5 @@ export function PetSpriteAvatar({ pet, size = DEFAULT_SIZE, placeholderInitial, 
 const styles = themedStyles(() => ({
   circle: { overflow: 'hidden' },
   center: { alignItems: 'center', justifyContent: 'center' },
-  initial: { fontFamily: fonts.display, color: colors.inkSoft, fontWeight: '700' },
+  initial: { fontFamily: fonts.display, color: colors.inkSoft, },
 }));

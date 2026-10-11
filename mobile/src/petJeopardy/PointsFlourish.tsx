@@ -74,7 +74,7 @@ const styles = themedStyles(() => ({
   label: {
     fontFamily: fonts.pixelBold,
     fontSize: 20,
-    fontWeight: '700',
+    
     letterSpacing: 0.8,
     color: ON_FILL_TEXT,
   },

@@ -395,7 +395,7 @@ export function MathRunGame({ pet, onFinish, run: initialRun, rng = Math.random 
 const styles = themedStyles(() => ({
   scoreboard: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 14 },
   scoreItem: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted },
-  scoreValue: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.ink },
+  scoreValue: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   hearts: { color: colors.coral, letterSpacing: 1 },
   heartLost: { color: colors.hairline },
   track: {
@@ -447,6 +447,6 @@ const styles = themedStyles(() => ({
   problemRight: { borderColor: colors.mintDeep, backgroundColor: colors.mint },
   problemWrong: { borderColor: colors.coral, backgroundColor: colors.coralWash },
   prompt: { fontFamily: fonts.pixel, fontSize: 55, color: colors.ink, textAlign: 'center' },
-  answerInput: { fontFamily: fonts.pixelBold, textAlign: 'center', fontSize: 26, fontWeight: '600' },
+  answerInput: { fontFamily: fonts.pixelBold, textAlign: 'center', fontSize: 26, },
   actions: { marginTop: 24, gap: 16 },
 }));

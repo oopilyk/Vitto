@@ -459,7 +459,7 @@ const styles = themedStyles(() => ({
     justifyContent: 'space-between',
     zIndex: 2,
   },
-  particle: { fontFamily: fonts.pixelBold, fontSize: 26, fontWeight: '700' },
+  particle: { fontFamily: fonts.pixelBold, fontSize: 26, },
   status: {
     position: 'absolute',
     bottom: 20,

@@ -226,13 +226,13 @@ const styles = themedStyles(() => ({
   },
   liftBar: { width: 4, alignSelf: 'stretch' },
   liftText: { flex: 1 },
-  liftName: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  liftName: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
   liftMeta: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 1 },
   liftNext: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint, marginTop: 1 },
   tierPill: {
     fontFamily: fonts.pixelBold,
     fontSize: 13,
-    fontWeight: '700',
+    
     letterSpacing: 0.4,
     borderWidth: 1,
     borderRadius: 999,
@@ -253,6 +253,6 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  toggleLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.inkSoft },
-  toggleMark: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '600', color: colors.muted },
+  toggleLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
+  toggleMark: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.muted },
 }));

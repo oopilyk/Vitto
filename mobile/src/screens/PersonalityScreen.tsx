@@ -61,7 +61,7 @@ export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpe
 const styles = themedStyles(() => ({
   body: { marginTop: 16 },
   welcome: { gap: 4, padding: 16, marginBottom: 16, borderRadius: 4, backgroundColor: colors.coralWash },
-  welcomeTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.coralDeep },
+  welcomeTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.coralDeep },
   welcomeBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.ink, lineHeight: 26 },
   locked: {
     gap: 6,
@@ -69,6 +69,6 @@ const styles = themedStyles(() => ({
     borderRadius: 4,
     backgroundColor: colors.cardSoft,
   },
-  lockedTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.ink },
+  lockedTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   lockedBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
 }));

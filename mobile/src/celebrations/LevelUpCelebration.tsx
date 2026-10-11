@@ -358,7 +358,7 @@ const styles = themedStyles(() => ({
   kicker: {
     fontFamily: fonts.pixelBold,
     fontSize: 20,
-    fontWeight: '700',
+    
     letterSpacing: 4,
     color: colors.yellow,
     marginTop: 6,
@@ -367,7 +367,7 @@ const styles = themedStyles(() => ({
   numberTag: {
     fontFamily: fonts.pixelBold,
     fontSize: 21,
-    fontWeight: '700',
+    
     letterSpacing: 2,
     color: '#c9c3ef',
     marginTop: 14,
@@ -409,10 +409,10 @@ const styles = themedStyles(() => ({
   continueLabel: {
     fontFamily: fonts.pixelBold,
     fontSize: 18,
-    fontWeight: '700',
+    
     letterSpacing: 2,
     color: world.ink,
   },
-  continueMark: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: world.ink },
+  continueMark: { fontFamily: fonts.pixelBold, fontSize: 21, color: world.ink },
   flash: { ...FILL, backgroundColor: '#fdf6e3' },
 }));

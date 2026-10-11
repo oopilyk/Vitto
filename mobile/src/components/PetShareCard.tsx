@@ -158,10 +158,10 @@ const styles = themedStyles(() => ({
   pet: { position: 'absolute', left: 0, right: 0, bottom: 150, alignItems: 'center' },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingBottom: 18 },
   headline: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
-  name: { flex: 1, fontFamily: fonts.pixel, fontSize: 39, color: '#fff', letterSpacing: -0.6 },
+  name: { flex: 1, fontFamily: fonts.pixel, fontSize: 39, color: '#fff', letterSpacing: 0.5 },
   level: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
   levelLabel: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 1.2, color: 'rgba(255,255,255,0.65)' },
-  levelValue: { fontFamily: fonts.pixelBold, fontSize: 29, fontWeight: '700', color: colors.coral },
+  levelValue: { fontFamily: fonts.pixelBold, fontSize: 29, color: colors.coral },
   meta: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.6, color: 'rgba(255,255,255,0.7)', marginTop: 5 },
   line: { fontFamily: fonts.pixel, fontSize: 18, lineHeight: 26, color: '#fff', marginTop: 10 },
   wordmark: {
@@ -170,7 +170,7 @@ const styles = themedStyles(() => ({
     left: 20,
     fontFamily: fonts.pixelBold,
     fontSize: 14,
-    fontWeight: '700',
+    
     letterSpacing: 2.4,
     color: 'rgba(255,255,255,0.85)',
   },

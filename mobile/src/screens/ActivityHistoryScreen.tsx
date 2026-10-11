@@ -111,5 +111,5 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  moreLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.inkSoft },
+  moreLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
 }));

@@ -86,7 +86,7 @@ const styles = themedStyles(() => ({
   },
   pressed: { opacity: 0.7 },
   body: { flex: 1, gap: 3 },
-  name: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600' },
+  name: { fontFamily: fonts.pixelBold, fontSize: 20, },
   status: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.2 },
   visit: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.5, color: colors.coral },
 }));

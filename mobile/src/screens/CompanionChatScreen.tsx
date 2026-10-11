@@ -227,7 +227,7 @@ const styles = themedStyles(() => ({
   input: { flex: 1, maxHeight: 120, paddingTop: 11 },
   send: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coral },
   sendOff: { backgroundColor: colors.hairline },
-  sendMark: { fontFamily: fonts.pixelBold, fontSize: 26, fontWeight: '700', color: '#fffdf8' },
+  sendMark: { fontFamily: fonts.pixelBold, fontSize: 26, color: '#fffdf8' },
   limit: { margin: 14, padding: 16, borderRadius: 4, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card },
   limitTitle: { fontFamily: fonts.pixel, fontSize: 22, color: colors.ink },
   limitBody: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25, color: colors.inkSoft, marginTop: 6 },

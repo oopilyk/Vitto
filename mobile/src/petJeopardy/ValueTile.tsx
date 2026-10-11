@@ -63,7 +63,7 @@ const styles = themedStyles(() => ({
   // No shadow once spent: the tile drops back into the board instead of sitting
   // proud of it, which is most of the "this one is done" read at a glance.
   spent: { opacity: 0.45, shadowOpacity: 0, elevation: 0 },
-  value: { fontFamily: fonts.pixel, fontSize: 34, letterSpacing: -0.5 },
+  value: { fontFamily: fonts.pixel, fontSize: 34, letterSpacing: 0.5 },
   spentBody: { alignItems: 'center' },
-  spentMark: { fontFamily: fonts.pixelBold, fontSize: 17, fontWeight: '700', letterSpacing: 0.8 },
+  spentMark: { fontFamily: fonts.pixelBold, fontSize: 17, letterSpacing: 0.8 },
 }));

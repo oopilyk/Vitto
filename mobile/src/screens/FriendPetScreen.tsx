@@ -429,12 +429,12 @@ const styles = themedStyles(() => ({
   visitBackLabel: { fontFamily: fonts.pixel, fontSize: 13 },
   plate: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, alignItems: 'center', maxWidth: '100%' },
   plateKicker: { fontFamily: fonts.pixel, fontSize: 12, marginBottom: 1 },
-  plateName: { fontFamily: fonts.pixelBold, fontSize: 23, fontWeight: '700', letterSpacing: 1, color: world.ink },
+  plateName: { fontFamily: fonts.pixelBold, fontSize: 23, letterSpacing: 1, color: world.ink },
   plateRoom: { fontFamily: fonts.pixel, fontSize: 12, marginTop: 2 },
   feeling: {
     fontFamily: fonts.pixelBold,
     fontSize: 17,
-    fontWeight: '700',
+    
     lineHeight: 23,
     letterSpacing: 0.2,
     color: '#241a11',
@@ -448,7 +448,7 @@ const styles = themedStyles(() => ({
   meta: {
     fontFamily: fonts.pixelBold,
     fontSize: 13,
-    fontWeight: '700',
+    
     letterSpacing: 0.8,
     color: '#4a3c2b',
     textAlign: 'center',
@@ -463,7 +463,7 @@ const styles = themedStyles(() => ({
   visitCount: { fontFamily: fonts.pixel, fontSize: 13 },
   disc: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   discDisabled: { opacity: 0.35 },
-  discMark: { fontFamily: fonts.pixelBold, fontSize: 29, fontWeight: '700', color: world.ink, marginTop: -2 },
+  discMark: { fontFamily: fonts.pixelBold, fontSize: 29, color: world.ink, marginTop: -2 },
   messageBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
   messageTitle: { ...text.title, fontSize: 26, textAlign: 'center' },
   messageBodyText: { ...text.body, textAlign: 'center' },

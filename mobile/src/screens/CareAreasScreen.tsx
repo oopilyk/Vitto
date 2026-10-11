@@ -102,8 +102,8 @@ const styles = themedStyles(() => ({
   note: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25, color: colors.muted },
   readRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   readText: { flex: 1, gap: 2 },
-  readTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '600', color: colors.ink },
+  readTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   readBody: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 23, color: colors.muted },
-  readState: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.faint },
+  readState: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.faint },
   readStateOn: { color: colors.ink },
 }));

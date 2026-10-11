@@ -204,7 +204,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
 
 const styles = themedStyles(() => ({
   logged: { padding: 16, borderRadius: 4, backgroundColor: colors.cardSoft, gap: 4 },
-  loggedValue: { fontFamily: fonts.pixelBold, fontSize: 36, fontWeight: '800', color: colors.ink },
+  loggedValue: { fontFamily: fonts.pixelBold, fontSize: 36, color: colors.ink },
   loggedVerdict: { fontFamily: fonts.pixel, fontSize: 18, color: colors.inkSoft },
   actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18 },
   hint: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, lineHeight: 25 },

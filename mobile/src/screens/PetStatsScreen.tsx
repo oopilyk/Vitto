@@ -428,7 +428,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
 
 const styles = themedStyles(() => ({
   coinsRow: { marginTop: 12, gap: 2 },
-  coinsValue: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '700', color: colors.yellowDeep },
+  coinsValue: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.yellowDeep },
   coinsHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, lineHeight: 22 },
   topbar: {
     flexDirection: 'row',
@@ -473,7 +473,7 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  infoMark: { fontFamily: fonts.pixelBold, fontSize: 16, fontWeight: '700', color: colors.muted, marginTop: -1 },
+  infoMark: { fontFamily: fonts.pixelBold, fontSize: 16, color: colors.muted, marginTop: -1 },
   infoIntro: { fontFamily: fonts.pixel, fontSize: 20, lineHeight: 29, color: colors.muted, marginBottom: 14 },
   infoRow: { paddingVertical: 12 },
   infoRowRule: { borderTopWidth: 1, borderTopColor: colors.hairline },
@@ -492,7 +492,7 @@ const styles = themedStyles(() => ({
     paddingVertical: 12,
     paddingHorizontal: 14,
   },
-  factValue: { fontFamily: fonts.pixelBold, fontSize: 26, fontWeight: '700', color: colors.ink },
+  factValue: { fontFamily: fonts.pixelBold, fontSize: 26, color: colors.ink },
   factValueLong: { fontFamily: fonts.pixel, fontSize: 20 },
   factLabel: { fontFamily: fonts.pixel, fontSize: 12, color: colors.faint, marginTop: 3 },
   // A pill, not a card: it hugs its words and sits under the name like a status.
@@ -508,13 +508,13 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
   },
   feelingDot: { width: 8, height: 8, borderRadius: 4 },
-  feelingText: { fontFamily: fonts.pixel, fontSize: 20, fontWeight: '500', letterSpacing: -0.2 },
+  feelingText: { fontFamily: fonts.pixel, fontSize: 20, fontWeight: '500', letterSpacing: 0.5 },
   feelingWhy: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 7, lineHeight: 21 },
   shareButton: { justifyContent: 'flex-end' },
   sharePressed: { opacity: 0.6 },
   shareLabel: { fontFamily: fonts.pixel, fontSize: 17, color: colors.coral },
   moodRow: { marginTop: 18 },
-  moodValue: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  moodValue: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
   moodHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 5, lineHeight: 23 },
   tableHead: {
     flexDirection: 'row',
@@ -561,7 +561,7 @@ const styles = themedStyles(() => ({
     fontSize: 16,
     letterSpacing: 0.8,
     color: colors.card,
-    fontWeight: '700',
+    
   },
   testBannerBody: { fontFamily: fonts.pixel, fontSize: 16, color: colors.card, marginTop: 6, lineHeight: 22 },
 }));

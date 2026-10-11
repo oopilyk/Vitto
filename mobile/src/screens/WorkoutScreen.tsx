@@ -769,8 +769,8 @@ const styles = themedStyles(() => ({
 
   sectionLabel: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 1.3, color: colors.faint },
   sectionHint: { ...text.small, marginTop: 10, lineHeight: 18 },
-  fieldLabel: { fontFamily: fonts.pixelBold, fontSize: 17, fontWeight: '600', color: colors.muted, marginTop: 16, marginBottom: 6 },
-  lead: { fontFamily: fonts.pixelBold, fontSize: 22, fontWeight: '600', color: colors.ink },
+  fieldLabel: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.muted, marginTop: 16, marginBottom: 6 },
+  lead: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
 
   // The big "start here" button
   startCard: {
@@ -784,7 +784,7 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.coral,
   },
   routineStart: { marginTop: 20 },
-  startTitle: { fontFamily: fonts.pixelBold, fontSize: 22, fontWeight: '700', color: colors.onCoral },
+  startTitle: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.onCoral },
   startHint: { fontFamily: fonts.pixel, fontSize: 17, color: colors.onCoral, opacity: 0.85, marginTop: 3 },
   startArrow: { fontFamily: fonts.pixel, fontSize: 29, color: colors.onCoral },
 
@@ -805,9 +805,9 @@ const styles = themedStyles(() => ({
     borderColor: colors.border,
     backgroundColor: colors.card,
   },
-  routineName: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600', color: colors.ink },
+  routineName: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
   routinePreview: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 3 },
-  routineGo: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.coralDeep },
+  routineGo: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.coralDeep },
   routineDelete: {
     width: 30,
     height: 30,
@@ -826,7 +826,7 @@ const styles = themedStyles(() => ({
     borderStyle: 'dashed',
     borderColor: colors.border,
   },
-  newRoutineTitle: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600', color: colors.ink },
+  newRoutineTitle: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
   newRoutineHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 3, lineHeight: 22 },
   routineMessage: { fontFamily: fonts.pixel, fontSize: 17, color: colors.mintDeep, marginBottom: 12 },
   routineError: { fontFamily: fonts.pixel, fontSize: 17, color: colors.danger },
@@ -849,11 +849,11 @@ const styles = themedStyles(() => ({
     textAlign: 'center',
     lineHeight: 34,
     fontSize: 17,
-    fontWeight: '700',
+    
     color: colors.coralDeep,
     backgroundColor: colors.coralWash,
   },
-  exerciseName: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '600', color: colors.ink },
+  exerciseName: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   exerciseMuscle: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, marginTop: 1, textTransform: 'capitalize' },
   exerciseRemove: {
     width: 30,
@@ -875,7 +875,7 @@ const styles = themedStyles(() => ({
   },
   setInputHead: { flex: 1, minWidth: 0 },
   setIndex: { width: 32, textAlign: 'center' },
-  setIndexValue: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.muted },
+  setIndexValue: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.muted },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   // minWidth 0 lets the field shrink; without it the row runs off the screen.
   setInput: { fontFamily: fonts.pixelBold,
@@ -885,7 +885,7 @@ const styles = themedStyles(() => ({
     paddingHorizontal: 6,
     textAlign: 'center',
     fontSize: 22,
-    fontWeight: '600',
+    
   },
   setInputOff: { opacity: 0.6 },
   setRemoveSlot: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
@@ -897,13 +897,13 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     backgroundColor: colors.tile,
   },
-  addSetLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  addSetLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
   cardioNote: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, marginTop: 10, lineHeight: 23 },
   cardioFields: { gap: 8, marginTop: 12 },
   cardioRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardioLabel: { fontFamily: fonts.pixelBold, flex: 1, fontSize: 20, fontWeight: '600', color: colors.ink },
+  cardioLabel: { fontFamily: fonts.pixelBold, flex: 1, fontSize: 20, color: colors.ink },
   cardioOptional: { fontWeight: '400', color: colors.muted },
-  cardioInput: { fontFamily: fonts.pixelBold, width: 96, textAlign: 'center', fontSize: 23, fontWeight: '600' },
+  cardioInput: { fontFamily: fonts.pixelBold, width: 96, textAlign: 'center', fontSize: 23, },
   cardioUnit: { fontFamily: fonts.pixel, width: 30, fontSize: 18, color: colors.muted },
 
   addExercise: {
@@ -915,7 +915,7 @@ const styles = themedStyles(() => ({
     borderColor: colors.coral,
     alignItems: 'center',
   },
-  addExerciseLabel: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600', color: colors.coralDeep },
+  addExerciseLabel: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.coralDeep },
 
   // Details
   details: { marginTop: 28 },

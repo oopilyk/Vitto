@@ -135,7 +135,7 @@ const styles = themedStyles(() => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 60 },
   rowRuled: { borderTopWidth: 1, borderTopColor: colors.hairline },
   rowText: { flex: 1, minWidth: 0 },
-  rowLabel: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '600', color: colors.ink },
+  rowLabel: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   rowOff: { color: colors.faint },
   rowMeta: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 3 },
   actions: { flexDirection: 'row', alignItems: 'center' },

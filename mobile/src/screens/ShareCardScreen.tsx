@@ -101,7 +101,7 @@ const styles = themedStyles(() => ({
   action: { marginTop: 4, paddingVertical: 14, alignItems: 'center', borderRadius: 4, backgroundColor: colors.coral },
   actionOff: { backgroundColor: colors.disabledFill },
   actionBusy: { opacity: 0.85 },
-  actionLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '700', color: colors.onCoral },
+  actionLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.onCoral },
   actionLabelOff: { color: colors.onDisabled },
   pressed: { opacity: 0.85 },
 }));

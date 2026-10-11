@@ -202,7 +202,7 @@ const styles = themedStyles(() => ({
   // Hangs under the chosen option, inset so it reads as belonging to it.
   choiceExpanded: { width: '100%', paddingLeft: 12, paddingRight: 4, paddingTop: 2, paddingBottom: 6, gap: 10 },
   choiceOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
-  choiceLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  choiceLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
   choiceLabelOn: { color: colors.coralDeep },
   choiceDetail: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 4, lineHeight: 18 },
   panel: {

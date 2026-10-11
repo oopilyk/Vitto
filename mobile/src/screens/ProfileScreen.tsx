@@ -8,23 +8,17 @@ import {
   type Reminder,
   type TrophyId,
   BIG_LIFTS,
-  calculateMacroTargets,
   calculateQualifyingStreaks,
   convertWeightValue,
-  estimateCaloriesBurned,
   formatPace,
   getActiveDateKeys,
-  getEventsForDay,
-  getMealsForDay,
   liftStanding,
   measurementSystemOf,
   ordinal,
   overallStanding,
   personalRecords,
   runRecords,
-  sumMealMacros,
 } from '@vitto/core';
-import { NutrientRing } from '../components/NutrientRing';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { Kicker } from '../components/ui';
 import { NavGroup, NavRow } from '../components/settingsKit';
@@ -133,8 +127,9 @@ function Stat({ value, label }: { value: number; label: string }) {
 
 /**
  * Profile: who you are and how you are doing. A header the way social apps
- * have one (avatar, headline numbers, name, bio, Edit profile), then today,
- * consistency, strength and achievements to look at. Anything you set up or
+ * have one (avatar, headline numbers, name, bio, Edit profile), then
+ * consistency, strength and achievements to look at (today's calories live on
+ * the Today screen). Anything you set up or
  * type into (screen time, reminders, gym, Apple Health) is a row that opens a
  * page of its own, so this page is never a form.
  */
@@ -155,12 +150,7 @@ export function ProfileScreen({
   onOpenHistory,
   onOpenLiftProgress,
 }: Props) {
-  const targets = calculateMacroTargets(profile);
   const today = new Date();
-  const todaysEvents = getEventsForDay(events, today);
-  const consumed = sumMealMacros(getMealsForDay(events, today));
-  const burned = estimateCaloriesBurned(todaysEvents);
-  const remaining = targets.calories - consumed.calories + burned;
   const streaks = calculateQualifyingStreaks(events, today);
   const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const runs = runRecords(events, measurementSystemOf(profile));
@@ -289,31 +279,6 @@ export function ProfileScreen({
             </View>
           ) : null}
         </View>
-
-        <Card title="Today">
-          <View style={styles.rings}>
-            <NutrientRing
-              value={consumed.calories}
-              percent={(consumed.calories / targets.calories) * 100}
-              label="Consumed"
-              color={colors.coral}
-              size={88}
-            />
-            <NutrientRing value={burned} percent={(burned / targets.calories) * 100} label="Burned" color="#78a598" size={88} />
-            <NutrientRing
-              value={remaining}
-              percent={(Math.abs(remaining) / targets.calories) * 100}
-              label={remaining < 0 ? 'Over' : 'Remaining'}
-              color={remaining < 0 ? colors.danger : '#9c8dba'}
-              emphasis={remaining < 0}
-              size={88}
-            />
-          </View>
-          <Text style={styles.targetLine}>
-            Target {targets.calories.toLocaleString()} kcal · {targets.proteinGrams}g protein · {targets.carbsGrams}g carbs ·{' '}
-            {targets.fatGrams}g fat · {targets.fiberGrams}g fiber
-          </Text>
-        </Card>
 
         <Card title="Consistency">
           <View style={styles.calendarHead}>
@@ -466,7 +431,7 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.card,
     justifyContent: 'center',
   },
-  settingsLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.inkSoft },
+  settingsLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
   body: { paddingHorizontal: 16, gap: 14 },
 
   header: { paddingHorizontal: 4, paddingTop: 8, paddingBottom: 6, gap: 14 },
@@ -482,12 +447,12 @@ const styles = themedStyles(() => ({
   avatarInitial: { fontFamily: fonts.pixel, fontSize: 44, color: colors.ink },
   stats: { flex: 1, flexDirection: 'row', justifyContent: 'space-around' },
   stat: { alignItems: 'center', minWidth: 64 },
-  statValue: { fontFamily: fonts.pixelBold, fontSize: 29, fontWeight: '800', color: colors.ink },
+  statValue: { fontFamily: fonts.pixelBold, fontSize: 29, color: colors.ink },
   statLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 2 },
   who: { gap: 2 },
-  name: { fontFamily: fonts.pixelBold, fontSize: 22, fontWeight: '700', color: colors.ink },
+  name: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
   handle: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted },
-  handleLink: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.coral },
+  handleLink: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.coral },
   bio: { fontFamily: fonts.pixel, fontSize: 20, color: colors.inkSoft, lineHeight: 27, marginTop: 6 },
   bioEmpty: { fontFamily: fonts.pixel, fontSize: 20, color: colors.faint, marginTop: 6 },
   headerButtons: { flexDirection: 'row', gap: 8 },
@@ -500,10 +465,10 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
   },
   headerButtonPressed: { opacity: 0.7 },
-  headerButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  headerButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
 
   calendarHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10, marginBottom: 4 },
-  calendarStreak: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700', color: colors.ink },
+  calendarStreak: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
   calendarLongest: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint },
   tools: { marginTop: -8 },
   card: {
@@ -524,17 +489,9 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardOpenMark: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.coral },
+  cardOpenMark: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.coral },
   cardHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, marginTop: 6, lineHeight: 22 },
   cardBody: { marginTop: 4 },
-  rings: { flexDirection: 'row', gap: 6, marginTop: 10 },
-  targetLine: {
-    fontFamily: fonts.pixel,
-    fontSize: 13,
-    color: colors.muted,
-    marginTop: 14,
-    lineHeight: 21,
-  },
   records: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   record: {
     flexBasis: '30%',
@@ -548,7 +505,7 @@ const styles = themedStyles(() => ({
   },
   recordEmpty: { borderStyle: 'dashed' },
   recordLift: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint },
-  recordValue: { fontFamily: fonts.pixelBold, fontSize: 29, fontWeight: '700', color: colors.ink, marginTop: 6 },
+  recordValue: { fontFamily: fonts.pixelBold, fontSize: 29, color: colors.ink, marginTop: 6 },
   recordValueEmpty: { color: colors.faint },
   recordUnit: { fontFamily: fonts.pixel, fontSize: 14, fontWeight: '400', color: colors.faint },
   recordMeta: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 3 },
@@ -583,7 +540,7 @@ const styles = themedStyles(() => ({
   // Flattened to a grey silhouette: the shape still reads, the gold does not.
   trophyArtLocked: { opacity: 0.28, tintColor: colors.faint },
   trophyText: { flex: 1, minWidth: 0 },
-  trophyName: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  trophyName: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
   trophyNameLocked: { color: colors.muted },
   trophyRule: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted, marginTop: 3, lineHeight: 18 },
   trophyState: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.8, color: colors.faint },

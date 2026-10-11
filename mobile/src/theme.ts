@@ -239,11 +239,11 @@ export const text = themedStyles(() => ({
   },
   display: { fontFamily: fonts.display, fontSize: 42, color: colors.ink, letterSpacing: 0.5 },
   title: { fontFamily: fonts.display, fontSize: 33, color: colors.ink, letterSpacing: 0.3 },
-  heading: { fontFamily: fonts.pixelBold, fontSize: 22, fontWeight: '600', color: colors.ink },
+  heading: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
   body: { fontFamily: fonts.pixel, fontSize: 20, color: colors.inkSoft, lineHeight: 27 },
   small: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted },
   mono: { fontFamily: fonts.mono, fontSize: 14, letterSpacing: 0.6, color: colors.muted },
-  stat: { fontFamily: fonts.pixelBold, fontSize: 23, fontWeight: '700', color: colors.ink },
+  stat: { fontFamily: fonts.pixelBold, fontSize: 23, color: colors.ink },
   error: { fontFamily: fonts.pixel, color: colors.danger, fontSize: 18 },
 }));
 

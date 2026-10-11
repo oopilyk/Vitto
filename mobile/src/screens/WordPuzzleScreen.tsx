@@ -387,6 +387,6 @@ const styles = themedStyles(() => ({
   },
   scoreNumber: { fontFamily: fonts.pixel, fontSize: 36, color: '#fff' },
   scoreCaption: { fontFamily: fonts.pixel, fontSize: 9, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.6 },
-  scoreLabel: { fontFamily: fonts.pixelBold, fontSize: 22, fontWeight: '600', color: colors.ink },
+  scoreLabel: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
   scoreMeta: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 6 },
 }));

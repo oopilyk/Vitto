@@ -392,8 +392,8 @@ const styles = themedStyles(() => ({
     borderColor: colors.border,
     backgroundColor: colors.card,
   },
-  skipLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.inkSoft },
-  restore: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.coral },
+  skipLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
+  restore: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.coral },
   legal: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
   legalLink: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, textDecorationLine: 'underline' },
   legalDot: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint },
@@ -438,7 +438,7 @@ const styles = themedStyles(() => ({
   plusHeadLabel: {
     fontFamily: fonts.pixelBold,
     fontSize: 14,
-    fontWeight: '700',
+    
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.mintDeep,
@@ -451,10 +451,10 @@ const styles = themedStyles(() => ({
   valueCell: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   plusCell: { backgroundColor: colors.mint },
   plusCellLast: { paddingBottom: 2 },
-  feature: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  feature: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
   featureDetail: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 1 },
   freeValue: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, textAlign: 'center' },
-  plusValue: { fontFamily: fonts.pixelBold, fontSize: 16, fontWeight: '700', color: colors.mintDeep, textAlign: 'center' },
+  plusValue: { fontFamily: fonts.pixelBold, fontSize: 16, color: colors.mintDeep, textAlign: 'center' },
   stillFree: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, textAlign: 'center', marginTop: -4 },
 
   loading: { marginVertical: 12 },
@@ -490,9 +490,9 @@ const styles = themedStyles(() => ({
     paddingHorizontal: 10,
     paddingVertical: 3,
   },
-  planBadgeText: { fontFamily: fonts.pixelBold, fontSize: 13, fontWeight: '700', letterSpacing: 0.6, color: '#fff' },
+  planBadgeText: { fontFamily: fonts.pixelBold, fontSize: 13, letterSpacing: 0.6, color: '#fff' },
   planTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  planLabel: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600', color: colors.inkSoft },
+  planLabel: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.inkSoft },
   planLabelOn: { color: colors.ink },
   radio: {
     width: 20,
@@ -504,15 +504,15 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
   },
   radioOn: { backgroundColor: colors.mintDeep, borderColor: colors.mintDeep },
-  radioTick: { fontFamily: fonts.pixelBold, color: '#fff', fontSize: 14, fontWeight: '800' },
-  planPrice: { fontFamily: fonts.pixelBold, fontSize: 34, fontWeight: '800', color: colors.ink, letterSpacing: -0.5 },
+  radioTick: { fontFamily: fonts.pixelBold, color: '#fff', fontSize: 14, },
+  planPrice: { fontFamily: fonts.pixelBold, fontSize: 34, color: colors.ink, letterSpacing: 0.5 },
   planPer: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: -2 },
   planNote: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, marginTop: 8 },
   planNoteOn: { color: colors.mintDeep, fontWeight: '600' },
 
   trialRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   trialText: { flex: 1 },
-  trialTitle: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600', color: colors.ink },
+  trialTitle: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
   trialSub: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 1 },
 
   timelineTitle: {
@@ -534,7 +534,7 @@ const styles = themedStyles(() => ({
   },
   stop: { flex: 1, alignItems: 'center', paddingHorizontal: 2 },
   stopDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: colors.card, marginBottom: 6 },
-  stopDay: { fontFamily: fonts.pixelBold, fontSize: 17, fontWeight: '700', color: colors.ink },
+  stopDay: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.ink },
   stopWhat: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, textAlign: 'center', lineHeight: 20, marginTop: 2 },
 
   cta: { gap: 8, marginTop: 2 },
@@ -548,7 +548,7 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  continueFreeLabel: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600', color: colors.inkSoft },
+  continueFreeLabel: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.inkSoft },
 }));
 
 /** Bottom padding that clears the iPhone home indicator. */

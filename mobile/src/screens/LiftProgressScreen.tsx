@@ -275,11 +275,11 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
 const styles = themedStyles(() => ({
   picker: { marginTop: 16, marginHorizontal: -24, paddingLeft: 24 },
   empty: { marginTop: 24, padding: 20, borderRadius: 4, backgroundColor: colors.cardSoft, gap: 4 },
-  emptyTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.ink },
+  emptyTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   emptyBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
   summary: { marginTop: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  summaryLabel: { fontFamily: fonts.pixelBold, fontSize: 17, fontWeight: '600', color: colors.muted },
-  summaryValue: { fontFamily: fonts.pixelBold, fontSize: 52, fontWeight: '800', color: colors.ink, letterSpacing: -1 },
+  summaryLabel: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.muted },
+  summaryValue: { fontFamily: fonts.pixelBold, fontSize: 52, color: colors.ink, letterSpacing: 0.5 },
   summaryUnit: { fontFamily: fonts.pixel, fontSize: 18, fontWeight: '400', color: colors.faint, letterSpacing: 0 },
   change: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted },
   changeUp: { color: colors.mintDeep, fontWeight: '600' },
@@ -288,7 +288,7 @@ const styles = themedStyles(() => ({
   tierPill: {
     fontFamily: fonts.pixelBold,
     fontSize: 14,
-    fontWeight: '700',
+    
     letterSpacing: 0.4,
     borderWidth: 1,
     borderRadius: 999,
@@ -308,7 +308,7 @@ const styles = themedStyles(() => ({
   },
   toNext: { fontFamily: fonts.pixel, fontSize: 18, color: colors.inkSoft, textAlign: 'center', marginTop: 12 },
   locked: { marginTop: 20, padding: 20, borderRadius: 4, backgroundColor: colors.cardSoft, gap: 8 },
-  lockedTitle: { fontFamily: fonts.pixelBold, fontSize: 22, fontWeight: '700', color: colors.ink },
+  lockedTitle: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
   lockedBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
   lockedButton: {
     alignSelf: 'flex-start',
@@ -318,7 +318,7 @@ const styles = themedStyles(() => ({
     borderRadius: 4,
     backgroundColor: colors.coral,
   },
-  lockedButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700', color: colors.onCoral },
+  lockedButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.onCoral },
   pressed: { opacity: 0.85 },
   sessionsTitle: {
     fontFamily: fonts.pixel,
@@ -334,7 +334,7 @@ const styles = themedStyles(() => ({
   session: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
   sessionRuled: { borderTopWidth: 1, borderTopColor: colors.hairline },
   sessionText: { flex: 1, minWidth: 0 },
-  sessionDate: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600', color: colors.ink },
+  sessionDate: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
   sessionSet: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 2 },
-  sessionMax: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700', color: colors.ink },
+  sessionMax: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
 }));

@@ -109,8 +109,8 @@ const styles = themedStyles(() => ({
   },
   avatarInitial: { fontFamily: fonts.pixel, fontSize: 36, color: colors.ink },
   identityText: { flex: 1, gap: 4 },
-  handle: { fontFamily: fonts.pixelBold, fontSize: 23, fontWeight: '700', color: colors.ink },
+  handle: { fontFamily: fonts.pixelBold, fontSize: 23, color: colors.ink },
   handleUnset: { fontFamily: fonts.pixel, fontSize: 21, color: colors.muted },
-  handleLink: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.coral },
+  handleLink: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.coral },
   bio: { minHeight: 96, paddingTop: 12, textAlignVertical: 'top', lineHeight: 20 },
 }));

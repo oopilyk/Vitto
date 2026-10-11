@@ -208,7 +208,7 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
 const styles = themedStyles(() => ({
   scoreboard: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 14 },
   scoreItem: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted },
-  scoreValue: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.ink },
+  scoreValue: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   mystery: {
     alignItems: 'center',
     padding: 20,
@@ -242,7 +242,7 @@ const styles = themedStyles(() => ({
   guessDistance: { fontFamily: fonts.pixel, fontSize: 14, color: colors.inkSoft },
   guessArrow: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coralDeep, width: 22, textAlign: 'center' },
   guessProximity: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, width: 36, textAlign: 'right' },
-  guessRight: { fontFamily: fonts.pixelBold, fontSize: 17, fontWeight: '600', color: colors.mintDeep },
+  guessRight: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.mintDeep },
   entryBox: { marginBottom: 4 },
   input: { fontFamily: fonts.pixel, fontSize: 22 },
   suggestions: {

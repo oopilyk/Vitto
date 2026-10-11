@@ -104,7 +104,7 @@ const styles = themedStyles(() => ({
     paddingVertical: 11,
     alignItems: 'center',
   },
-  macroValue: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.ink },
+  macroValue: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   macroLabel: { fontFamily: fonts.pixel, fontSize: 12, color: colors.faint, marginTop: 3 },
   subMacros: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22, color: colors.muted, marginTop: 8 },
   summaryText: { fontFamily: fonts.pixel,

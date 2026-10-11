@@ -111,7 +111,7 @@ const styles = themedStyles(() => ({
     marginTop: 14,
     paddingHorizontal: 20,
   },
-  headline: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  headline: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
   healthChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,

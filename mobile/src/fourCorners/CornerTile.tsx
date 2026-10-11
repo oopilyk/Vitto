@@ -127,7 +127,7 @@ const styles = themedStyles(() => ({
   answer: {
     fontFamily: fonts.pixelBold,
     fontSize: 17,
-    fontWeight: '700',
+    
     letterSpacing: 0.2,
     lineHeight: 22,
     color: world.ink,

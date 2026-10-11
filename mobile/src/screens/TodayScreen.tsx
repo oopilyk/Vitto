@@ -26,7 +26,10 @@ import {
   toDateKey,
   tracksArea,
   describeSubMacros,
+  estimateCaloriesBurned,
+  getEventsForDay,
 } from '@vitto/core';
+import { NutrientRing } from '../components/NutrientRing';
 import { ChoiceRow, TextButton } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { retro } from '../petWorld/retroStyle';
@@ -195,6 +198,9 @@ export function TodayScreen({
   const wordPuzzleToday = findWordPuzzleEventForDate(events, todayKey);
 
   const { gym, outdoors, mind, food, levelProgress } = recap;
+  // The same burned and remaining figures the Profile screen used to show.
+  const burned = estimateCaloriesBurned(getEventsForDay(events, new Date()));
+  const remaining = food.targets.calories - food.consumed.calories + burned;
   // An area the person doesn't track (Settings > What affects your pet) is not a
   // goal: hidden, unless they did it anyway today, which is still worth seeing.
   const shows = (area: CareArea, didToday: boolean) =>
@@ -284,33 +290,93 @@ export function TodayScreen({
         </View>
 
         {/* --- The four pillars --- */}
-        {shows('training', gym.done) ? (
+        {/* Food first: it is what the day is most often checked for. */}
+        {shows('nutrition', food.mealCount > 0) ? (
           <Pillar
             c={c}
             night={night}
-            kicker="GYM"
-            done={gym.done}
-            xp={gym.xp}
+            kicker="FOOD"
+            done={food.caloriePercent >= 90 && food.caloriePercent <= 110}
+            xp={recap.xpByPillar.food}
             headline={
-              gym.done
-                ? gym.workoutCount > 1
-                  ? `${gym.workoutCount} workouts`
-                  : (gym.lastName ?? 'Workout complete')
-                : 'No workout yet'
+              food.mealCount > 0
+                ? `${food.consumed.calories.toLocaleString()} / ${food.targets.calories.toLocaleString()} kcal`
+                : 'No meals logged'
             }
             detail={
-              gym.done
-                ? [
-                    gym.totalMinutes > 0 ? `${gym.totalMinutes} min` : null,
-                    gym.exerciseCount > 0
-                      ? `${gym.exerciseCount} exercise${gym.exerciseCount > 1 ? 's' : ''}`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || 'Logged'
-                : `${petName} trains hard when you do.`
+              food.mealCount === 0
+                ? `Log a meal and ${petName} eats well too.`
+                : food.someMealsUnanalyzed
+                  ? `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} logged — one analysis was incomplete, so this total is approximate.`
+                  : `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} · ${food.caloriePercent}% of today's fuel`
             }
-          />
+          >
+            {/* What's been eaten, burned and left, as the day's three rings. */}
+            <View style={styles.rings}>
+              <NutrientRing
+                value={food.consumed.calories}
+                percent={(food.consumed.calories / food.targets.calories) * 100}
+                label="Consumed"
+                color="#c56a4e"
+                size={84}
+                tone={c}
+              />
+              <NutrientRing
+                value={burned}
+                percent={(burned / food.targets.calories) * 100}
+                label="Burned"
+                color="#78a598"
+                size={84}
+                tone={c}
+              />
+              <NutrientRing
+                value={remaining}
+                percent={(Math.abs(remaining) / food.targets.calories) * 100}
+                label={remaining < 0 ? 'Over' : 'Remaining'}
+                color={remaining < 0 ? '#c0503d' : '#9c8dba'}
+                emphasis={remaining < 0}
+                size={84}
+                tone={c}
+              />
+            </View>
+            <Text style={[styles.targetLine, { color: c.soft }]}>
+              Target {food.targets.calories.toLocaleString()} kcal · {food.targets.proteinGrams}g protein · {food.targets.carbsGrams}g carbs ·{' '}
+              {food.targets.fatGrams}g fat · {food.targets.fiberGrams ?? 0}g fiber
+            </Text>
+            {food.mealCount > 0 ? (
+              <View style={styles.macros}>
+                {(
+                  [
+                    ['Protein', food.consumed.proteinGrams, food.targets.proteinGrams],
+                    ['Carbs', food.consumed.carbsGrams, food.targets.carbsGrams],
+                    ['Fat', food.consumed.fatGrams, food.targets.fatGrams],
+                    // The one sub-macro with a target (14 g per 1,000 kcal).
+                    ['Fiber', food.consumed.fiberGrams ?? 0, food.targets.fiberGrams ?? 0],
+                  ] as const
+                ).map(([label, value, target]) => (
+                  <View key={label} style={styles.macroRow}>
+                    <Text style={[styles.macroLabel, { color: c.soft }]}>{label}</Text>
+                    <View style={[styles.macroTrack, { backgroundColor: c.track }]}>
+                      <View
+                        style={[
+                          styles.macroFill,
+                          { width: `${Math.min(100, target > 0 ? (value / target) * 100 : 0)}%` },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.macroValue, { color: c.ink }]}>
+                      {value}
+                      <Text style={[styles.macroTarget, { color: c.soft }]}> / {target}g</Text>
+                    </Text>
+                  </View>
+                ))}
+                {/* The rest as plain totals, no bars and no targets. */}
+                {describeSubMacros(food.consumed, { includeFiber: false }) ? (
+                  <Text style={[styles.subMacros, { color: c.soft }]}>{describeSubMacros(food.consumed, { includeFiber: false })}</Text>
+                ) : null}
+              </View>
+            ) : null}
+          </Pillar>
         ) : null}
 
         {shows('movement', outdoors.steps > 0) ? (
@@ -353,6 +419,35 @@ export function TodayScreen({
           </Pillar>
         ) : null}
 
+        {shows('training', gym.done) ? (
+          <Pillar
+            c={c}
+            night={night}
+            kicker="GYM"
+            done={gym.done}
+            xp={gym.xp}
+            headline={
+              gym.done
+                ? gym.workoutCount > 1
+                  ? `${gym.workoutCount} workouts`
+                  : (gym.lastName ?? 'Workout complete')
+                : 'No workout yet'
+            }
+            detail={
+              gym.done
+                ? [
+                    gym.totalMinutes > 0 ? `${gym.totalMinutes} min` : null,
+                    gym.exerciseCount > 0
+                      ? `${gym.exerciseCount} exercise${gym.exerciseCount > 1 ? 's' : ''}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'Logged'
+                : `${petName} trains hard when you do.`
+            }
+          />
+        ) : null}
+
         {shows('mind', mind.sessionCount > 0) ? (
           <Pillar
             c={c}
@@ -386,62 +481,6 @@ export function TodayScreen({
                 : []),
             ]}
           />
-        ) : null}
-
-        {shows('nutrition', food.mealCount > 0) ? (
-          <Pillar
-            c={c}
-            night={night}
-            kicker="FOOD"
-            done={food.caloriePercent >= 90 && food.caloriePercent <= 110}
-            xp={recap.xpByPillar.food}
-            headline={
-              food.mealCount > 0
-                ? `${food.consumed.calories.toLocaleString()} / ${food.targets.calories.toLocaleString()} kcal`
-                : 'No meals logged'
-            }
-            detail={
-              food.mealCount === 0
-                ? `Log a meal and ${petName} eats well too.`
-                : food.someMealsUnanalyzed
-                  ? `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} logged — one analysis was incomplete, so this total is approximate.`
-                  : `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} · ${food.caloriePercent}% of today's fuel`
-            }
-          >
-            {food.mealCount > 0 ? (
-              <View style={styles.macros}>
-                {(
-                  [
-                    ['Protein', food.consumed.proteinGrams, food.targets.proteinGrams],
-                    ['Carbs', food.consumed.carbsGrams, food.targets.carbsGrams],
-                    ['Fat', food.consumed.fatGrams, food.targets.fatGrams],
-                    // The one sub-macro with a target (14 g per 1,000 kcal).
-                    ['Fiber', food.consumed.fiberGrams ?? 0, food.targets.fiberGrams ?? 0],
-                  ] as const
-                ).map(([label, value, target]) => (
-                  <View key={label} style={styles.macroRow}>
-                    <Text style={[styles.macroLabel, { color: c.soft }]}>{label}</Text>
-                    <View style={[styles.macroTrack, { backgroundColor: c.track }]}>
-                      <View
-                        style={[
-                          styles.macroFill,
-                          { width: `${Math.min(100, target > 0 ? (value / target) * 100 : 0)}%` },
-                        ]}
-                      />
-                    </View>
-                    <Text style={[styles.macroValue, { color: c.ink }]}>
-                      {value}
-                      <Text style={[styles.macroTarget, { color: c.soft }]}> / {target}g</Text>
-                    </Text>
-                  </View>
-                ))}
-                {/* The rest as plain totals, no bars and no targets. */}
-                {describeSubMacros(food.consumed, { includeFiber: false }) ? (
-                  <Text style={[styles.subMacros, { color: c.soft }]}>{describeSubMacros(food.consumed, { includeFiber: false })}</Text>
-                ) : null}
-              </View>
-            ) : null}
-          </Pillar>
         ) : null}
 
         {/* --- Today's activity: aggregated, meaningful only --- */}
@@ -718,6 +757,8 @@ const nightColors: Palette = {
 };
 
 const styles = themedStyles(() => ({
+  rings: { flexDirection: 'row', justifyContent: 'space-between', gap: 4, marginTop: 12 },
+  targetLine: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 19, marginTop: 10 },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -730,7 +771,7 @@ const styles = themedStyles(() => ({
   back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 60 },
   backMark: { fontFamily: fonts.pixel, fontSize: 23 },
   backLabel: { fontFamily: fonts.pixel, fontSize: 16 },
-  topTitle: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '700', letterSpacing: 2 },
+  topTitle: { fontFamily: fonts.pixelBold, fontSize: 18, letterSpacing: 2 },
   body: { paddingHorizontal: 18, paddingTop: 18, gap: 14 },
 
   overview: { paddingHorizontal: 2, paddingTop: 4, paddingBottom: 20, borderBottomWidth: 1 },
@@ -738,16 +779,16 @@ const styles = themedStyles(() => ({
     fontFamily: fonts.pixelBold,
     fontSize: 13,
     letterSpacing: 1.4,
-    fontWeight: '700',
+    
     textTransform: 'uppercase',
   },
   xpRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 8, marginBottom: 12 },
-  xpValue: { fontFamily: fonts.pixelBold, fontSize: 52, fontWeight: '700', letterSpacing: -1 },
+  xpValue: { fontFamily: fonts.pixelBold, fontSize: 52, letterSpacing: 0.5 },
   xpUnit: {
     fontFamily: fonts.pixelBold,
     fontSize: 14,
     letterSpacing: 1,
-    fontWeight: '700',
+    
     textTransform: 'uppercase',
   },
   overMeta: {
@@ -765,26 +806,26 @@ const styles = themedStyles(() => ({
     borderTopWidth: 1,
   },
   glance: { alignItems: 'center', flex: 1 },
-  glanceValue: { fontFamily: fonts.pixelBold, fontSize: 23, fontWeight: '700' },
+  glanceValue: { fontFamily: fonts.pixelBold, fontSize: 23, },
   glanceLabel: { fontFamily: fonts.pixel, fontSize: 10, letterSpacing: 1, marginTop: 3 },
 
   pillar: { padding: 16, gap: 8 },
   pillarHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   pillarKickerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  pillarKicker: { fontFamily: fonts.pixelBold, fontSize: 13, letterSpacing: 1.6, fontWeight: '700' },
-  pillarDone: { fontFamily: fonts.pixelBold, fontSize: 16, fontWeight: '700' },
+  pillarKicker: { fontFamily: fonts.pixelBold, fontSize: 13, letterSpacing: 1.6, },
+  pillarDone: { fontFamily: fonts.pixelBold, fontSize: 16, },
   pillarHeadline: {
     fontFamily: fonts.pixelBold,
     fontSize: 22,
-    fontWeight: '700',
+    
     marginTop: 4,
-    letterSpacing: -0.2,
+    letterSpacing: 0.5,
   },
   pillarDetail: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22 },
   pillarActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 4 },
   pillarAction: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.3 },
   xpChip: { borderWidth: 2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
-  xpChipText: { fontFamily: fonts.pixelBold, fontSize: 14, fontWeight: '700', letterSpacing: 0.4 },
+  xpChipText: { fontFamily: fonts.pixelBold, fontSize: 14, letterSpacing: 0.4 },
   caloriesLine: { fontFamily: fonts.pixel, fontSize: 14, marginTop: 2 },
   goalEdit: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
   goalEditLabel: {
@@ -812,7 +853,7 @@ const styles = themedStyles(() => ({
   macroValue: {
     fontFamily: fonts.pixelBold,
     fontSize: 14,
-    fontWeight: '700',
+    
     minWidth: 72,
     textAlign: 'right',
   },
@@ -826,13 +867,13 @@ const styles = themedStyles(() => ({
     fontFamily: fonts.pixelBold,
     fontSize: 14,
     letterSpacing: 1.6,
-    fontWeight: '700',
+    
     marginBottom: 10,
     textTransform: 'uppercase',
   },
   activityEmpty: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 23 },
   activityRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  activityCheck: { fontFamily: fonts.pixelBold, fontSize: 17, fontWeight: '700' },
+  activityCheck: { fontFamily: fonts.pixelBold, fontSize: 17, },
   activityLabel: { fontFamily: fonts.pixel, fontSize: 17, flex: 1 },
   activityMore: { fontFamily: fonts.pixel, fontSize: 14, marginTop: 10 },
 
@@ -841,10 +882,10 @@ const styles = themedStyles(() => ({
     fontFamily: fonts.pixelBold,
     fontSize: 13,
     letterSpacing: 1.4,
-    fontWeight: '700',
+    
     textTransform: 'uppercase',
   },
-  softHeadline: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700' },
+  softHeadline: { fontFamily: fonts.pixelBold, fontSize: 20, },
   softDetail: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22 },
 
   devPanel: { paddingVertical: 16, borderTopWidth: 1 },
@@ -852,7 +893,7 @@ const styles = themedStyles(() => ({
     fontFamily: fonts.pixelBold,
     fontSize: 13,
     letterSpacing: 1.2,
-    fontWeight: '700',
+    
     textTransform: 'uppercase',
   },
   devHint: { fontFamily: fonts.pixel, fontSize: 14, lineHeight: 21, marginTop: 10 },

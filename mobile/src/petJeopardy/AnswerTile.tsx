@@ -90,7 +90,7 @@ const styles = themedStyles(() => ({
     flexShrink: 1,
     fontFamily: fonts.pixelBold,
     fontSize: 18,
-    fontWeight: '700',
+    
     lineHeight: 25,
     letterSpacing: 0.2,
     color: world.ink,

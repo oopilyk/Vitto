@@ -382,7 +382,7 @@ const styles = themedStyles(() => ({
   nameKicker: {
     fontFamily: fonts.pixelBold,
     fontSize: 17,
-    fontWeight: '700',
+    
     letterSpacing: 3,
     marginBottom: 4,
   },
@@ -397,7 +397,7 @@ const styles = themedStyles(() => ({
   kicker: {
     fontFamily: fonts.pixelBold,
     fontSize: 29,
-    fontWeight: '700',
+    
     letterSpacing: 3,
     marginTop: 2,
   },
@@ -428,9 +428,9 @@ const styles = themedStyles(() => ({
   continueLabel: {
     fontFamily: fonts.pixelBold,
     fontSize: 18,
-    fontWeight: '700',
+    
     letterSpacing: 2,
     color: world.ink,
   },
-  continueMark: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: world.ink },
+  continueMark: { fontFamily: fonts.pixelBold, fontSize: 21, color: world.ink },
 }));

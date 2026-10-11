@@ -257,7 +257,7 @@ const styles = themedStyles(() => ({
   seatDotOwner: { backgroundColor: colors.coral },
   seatDotPartner: { backgroundColor: colors.mintDeep },
   seatDotEmpty: { backgroundColor: 'transparent', borderWidth: 1.5, borderStyle: 'dashed' },
-  seatName: { fontFamily: fonts.pixelBold, flex: 1, fontSize: 18, fontWeight: '600' },
+  seatName: { fontFamily: fonts.pixelBold, flex: 1, fontSize: 18, },
   seatNameEmpty: { fontWeight: '400', fontStyle: 'italic' },
   seatRole: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 0.8, textTransform: 'uppercase' },
 
@@ -273,7 +273,7 @@ const styles = themedStyles(() => ({
     paddingVertical: 12,
     paddingHorizontal: 14,
   },
-  secondaryLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', marginBottom: 2 },
+  secondaryLabel: { fontFamily: fonts.pixelBold, fontSize: 18, marginBottom: 2 },
   chevron: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
   pressed: { opacity: 0.7 },
 

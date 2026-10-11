@@ -151,7 +151,7 @@ const styles = themedStyles(() => ({
   title: {
     fontFamily: fonts.pixelBold,
     fontSize: 23,
-    fontWeight: '700',
+    
     letterSpacing: 3,
     textTransform: 'uppercase',
     color: world.nightText,
@@ -168,7 +168,7 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: world.barHairline,
   },
-  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700', color: world.nightText },
+  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, color: world.nightText },
 
   body: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 56 },
   feature: { marginTop: 18 },

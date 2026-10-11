@@ -244,7 +244,7 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
 
 const styles = themedStyles(() => ({
   stageRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
-  stageName: { fontFamily: fonts.pixelBold, fontSize: 22, fontWeight: '600', color: colors.ink },
+  stageName: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
   stageHint: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 3 },
   runChip: {
     alignItems: 'center',
@@ -256,11 +256,11 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.card,
   },
   runChipHot: { backgroundColor: colors.coralWash, borderColor: colors.coral },
-  runValue: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700', color: colors.inkSoft },
+  runValue: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.inkSoft },
   runValueHot: { color: colors.coralDeep },
   runLabel: { fontFamily: fonts.pixel, fontSize: 10, color: colors.faint, marginTop: 1 },
   points: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted },
-  pointsValue: { fontFamily: fonts.pixelBold, fontSize: 26, fontWeight: '700', color: colors.ink },
+  pointsValue: { fontFamily: fonts.pixelBold, fontSize: 26, color: colors.ink },
   track: { height: 6, borderRadius: 3, backgroundColor: colors.hairline, overflow: 'hidden', marginBottom: 14 },
   trackFill: { height: 6, borderRadius: 3, backgroundColor: colors.mintDeep },
   entryBox: { alignItems: 'center', marginBottom: 2, minHeight: 64 },
@@ -297,7 +297,7 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  seedLabel: { fontFamily: fonts.pixelBold, fontSize: 39, color: colors.mintDeep, fontWeight: '700' },
+  seedLabel: { fontFamily: fonts.pixelBold, fontSize: 39, color: colors.mintDeep, },
   pressedKey: { opacity: 0.7, transform: [{ scale: 0.95 }] },
   controls: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 20 },
   control: {
@@ -313,7 +313,7 @@ const styles = themedStyles(() => ({
   controlRound: { width: 42, paddingHorizontal: 0 },
   controlPrimary: { backgroundColor: colors.ink, borderColor: colors.ink },
   controlPressed: { opacity: 0.7 },
-  controlLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
+  controlLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
   controlPrimaryLabel: { color: '#fff' },
   foundBox: {
     padding: 14,

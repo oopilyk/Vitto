@@ -77,7 +77,7 @@ export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
 const styles = themedStyles(() => ({
   wrap: { flex: 1, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 },
   scoreStrip: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 14, gap: 2 },
-  score: { fontFamily: fonts.pixel, fontSize: 26, color: world.ink, letterSpacing: -0.4 },
+  score: { fontFamily: fonts.pixel, fontSize: 26, color: world.ink, letterSpacing: 0.5 },
   scoreNight: { color: world.nightText },
   grid: { flex: 1, flexDirection: 'row', gap: 8, marginTop: 10 },
   column: { flex: 1, gap: 8 },
@@ -85,7 +85,7 @@ const styles = themedStyles(() => ({
   categoryLabel: {
     fontFamily: fonts.pixelBold,
     fontSize: 14,
-    fontWeight: '700',
+    
     letterSpacing: 0.8,
     textAlign: 'center',
     textTransform: 'uppercase',

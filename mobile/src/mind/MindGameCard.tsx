@@ -159,14 +159,14 @@ const styles = themedStyles(() => ({
   category: {
     fontFamily: fonts.pixelBold,
     fontSize: 13,
-    fontWeight: '700',
+    
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
   playedMark: {
     fontFamily: fonts.pixelBold,
     fontSize: 13,
-    fontWeight: '700',
+    
     letterSpacing: 0.6,
     color: world.positive,
   },
@@ -188,7 +188,7 @@ const styles = themedStyles(() => ({
   reward: {
     fontFamily: fonts.pixelBold,
     fontSize: 13,
-    fontWeight: '700',
+    
     letterSpacing: 0.6,
     color: world.inkSoft,
   },
@@ -200,7 +200,7 @@ const styles = themedStyles(() => ({
   playLabel: {
     fontFamily: fonts.pixelBold,
     fontSize: 14,
-    fontWeight: '700',
+    
     letterSpacing: 1.2,
   },
 
@@ -212,7 +212,7 @@ const styles = themedStyles(() => ({
   kicker: {
     fontFamily: fonts.pixelBold,
     fontSize: 13,
-    fontWeight: '700',
+    
     letterSpacing: 1.4,
     color: world.accentDeep,
     textTransform: 'uppercase',
@@ -236,7 +236,7 @@ const styles = themedStyles(() => ({
   featureCategory: {
     fontFamily: fonts.pixelBold,
     fontSize: 14,
-    fontWeight: '700',
+    
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
@@ -251,7 +251,7 @@ const styles = themedStyles(() => ({
   playBarLabel: {
     fontFamily: fonts.pixelBold,
     fontSize: 16,
-    fontWeight: '700',
+    
     letterSpacing: 1.4,
   },
 }));

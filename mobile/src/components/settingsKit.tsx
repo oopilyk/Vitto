@@ -473,13 +473,13 @@ export const kit = themedStyles(() => ({
     color: colors.faint,
     marginBottom: 6,
   },
-  sectionTitle: { fontFamily: fonts.pixelBold, fontSize: 25, fontWeight: '700', color: colors.ink, letterSpacing: 0.3 },
+  sectionTitle: { fontFamily: fonts.pixelBold, fontSize: 25, color: colors.ink, letterSpacing: 0.3 },
   sectionDescription: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26, marginTop: 4 },
   sectionBody: { marginTop: 16, gap: 16 },
 
   field: { gap: 8 },
   fieldRowItem: { flex: 1, minWidth: 0 },
-  fieldLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.inkSoft },
+  fieldLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
   fieldHint: { fontFamily: fonts.pixel, fontSize: 17, fontWeight: '400', color: colors.faint },
   fieldRow: { flexDirection: 'row', gap: 12 },
   input: { fontFamily: fonts.pixel,
@@ -558,7 +558,7 @@ export const kit = themedStyles(() => ({
     justifyContent: 'center',
   },
   markOn: { backgroundColor: colors.coral, borderColor: colors.coral },
-  markTick: { fontFamily: fonts.pixelBold, color: colors.onCoral, fontSize: 16, fontWeight: '800', lineHeight: 18 },
+  markTick: { fontFamily: fonts.pixelBold, color: colors.onCoral, fontSize: 16, lineHeight: 18 },
 
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: {
@@ -588,7 +588,7 @@ export const kit = themedStyles(() => ({
     borderColor: colors.dangerBorder,
     backgroundColor: colors.dangerWash,
   },
-  dangerTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.ink },
+  dangerTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
   dangerDescription: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, lineHeight: 25, marginTop: 4 },
   dangerAction: { marginTop: 14, alignItems: 'flex-start' },
   dangerButton: {
@@ -601,7 +601,7 @@ export const kit = themedStyles(() => ({
     justifyContent: 'center',
   },
   dangerButtonPressed: { backgroundColor: colors.dangerPressed },
-  dangerButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '600', color: colors.danger },
+  dangerButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.danger },
 
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.5 },
@@ -612,7 +612,7 @@ export const kit = themedStyles(() => ({
   backLabel: { fontFamily: fonts.pixel, fontSize: 20, fontWeight: '500', color: colors.inkSoft },
   scroll: { paddingHorizontal: 24 },
   page: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
-  pageTitle: { fontFamily: fonts.pixelBold, fontSize: 39, fontWeight: '800', color: colors.ink, letterSpacing: 0.3, marginTop: 4, marginBottom: 8 },
+  pageTitle: { fontFamily: fonts.pixelBold, fontSize: 39, color: colors.ink, letterSpacing: 0.3, marginTop: 4, marginBottom: 8 },
   pageLead: { fontFamily: fonts.pixel, fontSize: 20, color: colors.muted, lineHeight: 27, marginBottom: 8 },
 
   saveBar: {

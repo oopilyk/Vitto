@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
@@ -85,6 +85,24 @@ export function MindGymScreen({
   const [result, setResult] = useState<SessionResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The keyboard, tracked so a typing game's answer stays in view above it.
+  const scroll = useRef<ScrollView>(null);
+  const keyboardUp = useRef(false);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => {
+      keyboardUp.current = true;
+      // Once the inset has been applied, bring the answer up into view.
+      setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
+    });
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => {
+      keyboardUp.current = false;
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const finishReading = (scored: { correct: number; total: number }, missed?: SessionResult['missed']) => {
     const durationSeconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
@@ -186,10 +204,10 @@ export function MindGymScreen({
 
   return (
     <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.sheet}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      {/* No KeyboardAvoidingView: inside a page sheet it measures from the
+          wrong edge and left the keyboard over the answers. The scroll view
+          insets itself by the keyboard instead (see below). */}
+      <View style={styles.sheet}>
         <View style={styles.header}>
           <View>
             <Kicker>Mind</Kicker>
@@ -200,7 +218,20 @@ export function MindGymScreen({
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scroll}
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          // iOS insets the content by the keyboard, so everything can scroll
+          // clear of it...
+          automaticallyAdjustKeyboardInsets
+          // ...and while the keyboard is up the answer (always at the bottom of
+          // a typing game: the box, its suggestions, the button) is kept in view,
+          // also as suggestions appear under it.
+          onContentSizeChange={() => {
+            if (keyboardUp.current) scroll.current?.scrollToEnd({ animated: true });
+          }}
+        >
           {stage === 'garden' ? <WordGardenGame onFinish={finishSession} onCancel={onClose} /> : null}
 
           {stage === 'country' ? <CountryGuessGame onFinish={finishSession} onCancel={onClose} /> : null}
@@ -309,7 +340,7 @@ export function MindGymScreen({
             </>
           ) : null}
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -378,7 +409,7 @@ const styles = themedStyles(() => ({
   },
   scoreNumber: { fontFamily: fonts.pixel, fontSize: 36, color: '#fff' },
   scoreCaption: { fontFamily: fonts.pixel, fontSize: 9, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.6 },
-  resultLabel: { fontFamily: fonts.pixelBold, fontSize: 22, fontWeight: '600', color: colors.ink },
+  resultLabel: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
   resultMeta: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 6, lineHeight: 22 },
   review: { marginTop: 16, gap: 10 },
   reviewRow: {

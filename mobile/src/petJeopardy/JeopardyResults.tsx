@@ -108,7 +108,7 @@ function Reward({ value, unit, night }: { value: string; unit: string; night: bo
 const styles = themedStyles(() => ({
   wrap: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
   scorePanel: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 },
-  score: { fontFamily: fonts.pixel, fontSize: 39, color: world.ink, marginTop: 8, letterSpacing: -0.6 },
+  score: { fontFamily: fonts.pixel, fontSize: 39, color: world.ink, marginTop: 8, letterSpacing: 0.5 },
   scoreNight: { color: world.nightText },
   line: { marginTop: 6, textAlign: 'center' },
   stage: {
@@ -121,7 +121,7 @@ const styles = themedStyles(() => ({
   petStage: { height: RESULT_PET_SIZE + 20, backgroundColor: 'transparent', overflow: 'visible' },
   rewards: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   reward: { paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', minWidth: 96 },
-  rewardValue: { fontFamily: fonts.pixelBold, fontSize: 23, fontWeight: '700', color: world.ink },
+  rewardValue: { fontFamily: fonts.pixelBold, fontSize: 23, color: world.ink },
   rewardValueNight: { color: world.nightText },
   actions: { width: '100%', marginTop: 'auto', paddingBottom: 28 },
   again: { alignItems: 'center', marginTop: 16 },

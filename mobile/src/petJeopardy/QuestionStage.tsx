@@ -151,7 +151,7 @@ const styles = themedStyles(() => ({
   flourishSlot: { position: 'absolute', top: 8, alignItems: 'center' },
   verdictSlot: { height: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   verdictChip: { paddingVertical: 4, paddingHorizontal: 12 },
-  verdict: { fontFamily: fonts.pixelBold, fontSize: 14, fontWeight: '700', letterSpacing: 1.2, color: world.ink },
+  verdict: { fontFamily: fonts.pixelBold, fontSize: 14, letterSpacing: 1.2, color: world.ink },
   verdictNight: { color: world.nightText },
   answers: { gap: 10, paddingBottom: 16 },
   footer: { paddingBottom: 20 },

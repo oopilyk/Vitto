@@ -198,7 +198,7 @@ const styles = themedStyles(() => ({
   title: {
     fontFamily: fonts.pixel,
     fontSize: 36,
-    letterSpacing: -0.5,
+    letterSpacing: 0.5,
     color: world.ink,
     marginTop: 6,
     textAlign: 'center',
