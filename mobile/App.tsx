@@ -623,7 +623,8 @@ function VittoApp() {
    * skipped. Existing accounts see it once too.
    */
   const tourKey = `vitto.tourDone.${userId}`;
-  const [tourPending, setTourPending] = useState(false);
+  /** Null until it is known: the achievement announcer waits on it (see below). */
+  const [tourPending, setTourPending] = useState<boolean | null>(null);
   useEffect(() => {
     if (!dataReady || !pet) return;
     let cancelled = false;
@@ -631,7 +632,9 @@ function VittoApp() {
       .then((value) => {
         if (!cancelled) setTourPending(value !== '1');
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setTourPending(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -1473,8 +1476,8 @@ function VittoApp() {
     try {
       setError(null);
       if (profile.age < 13 || profile.age > 100) throw new Error('Age must be between 13 and 100.');
-      if (profile.heightCm < 120 || profile.heightCm > 230)
-        throw new Error('Height must be between 120 and 230 cm.');
+      if (profile.heightCm < 90 || profile.heightCm > 230)
+        throw new Error('Height must be between 90 and 230 cm.');
       if (profile.weightKg < 30 || profile.weightKg > 300)
         throw new Error('Weight must be between 30 and 300 kg.');
 
@@ -1916,6 +1919,8 @@ function VittoApp() {
   // is then extended so each unlock is shown exactly once.
   useEffect(() => {
     if (!dataReady || seenAchievements === null) return;
+    // Not before it is known whether the first-run tour is about to open.
+    if (pet && tourPending === null) return;
 
     // First run on this device: record what is already earned, silently, and
     // do it whether or not that is anything. This used to happen only when the
@@ -1939,10 +1944,13 @@ function VittoApp() {
     // record was lost or the history arrived late, not a moment worth a
     // parade: remember them quietly rather than announce them all again.
     if (fresh.length > MAX_ANNOUNCED_AT_ONCE) return;
+    // Whatever was earned getting here (adopting, day one) is not paraded over
+    // the tour, or in the moment before it opens.
+    if (tourPending) return;
     setUnlockQueue((queue) => [...queue, ...fresh]);
     // `repository` is a stable module-level instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataReady, achievementsNow, seenAchievements, achievementScope]);
+  }, [dataReady, achievementsNow, seenAchievements, achievementScope, tourPending, Boolean(pet)]);
 
   /** Saves (or replaces by name) a routine, then persists the list. */
   const saveWorkoutTemplate = async (template: WorkoutTemplate) => {
@@ -2241,7 +2249,7 @@ function VittoApp() {
                   : null
               }
               onAchievementUnlockComplete={() => setUnlockQueue((queue) => queue.slice(1))}
-              tour={tourPending ? { steps: tourSteps(livePet.name, canCustomise), onDone: finishTour } : null}
+              tour={tourPending === true ? { steps: tourSteps(livePet.name, canCustomise), onDone: finishTour } : null}
             />
           )}
         </RootStack.Screen>

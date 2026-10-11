@@ -593,7 +593,7 @@ export function OnboardingScreen({
 
   const validate = (): string | null => {
     if (stepId === 'body') {
-      if (profile.heightCm < 120 || profile.heightCm > 230) return 'That height doesn’t look right.';
+      if (profile.heightCm < 90 || profile.heightCm > 230) return 'That height doesn’t look right.';
       if (profile.weightKg < 30 || profile.weightKg > 300) return 'That weight doesn’t look right.';
     }
     if (stepId === 'target' && goalNumber !== undefined && (goalNumber < bounds.min || goalNumber > bounds.max))
@@ -886,6 +886,9 @@ export function OnboardingScreen({
           contentContainerStyle={styles.pageScroll}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          // Pages are laid out to fit; only the keyboard can take enough room
+          // to need a scroll, so only then can it.
+          scrollEnabled={keyboardUp}
           showsVerticalScrollIndicator={false}
           alwaysBounceVertical={false}
         >
@@ -1176,7 +1179,7 @@ export function OnboardingScreen({
                     <View style={styles.heightPick}>
                       <Text style={styles.heightLabel}>Height</Text>
                       <View style={styles.toggle}>
-                        {[4, 5, 6, 7].map((feet) => {
+                        {[3, 4, 5, 6, 7].map((feet) => {
                           const on = body.feet === String(feet);
                           return (
                             <Pressable
@@ -1217,11 +1220,14 @@ export function OnboardingScreen({
                       </View>
                     </View>
                   )}
+                  {/* Labelled above, with an example inside, so it reads as a box to
+                      type in rather than a button like the choices around it. */}
+                  <Text style={styles.heightLabel}>{`Weight (${profile.weightUnit})`}</Text>
                   <FInput
                     keyboardType="number-pad"
                     value={body.weight}
                     onChangeText={(value) => updateBody({ ...body, weight: digits(value) })}
-                    placeholder={`Weight in ${profile.weightUnit}`}
+                    placeholder={profile.weightUnit === 'lb' ? 'Type it here, e.g. 160' : 'Type it here, e.g. 72'}
                     accessibilityLabel={`Weight in ${profile.weightUnit}`}
                   />
                 </>,
@@ -1354,7 +1360,7 @@ export function OnboardingScreen({
                   sub: `Pick what you'll track. Anything you leave off never affects ${petName}.`,
                   count: CARE_AREAS.length,
                   // Two-line rows: room for them, so nothing scrolls.
-                  extraRoom: CARE_AREAS.length * 40,
+                  extraRoom: CARE_AREAS.length * (short ? 16 : 40),
                   wanted: 90,
                 },
                 <>
@@ -1363,12 +1369,14 @@ export function OnboardingScreen({
                       key={area}
                       label={CARE_AREA_CHOICE[area].label}
                       detail={CARE_AREA_CHOICE[area].detail(petName)}
+                      // Two lines everywhere; on a small phone it shrinks to fit them.
                       detailLines={2}
-                      stats={CARE_AREA_CHOICE[area].stats}
+                      // The stat line goes on a small phone: what each one is matters more.
+                      stats={short ? undefined : CARE_AREA_CHOICE[area].stats}
                       align="left"
                       selected={careAreas.includes(area)}
                       onPress={() => toggleCareArea(area)}
-                      style={styles.choiceTall}
+                      style={short ? styles.choiceCompact : styles.choiceTall}
                     />
                   ))}
                 </>,
@@ -1389,6 +1397,7 @@ export function OnboardingScreen({
                     <FChoice
                       key={option.value}
                       label={option.label}
+                      small
                       selected={trainingTypes.includes(option.value)}
                       onPress={() => toggleTraining(option.value)}
                     />
@@ -1820,6 +1829,12 @@ function Grid({ columns, children }: { columns: number; children: ReactNode }) {
 }
 
 /** A big rounded answer: grey edge, coral edge and a tick once chosen. It shrinks to fit a long list. */
+/**
+ * For any text held to a number of lines: it shrinks to fit them rather than
+ * ending in "…" or breaking a word across lines. Onboarding never cuts its words.
+ */
+const FIT = { adjustsFontSizeToFit: true, minimumFontScale: 0.6 } as const;
+
 function FChoice({
   label,
   detail,
@@ -1862,23 +1877,26 @@ function FChoice({
             small && styles.choiceLabelSmall,
             selected && styles.choiceLabelOn,
           ]}
-          numberOfLines={2}
+          // Never "…" and never a word broken in two ("Weightliftin / g"): a
+          // label too long for its lines shrinks to fit (see FIT).
+          numberOfLines={small ? 1 : 2}
+          {...FIT}
         >
           {label}
         </Text>
         {detail ? (
-          <Text style={styles.choiceDetail} numberOfLines={detailLines}>
+          <Text style={styles.choiceDetail} numberOfLines={detailLines} {...FIT}>
             {detail}
           </Text>
         ) : null}
         {stats ? (
-          <Text style={styles.choiceStats} numberOfLines={1}>
+          <Text style={styles.choiceStats} numberOfLines={1} {...FIT}>
             {stats}
           </Text>
         ) : null}
       </View>
       {note ? (
-        <Text style={styles.choiceNote} numberOfLines={1}>
+        <Text style={styles.choiceNote} numberOfLines={1} {...FIT}>
           {note}
         </Text>
       ) : null}
@@ -1913,7 +1931,7 @@ function PlanRow({ text, last }: { text: string; last?: boolean }) {
   return (
     <View style={[styles.planRow, !last && styles.planRowRuled]}>
       <View style={styles.planDot} />
-      <Text style={styles.planText} numberOfLines={2}>
+      <Text style={styles.planText} numberOfLines={2} {...FIT}>
         {text}
       </Text>
     </View>
@@ -1933,9 +1951,9 @@ const styles = themedStyles(() => {
     headerSpacer: { height: 56 },
     headerBalance: { width: 12 },
     backButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: F.soft },
-    backMark: { fontFamily: FONT.medium, fontSize: 42, lineHeight: 52, color: F.sub, marginTop: -3, marginLeft: -2 },
-    progressTrack: { flex: 1, height: 16, borderRadius: 4, backgroundColor: F.soft, overflow: 'hidden' },
-    progressFill: { height: 16, borderRadius: 4, backgroundColor: F.green },
+    backMark: { fontFamily: FONT.medium, fontSize: 32, lineHeight: 40, color: F.sub, marginTop: -3, marginLeft: -2 },
+    progressTrack: { flex: 1, height: 16, borderRadius: 8, backgroundColor: F.soft, overflow: 'hidden' },
+    progressFill: { height: 16, borderRadius: 8, backgroundColor: F.green },
     progressShine: {
       position: 'absolute',
       top: 4,
@@ -1958,29 +1976,29 @@ const styles = themedStyles(() => {
 
     eyebrow: {
       fontFamily: FONT.medium,
-      fontSize: 18,
-      lineHeight: 26,
+      fontSize: 14,
+      lineHeight: 20,
       letterSpacing: 1.6,
       textTransform: 'uppercase',
       color: F.sub,
       textAlign: 'center',
     },
-    title: { fontFamily: FONT.bold, fontSize: 34, lineHeight: 42, color: F.text, textAlign: 'center', marginTop: 6 },
-    titleShort: { fontFamily: fonts.pixel, fontSize: 29, lineHeight: 36 },
-    question: { fontFamily: FONT.bold, fontSize: 30, lineHeight: 38, color: F.text, textAlign: 'center', marginTop: 4 },
-    questionShort: { fontFamily: fonts.pixel, fontSize: 26, lineHeight: 34 },
-    sub: { fontFamily: FONT.regular, fontSize: 21, lineHeight: 29, color: F.sub, textAlign: 'center', marginTop: 4 },
-    hint: { fontFamily: FONT.regular, fontSize: 20, lineHeight: 26, color: F.sub, textAlign: 'center', marginTop: 10 },
-    fieldLabel: { fontFamily: FONT.medium, fontSize: 21, lineHeight: 27, color: F.text, marginTop: 4 },
-    link: { fontFamily: FONT.medium, fontSize: 20, lineHeight: 26, color: F.sub },
-    linkLarge: { fontFamily: FONT.medium, fontSize: 22, lineHeight: 29, color: F.sub },
+    title: { fontFamily: FONT.bold, fontSize: 26, lineHeight: 32, color: F.text, textAlign: 'center', marginTop: 6 },
+    titleShort: { fontSize: 22, lineHeight: 28 },
+    question: { fontFamily: FONT.bold, fontSize: 23, lineHeight: 29, color: F.text, textAlign: 'center', marginTop: 4 },
+    questionShort: { fontSize: 20, lineHeight: 26 },
+    sub: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 22, color: F.sub, textAlign: 'center', marginTop: 4 },
+    hint: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, textAlign: 'center', marginTop: 10 },
+    fieldLabel: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 21, color: F.text, marginTop: 4 },
+    link: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, color: F.sub },
+    linkLarge: { fontFamily: FONT.medium, fontSize: 17, lineHeight: 22, color: F.sub },
     linkRow: { alignItems: 'center', paddingVertical: 10 },
-    error: { fontFamily: FONT.medium, fontSize: 18, lineHeight: 25, color: colors.danger, textAlign: 'center' },
+    error: { fontFamily: FONT.medium, fontSize: 14, lineHeight: 19, color: colors.danger, textAlign: 'center' },
 
     welcomePets: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', marginBottom: 6 },
     welcomePet: { marginHorizontal: -14 },
     welcomePetMiddle: { zIndex: 1 },
-    chosenName: { fontFamily: FONT.semibold, fontSize: 23, lineHeight: 31, color: F.text },
+    chosenName: { fontFamily: FONT.semibold, fontSize: 18, lineHeight: 24, color: F.text },
     mystery: {
       width: 110,
       height: 110,
@@ -1992,10 +2010,10 @@ const styles = themedStyles(() => {
       borderColor: F.border,
       borderStyle: 'dashed',
     },
-    mysteryMark: { fontFamily: FONT.bold, fontSize: 60, lineHeight: 73, color: F.sub },
+    mysteryMark: { fontFamily: FONT.bold, fontSize: 46, lineHeight: 56, color: F.sub },
     petGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 6 },
     petTile: {
-      borderRadius: 4,
+      borderRadius: 18,
       borderWidth: 2,
       borderColor: F.border,
       backgroundColor: F.bg,
@@ -2011,12 +2029,12 @@ const styles = themedStyles(() => {
     bubble: {
       alignSelf: 'stretch',
       backgroundColor: F.soft,
-      borderRadius: 4,
+      borderRadius: 24,
       paddingHorizontal: 20,
       paddingVertical: 14,
       marginBottom: 8,
     },
-    bubbleText: { fontFamily: FONT.medium, fontSize: 22, lineHeight: 31, color: F.text },
+    bubbleText: { fontFamily: FONT.medium, fontSize: 17, lineHeight: 24, color: F.text },
     bubbleTail: {
       position: 'absolute',
       bottom: -8,
@@ -2033,6 +2051,7 @@ const styles = themedStyles(() => {
     gridRow: { flexDirection: 'row', gap: CHOICE_GAP, flexBasis: 64, flexShrink: 1, flexGrow: 0, minHeight: MIN_CHOICE, maxHeight: 68 },
     gridCell: { flex: 1 },
     // A choice with a two-line detail under its label.
+    choiceCompact: { flexBasis: 70, maxHeight: 84, paddingVertical: 8 },
     choiceTall: { flexBasis: 92, maxHeight: 104, paddingVertical: 10 },
     choice: {
       flexDirection: 'row',
@@ -2044,7 +2063,7 @@ const styles = themedStyles(() => {
       minHeight: MIN_CHOICE,
       maxHeight: 72,
       paddingHorizontal: 18,
-      borderRadius: 4,
+      borderRadius: 22,
       borderWidth: 2,
       borderColor: F.border,
       backgroundColor: F.bg,
@@ -2053,26 +2072,26 @@ const styles = themedStyles(() => {
     pressed: { transform: [{ scale: 0.98 }] },
     choiceText: { flex: 1 },
     choiceTextCentred: { alignItems: 'center' },
-    choiceLabel: { fontFamily: FONT.medium, fontSize: 23, lineHeight: 30, color: F.text, textAlign: 'center' },
+    choiceLabel: { fontFamily: FONT.medium, fontSize: 18, lineHeight: 23, color: F.text, textAlign: 'center' },
     choiceLabelLeft: { textAlign: 'left' },
-    choiceLabelSmall: { fontFamily: fonts.pixel, fontSize: 20, lineHeight: 25 },
+    choiceLabelSmall: { fontSize: 15, lineHeight: 19 },
     choiceLabelOn: { fontFamily: FONT.semibold },
-    choiceDetail: { fontFamily: FONT.regular, fontSize: 18, lineHeight: 23, color: F.sub, marginTop: 1 },
+    choiceDetail: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 18, color: F.sub, marginTop: 1 },
     // What a choice raises, in the accent, so it reads as a reward.
-    choiceStats: { fontFamily: FONT.bold, fontSize: 16, lineHeight: 21, letterSpacing: 0.2, color: F.green, marginTop: 3 },
-    choiceNote: { fontFamily: FONT.regular, fontSize: 20, lineHeight: 26, color: F.sub, flexShrink: 1, textAlign: 'right' },
+    choiceStats: { fontFamily: FONT.bold, fontSize: 12, lineHeight: 16, letterSpacing: 0.2, color: F.green, marginTop: 3 },
+    choiceNote: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, flexShrink: 1, textAlign: 'right' },
     check: { width: 26, height: 26, borderRadius: 13, backgroundColor: F.green, alignItems: 'center', justifyContent: 'center' },
-    checkMark: { fontFamily: FONT.bold, fontSize: 18, lineHeight: 23, color: '#ffffff' },
+    checkMark: { fontFamily: FONT.bold, fontSize: 14, lineHeight: 18, color: '#ffffff' },
 
     toggle: { flexDirection: 'row', gap: 10 },
     heightPick: { alignSelf: 'stretch', gap: 8 },
-    heightLabel: { fontFamily: FONT.semibold, fontSize: 20, lineHeight: 26, color: F.text },
+    heightLabel: { fontFamily: FONT.semibold, fontSize: 15, lineHeight: 20, color: F.text },
     inchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     inchOption: {
       width: '14%',
       flexGrow: 1,
       height: 42,
-      borderRadius: 4,
+      borderRadius: 21,
       borderWidth: 2,
       borderColor: F.border,
       backgroundColor: F.input,
@@ -2082,58 +2101,58 @@ const styles = themedStyles(() => {
     toggleOption: {
       flex: 1,
       height: 46,
-      borderRadius: 4,
+      borderRadius: 23,
       borderWidth: 2,
       borderColor: F.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
     toggleOptionOn: { borderColor: F.green, backgroundColor: F.greenPale },
-    toggleLabel: { fontFamily: FONT.medium, fontSize: 21, lineHeight: 27, color: F.sub },
+    toggleLabel: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 21, color: F.sub },
     toggleLabelOn: { color: F.text, fontFamily: FONT.semibold },
 
-    persona: { fontFamily: fonts.pixel, height: 96, fontSize: 21, textAlign: 'left', paddingTop: 12, textAlignVertical: 'top', lineHeight: 29 },
+    persona: { height: 96, fontSize: 16, textAlign: 'left', paddingTop: 12, textAlignVertical: 'top', lineHeight: 22 },
     personaBox: { marginTop: 10, gap: 6 },
     chipStrip: { flexGrow: 0 },
     chips: { flexDirection: 'row', gap: 10, paddingRight: 24, paddingVertical: 2 },
     chip: {
       height: 46,
       paddingHorizontal: 18,
-      borderRadius: 4,
+      borderRadius: 23,
       borderWidth: 2,
       borderColor: F.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
     chipOn: { borderColor: F.green, backgroundColor: F.greenPale },
-    chipLabel: { fontFamily: FONT.medium, fontSize: 21, lineHeight: 27, color: F.sub },
+    chipLabel: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 21, color: F.sub },
     chipLabelOn: { color: F.text },
 
     join: { alignSelf: 'stretch', marginTop: 14, gap: 10 },
 
-    previewCard: { marginTop: 12, padding: 16, borderRadius: 4, backgroundColor: F.greenPale, gap: 6 },
-    previewAbout: { fontFamily: FONT.regular, fontSize: 20, lineHeight: 27, color: F.text },
-    previewQuote: { fontFamily: FONT.medium, fontSize: 21, lineHeight: 29, color: F.text, fontStyle: 'italic' },
+    previewCard: { marginTop: 12, padding: 16, borderRadius: 22, backgroundColor: F.greenPale, gap: 6 },
+    previewAbout: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 21, color: F.text },
+    previewQuote: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 22, color: F.text, fontStyle: 'italic' },
 
     plusKicker: {
       fontFamily: FONT.semibold,
-      fontSize: 18,
-      lineHeight: 25,
+      fontSize: 14,
+      lineHeight: 19,
       letterSpacing: 1.6,
       textTransform: 'uppercase',
       color: '#f29b0f',
     },
     perkStage: { alignSelf: 'stretch', marginTop: 12, gap: 8 },
-    voice: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 4, backgroundColor: F.soft },
+    voice: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, backgroundColor: F.soft },
     voiceLeft: { alignSelf: 'flex-start', borderBottomLeftRadius: 6 },
     voiceRight: { alignSelf: 'flex-end', borderBottomRightRadius: 6 },
-    voiceTag: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, letterSpacing: 1, textTransform: 'uppercase', color: F.green },
-    voiceLine: { fontFamily: FONT.medium, fontSize: 21, lineHeight: 29, color: F.text, marginTop: 2 },
+    voiceTag: { fontFamily: FONT.semibold, fontSize: 12, lineHeight: 16, letterSpacing: 1, textTransform: 'uppercase', color: F.green },
+    voiceLine: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 22, color: F.text, marginTop: 2 },
     mealCard: {
       alignSelf: 'stretch',
       marginTop: 12,
       padding: 14,
-      borderRadius: 4,
+      borderRadius: 26,
       backgroundColor: dark ? colors.cardSoft : '#fff4e2',
       alignItems: 'center',
       gap: 12,
@@ -2141,31 +2160,31 @@ const styles = themedStyles(() => {
     viewfinder: { width: 200, height: 124, alignItems: 'center', justifyContent: 'center', marginBottom: 10, overflow: 'hidden' },
     // A fixed size, not just pinned edges: iOS drew the photo at its own 900px
     // across the whole page when only the edges were given.
-    mealPhoto: { position: 'absolute', top: 6, left: 6, width: 188, height: 112, borderRadius: 4, overflow: 'hidden' },
+    mealPhoto: { position: 'absolute', top: 6, left: 6, width: 188, height: 112, borderRadius: 14, overflow: 'hidden' },
     corner: { position: 'absolute', width: 22, height: 22, borderColor: F.green },
     corner_tl: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 10 },
     corner_tr: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 10 },
     corner_bl: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 10 },
     corner_br: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 10 },
     mealChips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
-    mealChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: F.bg, borderWidth: 2, borderColor: F.border },
-    mealChipLabel: { fontFamily: FONT.semibold, fontSize: 18, lineHeight: 25, color: F.text },
+    mealChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: F.bg, borderWidth: 2, borderColor: F.border },
+    mealChipLabel: { fontFamily: FONT.semibold, fontSize: 14, lineHeight: 19, color: F.text },
     chat: { alignSelf: 'stretch', marginTop: 12, gap: 10 },
-    chatBubble: { maxWidth: '84%', paddingHorizontal: 16, paddingVertical: 11, borderRadius: 4 },
+    chatBubble: { maxWidth: '84%', paddingHorizontal: 16, paddingVertical: 11, borderRadius: 22 },
     chatMine: { alignSelf: 'flex-end', backgroundColor: F.green, borderBottomRightRadius: 6 },
     chatTheirs: { alignSelf: 'flex-start', backgroundColor: F.soft, borderBottomLeftRadius: 6 },
-    chatText: { fontFamily: FONT.medium, fontSize: 21, lineHeight: 29, color: F.text },
+    chatText: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 22, color: F.text },
     chatTextMine: { color: '#ffffff' },
     compare: { alignSelf: 'stretch', flexDirection: 'row', gap: 10, marginTop: 12 },
-    compareCell: { flex: 1, padding: 12, borderRadius: 4, borderWidth: 2, borderColor: F.border },
+    compareCell: { flex: 1, padding: 12, borderRadius: 20, borderWidth: 2, borderColor: F.border },
     compareCellPlus: { borderColor: F.green, backgroundColor: F.greenPale },
-    compareLabel: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, letterSpacing: 1, textTransform: 'uppercase', color: F.sub },
+    compareLabel: { fontFamily: FONT.semibold, fontSize: 12, lineHeight: 16, letterSpacing: 1, textTransform: 'uppercase', color: F.sub },
     compareLabelPlus: { color: F.green },
-    compareValue: { fontFamily: FONT.medium, fontSize: 20, lineHeight: 26, color: F.sub, marginTop: 3 },
+    compareValue: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, color: F.sub, marginTop: 3 },
     compareValuePlus: { color: F.text },
 
     offerSkip: { alignSelf: 'flex-end', paddingVertical: 4 },
-    offerReady: { fontFamily: FONT.semibold, fontSize: 21, lineHeight: 27, color: F.green, textAlign: 'center', marginTop: 4 },
+    offerReady: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.green, textAlign: 'center', marginTop: 4 },
     timeline: { marginTop: 16, gap: 14 },
     timelineBar: { position: 'absolute', left: 11, top: 10, bottom: 10, width: 6, borderRadius: 3, backgroundColor: F.greenPale },
     timelineRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
@@ -2173,11 +2192,11 @@ const styles = themedStyles(() => {
     timelineMark: { width: 22, height: 22, borderRadius: 11, borderWidth: 4, borderColor: F.green, backgroundColor: F.bg },
     timelineMarkOn: { backgroundColor: F.green },
     timelineText: { flex: 1 },
-    timelineTitle: { fontFamily: FONT.bold, fontSize: 23, lineHeight: 30, color: F.text },
-    timelineBody: { fontFamily: FONT.regular, fontSize: 20, lineHeight: 26, color: F.sub, marginTop: 1 },
-    offerPrice: { fontFamily: FONT.regular, fontSize: 20, lineHeight: 27, color: F.text, textAlign: 'center' },
+    timelineTitle: { fontFamily: FONT.bold, fontSize: 18, lineHeight: 23, color: F.text },
+    timelineBody: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, marginTop: 1 },
+    offerPrice: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 21, color: F.text, textAlign: 'center' },
     offerPriceStrong: { fontFamily: FONT.bold },
-    offerLegal: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 22, color: F.sub, textAlign: 'center' },
+    offerLegal: { fontFamily: FONT.regular, fontSize: 12, lineHeight: 17, color: F.sub, textAlign: 'center' },
     offerLegalLink: { textDecorationLine: 'underline' },
 
     planCard: {
@@ -2186,19 +2205,19 @@ const styles = themedStyles(() => {
       paddingTop: 24,
       paddingHorizontal: 18,
       paddingBottom: 6,
-      borderRadius: 4,
+      borderRadius: 26,
       backgroundColor: dark ? colors.yellow : '#fdf6e8',
       borderWidth: 2,
       borderColor: dark ? colors.hairline : '#f3e7c9',
     },
     planRings: { position: 'absolute', top: -13, left: 34, right: 34, flexDirection: 'row', justifyContent: 'space-between' },
     planRing: { width: 12, height: 26, borderRadius: 6, backgroundColor: '#e2c46e' },
-    planTitle: { fontFamily: FONT.bold, fontSize: 27, lineHeight: 35, color: F.text, textAlign: 'center' },
-    planNote: { fontFamily: FONT.regular, fontSize: 18, lineHeight: 25, color: F.sub, textAlign: 'center', marginTop: 12, paddingHorizontal: 8 },
+    planTitle: { fontFamily: FONT.bold, fontSize: 21, lineHeight: 27, color: F.text, textAlign: 'center' },
+    planNote: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 19, color: F.sub, textAlign: 'center', marginTop: 12, paddingHorizontal: 8 },
     planSub: {
       fontFamily: FONT.regular,
-      fontSize: 20,
-      lineHeight: 26,
+      fontSize: 15,
+      lineHeight: 20,
       color: '#a39363',
       textAlign: 'center',
       marginTop: 2,
@@ -2207,7 +2226,7 @@ const styles = themedStyles(() => {
     planRow: { flexDirection: 'row', alignItems: 'center', gap: 14, flexBasis: 48, flexShrink: 1, minHeight: 34 },
     planRowRuled: { borderBottomWidth: 1.5, borderBottomColor: dark ? colors.hairline : '#f3e7c9' },
     planDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: F.green },
-    planText: { flex: 1, fontFamily: FONT.medium, fontSize: 22, lineHeight: 29, color: F.text },
+    planText: { flex: 1, fontFamily: FONT.medium, fontSize: 17, lineHeight: 22, color: F.text },
 
     notification: {
       alignSelf: 'stretch',
@@ -2216,35 +2235,35 @@ const styles = themedStyles(() => {
       gap: 14,
       marginTop: 18,
       padding: 14,
-      borderRadius: 4,
+      borderRadius: 24,
       backgroundColor: F.soft,
     },
     notificationIcon: {
       width: 50,
       height: 50,
-      borderRadius: 4,
+      borderRadius: 12,
       backgroundColor: colors.tile,
       alignItems: 'center',
       justifyContent: 'flex-end',
       overflow: 'hidden',
     },
     notificationText: { flex: 1 },
-    healthList: { alignSelf: 'stretch', marginTop: 18, padding: 16, gap: 12, borderRadius: 4, backgroundColor: F.soft },
+    healthList: { alignSelf: 'stretch', marginTop: 18, padding: 16, gap: 12, borderRadius: 24, backgroundColor: F.soft },
     healthRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     healthDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: F.green },
     healthText: { flex: 1 },
-    healthLabel: { fontFamily: FONT.semibold, fontSize: 21, lineHeight: 27, color: F.text },
-    healthDetail: { fontFamily: FONT.regular, fontSize: 18, lineHeight: 25, color: F.sub },
-    notificationTitle: { fontFamily: FONT.semibold, fontSize: 21, lineHeight: 27, color: F.text },
-    notificationBody: { fontFamily: FONT.regular, fontSize: 20, lineHeight: 26, color: F.text, marginTop: 1 },
-    notificationTime: { fontFamily: FONT.regular, fontSize: 17, lineHeight: 22, color: F.sub, alignSelf: 'flex-start' },
+    healthLabel: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.text },
+    healthDetail: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 19, color: F.sub },
+    notificationTitle: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.text },
+    notificationBody: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.text, marginTop: 1 },
+    notificationTime: { fontFamily: FONT.regular, fontSize: 13, lineHeight: 17, color: F.sub, alignSelf: 'flex-start' },
 
-    dayKicker: { fontFamily: FONT.medium, fontSize: 20, lineHeight: 26, letterSpacing: 1.6, textTransform: 'uppercase', color: F.sub },
+    dayKicker: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, letterSpacing: 1.6, textTransform: 'uppercase', color: F.sub },
     dayCard: {
       alignSelf: 'stretch',
       marginTop: 8,
       padding: 18,
-      borderRadius: 4,
+      borderRadius: 26,
       backgroundColor: dark ? colors.yellow : '#ffe9a6',
       borderWidth: 7,
       borderColor: dark ? colors.card : '#ffffff',
@@ -2258,17 +2277,17 @@ const styles = themedStyles(() => {
     },
     dayCardKicker: {
       fontFamily: FONT.medium,
-      fontSize: 16,
-      lineHeight: 21,
+      fontSize: 12,
+      lineHeight: 16,
       letterSpacing: 1.4,
       textTransform: 'uppercase',
       color: '#8a6d1d',
     },
-    dayCardTitle: { fontFamily: FONT.bold, fontSize: 34, lineHeight: 42, color: '#f29b0f', textAlign: 'center' },
+    dayCardTitle: { fontFamily: FONT.bold, fontSize: 26, lineHeight: 32, color: '#f29b0f', textAlign: 'center' },
     dayCardBody: {
       fontFamily: FONT.regular,
-      fontSize: 18,
-      lineHeight: 26,
+      fontSize: 14,
+      lineHeight: 20,
       color: dark ? colors.inkSoft : '#5c5440',
       textAlign: 'center',
       marginTop: 2,

@@ -87,15 +87,13 @@ export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
     title: 'Chat',
     body: 'Come talk to me here! Ask how I am doing. I know how your day is going.',
   },
-  ...(plus
-    ? [
-        {
-          target: 'account' as const,
-          title: 'Who I am',
-          body: `Want me to be a little different? Open your account, then Settings → Personality, and change who ${petName} is.`,
-        },
-      ]
-    : []),
+  {
+    target: 'account',
+    title: 'Your account',
+    body: plus
+      ? `Tap here for your profile, friends and settings. Want me to be a little different? Settings → Personality changes who ${petName} is.`
+      : 'Tap here for your profile, your friends, and all your settings.',
+  },
 ];
 
 interface Rect {
@@ -205,7 +203,25 @@ export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; on
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={finish} statusBarTranslucent>
-      <View style={styles.backdrop} testID="first-run-tour">
+      <View style={styles.overlay} testID="first-run-tour">
+        {/* The dim, in four panels round the target rather than one sheet over
+            everything, so the thing being shown stays in its own full colour. */}
+        {rect ? (
+          <>
+            <View pointerEvents="none" style={[styles.dim, { left: 0, right: 0, top: 0, height: Math.max(0, rect.y - MARK_PAD) }]} />
+            <View pointerEvents="none" style={[styles.dim, { left: 0, right: 0, top: rect.y + rect.height + MARK_PAD, bottom: 0 }]} />
+            <View
+              pointerEvents="none"
+              style={[styles.dim, { left: 0, width: Math.max(0, rect.x - MARK_PAD), top: rect.y - MARK_PAD, height: rect.height + MARK_PAD * 2 }]}
+            />
+            <View
+              pointerEvents="none"
+              style={[styles.dim, { left: rect.x + rect.width + MARK_PAD, right: 0, top: rect.y - MARK_PAD, height: rect.height + MARK_PAD * 2 }]}
+            />
+          </>
+        ) : (
+          <View pointerEvents="none" style={[styles.dim, { left: 0, right: 0, top: 0, bottom: 0 }]} />
+        )}
         {rect ? (
           <View
             pointerEvents="none"
@@ -293,7 +309,8 @@ const CORNER = 14;
 const CORNER_WEIGHT = 4;
 
 const styles = themedStyles(() => ({
-  backdrop: { flex: 1, backgroundColor: 'rgba(20, 15, 11, 0.66)' },
+  overlay: { flex: 1 },
+  dim: { position: 'absolute', backgroundColor: 'rgba(20, 15, 11, 0.66)' },
   corner: { position: 'absolute', width: CORNER, height: CORNER, borderColor: world.surface },
   cornerTL: { left: 0, top: 0, borderLeftWidth: CORNER_WEIGHT, borderTopWidth: CORNER_WEIGHT },
   cornerTR: { right: 0, top: 0, borderRightWidth: CORNER_WEIGHT, borderTopWidth: CORNER_WEIGHT },

@@ -1,5 +1,5 @@
 import { Pressable, Text, TextInput, type TextInputProps } from 'react-native';
-import { colors, getColorScheme, themedStyles, fonts } from '../theme';
+import { colors, getColorScheme, themedStyles } from '../theme';
 
 /**
  * The look of everything before you're in the app: sign-up, sign-in and
@@ -7,12 +7,12 @@ import { colors, getColorScheme, themedStyles, fonts } from '../theme';
  * face set big, clean surfaces, and the app's coral for "go" and "chosen".
  */
 
-/** The pixel face (Jersey 10, loaded once in App), as the rest of the app. */
+/** The rounded face (Rubik). Load it with `useFonts` from @expo-google-fonts/rubik. */
 export const ONB_FONT = {
-  regular: 'Jersey10_400Regular',
-  medium: 'Jersey10_400Regular',
-  semibold: 'Jersey10_400Regular',
-  bold: 'Jersey10_400Regular',
+  regular: 'Rubik_400Regular',
+  medium: 'Rubik_500Medium',
+  semibold: 'Rubik_600SemiBold',
+  bold: 'Rubik_700Bold',
 };
 
 /**
@@ -35,16 +35,15 @@ export const onboardingPalette = () =>
         greenPale: colors.selectedFill,
       }
     : {
-        // The pet world's parchment, as every other screen.
-        bg: colors.paper,
-        text: colors.ink,
-        sub: colors.muted,
-        soft: colors.cardSoft,
-        softEdge: colors.border,
-        border: colors.border,
-        input: colors.card,
+        bg: '#ffffff',
+        text: '#333333',
+        sub: '#6b7785',
+        soft: '#f0f0f0',
+        softEdge: '#d9d9d9',
+        border: '#ebebeb',
+        input: '#f7f7f7',
         green: colors.coral,
-        greenEdge: '#8e4530',
+        greenEdge: '#b34a35',
         greenPale: colors.selectedFill,
       };
 
@@ -76,7 +75,13 @@ export function OnbButton({
         pressed && kit.buttonPressed,
       ]}
     >
-      <Text style={[kit.buttonLabel, primary ? kit.buttonLabelPrimary : kit.buttonLabelSecondary]} numberOfLines={1}>
+      <Text
+        style={[kit.buttonLabel, primary ? kit.buttonLabelPrimary : kit.buttonLabelSecondary]}
+        numberOfLines={1}
+        // A long label shrinks rather than ending in "…".
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
         {busy ? '…' : label}
       </Text>
     </Pressable>
@@ -104,60 +109,51 @@ export const onboardingText = themedStyles(() => {
     screen: { flex: 1, backgroundColor: F.bg },
     eyebrow: {
       fontFamily: ONB_FONT.medium,
-      fontSize: 18,
-      lineHeight: 26,
+      fontSize: 14,
+      lineHeight: 20,
       letterSpacing: 1.6,
       textTransform: 'uppercase',
       color: F.sub,
     },
-    title: { fontFamily: ONB_FONT.bold, fontSize: 39, lineHeight: 47, color: F.text, marginTop: 8 },
-    sub: { fontFamily: ONB_FONT.regular, fontSize: 21, lineHeight: 29, color: F.sub, marginTop: 6 },
-    label: { fontFamily: ONB_FONT.medium, fontSize: 20, lineHeight: 26, color: F.text, marginBottom: 8 },
+    title: { fontFamily: ONB_FONT.bold, fontSize: 30, lineHeight: 36, color: F.text, marginTop: 8 },
+    sub: { fontFamily: ONB_FONT.regular, fontSize: 16, lineHeight: 22, color: F.sub, marginTop: 6 },
+    label: { fontFamily: ONB_FONT.medium, fontSize: 15, lineHeight: 20, color: F.text, marginBottom: 8 },
     labelHint: { fontFamily: ONB_FONT.regular, color: F.sub },
-    body: { fontFamily: ONB_FONT.regular, fontSize: 20, lineHeight: 27, color: F.sub },
-    link: { fontFamily: ONB_FONT.medium, fontSize: 21, lineHeight: 27, color: F.sub, textAlign: 'center' },
+    body: { fontFamily: ONB_FONT.regular, fontSize: 15, lineHeight: 21, color: F.sub },
+    link: { fontFamily: ONB_FONT.medium, fontSize: 16, lineHeight: 21, color: F.sub, textAlign: 'center' },
     linkStrong: { fontFamily: ONB_FONT.semibold, color: F.green },
-    error: { fontFamily: ONB_FONT.medium, fontSize: 18, lineHeight: 25, color: colors.danger },
-    success: { fontFamily: ONB_FONT.medium, fontSize: 18, lineHeight: 25, color: colors.mintDeep },
+    error: { fontFamily: ONB_FONT.medium, fontSize: 14, lineHeight: 19, color: colors.danger },
+    success: { fontFamily: ONB_FONT.medium, fontSize: 14, lineHeight: 19, color: colors.mintDeep },
     /** A soft rounded panel, for a short list or a notice. */
-    card: { borderRadius: 4, borderWidth: 2, borderColor: F.border, backgroundColor: F.input, padding: 18 },
+    card: { borderRadius: 22, borderWidth: 2, borderColor: F.border, backgroundColor: F.input, padding: 18 },
   };
 });
 
 const kit = themedStyles(() => {
   const F = onboardingPalette();
   return {
-    // A chunky pixel button: ink outline, and a ledge it presses down into.
-    button: {
-      height: 56,
-      borderRadius: 4,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 3,
-      borderColor: colors.shadow,
-      borderBottomWidth: 7,
-    },
+    button: { height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 5 },
     buttonPrimary: { backgroundColor: F.green, borderBottomColor: F.greenEdge },
     buttonPrimaryOff: { opacity: 0.5 },
     buttonSecondary: { backgroundColor: F.soft, borderBottomColor: F.softEdge },
     buttonSecondaryOff: { opacity: 0.6 },
-    buttonPressed: { borderBottomWidth: 3, marginTop: 4, height: 52 },
-    buttonLabel: { fontFamily: ONB_FONT.medium, fontSize: 26, lineHeight: 34, paddingHorizontal: 12, textAlign: 'center' },
-    buttonLabelPrimary: { color: colors.onCoral },
+    buttonPressed: { borderBottomWidth: 1, marginTop: 4, height: 52 },
+    buttonLabel: { fontFamily: ONB_FONT.medium, fontSize: 20, lineHeight: 26, paddingHorizontal: 12, textAlign: 'center' },
+    buttonLabelPrimary: { color: '#ffffff' },
     buttonLabelSecondary: { color: F.sub },
     input: {
       alignSelf: 'stretch',
       height: 58,
-      borderRadius: 4,
+      borderRadius: 22,
       borderWidth: 2,
       borderColor: F.border,
       backgroundColor: F.input,
       paddingHorizontal: 18,
       fontFamily: ONB_FONT.medium,
-      fontSize: 26,
+      fontSize: 20,
       color: F.text,
       textAlign: 'center',
     },
-    inputForm: { fontFamily: fonts.pixel, height: 54, fontSize: 22, textAlign: 'left' },
+    inputForm: { height: 54, fontSize: 17, textAlign: 'left' },
   };
 });

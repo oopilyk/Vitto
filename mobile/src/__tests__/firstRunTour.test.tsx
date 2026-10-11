@@ -17,9 +17,12 @@ const press = (tree: renderer.ReactTestRenderer, label: string) => {
 };
 
 describe('first-run tour', () => {
-  it('walks through where to log, then today and chat; personality only on Plus', () => {
-    const free = tourSteps('Miso', false).map((step) => step.target);
-    expect(free).toEqual(['kitchen', 'gym', 'outside', 'today', 'chat']);
+  it('walks through where to log, then today, chat and the account menu; personality only on Plus', () => {
+    const free = tourSteps('Miso', false);
+    expect(free.map((step) => step.target)).toEqual(['kitchen', 'gym', 'outside', 'today', 'chat', 'account']);
+    // Everyone learns what is behind the account button; only Plus hears about personality.
+    expect(free[5]!.body).toContain('friends');
+    expect(free[5]!.body).not.toContain('Personality');
     const plus = tourSteps('Miso', true);
     expect(plus.map((step) => step.target)).toEqual(['kitchen', 'gym', 'outside', 'today', 'chat', 'account']);
     expect(plus[5]!.body).toContain('Settings → Personality');

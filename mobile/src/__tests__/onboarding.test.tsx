@@ -289,6 +289,10 @@ describe('onboarding', () => {
         else expect(scroller.props.horizontal).toBe(true);
       }
       for (const line of strings(tree)) expect(line).not.toMatch(/\p{Extended_Pictographic}/u);
+      // Words are never cut off ("…") or broken: anything held to a line count shrinks to fit it.
+      for (const node of tree.root.findAllByType(Text)) {
+        if (node.props.numberOfLines) expect({ text: node.props.children, fits: node.props.adjustsFontSizeToFit }).toMatchObject({ fits: true });
+      }
     };
     check();
     press(tree, 'Get started');
