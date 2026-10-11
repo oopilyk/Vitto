@@ -130,15 +130,15 @@ const styles = themedStyles(() => ({
   },
   headerText: { flexShrink: 1 },
   title: {
-    fontFamily: fonts.mono,
-    fontSize: 16,
+    fontFamily: fonts.pixelBold,
+    fontSize: 21,
     fontWeight: '700',
     letterSpacing: 2,
     textTransform: 'uppercase',
     color: world.nightText,
     marginBottom: 3,
   },
-  progress: { fontFamily: fonts.mono, fontSize: 10, letterSpacing: 0.6, color: world.nightTextSoft },
+  progress: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 0.6, color: world.nightTextSoft },
   close: {
     width: 36,
     height: 36,
@@ -149,5 +149,5 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: world.barHairline,
   },
-  closeMark: { fontFamily: fonts.mono, fontSize: 15, fontWeight: '700', color: world.nightText },
+  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700', color: world.nightText },
 }));

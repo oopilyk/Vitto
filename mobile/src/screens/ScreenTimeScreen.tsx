@@ -5,7 +5,7 @@ import { FieldRow, FormField, SaveBar, SettingsPage, SettingsSection, TextField 
 import { TextButton } from '../components/ui';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { formatMinutes, joinMinutes } from '../services/minutes';
-import { colors, text, themedStyles } from '../theme';
+import { colors, text, themedStyles, fonts } from '../theme';
 
 export interface ScreenTimeAccess {
   granted: boolean;
@@ -203,10 +203,10 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
 }
 
 const styles = themedStyles(() => ({
-  logged: { padding: 16, borderRadius: 16, backgroundColor: colors.cardSoft, gap: 4 },
-  loggedValue: { fontSize: 28, fontWeight: '800', color: colors.ink },
-  loggedVerdict: { fontSize: 14, color: colors.inkSoft },
+  logged: { padding: 16, borderRadius: 4, backgroundColor: colors.cardSoft, gap: 4 },
+  loggedValue: { fontFamily: fonts.pixelBold, fontSize: 36, fontWeight: '800', color: colors.ink },
+  loggedVerdict: { fontFamily: fonts.pixel, fontSize: 18, color: colors.inkSoft },
   actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18 },
-  hint: { fontSize: 13, color: colors.muted, lineHeight: 19 },
-  error: { ...text.error, fontSize: 13 },
+  hint: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, lineHeight: 25 },
+  error: { ...text.error, fontSize: 17 },
 }));

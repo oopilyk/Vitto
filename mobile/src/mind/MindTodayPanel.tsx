@@ -80,8 +80,8 @@ const styles = themedStyles(() => ({
   },
   figure: { alignItems: 'flex-start' },
   figureValue: {
-    fontFamily: fonts.display,
-    fontSize: 22,
+    fontFamily: fonts.pixel,
+    fontSize: 29,
     color: world.ink,
     marginBottom: 2,
   },

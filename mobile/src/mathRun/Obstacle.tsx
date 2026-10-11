@@ -127,7 +127,7 @@ const styles = themedStyles(() => ({
   puddle: {
     height: 10,
     marginBottom: -2,
-    borderRadius: 10,
+    borderRadius: 4,
     backgroundColor: WATER,
     alignItems: 'flex-start',
     justifyContent: 'center',
@@ -143,7 +143,7 @@ const styles = themedStyles(() => ({
   fenceRailLow: { top: 22 },
 
   bush: { height: 32 },
-  bushLobe: { position: 'absolute', bottom: 0, borderRadius: 14 },
+  bushLobe: { position: 'absolute', bottom: 0, borderRadius: 4 },
   bushLobeLeft: { left: 0, width: 26, height: 24, backgroundColor: LEAF_DARK },
   bushLobeRight: { right: 0, width: 26, height: 22, backgroundColor: LEAF_LIGHT },
   bushLobeTop: { left: 9, bottom: 6, width: 26, height: 26, backgroundColor: LEAF },

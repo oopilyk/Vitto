@@ -68,7 +68,7 @@ const STOP = 14;
 const styles = themedStyles(() => ({
   wrap: { gap: 10, marginTop: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  end: { width: 82, fontFamily: fonts.mono, fontSize: 11, color: colors.muted },
+  end: { width: 82, fontFamily: fonts.pixel, fontSize: 14, color: colors.muted },
   endRight: { textAlign: 'right' },
   endOn: { color: colors.coralDeep, fontWeight: '700' },
   track: {

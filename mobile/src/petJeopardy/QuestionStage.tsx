@@ -141,8 +141,8 @@ const styles = themedStyles(() => ({
   headRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   chip: { paddingVertical: 5, paddingHorizontal: 10 },
   prompt: { marginTop: 10, paddingVertical: 14, paddingHorizontal: 16 },
-  promptText: { fontFamily: fonts.display, fontSize: 19, lineHeight: 25, color: world.ink },
-  promptTextBig: { fontSize: 22, lineHeight: 29 },
+  promptText: { fontFamily: fonts.pixel, fontSize: 25, lineHeight: 33, color: world.ink },
+  promptTextBig: { fontFamily: fonts.pixel, fontSize: 29, lineHeight: 38 },
   promptTextNight: { color: world.nightText },
   // The flexible row. `minHeight` keeps the pet present even on the shortest
   // phone; `flex` hands it every spare point on a tall one.
@@ -151,7 +151,7 @@ const styles = themedStyles(() => ({
   flourishSlot: { position: 'absolute', top: 8, alignItems: 'center' },
   verdictSlot: { height: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   verdictChip: { paddingVertical: 4, paddingHorizontal: 12 },
-  verdict: { fontFamily: fonts.mono, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, color: world.ink },
+  verdict: { fontFamily: fonts.pixelBold, fontSize: 14, fontWeight: '700', letterSpacing: 1.2, color: world.ink },
   verdictNight: { color: world.nightText },
   answers: { gap: 10, paddingBottom: 16 },
   footer: { paddingBottom: 20 },

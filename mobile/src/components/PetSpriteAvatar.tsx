@@ -29,7 +29,7 @@ export function PetSpriteAvatar({ pet, size = DEFAULT_SIZE, placeholderInitial, 
   if (!pet) {
     return (
       <View style={[styles.circle, circle, styles.center]}>
-        <Text style={[styles.initial, { fontSize: size * 0.42 }]}>
+        <Text style={[styles.initial, { fontFamily: fonts.pixel, fontSize: size * 0.42 }]}>
           {(placeholderInitial ?? '?').toUpperCase()}
         </Text>
       </View>

@@ -11,7 +11,7 @@ function Target({ id }: { id: TourTargetId }) {
 
 const texts = (tree: renderer.ReactTestRenderer) => tree.root.findAllByType(Text).map((t) => [t.props.children].flat().join(''));
 const press = (tree: renderer.ReactTestRenderer, label: string) => {
-  const button = tree.root.findAll((n) => typeof n.props.onPress === 'function').find((n) => n.findAllByType(Text).some((t) => t.props.children === label));
+  const button = tree.root.findAll((n) => typeof n.props.onPress === 'function').find((n) => n.props.accessibilityLabel === label || n.findAllByType(Text).some((t) => t.props.children === label));
   if (!button) throw new Error(`no "${label}" on: ${texts(tree).join(' | ')}`);
   act(() => button.props.onPress());
 };
@@ -23,7 +23,8 @@ describe('first-run tour', () => {
     const plus = tourSteps('Miso', true);
     expect(plus.map((step) => step.target)).toEqual(['kitchen', 'gym', 'outside', 'today', 'chat', 'account']);
     expect(plus[5]!.body).toContain('Settings → Personality');
-    expect(plus[0]!.body).toContain('Miso');
+    expect(plus[5]!.body).toContain('Miso');
+    expect(plus[0]!.body).toContain('Log meal');
   });
 
   it('steps through to the end, and can be skipped at any point', () => {
@@ -34,17 +35,28 @@ describe('first-run tour', () => {
       tree = renderer.create(
         <TourProvider>
           {(['kitchen', 'gym', 'outside', 'today', 'chat', 'account'] as const).map((id) => <Target key={id} id={id} />)}
-          <FirstRunTour steps={steps} onDone={done} />
+          <FirstRunTour steps={steps} onDone={done} speaker="Miso" />
         </TourProvider>,
       );
     });
     act(() => jest.advanceTimersByTime(200));
-    expect(texts(tree)).toContain('1 of 6');
-    expect(texts(tree)).toContain('Meals go in the kitchen');
-    for (let i = 0; i < 5; i += 1) press(tree, 'Next');
-    expect(texts(tree)).toContain('6 of 6');
+    const progress = () => tree.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && / of 6$/.test(n.props.accessibilityLabel))[0]!.props.accessibilityLabel;
+    expect(progress()).toBe('1 of 6');
+    expect(texts(tree)).toContain('THE KITCHEN');
+    expect(texts(tree)).toContain('MISO');
+    // The line types itself out: the first Next finishes it, the second moves on.
+    press(tree, 'Next');
+    expect(progress()).toBe('1 of 6');
+    press(tree, 'Next');
+    expect(progress()).toBe('2 of 6');
+    for (let i = 0; i < 4; i += 1) {
+      act(() => jest.advanceTimersByTime(5000));
+      press(tree, 'Next');
+    }
+    expect(progress()).toBe('6 of 6');
     // The last step has no skip, only the finish.
-    expect(texts(tree)).not.toContain('Skip tour');
+    expect(texts(tree)).not.toContain('SKIP');
+    act(() => jest.advanceTimersByTime(5000));
     press(tree, "Let's go");
     expect(done).toHaveBeenCalledTimes(1);
     tree.unmount();
@@ -57,7 +69,7 @@ describe('first-run tour', () => {
         </TourProvider>,
       );
     });
-    press(tree, 'Skip tour');
+    press(tree, 'SKIP');
     expect(skipped).toHaveBeenCalledTimes(1);
     tree.unmount();
   });

@@ -102,7 +102,7 @@ export function FriendPetCard({ profile, pet, status, palette = FRIENDS_LIGHT }:
 
 const styles = themedStyles(() => ({
   container: { flex: 1 },
-  name: { ...text.heading, fontSize: 18, textAlign: 'center', marginTop: 16 },
+  name: { ...text.heading, fontSize: 23, textAlign: 'center', marginTop: 16 },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -111,14 +111,14 @@ const styles = themedStyles(() => ({
     marginTop: 14,
     paddingHorizontal: 20,
   },
-  headline: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  headline: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
   healthChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 4,
     borderWidth: 1,
   },
-  healthChipLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.3 },
-  place: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 0.3, textAlign: 'center', marginTop: 10 },
-  lastActive: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, textAlign: 'center', marginTop: 6 },
+  healthChipLabel: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.3 },
+  place: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.3, textAlign: 'center', marginTop: 10 },
+  lastActive: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, textAlign: 'center', marginTop: 6 },
 }));

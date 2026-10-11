@@ -321,10 +321,7 @@ describe('onboarding', () => {
     press(tree, 'Next');
     check();
     press(tree, '10,000 steps');
-    press(tree, 'Seeing progress');
-    check();
-    press(tree, 'Next');
-    check(); // the plan
+    check(); // the plan, straight after steps now the motivation page is gone
   });
 
   it('claims a username after your name, and shows why when it cannot', async () => {
@@ -461,3 +458,21 @@ describe('onboarding, Apple Health', () => {
   });
 });
 
+
+describe('onboarding goal', () => {
+  it('offers building muscle alongside losing fat or at the same weight', () => {
+    const resume = { stepId: 'goal', answeredAtStart: false, offerPlus: false, hadUsername: true } as never;
+    const { tree, updates } = mount(baseProfile, { resume });
+    for (const label of ['Lose fat', 'Lose fat & build muscle', 'Stay where I am', 'Build muscle, same weight', 'Build muscle & size']) {
+      expect(has(tree, label)).toBe(true);
+    }
+    press(tree, 'Lose fat & build muscle');
+    expect(updates).toContainEqual(['buildMuscle', true]);
+    act(() => tree.unmount());
+
+    const again = mount(baseProfile, { resume });
+    press(again.tree, 'Build muscle, same weight');
+    expect(again.updates).toContainEqual(['buildMuscle', true]);
+    act(() => again.tree.unmount());
+  });
+});

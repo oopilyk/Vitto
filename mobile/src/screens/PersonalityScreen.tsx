@@ -3,7 +3,7 @@ import type { PetState } from '@vitto/core';
 import { CharacterEditor, type Character } from '../components/CharacterEditor';
 import { SettingsPage } from '../components/settingsKit';
 import { TextButton } from '../components/ui';
-import { colors, themedStyles } from '../theme';
+import { colors, themedStyles, fonts } from '../theme';
 
 interface Props {
   pet: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
@@ -60,15 +60,15 @@ export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpe
 
 const styles = themedStyles(() => ({
   body: { marginTop: 16 },
-  welcome: { gap: 4, padding: 16, marginBottom: 16, borderRadius: 16, backgroundColor: colors.coralWash },
-  welcomeTitle: { fontSize: 16, fontWeight: '700', color: colors.coralDeep },
-  welcomeBody: { fontSize: 14, color: colors.ink, lineHeight: 20 },
+  welcome: { gap: 4, padding: 16, marginBottom: 16, borderRadius: 4, backgroundColor: colors.coralWash },
+  welcomeTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.coralDeep },
+  welcomeBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.ink, lineHeight: 26 },
   locked: {
     gap: 6,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 4,
     backgroundColor: colors.cardSoft,
   },
-  lockedTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  lockedBody: { fontSize: 14, color: colors.muted, lineHeight: 20 },
+  lockedTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.ink },
+  lockedBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
 }));

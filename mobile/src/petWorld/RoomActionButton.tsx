@@ -104,6 +104,6 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  plus: { fontFamily: fonts.body, fontSize: 18, lineHeight: 20, fontWeight: '800', color: colors.coral, marginTop: -1 },
-  label: { fontFamily: fonts.body, fontSize: 14, fontWeight: '700', letterSpacing: 0.2, color: '#fff' },
+  plus: { fontFamily: fonts.body, fontSize: 23, lineHeight: 26, fontWeight: '800', color: colors.coral, marginTop: -1 },
+  label: { fontFamily: fonts.body, fontSize: 18, fontWeight: '700', letterSpacing: 0.2, color: '#fff' },
 }));

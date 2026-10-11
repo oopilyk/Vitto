@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Modal, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { colors, fonts, themedStyles } from '../theme';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import { RETRO_BORDER_WIDTH, RETRO_RADIUS, retroPressed, retroShadow } from '../petWorld/retroStyle';
+import { fonts, themedStyles, world } from '../theme';
 
 /**
  * A short first-run tour of the main screen: where to log meals, workouts and
@@ -55,39 +57,42 @@ export function useTourTarget(id: TourTargetId) {
   return ref;
 }
 
-/** The tour's steps, in order. The personality step only for Plus, which is where choosing one lives. */
+/**
+ * The tour's steps, in order, in the pet's own voice: it is showing you round
+ * its world. The personality step only for Plus, which is where choosing one lives.
+ */
 export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
   {
     target: 'kitchen',
-    title: 'Meals go in the kitchen',
-    body: `Tap the kitchen, then Log meal. Search, scan a barcode, or snap a photo with Plus. ${petName} eats what you eat.`,
+    title: 'The kitchen',
+    body: 'Tap here, then Log meal, whenever you eat. Search it, scan the barcode, or snap a photo with Plus. I eat what you eat!',
   },
   {
     target: 'gym',
-    title: 'Workouts go in the gym',
-    body: `Tap the gym, then Log workout. Training makes ${petName} stronger.`,
+    title: 'The gym',
+    body: 'Tap here, then Log workout after you train. Every session makes me stronger.',
   },
   {
     target: 'outside',
-    title: 'Runs and walks go outside',
-    body: 'Log a run out here. With Apple Health connected, your steps come in on their own.',
+    title: 'Outside',
+    body: 'Log your runs and walks out here. Connect Apple Health and your steps come in on their own.',
   },
   {
     target: 'today',
-    title: "Today's stats",
-    body: 'Tap TODAY for your calories, macros, steps and goals for the day.',
+    title: 'Today',
+    body: 'Tap TODAY to see how the day is going: calories, macros, steps and your goals.',
   },
   {
     target: 'chat',
-    title: `Talk to ${petName}`,
-    body: `Ask how they're doing. ${petName} knows how your day is going.`,
+    title: 'Chat',
+    body: 'Come talk to me here! Ask how I am doing. I know how your day is going.',
   },
   ...(plus
     ? [
         {
           target: 'account' as const,
-          title: `Change ${petName}'s personality`,
-          body: `Open your account, then Settings → Personality, to change who ${petName} is whenever you like.`,
+          title: 'Who I am',
+          body: `Want me to be a little different? Open your account, then Settings → Personality, and change who ${petName} is.`,
         },
       ]
     : []),
@@ -100,13 +105,11 @@ interface Rect {
   height: number;
 }
 
-/** Room around the ringed target, and between it and the card. */
-const RING_PAD = 6;
-const CARD_GAP = 14;
 
-export function FirstRunTour({ steps, onDone }: { steps: TourStep[]; onDone: () => void }) {
+export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; onDone: () => void; speaker?: string }) {
   const registry = useContext(TourContext);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [cardHeight, setCardHeight] = useState<number | null>(null);
@@ -115,7 +118,7 @@ export function FirstRunTour({ steps, onDone }: { steps: TourStep[]; onDone: () 
   // Where the current target is, kept current while its step shows: the
   // screen is still settling when the tour opens (the bottom bar lays out
   // last), so a single early reading can land in the wrong place. A target
-  // that never appears leaves the card centred with nothing ringed.
+  // that never appears leaves the box centred with nothing marked.
   useEffect(() => {
     if (!step) return undefined;
     let cancelled = false;
@@ -139,6 +142,37 @@ export function FirstRunTour({ steps, onDone }: { steps: TourStep[]; onDone: () 
     };
   }, [registry, step]);
 
+  // The line types itself out, a character at a time, the way a game's text
+  // box does. Instant with Reduce Motion; Next finishes a line still typing.
+  const [shown, setShown] = useState(0);
+  const full = step?.body ?? '';
+  useEffect(() => {
+    if (reduceMotion) {
+      setShown(full.length);
+      return undefined;
+    }
+    setShown(0);
+    const timer = setInterval(() => {
+      setShown((current) => {
+        if (current >= full.length) {
+          clearInterval(timer);
+          return current;
+        }
+        return current + 1;
+      });
+    }, TYPE_MS);
+    return () => clearInterval(timer);
+  }, [full, reduceMotion]);
+  const typing = shown < full.length;
+
+  // The corner brackets blink in steps, not a smooth pulse: on, off, on.
+  const [blink, setBlink] = useState(true);
+  useEffect(() => {
+    if (reduceMotion) return undefined;
+    const timer = setInterval(() => setBlink((on) => !on), 450);
+    return () => clearInterval(timer);
+  }, [reduceMotion]);
+
   const finish = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     onDone();
@@ -147,23 +181,27 @@ export function FirstRunTour({ steps, onDone }: { steps: TourStep[]; onDone: () 
   if (!step) return null;
   const last = index === steps.length - 1;
   const next = () => {
-    if (last) return finish();
     void Haptics.selectionAsync().catch(() => undefined);
+    if (typing) return setShown(full.length);
+    if (last) return finish();
     setIndex(index + 1);
   };
 
-  // The card sits on the far side of the target from the nearest screen edge.
-  // Always placed by its top (measured height, for a card above its target):
+  // The box sits on the far side of the target from the nearest screen edge.
+  // Always placed by its top (measured height, for a box above its target):
   // a bottom offset is measured from a different edge inside a web overlay.
   const below = rect ? rect.y + rect.height / 2 < screenHeight / 2 : false;
   const height = cardHeight ?? 0;
+  const width = Math.min(screenWidth - 32, 420);
+  const left = (screenWidth - width) / 2;
   const top = rect
     ? below
-      ? rect.y + rect.height + RING_PAD + CARD_GAP
-      : rect.y - RING_PAD - CARD_GAP - height
+      ? rect.y + rect.height + MARK_PAD + BOX_GAP
+      : rect.y - MARK_PAD - BOX_GAP - height
     : screenHeight * 0.35;
-  // Never off the screen, whatever the measurement says.
-  const cardPosition = { top: Math.max(24, Math.min(top, screenHeight - height - 24)) };
+  const boxTop = Math.max(24, Math.min(top, screenHeight - height - 24));
+  // The pointer between box and target, kept inside the box's edges.
+  const pointerX = rect ? Math.max(left + 18, Math.min(rect.x + rect.width / 2 - POINTER / 2, left + width - 18 - POINTER * 2)) : null;
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={finish} statusBarTranslucent>
@@ -172,45 +210,71 @@ export function FirstRunTour({ steps, onDone }: { steps: TourStep[]; onDone: () 
           <View
             pointerEvents="none"
             testID="tour-ring"
+            style={{
+              position: 'absolute',
+              left: rect.x - MARK_PAD,
+              top: rect.y - MARK_PAD,
+              width: rect.width + MARK_PAD * 2,
+              height: rect.height + MARK_PAD * 2,
+              opacity: blink ? 1 : 0.35,
+            }}
+          >
+            <View style={[styles.corner, styles.cornerTL]} />
+            <View style={[styles.corner, styles.cornerTR]} />
+            <View style={[styles.corner, styles.cornerBL]} />
+            <View style={[styles.corner, styles.cornerBR]} />
+          </View>
+        ) : null}
+
+        {rect && pointerX !== null && cardHeight !== null ? (
+          <View
+            pointerEvents="none"
             style={[
-              styles.ring,
-              {
-                left: rect.x - RING_PAD,
-                top: rect.y - RING_PAD,
-                width: rect.width + RING_PAD * 2,
-                height: rect.height + RING_PAD * 2,
-              },
+              below ? styles.pointerUp : styles.pointerDown,
+              { left: pointerX, top: below ? boxTop - POINTER + 1 : boxTop + height - 1 },
             ]}
           />
         ) : null}
+
         <View
           onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
-          style={[
-            styles.card,
-            { width: Math.min(screenWidth - 32, 420), left: (screenWidth - Math.min(screenWidth - 32, 420)) / 2 },
-            cardPosition,
-            // Hidden for the one frame before its height is known.
-            cardHeight === null && { opacity: 0 },
-          ]}
+          style={[styles.box, { width, left, top: boxTop }, cardHeight === null && { opacity: 0 }]}
         >
-          <Text style={styles.count}>{`${index + 1} of ${steps.length}`}</Text>
+          {speaker ? (
+            <View style={styles.nameTag}>
+              <Text style={styles.nameTagText}>{speaker.toUpperCase()}</Text>
+            </View>
+          ) : null}
           <Text style={styles.title} accessibilityRole="header">
-            {step.title}
+            {step.title.toUpperCase()}
           </Text>
-          <Text style={styles.body}>{step.body}</Text>
-          <View style={styles.actions}>
-            {last ? <View /> : (
-              <Pressable accessibilityRole="button" onPress={finish} hitSlop={10}>
-                <Text style={styles.skip}>Skip tour</Text>
+          {/* The whole line is laid out from the start (the rest invisible), so
+              the box does not grow as the text types itself in. */}
+          <Text style={styles.body} accessibilityLabel={full}>
+            {full.slice(0, shown)}
+            <Text style={styles.unshown}>{full.slice(shown)}</Text>
+          </Text>
+          <View style={styles.footer}>
+            <View style={styles.progress} accessibilityLabel={`${index + 1} of ${steps.length}`}>
+              {steps.map((_, n) => (
+                <View key={n} style={[styles.pip, n <= index && styles.pipOn]} />
+              ))}
+            </View>
+            <View style={styles.actions}>
+              {last ? null : (
+                <Pressable accessibilityRole="button" onPress={finish} hitSlop={10}>
+                  <Text style={styles.skip}>SKIP</Text>
+                </Pressable>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={last ? "Let's go" : 'Next'}
+                onPress={next}
+                style={({ pressed }) => [styles.next, pressed && retroPressed]}
+              >
+                <Text style={styles.nextLabel}>{last ? "LET'S GO" : 'NEXT ▶'}</Text>
               </Pressable>
-            )}
-            <Pressable
-              accessibilityRole="button"
-              onPress={next}
-              style={({ pressed }) => [styles.next, pressed && styles.pressed]}
-            >
-              <Text style={styles.nextLabel}>{last ? "Let's go" : 'Next'}</Text>
-            </Pressable>
+            </View>
           </View>
         </View>
       </View>
@@ -218,36 +282,86 @@ export function FirstRunTour({ steps, onDone }: { steps: TourStep[]; onDone: () 
   );
 }
 
+/** Space between the target and its corner brackets, and the box. */
+const MARK_PAD = 7;
+const BOX_GAP = 16;
+/** One letter of the typed-out line. */
+const TYPE_MS = 18;
+/** The pointer triangle's half-width. */
+const POINTER = 9;
+const CORNER = 14;
+const CORNER_WEIGHT = 4;
+
 const styles = themedStyles(() => ({
-  backdrop: { flex: 1, backgroundColor: 'rgba(12, 16, 14, 0.62)' },
-  ring: {
+  backdrop: { flex: 1, backgroundColor: 'rgba(20, 15, 11, 0.66)' },
+  corner: { position: 'absolute', width: CORNER, height: CORNER, borderColor: world.surface },
+  cornerTL: { left: 0, top: 0, borderLeftWidth: CORNER_WEIGHT, borderTopWidth: CORNER_WEIGHT },
+  cornerTR: { right: 0, top: 0, borderRightWidth: CORNER_WEIGHT, borderTopWidth: CORNER_WEIGHT },
+  cornerBL: { left: 0, bottom: 0, borderLeftWidth: CORNER_WEIGHT, borderBottomWidth: CORNER_WEIGHT },
+  cornerBR: { right: 0, bottom: 0, borderRightWidth: CORNER_WEIGHT, borderBottomWidth: CORNER_WEIGHT },
+  pointerUp: {
     position: 'absolute',
-    borderRadius: 16,
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#fff',
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
+    width: 0,
+    height: 0,
+    borderLeftWidth: POINTER,
+    borderRightWidth: POINTER,
+    borderBottomWidth: POINTER,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: world.ink,
   },
-  card: {
+  pointerDown: {
     position: 'absolute',
-    padding: 18,
-    borderRadius: 18,
-    backgroundColor: colors.card,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: POINTER,
+    borderRightWidth: POINTER,
+    borderTopWidth: POINTER,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: world.ink,
   },
-  count: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, color: colors.faint },
-  title: { fontSize: 19, fontWeight: '700', color: colors.ink },
-  body: { fontSize: 15, lineHeight: 21, color: colors.inkSoft },
-  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
-  skip: { fontSize: 15, color: colors.muted },
-  next: { paddingVertical: 10, paddingHorizontal: 22, borderRadius: 999, backgroundColor: colors.coral },
-  nextLabel: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
+  box: {
+    position: 'absolute',
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 14,
+    backgroundColor: world.surface,
+    borderWidth: RETRO_BORDER_WIDTH,
+    borderColor: world.ink,
+    borderRadius: RETRO_RADIUS,
+    ...retroShadow,
+    shadowOffset: { width: 4, height: 4 },
+  },
+  nameTag: {
+    position: 'absolute',
+    top: -16,
+    left: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    backgroundColor: world.accent,
+    borderWidth: RETRO_BORDER_WIDTH,
+    borderColor: world.ink,
+    borderRadius: RETRO_RADIUS,
+  },
+  nameTagText: { fontFamily: fonts.pixelBold, fontSize: 17, letterSpacing: 1, color: world.surface },
+  title: { fontFamily: fonts.pixelBold, fontSize: 23, letterSpacing: 1, color: world.ink, marginBottom: 6 },
+  body: { fontFamily: fonts.pixel, fontSize: 21, lineHeight: 29, color: world.ink },
+  unshown: { color: 'transparent' },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
+  progress: { flexDirection: 'row', gap: 5 },
+  pip: { width: 9, height: 9, borderWidth: 2, borderColor: world.ink, backgroundColor: 'transparent' },
+  pipOn: { backgroundColor: world.ink },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  skip: { fontFamily: fonts.pixel, fontSize: 20, letterSpacing: 1, color: world.inkSoft },
+  next: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: world.accent,
+    borderWidth: RETRO_BORDER_WIDTH,
+    borderColor: world.ink,
+    borderRadius: RETRO_RADIUS,
+    ...retroShadow,
+  },
+  nextLabel: { fontFamily: fonts.pixelBold, fontSize: 20, letterSpacing: 1, color: world.surface },
 }));

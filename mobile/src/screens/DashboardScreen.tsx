@@ -270,7 +270,7 @@ export function DashboardScreen({
         />
       ) : tour ? (
         // After any celebration, never on top of one.
-        <FirstRunTour steps={tour.steps} onDone={tour.onDone} />
+        <FirstRunTour steps={tour.steps} onDone={tour.onDone} speaker={pet.name} />
       ) : null}
     </View>
     </TourProvider>

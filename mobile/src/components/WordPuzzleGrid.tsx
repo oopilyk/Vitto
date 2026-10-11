@@ -105,7 +105,7 @@ const styles = themedStyles(() => ({
     flexBasis: 0,
     maxWidth: 54,
     aspectRatio: 1,
-    borderRadius: 10,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
@@ -116,7 +116,7 @@ const styles = themedStyles(() => ({
   // As wide as the tile, centred, rather than as wide as the glyph: iOS sized
   // a lone serif I a hair too narrow for itself, wrapped it onto a second line
   // outside the tile, and the tile showed blank.
-  letter: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, lineHeight: 26, alignSelf: 'stretch', textAlign: 'center' },
+  letter: { fontFamily: fonts.display, fontSize: 29, color: colors.ink, lineHeight: 34, alignSelf: 'stretch', textAlign: 'center' },
   // The shape marker sits under the letter so feedback survives a colourblind reading.
-  glyph: { fontSize: 8, lineHeight: 10, marginTop: 1 },
+  glyph: { fontFamily: fonts.pixel, fontSize: 10, lineHeight: 13, marginTop: 1 },
 }));

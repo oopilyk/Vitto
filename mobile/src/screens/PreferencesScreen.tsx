@@ -22,7 +22,7 @@ import {
   SettingsSection,
   TextField,
 } from '../components/settingsKit';
-import { colors, themedStyles } from '../theme';
+import { colors, themedStyles, fonts } from '../theme';
 
 interface Props {
   profile: BodyProfile;
@@ -195,6 +195,18 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           value={profile.goal}
           onChange={(value) => update('goal', value)}
         />
+        {profile.goal !== 'gain' ? (
+          <FormField label="Build muscle too" hint={profile.goal === 'lose' ? 'gentler deficit, more protein' : 'same weight, more protein'}>
+            <SegmentedControl
+              options={[
+                { value: 'no' as const, label: 'No' },
+                { value: 'yes' as const, label: 'Yes' },
+              ]}
+              value={profile.buildMuscle ? 'yes' : 'no'}
+              onChange={(value) => update('buildMuscle', value === 'yes' || undefined)}
+            />
+          </FormField>
+        ) : null}
         {profile.goal !== 'maintain' ? (
           <>
             <FieldRow>
@@ -332,8 +344,8 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
 
 const styles = themedStyles(() => ({
   fieldSpacer: { flex: 1 },
-  plan: { padding: 14, borderRadius: 12, backgroundColor: colors.cardSoft },
-  planText: { fontSize: 14, lineHeight: 20, color: colors.inkSoft },
+  plan: { padding: 14, borderRadius: 4, backgroundColor: colors.cardSoft },
+  planText: { fontFamily: fonts.pixel, fontSize: 18, lineHeight: 26, color: colors.inkSoft },
   planValue: { fontWeight: '700', color: colors.ink },
-  planWarning: { fontSize: 12, color: colors.caution, marginTop: 6 },
+  planWarning: { fontFamily: fonts.pixel, fontSize: 16, color: colors.caution, marginTop: 6 },
 }));

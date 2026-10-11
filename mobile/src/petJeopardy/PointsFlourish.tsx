@@ -72,8 +72,8 @@ const styles = themedStyles(() => ({
     ...retroShadow,
   },
   label: {
-    fontFamily: fonts.mono,
-    fontSize: 15,
+    fontFamily: fonts.pixelBold,
+    fontSize: 20,
     fontWeight: '700',
     letterSpacing: 0.8,
     color: ON_FILL_TEXT,

@@ -450,7 +450,7 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     zIndex: 2,
   },
-  thoughtMark: { color: colors.yellowDeep, fontSize: 16 },
+  thoughtMark: { fontFamily: fonts.pixel, color: colors.yellowDeep, fontSize: 21 },
   particles: {
     position: 'absolute',
     top: '26%',
@@ -459,12 +459,12 @@ const styles = themedStyles(() => ({
     justifyContent: 'space-between',
     zIndex: 2,
   },
-  particle: { fontSize: 20, fontWeight: '700' },
+  particle: { fontFamily: fonts.pixelBold, fontSize: 26, fontWeight: '700' },
   status: {
     position: 'absolute',
     bottom: 20,
-    fontFamily: fonts.mono,
-    fontSize: 11,
+    fontFamily: fonts.pixel,
+    fontSize: 14,
     color: '#55705d',
   },
 }));

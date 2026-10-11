@@ -240,7 +240,7 @@ export function LevelUpCelebration({ pet, level, night, onComplete }: Props) {
           <Animated.Text
             style={[
               styles.number,
-              {
+              { fontFamily: fonts.pixel,
                 fontSize: numberSize,
                 lineHeight: Math.round(numberSize * 1.04),
                 opacity: numberIn,
@@ -356,8 +356,8 @@ const styles = themedStyles(() => ({
   backdrop: { ...FILL, backgroundColor: BACKDROP },
   stack: { alignItems: 'center', width: '100%' },
   kicker: {
-    fontFamily: fonts.mono,
-    fontSize: 15,
+    fontFamily: fonts.pixelBold,
+    fontSize: 20,
     fontWeight: '700',
     letterSpacing: 4,
     color: colors.yellow,
@@ -365,8 +365,8 @@ const styles = themedStyles(() => ({
   },
   numberRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 2 },
   numberTag: {
-    fontFamily: fonts.mono,
-    fontSize: 16,
+    fontFamily: fonts.pixelBold,
+    fontSize: 21,
     fontWeight: '700',
     letterSpacing: 2,
     color: '#c9c3ef',
@@ -382,8 +382,8 @@ const styles = themedStyles(() => ({
     textShadowRadius: 0,
   },
   subtitle: {
-    fontFamily: fonts.mono,
-    fontSize: 14,
+    fontFamily: fonts.pixel,
+    fontSize: 18,
     letterSpacing: 0.5,
     color: '#e9e5ff',
     marginTop: 8,
@@ -407,12 +407,12 @@ const styles = themedStyles(() => ({
   },
   continuePressed: { opacity: 0.8, transform: [{ translateX: 1 }, { translateY: 1 }] },
   continueLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 14,
+    fontFamily: fonts.pixelBold,
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: 2,
     color: world.ink,
   },
-  continueMark: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: world.ink },
+  continueMark: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: world.ink },
   flash: { ...FILL, backgroundColor: '#fdf6e3' },
 }));

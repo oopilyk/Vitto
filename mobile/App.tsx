@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Jersey10_400Regular, useFonts } from '@expo-google-fonts/jersey-10';
 import { ActivityIndicator, Alert, AppState, Platform, StatusBar, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -287,6 +288,9 @@ const confirmDialog = (title: string, message: string, confirmLabel: string): Pr
  * pass answers in it; see `setActiveColorScheme`.
  */
 export default function App() {
+  // The pet world's pixel face (fonts.pixel). Nothing waits on it: text falls
+  // back to the platform font for the moment it takes to load.
+  useFonts({ Jersey10_400Regular });
   const appearance = useAppearanceState();
   setActiveColorScheme(appearance.scheme);
   return (
@@ -2708,8 +2712,8 @@ function VittoApp() {
 const styles = themedStyles(() => ({
   center: { alignItems: 'center', justifyContent: 'center' },
   loadFailed: { paddingHorizontal: 32, gap: 12 },
-  loadFailedTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, textAlign: 'center' },
-  loadFailedBody: { fontFamily: fonts.body, fontSize: 15, color: colors.inkSoft, textAlign: 'center' },
+  loadFailedTitle: { fontFamily: fonts.pixel, fontSize: 29, color: colors.ink, textAlign: 'center' },
+  loadFailedBody: { fontFamily: fonts.pixel, fontSize: 20, color: colors.inkSoft, textAlign: 'center' },
   banner: {
     position: 'absolute',
     left: 16,
@@ -2718,8 +2722,8 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.coralWash,
     borderWidth: 1,
     borderColor: colors.dangerBorder,
-    borderRadius: 12,
+    borderRadius: 4,
     padding: 13,
   },
-  bannerText: { fontFamily: fonts.mono, fontSize: 11, color: colors.coralDeep, lineHeight: 16 },
+  bannerText: { fontFamily: fonts.pixel, fontSize: 14, color: colors.coralDeep, lineHeight: 21 },
 }));

@@ -128,10 +128,10 @@ export function PetTapReaction({
 
 const styles = themedStyles(() => ({
   wrap: { alignItems: 'center' },
-  emote: { fontSize: 34 },
+  emote: { fontSize: 44 },
   caption: {
     fontFamily: fonts.mono,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
     color: '#26312d',

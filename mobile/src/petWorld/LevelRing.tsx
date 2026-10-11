@@ -117,7 +117,7 @@ const styles = themedStyles(() => ({
   },
   kicker: {
     fontFamily: fonts.mono,
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1.5,
     color: world.inkSoft,
@@ -125,7 +125,7 @@ const styles = themedStyles(() => ({
   },
   level: {
     fontFamily: fonts.mono,
-    fontSize: 32,
+    fontSize: 42,
     fontWeight: '700',
     color: world.ink,
   },

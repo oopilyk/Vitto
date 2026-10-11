@@ -60,7 +60,7 @@ export function NutrientRing({
 const styles = themedStyles(() => ({
   wrap: { alignItems: 'center', flex: 1 },
   center: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
-  value: { fontSize: 20, fontWeight: '700', color: colors.ink },
-  unit: { fontFamily: fonts.mono, fontSize: 9, color: colors.faint, marginTop: 1 },
-  label: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginTop: 9, letterSpacing: 0.5 },
+  value: { fontFamily: fonts.pixelBold, fontSize: 26, fontWeight: '700', color: colors.ink },
+  unit: { fontFamily: fonts.pixel, fontSize: 12, color: colors.faint, marginTop: 1 },
+  label: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted, marginTop: 9, letterSpacing: 0.5 },
 }));

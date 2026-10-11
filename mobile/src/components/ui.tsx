@@ -169,28 +169,29 @@ export function ErrorText({ children }: { children: ReactNode }) {
 }
 
 const styles = themedStyles(() => ({
-  arrow: { color: colors.onCoral, fontSize: 17 },
-  pressed: { opacity: 0.85 },
+  arrow: { fontFamily: fonts.pixel, color: colors.onCoral, fontSize: 22 },
+  // Presses down into its own hard shadow, as the pet world's buttons do.
+  pressed: { opacity: 0.88, transform: [{ translateX: 2 }, { translateY: 2 }] },
   disabled: { opacity: 0.5 },
   busy: { opacity: 0.85 },
   disabledButton: { backgroundColor: colors.disabledFill },
   disabledLabel: { color: colors.onDisabled },
-  textButton: { fontFamily: fonts.mono, fontSize: 12, letterSpacing: 0.5 },
+  textButton: { fontFamily: fonts.pixel, fontSize: 16, letterSpacing: 0.5 },
   // `flexBasis: 'auto'`, not 130: a Field sits in two kinds of parent. In a
   // two-up row the basis is width, and 130 was a sensible floor. In the usual
   // column it became HEIGHT — every field 130px tall — which on web opened a
   // hand's width of empty space between one field and the next. Auto sizes to
   // content either way; `flexGrow` still splits a row evenly.
   field: { marginTop: 14, flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minWidth: 0 },
-  fieldLabel: { fontFamily: fonts.mono, fontSize: 10, color: colors.muted, marginBottom: 7, letterSpacing: 0.5 },
+  fieldLabel: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted, marginBottom: 7, letterSpacing: 0.5 },
   fieldHint: { color: colors.faint },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 12 },
   choicesStacked: { flexDirection: 'column' },
   choice: {
-    borderWidth: 1,
-    borderColor: colors.hairline,
+    borderWidth: 2,
+    borderColor: colors.border,
     backgroundColor: colors.card,
-    borderRadius: 13,
+    borderRadius: 4,
     paddingVertical: 13,
     paddingHorizontal: 15,
     minWidth: 96,
@@ -201,12 +202,12 @@ const styles = themedStyles(() => ({
   // Hangs under the chosen option, inset so it reads as belonging to it.
   choiceExpanded: { width: '100%', paddingLeft: 12, paddingRight: 4, paddingTop: 2, paddingBottom: 6, gap: 10 },
   choiceOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
-  choiceLabel: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  choiceLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.ink },
   choiceLabelOn: { color: colors.coralDeep },
-  choiceDetail: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 4, lineHeight: 14 },
+  choiceDetail: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 4, lineHeight: 18 },
   panel: {
     paddingVertical: 18,
-    borderBottomWidth: 1,
+    borderBottomWidth: 2,
     borderBottomColor: colors.hairline,
     flexDirection: 'row',
     alignItems: 'center',

@@ -90,7 +90,7 @@ const styles = themedStyles(() => ({
     flexBasis: 0,
     minWidth: 0,
     height: 46,
-    borderRadius: 8,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
@@ -111,7 +111,7 @@ const styles = themedStyles(() => ({
    * crossbars, which is unmistakable at any width.
    */
   // Tile-wide and centred, for the reason WordPuzzleGrid's letters are.
-  keyLabel: { fontFamily: fonts.display, fontSize: 17, color: colors.ink, alignSelf: 'stretch', textAlign: 'center' },
-  keyGlyph: { fontSize: 7, lineHeight: 9 },
-  actionLabel: { fontFamily: fonts.mono, fontSize: 9, letterSpacing: 0.6, color: colors.inkSoft },
+  keyLabel: { fontFamily: fonts.display, fontSize: 22, color: colors.ink, alignSelf: 'stretch', textAlign: 'center' },
+  keyGlyph: { fontFamily: fonts.pixel, fontSize: 9, lineHeight: 12 },
+  actionLabel: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.6, color: colors.inkSoft },
 }));

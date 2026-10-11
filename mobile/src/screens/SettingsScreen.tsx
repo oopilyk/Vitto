@@ -168,7 +168,7 @@ const styles = themedStyles(() => ({
   art: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 4,
     backgroundColor: colors.tile,
     alignItems: 'center',
     justifyContent: 'flex-end',

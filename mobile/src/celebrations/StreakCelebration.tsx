@@ -236,7 +236,7 @@ export function StreakCelebration({ pet, streak, night: nightTime, onComplete }:
           <Animated.Text
             style={[
               styles.number,
-              {
+              { fontFamily: fonts.pixel,
                 color: c.ink,
                 textShadowColor: c.accent,
                 fontSize: numberSize,
@@ -380,14 +380,14 @@ const styles = themedStyles(() => ({
   backdrop: { ...FILL },
   stack: { alignItems: 'center', width: '100%' },
   nameKicker: {
-    fontFamily: fonts.mono,
-    fontSize: 13,
+    fontFamily: fonts.pixelBold,
+    fontSize: 17,
     fontWeight: '700',
     letterSpacing: 3,
     marginBottom: 4,
   },
   numberRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 },
-  flame: { fontSize: 40, marginTop: 6 },
+  flame: { fontFamily: fonts.pixel, fontSize: 52, marginTop: 6 },
   number: {
     fontFamily: fonts.mono,
     fontWeight: '700',
@@ -395,15 +395,15 @@ const styles = themedStyles(() => ({
     textShadowRadius: 0,
   },
   kicker: {
-    fontFamily: fonts.mono,
-    fontSize: 22,
+    fontFamily: fonts.pixelBold,
+    fontSize: 29,
     fontWeight: '700',
     letterSpacing: 3,
     marginTop: 2,
   },
   subtitle: {
-    fontFamily: fonts.mono,
-    fontSize: 14,
+    fontFamily: fonts.pixel,
+    fontSize: 18,
     letterSpacing: 0.5,
     marginTop: 10,
     textAlign: 'center',
@@ -426,11 +426,11 @@ const styles = themedStyles(() => ({
   },
   continuePressed: { opacity: 0.8, transform: [{ translateX: 1 }, { translateY: 1 }] },
   continueLabel: {
-    fontFamily: fonts.mono,
-    fontSize: 14,
+    fontFamily: fonts.pixelBold,
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: 2,
     color: world.ink,
   },
-  continueMark: { fontFamily: fonts.mono, fontSize: 16, fontWeight: '700', color: world.ink },
+  continueMark: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: world.ink },
 }));

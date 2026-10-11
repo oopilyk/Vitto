@@ -128,16 +128,16 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
 }
 
 const styles = themedStyles(() => ({
-  warning: { marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: colors.dangerWash, borderWidth: 1, borderColor: colors.dangerBorder },
-  warningText: { fontSize: 13, color: colors.inkSoft, lineHeight: 19 },
-  empty: { fontSize: 14, color: colors.muted, lineHeight: 20 },
-  list: { borderRadius: 16, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, overflow: 'hidden' },
+  warning: { marginTop: 12, padding: 14, borderRadius: 4, backgroundColor: colors.dangerWash, borderWidth: 1, borderColor: colors.dangerBorder },
+  warningText: { fontFamily: fonts.pixel, fontSize: 17, color: colors.inkSoft, lineHeight: 25 },
+  empty: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
+  list: { borderRadius: 4, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 60 },
   rowRuled: { borderTopWidth: 1, borderTopColor: colors.hairline },
   rowText: { flex: 1, minWidth: 0 },
-  rowLabel: { fontSize: 16, fontWeight: '600', color: colors.ink },
+  rowLabel: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '600', color: colors.ink },
   rowOff: { color: colors.faint },
-  rowMeta: { fontFamily: fonts.mono, fontSize: 11, color: colors.muted, marginTop: 3 },
+  rowMeta: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 3 },
   actions: { flexDirection: 'row', alignItems: 'center' },
-  error: { ...text.error, fontSize: 13 },
+  error: { ...text.error, fontSize: 17 },
 }));

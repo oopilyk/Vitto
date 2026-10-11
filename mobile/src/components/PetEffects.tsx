@@ -3,7 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Defs, Ellipse, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { SpriteFrame } from './SpriteFrame';
 import type { PetSheet } from './petSprites';
-import { colors, themedStyles } from '../theme';
+import { colors, themedStyles, fonts } from '../theme';
 
 /**
  * How far above the head each effect parks, in points.
@@ -388,9 +388,9 @@ export function DizzyOrbit({ active, headOffset }: EffectProps) {
           key={orbit.key}
           style={[
             styles.glyph,
-            {
+            { fontFamily: fonts.pixel,
               color: colors.lilacDeep,
-              fontSize: 14,
+              fontSize: 18,
               opacity: spin.interpolate({ inputRange: ORBIT_INPUT, outputRange: orbit.fade }),
               transform: [
                 { translateX: spin.interpolate({ inputRange: ORBIT_INPUT, outputRange: orbit.x }) },
@@ -544,7 +544,7 @@ const styles = themedStyles(() => ({
     zIndex: 4,
   },
   piece: { position: 'absolute', borderRadius: 2 },
-  glyph: { position: 'absolute', fontSize: 20 },
+  glyph: { fontFamily: fonts.pixel, position: 'absolute', fontSize: 26 },
   cloud: { width: 54, height: 56, alignItems: 'center' },
   sideProp: { position: 'absolute', zIndex: 3 },
   drop: {

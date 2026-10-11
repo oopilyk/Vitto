@@ -70,7 +70,7 @@ const styles = themedStyles(() => ({
   },
   name: {
     fontFamily: fonts.mono,
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: '700',
     letterSpacing: 1,
     color: '#43372c',

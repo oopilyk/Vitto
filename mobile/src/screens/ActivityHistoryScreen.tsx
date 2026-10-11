@@ -86,10 +86,10 @@ export function ActivityHistoryScreen({ events, onClose }: { events: HealthEvent
 }
 
 const styles = themedStyles(() => ({
-  empty: { fontSize: 14, color: colors.muted, marginTop: 20 },
+  empty: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, marginTop: 20 },
   day: { marginTop: 22, gap: 8 },
-  dayHeading: { fontFamily: fonts.mono, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: colors.faint, marginLeft: 4 },
-  list: { borderRadius: 16, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, paddingHorizontal: 16 },
+  dayHeading: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', color: colors.faint, marginLeft: 4 },
+  list: { borderRadius: 4, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, paddingHorizontal: 16 },
   mealRow: {},
   row: {
     flexDirection: 'row',
@@ -101,15 +101,15 @@ const styles = themedStyles(() => ({
   },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral },
   rowText: { flex: 1 },
-  rowName: { fontSize: 14, fontWeight: '500', color: colors.ink },
-  rowTime: { fontFamily: fonts.mono, fontSize: 10, color: colors.faint, marginTop: 3 },
+  rowName: { fontFamily: fonts.pixel, fontSize: 18, fontWeight: '500', color: colors.ink },
+  rowTime: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 3 },
   more: {
     marginTop: 16,
     alignItems: 'center',
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  moreLabel: { fontSize: 14, fontWeight: '600', color: colors.inkSoft },
+  moreLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.inkSoft },
 }));

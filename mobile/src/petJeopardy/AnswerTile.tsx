@@ -88,10 +88,10 @@ const styles = themedStyles(() => ({
   body: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   answer: {
     flexShrink: 1,
-    fontFamily: fonts.mono,
-    fontSize: 14,
+    fontFamily: fonts.pixelBold,
+    fontSize: 18,
     fontWeight: '700',
-    lineHeight: 19,
+    lineHeight: 25,
     letterSpacing: 0.2,
     color: world.ink,
   },

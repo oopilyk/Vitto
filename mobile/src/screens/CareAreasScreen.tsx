@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 import { CARE_AREAS, toggleCareArea, tracksArea, type CareArea } from '@vitto/core';
 import { SettingsPage, ToggleRow } from '../components/settingsKit';
-import { colors, themedStyles } from '../theme';
+import { colors, themedStyles, fonts } from '../theme';
 
 interface Props {
   petName: string;
@@ -99,11 +99,11 @@ export function CareAreasScreen({ petName, areas, onChange, canEdit = true, onCl
 
 const styles = themedStyles(() => ({
   body: { marginTop: 16, gap: 16 },
-  note: { fontSize: 13, lineHeight: 19, color: colors.muted },
+  note: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25, color: colors.muted },
   readRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   readText: { flex: 1, gap: 2 },
-  readTitle: { fontSize: 16, fontWeight: '600', color: colors.ink },
-  readBody: { fontSize: 13, lineHeight: 18, color: colors.muted },
-  readState: { fontSize: 14, fontWeight: '600', color: colors.faint },
+  readTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '600', color: colors.ink },
+  readBody: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 23, color: colors.muted },
+  readState: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '600', color: colors.faint },
   readStateOn: { color: colors.ink },
 }));

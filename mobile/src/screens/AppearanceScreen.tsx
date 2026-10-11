@@ -1,6 +1,6 @@
 import { Text, View } from 'react-native';
 import type { AppearancePreference, ColorScheme } from '../theme';
-import { colors, themedStyles } from '../theme';
+import { colors, themedStyles, fonts } from '../theme';
 import { SelectionList, SettingsPage, SettingsSection } from '../components/settingsKit';
 
 interface Props {
@@ -46,10 +46,10 @@ export function AppearanceScreen({ preference, scheme, onChange, onClose }: Prop
 }
 
 const styles = themedStyles(() => ({
-  preview: { padding: 16, borderRadius: 16, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.hairline },
-  previewCard: { padding: 16, borderRadius: 12, backgroundColor: colors.card, gap: 6 },
-  previewTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  previewBody: { fontSize: 14, color: colors.muted, lineHeight: 20 },
-  previewButton: { marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.coral },
-  previewButtonLabel: { fontSize: 14, fontWeight: '700', color: colors.onCoral },
+  preview: { padding: 16, borderRadius: 4, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.hairline },
+  previewCard: { padding: 16, borderRadius: 4, backgroundColor: colors.card, gap: 6 },
+  previewTitle: { fontFamily: fonts.pixelBold, fontSize: 21, fontWeight: '700', color: colors.ink },
+  previewBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
+  previewButton: { marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 4, backgroundColor: colors.coral },
+  previewButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 18, fontWeight: '700', color: colors.onCoral },
 }));

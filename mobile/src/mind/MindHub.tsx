@@ -149,15 +149,15 @@ const styles = themedStyles(() => ({
   },
   barText: { flexShrink: 1 },
   title: {
-    fontFamily: fonts.mono,
-    fontSize: 18,
+    fontFamily: fonts.pixelBold,
+    fontSize: 23,
     fontWeight: '700',
     letterSpacing: 3,
     textTransform: 'uppercase',
     color: world.nightText,
     marginBottom: 4,
   },
-  flavour: { fontFamily: fonts.mono, fontSize: 10, lineHeight: 15, color: world.nightTextSoft },
+  flavour: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 20, color: world.nightTextSoft },
   close: {
     width: 40,
     height: 40,
@@ -168,7 +168,7 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: world.barHairline,
   },
-  closeMark: { fontFamily: fonts.mono, fontSize: 15, fontWeight: '700', color: world.nightText },
+  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, fontWeight: '700', color: world.nightText },
 
   body: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 56 },
   feature: { marginTop: 18 },
