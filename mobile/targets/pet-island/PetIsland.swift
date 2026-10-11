@@ -5,10 +5,9 @@ import WidgetKit
 /// The pet, in the Dynamic Island and on the Lock Screen.
 ///
 /// Everything that moves here moves without the app: the three need bars drain
-/// on SwiftUI's own clock between the dates the app handed over, and the
-/// countdown ticks to the moment the pet gets hungry or sleepy. When that moment
-/// passes the activity goes stale (the app set it as the stale date) and the
-/// view switches from a clock to "by now". The app refreshes all of it the next
+/// on SwiftUI's own clock between the dates the app handed over, and the status
+/// word changes to the coming need ("hungry") once its moment passes, since the
+/// app set that moment as the stale date. The app refreshes all of it the next
 /// time it opens.
 
 @main
@@ -131,40 +130,21 @@ struct NeedBar: View {
   }
 }
 
-/// When it next stops being fine: a live countdown, or "by now" once the
-/// moment has passed and the activity is stale.
+/// How the pet is, in a word: "happy", "fine", "hungry", "sleepy". No
+/// countdown: a bare clock in the Island read as a mystery timer. The word
+/// still changes on its own, with the app closed: when the moment the app
+/// handed over passes, the activity goes stale and the word becomes the need
+/// ("hungry") that had been coming.
 struct NextNeed: View {
   let state: PetActivityAttributes.ContentState
   let stale: Bool
   let compact: Bool
 
   var body: some View {
-    if let at = state.nextNeedAt, let need = state.nextNeed, !stale, at > Date() {
-      if compact {
-        Text(timerInterval: Date()...at, countsDown: true, showsHours: true)
-          .font(.system(size: 12, weight: .medium, design: .monospaced))
-          .monospacedDigit()
-          .foregroundStyle(Palette.tint(need))
-          .frame(maxWidth: 58)
-          .multilineTextAlignment(.trailing)
-      } else {
-        VStack(alignment: .trailing, spacing: 1) {
-          Text(timerInterval: Date()...at, countsDown: true, showsHours: true)
-            .font(.system(size: 14, weight: .semibold, design: .monospaced))
-            .monospacedDigit()
-            .foregroundStyle(Palette.tint(need))
-          Text("until \(need)")
-            .font(.system(size: 10))
-            .foregroundStyle(Palette.inkSoft)
-        }
-        .frame(maxWidth: 88, alignment: .trailing)
-      }
-    } else {
-      Text(compact ? Headline.word(state: state, stale: stale) : Headline.word(state: state, stale: stale))
-        .font(.system(size: compact ? 12 : 13, weight: .semibold))
-        .foregroundStyle(Palette.tint(Headline.mood(state: state, stale: stale)))
-        .lineLimit(1)
-    }
+    Text(Headline.word(state: state, stale: stale))
+      .font(.system(size: compact ? 12 : 14, weight: .semibold))
+      .foregroundStyle(Palette.tint(Headline.mood(state: state, stale: stale)))
+      .lineLimit(1)
   }
 }
 
