@@ -17,7 +17,7 @@ import {
   partitionFriendRequests,
   relationToUser,
 } from '@vitto/core';
-import { friendsService } from '../services/friendsService';
+import { friendsService, MIN_SEARCH_LENGTH } from '../services/friendsService';
 import { CarePartnerCard, type CarePartnerProps } from '../components/CarePartnerCard';
 import { FriendListRow } from '../components/FriendListRow';
 import { ErrorText, Field, PrimaryButton } from '../components/ui';
@@ -138,7 +138,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
+    if (trimmed.length < MIN_SEARCH_LENGTH) {
       setSearchResults(null);
       setSearching(false);
       setSearchError(null);

@@ -176,8 +176,8 @@ export const validateUsernameInput = (value: string): string => {
   return normalized;
 };
 
-/** The RPC requires at least 2 characters; shorter queries are treated as no search. */
-const MIN_SEARCH_LENGTH = 2;
+/** The RPC requires at least 3 characters; shorter queries are treated as no search. */
+export const MIN_SEARCH_LENGTH = 3;
 
 export class FriendsService {
   /** Empty below `MIN_SEARCH_LENGTH`, without ever reaching the network. */
