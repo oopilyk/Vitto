@@ -65,15 +65,39 @@ const RETRY_DELAY_MS = 800;
  * the analysis is exactly what it always was.
  */
 export const analyzeMealImage = async (image: PickedImage, pet?: MealPetContext): Promise<MealAnalysis> => {
+  if (!image.base64) throw new Error('That photo could not be read. Try choosing it again.');
+  return askAnalyzeMeal({ image: { base64: image.base64, mimeType: image.mimeType ?? 'image/jpeg' }, ...(pet ? { pet } : {}) });
+};
+
+/**
+ * Re-reads an estimate the AI got wrong from what the person says it was,
+ * without sending the photo again: the earlier estimate already holds the
+ * portion it judged from the picture. One a day does not count as a photo
+ * (see analyze-meal).
+ */
+export const correctMealAnalysis = async (
+  previous: MealAnalysis,
+  text: string,
+  pet?: MealPetContext,
+): Promise<MealAnalysis> => {
+  const said = text.trim();
+  if (!said) throw new Error('Tell us what it actually was.');
+  return askAnalyzeMeal({
+    correction: {
+      text: said,
+      previous: { foodDescription: previous.foodDescription, detectedFoods: previous.detectedFoods, macros: previous.macros },
+    },
+    ...(pet ? { pet } : {}),
+  });
+};
+
+/** One request to `analyze-meal`, retried once if the connection broke, its refusal made readable. */
+const askAnalyzeMeal = async (body: Record<string, unknown>): Promise<MealAnalysis> => {
   if (!supabase) throw new Error('Supabase is not configured.');
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sign in before analyzing a meal.');
 
-  if (!image.base64) throw new Error('That photo could not be read. Try choosing it again.');
-  const send = () =>
-    supabase!.functions.invoke('analyze-meal', {
-      body: { image: { base64: image.base64, mimeType: image.mimeType ?? 'image/jpeg' }, ...(pet ? { pet } : {}) },
-    });
+  const send = () => supabase!.functions.invoke('analyze-meal', { body });
   let { data, error } = await send();
   // A broken upload is retried once: on a patchy connection the second usually
   // lands. Only a request that never got an answer; a server's "no" stands.
@@ -91,10 +115,10 @@ export const analyzeMealImage = async (image: PickedImage, pet?: MealPetContext)
     // check fails on device and buries every server error under the useless
     // "Edge Function returned a non-2xx status code".
     const context = (error as { context?: unknown }).context;
-    const body =
+    const response =
       context && typeof (context as Response).text === 'function' ? (context as Response) : null;
-    if (body) {
-      const raw = await body.text().catch(() => '');
+    if (response) {
+      const raw = await response.text().catch(() => '');
       if (raw) {
         let detail = raw;
         try {

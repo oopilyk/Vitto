@@ -3,7 +3,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
 import { BUSY_MESSAGE, claimAiCall } from '../_shared/aiBudget.ts';
-import { MEAL_SYSTEM_PROMPT, mealAnalysisSchema, mealUserText } from './mealPrompt.ts';
+import { MEAL_FIX_SYSTEM_PROMPT, MEAL_SYSTEM_PROMPT, mealAnalysisSchema, mealFixUserText, mealUserText, readCorrection } from './mealPrompt.ts';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 
@@ -17,6 +17,12 @@ const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-
  * with no food in it, or one the model fails on, counts the same as a meal.
  */
 const MEALS_PER_DAY = 5;
+/**
+ * Corrections a day that do not count as a photo. A correction sends no image,
+ * only words, to a small model, so it costs a fraction of a photo; one a day
+ * covers the AI getting a plate wrong without becoming free photo tracking.
+ */
+const FREE_FIXES_PER_DAY = 1;
 /** The dev account's cap: effectively none, but still recorded. */
 const DEV_MEALS_PER_DAY = 100_000;
 
@@ -38,6 +44,12 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
  * so the bill per subscriber stays small. Override with MEAL_MODEL.
  */
 const MEAL_MODEL = Deno.env.get('MEAL_MODEL') ?? 'claude-sonnet-5-5';
+
+/**
+ * The model for a correction: text only, with the person's words and the
+ * earlier estimate, so a small one is plenty. Override with MEAL_FIX_MODEL.
+ */
+const FIX_MODEL = Deno.env.get('MEAL_FIX_MODEL') ?? 'claude-haiku-4-5';
 
 /**
  * Its own client rather than the companion's: a photo takes longer to read than
@@ -90,16 +102,28 @@ Deno.serve(async (request) => {
     if (Number(request.headers.get('content-length') ?? 0) > MAX_REQUEST_BYTES) {
       return json({ error: 'That image is too large to analyse.' }, 413);
     }
-    const { image, pet } = (await request.json().catch(() => ({}))) as { image?: { base64?: unknown; mimeType?: unknown }; pet?: Record<string, unknown> };
-    const imageBase64 = typeof image?.base64 === 'string' ? image.base64 : '';
-    if (!imageBase64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) return json({ error: 'That photo could not be read.' }, 400);
-    // The bytes say what the image is; the label the app sent is only a fallback.
-    const declared = typeof image?.mimeType === 'string' ? image.mimeType.toLowerCase() : 'image/jpeg';
-    const imageType = sniffImageType(imageBase64) ?? declared;
-    if (!IMAGE_TYPES.has(imageType)) return json({ error: 'That kind of image is not supported.' }, 415);
-    // Base64 is 4 characters per 3 bytes.
-    if (Math.floor((imageBase64.length * 3) / 4) > MAX_IMAGE_BYTES) {
-      return json({ error: 'That image is too large to analyse.' }, 413);
+    const { image, pet, correction: rawCorrection } = (await request.json().catch(() => ({}))) as {
+      image?: { base64?: unknown; mimeType?: unknown };
+      pet?: Record<string, unknown>;
+      correction?: unknown;
+    };
+    // A correction ("it's a strawberry matcha with almond milk") re-reads the
+    // earlier estimate from words alone: no photo, so it is cheap.
+    const correction = readCorrection(rawCorrection);
+    if (rawCorrection !== undefined && !correction) return json({ error: 'Tell us what it actually was.' }, 400);
+    let imageBase64 = '';
+    let imageType = '';
+    if (!correction) {
+      imageBase64 = typeof image?.base64 === 'string' ? image.base64 : '';
+      if (!imageBase64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)) return json({ error: 'That photo could not be read.' }, 400);
+      // The bytes say what the image is; the label the app sent is only a fallback.
+      const declared = typeof image?.mimeType === 'string' ? image.mimeType.toLowerCase() : 'image/jpeg';
+      imageType = sniffImageType(imageBase64) ?? declared;
+      if (!IMAGE_TYPES.has(imageType)) return json({ error: 'That kind of image is not supported.' }, 415);
+      // Base64 is 4 characters per 3 bytes.
+      if (Math.floor((imageBase64.length * 3) / 4) > MAX_IMAGE_BYTES) {
+        return json({ error: 'That image is too large to analyse.' }, 413);
+      }
     }
     // Optional. With it the model also writes the pet's one-line reaction to the
     // plate, in character; without it (the web app) the analysis is unchanged.
@@ -134,29 +158,44 @@ Deno.serve(async (request) => {
       }
     }
 
-    // Claimed before the photo goes to the model, atomically, so a burst of
-    // simultaneous requests cannot all slip under the cap.
-    // Photos are Plus-only (checked above), so they draw on the paid budget.
-    const claim = await claimAiCall(admin, user.id, 'meal_photo', isDev ? DEV_MEALS_PER_DAY : MEALS_PER_DAY, 'plus');
-    if (claim === 'user_limit') return json({ error: `That's ${MEALS_PER_DAY} photos today. Search or scan your food until tomorrow.` }, 429);
+    // Claimed before anything goes to the model, atomically, so a burst of
+    // simultaneous requests cannot all slip under the cap. Plus-only (checked
+    // above), so it draws on the paid budget. One correction a day is free;
+    // after that a correction counts as one of the day's photos.
+    const photoLimit = isDev ? DEV_MEALS_PER_DAY : MEALS_PER_DAY;
+    let claim = correction ? await claimAiCall(admin, user.id, 'meal_fix', isDev ? DEV_MEALS_PER_DAY : FREE_FIXES_PER_DAY, 'plus') : null;
+    if (claim !== 'ok') claim = await claimAiCall(admin, user.id, 'meal_photo', photoLimit, 'plus');
+    if (claim === 'user_limit') {
+      return json({ error: `That's ${MEALS_PER_DAY} photo analyses today. Search or scan your food until tomorrow.` }, 429);
+    }
     if (claim === 'global_limit') return json({ error: BUSY_MESSAGE }, 503);
 
     if (!anthropic) throw new Error('ANTHROPIC_API_KEY is not configured.');
-    const response = await anthropic.messages.parse({
-      model: MEAL_MODEL,
-      // Room to spare: a reply cut off at the limit is unterminated JSON, which
-      // cannot be parsed at all and fails the whole photo (a big spread did).
-      max_tokens: 4096,
-      system: MEAL_SYSTEM_PROMPT,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: imageType as ClaudeImageType, data: imageBase64 } },
-          { type: 'text', text: mealUserText(petContext) },
-        ],
-      }],
-      output_config: { format: zodOutputFormat(MealAnalysisSchema) },
-    });
+    const response = await anthropic.messages.parse(
+      correction
+        ? {
+            model: FIX_MODEL,
+            max_tokens: 4096,
+            system: MEAL_FIX_SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: mealFixUserText(correction, petContext) }],
+            output_config: { format: zodOutputFormat(MealAnalysisSchema) },
+          }
+        : {
+            model: MEAL_MODEL,
+            // Room to spare: a reply cut off at the limit is unterminated JSON, which
+            // cannot be parsed at all and fails the whole photo (a big spread did).
+            max_tokens: 4096,
+            system: MEAL_SYSTEM_PROMPT,
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: imageType as ClaudeImageType, data: imageBase64 } },
+                { type: 'text', text: mealUserText(petContext) },
+              ],
+            }],
+            output_config: { format: zodOutputFormat(MealAnalysisSchema) },
+          },
+    );
     const analysis = response.parsed_output;
     if (!analysis) throw new Error(`Claude returned no meal analysis (stop_reason: ${response.stop_reason}).`);
 
@@ -167,7 +206,9 @@ Deno.serve(async (request) => {
       return json({ noFoodDetected: true });
     }
 
-    const { error: insertError } = await admin.from('meal_analyses').insert({ user_id: user.id, analysis });
+    const { error: insertError } = await admin
+      .from('meal_analyses')
+      .insert({ user_id: user.id, analysis: correction ? { ...analysis, correctedFrom: correction.text } : analysis });
     if (insertError) throw insertError;
     return json({ analysis });
   } catch (error) {

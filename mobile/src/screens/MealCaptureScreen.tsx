@@ -12,7 +12,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
-import { analyzeMealImage, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
+import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
@@ -48,7 +48,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
-  const [busy, setBusy] = useState<'analyzing' | 'saving' | 'searching' | null>(null);
+  const [busy, setBusy] = useState<'analyzing' | 'fixing' | 'saving' | 'searching' | null>(null);
+  /** What the person says the plate really was, while they correct the AI; null when not correcting. */
+  const [fixText, setFixText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [query, setQuery] = useState('');
@@ -63,6 +65,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
   const reset = () => {
     setAnalysis(null);
+    setFixText(null);
     setSelected(null);
     setError(null);
   };
@@ -113,6 +116,21 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     } finally {
       setBusy(null);
       onAnalyzingChange(false);
+    }
+  };
+
+  /** Re-reads the plate from their correction, without sending the photo again. */
+  const fix = async () => {
+    if (!analysis || !fixText?.trim() || busy) return;
+    setBusy('fixing');
+    setError(null);
+    try {
+      setAnalysis(await correctMealAnalysis(analysis, fixText, petContext));
+      setFixText(null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not re-analyze that.'));
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -222,14 +240,25 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
           {mode === 'photo' && canScanPhotos ? (
             <>
-              {image ? (
-                <Image source={{ uri: image.uri }} style={styles.preview} />
-              ) : (
-                <View style={styles.dropzone}>
-                  <Text style={styles.dropTitle}>Add a photo of your meal</Text>
-                  <Text style={styles.dropHint}>Vitto reads the plate and grades it</Text>
-                </View>
-              )}
+              {/* The big box is the obvious thing to tap, so it opens the camera
+                  (testers tapped it again and again before finding the buttons). */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={image ? 'Retake the photo' : 'Take a photo of your meal'}
+                onPress={() => void pick('camera')}
+                disabled={busy !== null}
+                style={({ pressed }) => pressed && styles.dropPressed}
+                testID="photo-box"
+              >
+                {image ? (
+                  <Image source={{ uri: image.uri }} style={styles.preview} />
+                ) : (
+                  <View style={styles.dropzone}>
+                    <Text style={styles.dropTitle}>Tap to take a photo</Text>
+                    <Text style={styles.dropHint}>Vitto reads the plate and grades it</Text>
+                  </View>
+                )}
+              </Pressable>
               <View style={styles.pickRow}>
                 <Pressable style={styles.pickButton} onPress={() => pick('camera')}>
                   <Text style={styles.pickLabel}>Take photo</Text>
@@ -240,16 +269,50 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               </View>
 
               {analysis ? <AnalysisCard analysis={analysis} /> : null}
+              {/* The AI can mistake one drink for another; the person knows. */}
+              {analysis && fixText === null ? (
+                <TextButton
+                  label="Not quite right? Fix it"
+                  onPress={() => setFixText(analysis.foodDescription ?? analysis.detectedFoods.join(', '))}
+                  disabled={busy !== null}
+                />
+              ) : null}
+              {analysis && fixText !== null ? (
+                <View style={styles.fixBox} testID="meal-fix">
+                  <Text style={styles.fixLabel}>What was it really?</Text>
+                  <TextInput
+                    style={[layout.input, styles.fixInput]}
+                    value={fixText}
+                    onChangeText={setFixText}
+                    placeholder="e.g. strawberry matcha with almond milk"
+                    placeholderTextColor={colors.faint}
+                    multiline
+                    maxLength={300}
+                    autoFocus
+                    accessibilityLabel="What the meal really was"
+                  />
+                  <Text style={styles.fixHint}>One fix a day is free. After that, a fix counts as one of your photos.</Text>
+                  <View style={styles.fixActions}>
+                    <PrimaryButton
+                      label={busy === 'fixing' ? 'Re-analyzing...' : 'Re-analyze'}
+                      busy={busy === 'fixing'}
+                      disabled={!fixText.trim() || busy !== null}
+                      onPress={() => void fix()}
+                    />
+                    <TextButton label="Never mind" onPress={() => setFixText(null)} disabled={busy !== null} />
+                  </View>
+                </View>
+              ) : null}
               <ErrorText>{error}</ErrorText>
 
               <View style={styles.actions}>
-                {analysis ? (
+                {analysis && fixText === null ? (
                   <PrimaryButton
                     label={busy === 'saving' ? 'Saving...' : 'Add to care log'}
                     busy={busy === 'saving'}
                     onPress={() => void saveAnalysis(analysis, 'ai')}
                   />
-                ) : (
+                ) : analysis ? null : (
                   <PrimaryButton
                     label={busy === 'analyzing' ? 'Reading your plate...' : 'Analyze meal'}
                     disabled={!image}
@@ -471,6 +534,12 @@ const styles = themedStyles(() => ({
   tabLabelOn: { color: colors.ink },
   body: { padding: 22, paddingBottom: 60 },
   preview: { width: '100%', height: 230, borderRadius: 4, backgroundColor: colors.sage },
+  fixBox: { gap: 8, marginTop: 4 },
+  fixLabel: { fontFamily: fonts.pixelBold, fontSize: 16, color: colors.ink },
+  fixInput: { minHeight: 64, textAlignVertical: 'top' },
+  fixHint: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 18, color: colors.faint },
+  fixActions: { gap: 6 },
+  dropPressed: { opacity: 0.7 },
   dropzone: {
     height: 190,
     borderRadius: 4,

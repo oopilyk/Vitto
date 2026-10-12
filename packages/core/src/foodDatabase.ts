@@ -1,6 +1,6 @@
 import type { MealAnalysis } from './domain/health';
 import { withEstimatedCalories } from './domain/macros';
-import { getFdcApiKey } from './config';
+import { getFdcApiKey, getSupabase } from './config';
 
 export interface FoodMacros {
   calories: number;
@@ -193,15 +193,44 @@ const dedupeResults = (results: FoodSearchResult[]): FoodSearchResult[] => {
  */
 const DEMO_KEY = 'DEMO_KEY';
 
+/**
+ * USDA's foods for a query, asked through our own server (the `food-search`
+ * edge function) when there is one. Some networks' DNS cannot resolve
+ * api.nal.usda.gov at all, so a phone asking USDA itself failed with "hostname
+ * could not be found"; every phone that can use Vitto reaches Supabase. Null
+ * when the server cannot answer (offline, not deployed yet), and the phone asks
+ * USDA directly instead.
+ */
+const fdcFoodsViaServer = async (query: string, key: string): Promise<FdcFood[] | null> => {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.functions.invoke('food-search', { body: { query, key } });
+    if (error || !data || !Array.isArray((data as { foods?: unknown }).foods)) return null;
+    return (data as { foods: FdcFood[] }).foods;
+  } catch {
+    return null;
+  }
+};
+
 const searchFdc = async (query: string): Promise<FoodSearchResult[]> => {
-  const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
   const key = getFdcApiKey();
+  const viaServer = await fdcFoodsViaServer(query, key);
+  if (viaServer) return rankFdcFoods(viaServer);
+
+  const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
   url.searchParams.set('api_key', key);
   url.searchParams.set('query', query);
   url.searchParams.set('pageSize', FDC_PAGE_SIZE);
   url.searchParams.set('dataType', FDC_DATA_TYPES);
 
-  const response = await fetch(url);
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch {
+    // No answer at all: offline, or this network cannot look USDA's name up.
+    throw new Error("Couldn't reach the food database. Check your connection and try again.");
+  }
   if (response.status === 429) {
     throw new Error(
       key === DEMO_KEY
@@ -211,8 +240,12 @@ const searchFdc = async (query: string): Promise<FoodSearchResult[]> => {
   }
   if (!response.ok) throw new Error('Food search failed. Try again in a moment.');
   const data = (await response.json()) as { foods?: FdcFood[] };
+  return rankFdcFoods(data.foods ?? []);
+};
 
-  const ranked = [...(data.foods ?? [])].sort((a, b) => dataTypeRank(a) - dataTypeRank(b));
+/** Whole foods before branded ones, duplicates out, the top ten. */
+const rankFdcFoods = (foods: FdcFood[]): FoodSearchResult[] => {
+  const ranked = [...foods].sort((a, b) => dataTypeRank(a) - dataTypeRank(b));
   return dedupeResults(ranked.map(toSearchResult)).slice(0, 10);
 };
 

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { lookupBarcode, searchFoodsByName, toMealAnalysis } from './foodDatabase';
+import { configureCore } from './config';
 
 const mockFetchOnce = (body: unknown): void => {
   vi.stubGlobal(
@@ -432,5 +433,46 @@ describe('sub-macros', () => {
     const [apple] = await searchFoodsByName('apple');
     expect(apple.macros.sugarGrams).toBeUndefined();
     expect(toMealAnalysis(apple, 1).macros).not.toHaveProperty('sodiumMg');
+  });
+});
+
+describe('searchFoodsByName — through our own server', () => {
+  const usdaFood = {
+    fdcId: 1,
+    description: 'Chicken breast, roasted',
+    dataType: 'SR Legacy',
+    foodNutrients: [{ nutrientName: 'Energy', unitName: 'KCAL', value: 165 }],
+  };
+  const withServer = (invoke: (name: string, options: unknown) => Promise<unknown>) =>
+    configureCore({ supabase: { functions: { invoke } } as never });
+  afterEach(() => configureCore({ supabase: null }));
+
+  it('asks the food-search function, and never USDA from the phone, when it answers', async () => {
+    const invoke = vi.fn(async () => ({ data: { foods: [usdaFood] }, error: null }));
+    withServer(invoke);
+    const direct = vi.fn();
+    vi.stubGlobal('fetch', direct as unknown as typeof fetch);
+
+    const results = await searchFoodsByName('chicken breast');
+    expect(invoke).toHaveBeenCalledWith('food-search', { body: { query: 'chicken breast', key: expect.any(String) } });
+    expect(direct).not.toHaveBeenCalled();
+    expect(results[0]?.name).toContain('Chicken breast');
+  });
+
+  it('asks USDA directly when the server cannot answer', async () => {
+    withServer(async () => ({ data: null, error: new Error('not deployed') }));
+    const direct = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ foods: [usdaFood] }) }));
+    vi.stubGlobal('fetch', direct as unknown as typeof fetch);
+
+    const results = await searchFoodsByName('chicken breast');
+    expect(direct).toHaveBeenCalled();
+    expect(results[0]?.name).toContain('Chicken breast');
+  });
+
+  it('says to check the connection, in words, when nothing can be reached', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('fetch failed: A server with the specified hostname could not be found.');
+    }) as unknown as typeof fetch);
+    await expect(searchFoodsByName('popeyes chicken')).rejects.toThrow("Couldn't reach the food database");
   });
 });

@@ -14,7 +14,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
  *                           of throwaway sign-ups cannot lock out paying users.
  *                           Default 60% of AI_DAILY_CEILING.
  */
-export type AiCallKind = 'chat' | 'proactive' | 'meal_photo' | 'push_lines';
+export type AiCallKind = 'chat' | 'proactive' | 'meal_photo' | 'meal_fix' | 'push_lines';
 export type AiClaim = 'ok' | 'user_limit' | 'global_limit';
 
 const DEFAULT_CEILING = 5000;

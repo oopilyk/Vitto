@@ -74,3 +74,76 @@ export const mealUserText = (pet: MealPetContext | null): string =>
     ? ` The pet about to eat it is ${pet.name}, a ${pet.personality} pet who is currently ${pet.mood}` +
       (pet.ailments.length > 0 ? ` and ${pet.ailments.join(', ')}` : '') + '.'
     : '');
+
+/** A correction to an earlier estimate, as the app sends it and the model reads it. */
+export interface MealCorrection {
+  /** What the person says it actually was. */
+  text: string;
+  /** The earlier estimate, cut down to what a re-estimate needs. */
+  previous: {
+    foodDescription: string;
+    detectedFoods: string[];
+    calories: number;
+    proteinGrams: number;
+    carbsGrams: number;
+    fatGrams: number;
+  };
+}
+
+const MAX_CORRECTION_LENGTH = 300;
+const num = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0);
+
+/**
+ * The correction from a request, checked and trimmed, or null when it is not
+ * one. Nothing from the request reaches the prompt unbounded.
+ */
+export const readCorrection = (raw: unknown): MealCorrection | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const { text, previous } = raw as { text?: unknown; previous?: unknown };
+  const said = typeof text === 'string' ? text.trim().slice(0, MAX_CORRECTION_LENGTH) : '';
+  if (!said) return null;
+  const earlier = (previous && typeof previous === 'object' ? previous : {}) as Record<string, unknown>;
+  const macros = (earlier.macros && typeof earlier.macros === 'object' ? earlier.macros : {}) as Record<string, unknown>;
+  return {
+    text: said,
+    previous: {
+      foodDescription: typeof earlier.foodDescription === 'string' ? earlier.foodDescription.slice(0, 600) : '',
+      detectedFoods: Array.isArray(earlier.detectedFoods)
+        ? earlier.detectedFoods.filter((food): food is string => typeof food === 'string').slice(0, 12).map((food) => food.slice(0, 80))
+        : [],
+      calories: num(macros.calories),
+      proteinGrams: num(macros.proteinGrams),
+      carbsGrams: num(macros.carbsGrams),
+      fatGrams: num(macros.fatGrams),
+    },
+  };
+};
+
+export const MEAL_FIX_SYSTEM_PROMPT =
+  'You correct an earlier nutrition estimate of a meal photo. You cannot see the photo; you have the earlier estimate and what the person says the meal actually is. Broad estimates only, never medical certainty. ' +
+  'Trust the person about WHAT the food or drink is: their words replace the earlier identification. ' +
+  'Keep the portion sizes from the earlier estimate (it judged them from the photo), unless the person states an amount, which then wins. ' +
+  'Set noFoodDetected to false unless the person says there was no food. ' +
+  'foodDescription must start immediately with a concise, quantified list of every item and its portion, with no introductory words, for example "1 iced strawberry matcha latte with almond milk (~470ml)". ' +
+  'summary is one short paragraph judging the nutritional quality (what it is rich in or lacking). ' +
+  'macros.calories must be a realistic non-zero estimate for those portions, derived from the protein, carbs and fat (4/4/9 kcal per gram) and sanity-checked against them. ' +
+  'Also return proteinGrams, carbsGrams, fatGrams as non-negative numbers, and fiberGrams, sugarGrams, saturatedFatGrams (grams) and sodiumMg (milligrams), ' +
+  'with fiberGrams and sugarGrams no more than carbsGrams and saturatedFatGrams no more than fatGrams, detectedFoods (string[]), grade (A-D), confidence (0-1), ' +
+  'and nutrients booleans: protein, vegetables, fruit, wholeGrains, fiber, treats. ' +
+  'petReaction: if the user message describes a pet, ONE sentence of at most 90 characters, in the first person AS THAT PET, reacting to the corrected meal, matching its personality and mood; ' +
+  'never mention calories, weight, diets or health outcomes, never shame the person. With no pet described, petReaction is "".';
+
+/** The correction, the earlier estimate and the pet, as the model reads them. */
+export const mealFixUserText = (correction: MealCorrection, pet: MealPetContext | null): string => {
+  const p = correction.previous;
+  return (
+    `Earlier estimate: ${p.foodDescription || p.detectedFoods.join(', ') || 'unknown'} ` +
+    `(${p.calories} kcal, ${p.proteinGrams}g protein, ${p.carbsGrams}g carbs, ${p.fatGrams}g fat).\n` +
+    `The person says it was actually: "${correction.text}"\n` +
+    'Re-estimate the meal.' +
+    (pet
+      ? ` The pet about to eat it is ${pet.name}, a ${pet.personality} pet who is currently ${pet.mood}` +
+        (pet.ailments.length > 0 ? ` and ${pet.ailments.join(', ')}` : '') + '.'
+      : '')
+  );
+};
