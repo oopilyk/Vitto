@@ -12,7 +12,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
-import { analyzeMealImage, type PickedImage } from '../services/mealAnalysis';
+import { analyzeMealImage, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
@@ -98,7 +98,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       setError('That photo could not be read. Try another one.');
       return;
     }
-    setImage({ uri: asset.uri, base64: asset.base64, mimeType: asset.mimeType ?? 'image/jpeg' });
+    setImage(await shrinkForUpload({ ...asset, base64: asset.base64, mimeType: asset.mimeType ?? undefined }));
   };
 
   const analyze = async () => {
