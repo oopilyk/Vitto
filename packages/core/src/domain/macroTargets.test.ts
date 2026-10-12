@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FOCUS_AREAS, MAX_BIO_LENGTH, PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, convertHeightToFeetAndInches, convertWeightValue, feetAndInchesToCm, measurementSystemForLocale, measurementSystemOf, normalizeBio, planForGoal, type BodyProfile, unitsFor, weightGoalProgress, withMeasurementSystem, withSurveyDefaults, recommendedCalories, customCalorieGoal, CALORIE_GOAL_RANGE } from './macroTargets';
+import { FOCUS_AREAS, MAX_BIO_LENGTH, PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, convertHeightToFeetAndInches, convertWeightValue, feetAndInchesToCm, measurementSystemForLocale, measurementSystemOf, normalizeBio, planForGoal, type BodyProfile, unitsFor, weightGoalProgress, withMeasurementSystem, withSurveyDefaults, recommendedCalories, customCalorieGoal, CALORIE_GOAL_RANGE, deficitCapFor, isMinor, maintenanceCalories } from './macroTargets';
 
 const baseProfile: BodyProfile = {
   age: 30,
@@ -36,7 +36,8 @@ describe('survey answers change the targets', () => {
 
     expect(gentle).toBeGreaterThan(steady);
     expect(steady).toBeGreaterThan(focused);
-    expect(gentle - focused).toBe(400);
+    // Focused is 650 below, unless a quarter of maintenance is less.
+    expect(gentle - focused).toBe(Math.min(650, deficitCapFor(cutting)) - 250);
   });
 
   it('reverses that direction when building muscle', () => {
@@ -146,7 +147,8 @@ describe('planForGoal', () => {
   it('caps an unsafe deadline and says how long it would really take', () => {
     const crash = planForGoal({ ...cutting, targetWeightKg: 60, goalWeeks: 4 });
     expect(crash?.requestedDaily).toBeGreaterThan(1000);
-    expect(crash?.dailyAdjustment).toBe(-1000);
+    // The lower of 1,000 kcal and a quarter of what they burn.
+    expect(crash?.dailyAdjustment).toBe(-deficitCapFor({ ...cutting, targetWeightKg: 60, goalWeeks: 4 }));
     expect(crash?.capped).toBe(true);
     expect(crash?.achievableWeeks).toBeGreaterThan(4);
   });
@@ -330,3 +332,23 @@ describe('building muscle alongside the weight goal', () => {
     expect(calculateMacroTargets({ ...maintain, buildMuscle: true }).proteinGrams).toBe(160);
   });
 });
+
+describe('safe limits on a calorie target', () => {
+  const adult = withSurveyDefaults({ age: 30, sex: 'female', heightCm: 160, heightUnit: 'cm', weightKg: 55, weightUnit: 'kg', activity: 'low', goal: 'lose', goalPace: 'focused' });
+
+  it('never cuts more than a quarter of what a small body burns', () => {
+    const maintenance = maintenanceCalories(adult);
+    expect(deficitCapFor(adult)).toBe(Math.round(maintenance * 0.25));
+    expect(calculateMacroTargets(adult).calories).toBeGreaterThanOrEqual(Math.round(maintenance * 0.75) - 1);
+  });
+
+  it('gives someone under 18 no deficit and no weight-loss goal, whatever they ask for', () => {
+    const teen = { ...adult, age: 15 };
+    expect(isMinor(teen)).toBe(true);
+    expect(calculateMacroTargets(teen).calories).toBe(maintenanceCalories(teen));
+    // A number of their own below what they burn is not taken either.
+    expect(calculateMacroTargets({ ...teen, calorieGoal: 1200 }).calories).toBe(maintenanceCalories(teen));
+    expect(calculateMacroTargets({ ...teen, calorieGoal: 3000 }).calories).toBe(3000);
+  });
+});
+

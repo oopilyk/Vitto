@@ -9,6 +9,7 @@ import {
   measurementSystemOf,
   planForGoal,
   CALORIE_GOAL_RANGE,
+  isMinor,
   recommendedCalories,
   withMeasurementSystem,
 } from '@vitto/core';
@@ -188,11 +189,12 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
       <SettingsSection title="Your goal" description="Sets how far your daily calories sit from maintenance.">
         <SegmentedControl
           options={[
-            { value: 'lose' as const, label: 'Lose fat' },
+            // No weight loss under 18 (see calorieAdjustmentFor).
+            ...(isMinor(profile) ? [] : [{ value: 'lose' as const, label: 'Lose fat' }]),
             { value: 'maintain' as const, label: 'Maintain' },
             { value: 'gain' as const, label: 'Build muscle' },
           ]}
-          value={profile.goal}
+          value={isMinor(profile) && profile.goal === 'lose' ? 'maintain' : profile.goal}
           onChange={(value) => update('goal', value)}
         />
         {profile.goal !== 'gain' ? (
@@ -262,7 +264,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
 
       <SettingsSection
         title="Daily calories"
-        description="Vitto works this out from your body, activity and goal. Set your own if you already follow a number."
+        description="Vitto estimates this from your body, activity and goal. It is a general guide, not medical advice: check with a doctor before changing how you eat, especially with a medical condition, during pregnancy, or with a history of disordered eating. Set your own if you already follow a number."
       >
         <SegmentedControl
           options={[

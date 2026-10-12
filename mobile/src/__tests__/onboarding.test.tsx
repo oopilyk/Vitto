@@ -464,6 +464,16 @@ describe('onboarding, Apple Health', () => {
 
 
 describe('onboarding goal', () => {
+  it('offers no weight-loss goal to someone under 18', () => {
+    const resume = { stepId: 'goal', answeredAtStart: false, offerPlus: false, hadUsername: true } as never;
+    const { tree } = mount({ ...baseProfile, age: 15 }, { resume });
+    expect(has(tree, 'Lose fat')).toBe(false);
+    expect(has(tree, 'Lose fat & build muscle')).toBe(false);
+    expect(has(tree, 'Stay where I am')).toBe(true);
+    expect(has(tree, 'Build muscle, same weight')).toBe(true);
+    act(() => tree.unmount());
+  });
+
   it('offers building muscle alongside losing fat or at the same weight', () => {
     const resume = { stepId: 'goal', answeredAtStart: false, offerPlus: false, hadUsername: true } as never;
     const { tree, updates } = mount(baseProfile, { resume });

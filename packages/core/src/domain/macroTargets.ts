@@ -250,6 +250,20 @@ export const activityFactorFor = (profile: BodyProfile): number => {
 export const DAILY_KCAL_PER_KG_PER_WEEK = 1100;
 export const MAX_DAILY_DEFICIT = 1000;
 export const MAX_DAILY_SURPLUS = 500;
+/**
+ * A deficit is also never more than this share of what the person burns: a
+ * fixed 1,000 kcal is a gentle cut for a big body and a crash diet for a small
+ * one. A quarter is the usual ceiling for a safe, sustainable cut.
+ */
+export const MAX_DEFICIT_SHARE = 0.25;
+/** Under this age there is no weight-loss goal and no deficit: maintaining or building only. */
+export const ADULT_AGE = 18;
+
+export const isMinor = (profile: Pick<BodyProfile, 'age'>): boolean => finite(profile.age, 30) < ADULT_AGE;
+
+/** The largest daily deficit this person may be given. */
+export const deficitCapFor = (profile: BodyProfile): number =>
+  Math.round(Math.min(MAX_DAILY_DEFICIT, maintenanceCalories(profile) * MAX_DEFICIT_SHARE));
 
 export interface GoalPlan {
   weeks: number;
@@ -275,7 +289,7 @@ export const planForGoal = (profile: BodyProfile): GoalPlan | null => {
   const totalKg = Math.abs(target - profile.weightKg);
   const kgPerWeek = totalKg / weeks;
   const requestedDaily = kgPerWeek * DAILY_KCAL_PER_KG_PER_WEEK;
-  const cap = profile.goal === 'lose' ? MAX_DAILY_DEFICIT : MAX_DAILY_SURPLUS;
+  const cap = profile.goal === 'lose' ? deficitCapFor(profile) : MAX_DAILY_SURPLUS;
   const capped = requestedDaily > cap;
   const dailyMagnitude = Math.round(Math.min(requestedDaily, cap));
   const cappedRatePerWeek = cap / DAILY_KCAL_PER_KG_PER_WEEK;
@@ -303,10 +317,13 @@ export const calorieAdjustmentFor = (profile: BodyProfile): number => {
     const plan = planForGoal(profile);
     if (plan) return plan.dailyAdjustment;
     const pace = PACE_DEFICIT[profile.goalPace] ? profile.goalPace : 'steady';
-    if (profile.goal === 'lose') return -PACE_DEFICIT[pace];
+    if (profile.goal === 'lose') return -Math.min(PACE_DEFICIT[pace], deficitCapFor(profile));
     if (profile.goal === 'gain') return PACE_SURPLUS[pace];
     return 0;
   })();
+  // No deficit at all for someone under 18: they still grow, and a weight-loss
+  // target is the wrong thing for an app to hand a teenager.
+  if (adjustment < 0 && isMinor(profile)) return 0;
   return profile.goal === 'lose' && profile.buildMuscle ? Math.max(adjustment, -RECOMP_MAX_DEFICIT) : adjustment;
 };
 
@@ -365,7 +382,11 @@ export const recommendedCalories = (profile: BodyProfile): number =>
  */
 export const calculateMacroTargets = (profile: BodyProfile): MacroTargets => {
   const weightKg = finite(profile.weightKg, 70);
-  const calories = customCalorieGoal(profile) ?? recommendedCalories(profile);
+  // A number of their own, except that someone under 18 is not taken below
+  // what they burn (see calorieAdjustmentFor).
+  const own = customCalorieGoal(profile);
+  const calories =
+    own !== undefined && !(isMinor(profile) && own < maintenanceCalories(profile)) ? own : recommendedCalories(profile);
   const proteinGrams = Math.round(weightKg * proteinPerKgFor(profile));
   const fatGrams = Math.round((calories * 0.28) / 9);
   const carbsGrams = Math.max(0, Math.round((calories - proteinGrams * 4 - fatGrams * 9) / 4));

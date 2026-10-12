@@ -50,6 +50,7 @@ import {
   type PetBreed,
   type PetPersonality,
   type TrainingType,
+  isMinor,
 } from '@vitto/core';
 import { companion as ai } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
@@ -797,13 +798,15 @@ export function OnboardingScreen({
   ) => {
     const header = 26 + (title.length > 26 ? 64 : 34) + (sub && !short ? (sub.length > 44 ? 52 : 30) : 0);
     const size = petRoom(wanted, header + listNeeds(count, columns) + extraRoom);
+    // Centred on the page: a short list (three answers and no Next button) sat
+    // at the top over a band of empty screen. A long one still shrinks to fit.
     return (
-      <View style={styles.fill}>
+      <View style={[styles.fill, styles.questionPage]}>
         <Text style={styles.eyebrow}>{eyebrow}</Text>
         {pet(size)}
         <Text style={[styles.question, short && styles.questionShort]}>{title}</Text>
         {sub && !short ? <Text style={styles.sub}>{sub}</Text> : null}
-        <View style={styles.choices}>{answers}</View>
+        <View style={styles.questionChoices}>{answers}</View>
       </View>
     );
   };
@@ -1238,7 +1241,8 @@ export function OnboardingScreen({
             ? question(
                 { eyebrow: 'Your goal', title: 'What would you most like to do?', count: GOAL_OPTIONS.length, wanted: 120 },
                 <>
-                  {GOAL_OPTIONS.map((option) => (
+                  {/* No weight loss under 18: maintaining or building only (see calorieAdjustmentFor). */}
+                  {GOAL_OPTIONS.filter((option) => !(isMinor(profile) && option.goal === 'lose')).map((option) => (
                     <FChoice
                       key={option.key}
                       label={option.label}
@@ -1360,7 +1364,10 @@ export function OnboardingScreen({
                   sub: `Pick what you'll track. Anything you leave off never affects ${petName}.`,
                   count: CARE_AREAS.length,
                   // Two-line rows: room for them, so nothing scrolls.
-                  extraRoom: CARE_AREAS.length * (short ? 16 : 40),
+                  // What the cards really take beyond the minimum: on an iPhone each
+                  // two-line card with its stat line is about 104pt, and counting it
+                  // as less let the pet keep room and push the last card off screen.
+                  extraRoom: CARE_AREAS.length * (short ? 16 : 62),
                   wanted: 90,
                 },
                 <>
@@ -1457,7 +1464,7 @@ export function OnboardingScreen({
               </View>
               {/* The numbers are a starting point, not a contract. */}
               <Text style={styles.planNote} testID="plan-change-anytime">
-                You can change these anytime in Settings.
+                Estimates, not medical advice. Change them anytime in Settings.
               </Text>
             </View>
           ) : null}
@@ -2048,6 +2055,9 @@ const styles = themedStyles(() => {
 
     // Answers: a column that hands each row an equal share, down to MIN_CHOICE.
     choices: { flex: 1, minHeight: 0, marginTop: 14, gap: CHOICE_GAP },
+    questionPage: { justifyContent: 'center' },
+    // As tall as its answers (shrinking them if the page is short), never taller.
+    questionChoices: { flexShrink: 1, minHeight: 0, marginTop: 14, gap: CHOICE_GAP },
     gridRow: { flexDirection: 'row', gap: CHOICE_GAP, flexBasis: 64, flexShrink: 1, flexGrow: 0, minHeight: MIN_CHOICE, maxHeight: 68 },
     gridCell: { flex: 1 },
     // A choice with a two-line detail under its label.
