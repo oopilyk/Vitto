@@ -38,6 +38,7 @@ export * from './domain/mealAnalysis';
 export * from './domain/macroTargets';
 export * from './domain/onboarding';
 export * from './domain/nutritionSummary';
+export * from './domain/hydration';
 export * from './domain/dailyRecap';
 export * from './domain/brainGames';
 export * from './domain/mathRun';

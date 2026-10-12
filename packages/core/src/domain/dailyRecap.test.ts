@@ -76,6 +76,20 @@ describe('buildDailyRecap', () => {
     expect(recap.activity).toEqual([]);
   });
 
+  it("totals today's water into the food pillar and the activity list", () => {
+    const events: HealthEvent[] = [
+      makeEvent('HYDRATION', onDay('09:00'), { ml: 250, xpAwarded: 0 }),
+      makeEvent('HYDRATION', onDay('11:00'), { ml: 250, xpAwarded: 5 }),
+      makeEvent('HYDRATION', onOtherDay('11:00'), { ml: 250, xpAwarded: 5 }),
+    ];
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal: 10000, day });
+
+    expect(recap.food.waterMl).toBe(500);
+    expect(recap.food.waterGoalMl).toBe(2000);
+    expect(recap.xpByPillar.food).toBe(5);
+    expect(recap.activity).toContainEqual({ id: 'water', label: 'Drank 500 mL of water' });
+  });
+
   it('sums the XP the engine actually granted, split by pillar, and ignores other days', () => {
     const events: HealthEvent[] = [
       makeEvent<WorkoutMetadata & { xpAwarded: number }>('WORKOUT', onDay('08:00'), {

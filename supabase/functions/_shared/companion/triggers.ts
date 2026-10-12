@@ -78,6 +78,7 @@ const EVENT_PRIORITY: Partial<Record<CompanionEventType, number>> = {
   BRAIN_GAME_PLAYED: 5,
   HEALTHY_MEAL_LOGGED: 4,
   MEAL_LOGGED: 4,
+  WATER_GOAL_REACHED: 4,
 };
 
 /** Events the pet may want to talk about unprompted. The rest only shift state. */
@@ -96,6 +97,7 @@ const EVENT_HINT: Partial<Record<CompanionEventType, string>> = {
     'They just finished a mind game with you. React to how it went (the score or result is in the details), like a friend who was playing along.',
   LEVEL_UP: "You just levelled up because of how they've been living. You feel it. Be delighted, share the credit.",
   USER_RETURNED_AFTER_ABSENCE: "They're back after being away for days. Show you noticed.",
+  WATER_GOAL_REACHED: 'They just hit their water goal for the day, and you drank along. React your own way, short and light.',
 };
 
 const eventReaction = (input: TriggerInput): TriggerFire | null => {

@@ -13,7 +13,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
+import {  assessCondition, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -1043,6 +1043,7 @@ function VittoApp() {
       stepGoal,
       previousSteps: stepsBefore,
       personalRecords: event.type === 'WORKOUT' ? newPersonalRecords(history, event as HealthEvent, profile.weightUnit) : undefined,
+      reachedWaterGoal: event.type === 'HYDRATION' ? waterReachesGoal(history, event as HealthEvent) : undefined,
     });
     if (!perceived) return;
     try {
@@ -1059,7 +1060,12 @@ function VittoApp() {
     }
   };
 
-  const recordEvent = async (event: HealthEvent<unknown>) => {
+  /**
+   * `quiet` saves without a word: no reaction, no toast, no cheer. For a cup of
+   * water short of the goal, or one taken back, where the tracker filling or
+   * emptying is acknowledgement enough.
+   */
+  const recordEvent = async (event: HealthEvent<unknown>, { quiet = false }: { quiet?: boolean } = {}) => {
     if (!pet) return;
     careMomentInFlight.current = true;
     try {
@@ -1134,19 +1140,19 @@ function VittoApp() {
       // banner/toast would only stack behind it and then flash on dismissal.
       // The pet's own remark is on its way: the bubble waits for it rather than
       // saying the stock line first and then being talked over.
-      if (remote) setAwaitingPetLine(true);
+      if (remote && !quiet) setAwaitingPetLine(true);
       if (!levelUp) {
-        if (nextReaction) showReaction(nextReaction);
+        if (nextReaction && !quiet) showReaction(nextReaction);
         // Every logged moment is acknowledged, reaction or not — that is the
         // whole point of the toast being separate from the pet's mood line.
-        showCareToast(careToast(event, nextReaction?.delta ?? {}, nextReaction?.effects));
+        if (!quiet) showCareToast(careToast(event, nextReaction?.delta ?? {}, nextReaction?.effects));
       }
       setEvents((current) => [storedEvent, ...current]);
       setError(null);
       // Every log gets a cheer, except steps: those sync in the background
       // and already have the pet go exploring.
-      if (event.type !== 'STEP_ACTIVITY') interaction.celebrate();
-      if (remote) {
+      if (event.type !== 'STEP_ACTIVITY' && !quiet) interaction.celebrate();
+      if (remote && !quiet) {
         void tellCompanion(storedEvent, nextPet, detectLevelUp(pet, nextPet) !== null).finally(() => setAwaitingPetLine(false));
       }
     } catch (cause) {
@@ -1515,6 +1521,16 @@ function VittoApp() {
   // cheers it like every other log.
   const completeWorkout = async (metadata: WorkoutMetadata) => {
     await recordEvent(makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata));
+  };
+
+  /**
+   * A drink from the water tracker on Today's Food card, or (negative) a cup
+   * taken back. Silent, except for the drink that reaches the day's goal: that
+   * one the pet reacts to, in its own voice.
+   */
+  const logWater = async (ml: number) => {
+    const event = makeEvent<HydrationMetadata>(userId, 'HYDRATION', { ml: Math.round(ml) });
+    await recordEvent(event, { quiet: !waterReachesGoal(events, event) });
   };
 
   const completeMindSession = async (metadata: BrainTrainingMetadata) => {
@@ -2584,6 +2600,7 @@ function VittoApp() {
               profile={profile}
               stepGoal={stepGoal}
               onStepGoalChange={setStepGoal}
+              onLogWater={logWater}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenWordPuzzle={() => navigation.navigate('WordPuzzle')}
               onOpenProfile={() => navigation.navigate('Profile')}

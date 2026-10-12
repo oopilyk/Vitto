@@ -108,6 +108,12 @@ export interface StepMetadata {
   xpAwarded?: number;
 }
 
+/** Water drunk, logged from the Food card on Today. */
+export interface HydrationMetadata {
+  /** How much, in mL, whatever unit it was typed in. */
+  ml: number;
+}
+
 export interface SleepMetadata {
   /**
    * Minutes actually asleep, summed across the night's asleep segments. Time

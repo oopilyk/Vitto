@@ -1,6 +1,7 @@
 import type { HealthEvent, BrainTrainingMetadata, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import type { PetDelta } from './pet';
 import type { FoodEffect } from './foodEffects';
+import { waterMlOf } from './hydration';
 
 /**
  * The confirmation shown the moment a care moment is logged: what was recorded,
@@ -114,7 +115,7 @@ export const describeLoggedEvent = (event: HealthEvent): string => {
       return `${formatMinutes(safe)} of screen time logged`;
     }
     case 'HYDRATION':
-      return 'Water logged';
+      return waterMlOf(event) < 0 ? 'Water removed' : 'Water logged';
     default:
       return 'Logged';
   }

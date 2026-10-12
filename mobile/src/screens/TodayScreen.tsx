@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -28,7 +28,13 @@ import {
   describeSubMacros,
   estimateCaloriesBurned,
   getEventsForDay,
+  type MeasurementSystem,
+  WATER_CUP_ML,
+  formatWater,
+  measurementSystemOf,
 } from '@vitto/core';
+import * as Haptics from 'expo-haptics';
+import Svg, { Path } from 'react-native-svg';
 import { NutrientRing } from '../components/NutrientRing';
 import { ChoiceRow, TextButton } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
@@ -55,6 +61,8 @@ interface Props {
   stepGoal: number;
   onStepGoalChange: (goal: number) => void;
   onTrainMind: () => void;
+  /** Logs a drink of water, in mL. Absent hides the tracker. */
+  onLogWater?: (ml: number) => Promise<void>;
   /** Optional: the mind pillar hides the action until the navigation is wired. */
   onOpenWordPuzzle?: () => void;
   /** "Full history →" — Profile lists the user's own events. */
@@ -149,6 +157,7 @@ export function TodayScreen({
   stepGoal,
   onStepGoalChange,
   onTrainMind,
+  onLogWater,
   onOpenWordPuzzle,
   onOpenProfile,
   insightsUnlocked = true,
@@ -375,6 +384,15 @@ export function TodayScreen({
                   <Text style={[styles.subMacros, { color: c.soft }]}>{describeSubMacros(food.consumed, { includeFiber: false })}</Text>
                 ) : null}
               </View>
+            ) : null}
+            {onLogWater ? (
+              <WaterTracker
+                ml={food.waterMl}
+                goalMl={food.waterGoalMl}
+                system={measurementSystemOf(profile)}
+                onAdd={onLogWater}
+                c={c}
+              />
             ) : null}
           </Pillar>
         ) : null}
@@ -719,6 +737,147 @@ function Pillar({
   );
 }
 
+/**
+ * Today's water, Cronometer-style: a row of cups that fill as the day's water
+ * comes in, with − and + either side to take a cup back or add one. Whole cups
+ * only. Past the target the cups just stay full.
+ *
+ * A tap shows at once, with a buzz: the cups move before the save does. Saves
+ * run one at a time behind the screen, each against the log the one before it
+ * left, so a quick run of taps is counted exactly once each. A save that fails
+ * takes its cup back off the screen (the app's error banner says why).
+ */
+function WaterTracker({
+  ml,
+  goalMl,
+  system,
+  onAdd,
+  c,
+}: {
+  ml: number;
+  goalMl: number;
+  system: MeasurementSystem;
+  onAdd: (ml: number) => Promise<void>;
+  c: Palette;
+}) {
+  /** Taps on screen but not yet saved, in mL. */
+  const [pending, setPending] = useState(0);
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  // The latest handler, so a queued save sees the log as the save before it left it.
+  const onAddRef = useRef(onAdd);
+  onAddRef.current = onAdd;
+
+  const shown = Math.max(0, ml + pending);
+  const cups = Math.max(1, Math.round(goalMl / WATER_CUP_ML));
+  // Whole cups: water logged before the tracker was cups-only rounds to the nearest.
+  const full = Math.round(shown / WATER_CUP_ML);
+
+  const tap = (amount: number) => {
+    if (amount === 0) return;
+    setPending((current) => current + amount);
+    buzz(amount > 0 && shown < goalMl && shown + amount >= goalMl ? 'goal' : 'tap');
+    queue.current = queue.current.then(async () => {
+      // Let the previous save's new log reach this component before the next one reads it.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      try {
+        await onAddRef.current(amount);
+      } catch {
+        buzz('error');
+      } finally {
+        setPending((current) => current - amount);
+      }
+    });
+  };
+
+  return (
+    <View style={[styles.water, { borderTopColor: c.hairline }]}>
+      <View style={styles.waterHead}>
+        <Text style={[styles.waterLabel, { color: c.soft }]}>Water</Text>
+        <Text style={[styles.waterCount, { color: c.ink }]}>
+          {formatWater(shown, system)}
+          <Text style={[styles.macroTarget, { color: c.soft }]}> / {formatWater(goalMl, system)}</Text>
+        </Text>
+      </View>
+      <View style={styles.waterCupsRow}>
+        <WaterStep
+          sign="−"
+          label="Remove a cup of water"
+          disabled={shown <= 0}
+          onPress={() => tap(-Math.min(WATER_CUP_ML, shown))}
+        />
+        <View style={styles.waterCups}>
+          {Array.from({ length: cups }, (_, index) => (
+            <WaterCup key={index} full={index < full} />
+          ))}
+        </View>
+        <WaterStep sign="+" label="Add a cup of water" onPress={() => tap(WATER_CUP_ML)} />
+      </View>
+      <Text style={[styles.waterHint, { color: c.soft }]}>
+        1 cup = {system === 'imperial' ? '8.5 fl oz' : '250 mL'}
+      </Text>
+    </View>
+  );
+}
+
+/** The water tracker's buzz: a light tick per cup, a success on the goal. */
+const buzz = (kind: 'tap' | 'goal' | 'error') => {
+  if (Platform.OS === 'web') return;
+  const done =
+    kind === 'tap'
+      ? Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      : Haptics.notificationAsync(
+          kind === 'goal' ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error,
+        );
+  void done.catch(() => {});
+};
+
+/** One cup on the water row: a tapered glass, full of water or empty. */
+function WaterCup({ full }: { full: boolean }) {
+  return (
+    <Svg width={22} height={30} viewBox="0 0 22 30">
+      <Path
+        d="M2 3 L20 3 L18 27 L4 27 Z"
+        fill={full ? WATER_BLUE : 'none'}
+        stroke={WATER_BLUE}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/** The − and + either side of the cups. */
+function WaterStep({
+  sign,
+  label,
+  onPress,
+  disabled,
+}: {
+  sign: string;
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={6}
+      style={({ pressed }) => [
+        styles.waterStep,
+        pressed && { backgroundColor: WATER_BLUE },
+        disabled && { opacity: 0.35 },
+      ]}
+    >
+      {({ pressed }) => <Text style={[styles.waterStepText, pressed && { color: '#fff' }]}>{sign}</Text>}
+    </Pressable>
+  );
+}
+
+const WATER_BLUE = '#5b9bc4';
+
 function DevPanel({
   c,
   title,
@@ -845,6 +1004,23 @@ const styles = themedStyles(() => ({
   },
 
   macros: { gap: 9, marginTop: 4 },
+  water: { borderTopWidth: 1, marginTop: 8, paddingTop: 12, gap: 10 },
+  waterHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  waterLabel: { fontFamily: fonts.pixelBold, fontSize: 13, letterSpacing: 1.6, textTransform: 'uppercase' },
+  waterCount: { fontFamily: fonts.pixelBold, fontSize: 16 },
+  waterCupsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  waterCups: { flex: 1, flexDirection: 'row', justifyContent: 'space-between' },
+  waterStep: {
+    width: 34,
+    height: 34,
+    borderWidth: 2,
+    borderColor: WATER_BLUE,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waterStepText: { fontFamily: fonts.pixelBold, fontSize: 22, lineHeight: 24, color: WATER_BLUE },
+  waterHint: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.4, textAlign: 'center', marginTop: -4 },
   subMacros: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22, marginTop: 6 },
   macroRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   macroLabel: { width: 48, fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.4 },

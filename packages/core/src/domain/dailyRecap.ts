@@ -1,6 +1,6 @@
 import { tracksArea } from './careAreas';
 import type { BodyProfile } from './macroTargets';
-import { calculateMacroTargets } from './macroTargets';
+import { calculateMacroTargets, measurementSystemOf } from './macroTargets';
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, WorkoutMetadata } from './health';
 import { XP_PER_LEVEL, type PetState } from './pet';
 import {
@@ -12,6 +12,7 @@ import {
   sumMealMacros,
 } from './nutritionSummary';
 import { toDateKey } from './streaks';
+import { WATER_GOAL_ML, formatWater, waterMlForDay } from './hydration';
 
 /**
  * ONE derivation of the daily recap, from the real event log. Every number the
@@ -36,6 +37,7 @@ const PILLAR_OF: Partial<Record<HealthEvent['type'], Pillar>> = {
   STEP_ACTIVITY: 'outdoors',
   BRAIN_TRAINING: 'mind',
   MEAL: 'food',
+  HYDRATION: 'food',
 };
 
 export interface GymRecap {
@@ -82,6 +84,9 @@ export interface FoodRecap {
   /** At least one meal has no usable analysis — show the count honestly, not a
    *  falsely precise calorie figure. */
   someMealsUnanalyzed: boolean;
+  /** Water drunk today and the day's aim, both in mL. */
+  waterMl: number;
+  waterGoalMl: number;
 }
 
 export interface RecapActivity {
@@ -252,6 +257,8 @@ export function buildDailyRecap({
     caloriePercent:
       targets.calories > 0 ? Math.round((consumed.calories / targets.calories) * 100) : 0,
     someMealsUnanalyzed,
+    waterMl: waterMlForDay(events, day),
+    waterGoalMl: WATER_GOAL_ML,
   };
 
   // --- Overall progress: mean of the four pillars' own daily progress --
@@ -289,6 +296,9 @@ export function buildDailyRecap({
       id: 'food',
       label: meals.length > 1 ? `Logged ${meals.length} meals` : 'Logged a meal',
     });
+  }
+  if (food.waterMl > 0) {
+    activity.push({ id: 'water', label: `Drank ${formatWater(food.waterMl, measurementSystemOf(profile))} of water` });
   }
   if (mind.sessionCount > 0) {
     activity.push({

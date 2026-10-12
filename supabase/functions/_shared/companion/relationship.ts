@@ -28,6 +28,7 @@ const EVENT_EFFECTS: Partial<Record<CompanionEventType, EventEffect>> = {
   MEAL_LOGGED: { score: 1 },
   STEPS_LOGGED: { score: 0.5 },
   SLEEP_LOGGED: { score: 0.5 },
+  WATER_GOAL_REACHED: { score: 1 },
   BRAIN_GAME_PLAYED: { score: 1.5, affection: 0.005 },
   LEVEL_UP: { score: 3, affection: 0.01 },
 };

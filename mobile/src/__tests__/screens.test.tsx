@@ -23,7 +23,7 @@ jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
-  NotificationFeedbackType: { Success: 'success' },
+  NotificationFeedbackType: { Success: 'success', Error: 'error' },
 }));
 
 jest.mock('../services/friendsService', () => ({
@@ -191,6 +191,46 @@ describe('screens render', () => {
     expect(button).toBeTruthy();
     act(() => button!.props.onPress());
     expect(connected).toEqual([1]);
+    tree.unmount();
+  });
+
+  it('fills a water cup the moment + is tapped, before the save lands, and takes it back if the save fails', async () => {
+    const saves: Array<{ ml: number; settle: (ok: boolean) => void }> = [];
+    const onLogWater = (ml: number) =>
+      new Promise<void>((resolve, reject) => saves.push({ ml, settle: (ok) => (ok ? resolve() : reject(new Error('offline'))) }));
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <TodayScreen
+          pet={pet}
+          events={[mealEvent]}
+          profile={profile}
+          stepGoal={10000}
+          onStepGoalChange={() => {}}
+          onLogWater={onLogWater}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+    const plus = tree.root.find((node: any) => node.props.accessibilityLabel === 'Add a cup of water' && node.props.onPress);
+    // The day's total, not the "1 cup = 250 mL" hint under the cups.
+    const total = () => (JSON.stringify(tree.toJSON()).includes('"0 mL"') ? 0 : 250);
+    expect(total()).toBe(0);
+    act(() => plus.props.onPress());
+    expect(total()).toBe(250);
+    expect(require('expo-haptics').impactAsync).toHaveBeenCalled();
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    });
+    expect(saves.map((save) => save.ml)).toEqual([250]);
+    await act(async () => {
+      saves[0]!.settle(false);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    });
+    expect(total()).toBe(0);
     tree.unmount();
   });
 

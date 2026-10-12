@@ -3,6 +3,7 @@ import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
 import { coinsEarned, coinsOf } from './coins';
 import { chargeOf, clamp, lockEvolution, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { formatMinutes } from './careToast';
+import { waterMlOf, waterReachesGoal } from './hydration';
 import { type FoodEffect, detectFoodEffects, foodEffectsDelta } from './foodEffects';
 import { workoutStrengthDelta } from './strengthProgression';
 import { HUNGRY_NUTRITION_THRESHOLD, type RecentMeal, hungerAt, mealPoints, mealsOf, mealsStillFeeding } from './hunger';
@@ -267,6 +268,9 @@ const SCREEN_TIME_BAND_DELTA: Record<ScreenTimeBandId, PetDelta> = {
 const SCREEN_TIME_BUDGET_BONUS_XP = 3;
 const SCREEN_TIME_NO_BUDGET_XP = 6;
 
+/** The whole of water's reward: paid once a day, on reaching the goal. */
+const WATER_GOAL_XP = 5;
+
 export class PetHealthEngine {
   apply(pet: PetState, event: HealthEvent, context: PetHealthContext = {}): EngineResult {
     let delta: PetDelta;
@@ -474,6 +478,20 @@ export class PetHealthEngine {
           ? `I liked that: ${spent}, and under your ${formatMinutes(budget as number)} budget.`
           : `I saw you check in: ${spent}.`;
         eventLabel = band.id === 'light' ? 'Unplugged' : 'Screen check-in';
+        break;
+      }
+      case 'HYDRATION': {
+        // Water earns nothing cup by cup: only the drink that first reaches the
+        // day's goal pays, and a little. "First" is judged against the day's
+        // high point, so taking a cup back and adding it again does not pay twice.
+        if (waterReachesGoal(context.history ?? [], event)) {
+          delta = { xp: WATER_GOAL_XP };
+          message = "That's my water goal. I feel so refreshed!";
+        } else {
+          delta = {};
+          message = waterMlOf(event) < 0 ? 'Okay, one less cup.' : 'Ahh, a cool drink of water.';
+        }
+        eventLabel = 'Drank water';
         break;
       }
       default:

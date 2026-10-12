@@ -94,9 +94,9 @@ export const MIN_QUALIFYING_STEPS = 1000;
  * excluded: both can arrive with zero deliberate action (a wearable logs sleep
  * automatically overnight; screen time reads itself off the OS), which is
  * exactly the "the streak continues just because I opened the app" loophole
- * this list closes. HYDRATION and MANUAL_ACTIVITY are schema-reserved types
- * with no active logging flow in the app today, so there is nothing yet to
- * judge — add them here if that changes.
+ * this list closes. HYDRATION is left out for the same reason: a glass of
+ * water is one tap on Today, too easy to keep a streak alive on its own.
+ * MANUAL_ACTIVITY is a schema-reserved type with no logging flow yet.
  */
 const STREAK_QUALIFYING_TYPES: ReadonlySet<HealthEventType> = new Set<HealthEventType>([
   'WORKOUT',

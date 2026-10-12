@@ -712,6 +712,42 @@ describe('SCREEN_TIME', () => {
   });
 });
 
+describe('HYDRATION', () => {
+  const drink = (id: string, ml: number, occurredAt = '2026-08-28T12:00:00'): HealthEvent => ({
+    id,
+    userId: 'user-1',
+    occurredAt,
+    type: 'HYDRATION',
+    source: 'manual',
+    metadata: { ml },
+  });
+  const apply = (ml: number, history: HealthEvent[]) =>
+    new PetHealthEngine().apply(createPet('user-1', 'Miso'), drink('now', ml), { history }).reaction.delta;
+
+  it('pays nothing for a drink short of the goal', () => {
+    expect(apply(250, [drink('a', 500)])).toEqual({});
+    expect(apply(500, [])).toEqual({});
+  });
+
+  it('pays a little xp, and only xp, on the drink that reaches the goal', () => {
+    expect(apply(500, [drink('a', 1750)])).toEqual({ xp: 5 });
+  });
+
+  it('pays nothing past the goal', () => {
+    expect(apply(250, [drink('a', 2000)])).toEqual({});
+  });
+
+  it('does not pay the goal twice when a cup is taken back and added again', () => {
+    expect(apply(-250, [drink('a', 2000)])).toEqual({});
+    expect(apply(250, [drink('a', 2000), drink('b', -250)])).toEqual({});
+  });
+
+  it('only counts water from the same day', () => {
+    expect(apply(250, [drink('a', 1900, '2026-08-27T12:00:00')])).toEqual({});
+    expect(apply(250, [drink('a', 1900)])).toEqual({ xp: 5 });
+  });
+});
+
 describe('applyDelta lastEventAt', () => {
   const anchor = '2026-09-07T12:00:00.000Z';
   const pet = { ...createPet('user-1', 'Miso'), lastEventAt: anchor };

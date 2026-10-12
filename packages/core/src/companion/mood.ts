@@ -22,6 +22,7 @@ const EVENT_MOOD: Partial<Record<CompanionEventType, Array<[CompanionMood, numbe
   BRAIN_GAME_PLAYED: [['curious', 0.7, 'you just puzzled something out together'], ['happy', 0.4, 'your head feels clear']],
   LEVEL_UP: [['proud', 0.9, 'you just levelled up'], ['excited', 0.7, 'you just levelled up']],
   SLEEP_LOGGED: [['happy', 0.3, 'they got some rest']],
+  WATER_GOAL_REACHED: [['happy', 0.45, 'they drank all their water today']],
 };
 
 /**

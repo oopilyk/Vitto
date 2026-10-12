@@ -11,7 +11,7 @@ const INTERACTION_EVENTS: ReadonlySet<CompanionEventType> = new Set<CompanionEve
   'USER_OPENED_APP', 'USER_SENT_MESSAGE', 'USER_RETURNED_AFTER_ABSENCE',
   // Logging anything means they opened the app and did it themselves.
   'WORKOUT_COMPLETED', 'HEALTHY_MEAL_LOGGED', 'MEAL_LOGGED', 'STEPS_LOGGED', 'STEP_GOAL_REACHED',
-  'SLEEP_LOGGED', 'SLEEP_GOAL_REACHED', 'POOR_SLEEP', 'BRAIN_GAME_PLAYED',
+  'SLEEP_LOGGED', 'SLEEP_GOAL_REACHED', 'POOR_SLEEP', 'BRAIN_GAME_PLAYED', 'WATER_GOAL_REACHED',
 ]);
 
 export const newCompanionState = (seedKey: string, now: number, temperament?: string, dials?: PersonalityDials | null): CompanionState => ({

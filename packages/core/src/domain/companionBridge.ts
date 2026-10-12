@@ -75,6 +75,8 @@ export interface BridgeExtras {
   stepGoal?: number;
   /** Steps already counted today before this sync, so crossing the goal fires once. */
   previousSteps?: number;
+  /** This drink is the one that reached the day's water goal (see `waterReachesGoal`). */
+  reachedWaterGoal?: boolean;
 }
 
 /**
@@ -139,6 +141,11 @@ export const toCompanionEvent = (event: HealthEvent, extras: BridgeExtras = {}):
         metadata: clean({ summary, game: GAME_NAMES[m.game] ?? 'a mind game', score: m.score, correct: m.correct, total: m.total }),
       };
     }
+    case 'HYDRATION':
+      // Only the goal is worth a word; a cup on its own passes in silence.
+      return extras.reachedWaterGoal
+        ? { ...at, type: 'WATER_GOAL_REACHED', metadata: { summary: 'Hit the day’s water goal' } }
+        : null;
     default:
       return null;
   }

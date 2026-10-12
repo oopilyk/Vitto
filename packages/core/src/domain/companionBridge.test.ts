@@ -49,6 +49,11 @@ describe('toCompanionEvent', () => {
 
   it('has no feelings about event types it does not know', () => {
     expect(toCompanionEvent({ id: 'h', userId: 'u', type: 'HYDRATION', source: 'manual', occurredAt: at(0), metadata: {} } as any)).toBeNull();
+    expect(
+      toCompanionEvent({ id: 'h', userId: 'u', type: 'HYDRATION', source: 'manual', occurredAt: at(0), metadata: { ml: 250 } } as any, {
+        reachedWaterGoal: true,
+      })?.type,
+    ).toBe('WATER_GOAL_REACHED');
   });
 });
 
