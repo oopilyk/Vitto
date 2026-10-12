@@ -1446,7 +1446,6 @@ export function OnboardingScreen({
                     <FChoice
                       key={option.value}
                       label={option.label}
-                      small
                       selected={trainingTypes.includes(option.value)}
                       onPress={() => toggleTraining(option.value)}
                     />
@@ -1886,7 +1885,6 @@ function FChoice({
   note,
   selected,
   align = 'center',
-  small,
   onPress,
   style,
 }: {
@@ -1899,8 +1897,6 @@ function FChoice({
   note?: string;
   selected?: boolean;
   align?: 'center' | 'left';
-  /** Smaller type, for long labels in a two-column grid. */
-  small?: boolean;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
@@ -1919,10 +1915,9 @@ function FChoice({
           style={[
             styles.choiceLabel,
             !centred && styles.choiceLabelLeft,
-            small && styles.choiceLabelSmall,
             selected && styles.choiceLabelOn,
           ]}
-          lines={small ? 1 : 2}
+          lines={2}
         >
           {label}
         </FitText>
@@ -2115,7 +2110,6 @@ const styles = themedStyles(() => {
     choiceTextCentred: { alignItems: 'center' },
     choiceLabel: { fontFamily: FONT.medium, fontSize: 18, lineHeight: 23, color: F.text, textAlign: 'center' },
     choiceLabelLeft: { textAlign: 'left' },
-    choiceLabelSmall: { fontSize: 15, lineHeight: 19 },
     choiceLabelOn: { fontFamily: FONT.semibold },
     choiceDetail: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 18, color: F.sub, marginTop: 1 },
     // What a choice raises, in the accent, so it reads as a reward.

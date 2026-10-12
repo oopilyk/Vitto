@@ -1,4 +1,4 @@
-import { Pressable, Text, TextInput, type TextInputProps } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
 import { FitText } from './FitText';
 import { colors, getColorScheme, themedStyles } from '../theme';
 
@@ -88,13 +88,36 @@ export function OnbButton({
  * A soft grey field. Big centred type by default (one answer a page); `form`
  * sets it left-aligned and a little smaller, for a form of several fields.
  */
-export function OnbInput({ form, ...props }: TextInputProps & { form?: boolean }) {
+export function OnbInput({ form, placeholder, ...props }: TextInputProps & { form?: boolean }) {
+  const style = [kit.input, form && kit.inputForm, props.style];
+  // A paragraph box keeps the native placeholder: it starts at the top-left
+  // and wraps, which is what a paragraph's hint should do.
+  if (props.multiline) {
+    return <TextInput placeholderTextColor={onboardingPalette().sub} placeholder={placeholder} {...props} style={style} />;
+  }
+  // One-line boxes draw their hint themselves. iOS drew the native placeholder
+  // of a centred number field with its letters spread wide apart and cut off
+  // ("T y p e  i t  h e r e , e . g ."); plain text over the empty box cannot.
+  const flat = (StyleSheet.flatten(style) ?? {}) as TextStyle;
+  const inset = (Number(flat.paddingHorizontal ?? flat.padding ?? 0) || 0) + (Number(flat.borderWidth ?? 0) || 0);
+  const empty = !props.value;
   return (
-    <TextInput
-      placeholderTextColor={onboardingPalette().sub}
-      {...props}
-      style={[kit.input, form && kit.inputForm, props.style]}
-    />
+    <View style={kit.inputBox}>
+      {/* The native placeholder stays for VoiceOver, drawn invisible. */}
+      <TextInput placeholder={placeholder} placeholderTextColor="transparent" {...props} style={style} />
+      {placeholder && empty ? (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, kit.hintBox, { paddingHorizontal: inset }]}>
+          <FitText
+            style={[
+              kit.hint,
+              { fontFamily: flat.fontFamily, fontSize: flat.fontSize, textAlign: flat.textAlign ?? 'left' },
+            ]}
+          >
+            {placeholder}
+          </FitText>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -151,5 +174,8 @@ const kit = themedStyles(() => {
       textAlign: 'center',
     },
     inputForm: { height: 54, fontSize: 17, textAlign: 'left' },
+    inputBox: { alignSelf: 'stretch' },
+    hintBox: { justifyContent: 'center' },
+    hint: { color: F.sub },
   };
 });
