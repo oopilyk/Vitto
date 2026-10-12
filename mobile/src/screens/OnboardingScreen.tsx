@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
+  Dimensions,
   Easing,
   Keyboard,
   Image,
-  KeyboardAvoidingView,
+  LayoutAnimation,
   Linking,
   Platform,
   Pressable,
@@ -370,6 +371,8 @@ const cheer = () => buzz(() => Haptics.notificationAsync?.(Haptics.NotificationF
 const MIN_PET = 72;
 /** An answer button shrinks to this on a long list in a small space, and no further. */
 const MIN_CHOICE = 46;
+/** A choice with one line of detail: 23pt label, 19pt detail, 8pt padding each side, the border. */
+const DETAILED_CHOICE = 62;
 const CHOICE_GAP = 10;
 
 /**
@@ -485,11 +488,42 @@ export function OnboardingScreen({
   };
   const short = area.height > 0 && area.height < 520;
 
+  /**
+   * How much of the screen's bottom the keyboard covers while it is up, kept clear at the bottom of the
+   * screen on iOS (Android resizes the window itself, so it stays 0 there).
+   *
+   * Done here rather than with KeyboardAvoidingView, which on iPhone could keep
+   * its keyboard-sized padding after the keyboard closed when the text field
+   * went away with it (Next on the name page): every page after that was
+   * squeezed into the top half of the screen.
+   */
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardUp, setKeyboardUp] = useState(false);
   useEffect(() => {
     const ios = Platform.OS === 'ios';
-    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardUp(true));
-    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardUp(false));
+    const ease = (duration?: number) => {
+      if (ios && duration) LayoutAnimation.configureNext({ duration, update: { type: LayoutAnimation.Types.keyboard } });
+    };
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', (event) => {
+      setKeyboardUp(true);
+      if (ios) {
+        ease(event.duration);
+        // Only what the keyboard actually covers, measured up from the bottom of
+        // the screen: a floating iPad keyboard covers none of it, and a hardware
+        // keyboard's bar only its own strip, whatever height iOS reports.
+        const screen = Dimensions.get('screen').height;
+        const { height, screenY } = event.endCoordinates;
+        const reachesBottom = screenY + height >= screen - 1;
+        setKeyboardHeight(reachesBottom ? Math.max(0, screen - screenY) : 0);
+      }
+    });
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', (event) => {
+      setKeyboardUp(false);
+      if (ios) {
+        ease(event.duration);
+        setKeyboardHeight(0);
+      }
+    });
     return () => {
       show.remove();
       hide.remove();
@@ -856,7 +890,7 @@ export function OnboardingScreen({
   const tile = area.width > 0 ? Math.floor((inner - 4 * 8) / 5) : 64;
 
   return (
-    <KeyboardAvoidingView style={[styles.screen, { backgroundColor: F.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <View style={[styles.screen, { backgroundColor: F.bg, paddingBottom: keyboardHeight }]}>
       {!BARE.has(stepId) ? (
         <View style={styles.header}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} hitSlop={12} style={styles.backButton}>
@@ -1318,13 +1352,20 @@ export function OnboardingScreen({
 
           {stepId === 'activity'
             ? question(
-                { eyebrow: 'Your days', title: 'Outside workouts, how active is your day?', count: 3 },
+                {
+                  eyebrow: 'Your days',
+                  title: 'Outside workouts, how active is your day?',
+                  count: 3,
+                  // The detail line makes each answer taller than a plain one.
+                  extraRoom: short ? 0 : 3 * (DETAILED_CHOICE - MIN_CHOICE),
+                },
                 <>
                   {ACTIVITY_OPTIONS.map((option) => (
                     <FChoice
                       key={option.value}
                       label={option.label}
                       detail={short ? undefined : option.detail}
+                      style={short ? undefined : styles.choiceDetailed}
                       align="left"
                       selected={picked.activity && profile.activity === option.value}
                       onPress={() => answer(() => onUpdate('activity', option.value))}
@@ -1801,7 +1842,7 @@ export function OnboardingScreen({
           ) : null}
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -1869,14 +1910,23 @@ function FChoice({
   style?: StyleProp<ViewStyle>;
 }) {
   const centred = align === 'center' && !note && !detail;
+  // iOS fits shrinking text to the box it first sees and never grows it back.
+  // A page squeezed for a moment as it came in (the keyboard going away) left
+  // a label at a fraction of its size for good ("12,500 steps" in 6pt). Keyed
+  // on the box's height, the text is laid out afresh whenever that changes.
+  const [boxHeight, setBoxHeight] = useState(0);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: Boolean(selected) }}
       onPress={onPress}
+      onLayout={(event) => {
+        const height = Math.round(event.nativeEvent.layout.height);
+        setBoxHeight((current) => (current === height ? current : height));
+      }}
       style={({ pressed }) => [styles.choice, selected && styles.selected, pressed && styles.pressed, style]}
     >
-      <View style={[styles.choiceText, centred && styles.choiceTextCentred]}>
+      <View key={boxHeight} style={[styles.choiceText, centred && styles.choiceTextCentred]}>
         <Text
           style={[
             styles.choiceLabel,
@@ -1903,7 +1953,7 @@ function FChoice({
         ) : null}
       </View>
       {note ? (
-        <Text style={styles.choiceNote} numberOfLines={1} {...FIT}>
+        <Text key={boxHeight} style={styles.choiceNote} numberOfLines={1} {...FIT}>
           {note}
         </Text>
       ) : null}
@@ -2062,6 +2112,9 @@ const styles = themedStyles(() => {
     gridCell: { flex: 1 },
     // A choice with a two-line detail under its label.
     choiceCompact: { flexBasis: 70, maxHeight: 84, paddingVertical: 8 },
+    // A label and one line of detail: never shrunk below room for both, or on
+    // a phone the text met the border top and bottom.
+    choiceDetailed: { flexBasis: 72, minHeight: DETAILED_CHOICE, maxHeight: 80, paddingVertical: 8 },
     choiceTall: { flexBasis: 92, maxHeight: 104, paddingVertical: 10 },
     choice: {
       flexDirection: 'row',

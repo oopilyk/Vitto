@@ -490,3 +490,37 @@ describe('onboarding goal', () => {
     act(() => again.tree.unmount());
   });
 });
+
+describe('onboarding and the iPhone keyboard', () => {
+  it('gives back all the room the keyboard took once it closes', () => {
+    const { Keyboard } = require('react-native');
+    const handlers: Record<string, (event: object) => void> = {};
+    const spy = jest.spyOn(Keyboard, 'addListener').mockImplementation(((name: string, handler: (event: object) => void) => {
+      handlers[name] = handler;
+      return { remove: () => {} };
+    }) as never);
+    const { tree } = mount(baseProfile, { resume: { stepId: 'yourName' } });
+    const screenPadding = () => {
+      const style = [(tree.toJSON() as unknown as { props: { style: unknown } }).props.style].flat(3) as Array<{ paddingBottom?: number } | null>;
+      return style.reduce((last, part) => part?.paddingBottom ?? last, 0 as number);
+    };
+
+    const { Dimensions } = require('react-native');
+    const screen = Dimensions.get('screen').height;
+
+    act(() => handlers.keyboardWillShow?.({ duration: 0, endCoordinates: { height: 336, screenY: screen - 336 } }));
+    expect(screenPadding()).toBe(336);
+    act(() => handlers.keyboardWillHide?.({ duration: 0, endCoordinates: { height: 0, screenY: screen } }));
+    expect(screenPadding()).toBe(0);
+
+    // A floating iPad keyboard sits mid-screen: it reports a height but covers none of the bottom.
+    act(() => handlers.keyboardWillShow?.({ duration: 0, endCoordinates: { height: 300, screenY: 200 } }));
+    expect(screenPadding()).toBe(0);
+    // A hardware keyboard shows only its bar along the bottom.
+    act(() => handlers.keyboardWillShow?.({ duration: 0, endCoordinates: { height: 336, screenY: screen - 55 } }));
+    expect(screenPadding()).toBe(55);
+
+    spy.mockRestore();
+    act(() => tree.unmount());
+  });
+});
