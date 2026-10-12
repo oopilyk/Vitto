@@ -3,20 +3,20 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
 import { BUSY_MESSAGE, claimAiCall } from '../_shared/aiBudget.ts';
-import { MEAL_SYSTEM_PROMPT, mealAnalysisSchema, mealUserText, totalMeal } from './mealPrompt.ts';
+import { MEAL_SYSTEM_PROMPT, mealAnalysisSchema, mealUserText } from './mealPrompt.ts';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 
 /**
  * Photos a single account may send for analysis in a rolling 24 hours.
  *
- * Every call sends an image to Claude at under a cent each, so this is also
- * what keeps a Plus subscription profitable: ten covers three meals and
- * snacks with room for retakes, and search and barcode scanning stay free and
- * unlimited past it. Counted by attempt (see _shared/aiBudget.ts), so a photo
+ * Every call sends an image to Sonnet at a few cents each, so this is also
+ * what keeps a Plus subscription profitable: five covers the day's main meals
+ * with one to spare, and search and barcode scanning stay free and unlimited
+ * past it. Counted by attempt (see _shared/aiBudget.ts), so a photo
  * with no food in it, or one the model fails on, counts the same as a meal.
  */
-const MEALS_PER_DAY = 10;
+const MEALS_PER_DAY = 5;
 /** The dev account's cap: effectively none, but still recorded. */
 const DEV_MEALS_PER_DAY = 100_000;
 
@@ -33,12 +33,11 @@ const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
 /**
- * The model that reads the plate. Haiku, for the bill: a photo is the most
- * expensive call a subscriber makes. What a larger model bought was mostly the
- * arithmetic, and the prompt now takes that off the model (see totalMeal), so
- * it only has to name, weigh and look up each food. Override with MEAL_MODEL.
+ * The model that reads the plate. Estimating portions from a photo is where a
+ * stronger model earns its price, and photo tracking is Plus-only and capped,
+ * so the bill per subscriber stays small. Override with MEAL_MODEL.
  */
-const MEAL_MODEL = Deno.env.get('MEAL_MODEL') ?? 'claude-haiku-4-5';
+const MEAL_MODEL = Deno.env.get('MEAL_MODEL') ?? 'claude-sonnet-5-5';
 
 /**
  * Its own client rather than the companion's: a photo takes longer to read than
@@ -139,13 +138,15 @@ Deno.serve(async (request) => {
     // simultaneous requests cannot all slip under the cap.
     // Photos are Plus-only (checked above), so they draw on the paid budget.
     const claim = await claimAiCall(admin, user.id, 'meal_photo', isDev ? DEV_MEALS_PER_DAY : MEALS_PER_DAY, 'plus');
-    if (claim === 'user_limit') return json({ error: "That's 10 photos today. Search or scan your food until tomorrow." }, 429);
+    if (claim === 'user_limit') return json({ error: `That's ${MEALS_PER_DAY} photos today. Search or scan your food until tomorrow.` }, 429);
     if (claim === 'global_limit') return json({ error: BUSY_MESSAGE }, 503);
 
     if (!anthropic) throw new Error('ANTHROPIC_API_KEY is not configured.');
     const response = await anthropic.messages.parse({
       model: MEAL_MODEL,
-      max_tokens: 1500,
+      // Room to spare: a reply cut off at the limit is unterminated JSON, which
+      // cannot be parsed at all and fails the whole photo (a big spread did).
+      max_tokens: 4096,
       system: MEAL_SYSTEM_PROMPT,
       messages: [{
         role: 'user',
@@ -156,32 +157,17 @@ Deno.serve(async (request) => {
       }],
       output_config: { format: zodOutputFormat(MealAnalysisSchema) },
     });
-    const parsed = response.parsed_output;
-    if (!parsed) throw new Error('Claude returned no meal analysis.');
+    const analysis = response.parsed_output;
+    if (!analysis) throw new Error(`Claude returned no meal analysis (stop_reason: ${response.stop_reason}).`);
 
-    // The model weighed and looked up each item; the totals are added up here.
-    const { macros, detectedFoods, foodDescription } = totalMeal(parsed.items);
-    if (parsed.noFoodDetected || detectedFoods.length === 0 || macros.calories <= 0) {
+    const hasMacroSignal = Object.values(analysis.macros).some((value) => value > 0);
+    const foodCount = analysis.detectedFoods.length;
+    if (analysis.noFoodDetected || (foodCount === 0 && !hasMacroSignal)) {
       // Nothing edible in frame — don't persist a fabricated graded meal.
       return json({ noFoodDetected: true });
     }
-    // The shape the app reads (parseMealAnalysisResponse), unchanged.
-    const analysis = {
-      noFoodDetected: false,
-      petReaction: parsed.petReaction,
-      foodDescription,
-      grade: parsed.grade,
-      summary: parsed.summary,
-      confidence: parsed.confidence,
-      detectedFoods,
-      macros,
-      nutrients: parsed.nutrients,
-    };
 
-    // The itemised estimate is kept beside it, so a total that looks wrong can be traced to the item.
-    const { error: insertError } = await admin
-      .from('meal_analyses')
-      .insert({ user_id: user.id, analysis: { ...analysis, items: parsed.items, scaleReference: parsed.scaleReference, model: MEAL_MODEL } });
+    const { error: insertError } = await admin.from('meal_analyses').insert({ user_id: user.id, analysis });
     if (insertError) throw insertError;
     return json({ analysis });
   } catch (error) {
