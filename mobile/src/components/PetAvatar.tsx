@@ -9,7 +9,7 @@ import {
   assessDecline,
 } from '@vitto/core';
 import { FRAME_MS, HOLDS_LAST_FRAME, type PetAnimation, SPRITE_ART_TOP, sheetForPet } from './petSprites';
-import { PetVideo, videoClipFor } from './PetVideo';
+import { PetClipStack, videoClipFor } from './PetVideo';
 import { SpriteFrame } from './SpriteFrame';
 import {
   Confetti,
@@ -372,7 +372,7 @@ export function PetAvatar({
         style={[styles.window, { transform: bobTransform }]}
       >
         {clip && sheet.videos ? (
-          <PetVideo key={animation} videos={sheet.videos} clip={clip} size={size} artScale={sheet.artScale} paused={paused} />
+          <PetClipStack clipKey={animation} videos={sheet.videos} clip={clip} size={size} artScale={sheet.artScale} paused={paused} />
         ) : (
           <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
         )}

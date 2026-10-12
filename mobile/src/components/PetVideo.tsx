@@ -1,6 +1,6 @@
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect } from 'react';
-import { AppState, Platform, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, Platform, StyleSheet, View } from 'react-native';
 import type { PetAnimation, PetSheet, PetVideoClip, PetVideos } from './petSprites';
 
 /**
@@ -33,6 +33,8 @@ interface Props {
   artScale?: number;
   /** Held on its current frame while the pet is out of sight (see PetAvatar). */
   paused?: boolean;
+  /** Called once this clip's first frame is on screen (see PetClipStack). */
+  onFirstFrame?: () => void;
 }
 
 /**
@@ -44,7 +46,7 @@ interface Props {
  * Mount it with a `key` per clip, so switching animation starts the new clip
  * from its first frame on a fresh player.
  */
-export function PetVideo({ videos, clip, size, artScale = 1, paused = false }: Props) {
+export function PetVideo({ videos, clip, size, artScale = 1, paused = false, onFirstFrame }: Props) {
   const player = useVideoPlayer(sourceFor(clip), (created) => {
     created.loop = clip.loop;
     created.muted = true;
@@ -90,6 +92,7 @@ export function PetVideo({ videos, clip, size, artScale = 1, paused = false }: P
         playsInline
         allowsPictureInPicture={false}
         contentFit="fill"
+        onFirstFrameRender={onFirstFrame}
         style={{
           width: videos.frameSize * scale,
           height: videos.frameSize * scale,
@@ -98,6 +101,70 @@ export function PetVideo({ videos, clip, size, artScale = 1, paused = false }: P
           backgroundColor: 'transparent',
         }}
       />
+    </View>
+  );
+}
+
+/**
+ * The longest a new clip is kept hidden waiting for its first frame. Normally
+ * that comes within a frame or two; this is only so a clip that never reports
+ * one (an error, a quirk of the platform) still takes over rather than leaving
+ * the pet stuck on the old pose.
+ */
+export const CLIP_SWAP_TIMEOUT_MS = 600;
+
+interface Layer {
+  key: string;
+  clip: PetVideoClip;
+}
+
+/**
+ * Switches the pet from one clip to the next without a blank frame between.
+ *
+ * A fresh player has nothing to show until it decodes its first frame, so
+ * swapping clips outright left the pet invisible for a moment: the flash when a
+ * celebration ended and the idle came back. Here the old clip stays on screen
+ * while the new one starts underneath it, invisible, and the two trade places
+ * the moment the new one has drawn. The incoming layer keeps its React identity
+ * (its `key`) when it becomes the shown one, so its player is never restarted.
+ */
+export function PetClipStack({
+  clipKey: animationKey,
+  clip,
+  ...rest
+}: Omit<Props, 'onFirstFrame'> & { clipKey: string }) {
+  // The file as well as the animation: a new form or breed on the same
+  // animation is a different clip.
+  const clipKey = `${animationKey}:${String(clip.hevc)}`;
+  const [shown, setShown] = useState<Layer>({ key: clipKey, clip });
+  const [incoming, setIncoming] = useState<Layer | null>(null);
+
+  useEffect(() => {
+    setIncoming(clipKey === shown.key ? null : { key: clipKey, clip });
+    // `clip` follows `clipKey`; a new object for the same key is not a new clip.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clipKey, shown.key]);
+
+  const takeOver = (layer: Layer) => {
+    setShown(layer);
+    setIncoming((current) => (current?.key === layer.key ? null : current));
+  };
+
+  useEffect(() => {
+    if (!incoming) return;
+    const timer = setTimeout(() => takeOver(incoming), CLIP_SWAP_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [incoming]);
+
+  return (
+    <View style={{ width: rest.size, height: rest.size }} pointerEvents="none">
+      {[shown, incoming].map((layer) =>
+        layer ? (
+          <View key={layer.key} style={[StyleSheet.absoluteFill, { opacity: layer === incoming ? 0 : 1 }]}>
+            <PetVideo {...rest} clip={layer.clip} onFirstFrame={layer === incoming ? () => takeOver(layer) : undefined} />
+          </View>
+        ) : null,
+      )}
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import renderer, { act } from 'react-test-renderer';
 import { AppState } from 'react-native';
-import { PetVideo } from '../components/PetVideo';
+import { CLIP_SWAP_TIMEOUT_MS, PetClipStack, PetVideo } from '../components/PetVideo';
 
 const players: { play: jest.Mock; duration: number; currentTime: number }[] = [];
 jest.mock('expo-video', () => {
@@ -81,5 +81,65 @@ describe('PetVideo while another screen covers the pet', () => {
     expect(players[players.length - 1]!.play).toHaveBeenCalled();
     spy.mockRestore();
     tree.unmount();
+  });
+});
+
+describe('PetClipStack switching clips', () => {
+  let appState: jest.SpyInstance;
+  beforeEach(() => {
+    appState = jest.spyOn(AppState, 'addEventListener').mockImplementation(() => ({ remove: () => {} }) as never);
+  });
+  afterEach(() => appState.mockRestore());
+
+  const idle = { hevc: 1, loop: true };
+  const cheer = { hevc: 2, loop: false };
+  const render = (clipKey: string, clip: typeof idle) => (
+    <PetClipStack clipKey={clipKey} videos={videos} clip={clip} size={128} />
+  );
+  /** Each clip on screen, and whether it is the hidden incoming one. */
+  const layersOf = (tree: renderer.ReactTestRenderer) =>
+    tree.root.findAllByType(PetVideo).map((node) => ({
+      hevc: (node.props.clip as typeof idle).hevc,
+      hidden: (node.parent!.props.style as [unknown, { opacity: number }])[1].opacity === 0,
+      firstFrame: node.props.onFirstFrame as (() => void) | undefined,
+    }));
+
+  it('keeps the old clip showing until the new one has drawn its first frame', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(render('idle', idle));
+    });
+    act(() => tree.update(render('celebrate', cheer)));
+    expect(layersOf(tree).map(({ hevc, hidden }) => ({ hevc, hidden }))).toEqual([
+      { hevc: 1, hidden: false },
+      { hevc: 2, hidden: true },
+    ]);
+
+    act(() => layersOf(tree)[1]!.firstFrame!());
+    expect(layersOf(tree).map(({ hevc, hidden }) => ({ hevc, hidden }))).toEqual([{ hevc: 2, hidden: false }]);
+    act(() => tree.unmount());
+  });
+
+  it('takes over anyway if the first frame is never reported', () => {
+    jest.useFakeTimers();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(render('idle', idle));
+    });
+    act(() => tree.update(render('celebrate', cheer)));
+    act(() => jest.advanceTimersByTime(CLIP_SWAP_TIMEOUT_MS));
+    expect(layersOf(tree).map(({ hevc }) => hevc)).toEqual([2]);
+    act(() => tree.unmount());
+    jest.useRealTimers();
+  });
+
+  it('treats a new form on the same animation as a new clip', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(render('idle', idle));
+    });
+    act(() => tree.update(render('idle', { hevc: 3, loop: true })));
+    expect(layersOf(tree).map(({ hevc }) => hevc)).toEqual([1, 3]);
+    act(() => tree.unmount());
   });
 });
