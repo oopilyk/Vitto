@@ -13,25 +13,25 @@ export interface TapReaction {
 export const RAPID_TAP_WINDOW_MS = 650;
 
 const HAPPY: TapReaction[] = [
-  { emote: '❤️', caption: 'hi!' },
-  { emote: '✨' },
-  { emote: '😄', caption: 'hehe' },
-  { emote: '🐾', caption: 'boop!' },
-  { emote: '⭐' },
-  { emote: '🎵', caption: '♪' },
+  { emote: '♥', caption: 'hi!' },
+  { emote: '✦' },
+  { emote: '^ ^', caption: 'hehe' },
+  { emote: '!', caption: 'boop!' },
+  { emote: '✧' },
+  { emote: '♪' },
 ];
 const SLEEPY: TapReaction[] = [
-  { emote: '😴', caption: 'so sleepy…' },
-  { emote: '💤' },
+  { emote: 'zZ', caption: 'so sleepy…' },
+  { emote: 'z z z' },
 ];
 const HUNGRY: TapReaction[] = [
-  { emote: '🍽️', caption: 'kinda hungry…' },
-  { emote: '🥺' },
+  { emote: '…', caption: 'kinda hungry…' },
+  { emote: '. .' },
 ];
 const UNWELL: TapReaction[] = [
-  { emote: '🥺', caption: 'not feeling great' },
-  { emote: '💧' },
-  { emote: '😷', caption: 'needs some care' },
+  { emote: '…', caption: 'not feeling great' },
+  { emote: ';_;' },
+  { emote: '. .', caption: 'needs some care' },
 ];
 
 /**
@@ -50,8 +50,8 @@ export function pickTapReaction(
   mood: PetMood,
   unwell: boolean,
 ): TapReaction {
-  if (rapid >= 7) return { emote: '😵‍💫', caption: 'whoa, dizzy!' };
-  if (rapid >= 4) return { emote: '😆', caption: 'okay okay!' };
+  if (rapid >= 7) return { emote: '@_@', caption: 'whoa, dizzy!' };
+  if (rapid >= 4) return { emote: '>_<', caption: 'okay okay!' };
 
   const pool = unwell
     ? UNWELL
@@ -118,7 +118,8 @@ export function PetTapReaction({
         },
       ]}
     >
-      <Text style={styles.emote}>{reaction.emote}</Text>
+      {/* Text, never emoji: U+FE0E keeps iOS from swapping in a colour glyph. */}
+      <Text style={[styles.emote, night && styles.emoteNight]}>{`${reaction.emote}\uFE0E`}</Text>
       {reaction.caption ? (
         <Text style={[styles.caption, night && styles.captionNight]}>{reaction.caption}</Text>
       ) : null}
@@ -128,7 +129,16 @@ export function PetTapReaction({
 
 const styles = themedStyles(() => ({
   wrap: { alignItems: 'center' },
-  emote: { fontSize: 34 },
+  // The pet world's own glyphs, not emoji: the 🔥 streak is the app's only emoji.
+  emote: {
+    fontFamily: fonts.systemMono,
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#c56a4e',
+    textShadowColor: 'rgba(255,255,255,0.8)',
+    textShadowRadius: 3,
+  },
+  emoteNight: { color: '#ffd36b', textShadowColor: 'rgba(0,0,0,0.4)' },
   caption: {
     fontFamily: fonts.systemMono,
     fontSize: 11,

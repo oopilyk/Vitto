@@ -183,6 +183,7 @@ export function PetWorldHud({
   const accountTourRef = useTourTarget('account');
   const todayTourRef = useTourTarget('today');
   const chatTourRef = useTourTarget('chat');
+  const levelTourRef = useTourTarget('level');
   const { shown: shownTags, hidden: hiddenTags } = capEffectChips(foodTags);
   const choose = (open: () => void) => () => {
     setMenuOpen(false);
@@ -217,7 +218,9 @@ export function PetWorldHud({
 
       {/* Row 1, the top bar: progression, where you are, and you. */}
       <View style={styles.topRow} pointerEvents="box-none">
-        <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} size={RING} />
+        <View ref={levelTourRef} collapsable={false}>
+          <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} size={RING} />
+        </View>
 
         {/* Inert: a tap anywhere here reaches the pet behind it. */}
         <View style={[retro.panel, night && retro.panelNight, styles.plate]} pointerEvents="none">

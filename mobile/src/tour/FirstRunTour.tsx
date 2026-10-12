@@ -15,7 +15,7 @@ import { fonts, themedStyles, world } from '../theme';
  * than guessing coordinates that would drift between phones.
  */
 
-export type TourTargetId = 'kitchen' | 'gym' | 'outside' | 'study' | 'today' | 'chat' | 'account';
+export type TourTargetId = 'kitchen' | 'gym' | 'outside' | 'study' | 'today' | 'chat' | 'level' | 'account';
 
 export interface TourStep {
   target: TourTargetId;
@@ -91,6 +91,11 @@ export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
     target: 'chat',
     title: 'Chat',
     body: 'Come talk to me here! Ask how I am doing. I know how your day is going.',
+  },
+  {
+    target: 'level',
+    title: 'My level',
+    body: 'Every log earns me XP and fills this ring. Tap it to see all my stats and how close I am to evolving!',
   },
   {
     target: 'account',
@@ -306,7 +311,9 @@ export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; on
                 onPress={next}
                 style={({ pressed }) => [styles.next, pressed && retroPressed]}
               >
-                <Text style={styles.nextLabel}>{intro ? 'SHOW ME ▶' : last ? "LET'S GO" : 'NEXT ▶'}</Text>
+                <Text style={styles.nextLabel}>{intro ? 'SHOW ME' : last ? "LET'S GO" : 'NEXT'}</Text>
+                {/* A drawn arrowhead, not a ▶ character: iOS draws that as an emoji. */}
+                {last ? null : <View style={styles.nextArrow} />}
               </Pressable>
             </View>
           </View>
@@ -390,6 +397,8 @@ const styles = themedStyles(() => ({
   actions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   skip: { fontFamily: fonts.pixel, fontSize: 20, letterSpacing: 1, color: world.inkSoft },
   next: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 14,
     backgroundColor: world.accent,
@@ -397,6 +406,17 @@ const styles = themedStyles(() => ({
     borderColor: world.ink,
     borderRadius: RETRO_RADIUS,
     ...retroShadow,
+  },
+  nextArrow: {
+    width: 0,
+    height: 0,
+    marginLeft: 8,
+    borderTopWidth: 6,
+    borderBottomWidth: 6,
+    borderLeftWidth: 9,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: world.surface,
   },
   nextLabel: { fontFamily: fonts.pixelBold, fontSize: 20, letterSpacing: 1, color: world.surface },
 }));

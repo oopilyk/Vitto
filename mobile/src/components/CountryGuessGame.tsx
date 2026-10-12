@@ -118,7 +118,7 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
       </View>
 
       <View style={[styles.mystery, solved && styles.mysterySolved, over && !solved && styles.mysteryLost]}>
-        <Text style={styles.mysteryFlag}>{over || showFlag ? flagEmoji(target.code) : '🌍'}</Text>
+        <Text style={styles.mysteryFlag}>{over || showFlag ? flagEmoji(target.code) : '?'}</Text>
         <Text style={styles.mysteryTitle}>
           {over ? `${target.name}` : 'Mystery country'}
         </Text>

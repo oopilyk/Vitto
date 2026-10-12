@@ -19,14 +19,14 @@ const press = (tree: renderer.ReactTestRenderer, label: string) => {
 describe('first-run tour', () => {
   it('walks through where to log, then today, chat and the account menu; personality only on Plus', () => {
     const free = tourSteps('Miso', false);
-    expect(free.map((step) => step.target)).toEqual(['kitchen', 'gym', 'outside', 'study', 'today', 'chat', 'account']);
+    expect(free.map((step) => step.target)).toEqual(['kitchen', 'gym', 'outside', 'study', 'today', 'chat', 'level', 'account']);
     // Everyone learns what is behind the account button; only Plus hears about personality.
-    expect(free[6]!.body).toContain('friends');
-    expect(free[6]!.body).not.toContain('Personality');
+    expect(free[7]!.body).toContain('friends');
+    expect(free[7]!.body).not.toContain('Personality');
     const plus = tourSteps('Miso', true);
-    expect(plus.map((step) => step.target)).toEqual(['kitchen', 'gym', 'outside', 'study', 'today', 'chat', 'account']);
-    expect(plus[6]!.body).toContain('Settings → Personality');
-    expect(plus[6]!.body).toContain('Miso');
+    expect(plus.map((step) => step.target)).toEqual(['kitchen', 'gym', 'outside', 'study', 'today', 'chat', 'level', 'account']);
+    expect(plus[7]!.body).toContain('Settings → Personality');
+    expect(plus[7]!.body).toContain('Miso');
     expect(plus[0]!.body).toContain('Log meal');
   });
 
@@ -37,7 +37,7 @@ describe('first-run tour', () => {
     act(() => {
       tree = renderer.create(
         <TourProvider>
-          {(['kitchen', 'gym', 'outside', 'study', 'today', 'chat', 'account'] as const).map((id) => <Target key={id} id={id} />)}
+          {(['kitchen', 'gym', 'outside', 'study', 'today', 'chat', 'level', 'account'] as const).map((id) => <Target key={id} id={id} />)}
           <FirstRunTour steps={steps} onDone={done} speaker="Miso" />
         </TourProvider>,
       );
@@ -49,20 +49,20 @@ describe('first-run tour', () => {
     act(() => jest.advanceTimersByTime(5000));
     press(tree, 'Show me around');
     act(() => jest.advanceTimersByTime(200));
-    const progress = () => tree.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && / of 7$/.test(n.props.accessibilityLabel))[0]!.props.accessibilityLabel;
-    expect(progress()).toBe('1 of 7');
+    const progress = () => tree.root.findAll((n) => typeof n.props.accessibilityLabel === 'string' && / of 8$/.test(n.props.accessibilityLabel))[0]!.props.accessibilityLabel;
+    expect(progress()).toBe('1 of 8');
     expect(texts(tree)).toContain('THE KITCHEN');
     expect(texts(tree)).toContain('MISO');
     // The line types itself out: the first Next finishes it, the second moves on.
     press(tree, 'Next');
-    expect(progress()).toBe('1 of 7');
+    expect(progress()).toBe('1 of 8');
     press(tree, 'Next');
-    expect(progress()).toBe('2 of 7');
-    for (let i = 0; i < 5; i += 1) {
+    expect(progress()).toBe('2 of 8');
+    for (let i = 0; i < 6; i += 1) {
       act(() => jest.advanceTimersByTime(5000));
       press(tree, 'Next');
     }
-    expect(progress()).toBe('7 of 7');
+    expect(progress()).toBe('8 of 8');
     // The last step has no skip, only the finish.
     expect(texts(tree)).not.toContain('SKIP');
     act(() => jest.advanceTimersByTime(5000));

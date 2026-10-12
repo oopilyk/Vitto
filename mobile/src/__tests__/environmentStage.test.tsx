@@ -100,7 +100,8 @@ describe('EnvironmentStage pet tap reaction', () => {
       tree.root
         .findAllByType(Text)
         .map((node) => node.props.children)
-        .filter((child) => typeof child === 'string' && /\p{Extended_Pictographic}/u.test(child));
+        // The emote is drawn as text, marked with U+FE0E so iOS keeps it so.
+        .filter((child) => typeof child === 'string' && child.endsWith('\uFE0E'));
 
     expect(emotes()).toHaveLength(0);
     act(() => petLayer(tree)!.props.onPress());

@@ -17,14 +17,6 @@ interface FriendPetCardProps {
   palette?: FriendsPalette;
 }
 
-/** A short room glyph for the location line -- keeps it recognisable at a glance. */
-const PLACE_GLYPH: Record<SocialPetStatus['place'], string> = {
-  home: '🏠',
-  kitchen: '🍳',
-  gym: '🏋️',
-  outdoors: '🌳',
-  study: '📚',
-};
 
 /**
  * What a friend is called, everywhere they appear: their handle.
@@ -89,7 +81,7 @@ export function FriendPetCard({ profile, pet, status, palette = FRIENDS_LIGHT }:
       {/* Location is inferred from the latest LIVE activity -- "At home"
           whenever nothing live is happening (see `deriveSocialPetStatus`). */}
       <Text style={[styles.place, { color: palette.secondaryText }]}>
-        {PLACE_GLYPH[status.place]} {status.placeLabel}
+        {status.placeLabel}
       </Text>
       {!status.isLive && status.lastActiveAt ? (
         <Text style={[styles.lastActive, { color: palette.secondaryText }]}>
