@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 import { JEOPARDY_PICKS_PER_ROUND, JEOPARDY_VALUES, type JeopardyGame } from '@vitto/core';
+import { FitText } from '../components/FitText';
 import { retro } from '../petWorld/retroStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { ValueTile } from './ValueTile';
@@ -42,14 +43,9 @@ export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
               {/* The column head names the category once; every tile beneath it
                   repeats the name in its accessibility label, since a screen
                   reader lands on a tile with no sense of which column it is in. */}
-              <Text
-                style={[styles.categoryLabel, night && styles.categoryLabelNight]}
-                numberOfLines={2}
-                adjustsFontSizeToFit
-                minimumFontScale={0.7}
-              >
+              <FitText style={[styles.categoryLabel, night && styles.categoryLabelNight]} lines={2}>
                 {category.label}
-              </Text>
+              </FitText>
             </View>
 
             {JEOPARDY_VALUES.map((value) => {

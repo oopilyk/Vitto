@@ -13,6 +13,7 @@ import {
   assessCondition,
   hasEvolved,
 } from '@vitto/core';
+import { FitText } from '../components/FitText';
 import { fonts, world, themedStyles } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
 import { useReportHudEdge } from './RoomActionSlot';
@@ -291,14 +292,9 @@ export function PetWorldHud({
         {/* Two lines at most, whatever the pet says: the readout has a fixed
             ceiling so the rows under it never move far. A longer line shrinks
             a touch first, then ends in an ellipsis. */}
-        <Text
-          style={[styles.feeling, night && retro.labelNight]}
-          numberOfLines={2}
-          adjustsFontSizeToFit
-          minimumFontScale={0.85}
-        >
+        <FitText style={[styles.feeling, night && retro.labelNight]} lines={2} minScale={0.85}>
           {feeling}
-        </Text>
+        </FitText>
         {/* Day and evolution (with the bond and streak), on one line. */}
         <View style={styles.metaRow} accessibilityLabel={metaLabel}>
           <Text style={[styles.meta, night && retro.captionNight]}>{dayToken}</Text>

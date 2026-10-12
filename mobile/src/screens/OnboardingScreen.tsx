@@ -54,6 +54,7 @@ import {
   isMinor,
 } from '@vitto/core';
 import { companion as ai } from '@vitto/core';
+import { FitText } from '../components/FitText';
 import { PetAvatar } from '../components/PetAvatar';
 import { PET_SHEETS, sheetByBreed, portraitFrame } from '../components/petSprites';
 import { SpriteFrame } from '../components/SpriteFrame';
@@ -1877,12 +1878,6 @@ function Grid({ columns, children }: { columns: number; children: ReactNode }) {
 }
 
 /** A big rounded answer: grey edge, coral edge and a tick once chosen. It shrinks to fit a long list. */
-/**
- * For any text held to a number of lines: it shrinks to fit them rather than
- * ending in "…" or breaking a word across lines. Onboarding never cuts its words.
- */
-const FIT = { adjustsFontSizeToFit: true, minimumFontScale: 0.6 } as const;
-
 function FChoice({
   label,
   detail,
@@ -1910,53 +1905,36 @@ function FChoice({
   style?: StyleProp<ViewStyle>;
 }) {
   const centred = align === 'center' && !note && !detail;
-  // iOS fits shrinking text to the box it first sees and never grows it back.
-  // A page squeezed for a moment as it came in (the keyboard going away) left
-  // a label at a fraction of its size for good ("12,500 steps" in 6pt). Keyed
-  // on the box's height, the text is laid out afresh whenever that changes.
-  const [boxHeight, setBoxHeight] = useState(0);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: Boolean(selected) }}
       onPress={onPress}
-      onLayout={(event) => {
-        const height = Math.round(event.nativeEvent.layout.height);
-        setBoxHeight((current) => (current === height ? current : height));
-      }}
       style={({ pressed }) => [styles.choice, selected && styles.selected, pressed && styles.pressed, style]}
     >
-      <View key={boxHeight} style={[styles.choiceText, centred && styles.choiceTextCentred]}>
-        <Text
+      <View style={[styles.choiceText, centred && styles.choiceTextCentred]}>
+        {/* Never "…" and never a word broken in two ("Weightliftin / g"): a
+            label too long for its lines shrinks to fit (see FitText). */}
+        <FitText
           style={[
             styles.choiceLabel,
             !centred && styles.choiceLabelLeft,
             small && styles.choiceLabelSmall,
             selected && styles.choiceLabelOn,
           ]}
-          // Never "…" and never a word broken in two ("Weightliftin / g"): a
-          // label too long for its lines shrinks to fit (see FIT).
-          numberOfLines={small ? 1 : 2}
-          {...FIT}
+          lines={small ? 1 : 2}
         >
           {label}
-        </Text>
+        </FitText>
         {detail ? (
-          <Text style={styles.choiceDetail} numberOfLines={detailLines} {...FIT}>
+          <FitText style={styles.choiceDetail} lines={detailLines}>
             {detail}
-          </Text>
+          </FitText>
         ) : null}
-        {stats ? (
-          <Text style={styles.choiceStats} numberOfLines={1} {...FIT}>
-            {stats}
-          </Text>
-        ) : null}
+        {stats ? <FitText style={styles.choiceStats}>{stats}</FitText> : null}
       </View>
-      {note ? (
-        <Text key={boxHeight} style={styles.choiceNote} numberOfLines={1} {...FIT}>
-          {note}
-        </Text>
-      ) : null}
+      {/* A word or two, written to fit beside any label: no shrinking needed. */}
+      {note ? <Text style={styles.choiceNote}>{note}</Text> : null}
       {selected ? (
         <View style={styles.check}>
           <Text style={styles.checkMark}>✓</Text>
@@ -1988,9 +1966,9 @@ function PlanRow({ text, last }: { text: string; last?: boolean }) {
   return (
     <View style={[styles.planRow, !last && styles.planRowRuled]}>
       <View style={styles.planDot} />
-      <Text style={styles.planText} numberOfLines={2} {...FIT}>
+      <FitText style={styles.planText} lines={2} containerStyle={styles.planTextBox}>
         {text}
-      </Text>
+      </FitText>
     </View>
   );
 }
@@ -2289,7 +2267,8 @@ const styles = themedStyles(() => {
     planRow: { flexDirection: 'row', alignItems: 'center', gap: 14, flexBasis: 48, flexShrink: 1, minHeight: 34 },
     planRowRuled: { borderBottomWidth: 1.5, borderBottomColor: dark ? colors.hairline : '#f3e7c9' },
     planDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: F.green },
-    planText: { flex: 1, fontFamily: FONT.medium, fontSize: 17, lineHeight: 22, color: F.text },
+    planTextBox: { flex: 1 },
+    planText: { fontFamily: FONT.medium, fontSize: 17, lineHeight: 22, color: F.text },
 
     notification: {
       alignSelf: 'stretch',

@@ -1,4 +1,5 @@
 import { Pressable, Text, TextInput, type TextInputProps } from 'react-native';
+import { FitText } from './FitText';
 import { colors, getColorScheme, themedStyles } from '../theme';
 
 /**
@@ -75,15 +76,10 @@ export function OnbButton({
         pressed && kit.buttonPressed,
       ]}
     >
-      <Text
-        style={[kit.buttonLabel, primary ? kit.buttonLabelPrimary : kit.buttonLabelSecondary]}
-        numberOfLines={1}
-        // A long label shrinks rather than ending in "…".
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
-      >
+      {/* A long label shrinks rather than ending in "…". */}
+      <FitText style={[kit.buttonLabel, primary ? kit.buttonLabelPrimary : kit.buttonLabelSecondary]} minScale={0.6}>
         {busy ? '…' : label}
-      </Text>
+      </FitText>
     </Pressable>
   );
 }

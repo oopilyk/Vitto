@@ -98,6 +98,9 @@ const engine = new PetHealthEngine();
 // everything except screen time, which it can actually read (see
 // mobile/SCREENTIME.md); web-via-react-native-web stays on the mock until a
 // Health Connect provider exists. See mobile/HEALTHKIT.md.
+/** The stock line for the day's step goal; the companion's own line replaces it when online. */
+const STEP_GOAL_LINE = 'We hit our step goal today! I loved every step of it.';
+
 /** Set once Apple Health is connected on this phone, so later launches reconnect quietly. */
 const HEALTH_CONNECTED_KEY = 'vitto.appleHealthConnected';
 /** How often steps re-sync while the app is open. */
@@ -1063,7 +1066,8 @@ function VittoApp() {
   /**
    * `quiet` saves without a word: no reaction, no toast, no cheer. For a cup of
    * water short of the goal, or one taken back, where the tracker filling or
-   * emptying is acknowledgement enough.
+   * emptying is acknowledgement enough; and for Apple Health steps, which
+   * arrive by themselves rather than because anyone did anything.
    */
   const recordEvent = async (event: HealthEvent<unknown>, { quiet = false }: { quiet?: boolean } = {}) => {
     if (!pet) return;
@@ -1622,6 +1626,24 @@ function VittoApp() {
    * few minutes away. One at a time, or two syncs at once would both find no
    * row for today and log the day twice.
    */
+  /**
+   * The one thing the pet says about steps: reaching the day's goal. Steps
+   * themselves sync in silence, so this is called by syncSteps the first time
+   * the day's count crosses the goal. Online, the companion writes the line in
+   * the pet's own voice (it already knows STEP_GOAL_REACHED) and the bubble
+   * waits for it; the stock line is what shows if it does not come.
+   */
+  const announceStepGoal = (event: HealthEvent<StepMetadata>) => {
+    if (!pet) return;
+    const remote = isSupabaseConfigured && session;
+    if (remote) setAwaitingPetLine(true);
+    showReaction({ message: STEP_GOAL_LINE, eventLabel: 'Step goal', delta: {} });
+    // Stamped now: the day's step row is dated midnight, which the companion
+    // would take for old news and stay quiet about.
+    const reached = { ...event, occurredAt: new Date().toISOString() };
+    if (remote) void tellCompanion(reached, pet, false).finally(() => setAwaitingPetLine(false));
+  };
+
   const syncSteps = async () => {
     if (stepSyncInFlight.current || !isAppleHealthConnected || !pet) return;
     stepSyncInFlight.current = true;
@@ -1646,6 +1668,9 @@ function VittoApp() {
         // then climbing again is not rewarded twice for the same ground.
         const rewarded = Math.max(had, (existing.metadata as StepMetadata).rewardedSteps ?? 0);
         if (newSteps !== had) {
+          // Once a day: `rewarded` is the most the count has stood at, so a
+          // count corrected down and climbing back past the goal stays quiet.
+          const reachedGoal = rewarded < stepGoal && newSteps >= stepGoal;
           const fresh = event.metadata as StepMetadata;
           const updated: HealthEvent<StepMetadata> = {
             ...(existing as HealthEvent<StepMetadata>),
@@ -1688,9 +1713,15 @@ function VittoApp() {
           setEvents((current) =>
             current.map((candidate) => (candidate.id === existing.id ? updated : candidate)),
           );
+          if (reachedGoal) announceStepGoal(updated);
         }
       } else {
-        await recordEvent(event);
+        // Steps come in on their own every few minutes, so the pet says
+        // nothing about them, only about reaching the goal (announceStepGoal).
+        // The XP and stats still land.
+        await recordEvent(event, { quiet: true });
+        // The day's first sync can already be past the goal (an evening open).
+        if (newSteps >= stepGoal) announceStepGoal(event);
       }
     } catch {
       // Quiet by design; the next sync tries again.

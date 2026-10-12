@@ -2,6 +2,7 @@ import { useState, type ComponentProps } from 'react';
 import { Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 import { PROFILE_SURVEY_DEFAULTS, type BodyProfile } from '@vitto/core';
+import { FitText } from '../components/FitText';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 
 // The pet animates on real timers, and taps advance after a short beat.
@@ -289,9 +290,12 @@ describe('onboarding', () => {
         else expect(scroller.props.horizontal).toBe(true);
       }
       for (const line of strings(tree)) expect(line).not.toMatch(/\p{Extended_Pictographic}/u);
-      // Words are never cut off ("…") or broken: anything held to a line count shrinks to fit it.
+      // Words are never cut off ("…") or broken: anything held to a line count
+      // is a FitText, which shrinks it to fit (never the platform's auto-shrink).
+      const inFitText = (node: renderer.ReactTestInstance): boolean =>
+        node.parent ? node.parent.type === FitText || inFitText(node.parent) : false;
       for (const node of tree.root.findAllByType(Text)) {
-        if (node.props.numberOfLines) expect({ text: node.props.children, fits: node.props.adjustsFontSizeToFit }).toMatchObject({ fits: true });
+        if (node.props.numberOfLines) expect({ text: node.props.children, fits: inFitText(node) }).toMatchObject({ fits: true });
       }
     };
     check();

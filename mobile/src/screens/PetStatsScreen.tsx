@@ -31,6 +31,7 @@ import {
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { EvolutionCard } from '../components/EvolutionCard';
+import { FitText } from '../components/FitText';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { StatBar } from '../components/StatBar';
 import { sheetForPet, portraitFrame } from '../components/petSprites';
@@ -193,22 +194,15 @@ const mindEventsForDay = (
 /**
  * One stat tile. A single long word ("Balanced") used to break mid-word in the
  * narrow tile — "Balance / d" — so a value that is one word longer than the
- * numerals steps down a size and is pinned to one line. `adjustsFontSizeToFit`
- * covers native; react-native-web ignores it, which is why the size is chosen
- * here rather than left to the renderer.
+ * numerals steps down a size and is pinned to one line, and FitText shrinks
+ * anything still too wide. Web does not measure text, which is why the step
+ * down is chosen here rather than left to the renderer.
  */
 function Fact({ label, value }: { label: string; value: string }) {
   const long = value.length > 6;
   return (
     <View style={styles.fact}>
-      <Text
-        style={[styles.factValue, long && styles.factValueLong]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
-      >
-        {value}
-      </Text>
+      <FitText style={[styles.factValue, long && styles.factValueLong]}>{value}</FitText>
       <Text style={styles.factLabel}>{label}</Text>
     </View>
   );
