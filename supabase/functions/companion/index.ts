@@ -18,6 +18,7 @@ import {
   type CompanionEvent, type CompanionEventInput, type CompanionMemory, type CompanionMessage, type CompanionState,
   type CompanionTier, type ExtractionResult, type LifeContext, type PersonalityDials, type PetContext, type TraitBasis,
 } from '../_shared/companion/index.ts';
+import { isDevAccount } from '../_shared/devAccount.ts';
 
 /**
  * The AI companion's one server endpoint.
@@ -62,13 +63,6 @@ const ExtractionSchema = z.object({
   suggestedNickname: z.string().nullable(),
 });
 
-/**
- * Who may use the `debug` and `reset` actions. Mirrors `devAccess.ts` in core,
- * copied rather than imported because this file's shared folder is a generated
- * copy with a closed import graph. An allowlist rather than an env flag, for the
- * same reason as there: a flag has to be turned back off before shipping.
- */
-const DEV_EMAILS = new Set(['kyleyli2005@gmail.com']);
 /** Stands in for "no cap" while staying a number every caller already handles. */
 const DEV_UNCAPPED = 100_000;
 /** Devices kept per person; the oldest beyond this are dropped. */
@@ -470,7 +464,7 @@ Deno.serve(async (request) => {
     // so everything a subscriber would see can be tested, and no daily ceiling,
     // because testing is exactly the use that burns through one. Decided here,
     // from the verified session's email — nothing the client sends can claim it.
-    const isDev = DEV_EMAILS.has((user.email ?? '').trim().toLowerCase());
+    const isDev = isDevAccount(user);
     const tier: CompanionTier = isDev ? 'plus' : await companion.tier(now);
     const limits = isDev ? { ...limitsFor('plus'), messagesPerDay: DEV_UNCAPPED, proactivePerDay: DEV_UNCAPPED } : limitsFor(tier);
     // Personalities are Plus: a free pet speaks in the default voice whatever

@@ -8,8 +8,13 @@
  * Supabase, so the lookup happens here and the results go back unchanged: the
  * app maps them exactly as it maps a direct reply (see core's foodDatabase).
  *
- * Only USDA's search, with a fixed shape: this is not a general proxy.
+ * Only USDA's search, with a fixed shape: this is not a general proxy. And
+ * only for a signed-in user: the server's USDA key has an hourly quota, and an
+ * open endpoint would let anyone with the app's public key spend it for
+ * everybody.
  */
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 const json = (body: unknown, status = 200) =>
@@ -23,6 +28,14 @@ const TIMEOUT_MS = 10_000;
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader) return json({ error: 'Authentication required.' }, 401);
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return json({ error: 'Authentication required.' }, 401);
+
     const { query, key } = (await request.json().catch(() => ({}))) as { query?: unknown; key?: unknown };
     const text = typeof query === 'string' ? query.trim().slice(0, MAX_QUERY_LENGTH) : '';
     if (!text) return json({ foods: [] });

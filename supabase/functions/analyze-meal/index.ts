@@ -4,6 +4,7 @@ import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
 import { BUSY_MESSAGE, claimAiCall } from '../_shared/aiBudget.ts';
 import { MEAL_FIX_SYSTEM_PROMPT, MEAL_SYSTEM_PROMPT, mealAnalysisSchema, mealFixUserText, mealUserText, readCorrection } from './mealPrompt.ts';
+import { isDevAccount } from '../_shared/devAccount.ts';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
 
@@ -84,8 +85,6 @@ type ClaudeImageType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
 
 const MealAnalysisSchema = mealAnalysisSchema(z);
 
-/** Treated as Plus; the same list as the companion function's. */
-const DEV_EMAILS = new Set(['kyleyli2005@gmail.com']);
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -145,7 +144,7 @@ Deno.serve(async (request) => {
     // Photo macro tracking is a Plus feature. Decided here from the verified
     // session and the server-side entitlement, so no client can claim it; the
     // dev account counts as Plus, as it does in the companion function.
-    const isDev = DEV_EMAILS.has((user.email ?? '').trim().toLowerCase());
+    const isDev = isDevAccount(user);
     if (!isDev) {
       const { data: entitlement } = await admin
         .from('companion_entitlements')
