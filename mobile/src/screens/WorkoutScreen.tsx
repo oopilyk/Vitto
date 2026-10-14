@@ -108,6 +108,8 @@ export function WorkoutScreen({
   const routineMode = mode === 'routine';
 
   const addExercise = (exerciseName: string, muscle: string, bodyweight: boolean) => {
+    // Once each: more of the same exercise is more sets on its card.
+    if (exercises.some((item) => item.name === exerciseName)) return;
     // A session that starts with a walk or a run is that, not a "Strength
     // session" (the name a tester saw on their walk).
     if (exercises.length === 0 && name === DEFAULT_SESSION_NAME && tracksDistance(exerciseName)) setName(exerciseName);
@@ -128,12 +130,9 @@ export function WorkoutScreen({
   const removeExercise = (id: string) =>
     setExercises((current) => current.filter((item) => item.id !== id));
 
-  /** Undo from the picker: drops the last-added copy of that exercise. */
-  const removeLastOf = (exerciseName: string) =>
-    setExercises((current) => {
-      const index = current.map((item) => item.name).lastIndexOf(exerciseName);
-      return index < 0 ? current : current.filter((_, i) => i !== index);
-    });
+  /** Undo from the picker: a second tap on an added exercise takes it out. */
+  const removeExerciseNamed = (exerciseName: string) =>
+    setExercises((current) => current.filter((item) => item.name !== exerciseName));
 
   const patchSet = (exerciseId: string, setId: string, patch: Parameters<typeof updateSet>[2]) =>
     setExercises((current) =>
@@ -298,9 +297,8 @@ export function WorkoutScreen({
     return exerciseName.toLowerCase().includes(query) || muscle.toLowerCase().includes(query);
   });
 
-  /** How many of this exercise are already in the session — shown on its picker row. */
-  const countOf = (exerciseName: string) =>
-    exercises.filter((exercise) => exercise.name === exerciseName).length;
+  /** Whether this exercise is already in the session — shown on its picker row. */
+  const isAdded = (exerciseName: string) => exercises.some((exercise) => exercise.name === exerciseName);
 
   const empty = exercises.length === 0;
 
@@ -702,14 +700,17 @@ export function WorkoutScreen({
               )}
               <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
                 {matches.map(([exerciseName, muscle, bodyweight]) => {
-                  const added = countOf(exerciseName);
+                  const added = isAdded(exerciseName);
                   return (
                     <Pressable
                       key={exerciseName}
                       accessibilityRole="button"
-                      accessibilityLabel={`Add ${exerciseName}`}
+                      accessibilityLabel={`${added ? 'Remove' : 'Add'} ${exerciseName}`}
+                      accessibilityState={{ selected: added }}
                       style={({ pressed }) => [styles.libraryRow, pressed && styles.pressed]}
-                      onPress={() => addExercise(exerciseName, muscle, bodyweight === 'bodyweight')}
+                      onPress={() =>
+                        added ? removeExerciseNamed(exerciseName) : addExercise(exerciseName, muscle, bodyweight === 'bodyweight')
+                      }
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.libraryName}>{exerciseName}</Text>
@@ -718,24 +719,14 @@ export function WorkoutScreen({
                           {bodyweight === 'bodyweight' ? ' · bodyweight' : bodyweight === 'distance' ? ' · distance' : ''}
                         </Text>
                       </View>
-                      {/* Stays open after a tap so a whole day goes in at once,
-                          with a count so you can see what you have added, and a
-                          minus so a mis-tap is undone without leaving the list. */}
-                      {added > 0 ? (
-                        <>
-                          <Text style={styles.libraryAdded}>{added} added</Text>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`Remove ${exerciseName}`}
-                            hitSlop={8}
-                            onPress={() => removeLastOf(exerciseName)}
-                            style={({ pressed }) => [styles.libraryMinus, pressed && styles.pressed]}
-                          >
-                            <Text style={styles.libraryMinusMark}>−</Text>
-                          </Pressable>
-                        </>
-                      ) : null}
-                      <Text style={styles.libraryPlus}>+</Text>
+                      {/* Stays open after a tap so a whole day goes in at once. Each
+                          exercise goes in once (repeats are sets on its card), so a
+                          tick marks what is in, and tapping it again takes it out. */}
+                      {added ? (
+                        <Text style={styles.libraryAdded}>✓</Text>
+                      ) : (
+                        <Text style={styles.libraryPlus}>+</Text>
+                      )}
                     </Pressable>
                   );
                 })}
@@ -972,16 +963,6 @@ const styles = themedStyles(() => ({
   },
   libraryName: { fontFamily: fonts.pixel, fontSize: 18, color: colors.ink },
   libraryMuscle: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 2 },
-  libraryAdded: { fontFamily: fonts.pixel, fontSize: 13, color: colors.mintDeep },
+  libraryAdded: { fontFamily: fonts.pixel, fontSize: 22, color: colors.mintDeep },
   libraryPlus: { fontFamily: fonts.pixel, fontSize: 22, color: colors.coral },
-  libraryMinus: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  libraryMinusMark: { fontFamily: fonts.pixel, fontSize: 21, color: colors.faint, lineHeight: 23 },
 }));

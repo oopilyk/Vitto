@@ -881,12 +881,13 @@ describe('screens render', () => {
     act(() => press('Make a new routine')!.props.onPress());
     act(() => press('Add exercise')!.props.onPress());
     act(() => press('Add Bench Press')!.props.onPress());
-    act(() => press('Add Bench Press')!.props.onPress());
     act(() => press('Add Shoulder Press')!.props.onPress());
 
-    // A minus on the picker row undoes the last add of that exercise, in place.
-    expect(press('Remove Bench Press')).toBeTruthy();
+    // Each exercise goes in once (more of it is more sets): an added row offers
+    // no second add, and tapping it again takes it out, in place.
+    expect(press('Add Bench Press')).toBeUndefined();
     act(() => press('Remove Bench Press')!.props.onPress());
+    act(() => press('Add Bench Press')!.props.onPress());
     const done = tree.root
       .findAll((node: any) => typeof node.props.onPress === 'function')
       .find((node: any) => node.findAllByType(WText).some((t: any) => t.props.children === 'Done'));
