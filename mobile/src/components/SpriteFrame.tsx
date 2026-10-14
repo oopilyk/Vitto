@@ -1,5 +1,5 @@
 import { Image, View } from 'react-native';
-import { SHEET_COLUMNS, SHEET_ROWS, type PetSheet } from './petSprites';
+import { footShift, SHEET_COLUMNS, SHEET_ROWS, type PetSheet } from './petSprites';
 
 interface Props {
   /** Fires once the sheet's image has arrived — a caller can show a placeholder until then. */
@@ -44,8 +44,10 @@ export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
   // It also stops GUARD px short of the cell on every side, so smoothing at a
   // cell's edge (worst while the pet is scaled or bobbing) never reaches the
   // screen. Every cell has empty margin around the art, so nothing is lost.
+  // Every breed's feet on the same floor line (see footShift).
+  const shift = footShift(sheet, size);
   return (
-    <View style={{ width: size, height: size }}>
+    <View style={{ width: size, height: size, transform: [{ translateY: shift }] }}>
       <View
         style={{
           width: cell - GUARD * 2,

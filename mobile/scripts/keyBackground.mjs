@@ -60,6 +60,9 @@ const PALE_LUMA = 170;
  *   `clearCreases`: background trapped deep in a crease (a white slit up
  *   under an arm) is made see-through rather than painted over, so it reads
  *   as the same gap the rest of the armpit is. See fillCreaseSpecks.
+ *   Instead of `true` it can be that function's limits ({ area, width, reach,
+ *   thick, unlessNear }), or a list of them run one after another, for art
+ *   that traps bigger patches than a slit (the axolotls, in gifForms.mjs).
  */
 export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLuma = FRINGE_LUMA_DEFAULT, pocketArea, pocketReach, greyFringe = false, closeGaps = 0, clearCreases = false, cutOutPockets = false, matteRim = MATTE_RIM } = {}) => {
   const { width, height, data } = png;
@@ -247,7 +250,7 @@ export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLum
     closeOutlineGaps(png, outside, closeGaps);
     fillCreaseSpecks(png, outside);
   }
-  if (clearCreases) fillCreaseSpecks(png, outside, { clear: true });
+  if (clearCreases) for (const pass of [clearCreases].flat()) fillCreaseSpecks(png, outside, { clear: true, ...(pass === true ? {} : pass) });
 
   for (let flat = 0; flat < outside.length; flat += 1) {
     if (!outside[flat]) continue;
@@ -352,6 +355,47 @@ const CREASE_SPECK = 400;
 const CREASE_WIDTH = 12;
 
 /**
+ * The side of the biggest square that fits inside a patch. A dizzy clip's
+ * spiral eye is a white stroke a couple of art pixels wide, coiled into a
+ * shape as big as a trapped patch of background; but background fills its
+ * gap solid.
+ */
+const thickness = (patch, x0, y0, x1, y1, width) => {
+  const w = x1 - x0 + 1, h = y1 - y0 + 1;
+  const run = new Int32Array(w * h);
+  for (const flat of patch) run[((((flat / width) | 0) - y0) * w) + (flat % width) - x0] = 1;
+  let best = 0;
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const k = y * w + x;
+      if (!run[k]) continue;
+      if (x && y) run[k] = 1 + Math.min(run[k - 1], run[k - w], run[k - w - 1]);
+      if (run[k] > best) best = run[k];
+    }
+  }
+  return best;
+};
+
+/** How far round a crease patch `unlessNear` looks for the colour that marks it as art. */
+const NEAR_REACH = 3;
+
+/** Whether any pixel within NEAR_REACH of the patch is opaque and matches `test`. */
+const nearColour = ({ width, height, data }, patch, test) => {
+  for (const flat of patch) {
+    const x = flat % width, y = (flat / width) | 0;
+    for (let dy = -NEAR_REACH; dy <= NEAR_REACH; dy += 1) {
+      for (let dx = -NEAR_REACH; dx <= NEAR_REACH; dx += 1) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const i = (ny * width + nx) << 2;
+        if (data[i + 3] && test(data[i], data[i + 1], data[i + 2])) return true;
+      }
+    }
+  }
+  return false;
+};
+
+/**
  * Background showing through deep in a crease (where an arm hangs against the
  * body) comes out as a white speck walled in by outline, too far in for the
  * edge passes to reach. What sets it apart from a highlight in the art is that
@@ -359,8 +403,17 @@ const CREASE_WIDTH = 12;
  * from the outside for CREASE_REACH, and paint any small pale patch touching
  * that path with the outline colour (or, with `clear`, key it). An eye glint sits in a pupil ringed by
  * fur, and the medal's shine in gold, so neither is reached.
+ *
+ * The limits can be changed for art that traps more than a slit: `area`,
+ * `width` and `reach` replace CREASE_SPECK, CREASE_WIDTH and CREASE_REACH;
+ * `thick` keeps a patch unless a square that size fits in it (see thickness);
+ * `unlessNear(r, g, b)` keeps a patch with a pixel of that colour beside it;
+ * `paleLuma` raises how light counts as pale, for a pet whose own fur is a
+ * light grey (the koala's); `open` keeps a patch unless it meets the
+ * outside somewhere, as a gap between an arm and the body does; `rim` also
+ * clears that many pixels of pale blend round a cleared patch.
  */
-const fillCreaseSpecks = (png, outside, { clear = false } = {}) => {
+const fillCreaseSpecks = (png, outside, { clear = false, area = CREASE_SPECK, width: across = CREASE_WIDTH, reach = CREASE_REACH, thick = 0, unlessNear, paleLuma = 150, open = false, rim = 0 } = {}) => {
   const { width, height, data } = png;
   const size = width * height;
   const luma = (flat) => {
@@ -385,7 +438,7 @@ const fillCreaseSpecks = (png, outside, { clear = false } = {}) => {
     return out;
   };
   const isDark = (flat) => !outside[flat] && luma(flat) < OUTLINE_LUMA;
-  const isPale = (flat) => !outside[flat] && chroma(flat) < 40 && luma(flat) > 150;
+  const isPale = (flat) => !outside[flat] && chroma(flat) < 40 && luma(flat) > paleLuma;
 
   // Dark pixels reachable from the outside through dark pixels, within reach.
   const depth = new Int32Array(size).fill(-1);
@@ -401,7 +454,7 @@ const fillCreaseSpecks = (png, outside, { clear = false } = {}) => {
     const flat = queue[k];
     const i = flat << 2;
     r += data[i]; g += data[i + 1]; b += data[i + 2]; n += 1;
-    if (depth[flat] >= CREASE_REACH) continue;
+    if (depth[flat] >= reach) continue;
     for (const nb of around(flat)) {
       if (depth[nb] < 0 && isDark(nb)) {
         depth[nb] = depth[flat] + 1;
@@ -417,17 +470,18 @@ const fillCreaseSpecks = (png, outside, { clear = false } = {}) => {
     if (seen[start] || !isPale(start)) continue;
     const patch = [start];
     seen[start] = 1;
-    let touches = false;
+    let touches = false, opens = false;
     for (let k = 0; k < patch.length; k += 1) {
       for (const nb of around(patch[k])) {
         if (depth[nb] >= 0) touches = true;
+        if (outside[nb]) opens = true;
         if (!seen[nb] && isPale(nb)) {
           seen[nb] = 1;
           patch.push(nb);
         }
       }
     }
-    if (!touches || patch.length > CREASE_SPECK) continue;
+    if (!touches || patch.length > area || (open && !opens)) continue;
     // A slit, not a shape: background up a crease is a few pixels across;
     // paper or a highlight that happens to meet the outline is not.
     let x0 = width, x1 = 0, y0 = height, y1 = 0;
@@ -435,9 +489,23 @@ const fillCreaseSpecks = (png, outside, { clear = false } = {}) => {
       const x = flat % width, y = (flat / width) | 0;
       if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
     }
-    if (Math.min(x1 - x0, y1 - y0) + 1 > CREASE_WIDTH) continue;
+    if (Math.min(x1 - x0, y1 - y0) + 1 > across) continue;
+    if (thick && thickness(patch, x0, y0, x1, y1, width) < thick) continue;
+    if (unlessNear && nearColour(png, patch, unlessNear)) continue;
     if (clear) {
       for (const flat of patch) outside[flat] = 1;
+      // With a raised `paleLuma`, the grey blend between the patch and its
+      // outline is left behind as a pale ring; take it too.
+      let ring = patch;
+      for (let step = 0; step < rim; step += 1) {
+        const next = [];
+        for (const flat of ring) {
+          for (const nb of around(flat)) {
+            if (!outside[nb] && chroma(nb) < 40 && luma(nb) > 150) { outside[nb] = 1; next.push(nb); }
+          }
+        }
+        ring = next;
+      }
       continue;
     }
     for (const flat of patch) {
@@ -596,7 +664,7 @@ export const fillBehindGaps = (png, { radius, nextTo }) => {
     if (seen[start] || !hole(start)) continue;
     const region = [start];
     seen[start] = 1;
-    let touches = false;
+    let touches = false, opens = false;
     const sum = [0, 0, 0];
     let count = 0;
     for (let k = 0; k < region.length; k += 1) {

@@ -560,3 +560,39 @@ describe('SupabaseRepository.leavePet', () => {
     await expect(new SupabaseRepository().leavePet('pet-9')).rejects.toBe(failure);
   });
 });
+
+describe('workout routines with the account', () => {
+  const routine = { id: 'r1', name: 'Push day', exercises: [], updatedAt: '2026-10-13T10:00:00Z' };
+
+  it("reads the account's routines", async () => {
+    maybeSingle.mockResolvedValueOnce({ data: { templates: [routine] }, error: null });
+    expect(await new SupabaseRepository().loadWorkoutTemplates()).toEqual([routine]);
+    expect(from).toHaveBeenCalledWith('workout_templates');
+  });
+
+  it('says "never saved" (null), not "none", when the account has no row yet', async () => {
+    maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    expect(await new SupabaseRepository().loadWorkoutTemplates()).toBeNull();
+  });
+
+  it('treats a table that is not there yet as never saved, and saving to it as a no-op', async () => {
+    maybeSingle.mockResolvedValueOnce({ data: null, error: { code: 'PGRST205', message: 'not in schema cache' } });
+    expect(await new SupabaseRepository().loadWorkoutTemplates()).toBeNull();
+    upsert.mockResolvedValueOnce({ error: { code: '42P01', message: 'relation does not exist' } });
+    await expect(new SupabaseRepository().saveWorkoutTemplates([routine])).resolves.toBeUndefined();
+  });
+
+  it('saves the whole list on the signed-in account', async () => {
+    upsert.mockResolvedValueOnce({ error: null });
+    await new SupabaseRepository().saveWorkoutTemplates([routine]);
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 'user-1', templates: [routine] }),
+      { onConflict: 'user_id' },
+    );
+  });
+
+  it('reports a real failure rather than pretending it saved', async () => {
+    upsert.mockResolvedValueOnce({ error: { code: '500', message: 'boom' } });
+    await expect(new SupabaseRepository().saveWorkoutTemplates([routine])).rejects.toBeTruthy();
+  });
+});

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { SheetPage } from '../components/SheetPage';
 import {
   type WeightUnit,
   type WorkoutExercise,
@@ -349,7 +350,7 @@ export function WorkoutScreen({
   };
 
   return (
-    <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <SheetPage onBackPress={onClose}>
       <KeyboardAvoidingView
         style={styles.sheet}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -750,7 +751,7 @@ export function WorkoutScreen({
           </View>
         ) : null}
       </KeyboardAvoidingView>
-    </Modal>
+    </SheetPage>
   );
 }
 

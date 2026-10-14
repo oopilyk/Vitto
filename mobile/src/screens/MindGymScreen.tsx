@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { SheetPage } from '../components/SheetPage';
 import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
@@ -190,7 +191,7 @@ export function MindGymScreen({
 
   if (stage === 'pick') {
     return (
-      <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <SheetPage onBackPress={onClose}>
         <MindHub
           pet={pet}
           events={events}
@@ -198,12 +199,12 @@ export function MindGymScreen({
           onStartStage={startStage}
           onClose={onClose}
         />
-      </Modal>
+      </SheetPage>
     );
   }
 
   return (
-    <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <SheetPage onBackPress={onClose}>
       {/* No KeyboardAvoidingView: inside a page sheet it measures from the
           wrong edge and left the keyboard over the answers. The scroll view
           insets itself by the keyboard instead (see below). */}
@@ -341,7 +342,7 @@ export function MindGymScreen({
           ) : null}
         </ScrollView>
       </View>
-    </Modal>
+    </SheetPage>
   );
 }
 

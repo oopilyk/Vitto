@@ -307,6 +307,9 @@ interface OpenFoodFactsProduct {
   nutriments?: Record<string, number | string>;
 }
 
+/** Past this a "serving" is a whole tub or a typo, not something eaten at once. */
+const MAX_SERVING_GRAMS = 1000;
+
 const toNumber = (value: unknown): number | undefined => {
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
   if (typeof value === 'string' && value.trim() !== '') {
@@ -351,8 +354,10 @@ const offMacros = (
 
 /**
  * One OpenFoodFacts product as a search result. Shared by the barcode lookup and
- * the name search, so both report macros on the same basis — a labelled serving
- * when the product has one, per 100 g otherwise.
+ * the name search, so both report macros on the same basis: the package's own
+ * serving (one bar, one bottle) whenever it says what that is, per 100 g only
+ * when it does not. A scanned protein bar used to log 100 g of bar, which is
+ * not one bar, at almost twice the calories on its label.
  */
 const offProductToResult = (product: OpenFoodFactsProduct, id: string): FoodSearchResult => {
   const nutriments = product.nutriments ?? {};
@@ -362,6 +367,39 @@ const offProductToResult = (product: OpenFoodFactsProduct, id: string): FoodSear
   const has100g =
     offEnergyKcal(nutriments, '_100g') !== undefined ||
     toNumber(nutriments['proteins_100g']) !== undefined;
+  const hasServing =
+    offEnergyKcal(nutriments, '_serving') !== undefined ||
+    toNumber(nutriments['proteins_serving']) !== undefined;
+  const quantity = toNumber(product.serving_quantity);
+  // A serving's weight, when it is a believable one in grams.
+  const servingGrams = quantity !== undefined && quantity > 0 && quantity <= MAX_SERVING_GRAMS ? quantity : undefined;
+  const servingLabel = product.serving_size?.trim() || (servingGrams ? `${servingGrams} g serving` : 'per serving');
+
+  // The label's own per-serving figures, as printed.
+  if (hasServing) {
+    return {
+      id,
+      name,
+      brand,
+      servingDescription: servingLabel,
+      basisGrams: servingGrams,
+      isPer100g: false,
+      macros: offMacros(nutriments, '_serving'),
+    };
+  }
+
+  // Only per-100 g figures, but a known serving weight: worked out for one serving.
+  if (has100g && servingGrams) {
+    return {
+      id,
+      name,
+      brand,
+      servingDescription: servingLabel,
+      basisGrams: servingGrams,
+      isPer100g: false,
+      macros: scaleMacros(offMacros(nutriments, '_100g'), servingGrams / REFERENCE_GRAMS),
+    };
+  }
 
   if (has100g) {
     return {
@@ -442,6 +480,24 @@ const FIBER_GRAMS_THRESHOLD = 3;
  * `FoodSearchResult` now carries macros that match its `servingDescription`,
  * multiplying by the serving count is consistent across all three log paths.
  */
+/**
+ * What was eaten and how much, as the result card shows it: "Barebells Peanut
+ * Butter · 55 g". The brand goes first so a flavour on its own ("Peanut
+ * Butter") still says which product it was; the amount says what the numbers
+ * under it are for.
+ */
+export const describePortion = (food: FoodSearchResult, servings: number): string => {
+  const brand = food.brand?.split(',')[0]?.trim();
+  const named = brand && !food.name.toLowerCase().includes(brand.toLowerCase()) ? `${brand} ${food.name}` : food.name;
+  const count = Math.round(servings * 100) / 100;
+  const amount = food.isPer100g
+    ? `${Math.round(servings * REFERENCE_GRAMS)} g`
+    : count === 1
+      ? food.servingDescription
+      : `${count} × ${food.servingDescription}`;
+  return `${named} · ${amount}`;
+};
+
 export const toMealAnalysis = (food: FoodSearchResult, servings: number): MealAnalysis => {
   const factor = Number.isFinite(servings) && servings > 0 ? servings : 1;
   const scaled = scaleMacros(food.macros, factor);
@@ -477,6 +533,7 @@ export const toMealAnalysis = (food: FoodSearchResult, servings: number): MealAn
 
   return withEstimatedCalories({
     grade,
+    foodDescription: describePortion(food, factor),
     summary: food.brand ? `${food.name} · ${food.brand}` : food.name,
     confidence: 1,
     detectedFoods: [food.name],

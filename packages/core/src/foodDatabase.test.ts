@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { lookupBarcode, searchFoodsByName, toMealAnalysis } from './foodDatabase';
+import { describePortion, lookupBarcode, searchFoodsByName, toMealAnalysis } from './foodDatabase';
 import { configureCore } from './config';
 
 const mockFetchOnce = (body: unknown): void => {
@@ -474,5 +474,59 @@ describe('searchFoodsByName — through our own server', () => {
       throw new TypeError('fetch failed: A server with the specified hostname could not be found.');
     }) as unknown as typeof fetch);
     await expect(searchFoodsByName('popeyes chicken')).rejects.toThrow("Couldn't reach the food database");
+  });
+});
+
+describe('lookupBarcode — one serving, the way the package counts it', () => {
+  const scan = (product: Record<string, unknown>) => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ status: 1, product }) })) as unknown as typeof fetch);
+    return lookupBarcode('0123456789012');
+  };
+
+  it("uses the label's per-serving figures over per-100 g (a bar, not 100 g of bar)", async () => {
+    const result = await scan({
+      product_name: 'Peanut Butter',
+      brands: 'Barebells,Barebells Functional Foods',
+      serving_size: '1 bar (55 g)',
+      serving_quantity: 55,
+      nutriments: { 'energy-kcal_100g': 382, proteins_100g: 36, 'energy-kcal_serving': 210, proteins_serving: 20 },
+    });
+    expect(result?.servingDescription).toBe('1 bar (55 g)');
+    expect(result?.isPer100g).toBe(false);
+    expect(result?.macros.calories).toBe(210);
+    expect(result?.macros.proteinGrams).toBe(20);
+  });
+
+  it('works out one serving from per-100 g figures when only the serving weight is given', async () => {
+    const result = await scan({
+      product_name: 'Peanut Butter',
+      serving_quantity: '55',
+      nutriments: { 'energy-kcal_100g': 382, proteins_100g: 36 },
+    });
+    expect(result?.servingDescription).toBe('55 g serving');
+    expect(result?.macros.calories).toBe(Math.round(382 * 0.55));
+  });
+
+  it('stays per 100 g when the package gives no serving', async () => {
+    const result = await scan({ product_name: 'Peanut Butter', nutriments: { 'energy-kcal_100g': 382, proteins_100g: 36 } });
+    expect(result?.servingDescription).toBe('per 100 g');
+    expect(result?.isPer100g).toBe(true);
+  });
+
+  it('ignores a serving weight no one eats at once', async () => {
+    const result = await scan({ product_name: 'Peanut Butter', serving_quantity: 5000, nutriments: { 'energy-kcal_100g': 382, proteins_100g: 36 } });
+    expect(result?.isPer100g).toBe(true);
+  });
+});
+
+describe('describePortion', () => {
+  const bar = { id: '1', name: 'Peanut Butter', brand: 'Barebells,Other', servingDescription: '1 bar (55 g)', isPer100g: false, macros: { calories: 210, proteinGrams: 20, carbsGrams: 18, fatGrams: 8, fiberGrams: 2 } };
+  it('names the brand first and the amount the numbers are for', () => {
+    expect(describePortion(bar, 1)).toBe('Barebells Peanut Butter · 1 bar (55 g)');
+    expect(describePortion(bar, 2)).toBe('Barebells Peanut Butter · 2 × 1 bar (55 g)');
+    expect(describePortion({ ...bar, brand: undefined, isPer100g: true, servingDescription: 'per 100 g' }, 1.5)).toBe('Peanut Butter · 150 g');
+  });
+  it('does not repeat a brand already in the name', () => {
+    expect(describePortion({ ...bar, name: 'Barebells Peanut Butter Bar' }, 1)).toBe('Barebells Peanut Butter Bar · 1 bar (55 g)');
   });
 });

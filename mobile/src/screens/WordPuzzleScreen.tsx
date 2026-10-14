@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { SheetPage } from '../components/SheetPage';
 import {
   type BrainTrainingMetadata,
   type HealthEvent,
@@ -176,7 +177,7 @@ export function WordPuzzleScreen({
   };
 
   return (
-    <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <SheetPage onBackPress={onClose}>
       <View style={styles.sheet}>
         <View style={styles.header}>
           <View>
@@ -294,7 +295,7 @@ export function WordPuzzleScreen({
           </ScrollView>
         )}
       </View>
-    </Modal>
+    </SheetPage>
   );
 }
 

@@ -1382,6 +1382,34 @@ const PORTRAIT: Partial<Record<string, Frame>> = {
   dino: [0, 1],
 };
 
+/**
+ * How high each breed's feet sit in its window, as a share of the window's
+ * height: measured off every breed and form drawn at one size on one floor
+ * line (13-27pt at 120pt). Each sheet was boxed on its own, so they landed at
+ * different heights: the cat, shiba and axolotl stood on air above the floor
+ * shadow while the bichon sank into it. One value per breed, because every
+ * form of a breed shares its box (its forms differ by at most 3.5pt).
+ */
+const FOOT_GAP: Partial<Record<string, number>> = {
+  bichon: 0.109,
+  shiba: 0.203,
+  otter: 0.146,
+  tabbyCat: 0.223,
+  bunny: 0.166,
+  fox: 0.16,
+  koala: 0.135,
+  bear: 0.168,
+  axolotl: 0.2,
+  dino: 0.192,
+};
+
+/** Where every pet's feet should land: the middle of the floor shadow (PetAura's ellipse). */
+export const FOOT_GAP_TARGET = 0.16;
+
+/** How far down (negative: up) to move a sheet's art so its feet land on `FOOT_GAP_TARGET`. Whole points. */
+export const footShift = (sheet: Pick<PetSheet, 'name'>, size: number): number =>
+  Math.round(((FOOT_GAP[sheet.name] ?? FOOT_GAP_TARGET) - FOOT_GAP_TARGET) * size);
+
 export const portraitFrame = (sheet: PetSheet): Frame => PORTRAIT[sheet.name] ?? sheet.animations.idle[0]!;
 
 /**

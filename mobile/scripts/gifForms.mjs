@@ -19,14 +19,42 @@
 /** `count` frame indices spread evenly from `from` to `to`. */
 const spread = (from, to, count) => Array.from({ length: count }, (_, i) => Math.round(from + ((to - from) * i) / (count - 1)));
 
+/**
+ * The koala's GIFs leave matte white wedged between an arm and the head or
+ * body, and under the stars. Its own fur is a light grey (~216) the crease
+ * test would take for white, so only near-white (the matte, ~240) counts; and
+ * where a clip's matte came out the fur's own grey, only a wedge open to the
+ * outside goes, which fur walled in by outline never is.
+ */
+const KOALA_CREASES = [
+  { reach: 8, paleLuma: 230 },
+  { area: 1500, width: 40, thick: 12, paleLuma: 230 },
+  { area: 1500, width: 40, reach: 200, paleLuma: 200, open: true },
+];
+
+/**
+ * The otters' dizzy GIFs leave a ~2,000px patch of matte between the raised
+ * arm and the tail. Their cream belly is pale too, so only near-white counts,
+ * and the grey blend round the patch is taken after it (`rim`).
+ * Shared with the base otter in buildVideoSheet.mjs and buildLifterVideos.mjs.
+ */
+export const OTTER_KEY = { greyFringe: true, fringePasses: 4, clearCreases: { area: 3000, width: 60, thick: 12, reach: 200, paleLuma: 235, rim: 3 } };
+
+/**
+ * The bunny runner's and scholar's dizzy GIFs fill the inside of the ring of
+ * stars with white, either side of the head. Their fur is an off-white
+ * (~230) and the fill ~249, so only the brightest white counts.
+ */
+export const BUNNY_RING_KEY = { clearCreases: { area: 3000, width: 80, thick: 8, reach: 200, paleLuma: 243, rim: 3 } };
+
 /** Per pet: the box, and the key (otters match the base otter's). */
 const PETS = {
   tabbyCat: { box: { x: -14, y: -4, size: 795 }, key: { fringePasses: 4 } },
   dino: { box: { x: -4, y: -16, size: 779 }, key: { fringePasses: 4 } },
   fox: { box: { x: -8, y: -34, size: 783 }, key: { fringePasses: 4 } },
-  koala: { box: { x: -43, y: -116, size: 856 }, key: { fringePasses: 4 } },
+  koala: { box: { x: -43, y: -116, size: 856 }, key: { fringePasses: 4, clearCreases: KOALA_CREASES } },
   // The base otter's own box: its forms stand exactly as it does.
-  otter: { box: { x: 25, y: 15, size: 720 }, key: { greyFringe: true, fringePasses: 4 } },
+  otter: { box: { x: 25, y: 15, size: 720 }, key: OTTER_KEY },
 };
 
 /** [source folder, pet, idle clip, run loop, dying flat from]. */
@@ -58,9 +86,38 @@ const FORMS = {
  * dizzy clip: there the same reach would take its white spiral eyes.
  */
 const EXTRA_KEY = {
+  // The lifter and runner have the same patch beside the tail (up to ~2,400px,
+  // in most clips), and more between the legs and under a raised arm, but the
+  // scholar's long-reach pockets would take the lifter's grin and the dizzy
+  // eyes. Walled in by outline, they go as one big solid crease, followed
+  // along the outline however far in it sits; the grin is as solid, but sits
+  // in the cream muzzle, which background never touches.
+  foxLifter: { key: { clearCreases: { area: 3000, width: 60, thick: 12, reach: 200, unlessNear: (r, g, b) => r > 215 && g > 190 && b > 130 && b < 185 && r - b > 45 } } },
+  foxRunner: { key: { clearCreases: { area: 3000, width: 60, thick: 12, reach: 200, unlessNear: (r, g, b) => r > 215 && g > 190 && b > 130 && b < 185 && r - b > 45 } } },
   foxScholar: { key: { clearCreases: true, pocketArea: 40, pocketReach: 140 }, cutOutPockets: ['idle', 'celebrating', 'run', 'sad', 'dying'] },
 };
 const keyFor = (name, pet) => ({ ...PETS[pet].key, ...EXTRA_KEY[name]?.key });
+
+/**
+ * The axolotl forms' key, shared by buildVideoSheet.mjs and buildLifterVideos.mjs.
+ *
+ * Their GIFs leave the white matte trapped wherever the art closes round it:
+ * a patch of ~700px between the frills and the tail, under the head (white on
+ * screen in nearly every clip), and specks in the notches between frill
+ * branches and between the legs. Both are walled in by outline that runs out
+ * to the edge, so they go as creases: first the specks, with the outline
+ * followed only 8px in, which stops short of the X eyes in the face; then the
+ * big patch, which is solid, where the spiral and X eyes are strokes too thin
+ * to hold a 12px square.
+ */
+const AXOLOTL_CREASES = [{ reach: 8 }, { area: 1500, width: 40, thick: 12 }];
+/** The scholar's book has white pages inside a red cover, against the same outline. */
+const BOOK = (r, g, b) => r > 70 && r > 2.2 * g && r > 2.2 * b;
+export const AXOLOTL_KEY = {
+  axolotlLifter: { fringePasses: 4, clearCreases: AXOLOTL_CREASES },
+  axolotlRunner: { fringePasses: 4, clearCreases: AXOLOTL_CREASES },
+  axolotlScholar: { fringePasses: 4, clearCreases: AXOLOTL_CREASES.map((pass) => ({ ...pass, unlessNear: BOOK })) },
+};
 
 /** For buildVideoSheet.mjs: each form's sheet, in the standard seven bands. */
 export const gifFormSheets = () =>

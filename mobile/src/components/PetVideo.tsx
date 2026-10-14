@@ -131,8 +131,13 @@ interface Layer {
 export function PetClipStack({
   clipKey: animationKey,
   clip,
+  footShift = 0,
   ...rest
-}: Omit<Props, 'onFirstFrame'> & { clipKey: string }) {
+}: Omit<Props, 'onFirstFrame'> & {
+  clipKey: string;
+  /** Points to move the art down so the feet meet the floor (see `footShift` in petSprites). */
+  footShift?: number;
+}) {
   // The file as well as the animation: a new form or breed on the same
   // animation is a different clip.
   const clipKey = `${animationKey}:${String(clip.hevc)}`;
@@ -157,7 +162,7 @@ export function PetClipStack({
   }, [incoming]);
 
   return (
-    <View style={{ width: rest.size, height: rest.size }} pointerEvents="none">
+    <View style={{ width: rest.size, height: rest.size, transform: [{ translateY: footShift }] }} pointerEvents="none">
       {[shown, incoming].map((layer) =>
         layer ? (
           <View key={layer.key} style={[StyleSheet.absoluteFill, { opacity: layer === incoming ? 0 : 1 }]}>

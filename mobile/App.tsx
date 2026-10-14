@@ -376,7 +376,6 @@ function VittoApp() {
     };
   }, [achievementScope]);
   useEffect(() => {
-    void repository.loadWorkoutTemplates().then(setWorkoutTemplates).catch(() => setWorkoutTemplates([]));
     void repository
       .loadReminders()
       .then((saved) => {
@@ -863,6 +862,46 @@ function VittoApp() {
       cancelled = true;
     };
   }, [authReady, session, reloadToken]);
+
+  /**
+   * Workout routines, with the account when signed in. They used to live only
+   * on the phone, so signing out (which wipes the phone's copy), a reinstall or
+   * a new phone lost them. Signed in, the account's list wins; an account that
+   * has never saved any keeps this phone's and uploads them, so nobody loses
+   * routines made before they were synced. Offline, the phone's copy stands in.
+   */
+  useEffect(() => {
+    if (!authReady) return;
+    let cancelled = false;
+    void (async () => {
+      const onPhone = await repository.loadWorkoutTemplates().catch(() => [] as WorkoutTemplate[]);
+      if (!(isSupabaseConfigured && session)) {
+        if (!cancelled) setWorkoutTemplates(onPhone);
+        return;
+      }
+      let inAccount: WorkoutTemplate[] | null | undefined;
+      try {
+        inAccount = await remoteRepository.loadWorkoutTemplates();
+      } catch {
+        inAccount = undefined;
+      }
+      if (cancelled) return;
+      if (inAccount === undefined) {
+        setWorkoutTemplates(onPhone);
+      } else if (inAccount === null) {
+        setWorkoutTemplates(onPhone);
+        if (onPhone.length > 0) void remoteRepository.saveWorkoutTemplates(onPhone).catch(() => undefined);
+      } else {
+        setWorkoutTemplates(inAccount);
+        void repository.saveWorkoutTemplates(inAccount).catch(() => undefined);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // The account, not the session object: a token refresh is not a new person.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, session?.user.id]);
 
   const persistProfile = async (next: BodyProfile) => {
     setProfile(next);
@@ -2007,16 +2046,26 @@ function VittoApp() {
   }, [dataReady, achievementsNow, seenAchievements, achievementScope, tourPending, Boolean(pet)]);
 
   /** Saves (or replaces by name) a routine, then persists the list. */
-  const saveWorkoutTemplate = async (template: WorkoutTemplate) => {
-    const next = upsertTemplate(workoutTemplates, template);
+  /** Kept on the phone, and with the account when signed in (see the routines effect). */
+  const storeWorkoutTemplates = async (next: WorkoutTemplate[]) => {
     setWorkoutTemplates(next);
     await repository.saveWorkoutTemplates(next);
+    if (!(isSupabaseConfigured && session)) return;
+    try {
+      await remoteRepository.saveWorkoutTemplates(next);
+    } catch {
+      setError("Saved on this phone, but couldn't back your routines up to your account. Check your connection.");
+    }
+  };
+
+  const saveWorkoutTemplate = async (template: WorkoutTemplate) => {
+    const next = upsertTemplate(workoutTemplates, template);
+    await storeWorkoutTemplates(next);
   };
 
   const deleteWorkoutTemplate = async (id: string) => {
     const next = removeTemplate(workoutTemplates, id);
-    setWorkoutTemplates(next);
-    await repository.saveWorkoutTemplates(next);
+    await storeWorkoutTemplates(next);
   };
 
   /** Dev: forget what has been shown, so every earned unlock pops again. */
@@ -2095,6 +2144,16 @@ function VittoApp() {
     });
     return () => foreground.remove();
   }, [islandEnabled, sendIsland]);
+  // No pet here (signed out, or none adopted yet): nothing for the Island to
+  // show, so any activity still up is ended. One could outlive its pet: a
+  // session that expired rather than signing out never ran logOut's clear, and
+  // an activity an older build started is drawn as a bare spinner on the Lock
+  // Screen until the app updates it, which with no pet it never would.
+  useEffect(() => {
+    if (!authReady || pet) return;
+    if (session && !dataReady) return;
+    void clearPetIsland();
+  }, [authReady, session, dataReady, pet]);
 
   // Tapping the pet's notification opens the conversation it came from, rather
   // than dropping the person on the dashboard to go looking for it.
@@ -2653,6 +2712,11 @@ function VittoApp() {
             />
           )}
         </RootStack.Screen>
+        {/* The navigator's sheet is these screens' only sheet: each draws a
+            SheetPage, never a Modal of its own (a sheet inside a sheet left a
+            blank page sliding away after it closed). Swiping down closes the
+            quick ones; a workout or game in progress closes from its own
+            button, so a stray swipe cannot throw it away. */}
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>
           <RootStack.Screen name="MealCapture">
             {({ navigation }) => (
@@ -2684,7 +2748,7 @@ function VittoApp() {
               />
             )}
           </RootStack.Screen>
-          <RootStack.Screen name="Workout">
+          <RootStack.Screen name="Workout" options={{ gestureEnabled: false }}>
             {({ navigation, route }) => (
               <WorkoutScreen
                 startWithCardio={route.params?.cardio === true}
@@ -2700,7 +2764,7 @@ function VittoApp() {
               />
             )}
           </RootStack.Screen>
-          <RootStack.Screen name="MindGym">
+          <RootStack.Screen name="MindGym" options={{ gestureEnabled: false }}>
             {({ navigation }) => (
               <MindGymScreen
                 // The hub shows the real pet, the same renderer every game
@@ -2725,7 +2789,7 @@ function VittoApp() {
               />
             )}
           </RootStack.Screen>
-          <RootStack.Screen name="FourCorners">
+          <RootStack.Screen name="FourCorners" options={{ gestureEnabled: false }}>
             {({ navigation }) => (
               <FourCornersScreen
                 pet={livePet}
@@ -2737,7 +2801,7 @@ function VittoApp() {
               />
             )}
           </RootStack.Screen>
-          <RootStack.Screen name="PetJeopardy">
+          <RootStack.Screen name="PetJeopardy" options={{ gestureEnabled: false }}>
             {({ navigation }) => (
               <PetJeopardyScreen
                 pet={livePet}

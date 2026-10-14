@@ -8,7 +8,7 @@ import {
   assessCondition,
   assessDecline,
 } from '@vitto/core';
-import { FRAME_MS, HOLDS_LAST_FRAME, type PetAnimation, SPRITE_ART_TOP, sheetForPet } from './petSprites';
+import { FRAME_MS, footShift, HOLDS_LAST_FRAME, type PetAnimation, SPRITE_ART_TOP, sheetForPet } from './petSprites';
 import { PetClipStack, videoClipFor } from './PetVideo';
 import { SpriteFrame } from './SpriteFrame';
 import {
@@ -320,7 +320,8 @@ export function PetAvatar({
   // Distance from the stage centre up to the top of the pet's head. Effects take
   // it as their anchor and add their own clearance, so none of them has to know
   // how the sprite sits inside its cell.
-  const headOffset = size * (0.5 - SPRITE_ART_TOP);
+  // The art is moved so its feet meet the floor (footShift), and its head with it.
+  const headOffset = size * (0.5 - SPRITE_ART_TOP) - footShift(sheet, size);
   /**
    * The same precedence `animationFor` applies to the sprite, extended to
    * everything else the condition drives. A care moment is the pet doing
@@ -372,7 +373,15 @@ export function PetAvatar({
         style={[styles.window, { transform: bobTransform }]}
       >
         {clip && sheet.videos ? (
-          <PetClipStack clipKey={animation} videos={sheet.videos} clip={clip} size={size} artScale={sheet.artScale} paused={paused} />
+          <PetClipStack
+            clipKey={animation}
+            videos={sheet.videos}
+            clip={clip}
+            size={size}
+            artScale={sheet.artScale}
+            paused={paused}
+            footShift={footShift(sheet, size)}
+          />
         ) : (
           <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
         )}

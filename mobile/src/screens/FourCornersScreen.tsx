@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { SheetPage } from '../components/SheetPage';
 import {
   FOUR_CORNERS,
   type BrainTrainingMetadata,
@@ -235,7 +236,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
 
   if (!activeRound) {
     return (
-      <Modal {...SHEET} onRequestClose={onClose}>
+      <SheetPage onBackPress={onClose}>
         <View style={[styles.screen, night && styles.screenNight, styles.centred]}>
           <FourCornersBackdrop night={night} />
           <View style={[styles.errorPanel, retro.panel, night && retro.panelNight]}>
@@ -248,13 +249,13 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
             </View>
           </View>
         </View>
-      </Modal>
+      </SheetPage>
     );
   }
 
   if (activeRound.status === 'complete') {
     return (
-      <Modal {...SHEET} onRequestClose={requestClose}>
+      <SheetPage onBackPress={requestClose}>
       <View style={[styles.screen, night && styles.screenNight]}>
         <FourCornersBackdrop night={night} />
         <Header
@@ -274,7 +275,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
           onPlayAgain={handlePlayAgain}
         />
       </View>
-      </Modal>
+      </SheetPage>
     );
   }
 
@@ -299,7 +300,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
   };
 
   return (
-    <Modal {...SHEET} onRequestClose={requestClose}>
+    <SheetPage onBackPress={requestClose}>
     <View style={[styles.screen, night && styles.screenNight]}>
       <FourCornersBackdrop night={night} />
       <Header
@@ -363,12 +364,11 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
         <ErrorText>{saveError}</ErrorText>
       </View>
     </View>
-    </Modal>
+    </SheetPage>
   );
 }
 
 /** The same sheet presentation the other mind games use (MindGym, WordPuzzle). */
-const SHEET = { animationType: 'slide', presentationStyle: 'pageSheet' } as const;
 
 function Header({
   night,

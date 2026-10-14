@@ -69,7 +69,12 @@ public class PetIslandModule: Module {
     AsyncFunction("sync") { (state: IslandState) async throws in
       let content = ActivityContent(state: state.contentState, staleDate: state.staleDate)
       let running = Activity<PetActivityAttributes>.activities
-      if let current = running.first(where: { $0.attributes.petId == state.petId }) {
+      // Only one still up can be updated. iOS ends an activity by itself after
+      // about eight hours, but keeps listing it for a while after; updating
+      // that one did nothing, so the pet stayed off the Island until iOS let
+      // go of it. An ended one is cleared below and a new one started.
+      let live = running.filter { $0.activityState != .ended && $0.activityState != .dismissed }
+      if let current = live.first(where: { $0.attributes.petId == state.petId }) {
         await current.update(content)
         for other in running where other.id != current.id {
           await other.end(nil, dismissalPolicy: .immediate)

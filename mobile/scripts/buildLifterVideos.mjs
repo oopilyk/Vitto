@@ -29,7 +29,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { fillBehindGaps, fillHoles, keyBackground } from './keyBackground.mjs';
-import { gifFormClips } from './gifForms.mjs';
+import { AXOLOTL_KEY, BUNNY_RING_KEY, OTTER_KEY, gifFormClips } from './gifForms.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -87,7 +87,8 @@ const PETS = {
   },
   // The bunny's three forms: GIFs at 6fps, already cut out. Its fur is near
   // white, so like the bichon it takes the default key: no pockets and no
-  // grey fringe, either of which would eat into the fur.
+  // grey fringe, either of which would eat into the fur. The runner and
+  // scholar only add BUNNY_RING_KEY, for the white inside their ring of stars.
   bunnyLifter: {
     source: 'bunny-lifter',
     output: 'bunnyLifter',
@@ -106,12 +107,14 @@ const PETS = {
   bunnyRunner: {
     source: 'bunny-runner',
     output: 'bunnyRunner',
+    key: BUNNY_RING_KEY,
     // A quick hop, three frames a stride: eight strides loop cleanly.
     clips: ['idle', 'cheer', { name: 'run', frames: [6, 29] }, 'dizzy', 'tired', 'lie-down'],
   },
   bunnyScholar: {
     source: 'bunny-scholar',
     output: 'bunnyScholar',
+    key: BUNNY_RING_KEY,
     // Five frames a step: five steps loop cleanly.
     clips: ['idle', 'cheer', { name: 'walk', frames: [6, 30] }, 'dizzy', 'cry', 'collapse'],
   },
@@ -121,19 +124,19 @@ const PETS = {
   axolotlLifter: {
     source: 'axolotl-lifter',
     output: 'axolotlLifter',
-    key: { fringePasses: 4 },
+    key: AXOLOTL_KEY.axolotlLifter,
     clips: ['idle-flex', 'cheer', { name: 'run', frames: [1, 30] }, 'dizzy', 'sad', 'collapse', { name: 'lie', from: 'collapse', frames: [22, 30] }],
   },
   axolotlRunner: {
     source: 'axolotl-runner',
     output: 'axolotlRunner',
-    key: { fringePasses: 4 },
+    key: AXOLOTL_KEY.axolotlRunner,
     clips: ['idle', 'cheer', { name: 'run', frames: [1, 30] }, { name: 'dizzy', frames: [3, 30] }, 'tired', 'lie-down', { name: 'lie', from: 'lie-down', frames: [22, 30] }],
   },
   axolotlScholar: {
     source: 'axolotl-scholar',
     output: 'axolotlScholar',
-    key: { fringePasses: 4 },
+    key: AXOLOTL_KEY.axolotlScholar,
     clips: ['idle', 'cheer', { name: 'walk', frames: [1, 30] }, 'dizzy', 'cry', 'collapse', { name: 'lie', from: 'collapse', frames: [22, 30] }],
   },
   // The bichon and shiba runners: GIFs at 6fps, already cut out, keyed as
@@ -177,7 +180,7 @@ const PETS = {
   otter: {
     source: 'otter',
     output: 'otter',
-    key: { greyFringe: true, fringePasses: 4 },
+    key: OTTER_KEY,
     // The run's ten whole strides and the dizzy's five whole cycles skip the
     // still opening frame, so they loop without a hitch. `lie` is the
     // collapse's lying-still tail, looped, for rest.

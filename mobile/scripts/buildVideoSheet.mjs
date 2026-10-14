@@ -28,7 +28,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { fillBehindGaps, fillHoles, keyBackground } from './keyBackground.mjs';
-import { gifFormSheets } from './gifForms.mjs';
+import { AXOLOTL_KEY, BUNNY_RING_KEY, OTTER_KEY, gifFormSheets } from './gifForms.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pets = path.join(root, 'assets/pet');
@@ -176,7 +176,7 @@ const FORMS = {
     source: 'bunny-runner',
     output: 'bunnyRunner.png',
     box: { x: 52, y: 58, size: 672 },
-    key: {},
+    key: BUNNY_RING_KEY,
     /*
      *   idle.gif      27 frames, standing, blinking
      *   cheer.gif     6-20 jumps, medal flying
@@ -200,7 +200,7 @@ const FORMS = {
     source: 'bunny-scholar',
     output: 'bunnyScholar.png',
     box: { x: 52, y: 58, size: 672 },
-    key: {},
+    key: BUNNY_RING_KEY,
     /*
      *   idle.gif      27 frames, standing with its book, blinking
      *   cheer.gif     10-21 jumps, holding the book up
@@ -235,7 +235,7 @@ const FORMS = {
     source: 'axolotl-lifter',
     output: 'axolotlLifter.png',
     box: { x: 87, y: 72, size: 594 },
-    key: { fringePasses: 4 },
+    key: AXOLOTL_KEY.axolotlLifter,
     /*
      *   idle-flex.gif  124 frames: stands, then flexes
      *   cheer.gif      7-16 jumps, 17-20 lands in a puff of dust
@@ -259,7 +259,7 @@ const FORMS = {
     source: 'axolotl-runner',
     output: 'axolotlRunner.png',
     box: { x: 87, y: 72, size: 594 },
-    key: { fringePasses: 4 },
+    key: AXOLOTL_KEY.axolotlRunner,
     /*
      *   idle.gif      standing, blinking
      *   cheer.gif     7-17 jumps, 18-21 lands in a puff of dust
@@ -282,7 +282,7 @@ const FORMS = {
     source: 'axolotl-scholar',
     output: 'axolotlScholar.png',
     box: { x: 87, y: 72, size: 594 },
-    key: { fringePasses: 4 },
+    key: AXOLOTL_KEY.axolotlScholar,
     /*
      *   idle.gif      standing with its book, blinking
      *   cheer.gif     6-15 jumps holding the book up, 16-20 lands
@@ -392,7 +392,7 @@ const FORMS = {
     // blended into the white it was drawn on), which shows on a dark room.
     // The otter's browns are strong, so like the bears it can peel grey edge
     // pixels; four passes take the whole ring without thinning the sparkles.
-    key: { greyFringe: true, fringePasses: 4 },
+    key: OTTER_KEY,
     /*
      * GIFs at 6fps, already cut out:
      *   idle.gif      27 frames, sitting, blinking and smiling; 0 matches 26

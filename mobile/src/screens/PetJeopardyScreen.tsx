@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Modal, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, View, type LayoutChangeEvent } from 'react-native';
+import { SheetPage } from '../components/SheetPage';
 import {
   type BrainTrainingMetadata,
   type JeopardyGame,
@@ -293,7 +294,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
 
   if (!active) {
     return (
-      <Modal {...SHEET} onRequestClose={onClose}>
+      <SheetPage onBackPress={onClose}>
         <JeopardyFrame night={night} centred>
           <JeopardyUnavailable
             night={night}
@@ -301,7 +302,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
             onClose={onClose}
           />
         </JeopardyFrame>
-      </Modal>
+      </SheetPage>
     );
   }
 
@@ -347,7 +348,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
     active.categories.find((category) => category.id === categoryId)?.label ?? categoryId;
 
   return (
-    <Modal {...SHEET} onRequestClose={requestClose}>
+    <SheetPage onBackPress={requestClose}>
       <JeopardyFrame night={night}>
         <JeopardyHeader
           night={night}
@@ -433,12 +434,11 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
           </View>
         )}
       </JeopardyFrame>
-    </Modal>
+    </SheetPage>
   );
 }
 
 /** The same sheet presentation the other mind games use (MindGym, WordPuzzle, Four Corners). */
-const SHEET = { animationType: 'slide', presentationStyle: 'pageSheet' } as const;
 
 const styles = themedStyles(() => ({
   petLayer: {

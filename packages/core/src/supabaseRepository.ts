@@ -1,5 +1,6 @@
 import type { PersonalityDials } from './companion/types';
 import type { HealthEvent } from './domain/health';
+import type { WorkoutTemplate } from './domain/workoutTemplates';
 import { chargeOf, type EvolvedBuild, type PetState } from './domain/pet';
 import { sanitizeMeals } from './domain/hunger';
 import { withSurveyDefaults, type BodyProfile, type FocusArea } from './domain/macroTargets';
@@ -72,6 +73,14 @@ const wholeNumbers = <T extends Record<string, unknown>>(row: T): T =>
  * on reads; both name the column. Pulling that name out lets a save recover from a
  * database that has not run the latest migration yet, one column at a time.
  */
+/**
+ * A table the database does not have yet: PostgREST says PGRST205 when it is
+ * not in its schema cache, Postgres 42P01. What a not-yet-pushed migration
+ * looks like from the client.
+ */
+const missingTable = (error: { code?: string } | null): boolean =>
+  error?.code === 'PGRST205' || error?.code === '42P01';
+
 const missingColumn = (error: { code?: string; message?: string } | null): string | null => {
   if (!error?.message) return null;
   if (error.code !== 'PGRST204' && error.code !== '42703') return null;
@@ -287,6 +296,32 @@ export class SupabaseRepository {
    * active pet by id, but anything falling back to "the first one" should not
    * get a different answer each time.
    */
+  /**
+   * The account's workout routines: null when it has never saved any here
+   * (including before the table exists), so a phone's own routines can be
+   * kept and uploaded on the first sign-in rather than replaced by nothing.
+   */
+  async loadWorkoutTemplates(): Promise<WorkoutTemplate[] | null> {
+    const client = requireClient();
+    const { data, error } = await client.from('workout_templates').select('templates').maybeSingle();
+    if (error && missingTable(error)) return null;
+    if (error) throw error;
+    if (!data) return null;
+    return Array.isArray(data.templates) ? (data.templates as WorkoutTemplate[]) : [];
+  }
+
+  /** Replaces the account's routines with this list. A no-op until the table exists. */
+  async saveWorkoutTemplates(templates: readonly WorkoutTemplate[]): Promise<void> {
+    const client = requireClient();
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) throw new Error('Sign in before saving routines.');
+    const { error } = await client
+      .from('workout_templates')
+      .upsert({ user_id: user.id, templates, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    if (error && missingTable(error)) return;
+    if (error) throw error;
+  }
+
   async loadPets(): Promise<PetState[]> {
     const client = requireClient();
     const {

@@ -2,13 +2,13 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View, KeyboardAvoidingView, Platform } from 'react-native';
+import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
@@ -165,6 +165,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         setScanned(false);
       } else {
         setSelected(found);
+        setServings('1');
       }
     } catch (cause) {
       setError(errorMessage(cause, 'Barcode lookup failed.'));
@@ -193,7 +194,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     : null;
 
   return (
-    <Modal animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <SheetPage onBackPress={onClose}>
       <KeyboardAvoidingView
         style={styles.sheet}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -361,17 +362,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
               {selectedAnalysis ? (
                 <>
-                  <View style={styles.servingsRow}>
-                    <Text style={styles.servingsLabel}>
-                      Servings{selected ? ` · ${selected.servingDescription}` : ''}
-                    </Text>
-                    <TextInput
-                      style={[layout.input, styles.servingsInput]}
-                      keyboardType="decimal-pad"
-                      value={servings}
-                      onChangeText={setServings}
-                    />
-                  </View>
+                  <ServingsRow food={selected} servings={servings} onChange={setServings} />
                   <AnalysisCard analysis={selectedAnalysis} />
                 </>
               ) : null}
@@ -418,6 +409,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 {scanned ? 'Found it — check the details below.' : 'Point the camera at a product barcode.'}
               </Text>
 
+              {/* How many: a scanned bar is one bar, but two is two. */}
+              {selectedAnalysis ? <ServingsRow food={selected} servings={servings} onChange={setServings} /> : null}
               {selectedAnalysis ? <AnalysisCard analysis={selectedAnalysis} /> : null}
               <ErrorText>{error}</ErrorText>
 
@@ -441,7 +434,31 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
-    </Modal>
+    </SheetPage>
+  );
+}
+
+/** How many servings, and what one serving is ("1 bar (55 g)", "per 100 g"). */
+function ServingsRow({
+  food,
+  servings,
+  onChange,
+}: {
+  food: FoodSearchResult | null;
+  servings: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <View style={styles.servingsRow}>
+      <Text style={styles.servingsLabel}>Servings{food ? ` · ${food.servingDescription}` : ''}</Text>
+      <TextInput
+        style={[layout.input, styles.servingsInput]}
+        keyboardType="decimal-pad"
+        value={servings}
+        onChangeText={onChange}
+        accessibilityLabel="Servings"
+      />
+    </View>
   );
 }
 
