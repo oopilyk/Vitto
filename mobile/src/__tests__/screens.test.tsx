@@ -2543,20 +2543,21 @@ describe('pet sprite', () => {
     }
   });
 
-  it('derives the lifter and scholar sheets from the base art and frame map', () => {
-    // These sheets are generated from the base art cell for cell, so their frame
-    // maps must match the base's exactly — but as a copy, not the same object, so
-    // a derived form can still be given a map of its own later.
+  it('derives the bichon lifter sheet from the base art and frame map', () => {
+    // This sheet is generated from the base art cell for cell, so its frame map
+    // must match the base's exactly — but as a copy, not the same object, so it
+    // can still be given a map of its own later. The scholar has its own art.
     const { sheetForPet } = require('../components/petSprites');
     const base = sheetForPet({ id: 'p', breed: 'bichon', level: 5 });
     const lifter = sheetForPet({ id: 'p', breed: 'bichon', level: 16, strength: 80, endurance: 10, mind: 10 });
     const scholar = sheetForPet({ id: 'p', breed: 'bichon', level: 16, mindSessions: 27, endurance: 10, strength: 10 });
-    for (const derived of [lifter, scholar]) {
-      expect(derived.source).not.toBe(base.source);
-      expect(derived.animations).not.toBe(base.animations);
-      expect(derived.animations).toEqual(base.animations);
-    }
-    expect(lifter.source).not.toBe(scholar.source);
+    expect(lifter.source).not.toBe(base.source);
+    expect(lifter.animations).not.toBe(base.animations);
+    expect(lifter.animations).toEqual(base.animations);
+    expect(scholar.source).not.toBe(base.source);
+    expect(scholar.source).not.toBe(lifter.source);
+    expect(scholar.rows).toBe(16);
+    expect(scholar.videos?.clips.idle).toBeDefined();
   });
 
   it('plays the bear lifter its own clip for every band', () => {

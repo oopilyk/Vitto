@@ -28,7 +28,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { fillBehindGaps, fillHoles, keyBackground } from './keyBackground.mjs';
-import { AXOLOTL_KEY, BUNNY_RING_KEY, OTTER_KEY, gifFormSheets } from './gifForms.mjs';
+import { applyFrameErase } from './frameErase.mjs';
+import { AXOLOTL_KEY, BICHON_RUNNER_KEY, BUNNY_RING_KEY, OTTER_KEY, SHIBA_RUNNER_KEY, gifFormSheets, keyForClip } from './gifForms.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pets = path.join(root, 'assets/pet');
@@ -154,7 +155,8 @@ const FORMS = {
     box: { x: 52, y: 58, size: 672 },
     key: {},
     /*
-     *   idle-flex.gif  124 frames: 0-96 standing, ~100-116 flexes, then stands
+     *   idle-flex.gif  124 frames: 0-95 standing (one 31-frame cycle, three
+     *                  times), 96-118 flexes, then stands. The idle is 0-30.
      *   cheer.gif      0-4 stands, 7-20 jumps and pumps a fist
      *   run.gif        a hop, ONE CYCLE IS 18 FRAMES (6 matches 24)
      *   dizzy.gif      4+ spiral eyes, a ring of stars
@@ -162,7 +164,8 @@ const FORMS = {
      *   collapse.gif   10-15 winces, 16 drops, 17+ lies flat
      */
     band: {
-      idle: ['idle-flex', [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88]],
+      // One standing cycle in order, as the idle clip plays it.
+      idle: ['idle-flex', [0, 3, 5, 8, 11, 13, 16, 19, 21, 24, 27, 29]],
       cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
       move: ['run', [6, 8, 11, 13, 15, 17, 20, 22]],
       rest: ['collapse', [17, 19, 21, 23, 25, 27, 29, 30]],
@@ -178,7 +181,7 @@ const FORMS = {
     box: { x: 52, y: 58, size: 672 },
     key: BUNNY_RING_KEY,
     /*
-     *   idle.gif      27 frames, standing, blinking
+     *   idle.gif      27 frames, standing, blinking; 2-6 puffs its chest
      *   cheer.gif     6-20 jumps, medal flying
      *   run.gif       a quick hop, ONE STRIDE IS 3 FRAMES
      *   dizzy.gif     2+ a ring of stars
@@ -186,7 +189,8 @@ const FORMS = {
      *   lie-down.gif  0-11 winces, 12-14 drops, 15+ lies flat
      */
     band: {
-      idle: ['idle', [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]],
+      // Skips the chest puff (2-6), as the idle clip does.
+      idle: ['idle', [0, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 26]],
       cheer: ['cheer', [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]],
       // Two whole strides, so it loops.
       move: ['run', [6, 7, 8, 9, 10, 11]],
@@ -316,7 +320,7 @@ const FORMS = {
     // pixels) deep, grey then near white, which showed as a white line under
     // its feet; three passes only took the outer half. Not `greyFringe`: its
     // outline is a low-saturation blue-grey that that would peel too.
-    key: { fringePasses: 6 },
+    key: BICHON_RUNNER_KEY,
     // The GIFs make the fur above the headband see-through on some frames,
     // behind gaps in the dashed outline (see fillBehindGaps).
     capBehindGaps: { radius: 8, nextTo: (r, g, b) => r > 190 && g > 80 && g < 170 && b < 90 },
@@ -355,7 +359,7 @@ const FORMS = {
     source: 'shiba-runner',
     output: 'shibaRunner.png',
     box: { x: -13, y: -26, size: 796 },
-    key: { greyFringe: true, fringePasses: 4 },
+    key: SHIBA_RUNNER_KEY,
     /*
      * GIFs at 6fps, already cut out:
      *   idle.gif      28 frames, standing, blinking, wagging; 0 matches 27
@@ -483,11 +487,11 @@ try {
       grab(band.video, frame, raw);
       // Keyed at full size so the downscale resamples the ALPHA too, which is
       // what stops a pale fringe forming where the art meets the background.
-      const key = { ...form.key, cutOutPockets: form.cutOutPockets?.includes(band.video) ?? false };
+      const key = { ...keyForClip(form.key, band.video), cutOutPockets: form.cutOutPockets?.includes(band.video) ?? false };
       const frameIn = read(raw);
       if (form.fillHoles?.clips.includes(band.video)) fillHoles(frameIn, form.fillHoles.maxArea);
       if (form.capBehindGaps) fillBehindGaps(frameIn, form.capBehindGaps);
-      write(cut(keyBackground(frameIn, key), form.box), keyed);
+      write(cut(applyFrameErase(process.argv[2], band.video, frame, keyBackground(frameIn, key)), form.box), keyed);
       execFileSync('sips', ['-z', String(CELL), String(CELL), keyed, '--out', small], { stdio: 'ignore' });
 
       const cell = read(small);

@@ -380,11 +380,11 @@ const thickness = (patch, x0, y0, x1, y1, width) => {
 const NEAR_REACH = 3;
 
 /** Whether any pixel within NEAR_REACH of the patch is opaque and matches `test`. */
-const nearColour = ({ width, height, data }, patch, test) => {
+const nearColour = ({ width, height, data }, patch, test, reach = NEAR_REACH) => {
   for (const flat of patch) {
     const x = flat % width, y = (flat / width) | 0;
-    for (let dy = -NEAR_REACH; dy <= NEAR_REACH; dy += 1) {
-      for (let dx = -NEAR_REACH; dx <= NEAR_REACH; dx += 1) {
+    for (let dy = -reach; dy <= reach; dy += 1) {
+      for (let dx = -reach; dx <= reach; dx += 1) {
         const nx = x + dx, ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
         const i = (ny * width + nx) << 2;
@@ -393,6 +393,30 @@ const nearColour = ({ width, height, data }, patch, test) => {
     }
   }
   return false;
+};
+
+/** How far from a patch's edge `walled` looks for outline. */
+const WALL_REACH = 4;
+
+/** The share of a patch's edge pixels with outline (darker than `outlineLuma`) or the outside within WALL_REACH. */
+const wallShare = ({ width, height, data }, outside, patch, outlineLuma = OUTLINE_LUMA) => {
+  const inPatch = new Set(patch);
+  let edge = 0, walled = 0;
+  for (const flat of patch) {
+    const x = flat % width, y = (flat / width) | 0;
+    const onEdge = [x > 0 ? flat - 1 : -1, x < width - 1 ? flat + 1 : -1, flat - width, flat + width].some((n) => n < 0 || n >= width * height || !inPatch.has(n));
+    if (!onEdge) continue;
+    edge += 1;
+    search: for (let dy = -WALL_REACH; dy <= WALL_REACH; dy += 1) {
+      for (let dx = -WALL_REACH; dx <= WALL_REACH; dx += 1) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        const n = ny * width + nx, i = n << 2;
+        if (outside[n] || 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2] < outlineLuma) { walled += 1; break search; }
+      }
+    }
+  }
+  return edge ? walled / edge : 0;
 };
 
 /**
@@ -407,13 +431,21 @@ const nearColour = ({ width, height, data }, patch, test) => {
  * The limits can be changed for art that traps more than a slit: `area`,
  * `width` and `reach` replace CREASE_SPECK, CREASE_WIDTH and CREASE_REACH;
  * `thick` keeps a patch unless a square that size fits in it (see thickness);
- * `unlessNear(r, g, b)` keeps a patch with a pixel of that colour beside it;
+ * `unlessNear(r, g, b)` keeps a patch with a pixel of that colour beside it
+ * (within `nearReach`, default NEAR_REACH);
  * `paleLuma` raises how light counts as pale, for a pet whose own fur is a
  * light grey (the koala's); `open` keeps a patch unless it meets the
- * outside somewhere, as a gap between an arm and the body does; `rim` also
- * clears that many pixels of pale blend round a cleared patch.
+ * outside somewhere, as a gap between an arm and the body does (a number:
+ * along at least that many of its pixels, where fur behind a gap in a dashed
+ * outline meets it at a pixel or two); `rim` also
+ * clears that many pixels of pale blend round a cleared patch; `walled` keeps
+ * a patch unless at least that share of its edge has outline (or the outside)
+ * within WALL_REACH: matte left in a gap is ringed by outline all round, where
+ * light fur (a koala's ear, its belly) meets darker fur; `outlineLuma`
+ * raises how light still counts as outline (default OUTLINE_LUMA), for a soft
+ * grey outline (the bichon GIFs').
  */
-const fillCreaseSpecks = (png, outside, { clear = false, area = CREASE_SPECK, width: across = CREASE_WIDTH, reach = CREASE_REACH, thick = 0, unlessNear, paleLuma = 150, open = false, rim = 0 } = {}) => {
+const fillCreaseSpecks = (png, outside, { clear = false, area = CREASE_SPECK, width: across = CREASE_WIDTH, reach = CREASE_REACH, thick = 0, unlessNear, paleLuma = 150, open = false, rim = 0, walled = 0, nearReach = NEAR_REACH, outlineLuma = OUTLINE_LUMA } = {}) => {
   const { width, height, data } = png;
   const size = width * height;
   const luma = (flat) => {
@@ -437,7 +469,7 @@ const fillCreaseSpecks = (png, outside, { clear = false, area = CREASE_SPECK, wi
     }
     return out;
   };
-  const isDark = (flat) => !outside[flat] && luma(flat) < OUTLINE_LUMA;
+  const isDark = (flat) => !outside[flat] && luma(flat) < outlineLuma;
   const isPale = (flat) => !outside[flat] && chroma(flat) < 40 && luma(flat) > paleLuma;
 
   // Dark pixels reachable from the outside through dark pixels, within reach.
@@ -470,18 +502,21 @@ const fillCreaseSpecks = (png, outside, { clear = false, area = CREASE_SPECK, wi
     if (seen[start] || !isPale(start)) continue;
     const patch = [start];
     seen[start] = 1;
-    let touches = false, opens = false;
+    // `opens`: how many of the patch's pixels meet the outside.
+    let touches = false, opens = 0;
     for (let k = 0; k < patch.length; k += 1) {
+      let meets = false;
       for (const nb of around(patch[k])) {
         if (depth[nb] >= 0) touches = true;
-        if (outside[nb]) opens = true;
+        if (outside[nb]) meets = true;
         if (!seen[nb] && isPale(nb)) {
           seen[nb] = 1;
           patch.push(nb);
         }
       }
+      if (meets) opens += 1;
     }
-    if (!touches || patch.length > area || (open && !opens)) continue;
+    if (!touches || patch.length > area || opens < Number(open)) continue;
     // A slit, not a shape: background up a crease is a few pixels across;
     // paper or a highlight that happens to meet the outline is not.
     let x0 = width, x1 = 0, y0 = height, y1 = 0;
@@ -491,7 +526,8 @@ const fillCreaseSpecks = (png, outside, { clear = false, area = CREASE_SPECK, wi
     }
     if (Math.min(x1 - x0, y1 - y0) + 1 > across) continue;
     if (thick && thickness(patch, x0, y0, x1, y1, width) < thick) continue;
-    if (unlessNear && nearColour(png, patch, unlessNear)) continue;
+    if (unlessNear && nearColour(png, patch, unlessNear, nearReach)) continue;
+    if (walled && wallShare(png, outside, patch, outlineLuma) < walled) continue;
     if (clear) {
       for (const flat of patch) outside[flat] = 1;
       // With a raised `paleLuma`, the grey blend between the patch and its

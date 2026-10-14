@@ -119,6 +119,11 @@ export interface PetSheet {
    */
   frameMs?: Partial<Record<PetAnimation, number>>;
   /**
+   * Holds the idle's first frame this long each time round, so the idle plays
+   * now and then rather than nonstop (see CALM_IDLE_REST_MS). Absent: no hold.
+   */
+  idleRestMs?: number;
+  /**
    * Evolved forms of this companion, keyed by the build that earns them. Held on
    * the base sheet rather than listed alongside it so the breed picker keeps
    * offering exactly the forms a pet can be adopted as — an evolution is grown
@@ -138,6 +143,15 @@ export interface PetVideoClip extends ClipFiles {
   /** Loops, or plays once and stays on its last frame. */
   loop: boolean;
 }
+
+/**
+ * The koala, axolotl and cat forms' idle blinks, spaced out. Their clips carry
+ * the pauses themselves: a ~2 s open-eyed hold before each blink that came too
+ * soon after the last (IDLE_HOLDS in scripts/gifForms.mjs). The sheets'
+ * frame-by-frame idle (Android, pickers) is only 12 frames, too few to space
+ * that way, so it holds its first frame this long each time round instead.
+ */
+export const CALM_IDLE_REST_MS = 4000;
 
 export interface PetVideos {
   clips: Partial<Record<PetAnimation, PetVideoClip>>;
@@ -230,6 +244,70 @@ const runnerClips = (files: Record<'idle' | 'cheer' | 'run' | 'dizzy' | 'tired' 
   sad: { ...files.tired, loop: false },
   faint: { ...files['lie-down'], loop: false },
 });
+
+// ---------------------------------------------------------------------------
+// The generated set of evolved forms (shared shape)
+// ---------------------------------------------------------------------------
+
+/*
+ * Every one of these forms arrived as the same six GIFs (idle or idle-flex,
+ * celebrating, run, dizzy, sad, dying) drawn to the same timing, so they share
+ * one shape: scripts/gifForms.mjs holds their boxes and loop points, and
+ * buildVideoSheet.mjs / buildLifterVideos.mjs expand it into each form's sheet
+ * and clips. Each pet's three forms share one box (`GIF_FORM_CELLS`), sized so
+ * evolving does not resize the pet.
+ */
+type GifFormFiles = Record<'idle' | 'celebrating' | 'run' | 'dizzy' | 'sad' | 'dying' | 'lie', ClipFiles>;
+
+const GIF_FORM_CELLS = {
+  // The dogs' runners are cut on their own (buildVideoSheet.mjs); these are
+  // their lifter (shiba) and scholar forms, boxed to stand as the runner does.
+  shiba: { x: -13, y: -23, size: 796 },
+  bichon: { x: 67, y: 59, size: 639 },
+  tabbyCat: { x: -14, y: -4, size: 795 },
+  dino: { x: -4, y: -16, size: 779 },
+  fox: { x: -8, y: -34, size: 783 },
+  koala: { x: -43, y: -116, size: 856 },
+  otter: { x: 25, y: 15, size: 720 },
+} as const;
+
+const gifFormSheet = (
+  breed: PetBreed,
+  label: string,
+  source: ImageSourcePropType,
+  files: GifFormFiles,
+  artScale?: number,
+  /** Rest between idle play-throughs (see CALM_IDLE_REST_MS). */
+  calmIdle = false,
+): PetSheet => ({
+  name: breed,
+  label,
+  source,
+  rows: 16,
+  ...(artScale ? { artScale } : {}),
+  animations: gifFormBands({ unwell: 8 }),
+  // Every form's dizzy clip draws its own spiral eyes and stars.
+  selfDrawn: ['foggy'],
+  ...(calmIdle ? { idleRestMs: CALM_IDLE_REST_MS } : {}),
+  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 },
+  videos: {
+    frameSize: 768,
+    cell: GIF_FORM_CELLS[breed as keyof typeof GIF_FORM_CELLS],
+    clips: {
+      idle: { ...files.idle, loop: true },
+      cheer: { ...files.celebrating, loop: true },
+      move: { ...files.run, loop: true },
+      unwell: { ...files.dizzy, loop: true },
+      // Lying still, looped: the dying clip's last frames, without the fall.
+      rest: { ...files.lie, loop: true },
+      // Settle into a pose and stay there, rather than starting over.
+      sad: { ...files.sad, loop: false },
+      faint: { ...files.dying, loop: false },
+    },
+    selfDrawn: ['foggy'],
+  },
+});
+
 
 // ---------------------------------------------------------------------------
 // Bichon
@@ -356,7 +434,15 @@ const BICHON_LIFTER: PetSheet = {
   ...sheetFrom(BICHON_LAYOUT, 'Bichon · Lifter', require('../../assets/pet/bichonLifter.png')),
   videos: BICHON_LIFTER_VIDEOS,
 };
-const BICHON_SCHOLAR = sheetFrom(BICHON_LAYOUT, 'Bichon · Scholar', require('../../assets/pet/bichonScholar.png'));
+const BICHON_SCHOLAR = gifFormSheet('bichon', 'Bichon · Scholar', require('../../assets/pet/bichonScholar.png'), {
+  idle: { ...clipFiles('bichonScholar/idle') },
+  celebrating: { ...clipFiles('bichonScholar/celebrating') },
+  run: { ...clipFiles('bichonScholar/run') },
+  dizzy: { ...clipFiles('bichonScholar/dizzy') },
+  sad: { ...clipFiles('bichonScholar/sad') },
+  dying: { ...clipFiles('bichonScholar/dying') },
+  lie: { ...clipFiles('bichonScholar/lie') },
+}, BICHON_ART_SCALE);
 
 const BICHON: PetSheet = {
   ...sheetFrom(BICHON_LAYOUT, 'Bichon', require('../../assets/pet/bichon.png')),
@@ -416,8 +502,25 @@ const SHIBA_ANIMATIONS: PetSheet['animations'] = {
 
 const SHIBA_LAYOUT: SheetLayout = { name: 'shiba', animations: SHIBA_ANIMATIONS };
 
-const SHIBA_LIFTER = sheetFrom(SHIBA_LAYOUT, 'Shiba · Lifter', require('../../assets/pet/shibaLifter.png'));
-const SHIBA_SCHOLAR = sheetFrom(SHIBA_LAYOUT, 'Shiba · Scholar', require('../../assets/pet/shibaScholar.png'));
+const SHIBA_LIFTER = gifFormSheet('shiba', 'Shiba · Lifter', require('../../assets/pet/shibaLifter.png'), {
+  idle: { ...clipFiles('shibaLifter/idle-flex') },
+  celebrating: { ...clipFiles('shibaLifter/celebrating') },
+  run: { ...clipFiles('shibaLifter/run') },
+  dizzy: { ...clipFiles('shibaLifter/dizzy') },
+  sad: { ...clipFiles('shibaLifter/sad') },
+  dying: { ...clipFiles('shibaLifter/dying') },
+  lie: { ...clipFiles('shibaLifter/lie') },
+});
+
+const SHIBA_SCHOLAR = gifFormSheet('shiba', 'Shiba · Scholar', require('../../assets/pet/shibaScholar.png'), {
+  idle: { ...clipFiles('shibaScholar/idle') },
+  celebrating: { ...clipFiles('shibaScholar/celebrating') },
+  run: { ...clipFiles('shibaScholar/run') },
+  dizzy: { ...clipFiles('shibaScholar/dizzy') },
+  sad: { ...clipFiles('shibaScholar/sad') },
+  dying: { ...clipFiles('shibaScholar/dying') },
+  lie: { ...clipFiles('shibaScholar/lie') },
+});
 
 const SHIBA: PetSheet = {
   ...sheetFrom(SHIBA_LAYOUT, 'Shiba', require('../../assets/pet/shiba.png')),
@@ -435,58 +538,6 @@ const OTTER_ART_SCALE = 0.85;
 // The generated set of evolved forms: tabby cat, dino, fox, koala and otter
 // ---------------------------------------------------------------------------
 
-/*
- * Every one of these forms arrived as the same six GIFs (idle or idle-flex,
- * celebrating, run, dizzy, sad, dying) drawn to the same timing, so they share
- * one shape: scripts/gifForms.mjs holds their boxes and loop points, and
- * buildVideoSheet.mjs / buildLifterVideos.mjs expand it into each form's sheet
- * and clips. Each pet's three forms share one box (`GIF_FORM_CELLS`), sized so
- * evolving does not resize the pet.
- */
-type GifFormFiles = Record<'idle' | 'celebrating' | 'run' | 'dizzy' | 'sad' | 'dying' | 'lie', ClipFiles>;
-
-const GIF_FORM_CELLS = {
-  tabbyCat: { x: -14, y: -4, size: 795 },
-  dino: { x: -4, y: -16, size: 779 },
-  fox: { x: -8, y: -34, size: 783 },
-  koala: { x: -43, y: -116, size: 856 },
-  otter: { x: 25, y: 15, size: 720 },
-} as const;
-
-const gifFormSheet = (
-  breed: PetBreed,
-  label: string,
-  source: ImageSourcePropType,
-  files: GifFormFiles,
-  artScale?: number,
-): PetSheet => ({
-  name: breed,
-  label,
-  source,
-  rows: 16,
-  ...(artScale ? { artScale } : {}),
-  animations: gifFormBands({ unwell: 8 }),
-  // Every form's dizzy clip draws its own spiral eyes and stars.
-  selfDrawn: ['foggy'],
-  frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 },
-  videos: {
-    frameSize: 768,
-    cell: GIF_FORM_CELLS[breed as keyof typeof GIF_FORM_CELLS],
-    clips: {
-      idle: { ...files.idle, loop: true },
-      cheer: { ...files.celebrating, loop: true },
-      move: { ...files.run, loop: true },
-      unwell: { ...files.dizzy, loop: true },
-      // Lying still, looped: the dying clip's last frames, without the fall.
-      rest: { ...files.lie, loop: true },
-      // Settle into a pose and stay there, rather than starting over.
-      sad: { ...files.sad, loop: false },
-      faint: { ...files.dying, loop: false },
-    },
-    selfDrawn: ['foggy'],
-  },
-});
-
 const TABBY_CAT_LIFTER = gifFormSheet('tabbyCat', 'Tabby Cat · Lifter', require('../../assets/pet/tabbyCatLifter.png'), {
   idle: { ...clipFiles('tabbyCatLifter/idle-flex') },
   celebrating: { ...clipFiles('tabbyCatLifter/celebrating') },
@@ -495,7 +546,7 @@ const TABBY_CAT_LIFTER = gifFormSheet('tabbyCat', 'Tabby Cat · Lifter', require
   sad: { ...clipFiles('tabbyCatLifter/sad') },
   dying: { ...clipFiles('tabbyCatLifter/dying') },
   lie: { ...clipFiles('tabbyCatLifter/lie') },
-});
+}, undefined, true);
 
 const TABBY_CAT_RUNNER = gifFormSheet('tabbyCat', 'Tabby Cat · Runner', require('../../assets/pet/tabbyCatRunner.png'), {
   idle: { ...clipFiles('tabbyCatRunner/idle') },
@@ -505,7 +556,7 @@ const TABBY_CAT_RUNNER = gifFormSheet('tabbyCat', 'Tabby Cat · Runner', require
   sad: { ...clipFiles('tabbyCatRunner/sad') },
   dying: { ...clipFiles('tabbyCatRunner/dying') },
   lie: { ...clipFiles('tabbyCatRunner/lie') },
-});
+}, undefined, true);
 
 const TABBY_CAT_SCHOLAR = gifFormSheet('tabbyCat', 'Tabby Cat · Scholar', require('../../assets/pet/tabbyCatScholar.png'), {
   idle: { ...clipFiles('tabbyCatScholar/idle') },
@@ -515,10 +566,10 @@ const TABBY_CAT_SCHOLAR = gifFormSheet('tabbyCat', 'Tabby Cat · Scholar', requi
   sad: { ...clipFiles('tabbyCatScholar/sad') },
   dying: { ...clipFiles('tabbyCatScholar/dying') },
   lie: { ...clipFiles('tabbyCatScholar/lie') },
-});
+}, undefined, true);
 
 const DINO_LIFTER = gifFormSheet('dino', 'Dino · Lifter', require('../../assets/pet/dinoLifter.png'), {
-  idle: { ...clipFiles('dinoLifter/idle-flex') },
+  idle: { ...clipFiles('dinoLifter/idle') },
   celebrating: { ...clipFiles('dinoLifter/celebrating') },
   run: { ...clipFiles('dinoLifter/run') },
   dizzy: { ...clipFiles('dinoLifter/dizzy') },
@@ -585,7 +636,7 @@ const KOALA_LIFTER = gifFormSheet('koala', 'Koala · Lifter', require('../../ass
   sad: { ...clipFiles('koalaLifter/sad') },
   dying: { ...clipFiles('koalaLifter/dying') },
   lie: { ...clipFiles('koalaLifter/lie') },
-});
+}, undefined, true);
 
 const KOALA_RUNNER = gifFormSheet('koala', 'Koala · Runner', require('../../assets/pet/koalaRunner.png'), {
   idle: { ...clipFiles('koalaRunner/idle') },
@@ -595,7 +646,7 @@ const KOALA_RUNNER = gifFormSheet('koala', 'Koala · Runner', require('../../ass
   sad: { ...clipFiles('koalaRunner/sad') },
   dying: { ...clipFiles('koalaRunner/dying') },
   lie: { ...clipFiles('koalaRunner/lie') },
-});
+}, undefined, true);
 
 const KOALA_SCHOLAR = gifFormSheet('koala', 'Koala · Scholar', require('../../assets/pet/koalaScholar.png'), {
   idle: { ...clipFiles('koalaScholar/idle') },
@@ -605,7 +656,7 @@ const KOALA_SCHOLAR = gifFormSheet('koala', 'Koala · Scholar', require('../../a
   sad: { ...clipFiles('koalaScholar/sad') },
   dying: { ...clipFiles('koalaScholar/dying') },
   lie: { ...clipFiles('koalaScholar/lie') },
-});
+}, undefined, true);
 
 const OTTER_LIFTER = gifFormSheet('otter', 'Otter · Lifter', require('../../assets/pet/otterLifter.png'), {
   idle: { ...clipFiles('otterLifter/idle-flex') },
@@ -772,7 +823,7 @@ const BUNNY_LAYOUT: SheetLayout = {
  */
 const bunnyClip = (form: string, name: string): ClipFiles => BUNNY_CLIP_FILES[`${form}/${name}`]!;
 const BUNNY_CLIP_FILES: Record<string, ClipFiles> = {
-  'bunnyLifter/idle-flex': { ...clipFiles('bunnyLifter/idle-flex') },
+  'bunnyLifter/idle': { ...clipFiles('bunnyLifter/idle') },
   'bunnyLifter/cheer': { ...clipFiles('bunnyLifter/cheer') },
   'bunnyLifter/run': { ...clipFiles('bunnyLifter/run') },
   'bunnyLifter/dizzy': { ...clipFiles('bunnyLifter/dizzy') },
@@ -830,7 +881,7 @@ const BUNNY_LIFTER: PetSheet = {
     frameSize: 768,
     cell: BUNNY_FORM_CELL,
     clips: {
-      idle: { ...bunnyClip('bunnyLifter', 'idle-flex'), loop: true },
+      idle: { ...bunnyClip('bunnyLifter', 'idle'), loop: true },
       cheer: { ...bunnyClip('bunnyLifter', 'cheer'), loop: true },
       // One whole 18-frame hop, so the loop never stutters.
       move: { ...bunnyClip('bunnyLifter', 'run'), loop: true },
@@ -1244,6 +1295,7 @@ const AXOLOTL_LIFTER: PetSheet = {
   animations: gifFormBands({ unwell: 8 }),
   selfDrawn: ['foggy'],
   frameMs: AXOLOTL_FORM_TIMING,
+  idleRestMs: CALM_IDLE_REST_MS,
   videos: {
     frameSize: 768,
     cell: AXOLOTL_FORM_CELL,
@@ -1270,6 +1322,7 @@ const AXOLOTL_RUNNER: PetSheet = {
   animations: gifFormBands({ unwell: 8 }),
   selfDrawn: ['foggy'],
   frameMs: AXOLOTL_FORM_TIMING,
+  idleRestMs: CALM_IDLE_REST_MS,
   videos: {
     frameSize: 768,
     cell: AXOLOTL_FORM_CELL,
@@ -1295,6 +1348,7 @@ const AXOLOTL_SCHOLAR: PetSheet = {
   animations: gifFormBands({ unwell: 8 }),
   selfDrawn: ['foggy'],
   frameMs: AXOLOTL_FORM_TIMING,
+  idleRestMs: CALM_IDLE_REST_MS,
   videos: {
     frameSize: 768,
     cell: AXOLOTL_FORM_CELL,

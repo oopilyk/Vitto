@@ -29,9 +29,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { fillBehindGaps, fillHoles, keyBackground } from './keyBackground.mjs';
-import { AXOLOTL_KEY, BUNNY_RING_KEY, OTTER_KEY, gifFormClips } from './gifForms.mjs';
+import { applyFrameErase, sourceFrame } from './frameErase.mjs';
+import { AXOLOTL_KEY, BICHON_RUNNER_KEY, BUNNY_RING_KEY, IDLE_HOLDS, OTTER_KEY, SHIBA_RUNNER_KEY, gifFormClips, keyForClip } from './gifForms.mjs';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+/** The bichon lifter's red headband and blue bow, dark edges included. */
+const BICHON_BAND_OR_BOW = (r, g, b) => (r > 80 && r - g > 50 && r - b > 40) || (b > 60 && b - r > 35 && b - g > 20);
 /**
  * The forms animated as video rather than drawn (the lifters, and now the
  * bear runner). `clips` are the file names
@@ -43,6 +46,21 @@ const PETS = {
     source: 'bichon-lifter',
     output: 'bichonLifter',
     clips: ['idle', 'idle-flex', 'jump', 'walk', 'dizzy', 'hurt'],
+    // The videos' background is the dog's own white, so only the flood from
+    // the border is safe in general. But where the art closes round a gap (the
+    // slit between the legs, under a fist raised to flex, inside the curl of
+    // the tail) the background shows through as white walled in by outline all
+    // round, which the fur's white never is: it meets grey shading somewhere.
+    // Not beside the red headband or the blue bow, which wall in the fur on
+    // top of the head and down the chest.
+    key: { clearCreases: [
+      // The slits, up to 9px across.
+      { area: 300, width: 9, reach: 40, paleLuma: 235, walled: 0.95, nearReach: 6, unlessNear: BICHON_BAND_OR_BOW },
+      // Then the gaps, which are solid (a 9px square fits), unlike an eye's spiral.
+      // Its outline is soft at the edges: up to ~110 counts, or a gap
+      // between the tail and the head (walk, idle-flex) is not walled.
+      { area: 3000, width: 70, reach: 40, thick: 9, paleLuma: 235, walled: 0.9, nearReach: 6, unlessNear: BICHON_BAND_OR_BOW, outlineLuma: 110 },
+    ] },
   },
   bear: {
     source: 'bear-lifter',
@@ -92,10 +110,12 @@ const PETS = {
   bunnyLifter: {
     source: 'bunny-lifter',
     output: 'bunnyLifter',
-    // The run loops one whole 18-frame hop (6 matches 24); `lie` is the
+    // The idle is idle-flex's standing part without the flex (96-118): it
+    // repeats one 31-frame cycle (31 and 62 match 0 exactly), so it loops
+    // 0-30. The run loops one whole 18-frame hop (6 matches 24); `lie` is the
     // collapse's lying-still tail, looped, for rest.
     clips: [
-      'idle-flex',
+      { name: 'idle', from: 'idle-flex', frames: [0, 30] },
       'cheer',
       { name: 'run', frames: [6, 23] },
       'dizzy',
@@ -108,8 +128,10 @@ const PETS = {
     source: 'bunny-runner',
     output: 'bunnyRunner',
     key: BUNNY_RING_KEY,
-    // A quick hop, three frames a stride: eight strides loop cleanly.
-    clips: ['idle', 'cheer', { name: 'run', frames: [6, 29] }, 'dizzy', 'tired', 'lie-down'],
+    // The idle drops 2-6, where it puffs its chest out (the medal pushes
+    // forward); 1 joins 7 as smoothly as 6 did. A quick hop, three frames a
+    // stride: eight strides loop cleanly.
+    clips: [{ name: 'idle', frames: [0, 26], skip: [2, 6] }, 'cheer', { name: 'run', frames: [6, 29] }, 'dizzy', 'tired', 'lie-down'],
   },
   bunnyScholar: {
     source: 'bunny-scholar',
@@ -125,19 +147,19 @@ const PETS = {
     source: 'axolotl-lifter',
     output: 'axolotlLifter',
     key: AXOLOTL_KEY.axolotlLifter,
-    clips: ['idle-flex', 'cheer', { name: 'run', frames: [1, 30] }, 'dizzy', 'sad', 'collapse', { name: 'lie', from: 'collapse', frames: [22, 30] }],
+    clips: [{ name: 'idle-flex', hold: IDLE_HOLDS.axolotlLifter }, 'cheer', { name: 'run', frames: [1, 30] }, 'dizzy', 'sad', 'collapse', { name: 'lie', from: 'collapse', frames: [22, 30] }],
   },
   axolotlRunner: {
     source: 'axolotl-runner',
     output: 'axolotlRunner',
     key: AXOLOTL_KEY.axolotlRunner,
-    clips: ['idle', 'cheer', { name: 'run', frames: [1, 30] }, { name: 'dizzy', frames: [3, 30] }, 'tired', 'lie-down', { name: 'lie', from: 'lie-down', frames: [22, 30] }],
+    clips: [{ name: 'idle', hold: IDLE_HOLDS.axolotlRunner }, 'cheer', { name: 'run', frames: [1, 30] }, { name: 'dizzy', frames: [3, 30] }, 'tired', 'lie-down', { name: 'lie', from: 'lie-down', frames: [22, 30] }],
   },
   axolotlScholar: {
     source: 'axolotl-scholar',
     output: 'axolotlScholar',
     key: AXOLOTL_KEY.axolotlScholar,
-    clips: ['idle', 'cheer', { name: 'walk', frames: [1, 30] }, 'dizzy', 'cry', 'collapse', { name: 'lie', from: 'collapse', frames: [22, 30] }],
+    clips: [{ name: 'idle', hold: IDLE_HOLDS.axolotlScholar }, 'cheer', { name: 'walk', frames: [1, 30] }, 'dizzy', 'cry', 'collapse', { name: 'lie', from: 'collapse', frames: [22, 30] }],
   },
   // The bichon and shiba runners: GIFs at 6fps, already cut out, keyed as
   // their sheets are in buildVideoSheet.mjs. Loops are cut to whole strides
@@ -149,7 +171,7 @@ const PETS = {
     // behind gaps in the dashed outline (see fillBehindGaps).
     capBehindGaps: { radius: 8, nextTo: (r, g, b) => r > 190 && g > 80 && g < 170 && b < 90 },
     // Same key as its sheet: peels the pale rim under its outline.
-    key: { fringePasses: 6 },
+    key: BICHON_RUNNER_KEY,
     clips: [
       // Just the tail wag, which loops cleanly.
       { name: 'idle', frames: [16, 23] },
@@ -173,7 +195,7 @@ const PETS = {
       'lie-down',
       { name: 'lie', from: 'lie-down', frames: [15, 30] },
     ],
-    key: { greyFringe: true, fringePasses: 4 },
+    key: SHIBA_RUNNER_KEY,
   },
   // The base otter: GIFs at 6fps, already cut out. Same key as its sheet in
   // buildVideoSheet.mjs: peels the light-grey ring round the outline.
@@ -222,23 +244,43 @@ const work = fs.mkdtempSync(path.join(os.tmpdir(), `${pet.output}-video-`));
 try {
   for (const entry of CLIPS) {
     // A clip is a source file's name, or { name, from, frames: [first, last] }
-    // to cut one out of part of another source.
-    const { name: clip, from = clip, frames: range } = typeof entry === 'string' ? { name: entry } : entry;
+    // to cut one out of part of another source, optionally with `skip:
+    // [first, last]` dropping a stretch from the middle of that range.
+    // `hold: { at: [...], frames }` shows each listed source frame `frames`
+    // times in all, a still pause (see IDLE_HOLDS in gifForms.mjs).
+    const { name: clip, from = clip, frames: range, skip, hold } = typeof entry === 'string' ? { name: entry } : entry;
     // A pre-cut GIF of a clip wins over its video; keyBackground starts from
     // the GIF's own transparency.
     const gif = path.join(sources, `${from}.gif`);
     const source = fs.existsSync(gif) ? gif : path.join(sources, `${from}.mp4`);
     const frames = path.join(work, clip);
     fs.mkdirSync(frames);
-    const key = { ...pet.key, cutOutPockets: pet.cutOutPockets?.includes(from) ?? false };
-    const filter = range ? `fps=${FPS},select='between(n\\,${range[0]}\\,${range[1]})'` : `fps=${FPS}`;
+    const key = { ...keyForClip(pet.key, from), cutOutPockets: pet.cutOutPockets?.includes(from) ?? false };
+    const dropped = skip ? `*not(between(n\\,${skip[0]}\\,${skip[1]}))` : '';
+    const filter = range ? `fps=${FPS},select='between(n\\,${range[0]}\\,${range[1]})${dropped}'` : `fps=${FPS}`;
     execFileSync('ffmpeg', ['-v', 'error', '-i', source, '-vf', filter, '-fps_mode', 'vfr', '-pix_fmt', 'rgba', path.join(frames, '%04d.png')]);
     for (const file of fs.readdirSync(frames)) {
       const raw = PNG.sync.read(fs.readFileSync(path.join(frames, file)));
       if (pet.fillHoles?.clips.includes(from)) fillHoles(raw, pet.fillHoles.maxArea);
       if (pet.capBehindGaps) fillBehindGaps(raw, pet.capBehindGaps);
-      const png = keyBackground(raw, key);
+      // By output name: the bichon lifter is built as `bichon`.
+      const png = applyFrameErase(pet.output, from, sourceFrame(file, range, skip), keyBackground(raw, key));
       fs.writeFileSync(path.join(frames, file), PNG.sync.write(png));
+    }
+    // Holds repeat a finished (keyed and erased) frame, so a repeat is that
+    // source frame exactly; the sequence is renumbered into a fresh folder.
+    let sequence = frames;
+    if (hold) {
+      sequence = path.join(work, `${clip}-held`);
+      fs.mkdirSync(sequence);
+      let n = 0;
+      for (const file of fs.readdirSync(frames).sort()) {
+        const repeat = hold.at.includes(sourceFrame(file, range, skip)) ? hold.frames : 1;
+        for (let k = 0; k < repeat; k += 1) {
+          n += 1;
+          fs.copyFileSync(path.join(frames, file), path.join(sequence, `${String(n).padStart(4, '0')}.png`));
+        }
+      }
     }
     // ProRes 4444 first (it carries alpha and ffmpeg can write it anywhere),
     // then Apple's own encoder for the HEVC-with-alpha the app ships. ffmpeg's
@@ -246,7 +288,7 @@ try {
     const prores = path.join(work, `${clip}.mov`);
     execFileSync('ffmpeg', [
       '-y', '-v', 'error',
-      '-framerate', String(FPS), '-i', path.join(frames, '%04d.png'),
+      '-framerate', String(FPS), '-i', path.join(sequence, '%04d.png'),
       '-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le',
       prores,
     ]);
@@ -255,11 +297,11 @@ try {
     const webm = path.join(output, `${clip}.webm`);
     execFileSync('ffmpeg', [
       '-y', '-v', 'error',
-      '-framerate', String(FPS), '-i', path.join(frames, '%04d.png'),
+      '-framerate', String(FPS), '-i', path.join(sequence, '%04d.png'),
       '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-crf', '18', '-b:v', '0', '-auto-alt-ref', '0',
       webm,
     ]);
-    console.log(`wrote ${path.relative(root, target)} and .webm (${fs.readdirSync(frames).length} frames)`);
+    console.log(`wrote ${path.relative(root, target)} and .webm (${fs.readdirSync(sequence).length} frames)`);
   }
 } finally {
   fs.rmSync(work, { recursive: true, force: true });

@@ -21,7 +21,7 @@
  * the body treatment — there is no reliable head to hang an accessory on.
  *
  * Inputs:  mobile/assets/pet/<breed>.png for every breed in `SHEETS`
- * Outputs: mobile/assets/pet/<breed>Lifter.png, <breed>Scholar.png
+ * Outputs: mobile/assets/pet/<breed>Lifter.png and/or <breed>Scholar.png, per `builds`
  *
  * Re-run from the repo root (deterministic, overwrites in place):
  *
@@ -49,23 +49,17 @@ const ASSET_DIR = path.resolve(HERE, '..', 'assets', 'pet');
 const OPAQUE = 24;
 
 const SHEETS = [
-  // Only the bichon and shiba still wear these pasted-on forms. The bear and
-  // bunny have their own animated forms (scripts/buildVideoSheet.mjs), which
-  // running this for them would overwrite; the other animals have no evolved
-  // art for now and show their base sheet when they evolve.
+  // Only the bichon lifter's sheet is still this pasted-on form (its clips are
+  // the videos). Every other evolved form has its own animated art, cut by
+  // scripts/buildVideoSheet.mjs, which running this for it would overwrite:
+  // so `builds` lists the only sheets written.
   {
     base: 'bichon',
+    builds: ['lifter'],
     columns: 4,
     rows: 11,
     cell: 128,
     preview: [[0, 0], [2, 2], [4, 0], [9, 0], [7, 1], [9, 2]],
-  },
-  {
-    base: 'shiba',
-    columns: 4,
-    rows: 11,
-    cell: 128,
-    preview: [[0, 0], [2, 2], [4, 3], [8, 0], [9, 0], [10, 0]],
   },
 ];
 
@@ -755,9 +749,9 @@ const buildSheet = (sheet, previewDir) => {
 
   const lifterPath = path.join(ASSET_DIR, `${sheet.base}Lifter.png`);
   const scholarPath = path.join(ASSET_DIR, `${sheet.base}Scholar.png`);
-  writePng(lifterPath, lifter);
-  writePng(scholarPath, scholar);
-  console.log(`${sheet.base}: wrote ${path.basename(lifterPath)} and ${path.basename(scholarPath)} (${png.width}x${png.height})`);
+  if (sheet.builds.includes('lifter')) writePng(lifterPath, lifter);
+  if (sheet.builds.includes('scholar')) writePng(scholarPath, scholar);
+  console.log(`${sheet.base}: wrote ${sheet.builds.map((build) => `${sheet.base}${build[0].toUpperCase()}${build.slice(1)}.png`).join(' and ')} (${png.width}x${png.height})`);
 
   if (previewDir) writePreview(sheet, cells, previewDir);
 };

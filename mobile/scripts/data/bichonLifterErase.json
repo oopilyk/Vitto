@@ -1,0 +1,51 @@
+{
+  "paleMin": 220,
+  "rim": 2,
+  "clips": {
+    "dizzy": [
+      {"box": [426, 542, 434, 550], "frames": [11], "note": "between the legs (141px)"},
+      {"box": [427, 546, 435, 554], "frames": [16], "note": "between the legs (72px)"},
+      {"box": [425, 545, 433, 553], "frames": [23], "note": "between the legs (36px)"},
+      {"box": [427, 546, 435, 554], "frames": [27], "note": "between the legs (72px)"}
+    ],
+    "hurt": [
+      {"box": [238, 410, 246, 418], "frames": [5], "note": "between the tail strokes (690px)"},
+      {"box": [238, 410, 246, 418], "frames": [10], "note": "between the tail strokes (717px)"},
+      {"box": [262, 408, 270, 416], "frames": [14], "note": "between the tail strokes (270px)"},
+      {"box": [265, 407, 273, 415], "frames": [17], "note": "tail pocket (117px)"},
+      {"box": [272, 407, 280, 415], "frames": [27], "note": "tail pocket (108px)"},
+      {"box": [288, 395, 296, 403], "frames": [27], "note": "tail pocket (99px)"},
+      {"box": [272, 407, 280, 415], "frames": [27], "note": "tail pocket (108px)"}
+    ],
+    "idle": [
+      {"box": [427, 540, 435, 548], "frames": [30], "note": "between the legs (114px)"}
+    ],
+    "idle-flex": [
+      {"box": [425, 542, 433, 550], "frames": [10], "note": "between the legs (45px)"},
+      {"box": [425, 540, 433, 548], "frames": [11], "note": "between the legs (54px)"},
+      {"box": [425, 540, 433, 548], "frames": [12], "note": "between the legs (54px)"},
+      {"box": [426, 540, 434, 548], "frames": [36], "note": "between the legs (111px)"},
+      {"box": [425, 541, 433, 549], "frames": [41], "note": "between the legs (63px)"},
+      {"box": [425, 540, 433, 548], "frames": [42], "note": "between the legs (54px)"},
+      {"box": [425, 540, 433, 548], "frames": [43], "note": "between the legs (54px)"},
+      {"box": [427, 541, 435, 549], "frames": [67], "note": "between the legs (139px)"},
+      {"box": [425, 541, 433, 549], "frames": [72], "note": "between the legs (63px)"},
+      {"box": [425, 540, 433, 548], "frames": [73], "note": "between the legs (54px)"},
+      {"box": [425, 540, 433, 548], "frames": [74], "note": "between the legs (54px)"},
+      {"box": [426, 540, 434, 548], "frames": [84], "note": "between the legs (114px)"}
+    ],
+    "jump": [
+      {"box": [284, 408, 292, 416], "frames": [13], "note": "inside the tail curl (212px)"},
+      {"box": [287, 400, 295, 408], "frames": [20], "note": "inside the tail curl (394px)"},
+      {"box": [426, 541, 434, 549], "frames": [30], "note": "between the legs (173px)"}
+    ],
+    "walk": [
+      {"box": [328, 542, 336, 550], "frames": [4], "note": "by the back leg (135px)"},
+      {"box": [338, 557, 346, 565], "frames": [4], "note": "by the back leg (50px)"},
+      {"box": [326, 545, 334, 553], "frames": [7], "note": "by the back leg (198px)"},
+      {"box": [274, 361, 282, 369], "frames": [18], "note": "between the tail and the head (441px)"},
+      {"box": [273, 362, 281, 370], "frames": [24], "note": "between the tail and the head (432px)"},
+      {"box": [276, 362, 284, 370], "frames": [30], "note": "between the tail and the head (387px)"}
+    ]
+  }
+}

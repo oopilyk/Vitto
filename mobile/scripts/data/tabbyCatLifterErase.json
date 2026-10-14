@@ -1,0 +1,12 @@
+{
+  "rim": 2,
+  "clips": {
+    "idle-flex": [
+      {
+        "box": [300, 352, 335, 410],
+        "frames": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117],
+        "note": "the flex: matte in the gap between the raised fist and the cheek (~1,100px), and the slit above it up between the knuckles and the head; the fist itself (centre x~274-283) and the face (x~440) lie outside the box"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "_": "White matte left in the fox lifter's keyed frames, found by looking at every frame of every clip. See scripts/frameErase.mjs. Boxes are [x0, y0, x1, y1] in the 768px GIF frame; a rule without frames applies to every frame.",
+  "edge": 2,
+  "clips": {
+    "idle-flex": [
+      { "box": [300, 395, 380, 500], "note": "the patch where the tail meets the body (frames 0, 6 of each loop), specks along that join and in the neck crease, and the gap under the flexing arm (102-114)" }
+    ],
+    "celebrating": [
+      { "box": [325, 330, 345, 352], "note": "speck between the tail and the head (0-4, 28-30)" },
+      { "box": [315, 355, 362, 485], "note": "the patch where the tail meets the body (0), and specks along the tail's join to head and body (5, 13-15, 22)" }
+    ],
+    "run": [
+      { "box": [545, 380, 570, 432], "note": "matte on the tips of the cheek fluff" },
+      { "box": [340, 395, 370, 425], "note": "the crease between the tail and the back" }
+    ],
+    "dizzy": [
+      { "box": [290, 290, 365, 485], "note": "the strip between the tail and the head (7, 13, 19, 25) and the patch where the tail meets the body (1, 11, 17, 29)" }
+    ]
+  },
+  "keep": {}
+}

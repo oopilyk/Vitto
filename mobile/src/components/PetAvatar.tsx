@@ -217,14 +217,19 @@ export function PetAvatar({
     // A collapse plays once and stays down. Looping it would stand the pet back
     // up every couple of seconds, which reads as recovery that never happened.
     const holds = HOLDS_LAST_FRAME.has(animation);
-    const timer = setInterval(
-      () =>
-        setFrameIndex((current) =>
-          holds ? Math.min(current + 1, frames.length - 1) : (current + 1) % frames.length,
-        ),
-      sheet.frameMs?.[animation] ?? FRAME_MS[animation],
-    );
-    return () => clearInterval(timer);
+    const step = sheet.frameMs?.[animation] ?? FRAME_MS[animation];
+    // An idle that rests between play-throughs holds its first frame that long
+    // each time round (see CALM_IDLE_REST_MS).
+    const rest = animation === 'idle' ? sheet.idleRestMs ?? 0 : 0;
+    let index = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const advance = () => {
+      index = holds ? Math.min(index + 1, frames.length - 1) : (index + 1) % frames.length;
+      setFrameIndex(index);
+      timer = setTimeout(advance, index === 0 && rest ? step + rest : step);
+    };
+    timer = setTimeout(advance, rest ? step + rest : step);
+    return () => clearTimeout(timer);
   }, [animation, frames.length, sheet, clip, paused]);
 
   // A gentle bob on top of the frame animation, so idle never sits perfectly still.

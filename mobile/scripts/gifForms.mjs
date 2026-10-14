@@ -24,13 +24,40 @@ const spread = (from, to, count) => Array.from({ length: count }, (_, i) => Math
  * body, and under the stars. Its own fur is a light grey (~216) the crease
  * test would take for white, so only near-white (the matte, ~240) counts; and
  * where a clip's matte came out the fur's own grey, only a wedge open to the
- * outside goes, which fur walled in by outline never is.
+ * outside goes, which fur walled in by outline never is (taking the pale
+ * blend round it too, which showed as a white notch in the outline).
+ *
+ * Two more are walled in, so not open: the patch between the flexing arm and
+ * the head (~850px, the fur's grey), and specks between the claws of a raised
+ * paw. What sets both apart from the fur's light patches (the ears, the belly)
+ * is that outline rings them all round, where those meet darker fur; the
+ * teeth are ringed too, but sit in the red mouth.
  */
+const MOUTH = (r, g, b) => r > 150 && r - g > 60;
 const KOALA_CREASES = [
   { reach: 8, paleLuma: 230 },
   { area: 1500, width: 40, thick: 12, paleLuma: 230 },
-  { area: 1500, width: 40, reach: 200, paleLuma: 200, open: true },
+  { area: 1500, width: 40, reach: 200, paleLuma: 200, open: true, rim: 2 },
+  // Pale notches in the outline (under a foot, beside an arm) that the peel
+  // stops short of: tiny, and blended down to ~190.
+  { area: 60, width: 12, reach: 200, paleLuma: 185, open: true },
 ];
+/** The walled-in patches, as solid as `thick` (the slit under the runner's arm is 9px). */
+const koalaWalled = (thick) => ({ area: 1500, width: 50, thick, reach: 200, paleLuma: 200, walled: 0.9, unlessNear: MOUTH, nearReach: 6, rim: 2 });
+const KOALA_CLAWS = { reach: 40, paleLuma: 230, walled: 0.9, unlessNear: MOUTH, nearReach: 6, rim: 3 };
+// The dizzy clips' spiral eyes are white strokes ringed by outline too, up to
+// ~9px wide: there only a solid patch goes, and no claw specks.
+const KOALA_KEY = {
+  fringePasses: 4,
+  clearCreases: [...KOALA_CREASES, koalaWalled(9), KOALA_CLAWS],
+  byClip: { dizzy: { clearCreases: [...KOALA_CREASES, koalaWalled(12)] } },
+};
+
+/**
+ * A key may carry `byClip`: per source clip, options that replace its own for
+ * that clip. This resolves it for one clip.
+ */
+export const keyForClip = ({ byClip, ...key } = {}, clip) => ({ ...key, ...byClip?.[clip] });
 
 /**
  * The otters' dizzy GIFs leave a ~2,000px patch of matte between the raised
@@ -52,17 +79,24 @@ const PETS = {
   tabbyCat: { box: { x: -14, y: -4, size: 795 }, key: { fringePasses: 4 } },
   dino: { box: { x: -4, y: -16, size: 779 }, key: { fringePasses: 4 } },
   fox: { box: { x: -8, y: -34, size: 783 }, key: { fringePasses: 4 } },
-  koala: { box: { x: -43, y: -116, size: 856 }, key: { fringePasses: 4, clearCreases: KOALA_CREASES } },
+  koala: { box: { x: -43, y: -116, size: 856 }, key: KOALA_KEY },
   // The base otter's own box: its forms stand exactly as it does.
   otter: { box: { x: 25, y: 15, size: 720 }, key: OTTER_KEY },
+  // The dogs' lifter and scholar match their runner (buildVideoSheet.mjs), so
+  // take its key. The shiba's are drawn its size with the feet 3px lower
+  // (y=605, not 602), so its box moves down 3px; the bichon scholar's is
+  // drawn ~7% bigger (399px tall against 374) with the feet at y=608, not 593,
+  // so its box grows to match, keeping the runner's floor line and centre.
+  shiba: { box: { x: -13, y: -23, size: 796 }, key: { greyFringe: true, fringePasses: 4 } },
+  bichon: { box: { x: 67, y: 59, size: 639 }, key: { fringePasses: 6 } },
 };
 
 /** [source folder, pet, idle clip, run loop, dying flat from]. */
 const FORMS = {
-  tabbyCatLifter: ['cat-lifter', 'tabbyCat', 'idle-flex', [1, 23], 18],
+  tabbyCatLifter: ['cat-lifter', 'tabbyCat', 'idle-flex', [4, 24], 14],
   tabbyCatRunner: ['cat-runner', 'tabbyCat', 'idle', [1, 24], 18],
   tabbyCatScholar: ['cat-scholar', 'tabbyCat', 'idle', [2, 19], 19],
-  dinoLifter: ['dino-lifter', 'dino', 'idle-flex', [3, 17], 18],
+  dinoLifter: ['dino-lifter', 'dino', 'idle', [3, 17], 18],
   dinoRunner: ['dino-runner', 'dino', 'idle', [4, 23], 22],
   dinoScholar: ['dino-scholar', 'dino', 'idle', [5, 25], 20],
   foxLifter: ['fox-lifter', 'fox', 'idle-flex', [8, 25], 21],
@@ -74,7 +108,42 @@ const FORMS = {
   otterLifter: ['otter-lifter', 'otter', 'idle-flex', [6, 22], 19],
   otterRunner: ['otter-runner', 'otter', 'idle', [8, 24], 20],
   otterScholar: ['otter-scholar', 'otter', 'idle', [3, 27], 18],
+  // A stride is 4 frames and drifts; frame 0 is the same as 24, so 0-23 joins.
+  shibaLifter: ['shiba-lifter', 'shiba', 'idle-flex', [0, 23], 21],
+  shibaScholar: ['shiba-scholar', 'shiba', 'idle', [6, 21], 15],
+  bichonScholar: ['bichon-scholar', 'bichon', 'idle', [7, 21], 14],
 };
+
+/**
+ * The dogs' GIFs leave their off-white matte (~249,241,232 on the shibas)
+ * between the wagging tail and the back or bandana, and between the legs. Solid
+ * patches with outline all round go; the shibas' cream (~250,235,215) meets
+ * orange fur, not outline. Shared with the shiba runner (buildVideoSheet.mjs,
+ * buildLifterVideos.mjs). `rim`: the grey blend round a gap (an art pixel is
+ * 3px, so one step of it) showed as a white ring round the hole.
+ */
+export const SHIBA_GAPS = { area: 3000, width: 70, thick: 9, paleLuma: 200, walled: 0.95, rim: 3 };
+/**
+ * The bichons' matte is their fur's own white, so only shape tells: a gap
+ * walled by outline all round and open to the outside (the slot between the
+ * tail and the back, the notch between the legs), up to 2,000px. The scholar's
+ * outline is a soft grey (~75), so lighter still counts as outline. Its
+ * enclosed pockets (the tail pressed to the back) go too when solid, but not
+ * beside the book, bow or star, whose pages and shine are as white.
+ */
+const BICHON_ART = (r, g, b) => (r > 80 && r - g > 50 && r - b > 40) || (b > 60 && b - r > 35 && b - g > 20) || (r > 180 && g > 140 && b < 120 && r - b > 80);
+export const BICHON_GAP = { area: 2000, width: 70, thick: 9, paleLuma: 200, open: true, walled: 0.95, outlineLuma: 110 };
+const BICHON_GAPS = [BICHON_GAP, { ...BICHON_GAP, open: false, thick: 12, unlessNear: BICHON_ART, nearReach: 6 }];
+
+/**
+ * The runners' keys, shared by buildVideoSheet.mjs and buildLifterVideos.mjs.
+ * The bichon runner's dashed outline lets the outside in to its fur at a pixel
+ * or two, so its gap must meet the outside along 5 or more, and not beside the
+ * headband (or a star), above which the fur is walled in all the same. The
+ * shiba runner's dizzy face and tired muzzle are white ringed by outline too.
+ */
+export const BICHON_RUNNER_KEY = { fringePasses: 6, clearCreases: { ...BICHON_GAP, open: 5, unlessNear: (r, g, b) => r > 140 && r - b > 90, nearReach: 6 } };
+export const SHIBA_RUNNER_KEY = { greyFringe: true, fringePasses: 4, clearCreases: SHIBA_GAPS, byClip: { dizzy: { clearCreases: false }, tired: { clearCreases: false } } };
 
 /**
  * Extra keying for a form whose GIFs left background behind inside the art.
@@ -95,6 +164,10 @@ const EXTRA_KEY = {
   foxLifter: { key: { clearCreases: { area: 3000, width: 60, thick: 12, reach: 200, unlessNear: (r, g, b) => r > 215 && g > 190 && b > 130 && b < 185 && r - b > 45 } } },
   foxRunner: { key: { clearCreases: { area: 3000, width: 60, thick: 12, reach: 200, unlessNear: (r, g, b) => r > 215 && g > 190 && b > 130 && b < 185 && r - b > 45 } } },
   foxScholar: { key: { clearCreases: true, pocketArea: 40, pocketReach: 140 }, cutOutPockets: ['idle', 'celebrating', 'run', 'sad', 'dying'] },
+  // Not the lifter's sad: its grey muzzle under the nose is ringed the same way.
+  shibaLifter: { key: { clearCreases: SHIBA_GAPS, byClip: { sad: { clearCreases: false } } } },
+  shibaScholar: { key: { clearCreases: SHIBA_GAPS } },
+  bichonScholar: { key: { clearCreases: BICHON_GAPS } },
 };
 const keyFor = (name, pet) => ({ ...PETS[pet].key, ...EXTRA_KEY[name]?.key });
 
@@ -145,6 +218,41 @@ export const gifFormSheets = () =>
     ]),
   );
 
+/**
+ * Pauses in an idle clip that blinks too often, for buildLifterVideos.mjs:
+ * each source frame in `at` is shown `frames` times (12 is 2s at 6fps).
+ *
+ * The axolotls (and the cat and koala lifters) blink on nearly every bob of
+ * their idle, a blink every second or so, which looped reads as a pet that
+ * will not stop blinking. Slowing the clip would slow the bob too, so instead
+ * the clip holds still, eyes open, for 2s before each blink that came less
+ * than 2s after the last one: bob and blink, pause, bob and blink. The held
+ * frame is the open-eyed one just before the blink, at the bob's resting
+ * height (standing tall, for the lifters), never mid-flex. Only frames are
+ * repeated, none dropped, so the loop joins as before. Measured off the GIFs:
+ * the eyes are shut on
+ *
+ *   axolotlLifter   2, 6-7, 11, 15-16, 20-21, 25-26 of each 31-frame bob
+ *                   (0-30, 31-61, 62-92), and 97-98 going into the flex
+ *   axolotlRunner   2-3, 7-8, 12-13, 17-18, 22-23, 27-28
+ *   axolotlScholar  2-3, 6-9, 14-15, 19-21, 24-27
+ *   koalaLifter     10-13 and 16-18 of each 31-frame bob: only the second of
+ *                   that pair needs the pause
+ *   tabbyCatLifter  2-7, 12-17, 22-27 of each 31-frame bob, and 97-99 going
+ *                   into the flex (118-120 coming out is 3s after the last)
+ *
+ * The cat and koala runners and scholars blink once a loop, 3-4s apart
+ * already, so play as they are.
+ */
+const everyBob = (frames) => [0, 31, 62].flatMap((bob) => frames.map((frame) => bob + frame));
+export const IDLE_HOLDS = {
+  axolotlLifter: { at: [...everyBob([0, 4, 9, 14, 18, 23]), 96], frames: 12 },
+  axolotlRunner: { at: [1, 6, 11, 16, 21, 26], frames: 12 },
+  axolotlScholar: { at: [1, 5, 13, 18, 23], frames: 12 },
+  koalaLifter: { at: everyBob([15]), frames: 12 },
+  tabbyCatLifter: { at: [...everyBob([1, 11, 21]), 96], frames: 12 },
+};
+
 /** For buildLifterVideos.mjs: each form's clips. */
 export const gifFormClips = () =>
   Object.fromEntries(
@@ -156,7 +264,7 @@ export const gifFormClips = () =>
         key: keyFor(name, pet),
         ...(EXTRA_KEY[name]?.cutOutPockets ? { cutOutPockets: EXTRA_KEY[name].cutOutPockets } : {}),
         clips: [
-          idle,
+          IDLE_HOLDS[name] ? { name: idle, hold: IDLE_HOLDS[name] } : idle,
           'celebrating',
           { name: 'run', frames: run },
           // From once the stars are up, so the loop never stands it back up straight.

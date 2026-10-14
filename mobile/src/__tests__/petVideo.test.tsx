@@ -7,7 +7,14 @@ jest.mock('expo-video', () => {
   const { View } = require('react-native');
   return {
     useVideoPlayer: (_source: unknown, setup?: (player: unknown) => void) => {
-      const player = { loop: false, muted: false, play: jest.fn(), pause: jest.fn(), duration: 4, currentTime: 1 };
+      const listeners: Record<string, () => void> = {};
+      const player = {
+        loop: false, muted: false, play: jest.fn(), pause: jest.fn(), duration: 4, currentTime: 1, listeners,
+        addListener: (name: string, handler: () => void) => {
+          listeners[name] = handler;
+          return { remove: () => delete listeners[name] };
+        },
+      };
       setup?.(player);
       players.push(player);
       return player;
