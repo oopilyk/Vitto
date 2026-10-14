@@ -2049,14 +2049,15 @@ describe('pet sprite', () => {
     expect(animationFor('idle', 'sleepy', assessCondition({ ...pet, mind: 3 }))).toBe('unwell');
   });
 
-  it('shows the overlays the condition names, and none at all while dying', () => {
-    const { DizzyOrbit, Fading, HungerPangs, RainCloud, Zzz } = require('../components/PetEffects');
-    const overlayState = (overrides: Record<string, number>) => {
+  it('draws no particles over the pet, whatever its mood, only the fading wash while dying', () => {
+    const PetEffects = require('../components/PetEffects');
+    const particles = ['Confetti', 'HeartStream', 'Zzz', 'HungerPangs', 'RainCloud', 'DizzyOrbit'];
+    const render = (petOverrides: Record<string, number>, props: Record<string, unknown> = {}) => {
       let tree!: renderer.ReactTestRenderer;
       act(() => {
         tree = renderer.create(
           <PetAvatar
-            pet={{ ...pet, ...overrides }}
+            pet={{ ...pet, ...petOverrides }}
             isAnalyzingMeal={false}
             isEating={false}
             feedingImage={null}
@@ -2064,52 +2065,22 @@ describe('pet sprite', () => {
             isCelebrating={false}
             isWorkingOut={false}
             isExploring={false}
+            {...props}
           />,
         );
       });
-      const state = {
-        hunger: tree.root.findByType(HungerPangs).props.active,
-        zzz: tree.root.findByType(Zzz).props.active,
-        rain: tree.root.findByType(RainCloud).props.active,
-        dizzy: tree.root.findByType(DizzyOrbit).props.active,
-        fading: tree.root.findAllByType(Fading).length > 0,
-      };
+      const drawn = particles.filter((name) => tree.root.findAllByType(PetEffects[name]).length > 0);
+      const fading = tree.root.findAllByType(PetEffects.Fading).length > 0;
       tree.unmount();
-      return state;
+      return { drawn, fading };
     };
 
-    // Worst ailment takes the sprite AND keeps its own overlay, so an exhausted,
-    // sad pet shows both sets of particles rather than only the lesser one's.
-    expect(overlayState({ energy: 8, happiness: 12 })).toEqual({
-      hunger: false,
-      zzz: true,
-      rain: true,
-      dizzy: false,
-      fading: false,
-    });
-    // A single ailment still gets its own particles -- the case they describe best.
-    expect(overlayState({ nutrition: 4 })).toEqual({
-      hunger: true,
-      zzz: false,
-      rain: false,
-      dizzy: false,
-      fading: false,
-    });
-    // Dying suppresses every overlay and washes the pet out instead.
-    expect(overlayState({ health: 5, nutrition: 4, energy: 8, happiness: 12, mind: 3 })).toEqual({
-      hunger: false,
-      zzz: false,
-      rain: false,
-      dizzy: false,
-      fading: true,
-    });
-    expect(overlayState({})).toEqual({
-      hunger: false,
-      zzz: false,
-      rain: false,
-      dizzy: false,
-      fading: false,
-    });
+    // The pet's own animation carries the mood: no stars, cloud, Zzz or confetti.
+    expect(render({ energy: 8, happiness: 12 })).toEqual({ drawn: [], fading: false });
+    expect(render({ nutrition: 4 })).toEqual({ drawn: [], fading: false });
+    expect(render({ mind: 3 })).toEqual({ drawn: [], fading: false });
+    expect(render({}, { isCelebrating: true, feedingGrade: 'A' })).toEqual({ drawn: [], fading: false });
+    expect(render({ health: 5, nutrition: 4, energy: 8, happiness: 12, mind: 3 })).toEqual({ drawn: [], fading: true });
   });
 
   it('keeps a fainted pet down instead of standing it back up', () => {
@@ -2353,42 +2324,6 @@ describe('pet sprite', () => {
     tree.unmount();
   });
 
-  it('throws confetti when celebrating and hearts for a good plate', () => {
-    const { Confetti, HeartStream } = require('../components/PetEffects');
-    const render = (overrides: Record<string, unknown>) => {
-      let tree!: renderer.ReactTestRenderer;
-      act(() => {
-        tree = renderer.create(
-          <PetAvatar
-            pet={pet}
-            isAnalyzingMeal={false}
-            isEating={false}
-            feedingImage={null}
-            feedingGrade={null}
-            isCelebrating={false}
-            isWorkingOut={false}
-            isExploring={false}
-            {...overrides}
-          />,
-        );
-      });
-      const confetti = tree.root.findByType(Confetti).props.active;
-      const hearts = tree.root.findByType(HeartStream).props.active;
-      tree.unmount();
-      return { confetti, hearts };
-    };
-
-    expect(render({})).toEqual({ confetti: false, hearts: false });
-    // Confetti for any celebration; hearts only when the plate graded well.
-    expect(render({ isCelebrating: true, feedingGrade: 'D' })).toEqual({
-      confetti: true,
-      hearts: false,
-    });
-    expect(render({ isCelebrating: true, feedingGrade: 'A' })).toEqual({
-      confetti: true,
-      hearts: true,
-    });
-  });
 
   it.each([['Zzz'], ['HungerPangs'], ['RainCloud'], ['DizzyOrbit'], ['Confetti']])(
     'lifts %s out of the pet rather than leaving it at the bottom of the stage',

@@ -158,7 +158,7 @@ const CLIPS: Record<string, ClipFiles> = {
   'otterLifter/celebrating': { hevc: require('../../assets/pet/video/otterLifter/celebrating.mov'), webm: require('../../assets/pet/video/otterLifter/celebrating.webm') },
   'otterLifter/dizzy': { hevc: require('../../assets/pet/video/otterLifter/dizzy.mov'), webm: require('../../assets/pet/video/otterLifter/dizzy.webm') },
   'otterLifter/dying': { hevc: require('../../assets/pet/video/otterLifter/dying.mov'), webm: require('../../assets/pet/video/otterLifter/dying.webm') },
-  'otterLifter/idle-flex': { hevc: require('../../assets/pet/video/otterLifter/idle-flex.mov'), webm: require('../../assets/pet/video/otterLifter/idle-flex.webm') },
+  'otterLifter/idle': { hevc: require('../../assets/pet/video/otterLifter/idle.mov'), webm: require('../../assets/pet/video/otterLifter/idle.webm') },
   'otterLifter/lie': { hevc: require('../../assets/pet/video/otterLifter/lie.mov'), webm: require('../../assets/pet/video/otterLifter/lie.webm') },
   'otterLifter/run': { hevc: require('../../assets/pet/video/otterLifter/run.mov'), webm: require('../../assets/pet/video/otterLifter/run.webm') },
   'otterLifter/sad': { hevc: require('../../assets/pet/video/otterLifter/sad.mov'), webm: require('../../assets/pet/video/otterLifter/sad.webm') },

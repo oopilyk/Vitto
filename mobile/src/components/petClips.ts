@@ -167,7 +167,7 @@ const CLIPS: Record<string, ClipFiles> = {
   'otterLifter/celebrating': { hevc: require('../../assets/pet/video/otterLifter/celebrating.mov') },
   'otterLifter/dizzy': { hevc: require('../../assets/pet/video/otterLifter/dizzy.mov') },
   'otterLifter/dying': { hevc: require('../../assets/pet/video/otterLifter/dying.mov') },
-  'otterLifter/idle-flex': { hevc: require('../../assets/pet/video/otterLifter/idle-flex.mov') },
+  'otterLifter/idle': { hevc: require('../../assets/pet/video/otterLifter/idle.mov') },
   'otterLifter/lie': { hevc: require('../../assets/pet/video/otterLifter/lie.mov') },
   'otterLifter/run': { hevc: require('../../assets/pet/video/otterLifter/run.mov') },
   'otterLifter/sad': { hevc: require('../../assets/pet/video/otterLifter/sad.mov') },

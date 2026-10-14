@@ -71,11 +71,65 @@ export const sourceFrame = (file, range, skip) => {
 const inBox =([x0, y0, x1, y1], x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
 
 /**
+ * The ring of stars the otter lifter's dizzy GIF draws over its head. They sat
+ * still while it swayed, so they read as stuck on rather than orbiting, and the
+ * spiral eyes say dizzy on their own. Only the forms listed in STARLESS lose
+ * them; every other form keeps its stars. Every star is its own island of opaque
+ * pixels, apart from the body, and mostly yellow (its fill) inside a gold
+ * outline, so an island that is small and at least a fifth yellow goes whole,
+ * with the soft edge round it. No pet's own art is a detached yellow island.
+ */
+const STARLESS = new Set(['otterLifter']);
+const STAR_MAX_AREA = 20000;
+const isStarYellow = (r, g, b) => r > 190 && g > 170 && b < 140 && r - b > 90 && g > r * 0.72;
+export const dropStars = (png) => {
+  const { width: W, height: H, data } = png;
+  const solid = (p) => data[(p << 2) + 3] >= 128;
+  const seen = new Uint8Array(W * H);
+  const gone = [];
+  for (let start = 0; start < W * H; start += 1) {
+    if (seen[start] || !solid(start)) continue;
+    const island = [start];
+    seen[start] = 1;
+    let yellow = 0;
+    for (let k = 0; k < island.length && island.length <= STAR_MAX_AREA; k += 1) {
+      const p = island[k], x = p % W, y = (p / W) | 0, i = p << 2;
+      if (isStarYellow(data[i], data[i + 1], data[i + 2])) yellow += 1;
+      for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const n = ny * W + nx;
+        if (!seen[n] && solid(n)) { seen[n] = 1; island.push(n); }
+      }
+    }
+    if (island.length > STAR_MAX_AREA || yellow * 5 < island.length) continue;
+    for (const p of island) { data.fill(0, p << 2, (p << 2) + 4); gone.push(p); }
+  }
+  // The faint edge just outside the island.
+  let ring = gone;
+  for (let pass = 0; pass < 3; pass += 1) {
+    const next = [];
+    for (const p of ring) {
+      const x = p % W, y = (p / W) | 0;
+      for (let dy = -1; dy <= 1; dy += 1) for (let dx = -1; dx <= 1; dx += 1) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const n = ny * W + nx, a = data[(n << 2) + 3];
+        if (a > 0 && a < 128) { data.fill(0, n << 2, (n << 2) + 4); next.push(n); }
+      }
+    }
+    ring = next;
+  }
+  return png;
+};
+
+/**
  * Erases the listed leftovers from one keyed frame (a pngjs PNG, in place).
  * `clip` is the source clip and `frame` the index of the frame in its GIF.
  * Returns the PNG.
  */
 export const applyFrameErase = (form, clip, frame, png) => {
+  if (STARLESS.has(form) && /dizzy/.test(clip)) dropStars(png);
   const spec = load(form);
   if (!spec) return png;
   const rules = (spec.clips?.[clip] ?? []).filter((rule) => !rule.frames || rule.frames.includes(frame));

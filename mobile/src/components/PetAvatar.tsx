@@ -8,19 +8,10 @@ import {
   assessCondition,
   assessDecline,
 } from '@vitto/core';
-import { FRAME_MS, footShift, HOLDS_LAST_FRAME, type PetAnimation, SPRITE_ART_TOP, sheetForPet } from './petSprites';
+import { FRAME_MS, footShift, HOLDS_LAST_FRAME, type PetAnimation, sheetForPet } from './petSprites';
 import { PetClipStack, videoClipFor } from './PetVideo';
 import { SpriteFrame } from './SpriteFrame';
-import {
-  Confetti,
-  DizzyOrbit,
-  Fading,
-  HeartStream,
-  HungerPangs,
-  PetAura,
-  RainCloud,
-  Zzz,
-} from './PetEffects';
+import { Fading, PetAura } from './PetEffects';
 import { colors, fonts, themedStyles } from '../theme';
 
 export type PetActivity = 'idle' | 'analyzing' | 'eating' | 'workout' | 'exploring' | 'celebrating';
@@ -174,7 +165,6 @@ export function PetAvatar({
   isAnalyzingMeal,
   isEating,
   feedingImage,
-  feedingGrade,
   isCelebrating,
   isWorkingOut,
   isExploring,
@@ -321,12 +311,6 @@ export function PetAvatar({
   };
 
   const currentFrame = frames[Math.min(frameIndex, frames.length - 1)];
-  const showHearts = isCelebrating && (feedingGrade === 'A' || feedingGrade === 'B');
-  // Distance from the stage centre up to the top of the pet's head. Effects take
-  // it as their anchor and add their own clearance, so none of them has to know
-  // how the sprite sits inside its cell.
-  // The art is moved so its feet meet the floor (footShift), and its head with it.
-  const headOffset = size * (0.5 - SPRITE_ART_TOP) - footShift(sheet, size);
   /**
    * The same precedence `animationFor` applies to the sprite, extended to
    * everything else the condition drives. A care moment is the pet doing
@@ -341,10 +325,6 @@ export function PetAvatar({
     activity === 'eating' ||
     activity === 'workout' ||
     activity === 'exploring';
-  const overlays = new Set(activityOutranksCondition ? [] : condition.overlays);
-  // Drop the overlays this sheet's art already draws, so a pet whose sprite has
-  // its own spiral eyes does not also get the stand-in particles on top.
-  for (const ailment of (clip ? sheet.videos?.selfDrawn : sheet.selfDrawn) ?? []) overlays.delete(ailment);
 
   // The aura is the pool of light the pet stands in, so draining colour out of it
   // as health falls is the quietest way to show a gradual decline. An ailment
@@ -406,13 +386,9 @@ export function PetAvatar({
           />
         ) : null}
       </Animated.View>
-      {/* At most two of these; `assessCondition` clears them all while dying. */}
-      <HungerPangs active={overlays.has('starving')} headOffset={headOffset} />
-      <Zzz active={overlays.has('exhausted') || sleeping} headOffset={headOffset} />
-      <RainCloud active={overlays.has('sad')} headOffset={headOffset} />
-      <DizzyOrbit active={overlays.has('foggy')} headOffset={headOffset} />
-      <Confetti active={isCelebrating} headOffset={headOffset} />
-      <HeartStream active={showHearts} headOffset={headOffset} />
+      {/* No particles over the pet (stars, rain cloud, Zzz, confetti, hearts):
+          its own animation carries the mood — the dizzy clips' spiral eyes, the
+          sad and sleepy poses, the cheer. */}
       </View>
 
       {activity === 'analyzing' ? (

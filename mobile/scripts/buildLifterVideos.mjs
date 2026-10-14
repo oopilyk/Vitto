@@ -5,6 +5,7 @@
  *   node scripts/buildLifterVideos.mjs bear
  *   node scripts/buildLifterVideos.mjs bearRunner
  *   node scripts/buildLifterVideos.mjs otter
+ *   node scripts/buildLifterVideos.mjs otterLifter dizzy   (only these clips)
  *
  * The clips in `assets/source/video/<pet>-lifter/` are played as-is by
  * `PetVideo` — every frame, at their own frame rate, at full size. The only
@@ -229,7 +230,9 @@ if (!pet) {
 
 const sources = path.join(root, 'assets/source/video', pet.source);
 const output = path.join(root, 'assets/pet/video', pet.output);
-const CLIPS = pet.clips;
+/** Optional: only the clips named after the pet (by output name), comma-separated. */
+const only = process.argv[3]?.split(',');
+const CLIPS = pet.clips.filter((entry) => !only || only.includes(typeof entry === 'string' ? entry : entry.name));
 
 /**
  * Every clip ships at this rate, whatever it was generated at (8fps or 24fps).

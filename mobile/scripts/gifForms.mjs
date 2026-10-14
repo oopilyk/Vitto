@@ -105,7 +105,7 @@ const FORMS = {
   koalaLifter: ['koala-lifter', 'koala', 'idle-flex', [3, 25], 20],
   koalaRunner: ['koala-runner', 'koala', 'idle', [1, 30], 22],
   koalaScholar: ['koala-scholar', 'koala', 'idle', [4, 18], 19],
-  otterLifter: ['otter-lifter', 'otter', 'idle-flex', [6, 22], 19],
+  otterLifter: ['otter-lifter', 'otter', 'idle', [0, 8], 20],
   otterRunner: ['otter-runner', 'otter', 'idle', [8, 24], 20],
   otterScholar: ['otter-scholar', 'otter', 'idle', [3, 27], 18],
   // A stride is 4 frames and drifts; frame 0 is the same as 24, so 0-23 joins.

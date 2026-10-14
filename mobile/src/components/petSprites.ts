@@ -659,7 +659,7 @@ const KOALA_SCHOLAR = gifFormSheet('koala', 'Koala · Scholar', require('../../a
 }, undefined, true);
 
 const OTTER_LIFTER = gifFormSheet('otter', 'Otter · Lifter', require('../../assets/pet/otterLifter.png'), {
-  idle: { ...clipFiles('otterLifter/idle-flex') },
+  idle: { ...clipFiles('otterLifter/idle') },
   celebrating: { ...clipFiles('otterLifter/celebrating') },
   run: { ...clipFiles('otterLifter/run') },
   dizzy: { ...clipFiles('otterLifter/dizzy') },
