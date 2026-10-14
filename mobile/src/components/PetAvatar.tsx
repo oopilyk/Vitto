@@ -113,8 +113,8 @@ export const NAP_ENERGY = 34;
 
 /**
  * A true sleep read, distinct from `exhausted`: the pet is idle, nothing is
- * actually wrong, and energy has drifted low. Drives a peaceful rest pose, the
- * Zzz overlay and a slowed bob.
+ * actually wrong, and energy has drifted low. Drives a peaceful rest pose and
+ * a slowed bob.
  *
  * ART GAP: neither sprite sheet has a real sleeping pose, so this still borrows
  * `rest` (the calmest single frame each sheet owns). A dedicated curled-up /

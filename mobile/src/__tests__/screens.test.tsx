@@ -2051,7 +2051,10 @@ describe('pet sprite', () => {
 
   it('draws no particles over the pet, whatever its mood, only the fading wash while dying', () => {
     const PetEffects = require('../components/PetEffects');
-    const particles = ['Confetti', 'HeartStream', 'Zzz', 'HungerPangs', 'RainCloud', 'DizzyOrbit'];
+    const { Text: RNText } = require('react-native');
+    // What the old overlays drew: z's, hunger squiggles, orbiting stars. (Not
+    // the heart: the status line under the pet ends in one of its own.)
+    const GLYPHS = ['z', '~', '✦', '✧'];
     const render = (petOverrides: Record<string, number>, props: Record<string, unknown> = {}) => {
       let tree!: renderer.ReactTestRenderer;
       act(() => {
@@ -2069,7 +2072,7 @@ describe('pet sprite', () => {
           />,
         );
       });
-      const drawn = particles.filter((name) => tree.root.findAllByType(PetEffects[name]).length > 0);
+      const drawn = tree.root.findAllByType(RNText).map((node: any) => node.props.children).filter((text: unknown) => GLYPHS.includes(text as string));
       const fading = tree.root.findAllByType(PetEffects.Fading).length > 0;
       tree.unmount();
       return { drawn, fading };
@@ -2325,66 +2328,6 @@ describe('pet sprite', () => {
   });
 
 
-  it.each([['Zzz'], ['HungerPangs'], ['RainCloud'], ['DizzyOrbit'], ['Confetti']])(
-    'lifts %s out of the pet rather than leaving it at the bottom of the stage',
-    (name) => {
-      // Every overlay shares one layer, so they all shared one bug: a zero-size
-      // absolute box with no insets sits at its STATIC position, which is after
-      // the sprite in the stage's column.
-      const effects = require('../components/PetEffects');
-      const { StyleSheet } = require('react-native');
-      let tree!: renderer.ReactTestRenderer;
-      const Effect = effects[name];
-      act(() => {
-        tree = renderer.create(<Effect active headOffset={80} />);
-      });
-      const boxes = tree.root
-        .findAll((node: any) => node.props.style !== undefined)
-        .map((node: any) => StyleSheet.flatten(node.props.style))
-        .filter((style: any) => style?.position === 'absolute' && style.top === 0 && style.bottom === 0);
-      expect(boxes.length).toBeGreaterThan(0);
-      const lift = boxes[0].transform?.find((t: any) => 'translateY' in t);
-      expect(lift?.translateY).toBeLessThan(-80);
-      tree.unmount();
-    },
-  );
-
-  it('sends the hearts up out of the top of the pet', () => {
-    const { HeartStream } = require('../components/PetEffects');
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(<HeartStream active headOffset={80} />);
-    });
-
-    const { Text: RNText } = require('react-native');
-    const hearts = tree.root.findAllByType(RNText).filter((node: any) => node.props.children === '♥');
-    expect(hearts.length).toBeGreaterThan(0);
-
-    // Two things have to hold for an overlay to come out of the pet at all.
-    //
-    // It must be lifted strictly past `headOffset`, which is the top of the
-    // head — level with the anchor would still touch the sprite. And it must be
-    // lifted by a TRANSFORM on a box that fills the stage. The box used to be a
-    // zero-size absolute with no insets, which sits at its static position
-    // (after the sprite) rather than on the pet, and a margin on a box pinned
-    // top and bottom stretches it instead of moving it — so the z's surfaced
-    // below the pet's feet.
-    const layers = tree.root.findAll((node: any) => {
-      const style = [node.props.style].flat(2).filter(Boolean);
-      const lift = style.flatMap((entry: any) => entry?.transform ?? []).find((t: any) => 'translateY' in t);
-      return Boolean(lift) && lift.translateY < -80;
-    });
-    expect(layers.length).toBeGreaterThan(0);
-
-    // Flattened, because `styles.layer` resolves to a registered id, not an object.
-    const { StyleSheet } = require('react-native');
-    const box = StyleSheet.flatten(layers[0]!.props.style);
-    // Pinned to all four edges, so its centre is the pet's centre.
-    expect(box).toMatchObject({ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 });
-    expect(box.marginTop).toBeUndefined();
-    tree.unmount();
-  });
-
   it('keeps a baby on its base sheet however it has been trained', () => {
     const { sheetForPet } = require('../components/petSprites');
     const runnerStats = { id: 'p', breed: 'tabbyCat', level: 5, endurance: 80, strength: 10 };
@@ -2452,7 +2395,6 @@ describe('pet sprite', () => {
     expect(sheetForPet({ id: 'p', breed: 'axolotl', level: 16, mindSessions: 27, endurance: 10, strength: 10 }).label).toBe('Axolotl · Scholar');
     // Every form, the runner included, draws its own dizzy stars.
     const runner = sheetForPet({ id: 'p', breed: 'axolotl', level: 40, endurance: 90, strength: 10, mind: 10 });
-    expect(runner.videos.selfDrawn).toEqual(['foggy']);
   });
 
   it('evolves a grown, mind-built shiba onto the scholar sheet', () => {
@@ -2520,7 +2462,6 @@ describe('pet sprite', () => {
     expect(lifter.videos.cell).toEqual({ x: 26, y: 4, size: 720 });
     expect(lifter.videos.frameSize).toBe(768);
     // The dizzy clip draws its own stars.
-    expect(lifter.selfDrawn).toEqual(['foggy']);
   });
 
   it('evolves the bear into its scholar, with clips for every band but rest', () => {
@@ -2537,7 +2478,6 @@ describe('pet sprite', () => {
     // Same box as the runner, so the bear's forms stand the same size.
     const runner = sheetForPet({ id: 'p', breed: 'bear', level: 16, endurance: 80, strength: 10, mind: 10 });
     expect(scholar.videos.cell).toEqual(runner.videos.cell);
-    expect(scholar.selfDrawn).toEqual(['foggy']);
     for (const frames of Object.values(scholar.animations) as [number, number][][]) {
       for (const [row, column] of frames) {
         expect(row).toBeLessThan(16);
@@ -2560,8 +2500,6 @@ describe('pet sprite', () => {
     for (const band of ['idle', 'cheer', 'move', 'unwell']) expect(clips[band].loop).toBe(true);
     expect(HOLDS_LAST_FRAME.has('faint')).toBe(true);
     // Its dizzy stars are drawn in, on the sheet and in the clip alike.
-    expect(runner.selfDrawn).toEqual(['foggy']);
-    expect(runner.videos.selfDrawn).toEqual(['foggy']);
     // Clips and sheet are cut from the same box, or the bear would jump
     // whenever it fell back from one to the other (Android, the island).
     expect(runner.videos.cell).toEqual({ x: 8, y: -24, size: 754 });

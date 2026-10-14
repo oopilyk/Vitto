@@ -1,6 +1,6 @@
 import type { ImageSourcePropType } from 'react-native';
 import { clipFiles, type ClipFiles } from './petClips';
-import { EVOLUTION_LEVEL, getPetBuild, type PetAilment, type PetBreed, type PetBuild, type PetState } from '@vitto/core';
+import { EVOLUTION_LEVEL, getPetBuild, type PetBreed, type PetBuild, type PetState } from '@vitto/core';
 
 /**
  * Every sheet is a 4-column grid of square cells; a sheet with more or fewer
@@ -39,7 +39,7 @@ import { EVOLUTION_LEVEL, getPetBuild, type PetAilment, type PetBreed, type PetB
  *
  * Where a sheet has no art for a state, its `rest`/`unwell`/`sad` borrow the
  * calmest or saddest sitting frames it does own -- the same compromise the two
- * dogs already make -- and DizzyOrbit keeps carrying `foggy` for all of them.
+ * dogs already make.
  *
  * None was drawn with evolved art, so each one's lifter and scholar are derived
  * from its base sheet by `mobile/scripts/buildEvolutionSprites.mjs`, the same way
@@ -99,17 +99,6 @@ export interface PetSheet {
   artScale?: number;
   animations: Record<PetAnimation, readonly Frame[]>;
   /**
-   * Ailments this sheet's own art already depicts, so PetAvatar can drop the
-   * matching particle overlay.
-   *
-   * The overlays exist to cover for missing art — the shiba has no dizzy band, so
-   * DizzyOrbit has to carry `foggy` on its behalf. A sheet that draws the thing
-   * itself gets both at once instead: the cat's dizzy frames have their own
-   * spiral eyes and orbiting stars, and DizzyOrbit put a second, unrelated set of
-   * stars on top of them.
-   */
-  selfDrawn?: readonly PetAilment[];
-  /**
    * Per-animation frame timings that replace `FRAME_MS` for this sheet only.
    *
    * The shared table is tuned to the dogs, whose bands have many more frames: the
@@ -163,8 +152,6 @@ export interface PetVideos {
    * and at the same size: the video is scaled so this region fills the cell.
    */
   cell: { x: number; y: number; size: number };
-  /** Like `PetSheet.selfDrawn`, for what the clips draw themselves. */
-  selfDrawn?: readonly PetAilment[];
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +274,6 @@ const gifFormSheet = (
   ...(artScale ? { artScale } : {}),
   animations: gifFormBands({ unwell: 8 }),
   // Every form's dizzy clip draws its own spiral eyes and stars.
-  selfDrawn: ['foggy'],
   ...(calmIdle ? { idleRestMs: CALM_IDLE_REST_MS } : {}),
   frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 },
   videos: {
@@ -304,7 +290,6 @@ const gifFormSheet = (
       sad: { ...files.sad, loop: false },
       faint: { ...files.dying, loop: false },
     },
-    selfDrawn: ['foggy'],
   },
 });
 
@@ -351,14 +336,12 @@ const BICHON_RUNNER: PetSheet = {
   rows: 15,
   artScale: BICHON_ART_SCALE,
   animations: gifFormBands({ idle: 8, unwell: 6 }),
-  selfDrawn: ['foggy'],
   frameMs: { idle: 167, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
   videos: {
     frameSize: 768,
     cell: { x: 86, y: 79, size: 598 },
     clips: runnerClips(BICHON_RUNNER_CLIPS),
     // The dizzy clip has its own spiral eyes and ring of stars.
-    selfDrawn: ['foggy'],
   },
 };
 
@@ -427,7 +410,6 @@ const BICHON_LIFTER_VIDEOS: PetVideos = {
     faint: { ...clip('hurt'), loop: false },
   },
   // The dizzy clip has its own spiral eyes and orbiting stars.
-  selfDrawn: ['foggy'],
 };
 
 const BICHON_LIFTER: PetSheet = {
@@ -475,13 +457,11 @@ const SHIBA_RUNNER: PetSheet = {
   source: require('../../assets/pet/shibaRunner.png'),
   rows: 16,
   animations: gifFormBands({ unwell: 8 }),
-  selfDrawn: ['foggy'],
   frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
   videos: {
     frameSize: 768,
     cell: { x: -13, y: -26, size: 796 },
     clips: runnerClips(SHIBA_RUNNER_CLIPS),
-    selfDrawn: ['foggy'],
   },
 };
 
@@ -491,8 +471,7 @@ const SHIBA_ANIMATIONS: PetSheet['animations'] = {
   move: [[4, 0], [4, 1], [4, 2], [4, 3], [5, 0], [5, 1], [5, 2], [5, 3]],
   // The tail of the content-sitting band: a calm, closed-mouth sit.
   rest: [[8, 0]],
-  // This sheet has no dizzy art at all, so the sad sit stands in and the
-  // DizzyOrbit overlay carries the "unwell" reading instead of the sprite.
+  // This sheet has no dizzy art at all, so the sad sit stands in.
   unwell: [[9, 0], [9, 1], [9, 2], [9, 3]],
   sad: [[9, 0], [9, 1], [9, 2], [9, 3]],
   // No collapse art either — this sheet fades out instead of falling over.
@@ -726,7 +705,6 @@ const OTTER: PetSheet = {
   artScale: OTTER_ART_SCALE,
   animations: gifFormBands({ unwell: 6 }),
   // The dizzy art has its own spiral eyes and stars.
-  selfDrawn: ['foggy'],
   frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 167, sad: 500, faint: 250 },
   videos: {
     frameSize: 768,
@@ -743,7 +721,6 @@ const OTTER: PetSheet = {
       sad: otterClip('cry', false),
       faint: otterClip('collapse', false),
     },
-    selfDrawn: ['foggy'],
   },
 };
 
@@ -805,8 +782,7 @@ const BUNNY_LAYOUT: SheetLayout = {
     move: [[2, 0], [2, 1], [2, 2], [2, 3]],
     // Actually asleep — flat, ears down, eyes closed.
     rest: [[6, 0], [6, 1], [6, 2], [6, 3]],
-    // No dizzy or crying art, so the second sitting band carries both and
-    // DizzyOrbit supplies the `foggy` reading, exactly as it does for the shiba.
+    // No dizzy or crying art, so the second sitting band carries both.
     unwell: [[1, 0], [1, 1], [1, 2], [1, 3]],
     sad: [[1, 0], [1, 1], [1, 2], [1, 3]],
     // Settles rather than collapses — this sheet has no knocked-out pose.
@@ -875,7 +851,6 @@ const BUNNY_LIFTER: PetSheet = {
   source: require('../../assets/pet/bunnyLifter.png'),
   rows: 16,
   animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3]], 8),
-  selfDrawn: ['foggy'],
   frameMs: { idle: 400, cheer: 167, move: 375, rest: 333, unwell: 500, sad: 500, faint: 250 },
   videos: {
     frameSize: 768,
@@ -893,7 +868,6 @@ const BUNNY_LIFTER: PetSheet = {
       faint: { ...bunnyClip('bunnyLifter', 'collapse'), loop: false },
     },
     // The dizzy clip has its own spiral eyes and ring of stars.
-    selfDrawn: ['foggy'],
   },
 };
 
@@ -904,7 +878,6 @@ const BUNNY_RUNNER: PetSheet = {
   source: require('../../assets/pet/bunnyRunner.png'),
   rows: 16,
   animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1]], 8),
-  selfDrawn: ['foggy'],
   frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 },
   videos: {
     frameSize: 768,
@@ -919,7 +892,6 @@ const BUNNY_RUNNER: PetSheet = {
       rest: { ...bunnyClip('bunnyRunner', 'lie-down'), loop: false },
       faint: { ...bunnyClip('bunnyRunner', 'lie-down'), loop: false },
     },
-    selfDrawn: ['foggy'],
   },
 };
 
@@ -930,7 +902,6 @@ const BUNNY_SCHOLAR: PetSheet = {
   source: require('../../assets/pet/bunnyScholar.png'),
   rows: 17,
   animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3], [8, 0], [8, 1]], 9),
-  selfDrawn: ['foggy'],
   frameMs: { idle: 333, cheer: 167, move: 167, rest: 333, unwell: 500, sad: 500, faint: 250 },
   videos: {
     frameSize: 768,
@@ -944,7 +915,6 @@ const BUNNY_SCHOLAR: PetSheet = {
       faint: { ...bunnyClip('bunnyScholar', 'collapse'), loop: false },
       // No sleeping clip: `rest` lies flat on the sheet's after-the-fall frames.
     },
-    selfDrawn: ['foggy'],
   },
 };
 
@@ -1006,7 +976,7 @@ const KOALA_LAYOUT: SheetLayout = {
     unwell: [[6, 0], [6, 1], [6, 2], [6, 3]],
     sad: [[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1]],
     // The last row draws its own orbiting stars, but only lying down, so it ends
-    // `faint` rather than standing in for `unwell` — `selfDrawn` stays unset.
+    // `faint` rather than standing in for `unwell`.
     faint: [[8, 0], [8, 1], [8, 2], [8, 3], [9, 0]],
   },
 };
@@ -1095,7 +1065,6 @@ const BEAR_LIFTER_VIDEOS: PetVideos = {
     faint: { ...bearLifterClip('collapse'), loop: false },
   },
   // The dizzy clip has its own spiral eyes and orbiting stars.
-  selfDrawn: ['foggy'],
 };
 
 const BEAR_LIFTER: PetSheet = {
@@ -1117,7 +1086,6 @@ const BEAR_LIFTER: PetSheet = {
   // `rest` is a real loop here rather than the single frame most sheets hold,
   // so the shared 700ms would crawl; `cheer` is paced to the clip it came from.
   // The dizzy band draws its own spiral eyes and stars.
-  selfDrawn: ['foggy'],
   frameMs: { cheer: 150, rest: 250 },
   videos: BEAR_LIFTER_VIDEOS,
 };
@@ -1161,7 +1129,6 @@ const BEAR_RUNNER_VIDEOS: PetVideos = {
     faint: { ...BEAR_RUNNER_CLIPS['lie-down'], loop: false },
   },
   // The dizzy clip has its own spiral eyes and orbiting stars.
-  selfDrawn: ['foggy'],
 };
 
 const BEAR_RUNNER: PetSheet = {
@@ -1181,7 +1148,6 @@ const BEAR_RUNNER: PetSheet = {
     faint: [[14, 0], [14, 1], [14, 2], [14, 3], [15, 0], [15, 1], [15, 2], [15, 3]],
   },
   // Its dizzy band draws its own stars, like the clip.
-  selfDrawn: ['foggy'],
   // Paced to the 6fps GIFs each band was sampled from, so the sheet plays at
   // the speed they were drawn.
   frameMs: { idle: 400, cheer: 375, move: 333, rest: 250, unwell: 500, sad: 500 },
@@ -1222,7 +1188,6 @@ const BEAR_SCHOLAR_VIDEOS: PetVideos = {
     faint: { ...BEAR_SCHOLAR_CLIPS.collapse, loop: false },
     // No sleeping clip: `rest` dozes on the sheet's eyes-closed frames.
   },
-  selfDrawn: ['foggy'],
 };
 
 const BEAR_SCHOLAR: PetSheet = {
@@ -1243,7 +1208,6 @@ const BEAR_SCHOLAR: PetSheet = {
     faint: [[14, 0], [14, 1], [14, 2], [14, 3], [15, 0], [15, 1], [15, 2], [15, 3]],
   },
   // Its dizzy band draws its own stars, like the clip.
-  selfDrawn: ['foggy'],
   // Paced to the 6fps GIFs each band was sampled from.
   frameMs: { idle: 400, cheer: 170, move: 333, rest: 400, unwell: 500, sad: 500, faint: 250 },
   videos: BEAR_SCHOLAR_VIDEOS,
@@ -1293,7 +1257,6 @@ const AXOLOTL_LIFTER: PetSheet = {
   source: require('../../assets/pet/axolotlLifter.png'),
   rows: 16,
   animations: gifFormBands({ unwell: 8 }),
-  selfDrawn: ['foggy'],
   frameMs: AXOLOTL_FORM_TIMING,
   idleRestMs: CALM_IDLE_REST_MS,
   videos: {
@@ -1309,7 +1272,6 @@ const AXOLOTL_LIFTER: PetSheet = {
       faint: { ...clipFiles('axolotlLifter/collapse'), loop: false },
     },
     // The dizzy clip has its own spiral eyes and ring of stars.
-    selfDrawn: ['foggy'],
   },
 };
 
@@ -1320,7 +1282,6 @@ const AXOLOTL_RUNNER: PetSheet = {
   source: require('../../assets/pet/axolotlRunner.png'),
   rows: 16,
   animations: gifFormBands({ unwell: 8 }),
-  selfDrawn: ['foggy'],
   frameMs: AXOLOTL_FORM_TIMING,
   idleRestMs: CALM_IDLE_REST_MS,
   videos: {
@@ -1335,7 +1296,6 @@ const AXOLOTL_RUNNER: PetSheet = {
       sad: { ...clipFiles('axolotlRunner/tired'), loop: false },
       faint: { ...clipFiles('axolotlRunner/lie-down'), loop: false },
     },
-    selfDrawn: ['foggy'],
   },
 };
 
@@ -1346,7 +1306,6 @@ const AXOLOTL_SCHOLAR: PetSheet = {
   source: require('../../assets/pet/axolotlScholar.png'),
   rows: 16,
   animations: gifFormBands({ unwell: 8 }),
-  selfDrawn: ['foggy'],
   frameMs: AXOLOTL_FORM_TIMING,
   idleRestMs: CALM_IDLE_REST_MS,
   videos: {
@@ -1361,7 +1320,6 @@ const AXOLOTL_SCHOLAR: PetSheet = {
       sad: { ...clipFiles('axolotlScholar/cry'), loop: false },
       faint: { ...clipFiles('axolotlScholar/collapse'), loop: false },
     },
-    selfDrawn: ['foggy'],
   },
 };
 
