@@ -4,13 +4,11 @@ import { fonts, themedStyles } from '../theme';
 
 /**
  * The pet's name in a small, low-opacity retro textbox that floats just above
- * the pet — shown while the pointer hovers the pet (web) or briefly after a tap
- * (native), per the product owner's note that the name should "pop up in a
- * little retro textbox with low opacity when you hover over the pet" rather than
- * living permanently in a HUD card.
+ * the pet, shown for as long as the emojis from a tap are in the air, rather
+ * than living permanently in a HUD card.
  *
- * Purely presentational: the parent (`EnvironmentStage`) owns the hover/tap
- * state and passes `visible`.
+ * Purely presentational: the parent (`EnvironmentStage`) owns when it shows
+ * and passes `visible`.
  */
 export function PetNameBubble({
   name,

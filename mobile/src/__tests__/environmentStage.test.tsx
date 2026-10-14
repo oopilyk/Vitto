@@ -74,7 +74,7 @@ describe('EnvironmentStage pet tap reaction', () => {
     tree.unmount();
   });
 
-  it('carries the pet name in the hover/tap bubble, not a permanent HUD card', () => {
+  it('carries the pet name in the tap bubble, not a permanent HUD card', () => {
     const tree = render(() => {});
     const named = tree.root
       .findAllByType(Text)
@@ -83,29 +83,36 @@ describe('EnvironmentStage pet tap reaction', () => {
     tree.unmount();
   });
 
-  it('reveals and hides the name bubble on hover without throwing', () => {
+  it('shows the name bubble only while tap emojis are in the air', () => {
+    jest.useFakeTimers();
+    const { PetNameBubble } = require('../petWorld/PetNameBubble');
     const tree = render(() => {});
-    const layer = petLayer(tree);
-    expect(typeof layer!.props.onHoverIn).toBe('function');
-    expect(typeof layer!.props.onHoverOut).toBe('function');
-    act(() => layer!.props.onHoverIn());
-    act(() => layer!.props.onPressIn());
-    act(() => layer!.props.onHoverOut());
+    const shown = () => tree.root.findByType(PetNameBubble).props.visible;
+    expect(shown()).toBe(false);
+    act(() => petLayer(tree)!.props.onPress());
+    expect(shown()).toBe(true);
+    // Once the last emoji has floated off, the name goes with it.
+    act(() => { jest.advanceTimersByTime(2000); });
+    expect(shown()).toBe(false);
     tree.unmount();
+    jest.useRealTimers();
   });
 
-  it('floats a reaction emote above the pet only after it is tapped', () => {
+  it('floats an emoji of how the pet feels above it only after it is tapped', () => {
     const tree = render(() => {});
     const emotes = () =>
       tree.root
         .findAllByType(Text)
         .map((node) => node.props.children)
-        // The emote is drawn as text, marked with U+FE0E so iOS keeps it so.
-        .filter((child) => typeof child === 'string' && child.endsWith('\uFE0E'));
+        .filter((child) => typeof child === 'string' && /^\p{Extended_Pictographic}/u.test(child));
 
     expect(emotes()).toHaveLength(0);
     act(() => petLayer(tree)!.props.onPress());
-    expect(emotes().length).toBeGreaterThan(0);
+    expect(emotes()).toHaveLength(1);
+    // Rapid taps add more rather than restarting the one in the air.
+    act(() => petLayer(tree)!.props.onPress());
+    act(() => petLayer(tree)!.props.onPress());
+    expect(emotes()).toHaveLength(3);
     tree.unmount();
   });
 });

@@ -17,7 +17,7 @@ import { playPokeFeedback } from '../services/mealFeedback';
 import { PetNameBubble } from './PetNameBubble';
 import { stageMetrics } from './EnvironmentBackdrop';
 import { PetSpeechBubble } from './PetSpeechBubble';
-import { PetTapReaction, RAPID_TAP_WINDOW_MS } from './PetTapReaction';
+import { PetTapReaction } from './PetTapReaction';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
 import type { EnvironmentId, PetAvatarActivityProps } from './types';
 import { themedStyles } from '../theme';
@@ -42,8 +42,6 @@ const NAME_BUBBLE_HEAD_FRACTION = 0.86;
  */
 const SPEECH_BUBBLE_GAP_FRACTION = 0.12;
 
-/** How long the name bubble lingers after a tap on touch devices (no hover). */
-const NAME_BUBBLE_HOLD_MS = 2200;
 
 /** What one environment dresses the persistent pet in. */
 export interface EnvironmentDressing {
@@ -185,20 +183,12 @@ export function EnvironmentStage({
   // from `pulse` (the scene-change settle) so the two can play over each other.
   const poke = useRef(new Animated.Value(0)).current;
 
-  // Tap reaction: a monotonic counter that fires an emote burst above the pet on
-  // every tap (see `PetTapReaction`), plus how many taps have landed in quick
-  // succession so a run of them can escalate.
-  const [tap, setTap] = useState({ burst: 0, rapid: 0 });
-  const lastTapAt = useRef(0);
+  // Tap reaction: a counter that floats an emoji of how the pet feels above it
+  // on every tap (see `PetTapReaction`).
+  const [tapBurst, setTapBurst] = useState(0);
 
   const handlePetPress = useCallback(() => {
-    const now = Date.now();
-    const isRapid = now - lastTapAt.current < RAPID_TAP_WINDOW_MS;
-    lastTapAt.current = now;
-    setTap((prev) => ({
-      burst: prev.burst + 1,
-      rapid: isRapid ? prev.rapid + 1 : 1,
-    }));
+    setTapBurst((burst) => burst + 1);
 
     poke.stopAnimation();
     poke.setValue(0);
@@ -220,42 +210,8 @@ export function EnvironmentStage({
     onPetTap?.();
   }, [onPetTap, poke]);
 
-  // The name bubble: visible while the pointer hovers the pet (web) or for a
-  // short beat after a tap (touch, where there is no hover). A tap always
-  // reveals it, even when `onPetTap` is absent and the Pressable is disabled,
-  // via `onPressIn` still firing on hover-capable platforms — the timeout is
-  // the touch fallback.
+  // The name bubble: up exactly as long as the tap emojis are in the air.
   const [nameShown, setNameShown] = useState(false);
-  const hoverName = useRef(false);
-  const nameHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearNameTimer = useCallback(() => {
-    if (nameHideTimer.current) {
-      clearTimeout(nameHideTimer.current);
-      nameHideTimer.current = null;
-    }
-  }, []);
-
-  const showNameOnHover = useCallback(() => {
-    hoverName.current = true;
-    clearNameTimer();
-    setNameShown(true);
-  }, [clearNameTimer]);
-
-  const hideNameOnHoverOut = useCallback(() => {
-    hoverName.current = false;
-    setNameShown(false);
-  }, []);
-
-  const flashNameOnTap = useCallback(() => {
-    clearNameTimer();
-    setNameShown(true);
-    nameHideTimer.current = setTimeout(() => {
-      if (!hoverName.current) setNameShown(false);
-    }, NAME_BUBBLE_HOLD_MS);
-  }, [clearNameTimer]);
-
-  useEffect(() => clearNameTimer, [clearNameTimer]);
 
   const pokeScale = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 1.09] });
   const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
@@ -273,9 +229,6 @@ export function EnvironmentStage({
 
       <Pressable
         onPress={handlePetPress}
-        onPressIn={flashNameOnTap}
-        onHoverIn={showNameOnHover}
-        onHoverOut={hideNameOnHoverOut}
         disabled={!onPetTap}
         style={[StyleSheet.absoluteFill, styles.petLayer]}
         accessibilityRole={onPetTap ? 'button' : undefined}
@@ -315,11 +268,10 @@ export function EnvironmentStage({
         style={[StyleSheet.absoluteFill, styles.reactionLayer, { paddingBottom: nameBubbleLift + 44 }]}
       >
         <PetTapReaction
-          burst={tap.burst}
-          rapid={tap.rapid}
+          burst={tapBurst}
           mood={pet.mood}
-          unwell={Boolean(assessCondition(pet).primary)}
-          night={night}
+          ailment={assessCondition(pet).primary ?? null}
+          onActiveChange={setNameShown}
         />
       </View>
 
@@ -407,8 +359,13 @@ function FadeSwap({
     // Keyed on `swapKey` rather than `opacity` (which is a stable ref and would
     // only ever fire once): this is what makes the fade replay on every swap.
   }, [swapKey, opacity, durationMs]);
+  // `box-none`: the wrapper fills the stage above the pet's tap layer, so as a
+  // plain view it caught every click on the pet (on web, where a room with no
+  // controls left nothing else in it); only its content takes a tap.
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, style, { opacity }]}>{children}</Animated.View>
+    <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, style, { opacity }]}>
+      {children}
+    </Animated.View>
   );
 }
 
