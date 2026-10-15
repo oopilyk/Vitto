@@ -19,11 +19,13 @@ interface Props {
   changesLeft?: number | null;
   /** Arrived straight from buying Plus: says so, and invites a first choice. */
   welcome?: boolean;
+  /** Opened by the first-run tour over the main screen, not from Settings: back says so. */
+  fromTour?: boolean;
   onClose: () => void;
 }
 
 /** The pet's personality, on its own page (from Settings). */
-export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpenPlus, changesLeft, welcome = false, onClose }: Props) {
+export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpenPlus, changesLeft, welcome = false, fromTour = false, onClose }: Props) {
   return (
     <SettingsPage
       title={welcome ? `Who should ${pet.name} be?` : 'Personality'}
@@ -32,7 +34,7 @@ export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpe
           ? `Plus unlocks ${pet.name}'s personality. Pick one, tune it, or write your own. You can change it later in Settings.`
           : `How ${pet.name} talks to you. Your notes and history are kept when you change it.`
       }
-      backLabel={welcome ? 'Later' : 'Settings'}
+      backLabel={welcome ? 'Later' : fromTour ? 'Home' : 'Settings'}
       onBack={onClose}
     >
       <View style={styles.body}>

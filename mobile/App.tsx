@@ -34,7 +34,7 @@ import { PrimaryButton, TextButton } from './src/components/ui';
 import { usePetInteraction } from './src/petWorld/usePetInteraction';
 import { AuthScreen, HAS_SIGNED_IN_KEY } from './src/screens/AuthScreen';
 import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft, type OnboardingProgress } from './src/services/onboardingDraft';
-import { tourSteps } from './src/tour/FirstRunTour';
+import { TourProvider, tourSteps } from './src/tour/FirstRunTour';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
@@ -159,7 +159,8 @@ type RootStackParamList = {
   Preferences: undefined;
   CareAreas: undefined;
   /** `welcome`: arrived straight from buying Plus, to choose who the pet is. */
-  Personality: { welcome?: boolean } | undefined;
+  /** `fromTour`: opened by the first-run tour, over the main screen, so back reads as going home. */
+  Personality: { welcome?: boolean; fromTour?: boolean } | undefined;
   Notifications: undefined;
   DeleteAccount: undefined;
   Appearance: undefined;
@@ -2314,6 +2315,8 @@ function VittoApp() {
       }}
     >
       <StatusBar barStyle={statusBarStyle} />
+      {/* Around every screen, so the first-run tour can point at a page it opens (Personality). */}
+      <TourProvider>
       <RootStack.Navigator initialRouteName="Dashboard" screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Dashboard">
           {({ navigation }) => (
@@ -2363,7 +2366,18 @@ function VittoApp() {
                   : null
               }
               onAchievementUnlockComplete={() => setUnlockQueue((queue) => queue.slice(1))}
-              tour={tourPending === true ? { steps: tourSteps(livePet.name, canCustomise), onDone: finishTour } : null}
+              tour={
+                tourPending === true
+                  ? {
+                      steps: tourSteps(livePet.name, canCustomise),
+                      onDone: finishTour,
+                      // The Plus personality step is shown on its page; a step
+                      // after one comes back here. Finishing there leaves them
+                      // on it to choose, and its back button returns here.
+                      onPage: (page) => (page === 'personality' ? navigation.navigate('Personality', { fromTour: true }) : navigation.popTo('Dashboard')),
+                    }
+                  : null
+              }
             />
           )}
         </RootStack.Screen>
@@ -2517,6 +2531,7 @@ function VittoApp() {
               pet={livePet}
               age={profile.age}
               welcome={route.params?.welcome === true}
+              fromTour={route.params?.fromTour === true}
               onSave={async (next) => {
                 const problem = await changePersonality(next.personality, next.persona, next.dials);
                 // Arrived from the upgrade: once they've chosen, they're done here.
@@ -2834,6 +2849,7 @@ function VittoApp() {
           </RootStack.Screen>
         </RootStack.Group>
       </RootStack.Navigator>
+      </TourProvider>
 
       {error ? (
         <View style={styles.banner} pointerEvents="none">

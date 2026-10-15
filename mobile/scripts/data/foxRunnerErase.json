@@ -1,0 +1,16 @@
+{
+  "note": "Hand-checked, frame by frame, over the dark room. Only the dying clip (and the lie cut from it) left white matte: a wedge between the tail and the headband knot, specks between the legs, and slivers on outline corners. The eye whites, teeth, medal shine and glints in the same frames are art and are outside every box.",
+  "rim": 3,
+  "clips": {
+    "dying": [
+      { "box": [305, 414, 362, 464], "frames": [8], "note": "white wedge between tail and headband knot" },
+      { "box": [324, 334, 338, 349], "frames": [0, 1], "paleMin": 190, "paleChroma": 30, "note": "sliver on the knot's outline" },
+      { "box": [364, 430, 378, 444], "frames": [2, 4, 7], "paleMin": 190, "paleChroma": 30, "note": "sliver on the back's outline" },
+      { "box": [350, 564, 366, 580], "frames": [2], "paleMin": 190, "paleChroma": 30, "note": "speck between the hind legs" },
+      { "box": [440, 574, 450, 596], "frames": [2], "paleMin": 190, "paleChroma": 30, "note": "speck between the front legs" },
+      { "box": [288, 548, 302, 562], "frames": [12, 13], "paleMin": 190, "paleChroma": 30, "note": "sliver on the hind paw's outline" },
+      { "box": [366, 532, 388, 552], "frames": [2, 4, 5, 6, 8], "paleMin": 185, "paleChroma": 35, "note": "pocket walled in between the hind legs" },
+      { "box": [344, 578, 360, 594], "frames": [13], "paleMin": 190, "paleChroma": 30, "note": "speck between the hind legs" }
+    ]
+  }
+}

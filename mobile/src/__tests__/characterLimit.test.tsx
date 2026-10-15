@@ -45,6 +45,27 @@ describe('character change allowance', () => {
   });
 });
 
+describe('the personality choices', () => {
+  const labels = (tree: renderer.ReactTestRenderer) =>
+    tree.root.findAll((n) => n.props.accessibilityRole === 'radio' && typeof n.props.onPress === 'function').map((n) => n.findAllByType(Text)[0]!.props.children);
+
+  it('puts "Your own" at the top, above the presets', () => {
+    const tree = render(null);
+    expect(labels(tree)[0]).toBe('Your own');
+    expect(labels(tree).slice(1)).toEqual(['Feisty', 'Cute', 'Sweet', 'Savage', 'Hype', 'Menace']);
+    tree.unmount();
+  });
+
+  it('still leaves it out below the age for it', () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<CharacterEditor pet={pet} age={13} onSave={() => {}} />);
+    });
+    expect(labels(tree)).toEqual(['Feisty', 'Cute', 'Sweet', 'Savage', 'Hype']);
+    tree.unmount();
+  });
+});
+
 describe('fine-tuning drops down under the chosen base', () => {
   it('opens under the selected option and moves with the selection', () => {
     const tree = render(null);

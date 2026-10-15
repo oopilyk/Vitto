@@ -5,366 +5,4351 @@
   "rim": 2,
   "clips": {
     "cheer": [
-      { "box": [488, 329, 501, 342], "frames": [0, 1, 2, 23, 25, 26, 27, 28, 29, 30], "note": "pale fringe on the right outline (129px)" },
-      { "box": [479, 341, 486, 345], "frames": [0, 1, 2, 3, 23, 26, 27, 28, 29, 30], "note": "matte speck in a notch on the right (18px)" },
-      { "box": [299, 404, 306, 414], "frames": [0, 1, 2, 28], "note": "matte speck in a notch on the left (54px)" },
-      { "box": [461, 425, 464, 428], "frames": [0], "note": "pale fringe on the right outline (3px)" },
-      { "box": [437, 527, 440, 530], "frames": [0, 1, 22, 23, 25, 26, 30], "note": "pale fringe on the right outline (3px)" },
-      { "box": [374, 542, 377, 545], "frames": [0, 2, 22], "note": "pale fringe on the left outline (3px)" },
-      { "box": [488, 326, 501, 342], "frames": [3], "note": "pale fringe on the right outline (135px)" },
-      { "box": [299, 404, 306, 411], "frames": [3, 26, 27, 29, 30], "note": "matte speck in a notch on the left (36px)" },
-      { "box": [491, 353, 504, 366], "frames": [4], "note": "matte patch in a gap on the right (63px)" },
-      { "box": [332, 455, 336, 459], "frames": [4], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [449, 467, 455, 474], "frames": [4], "note": "pale fringe on the right outline (18px)" },
-      { "box": [302, 446, 315, 450], "frames": [5, 6], "note": "matte speck in a notch on the left (36px)" },
-      { "box": [434, 357, 437, 360], "frames": [6], "note": "pale fringe on the right outline (3px)" },
-      { "box": [304, 406, 315, 411], "frames": [6], "note": "matte speck in a notch on the left (28px)" },
-      { "box": [482, 470, 485, 473], "frames": [6], "note": "pale fringe on the right outline (3px)" },
-      { "box": [470, 278, 473, 281], "frames": [7], "note": "pale fringe on the right outline (3px)" },
-      { "box": [461, 215, 467, 219], "frames": [9], "note": "pale fringe on the right outline (12px)" },
-      { "box": [488, 252, 491, 255], "frames": [10], "note": "pale fringe on the right outline (3px)" },
-      { "box": [288, 299, 291, 303], "frames": [10], "note": "matte speck in a notch on the left (6px)" },
-      { "box": [279, 378, 282, 381], "frames": [13], "note": "pale fringe on the left outline (3px)" },
-      { "box": [284, 464, 287, 467], "frames": [14], "note": "pale fringe on the left outline (3px)" },
-      { "box": [464, 198, 477, 213], "frames": [15], "note": "pale fringe on the right outline (63px)" },
-      { "box": [461, 212, 465, 216], "frames": [15], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [476, 252, 479, 255], "frames": [15], "note": "pale fringe on the right outline (3px)" },
-      { "box": [276, 305, 285, 309], "frames": [15], "note": "matte speck in a notch on the left (24px)" },
-      { "box": [455, 174, 458, 177], "frames": [16], "note": "pale fringe on the right outline (3px)" },
-      { "box": [470, 213, 477, 219], "frames": [16], "note": "pale fringe on the right outline (18px)" },
-      { "box": [461, 224, 468, 228], "frames": [16], "note": "matte speck in a notch on the right (18px)" },
-      { "box": [272, 272, 276, 276], "frames": [16], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [276, 317, 285, 321], "frames": [16], "note": "matte speck in a notch on the left (24px)" },
-      { "box": [249, 467, 252, 470], "frames": [16], "note": "pale fringe on the left outline (3px)" },
-      { "box": [452, 201, 455, 204], "frames": [17], "note": "pale fringe on the right outline (3px)" },
-      { "box": [488, 240, 491, 243], "frames": [17], "note": "pale fringe on the right outline (3px)" },
-      { "box": [275, 296, 279, 300], "frames": [17], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [470, 326, 473, 329], "frames": [17], "note": "pale fringe on the right outline (3px)" },
-      { "box": [281, 396, 285, 402], "frames": [17], "note": "pale fringe on the left outline (12px)" },
-      { "box": [464, 411, 466, 413], "frames": [17], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [363, 348, 369, 351], "frames": [18], "note": "pale fringe on the left outline (9px)" },
-      { "box": [482, 446, 485, 449], "frames": [18], "note": "pale fringe on the right outline (3px)" },
-      { "box": [515, 524, 518, 527], "frames": [18], "note": "pale fringe on the right outline (3px)" },
-      { "box": [503, 536, 506, 539], "frames": [18], "note": "pale fringe on the right outline (3px)" },
-      { "box": [500, 539, 503, 542], "frames": [18], "note": "pale fringe on the right outline (3px)" },
-      { "box": [491, 545, 494, 548], "frames": [18], "note": "pale fringe on the right outline (3px)" },
-      { "box": [306, 410, 312, 414], "frames": [19], "note": "pale fringe on the left outline (12px)" },
-      { "box": [419, 536, 422, 539], "frames": [19], "note": "pale fringe on the right outline (3px)" },
-      { "box": [518, 551, 522, 554], "frames": [19], "note": "matte speck in a notch on the right (6px)" },
-      { "box": [267, 459, 270, 462], "frames": [20], "note": "pale fringe on the left outline (3px)" },
-      { "box": [431, 354, 434, 357], "frames": [21], "note": "pale fringe on the right outline (3px)" },
-      { "box": [281, 306, 284, 309], "frames": [22], "note": "pale fringe on the left outline (3px)" },
-      { "box": [479, 341, 486, 348], "frames": [22, 25], "note": "matte speck in a notch on the right (27px)" }
+      {
+        "box": [
+          488,
+          329,
+          501,
+          342
+        ],
+        "frames": [
+          0,
+          1,
+          2,
+          23,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30
+        ],
+        "note": "pale fringe on the right outline (129px)"
+      },
+      {
+        "box": [
+          479,
+          341,
+          486,
+          345
+        ],
+        "frames": [
+          0,
+          1,
+          2,
+          3,
+          23,
+          26,
+          27,
+          28,
+          29,
+          30
+        ],
+        "note": "matte speck in a notch on the right (18px)"
+      },
+      {
+        "box": [
+          299,
+          404,
+          306,
+          414
+        ],
+        "frames": [
+          0,
+          1,
+          2,
+          28
+        ],
+        "note": "matte speck in a notch on the left (54px)"
+      },
+      {
+        "box": [
+          461,
+          425,
+          464,
+          428
+        ],
+        "frames": [
+          0
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          437,
+          527,
+          440,
+          530
+        ],
+        "frames": [
+          0,
+          1,
+          22,
+          23,
+          25,
+          26,
+          30
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          374,
+          542,
+          377,
+          545
+        ],
+        "frames": [
+          0,
+          2,
+          22
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          488,
+          326,
+          501,
+          342
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the right outline (135px)"
+      },
+      {
+        "box": [
+          299,
+          404,
+          306,
+          411
+        ],
+        "frames": [
+          3,
+          26,
+          27,
+          29,
+          30
+        ],
+        "note": "matte speck in a notch on the left (36px)"
+      },
+      {
+        "box": [
+          491,
+          353,
+          504,
+          366
+        ],
+        "frames": [
+          4
+        ],
+        "note": "matte patch in a gap on the right (63px)"
+      },
+      {
+        "box": [
+          332,
+          455,
+          336,
+          459
+        ],
+        "frames": [
+          4
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          449,
+          467,
+          455,
+          474
+        ],
+        "frames": [
+          4
+        ],
+        "note": "pale fringe on the right outline (18px)"
+      },
+      {
+        "box": [
+          302,
+          446,
+          315,
+          450
+        ],
+        "frames": [
+          5,
+          6
+        ],
+        "note": "matte speck in a notch on the left (36px)"
+      },
+      {
+        "box": [
+          434,
+          357,
+          437,
+          360
+        ],
+        "frames": [
+          6
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          304,
+          406,
+          315,
+          411
+        ],
+        "frames": [
+          6
+        ],
+        "note": "matte speck in a notch on the left (28px)"
+      },
+      {
+        "box": [
+          482,
+          470,
+          485,
+          473
+        ],
+        "frames": [
+          6
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          470,
+          278,
+          473,
+          281
+        ],
+        "frames": [
+          7
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          461,
+          215,
+          467,
+          219
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the right outline (12px)"
+      },
+      {
+        "box": [
+          488,
+          252,
+          491,
+          255
+        ],
+        "frames": [
+          10
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          288,
+          299,
+          291,
+          303
+        ],
+        "frames": [
+          10
+        ],
+        "note": "matte speck in a notch on the left (6px)"
+      },
+      {
+        "box": [
+          279,
+          378,
+          282,
+          381
+        ],
+        "frames": [
+          13
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          284,
+          464,
+          287,
+          467
+        ],
+        "frames": [
+          14
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          464,
+          198,
+          477,
+          213
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the right outline (63px)"
+      },
+      {
+        "box": [
+          461,
+          212,
+          465,
+          216
+        ],
+        "frames": [
+          15
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          476,
+          252,
+          479,
+          255
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          276,
+          305,
+          285,
+          309
+        ],
+        "frames": [
+          15
+        ],
+        "note": "matte speck in a notch on the left (24px)"
+      },
+      {
+        "box": [
+          455,
+          174,
+          458,
+          177
+        ],
+        "frames": [
+          16
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          470,
+          213,
+          477,
+          219
+        ],
+        "frames": [
+          16
+        ],
+        "note": "pale fringe on the right outline (18px)"
+      },
+      {
+        "box": [
+          461,
+          224,
+          468,
+          228
+        ],
+        "frames": [
+          16
+        ],
+        "note": "matte speck in a notch on the right (18px)"
+      },
+      {
+        "box": [
+          272,
+          272,
+          276,
+          276
+        ],
+        "frames": [
+          16
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          276,
+          317,
+          285,
+          321
+        ],
+        "frames": [
+          16
+        ],
+        "note": "matte speck in a notch on the left (24px)"
+      },
+      {
+        "box": [
+          249,
+          467,
+          252,
+          470
+        ],
+        "frames": [
+          16
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          452,
+          201,
+          455,
+          204
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          488,
+          240,
+          491,
+          243
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          275,
+          296,
+          279,
+          300
+        ],
+        "frames": [
+          17
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          470,
+          326,
+          473,
+          329
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          281,
+          396,
+          285,
+          402
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (12px)"
+      },
+      {
+        "box": [
+          464,
+          411,
+          466,
+          413
+        ],
+        "frames": [
+          17
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          363,
+          348,
+          369,
+          351
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the left outline (9px)"
+      },
+      {
+        "box": [
+          482,
+          446,
+          485,
+          449
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          515,
+          524,
+          518,
+          527
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          503,
+          536,
+          506,
+          539
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          500,
+          539,
+          503,
+          542
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          491,
+          545,
+          494,
+          548
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          306,
+          410,
+          312,
+          414
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the left outline (12px)"
+      },
+      {
+        "box": [
+          419,
+          536,
+          422,
+          539
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          518,
+          551,
+          522,
+          554
+        ],
+        "frames": [
+          19
+        ],
+        "note": "matte speck in a notch on the right (6px)"
+      },
+      {
+        "box": [
+          267,
+          459,
+          270,
+          462
+        ],
+        "frames": [
+          20
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          431,
+          354,
+          434,
+          357
+        ],
+        "frames": [
+          21
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          281,
+          306,
+          284,
+          309
+        ],
+        "frames": [
+          22
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          479,
+          341,
+          486,
+          348
+        ],
+        "frames": [
+          22,
+          25
+        ],
+        "note": "matte speck in a notch on the right (27px)"
+      }
     ],
     "dizzy": [
-      { "box": [485, 329, 501, 339], "frames": [0], "note": "pale fringe on the right outline (102px)" },
-      { "box": [479, 341, 486, 348], "frames": [0], "note": "matte speck in a notch on the right (27px)" },
-      { "box": [299, 413, 306, 417], "frames": [1], "note": "matte speck in a notch on the left (18px)" },
-      { "box": [446, 446, 451, 454], "frames": [1], "note": "pale fringe on the right outline (13px)" },
-      { "box": [446, 509, 449, 516], "frames": [2], "note": "matte speck in a notch on the right (12px)" },
-      { "box": [293, 401, 300, 405], "frames": [5, 6, 8], "note": "matte speck in a notch on the left (18px)" },
-      { "box": [275, 360, 278, 363], "frames": [10], "note": "pale fringe on the left outline (3px)" },
-      { "box": [281, 419, 288, 423], "frames": [10], "note": "matte speck in a notch on the left (18px)" },
-      { "box": [207, 375, 210, 378], "frames": [11], "note": "pale fringe on the left outline (3px)" },
-      { "box": [482, 389, 486, 393], "frames": [11], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [476, 473, 492, 478], "frames": [11], "note": "pale fringe on the right outline (45px)" },
-      { "box": [506, 449, 509, 452], "frames": [12], "note": "pale fringe on the right outline (3px)" },
-      { "box": [281, 461, 333, 483], "frames": [12], "note": "matte patch in a gap on the left (702px)" },
-      { "box": [244, 464, 246, 466], "frames": [12], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [255, 482, 276, 489], "frames": [12], "note": "pale fringe on the left outline (84px)" },
-      { "box": [409, 299, 414, 301], "frames": [14], "note": "matte speck in a notch on the right (4px)" },
-      { "box": [227, 379, 232, 384], "frames": [14], "note": "pale fringe on the left outline (10px)" },
-      { "box": [239, 401, 255, 422], "frames": [14], "note": "pale fringe on the left outline (174px)" },
-      { "box": [515, 441, 518, 444], "frames": [14], "note": "pale fringe on the right outline (3px)" },
-      { "box": [297, 308, 309, 315], "frames": [15], "note": "pale fringe on the left outline (53px)" },
-      { "box": [295, 316, 297, 319], "frames": [15], "note": "matte speck in a notch on the left (2px)" },
-      { "box": [527, 398, 530, 401], "frames": [15], "note": "pale fringe on the right outline (3px)" },
-      { "box": [485, 404, 523, 420], "frames": [15], "note": "pale fringe on the right outline (249px)" },
-      { "box": [273, 432, 276, 435], "frames": [15], "note": "pale fringe on the left outline (3px)" },
-      { "box": [308, 461, 333, 480], "frames": [15], "note": "matte patch in a gap on the left (297px)" },
-      { "box": [468, 482, 471, 485], "frames": [15, 21], "note": "pale fringe on the right outline (3px)" },
-      { "box": [465, 305, 468, 310], "frames": [16], "note": "pale fringe on the right outline (7px)" },
-      { "box": [232, 313, 234, 315], "frames": [16], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [236, 347, 238, 349], "frames": [16], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [258, 356, 263, 360], "frames": [16], "note": "pale fringe on the left outline (9px)" },
-      { "box": [401, 302, 403, 304], "frames": [17], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [242, 401, 255, 431], "frames": [17], "note": "pale fringe on the left outline (198px)" },
-      { "box": [506, 423, 509, 429], "frames": [17], "note": "pale fringe on the right outline (9px)" },
-      { "box": [289, 455, 303, 462], "frames": [17], "note": "pale fringe on the left outline (54px)" },
-      { "box": [557, 377, 560, 380], "frames": [18], "note": "pale fringe on the right outline (3px)" },
-      { "box": [488, 398, 530, 423], "frames": [18], "note": "pale fringe on the right outline (348px)" },
-      { "box": [299, 428, 309, 432], "frames": [18], "note": "matte speck in a notch on the left (27px)" },
-      { "box": [302, 461, 336, 480], "frames": [18, 24], "note": "matte patch in a gap on the left (441px)" },
-      { "box": [469, 482, 471, 484], "frames": [18], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [466, 305, 468, 307], "frames": [19], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [242, 407, 255, 430], "frames": [20], "note": "pale fringe on the left outline (147px)" },
-      { "box": [512, 429, 515, 432], "frames": [20], "note": "pale fringe on the right outline (3px)" },
-      { "box": [302, 458, 336, 480], "frames": [21], "note": "matte patch in a gap on the left (450px)" },
-      { "box": [250, 359, 252, 361], "frames": [22], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [260, 361, 262, 363], "frames": [22], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [253, 362, 258, 370], "frames": [22], "note": "pale fringe on the left outline (13px)" },
-      { "box": [527, 437, 529, 439], "frames": [23], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [476, 473, 478, 475], "frames": [23], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [305, 311, 316, 318], "frames": [24], "note": "pale fringe on the left outline (36px)" },
-      { "box": [296, 314, 303, 321], "frames": [24], "note": "matte speck in a notch on the left (27px)" },
-      { "box": [485, 398, 516, 420], "frames": [24], "note": "pale fringe on the right outline (229px)" },
-      { "box": [401, 299, 408, 301], "frames": [26], "note": "matte speck in a notch on the right (6px)" },
-      { "box": [233, 391, 244, 393], "frames": [26], "note": "matte speck in a notch on the left (10px)" },
-      { "box": [509, 438, 512, 441], "frames": [26], "note": "pale fringe on the right outline (3px)" },
-      { "box": [488, 470, 490, 472], "frames": [26], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [481, 473, 484, 475], "frames": [26], "note": "matte speck in a notch on the right (2px)" },
-      { "box": [292, 287, 294, 289], "frames": [27], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [291, 308, 322, 321], "frames": [27], "note": "pale fringe on the left outline (204px)" },
-      { "box": [297, 380, 306, 387], "frames": [27], "note": "pale fringe on the left outline (30px)" },
-      { "box": [488, 404, 523, 423], "frames": [27], "note": "pale fringe on the right outline (285px)" },
-      { "box": [302, 461, 333, 483], "frames": [27], "note": "matte patch in a gap on the left (306px)" },
-      { "box": [255, 467, 258, 470], "frames": [27], "note": "pale fringe on the left outline (3px)" },
-      { "box": [503, 292, 505, 294], "frames": [28], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [284, 419, 288, 423], "frames": [28], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [402, 252, 405, 255], "frames": [29], "note": "pale fringe on the right outline (3px)" },
-      { "box": [401, 299, 403, 301], "frames": [29], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [409, 299, 411, 301], "frames": [29], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [249, 388, 251, 390], "frames": [29], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [251, 390, 258, 399], "frames": [29], "note": "pale fringe on the left outline (27px)" },
-      { "box": [239, 401, 255, 418], "frames": [29], "note": "pale fringe on the left outline (144px)" },
-      { "box": [256, 416, 258, 418], "frames": [29], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [500, 428, 516, 444], "frames": [29], "note": "pale fringe on the right outline (83px)" },
-      { "box": [485, 473, 489, 475], "frames": [29], "note": "matte speck in a notch on the right (3px)" },
-      { "box": [516, 360, 522, 363], "frames": [30], "note": "pale fringe on the right outline (9px)" }
+      {
+        "box": [
+          485,
+          329,
+          501,
+          339
+        ],
+        "frames": [
+          0
+        ],
+        "note": "pale fringe on the right outline (102px)"
+      },
+      {
+        "box": [
+          479,
+          341,
+          486,
+          348
+        ],
+        "frames": [
+          0
+        ],
+        "note": "matte speck in a notch on the right (27px)"
+      },
+      {
+        "box": [
+          299,
+          413,
+          306,
+          417
+        ],
+        "frames": [
+          1
+        ],
+        "note": "matte speck in a notch on the left (18px)"
+      },
+      {
+        "box": [
+          446,
+          446,
+          451,
+          454
+        ],
+        "frames": [
+          1
+        ],
+        "note": "pale fringe on the right outline (13px)"
+      },
+      {
+        "box": [
+          446,
+          509,
+          449,
+          516
+        ],
+        "frames": [
+          2
+        ],
+        "note": "matte speck in a notch on the right (12px)"
+      },
+      {
+        "box": [
+          293,
+          401,
+          300,
+          405
+        ],
+        "frames": [
+          5,
+          6,
+          8
+        ],
+        "note": "matte speck in a notch on the left (18px)"
+      },
+      {
+        "box": [
+          275,
+          360,
+          278,
+          363
+        ],
+        "frames": [
+          10
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          281,
+          419,
+          288,
+          423
+        ],
+        "frames": [
+          10
+        ],
+        "note": "matte speck in a notch on the left (18px)"
+      },
+      {
+        "box": [
+          207,
+          375,
+          210,
+          378
+        ],
+        "frames": [
+          11
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          482,
+          389,
+          486,
+          393
+        ],
+        "frames": [
+          11
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          476,
+          473,
+          492,
+          478
+        ],
+        "frames": [
+          11
+        ],
+        "note": "pale fringe on the right outline (45px)"
+      },
+      {
+        "box": [
+          506,
+          449,
+          509,
+          452
+        ],
+        "frames": [
+          12
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          281,
+          461,
+          333,
+          483
+        ],
+        "frames": [
+          12
+        ],
+        "note": "matte patch in a gap on the left (702px)"
+      },
+      {
+        "box": [
+          244,
+          464,
+          246,
+          466
+        ],
+        "frames": [
+          12
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          255,
+          482,
+          276,
+          489
+        ],
+        "frames": [
+          12
+        ],
+        "note": "pale fringe on the left outline (84px)"
+      },
+      {
+        "box": [
+          409,
+          299,
+          414,
+          301
+        ],
+        "frames": [
+          14
+        ],
+        "note": "matte speck in a notch on the right (4px)"
+      },
+      {
+        "box": [
+          227,
+          379,
+          232,
+          384
+        ],
+        "frames": [
+          14
+        ],
+        "note": "pale fringe on the left outline (10px)"
+      },
+      {
+        "box": [
+          239,
+          401,
+          255,
+          422
+        ],
+        "frames": [
+          14
+        ],
+        "note": "pale fringe on the left outline (174px)"
+      },
+      {
+        "box": [
+          515,
+          441,
+          518,
+          444
+        ],
+        "frames": [
+          14
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          297,
+          308,
+          309,
+          315
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the left outline (53px)"
+      },
+      {
+        "box": [
+          295,
+          316,
+          297,
+          319
+        ],
+        "frames": [
+          15
+        ],
+        "note": "matte speck in a notch on the left (2px)"
+      },
+      {
+        "box": [
+          527,
+          398,
+          530,
+          401
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          485,
+          404,
+          523,
+          420
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the right outline (249px)"
+      },
+      {
+        "box": [
+          273,
+          432,
+          276,
+          435
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          308,
+          461,
+          333,
+          480
+        ],
+        "frames": [
+          15
+        ],
+        "note": "matte patch in a gap on the left (297px)"
+      },
+      {
+        "box": [
+          468,
+          482,
+          471,
+          485
+        ],
+        "frames": [
+          15,
+          21
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          465,
+          305,
+          468,
+          310
+        ],
+        "frames": [
+          16
+        ],
+        "note": "pale fringe on the right outline (7px)"
+      },
+      {
+        "box": [
+          232,
+          313,
+          234,
+          315
+        ],
+        "frames": [
+          16
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          236,
+          347,
+          238,
+          349
+        ],
+        "frames": [
+          16
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          258,
+          356,
+          263,
+          360
+        ],
+        "frames": [
+          16
+        ],
+        "note": "pale fringe on the left outline (9px)"
+      },
+      {
+        "box": [
+          401,
+          302,
+          403,
+          304
+        ],
+        "frames": [
+          17
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          242,
+          401,
+          255,
+          431
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (198px)"
+      },
+      {
+        "box": [
+          506,
+          423,
+          509,
+          429
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the right outline (9px)"
+      },
+      {
+        "box": [
+          289,
+          455,
+          303,
+          462
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (54px)"
+      },
+      {
+        "box": [
+          557,
+          377,
+          560,
+          380
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          488,
+          398,
+          530,
+          423
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (348px)"
+      },
+      {
+        "box": [
+          299,
+          428,
+          309,
+          432
+        ],
+        "frames": [
+          18
+        ],
+        "note": "matte speck in a notch on the left (27px)"
+      },
+      {
+        "box": [
+          302,
+          461,
+          336,
+          480
+        ],
+        "frames": [
+          18,
+          24
+        ],
+        "note": "matte patch in a gap on the left (441px)"
+      },
+      {
+        "box": [
+          469,
+          482,
+          471,
+          484
+        ],
+        "frames": [
+          18
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          466,
+          305,
+          468,
+          307
+        ],
+        "frames": [
+          19
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          242,
+          407,
+          255,
+          430
+        ],
+        "frames": [
+          20
+        ],
+        "note": "pale fringe on the left outline (147px)"
+      },
+      {
+        "box": [
+          512,
+          429,
+          515,
+          432
+        ],
+        "frames": [
+          20
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          302,
+          458,
+          336,
+          480
+        ],
+        "frames": [
+          21
+        ],
+        "note": "matte patch in a gap on the left (450px)"
+      },
+      {
+        "box": [
+          250,
+          359,
+          252,
+          361
+        ],
+        "frames": [
+          22
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          260,
+          361,
+          262,
+          363
+        ],
+        "frames": [
+          22
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          253,
+          362,
+          258,
+          370
+        ],
+        "frames": [
+          22
+        ],
+        "note": "pale fringe on the left outline (13px)"
+      },
+      {
+        "box": [
+          527,
+          437,
+          529,
+          439
+        ],
+        "frames": [
+          23
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          476,
+          473,
+          478,
+          475
+        ],
+        "frames": [
+          23
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          305,
+          311,
+          316,
+          318
+        ],
+        "frames": [
+          24
+        ],
+        "note": "pale fringe on the left outline (36px)"
+      },
+      {
+        "box": [
+          296,
+          314,
+          303,
+          321
+        ],
+        "frames": [
+          24
+        ],
+        "note": "matte speck in a notch on the left (27px)"
+      },
+      {
+        "box": [
+          485,
+          398,
+          516,
+          420
+        ],
+        "frames": [
+          24
+        ],
+        "note": "pale fringe on the right outline (229px)"
+      },
+      {
+        "box": [
+          401,
+          299,
+          408,
+          301
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte speck in a notch on the right (6px)"
+      },
+      {
+        "box": [
+          233,
+          391,
+          244,
+          393
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte speck in a notch on the left (10px)"
+      },
+      {
+        "box": [
+          509,
+          438,
+          512,
+          441
+        ],
+        "frames": [
+          26
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          488,
+          470,
+          490,
+          472
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          481,
+          473,
+          484,
+          475
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte speck in a notch on the right (2px)"
+      },
+      {
+        "box": [
+          292,
+          287,
+          294,
+          289
+        ],
+        "frames": [
+          27
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          291,
+          308,
+          322,
+          321
+        ],
+        "frames": [
+          27
+        ],
+        "note": "pale fringe on the left outline (204px)"
+      },
+      {
+        "box": [
+          297,
+          380,
+          306,
+          387
+        ],
+        "frames": [
+          27
+        ],
+        "note": "pale fringe on the left outline (30px)"
+      },
+      {
+        "box": [
+          488,
+          404,
+          523,
+          423
+        ],
+        "frames": [
+          27
+        ],
+        "note": "pale fringe on the right outline (285px)"
+      },
+      {
+        "box": [
+          302,
+          461,
+          333,
+          483
+        ],
+        "frames": [
+          27
+        ],
+        "note": "matte patch in a gap on the left (306px)"
+      },
+      {
+        "box": [
+          255,
+          467,
+          258,
+          470
+        ],
+        "frames": [
+          27
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          503,
+          292,
+          505,
+          294
+        ],
+        "frames": [
+          28
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          284,
+          419,
+          288,
+          423
+        ],
+        "frames": [
+          28
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          402,
+          252,
+          405,
+          255
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          401,
+          299,
+          403,
+          301
+        ],
+        "frames": [
+          29
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          409,
+          299,
+          411,
+          301
+        ],
+        "frames": [
+          29
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          249,
+          388,
+          251,
+          390
+        ],
+        "frames": [
+          29
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          251,
+          390,
+          258,
+          399
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the left outline (27px)"
+      },
+      {
+        "box": [
+          239,
+          401,
+          255,
+          418
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the left outline (144px)"
+      },
+      {
+        "box": [
+          256,
+          416,
+          258,
+          418
+        ],
+        "frames": [
+          29
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          500,
+          428,
+          516,
+          444
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the right outline (83px)"
+      },
+      {
+        "box": [
+          485,
+          473,
+          489,
+          475
+        ],
+        "frames": [
+          29
+        ],
+        "note": "matte speck in a notch on the right (3px)"
+      },
+      {
+        "box": [
+          516,
+          360,
+          522,
+          363
+        ],
+        "frames": [
+          30
+        ],
+        "note": "pale fringe on the right outline (9px)"
+      }
     ],
     "idle": [
-      { "box": [482, 341, 486, 345], "frames": [0], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [302, 407, 306, 411], "frames": [0], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [488, 338, 492, 345], "frames": [1], "note": "matte speck in a notch on the right (18px)" },
-      { "box": [281, 356, 291, 372], "frames": [1], "note": "pale fringe on the left outline (93px)" },
-      { "box": [314, 452, 336, 462], "frames": [1], "note": "matte patch in a gap on the left (153px)" },
-      { "box": [240, 488, 243, 491], "frames": [2], "note": "pale fringe on the left outline (3px)" },
-      { "box": [500, 365, 502, 367], "frames": [3], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [485, 368, 507, 384], "frames": [3], "note": "pale fringe on the right outline (128px)" },
-      { "box": [494, 326, 497, 329], "frames": [5], "note": "pale fringe on the right outline (3px)" },
-      { "box": [488, 329, 501, 342], "frames": [5], "note": "pale fringe on the right outline (107px)" },
-      { "box": [479, 341, 486, 345], "frames": [5, 30], "note": "matte speck in a notch on the right (18px)" },
-      { "box": [488, 350, 492, 354], "frames": [6], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [491, 398, 493, 400], "frames": [6], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [282, 422, 303, 426], "frames": [6], "note": "pale fringe on the left outline (57px)" },
-      { "box": [320, 455, 333, 462], "frames": [6, 11], "note": "matte speck in a notch on the left (45px)" },
-      { "box": [491, 359, 498, 372], "frames": [7], "note": "matte speck in a notch on the right (54px)" },
-      { "box": [281, 373, 294, 387], "frames": [7], "note": "pale fringe on the left outline (99px)" },
-      { "box": [449, 480, 452, 483], "frames": [7], "note": "pale fringe on the right outline (3px)" },
-      { "box": [317, 461, 321, 465], "frames": [8], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [275, 315, 278, 318], "frames": [9], "note": "pale fringe on the left outline (3px)" },
-      { "box": [282, 353, 285, 356], "frames": [10], "note": "pale fringe on the left outline (3px)" },
-      { "box": [299, 407, 303, 411], "frames": [10, 20], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [281, 362, 288, 372], "frames": [11], "note": "pale fringe on the left outline (35px)" },
-      { "box": [290, 374, 294, 378], "frames": [11], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [317, 348, 320, 351], "frames": [12], "note": "pale fringe on the left outline (3px)" },
-      { "box": [425, 339, 428, 342], "frames": [13], "note": "pale fringe on the right outline (3px)" },
-      { "box": [461, 455, 464, 458], "frames": [13], "note": "pale fringe on the right outline (3px)" },
-      { "box": [437, 520, 439, 522], "frames": [13, 15, 23], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [326, 458, 330, 462], "frames": [16], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [378, 345, 381, 348], "frames": [17], "note": "pale fringe on the left outline (3px)" },
-      { "box": [292, 385, 294, 387], "frames": [17], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [237, 500, 240, 503], "frames": [17], "note": "pale fringe on the left outline (3px)" },
-      { "box": [317, 461, 324, 465], "frames": [18], "note": "matte speck in a notch on the left (18px)" },
-      { "box": [506, 300, 509, 303], "frames": [19], "note": "pale fringe on the right outline (3px)" },
-      { "box": [455, 425, 458, 428], "frames": [19], "note": "pale fringe on the right outline (3px)" },
-      { "box": [246, 480, 249, 483], "frames": [19], "note": "pale fringe on the left outline (3px)" },
-      { "box": [488, 326, 501, 339], "frames": [20], "note": "pale fringe on the right outline (90px)" },
-      { "box": [488, 347, 492, 351], "frames": [21], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [323, 458, 333, 462], "frames": [21], "note": "matte speck in a notch on the left (27px)" },
-      { "box": [264, 462, 267, 465], "frames": [22], "note": "pale fringe on the left outline (3px)" },
-      { "box": [317, 449, 336, 465], "frames": [23], "note": "matte patch in a gap on the left (153px)" },
-      { "box": [488, 332, 498, 339], "frames": [25], "note": "pale fringe on the right outline (29px)" },
-      { "box": [449, 463, 451, 465], "frames": [25], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [437, 491, 439, 493], "frames": [25], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [285, 425, 306, 429], "frames": [26], "note": "matte patch in a gap on the left (60px)" },
-      { "box": [323, 458, 330, 462], "frames": [26], "note": "matte speck in a notch on the left (18px)" },
-      { "box": [437, 519, 440, 522], "frames": [26], "note": "pale fringe on the right outline (3px)" },
-      { "box": [494, 362, 501, 375], "frames": [27], "note": "pale fringe on the right outline (53px)" },
-      { "box": [505, 376, 507, 378], "frames": [28], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [320, 452, 336, 465], "frames": [28], "note": "matte patch in a gap on the left (117px)" }
+      {
+        "box": [
+          482,
+          341,
+          486,
+          345
+        ],
+        "frames": [
+          0
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          302,
+          407,
+          306,
+          411
+        ],
+        "frames": [
+          0
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          488,
+          338,
+          492,
+          345
+        ],
+        "frames": [
+          1
+        ],
+        "note": "matte speck in a notch on the right (18px)"
+      },
+      {
+        "box": [
+          281,
+          356,
+          291,
+          372
+        ],
+        "frames": [
+          1
+        ],
+        "note": "pale fringe on the left outline (93px)"
+      },
+      {
+        "box": [
+          314,
+          452,
+          336,
+          462
+        ],
+        "frames": [
+          1
+        ],
+        "note": "matte patch in a gap on the left (153px)"
+      },
+      {
+        "box": [
+          240,
+          488,
+          243,
+          491
+        ],
+        "frames": [
+          2
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          500,
+          365,
+          502,
+          367
+        ],
+        "frames": [
+          3
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          485,
+          368,
+          507,
+          384
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the right outline (128px)"
+      },
+      {
+        "box": [
+          494,
+          326,
+          497,
+          329
+        ],
+        "frames": [
+          5
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          488,
+          329,
+          501,
+          342
+        ],
+        "frames": [
+          5
+        ],
+        "note": "pale fringe on the right outline (107px)"
+      },
+      {
+        "box": [
+          479,
+          341,
+          486,
+          345
+        ],
+        "frames": [
+          5,
+          30
+        ],
+        "note": "matte speck in a notch on the right (18px)"
+      },
+      {
+        "box": [
+          488,
+          350,
+          492,
+          354
+        ],
+        "frames": [
+          6
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          491,
+          398,
+          493,
+          400
+        ],
+        "frames": [
+          6
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          282,
+          422,
+          303,
+          426
+        ],
+        "frames": [
+          6
+        ],
+        "note": "pale fringe on the left outline (57px)"
+      },
+      {
+        "box": [
+          320,
+          455,
+          333,
+          462
+        ],
+        "frames": [
+          6,
+          11
+        ],
+        "note": "matte speck in a notch on the left (45px)"
+      },
+      {
+        "box": [
+          491,
+          359,
+          498,
+          372
+        ],
+        "frames": [
+          7
+        ],
+        "note": "matte speck in a notch on the right (54px)"
+      },
+      {
+        "box": [
+          281,
+          373,
+          294,
+          387
+        ],
+        "frames": [
+          7
+        ],
+        "note": "pale fringe on the left outline (99px)"
+      },
+      {
+        "box": [
+          449,
+          480,
+          452,
+          483
+        ],
+        "frames": [
+          7
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          317,
+          461,
+          321,
+          465
+        ],
+        "frames": [
+          8
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          275,
+          315,
+          278,
+          318
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          282,
+          353,
+          285,
+          356
+        ],
+        "frames": [
+          10
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          299,
+          407,
+          303,
+          411
+        ],
+        "frames": [
+          10,
+          20
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          281,
+          362,
+          288,
+          372
+        ],
+        "frames": [
+          11
+        ],
+        "note": "pale fringe on the left outline (35px)"
+      },
+      {
+        "box": [
+          290,
+          374,
+          294,
+          378
+        ],
+        "frames": [
+          11
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          317,
+          348,
+          320,
+          351
+        ],
+        "frames": [
+          12
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          425,
+          339,
+          428,
+          342
+        ],
+        "frames": [
+          13
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          461,
+          455,
+          464,
+          458
+        ],
+        "frames": [
+          13
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          437,
+          520,
+          439,
+          522
+        ],
+        "frames": [
+          13,
+          15,
+          23
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          326,
+          458,
+          330,
+          462
+        ],
+        "frames": [
+          16
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          378,
+          345,
+          381,
+          348
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          292,
+          385,
+          294,
+          387
+        ],
+        "frames": [
+          17
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          237,
+          500,
+          240,
+          503
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          317,
+          461,
+          324,
+          465
+        ],
+        "frames": [
+          18
+        ],
+        "note": "matte speck in a notch on the left (18px)"
+      },
+      {
+        "box": [
+          506,
+          300,
+          509,
+          303
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          455,
+          425,
+          458,
+          428
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          246,
+          480,
+          249,
+          483
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          488,
+          326,
+          501,
+          339
+        ],
+        "frames": [
+          20
+        ],
+        "note": "pale fringe on the right outline (90px)"
+      },
+      {
+        "box": [
+          488,
+          347,
+          492,
+          351
+        ],
+        "frames": [
+          21
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          323,
+          458,
+          333,
+          462
+        ],
+        "frames": [
+          21
+        ],
+        "note": "matte speck in a notch on the left (27px)"
+      },
+      {
+        "box": [
+          264,
+          462,
+          267,
+          465
+        ],
+        "frames": [
+          22
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          317,
+          449,
+          336,
+          465
+        ],
+        "frames": [
+          23
+        ],
+        "note": "matte patch in a gap on the left (153px)"
+      },
+      {
+        "box": [
+          488,
+          332,
+          498,
+          339
+        ],
+        "frames": [
+          25
+        ],
+        "note": "pale fringe on the right outline (29px)"
+      },
+      {
+        "box": [
+          449,
+          463,
+          451,
+          465
+        ],
+        "frames": [
+          25
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          437,
+          491,
+          439,
+          493
+        ],
+        "frames": [
+          25
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          285,
+          425,
+          306,
+          429
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte patch in a gap on the left (60px)"
+      },
+      {
+        "box": [
+          323,
+          458,
+          330,
+          462
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte speck in a notch on the left (18px)"
+      },
+      {
+        "box": [
+          437,
+          519,
+          440,
+          522
+        ],
+        "frames": [
+          26
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          494,
+          362,
+          501,
+          375
+        ],
+        "frames": [
+          27
+        ],
+        "note": "pale fringe on the right outline (53px)"
+      },
+      {
+        "box": [
+          505,
+          376,
+          507,
+          378
+        ],
+        "frames": [
+          28
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          320,
+          452,
+          336,
+          465
+        ],
+        "frames": [
+          28
+        ],
+        "note": "matte patch in a gap on the left (117px)"
+      }
     ],
     "lie-down": [
-      { "box": [437, 519, 440, 522], "frames": [1], "note": "pale fringe on the right outline (3px)" },
-      { "box": [482, 341, 486, 345], "frames": [6, 7, 8], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [302, 410, 306, 414], "frames": [9], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [512, 374, 525, 384], "frames": [10], "note": "pale fringe on the right outline (81px)" },
-      { "box": [446, 500, 448, 502], "frames": [10], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [458, 440, 477, 456], "frames": [11], "note": "pale fringe on the right outline (156px)" },
-      { "box": [295, 443, 306, 456], "frames": [12], "note": "pale fringe on the left outline (54px)" },
-      { "box": [497, 461, 505, 466], "frames": [13], "note": "pale fringe on the right outline (19px)" },
-      { "box": [309, 327, 312, 330], "frames": [14], "note": "pale fringe on the left outline (3px)" },
-      { "box": [434, 338, 438, 342], "frames": [14], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [464, 437, 483, 453], "frames": [14], "note": "pale fringe on the right outline (164px)" },
-      { "box": [291, 440, 315, 453], "frames": [15], "note": "pale fringe on the left outline (144px)" },
-      { "box": [298, 527, 303, 531], "frames": [15], "note": "matte speck in a notch on the left (12px)" },
-      { "box": [515, 392, 522, 396], "frames": [17], "note": "matte speck in a notch on the right (18px)" },
-      { "box": [527, 403, 540, 411], "frames": [19], "note": "pale fringe on the right outline (48px)" },
-      { "box": [521, 413, 528, 417], "frames": [19], "note": "matte speck in a notch on the right (18px)" },
-      { "box": [530, 409, 540, 417], "frames": [20], "note": "pale fringe on the right outline (36px)" },
-      { "box": [524, 416, 531, 423], "frames": [20], "note": "matte speck in a notch on the right (27px)" },
-      { "box": [455, 533, 457, 535], "frames": [20], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [459, 533, 462, 536], "frames": [20], "note": "pale fringe on the right outline (3px)" },
-      { "box": [452, 536, 454, 538], "frames": [20], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [536, 427, 555, 441], "frames": [21], "note": "pale fringe on the right outline (78px)" },
-      { "box": [509, 485, 516, 498], "frames": [21], "note": "matte patch in a gap on the right (63px)" },
-      { "box": [219, 495, 222, 498], "frames": [23], "note": "pale fringe on the left outline (3px)" },
-      { "box": [461, 572, 463, 574], "frames": [23, 24, 25, 27, 28, 29], "note": "matte speck in a notch on the right (1px)" }
+      {
+        "box": [
+          437,
+          519,
+          440,
+          522
+        ],
+        "frames": [
+          1
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          482,
+          341,
+          486,
+          345
+        ],
+        "frames": [
+          6,
+          7,
+          8
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          302,
+          410,
+          306,
+          414
+        ],
+        "frames": [
+          9
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          512,
+          374,
+          525,
+          384
+        ],
+        "frames": [
+          10
+        ],
+        "note": "pale fringe on the right outline (81px)"
+      },
+      {
+        "box": [
+          446,
+          500,
+          448,
+          502
+        ],
+        "frames": [
+          10
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          458,
+          440,
+          477,
+          456
+        ],
+        "frames": [
+          11
+        ],
+        "note": "pale fringe on the right outline (156px)"
+      },
+      {
+        "box": [
+          295,
+          443,
+          306,
+          456
+        ],
+        "frames": [
+          12
+        ],
+        "note": "pale fringe on the left outline (54px)"
+      },
+      {
+        "box": [
+          497,
+          461,
+          505,
+          466
+        ],
+        "frames": [
+          13
+        ],
+        "note": "pale fringe on the right outline (19px)"
+      },
+      {
+        "box": [
+          309,
+          327,
+          312,
+          330
+        ],
+        "frames": [
+          14
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          434,
+          338,
+          438,
+          342
+        ],
+        "frames": [
+          14
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          464,
+          437,
+          483,
+          453
+        ],
+        "frames": [
+          14
+        ],
+        "note": "pale fringe on the right outline (164px)"
+      },
+      {
+        "box": [
+          291,
+          440,
+          315,
+          453
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the left outline (144px)"
+      },
+      {
+        "box": [
+          298,
+          527,
+          303,
+          531
+        ],
+        "frames": [
+          15
+        ],
+        "note": "matte speck in a notch on the left (12px)"
+      },
+      {
+        "box": [
+          515,
+          392,
+          522,
+          396
+        ],
+        "frames": [
+          17
+        ],
+        "note": "matte speck in a notch on the right (18px)"
+      },
+      {
+        "box": [
+          527,
+          403,
+          540,
+          411
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the right outline (48px)"
+      },
+      {
+        "box": [
+          521,
+          413,
+          528,
+          417
+        ],
+        "frames": [
+          19
+        ],
+        "note": "matte speck in a notch on the right (18px)"
+      },
+      {
+        "box": [
+          530,
+          409,
+          540,
+          417
+        ],
+        "frames": [
+          20
+        ],
+        "note": "pale fringe on the right outline (36px)"
+      },
+      {
+        "box": [
+          524,
+          416,
+          531,
+          423
+        ],
+        "frames": [
+          20
+        ],
+        "note": "matte speck in a notch on the right (27px)"
+      },
+      {
+        "box": [
+          455,
+          533,
+          457,
+          535
+        ],
+        "frames": [
+          20
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          459,
+          533,
+          462,
+          536
+        ],
+        "frames": [
+          20
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          452,
+          536,
+          454,
+          538
+        ],
+        "frames": [
+          20
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          536,
+          427,
+          555,
+          441
+        ],
+        "frames": [
+          21
+        ],
+        "note": "pale fringe on the right outline (78px)"
+      },
+      {
+        "box": [
+          509,
+          485,
+          516,
+          498
+        ],
+        "frames": [
+          21
+        ],
+        "note": "matte patch in a gap on the right (63px)"
+      },
+      {
+        "box": [
+          219,
+          495,
+          222,
+          498
+        ],
+        "frames": [
+          23
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          461,
+          572,
+          463,
+          574
+        ],
+        "frames": [
+          23,
+          24,
+          25,
+          27,
+          28,
+          29
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          308,
+          443,
+          324,
+          459
+        ],
+        "frames": [
+          11
+        ],
+        "note": "white square between the left gills (falling)"
+      },
+      {
+        "box": [
+          302,
+          420,
+          314,
+          432
+        ],
+        "frames": [
+          10
+        ],
+        "note": "white speck by the left gills (falling)"
+      },
+      {
+        "box": [
+          516,
+          408,
+          534,
+          426
+        ],
+        "frames": [
+          19,
+          20
+        ],
+        "note": "grey ring left round an erased gap on the right",
+        "paleMin": 100,
+        "paleChroma": 35
+      },
+      {
+        "box": [
+          308,
+          443,
+          324,
+          459
+        ],
+        "frames": [
+          11
+        ],
+        "paleMin": 100,
+        "paleChroma": 35,
+        "note": "grey ring left round the erased square"
+      }
     ],
     "run": [
-      { "box": [351, 324, 363, 330], "frames": [0], "note": "pale fringe on the left outline (27px)" },
-      { "box": [447, 324, 450, 327], "frames": [0], "note": "pale fringe on the right outline (3px)" },
-      { "box": [503, 339, 506, 344], "frames": [0], "note": "pale fringe on the right outline (6px)" },
-      { "box": [332, 446, 351, 453], "frames": [0], "note": "matte patch in a gap on the left (99px)" },
-      { "box": [449, 521, 452, 528], "frames": [0], "note": "matte speck in a notch on the right (12px)" },
-      { "box": [318, 522, 321, 525], "frames": [0], "note": "pale fringe on the left outline (3px)" },
-      { "box": [362, 527, 365, 530], "frames": [0], "note": "pale fringe on the left outline (3px)" },
-      { "box": [512, 363, 515, 366], "frames": [1], "note": "pale fringe on the right outline (3px)" },
-      { "box": [240, 503, 243, 506], "frames": [1], "note": "pale fringe on the left outline (3px)" },
-      { "box": [357, 545, 360, 548], "frames": [1], "note": "pale fringe on the left outline (3px)" },
-      { "box": [377, 545, 384, 548], "frames": [1], "note": "matte speck in a notch on the left (12px)" },
-      { "box": [326, 452, 351, 465], "frames": [2], "note": "matte patch in a gap on the left (180px)" },
-      { "box": [470, 482, 488, 489], "frames": [2], "note": "pale fringe on the right outline (81px)" },
-      { "box": [488, 489, 491, 492], "frames": [2], "note": "pale fringe on the right outline (3px)" },
-      { "box": [446, 533, 454, 549], "frames": [2], "note": "pale fringe on the right outline (49px)" },
-      { "box": [357, 317, 363, 324], "frames": [3], "note": "pale fringe on the left outline (21px)" },
-      { "box": [386, 318, 390, 327], "frames": [3], "note": "pale fringe on the right outline (21px)" },
-      { "box": [309, 381, 312, 384], "frames": [3], "note": "pale fringe on the left outline (3px)" },
-      { "box": [470, 483, 473, 486], "frames": [3], "note": "pale fringe on the right outline (3px)" },
-      { "box": [473, 489, 476, 497], "frames": [3], "note": "pale fringe on the right outline (12px)" },
-      { "box": [470, 497, 473, 500], "frames": [3], "note": "pale fringe on the right outline (3px)" },
-      { "box": [455, 503, 461, 506], "frames": [3], "note": "pale fringe on the right outline (9px)" },
-      { "box": [380, 527, 390, 536], "frames": [3], "note": "matte speck in a notch on the right (54px)" },
-      { "box": [332, 458, 351, 468], "frames": [4, 6], "note": "matte patch in a gap on the left (144px)" },
-      { "box": [458, 530, 461, 533], "frames": [4], "note": "pale fringe on the right outline (3px)" },
-      { "box": [357, 315, 360, 318], "frames": [5], "note": "pale fringe on the left outline (3px)" },
-      { "box": [339, 318, 342, 321], "frames": [5, 7, 19, 21], "note": "pale fringe on the left outline (3px)" },
-      { "box": [461, 486, 464, 494], "frames": [5], "note": "pale fringe on the right outline (12px)" },
-      { "box": [461, 525, 463, 527], "frames": [6], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [443, 546, 446, 549], "frames": [6], "note": "pale fringe on the right outline (3px)" },
-      { "box": [213, 500, 216, 503], "frames": [7], "note": "pale fringe on the left outline (3px)" },
-      { "box": [353, 339, 357, 342], "frames": [8], "note": "matte speck in a notch on the left (6px)" },
-      { "box": [332, 458, 351, 465], "frames": [8], "note": "matte patch in a gap on the left (99px)" },
-      { "box": [345, 539, 348, 542], "frames": [8], "note": "pale fringe on the left outline (3px)" },
-      { "box": [359, 317, 363, 321], "frames": [9], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [294, 333, 297, 336], "frames": [9], "note": "pale fringe on the left outline (3px)" },
-      { "box": [261, 456, 264, 459], "frames": [9], "note": "pale fringe on the left outline (3px)" },
-      { "box": [234, 465, 237, 468], "frames": [9], "note": "pale fringe on the left outline (3px)" },
-      { "box": [213, 480, 216, 483], "frames": [9, 15], "note": "pale fringe on the left outline (3px)" },
-      { "box": [428, 512, 431, 515], "frames": [9], "note": "pale fringe on the right outline (3px)" },
-      { "box": [342, 530, 345, 533], "frames": [9], "note": "pale fringe on the left outline (3px)" },
-      { "box": [381, 530, 384, 533], "frames": [9], "note": "pale fringe on the left outline (3px)" },
-      { "box": [384, 533, 387, 536], "frames": [9], "note": "pale fringe on the right outline (3px)" },
-      { "box": [348, 536, 351, 539], "frames": [9], "note": "pale fringe on the left outline (3px)" },
-      { "box": [315, 354, 318, 357], "frames": [10, 22], "note": "pale fringe on the left outline (3px)" },
-      { "box": [329, 458, 351, 465], "frames": [10, 16], "note": "matte patch in a gap on the left (72px)" },
-      { "box": [461, 527, 464, 530], "frames": [10], "note": "pale fringe on the right outline (3px)" },
-      { "box": [452, 533, 455, 536], "frames": [10, 12, 22], "note": "pale fringe on the right outline (3px)" },
-      { "box": [330, 554, 333, 557], "frames": [10], "note": "pale fringe on the left outline (3px)" },
-      { "box": [357, 317, 363, 321], "frames": [11], "note": "pale fringe on the left outline (12px)" },
-      { "box": [455, 503, 458, 506], "frames": [11], "note": "pale fringe on the right outline (3px)" },
-      { "box": [386, 351, 390, 354], "frames": [12], "note": "matte speck in a notch on the right (6px)" },
-      { "box": [512, 455, 515, 458], "frames": [12], "note": "pale fringe on the right outline (3px)" },
-      { "box": [329, 461, 351, 468], "frames": [12, 22, 24], "note": "matte patch in a gap on the left (90px)" },
-      { "box": [461, 497, 464, 500], "frames": [12, 19], "note": "pale fringe on the right outline (3px)" },
-      { "box": [386, 318, 389, 321], "frames": [13, 15], "note": "pale fringe on the right outline (3px)" },
-      { "box": [234, 468, 237, 471], "frames": [13], "note": "pale fringe on the left outline (3px)" },
-      { "box": [476, 471, 479, 474], "frames": [13], "note": "pale fringe on the right outline (3px)" },
-      { "box": [449, 506, 452, 509], "frames": [13, 23], "note": "pale fringe on the right outline (3px)" },
-      { "box": [428, 521, 431, 524], "frames": [13, 15], "note": "pale fringe on the right outline (3px)" },
-      { "box": [351, 530, 354, 533], "frames": [13], "note": "pale fringe on the left outline (3px)" },
-      { "box": [390, 539, 393, 542], "frames": [13], "note": "pale fringe on the right outline (3px)" },
-      { "box": [329, 458, 351, 468], "frames": [14, 20], "note": "matte patch in a gap on the left (108px)" },
-      { "box": [318, 419, 321, 422], "frames": [15], "note": "pale fringe on the left outline (3px)" },
-      { "box": [488, 446, 491, 449], "frames": [15], "note": "pale fringe on the right outline (3px)" },
-      { "box": [318, 449, 333, 456], "frames": [15], "note": "matte patch in a gap on the left (78px)" },
-      { "box": [461, 467, 464, 470], "frames": [15], "note": "pale fringe on the right outline (3px)" },
-      { "box": [464, 480, 469, 486], "frames": [15], "note": "pale fringe on the right outline (13px)" },
-      { "box": [452, 503, 455, 506], "frames": [15, 17], "note": "pale fringe on the right outline (3px)" },
-      { "box": [371, 533, 374, 536], "frames": [15], "note": "pale fringe on the left outline (3px)" },
-      { "box": [323, 452, 327, 456], "frames": [16], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [243, 467, 246, 470], "frames": [16], "note": "pale fringe on the left outline (3px)" },
-      { "box": [461, 513, 464, 524], "frames": [16], "note": "pale fringe on the right outline (18px)" },
-      { "box": [380, 306, 383, 309], "frames": [17], "note": "pale fringe on the left outline (3px)" },
-      { "box": [357, 314, 363, 318], "frames": [17], "note": "pale fringe on the left outline (12px)" },
-      { "box": [479, 471, 482, 474], "frames": [17], "note": "pale fringe on the right outline (3px)" },
-      { "box": [231, 474, 234, 477], "frames": [17], "note": "pale fringe on the left outline (3px)" },
-      { "box": [357, 527, 360, 530], "frames": [17], "note": "pale fringe on the left outline (3px)" },
-      { "box": [326, 452, 330, 456], "frames": [18], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [329, 458, 354, 465], "frames": [18], "note": "matte patch in a gap on the left (135px)" },
-      { "box": [503, 467, 506, 470], "frames": [18], "note": "pale fringe on the right outline (3px)" },
-      { "box": [443, 536, 455, 549], "frames": [18], "note": "pale fringe on the right outline (96px)" },
-      { "box": [359, 314, 363, 318], "frames": [19], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [518, 416, 521, 419], "frames": [19], "note": "pale fringe on the right outline (3px)" },
-      { "box": [261, 459, 264, 462], "frames": [19], "note": "pale fringe on the left outline (3px)" },
-      { "box": [240, 466, 242, 468], "frames": [19], "note": "matte speck in a notch on the left (1px)" },
-      { "box": [461, 474, 463, 476], "frames": [19], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [383, 527, 390, 533], "frames": [19], "note": "matte speck in a notch on the right (21px)" },
-      { "box": [380, 533, 383, 536], "frames": [19], "note": "pale fringe on the left outline (3px)" },
-      { "box": [371, 536, 380, 548], "frames": [19], "note": "pale fringe on the left outline (51px)" },
-      { "box": [443, 536, 457, 551], "frames": [20], "note": "pale fringe on the right outline (106px)" },
-      { "box": [512, 425, 515, 428], "frames": [21], "note": "pale fringe on the right outline (3px)" },
-      { "box": [437, 509, 443, 512], "frames": [21], "note": "pale fringe on the right outline (9px)" },
-      { "box": [434, 512, 437, 515], "frames": [21], "note": "pale fringe on the right outline (3px)" },
-      { "box": [503, 464, 506, 470], "frames": [22], "note": "pale fringe on the right outline (9px)" },
-      { "box": [488, 476, 491, 479], "frames": [22], "note": "pale fringe on the right outline (3px)" },
-      { "box": [467, 485, 488, 495], "frames": [22], "note": "matte patch in a gap on the right (90px)" },
-      { "box": [440, 536, 452, 549], "frames": [22], "note": "pale fringe on the right outline (81px)" },
-      { "box": [467, 485, 470, 488], "frames": [24], "note": "pale fringe on the right outline (3px)" },
-      { "box": [480, 485, 482, 487], "frames": [24], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [446, 557, 449, 560], "frames": [24], "note": "pale fringe on the right outline (3px)" },
-      { "box": [359, 311, 363, 315], "frames": [25], "note": "matte speck in a notch on the left (9px)" },
-      { "box": [302, 441, 305, 444], "frames": [25], "note": "pale fringe on the left outline (3px)" },
-      { "box": [461, 488, 464, 494], "frames": [25], "note": "pale fringe on the right outline (9px)" },
-      { "box": [405, 530, 408, 533], "frames": [25], "note": "pale fringe on the right outline (3px)" },
-      { "box": [386, 348, 390, 351], "frames": [26], "note": "matte speck in a notch on the right (6px)" },
-      { "box": [326, 461, 348, 468], "frames": [26], "note": "matte patch in a gap on the left (72px)" },
-      { "box": [464, 498, 467, 501], "frames": [26], "note": "pale fringe on the right outline (3px)" },
-      { "box": [467, 501, 471, 510], "frames": [26], "note": "pale fringe on the right outline (21px)" },
-      { "box": [473, 515, 476, 518], "frames": [26, 30], "note": "pale fringe on the right outline (3px)" },
-      { "box": [455, 527, 458, 530], "frames": [26], "note": "pale fringe on the right outline (3px)" },
-      { "box": [434, 536, 440, 539], "frames": [26], "note": "pale fringe on the right outline (9px)" },
-      { "box": [302, 434, 351, 447], "frames": [27], "note": "pale fringe on the left outline (315px)" },
-      { "box": [449, 506, 452, 510], "frames": [27], "note": "matte speck in a notch on the right (6px)" },
-      { "box": [315, 513, 318, 516], "frames": [27], "note": "pale fringe on the left outline (3px)" },
-      { "box": [443, 527, 446, 530], "frames": [27], "note": "pale fringe on the right outline (3px)" },
-      { "box": [303, 359, 306, 362], "frames": [28], "note": "pale fringe on the left outline (3px)" },
-      { "box": [306, 362, 309, 365], "frames": [28], "note": "pale fringe on the left outline (3px)" },
-      { "box": [332, 461, 339, 465], "frames": [28], "note": "matte speck in a notch on the left (18px)" },
-      { "box": [243, 488, 246, 491], "frames": [28], "note": "pale fringe on the left outline (3px)" },
-      { "box": [273, 506, 276, 509], "frames": [28], "note": "pale fringe on the left outline (3px)" },
-      { "box": [315, 408, 318, 411], "frames": [29], "note": "pale fringe on the left outline (3px)" },
-      { "box": [306, 432, 357, 450], "frames": [29], "note": "pale fringe on the left outline (354px)" },
-      { "box": [500, 443, 503, 446], "frames": [29], "note": "pale fringe on the right outline (3px)" },
-      { "box": [455, 509, 458, 512], "frames": [29], "note": "pale fringe on the right outline (3px)" },
-      { "box": [446, 512, 455, 522], "frames": [29], "note": "pale fringe on the right outline (42px)" },
-      { "box": [411, 530, 414, 533], "frames": [29], "note": "pale fringe on the right outline (3px)" },
-      { "box": [261, 450, 264, 453], "frames": [30], "note": "pale fringe on the left outline (3px)" },
-      { "box": [323, 455, 345, 462], "frames": [30], "note": "matte patch in a gap on the left (90px)" },
-      { "box": [213, 465, 216, 468], "frames": [30], "note": "pale fringe on the left outline (3px)" },
-      { "box": [470, 495, 474, 501], "frames": [30], "note": "pale fringe on the right outline (11px)" },
-      { "box": [459, 521, 461, 523], "frames": [30], "note": "matte speck in a notch on the right (1px)" },
-      { "box": [422, 539, 428, 551], "frames": [30], "note": "pale fringe on the right outline (45px)" }
+      {
+        "box": [
+          351,
+          324,
+          363,
+          330
+        ],
+        "frames": [
+          0
+        ],
+        "note": "pale fringe on the left outline (27px)"
+      },
+      {
+        "box": [
+          447,
+          324,
+          450,
+          327
+        ],
+        "frames": [
+          0
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          503,
+          339,
+          506,
+          344
+        ],
+        "frames": [
+          0
+        ],
+        "note": "pale fringe on the right outline (6px)"
+      },
+      {
+        "box": [
+          332,
+          446,
+          351,
+          453
+        ],
+        "frames": [
+          0
+        ],
+        "note": "matte patch in a gap on the left (99px)"
+      },
+      {
+        "box": [
+          449,
+          521,
+          452,
+          528
+        ],
+        "frames": [
+          0
+        ],
+        "note": "matte speck in a notch on the right (12px)"
+      },
+      {
+        "box": [
+          318,
+          522,
+          321,
+          525
+        ],
+        "frames": [
+          0
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          362,
+          527,
+          365,
+          530
+        ],
+        "frames": [
+          0
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          512,
+          363,
+          515,
+          366
+        ],
+        "frames": [
+          1
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          240,
+          503,
+          243,
+          506
+        ],
+        "frames": [
+          1
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          357,
+          545,
+          360,
+          548
+        ],
+        "frames": [
+          1
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          377,
+          545,
+          384,
+          548
+        ],
+        "frames": [
+          1
+        ],
+        "note": "matte speck in a notch on the left (12px)"
+      },
+      {
+        "box": [
+          326,
+          452,
+          351,
+          465
+        ],
+        "frames": [
+          2
+        ],
+        "note": "matte patch in a gap on the left (180px)"
+      },
+      {
+        "box": [
+          470,
+          482,
+          488,
+          489
+        ],
+        "frames": [
+          2
+        ],
+        "note": "pale fringe on the right outline (81px)"
+      },
+      {
+        "box": [
+          488,
+          489,
+          491,
+          492
+        ],
+        "frames": [
+          2
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          446,
+          533,
+          454,
+          549
+        ],
+        "frames": [
+          2
+        ],
+        "note": "pale fringe on the right outline (49px)"
+      },
+      {
+        "box": [
+          357,
+          317,
+          363,
+          324
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the left outline (21px)"
+      },
+      {
+        "box": [
+          386,
+          318,
+          390,
+          327
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the right outline (21px)"
+      },
+      {
+        "box": [
+          309,
+          381,
+          312,
+          384
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          470,
+          483,
+          473,
+          486
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          473,
+          489,
+          476,
+          497
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the right outline (12px)"
+      },
+      {
+        "box": [
+          470,
+          497,
+          473,
+          500
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          455,
+          503,
+          461,
+          506
+        ],
+        "frames": [
+          3
+        ],
+        "note": "pale fringe on the right outline (9px)"
+      },
+      {
+        "box": [
+          380,
+          527,
+          390,
+          536
+        ],
+        "frames": [
+          3
+        ],
+        "note": "matte speck in a notch on the right (54px)"
+      },
+      {
+        "box": [
+          332,
+          458,
+          351,
+          468
+        ],
+        "frames": [
+          4,
+          6
+        ],
+        "note": "matte patch in a gap on the left (144px)"
+      },
+      {
+        "box": [
+          458,
+          530,
+          461,
+          533
+        ],
+        "frames": [
+          4
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          357,
+          315,
+          360,
+          318
+        ],
+        "frames": [
+          5
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          339,
+          318,
+          342,
+          321
+        ],
+        "frames": [
+          5,
+          7,
+          19,
+          21
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          461,
+          486,
+          464,
+          494
+        ],
+        "frames": [
+          5
+        ],
+        "note": "pale fringe on the right outline (12px)"
+      },
+      {
+        "box": [
+          461,
+          525,
+          463,
+          527
+        ],
+        "frames": [
+          6
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          443,
+          546,
+          446,
+          549
+        ],
+        "frames": [
+          6
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          213,
+          500,
+          216,
+          503
+        ],
+        "frames": [
+          7
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          353,
+          339,
+          357,
+          342
+        ],
+        "frames": [
+          8
+        ],
+        "note": "matte speck in a notch on the left (6px)"
+      },
+      {
+        "box": [
+          332,
+          458,
+          351,
+          465
+        ],
+        "frames": [
+          8
+        ],
+        "note": "matte patch in a gap on the left (99px)"
+      },
+      {
+        "box": [
+          345,
+          539,
+          348,
+          542
+        ],
+        "frames": [
+          8
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          359,
+          317,
+          363,
+          321
+        ],
+        "frames": [
+          9
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          294,
+          333,
+          297,
+          336
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          261,
+          456,
+          264,
+          459
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          234,
+          465,
+          237,
+          468
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          213,
+          480,
+          216,
+          483
+        ],
+        "frames": [
+          9,
+          15
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          428,
+          512,
+          431,
+          515
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          342,
+          530,
+          345,
+          533
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          381,
+          530,
+          384,
+          533
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          384,
+          533,
+          387,
+          536
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          348,
+          536,
+          351,
+          539
+        ],
+        "frames": [
+          9
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          315,
+          354,
+          318,
+          357
+        ],
+        "frames": [
+          10,
+          22
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          329,
+          458,
+          351,
+          465
+        ],
+        "frames": [
+          10,
+          16
+        ],
+        "note": "matte patch in a gap on the left (72px)"
+      },
+      {
+        "box": [
+          461,
+          527,
+          464,
+          530
+        ],
+        "frames": [
+          10
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          452,
+          533,
+          455,
+          536
+        ],
+        "frames": [
+          10,
+          12,
+          22
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          330,
+          554,
+          333,
+          557
+        ],
+        "frames": [
+          10
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          357,
+          317,
+          363,
+          321
+        ],
+        "frames": [
+          11
+        ],
+        "note": "pale fringe on the left outline (12px)"
+      },
+      {
+        "box": [
+          455,
+          503,
+          458,
+          506
+        ],
+        "frames": [
+          11
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          386,
+          351,
+          390,
+          354
+        ],
+        "frames": [
+          12
+        ],
+        "note": "matte speck in a notch on the right (6px)"
+      },
+      {
+        "box": [
+          512,
+          455,
+          515,
+          458
+        ],
+        "frames": [
+          12
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          329,
+          461,
+          351,
+          468
+        ],
+        "frames": [
+          12,
+          22,
+          24
+        ],
+        "note": "matte patch in a gap on the left (90px)"
+      },
+      {
+        "box": [
+          461,
+          497,
+          464,
+          500
+        ],
+        "frames": [
+          12,
+          19
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          386,
+          318,
+          389,
+          321
+        ],
+        "frames": [
+          13,
+          15
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          234,
+          468,
+          237,
+          471
+        ],
+        "frames": [
+          13
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          476,
+          471,
+          479,
+          474
+        ],
+        "frames": [
+          13
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          449,
+          506,
+          452,
+          509
+        ],
+        "frames": [
+          13,
+          23
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          428,
+          521,
+          431,
+          524
+        ],
+        "frames": [
+          13,
+          15
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          351,
+          530,
+          354,
+          533
+        ],
+        "frames": [
+          13
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          390,
+          539,
+          393,
+          542
+        ],
+        "frames": [
+          13
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          329,
+          458,
+          351,
+          468
+        ],
+        "frames": [
+          14,
+          20
+        ],
+        "note": "matte patch in a gap on the left (108px)"
+      },
+      {
+        "box": [
+          318,
+          419,
+          321,
+          422
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          488,
+          446,
+          491,
+          449
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          318,
+          449,
+          333,
+          456
+        ],
+        "frames": [
+          15
+        ],
+        "note": "matte patch in a gap on the left (78px)"
+      },
+      {
+        "box": [
+          461,
+          467,
+          464,
+          470
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          464,
+          480,
+          469,
+          486
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the right outline (13px)"
+      },
+      {
+        "box": [
+          452,
+          503,
+          455,
+          506
+        ],
+        "frames": [
+          15,
+          17
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          371,
+          533,
+          374,
+          536
+        ],
+        "frames": [
+          15
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          323,
+          452,
+          327,
+          456
+        ],
+        "frames": [
+          16
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          243,
+          467,
+          246,
+          470
+        ],
+        "frames": [
+          16
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          461,
+          513,
+          464,
+          524
+        ],
+        "frames": [
+          16
+        ],
+        "note": "pale fringe on the right outline (18px)"
+      },
+      {
+        "box": [
+          380,
+          306,
+          383,
+          309
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          357,
+          314,
+          363,
+          318
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (12px)"
+      },
+      {
+        "box": [
+          479,
+          471,
+          482,
+          474
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          231,
+          474,
+          234,
+          477
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          357,
+          527,
+          360,
+          530
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          326,
+          452,
+          330,
+          456
+        ],
+        "frames": [
+          18
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          329,
+          458,
+          354,
+          465
+        ],
+        "frames": [
+          18
+        ],
+        "note": "matte patch in a gap on the left (135px)"
+      },
+      {
+        "box": [
+          503,
+          467,
+          506,
+          470
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          443,
+          536,
+          455,
+          549
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the right outline (96px)"
+      },
+      {
+        "box": [
+          359,
+          314,
+          363,
+          318
+        ],
+        "frames": [
+          19
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          518,
+          416,
+          521,
+          419
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          261,
+          459,
+          264,
+          462
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          240,
+          466,
+          242,
+          468
+        ],
+        "frames": [
+          19
+        ],
+        "note": "matte speck in a notch on the left (1px)"
+      },
+      {
+        "box": [
+          461,
+          474,
+          463,
+          476
+        ],
+        "frames": [
+          19
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          383,
+          527,
+          390,
+          533
+        ],
+        "frames": [
+          19
+        ],
+        "note": "matte speck in a notch on the right (21px)"
+      },
+      {
+        "box": [
+          380,
+          533,
+          383,
+          536
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          371,
+          536,
+          380,
+          548
+        ],
+        "frames": [
+          19
+        ],
+        "note": "pale fringe on the left outline (51px)"
+      },
+      {
+        "box": [
+          443,
+          536,
+          457,
+          551
+        ],
+        "frames": [
+          20
+        ],
+        "note": "pale fringe on the right outline (106px)"
+      },
+      {
+        "box": [
+          512,
+          425,
+          515,
+          428
+        ],
+        "frames": [
+          21
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          437,
+          509,
+          443,
+          512
+        ],
+        "frames": [
+          21
+        ],
+        "note": "pale fringe on the right outline (9px)"
+      },
+      {
+        "box": [
+          434,
+          512,
+          437,
+          515
+        ],
+        "frames": [
+          21
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          503,
+          464,
+          506,
+          470
+        ],
+        "frames": [
+          22
+        ],
+        "note": "pale fringe on the right outline (9px)"
+      },
+      {
+        "box": [
+          488,
+          476,
+          491,
+          479
+        ],
+        "frames": [
+          22
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          467,
+          485,
+          488,
+          495
+        ],
+        "frames": [
+          22
+        ],
+        "note": "matte patch in a gap on the right (90px)"
+      },
+      {
+        "box": [
+          440,
+          536,
+          452,
+          549
+        ],
+        "frames": [
+          22
+        ],
+        "note": "pale fringe on the right outline (81px)"
+      },
+      {
+        "box": [
+          467,
+          485,
+          470,
+          488
+        ],
+        "frames": [
+          24
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          480,
+          485,
+          482,
+          487
+        ],
+        "frames": [
+          24
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          446,
+          557,
+          449,
+          560
+        ],
+        "frames": [
+          24
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          359,
+          311,
+          363,
+          315
+        ],
+        "frames": [
+          25
+        ],
+        "note": "matte speck in a notch on the left (9px)"
+      },
+      {
+        "box": [
+          302,
+          441,
+          305,
+          444
+        ],
+        "frames": [
+          25
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          461,
+          488,
+          464,
+          494
+        ],
+        "frames": [
+          25
+        ],
+        "note": "pale fringe on the right outline (9px)"
+      },
+      {
+        "box": [
+          405,
+          530,
+          408,
+          533
+        ],
+        "frames": [
+          25
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          386,
+          348,
+          390,
+          351
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte speck in a notch on the right (6px)"
+      },
+      {
+        "box": [
+          326,
+          461,
+          348,
+          468
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte patch in a gap on the left (72px)"
+      },
+      {
+        "box": [
+          464,
+          498,
+          467,
+          501
+        ],
+        "frames": [
+          26
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          467,
+          501,
+          471,
+          510
+        ],
+        "frames": [
+          26
+        ],
+        "note": "pale fringe on the right outline (21px)"
+      },
+      {
+        "box": [
+          473,
+          515,
+          476,
+          518
+        ],
+        "frames": [
+          26,
+          30
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          455,
+          527,
+          458,
+          530
+        ],
+        "frames": [
+          26
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          434,
+          536,
+          440,
+          539
+        ],
+        "frames": [
+          26
+        ],
+        "note": "pale fringe on the right outline (9px)"
+      },
+      {
+        "box": [
+          302,
+          434,
+          351,
+          447
+        ],
+        "frames": [
+          27
+        ],
+        "note": "pale fringe on the left outline (315px)"
+      },
+      {
+        "box": [
+          449,
+          506,
+          452,
+          510
+        ],
+        "frames": [
+          27
+        ],
+        "note": "matte speck in a notch on the right (6px)"
+      },
+      {
+        "box": [
+          315,
+          513,
+          318,
+          516
+        ],
+        "frames": [
+          27
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          443,
+          527,
+          446,
+          530
+        ],
+        "frames": [
+          27
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          303,
+          359,
+          306,
+          362
+        ],
+        "frames": [
+          28
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          306,
+          362,
+          309,
+          365
+        ],
+        "frames": [
+          28
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          332,
+          461,
+          339,
+          465
+        ],
+        "frames": [
+          28
+        ],
+        "note": "matte speck in a notch on the left (18px)"
+      },
+      {
+        "box": [
+          243,
+          488,
+          246,
+          491
+        ],
+        "frames": [
+          28
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          273,
+          506,
+          276,
+          509
+        ],
+        "frames": [
+          28
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          315,
+          408,
+          318,
+          411
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          306,
+          432,
+          357,
+          450
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the left outline (354px)"
+      },
+      {
+        "box": [
+          500,
+          443,
+          503,
+          446
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          455,
+          509,
+          458,
+          512
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          446,
+          512,
+          455,
+          522
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the right outline (42px)"
+      },
+      {
+        "box": [
+          411,
+          530,
+          414,
+          533
+        ],
+        "frames": [
+          29
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          261,
+          450,
+          264,
+          453
+        ],
+        "frames": [
+          30
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          323,
+          455,
+          345,
+          462
+        ],
+        "frames": [
+          30
+        ],
+        "note": "matte patch in a gap on the left (90px)"
+      },
+      {
+        "box": [
+          213,
+          465,
+          216,
+          468
+        ],
+        "frames": [
+          30
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          470,
+          495,
+          474,
+          501
+        ],
+        "frames": [
+          30
+        ],
+        "note": "pale fringe on the right outline (11px)"
+      },
+      {
+        "box": [
+          459,
+          521,
+          461,
+          523
+        ],
+        "frames": [
+          30
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      },
+      {
+        "box": [
+          422,
+          539,
+          428,
+          551
+        ],
+        "frames": [
+          30
+        ],
+        "note": "pale fringe on the right outline (45px)"
+      }
     ],
     "tired": [
-      { "box": [482, 341, 486, 348], "frames": [0], "note": "matte speck in a notch on the right (18px)" },
-      { "box": [282, 353, 285, 357], "frames": [0], "note": "matte speck in a notch on the left (6px)" },
-      { "box": [434, 524, 438, 528], "frames": [0, 2], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [482, 341, 486, 345], "frames": [1, 2], "note": "matte speck in a notch on the right (9px)" },
-      { "box": [299, 404, 306, 411], "frames": [2], "note": "matte speck in a notch on the left (27px)" },
-      { "box": [488, 347, 492, 354], "frames": [3], "note": "matte speck in a notch on the right (18px)" },
-      { "box": [293, 380, 312, 396], "frames": [4], "note": "pale fringe on the left outline (107px)" },
-      { "box": [299, 410, 312, 417], "frames": [6, 7, 8, 10], "note": "pale fringe on the left outline (66px)" },
-      { "box": [500, 443, 512, 447], "frames": [9, 10, 11, 12, 13, 14, 16], "note": "pale fringe on the right outline (30px)" },
-      { "box": [491, 395, 513, 411], "frames": [14, 16], "note": "pale fringe on the right outline (110px)" },
-      { "box": [486, 354, 489, 357], "frames": [17], "note": "pale fringe on the right outline (3px)" },
-      { "box": [351, 390, 354, 393], "frames": [18], "note": "pale fringe on the left outline (3px)" },
-      { "box": [497, 412, 519, 426], "frames": [22], "note": "pale fringe on the right outline (114px)" },
-      { "box": [452, 509, 455, 512], "frames": [23], "note": "pale fringe on the right outline (3px)" },
-      { "box": [332, 372, 335, 375], "frames": [25], "note": "pale fringe on the left outline (3px)" },
-      { "box": [503, 458, 512, 462], "frames": [26], "note": "matte speck in a notch on the right (24px)" },
-      { "box": [497, 410, 519, 426], "frames": [27, 30], "note": "pale fringe on the right outline (122px)" },
-      { "box": [452, 512, 454, 514], "frames": [29], "note": "matte speck in a notch on the right (1px)" }
+      {
+        "box": [
+          482,
+          341,
+          486,
+          348
+        ],
+        "frames": [
+          0
+        ],
+        "note": "matte speck in a notch on the right (18px)"
+      },
+      {
+        "box": [
+          282,
+          353,
+          285,
+          357
+        ],
+        "frames": [
+          0
+        ],
+        "note": "matte speck in a notch on the left (6px)"
+      },
+      {
+        "box": [
+          434,
+          524,
+          438,
+          528
+        ],
+        "frames": [
+          0,
+          2
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          482,
+          341,
+          486,
+          345
+        ],
+        "frames": [
+          1,
+          2
+        ],
+        "note": "matte speck in a notch on the right (9px)"
+      },
+      {
+        "box": [
+          299,
+          404,
+          306,
+          411
+        ],
+        "frames": [
+          2
+        ],
+        "note": "matte speck in a notch on the left (27px)"
+      },
+      {
+        "box": [
+          488,
+          347,
+          492,
+          354
+        ],
+        "frames": [
+          3
+        ],
+        "note": "matte speck in a notch on the right (18px)"
+      },
+      {
+        "box": [
+          293,
+          380,
+          312,
+          396
+        ],
+        "frames": [
+          4
+        ],
+        "note": "pale fringe on the left outline (107px)"
+      },
+      {
+        "box": [
+          299,
+          410,
+          312,
+          417
+        ],
+        "frames": [
+          6,
+          7,
+          8,
+          10
+        ],
+        "note": "pale fringe on the left outline (66px)"
+      },
+      {
+        "box": [
+          500,
+          443,
+          512,
+          447
+        ],
+        "frames": [
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          16
+        ],
+        "note": "pale fringe on the right outline (30px)"
+      },
+      {
+        "box": [
+          491,
+          395,
+          513,
+          411
+        ],
+        "frames": [
+          14,
+          16
+        ],
+        "note": "pale fringe on the right outline (110px)"
+      },
+      {
+        "box": [
+          486,
+          354,
+          489,
+          357
+        ],
+        "frames": [
+          17
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          351,
+          390,
+          354,
+          393
+        ],
+        "frames": [
+          18
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          497,
+          412,
+          519,
+          426
+        ],
+        "frames": [
+          22
+        ],
+        "note": "pale fringe on the right outline (114px)"
+      },
+      {
+        "box": [
+          452,
+          509,
+          455,
+          512
+        ],
+        "frames": [
+          23
+        ],
+        "note": "pale fringe on the right outline (3px)"
+      },
+      {
+        "box": [
+          332,
+          372,
+          335,
+          375
+        ],
+        "frames": [
+          25
+        ],
+        "note": "pale fringe on the left outline (3px)"
+      },
+      {
+        "box": [
+          503,
+          458,
+          512,
+          462
+        ],
+        "frames": [
+          26
+        ],
+        "note": "matte speck in a notch on the right (24px)"
+      },
+      {
+        "box": [
+          497,
+          410,
+          519,
+          426
+        ],
+        "frames": [
+          27,
+          30
+        ],
+        "note": "pale fringe on the right outline (122px)"
+      },
+      {
+        "box": [
+          452,
+          512,
+          454,
+          514
+        ],
+        "frames": [
+          29
+        ],
+        "note": "matte speck in a notch on the right (1px)"
+      }
     ]
   }
 }

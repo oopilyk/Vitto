@@ -1,5 +1,6 @@
 import type { HealthEvent, WeightUnit, WorkoutMetadata } from './health';
 import { convertWeightValue } from './macroTargets';
+import { estimatedOneRepMax } from './strengthRanks';
 
 /**
  * Personal records: the heaviest set ever ticked on each of the big lifts.
@@ -14,6 +15,11 @@ import { convertWeightValue } from './macroTargets';
  * the lifter remembers pulling, and it needs no formula to argue with. Reps and
  * the date ride along so a tie at the same weight goes to the set with more
  * reps, and so the card can say when it happened.
+ *
+ * Ranking is another matter: 225 x 8 is a stronger lift than 225 x 1, so each
+ * record also carries the best ESTIMATED one-rep max across every ticked set of
+ * that lift (Epley), which is what a percentile is placed from. It can come
+ * from a lighter set with more reps than the one shown.
  */
 
 /** The lifts worth a tile. Display order. Names are `exerciseLibrary`'s. */
@@ -31,6 +37,8 @@ export interface PersonalRecord {
   exercise: string;
   /** Null until the lift has been logged with a weight. */
   record: LiftRecord | null;
+  /** Best estimated one-rep max over every ticked set, in `unit`. Null with `record`. */
+  estimatedMax: number | null;
 }
 
 const beats = (candidate: LiftRecord, current: LiftRecord | null): boolean =>
@@ -49,6 +57,7 @@ export const personalRecords = (
   lifts: readonly string[] = BIG_LIFTS,
 ): PersonalRecord[] => {
   const best = new Map<string, LiftRecord | null>(lifts.map((lift) => [lift, null]));
+  const bestMax = new Map<string, number>();
   for (const event of events) {
     if (event.type !== 'WORKOUT') continue;
     const { exercises } = event.metadata as WorkoutMetadata;
@@ -59,8 +68,13 @@ export const personalRecords = (
         const weight = Math.round(convertWeightValue(set.weight, set.unit ?? 'kg', unit) * 10) / 10;
         const candidate = { weight, reps: Math.max(0, set.reps), occurredAt: event.occurredAt };
         if (beats(candidate, best.get(exercise.name) ?? null)) best.set(exercise.name, candidate);
+        const max = estimatedOneRepMax(weight, candidate.reps);
+        if (max > (bestMax.get(exercise.name) ?? 0)) bestMax.set(exercise.name, max);
       }
     }
   }
-  return lifts.map((exercise) => ({ exercise, record: best.get(exercise) ?? null }));
+  return lifts.map((exercise) => {
+    const max = bestMax.get(exercise);
+    return { exercise, record: best.get(exercise) ?? null, estimatedMax: max === undefined ? null : Math.round(max * 10) / 10 };
+  });
 };

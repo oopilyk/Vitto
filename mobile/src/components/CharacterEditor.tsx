@@ -12,6 +12,7 @@ import {
   type PetState,
 } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
+import { useTourTarget } from '../tour/FirstRunTour';
 import { CharacterDials } from './CharacterDials';
 import { SelectionList, TextField } from './settingsKit';
 
@@ -95,6 +96,8 @@ export function CharacterEditor({
     if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   };
   const justSaved = saveState === 'saved' && same(draft, stored);
+  // The choices, for the first-run tour's personality step (see FirstRunTour).
+  const choicesTourRef = useTourTarget('personality');
 
   return (
     <View style={styles.wrap}>
@@ -104,48 +107,50 @@ export function CharacterEditor({
         dials={stored.dials}
         confirmed={justSaved}
       />
-      <SelectionList
-        options={options}
-        value={options.some((option) => option.value === draft.personality) ? draft.personality : undefined}
-        onChange={(personality) =>
-          // A new base moves the sliders to where that base sits. The notes are
-          // kept (only shown, and only sent to the companion, on "Your own"), so
-          // trying another base and coming back does not lose what was written.
-          setDraft((current) => ({ ...current, personality, dials: companion.dialsFor(personality) }))
-        }
-        // The fine-tuning drops down under the base it tunes.
-        expanded={(personality) => (
-          <>
-            <PersonalityPreview
-              personality={personality}
-              dials={draft.dials}
-              persona={draft.persona}
-              name={pet.name}
-            />
-            <Text style={styles.label}>Fine-tune</Text>
-            <CharacterDials dials={draft.dials} onChange={(dials) => setDraft((current) => ({ ...current, dials }))} testID="character-dials" />
-            {notesAllowed && personality === 'custom' ? (
-              <View>
-                <Text style={styles.label}>Who are they?</Text>
-                <TextField
-                  style={styles.persona}
-                  value={draft.persona}
-                  onChangeText={(persona) => setDraft((current) => ({ ...current, persona: persona.slice(0, PERSONA_MAX_LENGTH) }))}
-                  placeholder="A grumpy old pirate who secretly adores us."
-                  multiline
-                  // Return closes the keyboard rather than starting a new line.
-                  returnKeyType="done"
-                  submitBehavior="blurAndSubmit"
-                  onSubmitEditing={() => Keyboard.dismiss()}
-                  maxLength={PERSONA_MAX_LENGTH}
-                  accessibilityLabel="Their character"
-                />
-                <Text style={styles.count}>{`${draft.persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
-              </View>
-            ) : null}
-          </>
-        )}
-      />
+      <View ref={choicesTourRef} collapsable={false}>
+        <SelectionList
+          options={options}
+          value={options.some((option) => option.value === draft.personality) ? draft.personality : undefined}
+          onChange={(personality) =>
+            // A new base moves the sliders to where that base sits. The notes are
+            // kept (only shown, and only sent to the companion, on "Your own"), so
+            // trying another base and coming back does not lose what was written.
+            setDraft((current) => ({ ...current, personality, dials: companion.dialsFor(personality) }))
+          }
+          // The fine-tuning drops down under the base it tunes.
+          expanded={(personality) => (
+            <>
+              <PersonalityPreview
+                personality={personality}
+                dials={draft.dials}
+                persona={draft.persona}
+                name={pet.name}
+              />
+              <Text style={styles.label}>Fine-tune</Text>
+              <CharacterDials dials={draft.dials} onChange={(dials) => setDraft((current) => ({ ...current, dials }))} testID="character-dials" />
+              {notesAllowed && personality === 'custom' ? (
+                <View>
+                  <Text style={styles.label}>Who are they?</Text>
+                  <TextField
+                    style={styles.persona}
+                    value={draft.persona}
+                    onChangeText={(persona) => setDraft((current) => ({ ...current, persona: persona.slice(0, PERSONA_MAX_LENGTH) }))}
+                    placeholder="A grumpy old pirate who secretly adores us."
+                    multiline
+                    // Return closes the keyboard rather than starting a new line.
+                    returnKeyType="done"
+                    submitBehavior="blurAndSubmit"
+                    onSubmitEditing={() => Keyboard.dismiss()}
+                    maxLength={PERSONA_MAX_LENGTH}
+                    accessibilityLabel="Their character"
+                  />
+                  <Text style={styles.count}>{`${draft.persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
+                </View>
+              ) : null}
+            </>
+          )}
+        />
+      </View>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: !savable }}

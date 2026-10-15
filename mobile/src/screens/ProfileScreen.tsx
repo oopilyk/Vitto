@@ -154,12 +154,14 @@ export function ProfileScreen({
   const streaks = calculateQualifyingStreaks(events, today);
   const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const runs = runRecords(events, measurementSystemOf(profile));
-  // Each lift is also placed against people of the same sex, bodyweight and age.
+  // Each lift is also placed against people of the same sex, bodyweight and age,
+  // from its best estimated one-rep max: the tile shows the set as lifted, but
+  // 225 x 8 ranks as the stronger lift it is, not as a 225 single.
   // `liftStanding` works in kilograms, so a pounds profile converts back first.
-  const lifts = personalRecords(events, profile.weightUnit, BIG_LIFTS).map(({ exercise, record }) => ({
+  const lifts = personalRecords(events, profile.weightUnit, BIG_LIFTS).map(({ exercise, record, estimatedMax }) => ({
     exercise,
     record,
-    standing: record ? liftStanding(exercise, convertWeightValue(record.weight, profile.weightUnit, 'kg'), profile) : null,
+    standing: estimatedMax ? liftStanding(exercise, convertWeightValue(estimatedMax, profile.weightUnit, 'kg'), profile) : null,
   }));
   const overall = overallStanding(lifts.map((lift) => lift.standing));
   const board: { label: string; value: string | null; unit?: string; meta: string; note?: string }[] = [

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useScreenFocused } from '../hooks/useScreenFocused';
-import { FirstRunTour, TourProvider, type TourStep } from '../tour/FirstRunTour';
+import { FirstRunTour, TourProvider, type TourPage, type TourStep } from '../tour/FirstRunTour';
 import { Platform, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -102,7 +102,7 @@ interface Props {
   achievementUnlock?: { id: AchievementId; trainingDaysPerWeek: number } | null;
   onAchievementUnlockComplete?: () => void;
   /** The first-run tour, while it is still to be seen (see FirstRunTour). */
-  tour?: { steps: TourStep[]; onDone: () => void } | null;
+  tour?: { steps: TourStep[]; onDone: () => void; onPage?: (page: TourPage | null) => void } | null;
 }
 
 /** How long the bubble waits for the pet's own remark before saying the stock line. */
@@ -297,7 +297,7 @@ export function DashboardScreen({
         />
       ) : tour ? (
         // After any celebration, never on top of one.
-        <FirstRunTour steps={tour.steps} onDone={tour.onDone} speaker={pet.name} />
+        <FirstRunTour steps={tour.steps} onDone={tour.onDone} onPage={tour.onPage} speaker={pet.name} />
       ) : null}
     </View>
     </TourProvider>

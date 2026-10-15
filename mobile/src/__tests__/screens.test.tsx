@@ -1781,25 +1781,25 @@ describe('profile screen', () => {
     });
     const flat = profileTree.root.findAllByType(Text).map((t: any) => t.props.children).flat(2).map(String);
     expect(flat).toContain('100');
-    expect(flat.some((t) => t.includes('Intermediate'))).toBe(true);
+    expect(flat.some((t) => /^\d+(st|nd|rd|th) · /.test(t))).toBe(true);
     profileTree.unmount();
   });
 
   it('places each lift against people of the same sex, bodyweight and age', () => {
     const { Text } = require('react-native');
-    const bench = (weight: number) => ({
+    const bench = (weight: number, reps = 1) => ({
       id: 'w1', userId: 'u', type: 'WORKOUT', source: 'manual', occurredAt: '2026-09-08T10:00:00Z',
       metadata: {
         workoutType: 'strength', durationMinutes: 40,
         exercises: [{ id: 'e1', name: 'Bench Press', muscleGroup: 'chest',
-          sets: [{ id: 's1', weight, reps: 3, unit: 'kg', completed: true }] }],
+          sets: [{ id: 's1', weight, reps, unit: 'kg', completed: true }] }],
       },
     });
-    const flatFor = (who: Partial<typeof profile>, weight: number) => {
+    const flatFor = (who: Partial<typeof profile>, weight: number, reps = 1) => {
       let tree!: renderer.ReactTestRenderer;
       act(() => {
         tree = renderer.create(
-          <ProfileScreen profile={{ ...profile, ...who }}            events={[bench(weight) as any]} onSave={async () => {}} onClose={() => {}} />,
+          <ProfileScreen profile={{ ...profile, ...who }}            events={[bench(weight, reps) as any]} onSave={async () => {}} onClose={() => {}} />,
         );
       });
       const flat = tree.root.findAllByType(Text).map((t: any) => t.props.children).flat(2).map(String);
@@ -1817,6 +1817,11 @@ describe('profile screen', () => {
     const rank = (flat: string[]) => Number(flat.find((t) => /^\d+(st|nd|rd|th) · /.test(t))!.match(/^\d+/)![0]);
     expect(rank(flatFor({ sex: 'male', age: 30, weightKg: 60 }, 88))).toBeGreaterThan(rank(middling));
     expect(rank(flatFor({ sex: 'male', age: 60, weightKg: 80 }, 88))).toBeGreaterThan(rank(middling));
+    // Ranked from the estimated max: the same bar for eight reps is a stronger lift
+    // than a single, though the tile still shows the set as lifted.
+    const forEight = flatFor({ sex: 'male', age: 30, weightKg: 80 }, 88, 8);
+    expect(rank(forEight)).toBeGreaterThan(rank(middling));
+    expect(forEight).toContain('88');
 
     // The footnote says what the number is measured against, so it is not read as a population fact.
     expect(middling.some((t) => t.includes('people who lift') && t.includes('estimate'))).toBe(true);

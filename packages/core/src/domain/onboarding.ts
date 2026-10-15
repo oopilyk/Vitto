@@ -65,15 +65,18 @@ export const MOTIVATION_OPTIONS: Choice<Motivation>[] = [
  * `savage` roasts you and `menace` bosses you; neither bullies you. The difference
  * is enforced in the prompt, not left to the model's discretion — see
  * `PERSONALITY_VOICE`.
+ *
+ * "Your own" comes first, where it is seen before the presets (filtered out
+ * below MATURE_PERSONALITY_AGE, see petPersonalityOptionsFor).
  */
 export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
+  { value: 'custom', label: 'Your own', detail: 'No base. Just the sliders and your notes' },
   { value: 'feisty', label: 'Feisty', detail: 'Scrappy, mouthy, spoiling for a fight' },
   { value: 'cute', label: 'Cute', detail: 'Tiny, adoring, a bit of a baby' },
   { value: 'sweet', label: 'Sweet', detail: 'Warm, kind, endlessly in your corner' },
   { value: 'savage', label: 'Savage', detail: 'Deadpan, merciless, swears a little' },
   { value: 'hype', label: 'Hype', detail: 'All swagger. Your personal hype man' },
   { value: 'menace', label: 'Menace', detail: 'Bossy, loud, swears like hell. 16+' },
-  { value: 'custom', label: 'Your own', detail: 'No base. Just the sliders and your notes' },
 ];
 
 /**

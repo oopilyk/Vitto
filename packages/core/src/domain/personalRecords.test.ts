@@ -27,6 +27,18 @@ describe('personalRecords', () => {
     expect(bench.record).toEqual({ weight: 80, reps: 5, occurredAt: '2026-09-08T10:00:00Z' });
   });
 
+  it('ranks from the best estimated max, which can come from a lighter set', () => {
+    const events = [
+      workout('a', '2026-09-01T10:00:00Z', [lift('Bench Press', [set(100, 1), set(90, 8)])]),
+    ];
+    const bench = personalRecords(events, 'kg').find((r) => r.exercise === 'Bench Press')!;
+    // The card still shows the heaviest set...
+    expect(bench.record).toMatchObject({ weight: 100, reps: 1 });
+    // ...but 90 x 8 (Epley: 90 x (1 + 8/30) = 114) is the stronger lift.
+    expect(bench.estimatedMax).toBe(114);
+    expect(personalRecords([], 'kg')[0]!.estimatedMax).toBeNull();
+  });
+
   it('ignores unticked rows and bodyweight sets — a plan is not a lift', () => {
     const events = [
       workout('a', '2026-09-01T10:00:00Z', [

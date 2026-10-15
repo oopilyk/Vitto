@@ -8,19 +8,24 @@ import { fonts, themedStyles, world } from '../theme';
 /**
  * A short first-run tour of the main screen: where to log meals, workouts and
  * runs, where today's numbers are, how to talk to the pet, and (on Plus) how to
- * change its personality.
+ * change its personality, on the page where that is done.
  *
  * The things it points at register themselves with `useTourTarget`, so the
  * tour rings whatever is actually on screen wherever it is laid out, rather
  * than guessing coordinates that would drift between phones.
  */
 
-export type TourTargetId = 'kitchen' | 'gym' | 'outside' | 'study' | 'today' | 'chat' | 'level' | 'account';
+export type TourTargetId = 'kitchen' | 'gym' | 'outside' | 'study' | 'today' | 'chat' | 'level' | 'account' | 'personality';
+
+/** A page off the main screen that a step is shown on; the host opens it (see FirstRunTour's onPage). */
+export type TourPage = 'personality';
 
 export interface TourStep {
   target: TourTargetId;
   title: string;
   body: string;
+  /** Shown on this page rather than the main screen. */
+  page?: TourPage;
 }
 
 interface TourRegistry {
@@ -32,6 +37,9 @@ interface TourRegistry {
 const TourContext = createContext<TourRegistry | null>(null);
 
 export function TourProvider({ children }: { children: ReactNode }) {
+  // Inside another provider (the app's, so pages pushed over the main screen
+  // can be pointed at too) this one defers to it rather than hiding it.
+  const outer = useContext(TourContext);
   const targets = useRef(new Map<TourTargetId, RefObject<View | null>>());
   const registry = useMemo<TourRegistry>(
     () => ({
@@ -43,6 +51,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     }),
     [],
   );
+  if (outer) return <>{children}</>;
   return <TourContext.Provider value={registry}>{children}</TourContext.Provider>;
 }
 
@@ -59,7 +68,9 @@ export function useTourTarget(id: TourTargetId) {
 
 /**
  * The tour's steps, in order, in the pet's own voice: it is showing you round
- * its world. The personality step only for Plus, which is where choosing one lives.
+ * its world. The personality step only for Plus, which is where choosing one
+ * lives: it opens that page and points at the choices. Without Plus the page
+ * is only a locked note, so the tour does not go there.
  */
 export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
   {
@@ -100,10 +111,18 @@ export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
   {
     target: 'account',
     title: 'Your account',
-    body: plus
-      ? `Tap here for your profile, friends and settings. Want me to be a little different? Settings → Personality changes who ${petName} is.`
-      : 'Tap here for your profile, your friends, and all your settings.',
+    body: 'Tap here for your profile, your friends, and all your settings.',
   },
+  ...(plus
+    ? [
+        {
+          target: 'personality' as const,
+          page: 'personality' as const,
+          title: 'My personality',
+          body: `This is where you choose who ${petName} is. Pick one, fine-tune it with the sliders, or pick Your own and write me a character. Then tap Save character. It's in Settings → Personality any time.`,
+        },
+      ]
+    : []),
 ];
 
 interface Rect {
@@ -114,7 +133,21 @@ interface Rect {
 }
 
 
-export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; onDone: () => void; speaker?: string }) {
+export function FirstRunTour({
+  steps,
+  onDone,
+  speaker,
+  onPage,
+}: {
+  steps: TourStep[];
+  onDone: () => void;
+  speaker?: string;
+  /**
+   * Opens the page a step is shown on, or (null) goes back to the main screen
+   * for a step after one. Finishing on a page leaves them there, to use it.
+   */
+  onPage?: (page: TourPage | null) => void;
+}) {
   const registry = useContext(TourContext);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
@@ -123,7 +156,7 @@ export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; on
   const [rect, setRect] = useState<Rect | null>(null);
   const [cardHeight, setCardHeight] = useState<number | null>(null);
   const intro = index < 0;
-  const step: { target?: TourTargetId; title: string; body: string } | undefined = intro
+  const step: { target?: TourTargetId; title: string; body: string; page?: TourPage } | undefined = intro
     ? {
         title: 'Welcome home!',
         body: speaker
@@ -131,6 +164,16 @@ export function FirstRunTour({ steps, onDone, speaker }: { steps: TourStep[]; on
           : 'This is your new home. Want a quick look around?',
       }
     : steps[index];
+
+  // A step on another page opens it; the step after it comes back. Keyed on
+  // the page, not the step, so moving between two steps on one page stays put.
+  const page = step?.page ?? null;
+  const shownPage = useRef<TourPage | null>(null);
+  useEffect(() => {
+    if (page === shownPage.current) return;
+    shownPage.current = page;
+    onPage?.(page);
+  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Where the current target is, kept current while its step shows: the
   // screen is still settling when the tour opens (the bottom bar lays out
