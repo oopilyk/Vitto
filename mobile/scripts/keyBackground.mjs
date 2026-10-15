@@ -42,7 +42,8 @@ const PALE_LUMA = 170;
  *   blend of a dark outline into a white background comes out blue-grey, which
  *   the luma test keeps but a dark room shows as a pale rim. Only for pets whose
  *   own colours are strong (the bears); the bichon's white fur is exactly that
- *   grey and would be peeled with it.
+ *   grey and would be peeled with it. `'grey'` peels only the neutral grey,
+ *   not the cool blend: the axolotls' outline is itself a cool dark purple.
  *   `closeGaps`: fill see-through slivers narrower than twice this many pixels
  *   that lie between two dark outlines (under an arm hanging close to the
  *   body) with the outline's colour. On screen they are a pixel or two wide
@@ -213,7 +214,7 @@ export const keyBackground = (png, { tolerance = 24, fringePasses = 3, fringeLum
       const chroma = Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]);
       // The bears' outline is warm and near black; the white background blended
       // into it comes out a cool purple-grey that no part of the art uses.
-      const coolBlend = data[i + 2] >= data[i] && chroma < GREY_CHROMA && luma > COOL_LUMA;
+      const coolBlend = greyFringe !== 'grey' && data[i + 2] >= data[i] && chroma < GREY_CHROMA && luma > COOL_LUMA;
       if (luma > fringeLuma || (greyFringe && ((chroma < GREY_CHROMA && luma > GREY_LUMA) || coolBlend))) peel.push(flat);
     }
     for (const flat of peel) outside[flat] = 1;

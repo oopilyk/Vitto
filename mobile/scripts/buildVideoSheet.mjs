@@ -58,7 +58,9 @@ const FORMS = {
     // The bear stands with its feet at y≈600 and is centred on x≈386, which
     // this box puts at y=106 and x=64 of the cell.
     box: { x: 26, y: 4, size: 720 },
-    key: { tolerance: 18, pocketArea: 200, pocketReach: 10, greyFringe: true },
+    // As in buildLifterVideos.mjs: the sad GIF's dusty-pink matte blend needs
+    // the lower luma gate.
+    key: { tolerance: 18, pocketArea: 200, pocketReach: 10, greyFringe: true, byClip: { sad: { fringeLuma: 95 } } },
     // As in buildLifterVideos.mjs: only the dizzy GIF has white behind its art.
     cutOutPockets: ['dizzy'],
     fillHoles: { clips: ['cheer', 'collapse'], maxArea: 200 },
@@ -118,7 +120,9 @@ const FORMS = {
     // Stands as tall as the runner with its feet on the same line, so it takes
     // the runner's box and the three bear forms match in size.
     box: { x: 8, y: -24, size: 754 },
-    key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true },
+    // As in buildLifterVideos.mjs: cheer, walk and cry blend their matte into
+    // a muted pink the grey gate keeps, so they peel down to luma 95.
+    key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true, byClip: { cheer: { fringeLuma: 95 }, walk: { fringeLuma: 95 }, cry: { fringeLuma: 95 } } },
     /*
      * GIFs, 31 frames at 6fps, already cut out:
      *   idle.gif      standing, blinking, swaying a little
@@ -147,13 +151,15 @@ const FORMS = {
    * bunny's 72px with its feet at y=106, centred, so evolving does not resize
    * it. The highest jump (y≈96) and lowest sprawl (y≈650) both still fit.
    *
-   * Fur near white, so the default key (see buildLifterVideos.mjs).
+   * Fur near white, so the default key (see buildLifterVideos.mjs) with only
+   * the grey-step peel added.
    */
   bunnyLifter: {
     source: 'bunny-lifter',
     output: 'bunnyLifter.png',
     box: { x: 52, y: 58, size: 672 },
-    key: {},
+    // Plus the grey-step peel the clips use (see BUNNY_RING_KEY in gifForms.mjs).
+    key: { fringeLuma: 110 },
     /*
      *   idle-flex.gif  124 frames: 0-95 standing (one 31-frame cycle, three
      *                  times), 96-118 flexes, then stands. The idle is 0-30.

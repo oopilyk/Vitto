@@ -1,0 +1,13 @@
+{
+  "note": "The tired and lie-down GIFs blend their white matte into a muted pink ((141,103,95) and (127,85,87): luma ~100, chroma 42-46) one art pixel wide that keyBackground's grey gate (chroma < 40) keeps, so every pale patch (min channel >= 83, chroma <= 56) touching the transparency goes; that test misses every colour of the bear's own. Lowering fringeLuma instead would peel the honey pot's exposed gold (luma 126) in lie-down. The other clips are clean already and keep everything.",
+  "edge": 3,
+  "paleMin": 83,
+  "paleChroma": 56,
+  "rim": 0,
+  "keep": {
+    "idle": [[0, 0, 767, 767]],
+    "cheer": [[0, 0, 767, 767]],
+    "run": [[0, 0, 767, 767]],
+    "dizzy": [[0, 0, 767, 767]]
+  }
+}

@@ -64,21 +64,53 @@ export const keyForClip = ({ byClip, ...key } = {}, clip) => ({ ...key, ...byCli
  * arm and the tail. Their cream belly is pale too, so only near-white counts,
  * and the grey blend round the patch is taken after it (`rim`).
  * Shared with the base otter in buildVideoSheet.mjs and buildLifterVideos.mjs.
+ *
+ * Their GIFs blend the white matte into the dark outline as a warm grey
+ * (~130) six pixels deep, which four passes left as a light rim round the
+ * whole silhouette on the dark room; six take it, and the outline walls in
+ * the cream belly and muzzle. Not where pale art sits on the edge with no
+ * outline to stop the peel: the base otter's cheer sparkles are the cream of
+ * its belly, and the dizzy stars' gold outline (~172) is above the luma test,
+ * so those keep four passes. The runner's celebrating sparkles are orange
+ * (~189) under a pale blend (>200): only pixels above that are peeled there.
  */
-export const OTTER_KEY = { greyFringe: true, fringePasses: 4, clearCreases: { area: 3000, width: 60, thick: 12, reach: 200, paleLuma: 235, rim: 3 } };
+export const OTTER_KEY = {
+  greyFringe: true,
+  fringePasses: 6,
+  clearCreases: { area: 3000, width: 60, thick: 12, reach: 200, paleLuma: 235, rim: 3 },
+  byClip: { cheer: { fringePasses: 4 }, dizzy: { fringePasses: 4 }, celebrating: { fringeLuma: 200 } },
+};
 
 /**
  * The bunny runner's and scholar's dizzy GIFs fill the inside of the ring of
  * stars with white, either side of the head. Their fur is an off-white
  * (~230) and the fill ~249, so only the brightest white counts.
+ * All the bunny GIFs blend the dark outline into the white matte as a 1px
+ * neutral grey step (~110-135) that the default peel stops short of and the
+ * dark room shows as a light rim; peeling down to 110 takes it, and stops at
+ * the outline (<90). Not greyFringe, which would take the fur with it.
  */
-export const BUNNY_RING_KEY = { clearCreases: { area: 3000, width: 80, thick: 8, reach: 200, paleLuma: 243, rim: 3 } };
+export const BUNNY_RING_KEY = { fringeLuma: 110, clearCreases: { area: 3000, width: 80, thick: 8, reach: 200, paleLuma: 243, rim: 3 } };
 
 /** Per pet: the box, and the key (otters match the base otter's). */
 const PETS = {
-  tabbyCat: { box: { x: -14, y: -4, size: 795 }, key: { fringePasses: 4 } },
-  dino: { box: { x: -4, y: -16, size: 779 }, key: { fringePasses: 4 } },
-  fox: { box: { x: -8, y: -34, size: 783 }, key: { fringePasses: 4 } },
+  // The cat's GIFs blend their dark brown outline into the white matte as a
+  // neutral grey (~100-140), which the luma peel leaves as a light rim round
+  // the whole silhouette on the dark room. Nothing of the cat's own art is
+  // that grey on its edge (the white chest, muzzle and paws are walled in by
+  // outline), so the neutral grey goes too.
+  tabbyCat: { box: { x: -14, y: -4, size: 795 }, key: { greyFringe: 'grey', fringePasses: 4 } },
+  // The dino's GIFs blend the white matte into the outline in olive-grey
+  // steps (~184, 136, 112, 88) that the luma peel stops short of and the dark
+  // room showed as a pale rim. Only neutral grey goes: its outline has dark
+  // teal in it that the cool-blend test would take. More passes would eat the
+  // cream dust clouds of its celebrating and dying clips.
+  dino: { box: { x: -4, y: -16, size: 779 }, key: { fringePasses: 4, greyFringe: 'grey' } },
+  // The fox's outline is a warm dark brown; its GIFs' white matte blends into
+  // it as a neutral grey rim (~96-128), too dark for the luma peel alone. Only
+  // the neutral grey goes: the scarf's dark green shading (~20,51,25) on the
+  // edge reads as a cool blend and `true` nibbled it.
+  fox: { box: { x: -8, y: -34, size: 783 }, key: { greyFringe: 'grey', fringePasses: 4 } },
   koala: { box: { x: -43, y: -116, size: 856 }, key: KOALA_KEY },
   // The base otter's own box: its forms stand exactly as it does.
   otter: { box: { x: 25, y: 15, size: 720 }, key: OTTER_KEY },
@@ -168,6 +200,11 @@ const EXTRA_KEY = {
   shibaLifter: { key: { clearCreases: SHIBA_GAPS, byClip: { sad: { clearCreases: false } } } },
   shibaScholar: { key: { clearCreases: SHIBA_GAPS } },
   bichonScholar: { key: { clearCreases: BICHON_GAPS } },
+  // The otter scholar's dying (and so its lie) draws a flat light-grey shadow
+  // under the body that two more passes would thin, so it keeps four; its
+  // dizzy stars' outline is a dark gold (~99), so there only the pale blend
+  // above it is peeled and six passes clear the rim without biting the stars.
+  otterScholar: { key: { byClip: { ...OTTER_KEY.byClip, dying: { fringePasses: 4 }, dizzy: { fringeLuma: 170 } } } },
 };
 const keyFor = (name, pet) => ({ ...PETS[pet].key, ...EXTRA_KEY[name]?.key });
 
@@ -186,10 +223,13 @@ const keyFor = (name, pet) => ({ ...PETS[pet].key, ...EXTRA_KEY[name]?.key });
 const AXOLOTL_CREASES = [{ reach: 8 }, { area: 1500, width: 40, thick: 12 }];
 /** The scholar's book has white pages inside a red cover, against the same outline. */
 const BOOK = (r, g, b) => r > 70 && r > 2.2 * g && r > 2.2 * b;
+// `greyFringe: 'grey'`: the white matte blended into the dark outline leaves a
+// grey rim that showed as a pale halo on the dark room, in every clip. The
+// body is a strong lavender and the outline near black, so only that grey goes.
 export const AXOLOTL_KEY = {
-  axolotlLifter: { fringePasses: 4, clearCreases: AXOLOTL_CREASES },
-  axolotlRunner: { fringePasses: 4, clearCreases: AXOLOTL_CREASES },
-  axolotlScholar: { fringePasses: 4, clearCreases: AXOLOTL_CREASES.map((pass) => ({ ...pass, unlessNear: BOOK })) },
+  axolotlLifter: { fringePasses: 4, greyFringe: 'grey', clearCreases: AXOLOTL_CREASES },
+  axolotlRunner: { fringePasses: 4, greyFringe: 'grey', clearCreases: AXOLOTL_CREASES },
+  axolotlScholar: { fringePasses: 4, greyFringe: 'grey', clearCreases: AXOLOTL_CREASES.map((pass) => ({ ...pass, unlessNear: BOOK })) },
 };
 
 /** For buildVideoSheet.mjs: each form's sheet, in the standard seven bands. */

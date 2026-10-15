@@ -81,7 +81,10 @@ const PETS = {
     ],
     // The flexing arm closes a gap against the body. No `closeGaps`: its arms
     // hang a real gap from its sides, which should stay see-through.
-    key: { pocketArea: 200, pocketReach: 10, greyFringe: true },
+    // The sad GIF's matte blends into a dusty pink (143,99,87: luma 111, chroma
+    // 56) that greyFringe's chroma gate keeps, so that clip peels down to luma
+    // 95 as well: its fur is darker than that wherever it meets the edge.
+    key: { pocketArea: 200, pocketReach: 10, greyFringe: true, byClip: { sad: { fringeLuma: 95 } } },
     // Only the dizzy GIF has white filled in behind its art (inside the ring of
     // stars). Elsewhere a white patch is the bear's own, like its open mouth.
     cutOutPockets: ['dizzy'],
@@ -96,21 +99,30 @@ const PETS = {
     // The run starts from a standstill; only its stride (four frames a step,
     // three steps) is looped, so it never stops to stand up again.
     clips: ['idle', 'cheer', { name: 'run', frames: [15, 26] }, 'dizzy', 'tired', 'lie-down'],
+    // The muted pink matte blend left on tired and lie-down is erased by
+    // data/bearRunnerErase.json (see its note), not by a key option.
     key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true },
   },
   bearScholar: {
     source: 'bear-scholar',
     output: 'bearScholar',
     clips: ['idle', 'walk', 'cheer', 'dizzy', 'cry', 'collapse'],
-    key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true },
+    // The cheer, walk and cry GIFs blend their matte into a muted pink one art
+    // pixel wide (luma 104-131, chroma 50-56) that greyFringe keeps, so those
+    // clips peel down to luma 95 too. Not the others: in collapse the ribbon's
+    // blue (luma 118) lies on the edge, and in dizzy the stars' gold does.
+    key: { pocketArea: 200, pocketReach: 10, greyFringe: true, clearCreases: true, byClip: { cheer: { fringeLuma: 95 }, walk: { fringeLuma: 95 }, cry: { fringeLuma: 95 } } },
   },
   // The bunny's three forms: GIFs at 6fps, already cut out. Its fur is near
   // white, so like the bichon it takes the default key: no pockets and no
   // grey fringe, either of which would eat into the fur. The runner and
   // scholar only add BUNNY_RING_KEY, for the white inside their ring of stars.
+  // All three peel the grey matte step off the outline (fringeLuma 110, see
+  // BUNNY_RING_KEY in gifForms.mjs); the lifter's sheet does the same.
   bunnyLifter: {
     source: 'bunny-lifter',
     output: 'bunnyLifter',
+    key: { fringeLuma: 110 },
     // The idle is idle-flex's standing part without the flex (96-118): it
     // repeats one 31-frame cycle (31 and 62 match 0 exactly), so it loops
     // 0-30. The run loops one whole 18-frame hop (6 matches 24); `lie` is the
