@@ -453,6 +453,20 @@ describe('personality page', () => {
     expect(closed).toEqual(['later']);
   });
 
+  it('goes back "Home", not to Settings, when the first-run tour opened it', () => {
+    const pet = { name: 'Blue', personality: 'sweet' as const, dials: undefined, persona: undefined };
+    const labels = (props: { fromTour?: boolean }) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => { tree = renderer.create(<PersonalityScreen pet={pet} age={30} onSave={() => {}} onClose={() => {}} {...props} />); });
+      const texts = tree.root.findAllByType(Text).map((t: any) => [t.props.children].flat().join(''));
+      tree.unmount();
+      return texts;
+    };
+    expect(labels({ fromTour: true }).some((t) => t.includes('Home'))).toBe(true);
+    expect(labels({ fromTour: true }).some((t) => t.includes('Settings') && t.length < 12)).toBe(false);
+    expect(labels({}).some((t) => t.includes('Settings'))).toBe(true);
+  });
+
   it('shows what Plus would unlock instead of the editor on the free tier', () => {
     let tree!: renderer.ReactTestRenderer;
     const pet = { name: 'Blue', personality: 'sweet' as const, dials: undefined, persona: undefined };
