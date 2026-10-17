@@ -30,6 +30,12 @@ export interface FoodSearchResult {
   /** True when `macros` are stated per 100 g rather than per labelled serving. */
   isPer100g?: boolean;
   macros: FoodMacros;
+  /**
+   * Set when the food came from FatSecret, whose terms require a "Powered by
+   * fatsecret Platform API" link wherever its data is shown. Unset for USDA and
+   * OpenFoodFacts.
+   */
+  source?: 'fatsecret';
 }
 
 interface FdcNutrient {
@@ -193,21 +199,105 @@ const dedupeResults = (results: FoodSearchResult[]): FoodSearchResult[] => {
  */
 const DEMO_KEY = 'DEMO_KEY';
 
+interface FatSecretServing {
+  serving_description?: string;
+  metric_serving_amount?: string;
+  metric_serving_unit?: string;
+  is_default?: string;
+  calories?: string;
+  protein?: string;
+  carbohydrate?: string;
+  fat?: string;
+  fiber?: string;
+  sugar?: string;
+  saturated_fat?: string;
+  sodium?: string;
+}
+
+export interface FatSecretFood {
+  food_id: string;
+  food_name: string;
+  brand_name?: string;
+  servings?: { serving?: FatSecretServing | FatSecretServing[] };
+}
+
 /**
- * USDA's foods for a query, asked through our own server (the `food-search`
- * edge function) when there is one. Some networks' DNS cannot resolve
- * api.nal.usda.gov at all, so a phone asking USDA itself failed with "hostname
- * could not be found"; every phone that can use Vitto reaches Supabase. Null
- * when the server cannot answer (offline, not deployed yet), and the phone asks
- * USDA directly instead.
+ * One FatSecret food as a search result, on its default serving ("1 medium",
+ * "1 bar"), which is what people actually eat, rather than per 100 g. Null when
+ * it carries no serving to log. Its figures are per that serving already, in
+ * grams, milligrams of sodium and kcal.
  */
-const fdcFoodsViaServer = async (query: string, key: string): Promise<FdcFood[] | null> => {
+export const fatsecretFoodToResult = (food: FatSecretFood): FoodSearchResult | null => {
+  const raw = food.servings?.serving;
+  // A single serving comes back as an object, not a one-item list.
+  const servings = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const serving = servings.find((entry) => entry.is_default === '1') ?? servings[0];
+  if (!serving || !food.food_name) return null;
+
+  const amount = toNumber(serving.metric_serving_amount);
+  const grams = serving.metric_serving_unit === 'g' && amount !== undefined && amount > 0 ? amount : undefined;
+  const label = serving.serving_description?.trim() || 'per serving';
+  // "1 medium" says nothing about how much that is; the weight does.
+  const servingDescription = grams && !/\d\s*g\b|gram/i.test(label) ? `${label} (${Math.round(grams)} g)` : label;
+  const sodium = toNumber(serving.sodium);
+
+  return {
+    id: `fatsecret-${food.food_id}`,
+    name: food.food_name,
+    brand: food.brand_name || undefined,
+    servingDescription,
+    basisGrams: grams,
+    isPer100g: grams === 100 && /^100\s?g$/i.test(label),
+    macros: {
+      calories: Math.round(toNumber(serving.calories) ?? 0),
+      proteinGrams: Math.round(toNumber(serving.protein) ?? 0),
+      carbsGrams: Math.round(toNumber(serving.carbohydrate) ?? 0),
+      fatGrams: Math.round(toNumber(serving.fat) ?? 0),
+      fiberGrams: Math.round(toNumber(serving.fiber) ?? 0),
+      ...optionalSubMacros({
+        sugarGrams: toNumber(serving.sugar),
+        saturatedFatGrams: toNumber(serving.saturated_fat),
+        sodiumMg: sodium === undefined ? undefined : Math.round(sodium),
+      }),
+    },
+    source: 'fatsecret',
+  };
+};
+
+/** How many FatSecret hits lead the list before USDA's. */
+const FATSECRET_LEAD = 8;
+const MERGED_RESULTS = 12;
+
+/**
+ * FatSecret's hits first, then USDA's. FatSecret ranks well and carries real
+ * servings and the branded and restaurant foods USDA lacks; USDA's whole-food
+ * entries still fill in behind, and a food both have appears once.
+ */
+export const mergeFoodResults = (fatsecret: readonly FatSecretFood[], usda: readonly FoodSearchResult[]): FoodSearchResult[] => {
+  const fromFatsecret = fatsecret
+    .map(fatsecretFoodToResult)
+    .filter((result): result is FoodSearchResult => result !== null && hasMacros(result))
+    .slice(0, FATSECRET_LEAD);
+  return dedupeResults([...fromFatsecret, ...usda]).slice(0, MERGED_RESULTS);
+};
+
+/**
+ * USDA's foods for a query, and FatSecret's, asked through our own server (the
+ * `food-search` edge function) when there is one. Some networks' DNS cannot
+ * resolve api.nal.usda.gov at all, so a phone asking USDA itself failed with
+ * "hostname could not be found"; every phone that can use Vitto reaches
+ * Supabase. FatSecret is only ever asked there: its keys live on the server.
+ * Null when the server cannot answer (offline, not deployed yet), and the
+ * phone asks USDA directly instead.
+ */
+const foodsViaServer = async (query: string, key: string): Promise<{ usda: FdcFood[]; fatsecret: FatSecretFood[] } | null> => {
   const supabase = getSupabase();
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.functions.invoke('food-search', { body: { query, key } });
+    const { data, error } = await supabase.functions.invoke('food-search', { body: { query, key, sources: ['usda', 'fatsecret'] } });
     if (error || !data || !Array.isArray((data as { foods?: unknown }).foods)) return null;
-    return (data as { foods: FdcFood[] }).foods;
+    const reply = data as { foods: FdcFood[]; fatsecret?: unknown };
+    return { usda: reply.foods, fatsecret: Array.isArray(reply.fatsecret) ? (reply.fatsecret as FatSecretFood[]) : [] };
   } catch {
     return null;
   }
@@ -215,8 +305,8 @@ const fdcFoodsViaServer = async (query: string, key: string): Promise<FdcFood[] 
 
 const searchFdc = async (query: string): Promise<FoodSearchResult[]> => {
   const key = getFdcApiKey();
-  const viaServer = await fdcFoodsViaServer(query, key);
-  if (viaServer) return rankFdcFoods(viaServer);
+  const viaServer = await foodsViaServer(query, key);
+  if (viaServer) return mergeFoodResults(viaServer.fatsecret, rankFdcFoods(viaServer.usda));
 
   const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
   url.searchParams.set('api_key', key);
@@ -458,7 +548,29 @@ const searchOpenFoodFacts = async (query: string): Promise<FoodSearchResult[]> =
   return dedupeResults(results).slice(0, 10);
 };
 
+/** FatSecret's food for a barcode, through our server. Null for no match or no server. */
+const barcodeViaServer = async (barcode: string): Promise<FoodSearchResult | null> => {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.functions.invoke('food-search', { body: { barcode } });
+    const food = (data as { food?: FatSecretFood | null } | null)?.food;
+    if (error || !food) return null;
+    const result = fatsecretFoodToResult(food);
+    return result && hasMacros(result) ? result : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * A scanned barcode's food: FatSecret first, which knows US packaged foods
+ * far better, then OpenFoodFacts, which needs no server and covers the rest
+ * of the world.
+ */
 export const lookupBarcode = async (barcode: string): Promise<FoodSearchResult | null> => {
+  const fromFatsecret = await barcodeViaServer(barcode);
+  if (fromFatsecret) return fromFatsecret;
   const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
   if (!response.ok) throw new Error('Barcode lookup failed. Try again.');
   const data = (await response.json()) as { status: number; product?: OpenFoodFactsProduct };

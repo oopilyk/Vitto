@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, Text, TextInput, View } from 'react-native';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 export function Kicker({ children }: { children: ReactNode }) {
@@ -20,7 +20,9 @@ export function PrimaryButton({
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      // Every action closes the keyboard: the screens let a tap through to a
+      // button while it is up, and nothing else would put it away.
+      onPress={() => { Keyboard.dismiss(); onPress(); }}
       disabled={disabled || busy}
       style={({ pressed }) => [
         layout.primaryButton,
@@ -51,7 +53,7 @@ export function TextButton({
   tone?: 'muted' | 'coral';
 }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled} hitSlop={8}>
+    <Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); onPress(); }} disabled={disabled} hitSlop={8}>
       <Text
         style={[
           styles.textButton,

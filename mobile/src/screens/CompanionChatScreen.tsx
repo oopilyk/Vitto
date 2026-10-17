@@ -141,7 +141,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
         contentContainerStyle={styles.thread}
         onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
         onLayout={() => list.current?.scrollToEnd({ animated: false })}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive"
       >
         {messages.length === 0 ? (
           state ? (
@@ -179,6 +179,11 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
             placeholderTextColor={colors.faint}
             maxLength={limits.maxMessageLength}
             multiline
+            // Return sends, and closes the keyboard, rather than starting a new
+            // line: a chat message is one thought, and the box still wraps it.
+            returnKeyType="send"
+            submitBehavior="blurAndSubmit"
+            onSubmitEditing={() => void send()}
             editable={!sending}
             accessibilityLabel={`Message ${pet.name}`}
           />

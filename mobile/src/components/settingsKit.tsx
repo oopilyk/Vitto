@@ -91,7 +91,7 @@ export function SettingsPage({
       </View>
       <ScrollView
         contentContainerStyle={[kit.scroll, { paddingBottom: (footer ? 120 : 48) + HOME_INDICATOR_INSET }]}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
       >
         <View style={kit.page}>
           <Text style={kit.pageTitle} accessibilityRole="header">

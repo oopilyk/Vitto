@@ -11,6 +11,7 @@ import { ProfilePage } from "./components/ProfilePage";
 import { WorkoutFlow } from "./components/WorkoutFlow";
 import { Onboarding } from "./components/Onboarding";
 import { MindGym } from "./components/MindGym";
+import { FatSecretCredit } from "./components/FatSecretCredit";
 import { playCelebrationSound, playMealSound, playMunchSound } from "./services/mealFeedback";
 
 /**
@@ -429,6 +430,7 @@ function App() {
               ? "Need an account?"
               : "Already have an account?"}
           </button>
+          <FatSecretCredit />
         </div>
       </main>
     );

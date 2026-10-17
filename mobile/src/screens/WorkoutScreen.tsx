@@ -372,7 +372,7 @@ export function WorkoutScreen({
           />
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           {routineMode ? (
             <>
               <Text style={styles.sectionLabel}>ROUTINE NAME</Text>
@@ -698,7 +698,7 @@ export function WorkoutScreen({
                   autoFocus
                 />
               )}
-              <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
+              <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
                 {matches.map(([exerciseName, muscle, bodyweight]) => {
                   const added = isAdded(exerciseName);
                   return (

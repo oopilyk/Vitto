@@ -113,6 +113,18 @@ describe('talking to the pet', () => {
     tree.unmount();
   });
 
+  it('sends from the keyboard\'s Return key, closing the keyboard rather than starting a new line', async () => {
+    companionService.load.mockResolvedValue({ messages: [], state, access: free });
+    companionService.send.mockResolvedValue({ userMessage: message('u', 'user', 'hello'), reply: message('p', 'pet', 'oh hi!!'), state, access: free, degraded: false });
+    const tree = await open();
+    const input = tree.root.findByType(TextInput);
+    expect(input.props.returnKeyType).toBe('send');
+    expect(input.props.submitBehavior).toBe('blurAndSubmit');
+    type(tree, 'hello');
+    await act(async () => { tree.root.findByType(TextInput).props.onSubmitEditing(); });
+    expect(companionService.send).toHaveBeenCalledWith(pet.id, life, 'hello');
+  });
+
   it('never loses what was typed when a send fails', async () => {
     companionService.load.mockResolvedValue({ state, messages: [], access: free });
     companionService.send.mockRejectedValue(new Error('Could not reach the server.'));

@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
 import { FitText } from './FitText';
 import { colors, getColorScheme, themedStyles } from '../theme';
 
@@ -68,7 +68,8 @@ export function OnbButton({
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(disabled || busy) }}
       disabled={disabled || busy}
-      onPress={onPress}
+      // As the app's own buttons: an action closes the keyboard.
+      onPress={() => { Keyboard.dismiss(); onPress(); }}
       style={({ pressed }) => [
         kit.button,
         primary ? kit.buttonPrimary : kit.buttonSecondary,

@@ -97,7 +97,7 @@ export function MindHub({ pet, events, routes, onStartStage, onClose }: Props) {
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
       >
         <MindTodayPanel pet={pet} today={today} night={night} />
 

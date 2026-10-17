@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FatSecretCredit } from './FatSecretCredit';
 import { type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, searchFoodsByName, toMealAnalysis } from '@vitto/core';
 
 interface ManualFoodEntryProps {
@@ -88,6 +89,7 @@ export function ManualFoodEntry({ onComplete, onFeedStart, onAnalyzingChange, on
           ))}
         </ul>
       )}
+      {((!selected && results.some((food) => food.source === 'fatsecret')) || selected?.source === 'fatsecret') && <FatSecretCredit />}
       {selected && preview && (
         <div className="analysis-result">
           <div>

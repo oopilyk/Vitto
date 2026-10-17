@@ -1,5 +1,6 @@
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { useEffect, useRef, useState } from 'react';
+import { FatSecretCredit } from './FatSecretCredit';
 import { type FoodSearchResult, type MealAnalysis, type MealMetadata, calorieEstimate, errorMessage, lookupBarcode, toMealAnalysis } from '@vitto/core';
 
 interface BarcodeScannerProps {
@@ -98,6 +99,7 @@ export function BarcodeScanner({ onComplete, onFeedStart, onAnalyzingChange, onC
           </div>
         </div>
       )}
+      {found?.source === 'fatsecret' && <FatSecretCredit />}
       {saved && <p className="auth-message">Meal added to your care log.</p>}
       <div className="meal-actions">
         {found ? (

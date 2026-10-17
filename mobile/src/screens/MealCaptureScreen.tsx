@@ -7,13 +7,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View, KeyboardAvoidingView, Platform } from 'react-native';
+  View, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { FatSecretCredit } from '../components/FatSecretCredit';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
@@ -135,6 +136,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   };
 
   const runSearch = async () => {
+    // Searching is done typing: the results go where the keyboard was.
+    Keyboard.dismiss();
     // A search already in flight is not re-fired: the food APIs are rate limited
     // per IP, so an impatient second tap spends quota that the first request is
     // already waiting on.
@@ -227,7 +230,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           ))}
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
           {mode === 'photo' && !canScanPhotos ? (
             <View style={styles.locked} testID="photo-locked">
               <Text style={styles.lockedTitle}>Snap your plate. Plus does the macros.</Text>
@@ -359,6 +362,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   </Text>
                 </Pressable>
               ))}
+              {/* FatSecret's terms: its credit wherever its foods are shown. */}
+              {results.some((food) => food.source === 'fatsecret') ? <FatSecretCredit /> : null}
 
               {selectedAnalysis ? (
                 <>
@@ -412,6 +417,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               {/* How many: a scanned bar is one bar, but two is two. */}
               {selectedAnalysis ? <ServingsRow food={selected} servings={servings} onChange={setServings} /> : null}
               {selectedAnalysis ? <AnalysisCard analysis={selectedAnalysis} /> : null}
+              {selected?.source === 'fatsecret' ? <FatSecretCredit /> : null}
               <ErrorText>{error}</ErrorText>
 
               <View style={styles.actions}>

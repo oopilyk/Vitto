@@ -222,7 +222,7 @@ export function MindGymScreen({
         <ScrollView
           ref={scroll}
           contentContainerStyle={styles.body}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
           // iOS insets the content by the keyboard, so everything can scroll
           // clear of it...
           automaticallyAdjustKeyboardInsets

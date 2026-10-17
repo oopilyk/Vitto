@@ -16,6 +16,7 @@ import {
 import { ONB_FONT, OnbButton, OnbInput, onboardingPalette, onboardingText as T } from '../components/onboardingKit';
 import { LEGAL_LINKS } from '../services/billingService';
 import { SpriteFrame } from '../components/SpriteFrame';
+import { FatSecretCredit } from '../components/FatSecretCredit';
 import { portraitFrame, sheetByBreed } from '../components/petSprites';
 import { themedStyles } from '../theme';
 
@@ -73,7 +74,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function Page({ children, testID }: { children: ReactNode; testID?: string }) {
   return (
     <KeyboardAvoidingView style={T.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" testID={testID}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" testID={testID}>
         <View style={styles.column}>{children}</View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -277,6 +278,8 @@ export function AuthScreen() {
             }}
           />
         </View>
+        {/* FatSecret's terms want its credit somewhere reachable without signing in. */}
+        <FatSecretCredit style={styles.welcomeCredit} />
       </Page>
     );
   }
@@ -497,6 +500,8 @@ const styles = themedStyles(() => {
     blockedTitle: { fontFamily: ONB_FONT.semibold, fontSize: 17, lineHeight: 22, color: F.text },
     blockedBack: { marginTop: 14 },
     welcomePet: { alignItems: 'center', marginBottom: 24, marginTop: 12 },
+    // In the welcome's own font and grey, low at the foot: a credit, not a call to action.
+    welcomeCredit: { fontFamily: ONB_FONT.regular, fontSize: 13, color: F.sub, marginTop: 28 },
     months: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     month: {
       width: '22%',

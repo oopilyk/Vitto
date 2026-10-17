@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { describePortion, lookupBarcode, searchFoodsByName, toMealAnalysis } from './foodDatabase';
+import { describePortion, fatsecretFoodToResult, lookupBarcode, searchFoodsByName, toMealAnalysis } from './foodDatabase';
 import { configureCore } from './config';
 
 const mockFetchOnce = (body: unknown): void => {
@@ -454,7 +454,7 @@ describe('searchFoodsByName — through our own server', () => {
     vi.stubGlobal('fetch', direct as unknown as typeof fetch);
 
     const results = await searchFoodsByName('chicken breast');
-    expect(invoke).toHaveBeenCalledWith('food-search', { body: { query: 'chicken breast', key: expect.any(String) } });
+    expect(invoke).toHaveBeenCalledWith('food-search', { body: { query: 'chicken breast', key: expect.any(String), sources: ['usda', 'fatsecret'] } });
     expect(direct).not.toHaveBeenCalled();
     expect(results[0]?.name).toContain('Chicken breast');
   });
@@ -467,6 +467,48 @@ describe('searchFoodsByName — through our own server', () => {
     const results = await searchFoodsByName('chicken breast');
     expect(direct).toHaveBeenCalled();
     expect(results[0]?.name).toContain('Chicken breast');
+  });
+
+  it("leads with FatSecret's hits on their own serving, then USDA's, tagged for attribution", async () => {
+    const fatsecret = [{
+      food_id: '35755', food_name: 'Banana',
+      servings: { serving: [
+        { serving_description: '100 g', metric_serving_amount: '100.000', metric_serving_unit: 'g', calories: '89', protein: '1.09', carbohydrate: '22.84', fat: '0.33', fiber: '2.6', sugar: '12.23', sodium: '1' },
+        { serving_description: '1 medium', metric_serving_amount: '118.000', metric_serving_unit: 'g', is_default: '1', calories: '105', protein: '1.29', carbohydrate: '26.95', fat: '0.39', fiber: '3.1', sugar: '14.43', sodium: '1' },
+      ] },
+    }];
+    withServer(vi.fn(async () => ({ data: { foods: [usdaFood], fatsecret }, error: null })));
+    vi.stubGlobal('fetch', vi.fn() as unknown as typeof fetch);
+
+    const results = await searchFoodsByName('banana');
+    expect(results[0]).toMatchObject({
+      id: 'fatsecret-35755', name: 'Banana', servingDescription: '1 medium (118 g)', basisGrams: 118, isPer100g: false,
+      macros: { calories: 105, proteinGrams: 1, carbsGrams: 27, sugarGrams: 14.43, sodiumMg: 1 }, source: 'fatsecret',
+    });
+    expect(results[1]?.name).toContain('Chicken breast');
+    expect(results[1]?.source).toBeUndefined();
+  });
+
+  it('reads a lone FatSecret serving sent as an object, and drops a food with none', () => {
+    expect(fatsecretFoodToResult({ food_id: '1', food_name: 'Bar', brand_name: 'Acme',
+      servings: { serving: { serving_description: '1 bar', calories: '200', protein: '20' } } }))
+      .toMatchObject({ name: 'Bar', brand: 'Acme', servingDescription: '1 bar', macros: { calories: 200, proteinGrams: 20 } });
+    expect(fatsecretFoodToResult({ food_id: '2', food_name: 'Empty' })).toBeNull();
+  });
+
+  it('looks a barcode up on FatSecret first, and falls back to OpenFoodFacts', async () => {
+    const invoke = vi.fn(async () => ({ data: { food: { food_id: '9', food_name: 'Protein Bar',
+      servings: { serving: { serving_description: '1 bar', metric_serving_amount: '55', metric_serving_unit: 'g', calories: '210', protein: '20' } } } }, error: null }));
+    withServer(invoke);
+    const off = vi.fn();
+    vi.stubGlobal('fetch', off as unknown as typeof fetch);
+    expect(await lookupBarcode('012345678905')).toMatchObject({ name: 'Protein Bar', source: 'fatsecret', macros: { calories: 210 } });
+    expect(invoke).toHaveBeenCalledWith('food-search', { body: { barcode: '012345678905' } });
+    expect(off).not.toHaveBeenCalled();
+
+    withServer(vi.fn(async () => ({ data: { food: null }, error: null })));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ status: 1, product: { product_name: 'Oat Bar', nutriments: { 'energy-kcal_100g': 400 } } }) })) as unknown as typeof fetch);
+    expect(await lookupBarcode('012345678905')).toMatchObject({ name: 'Oat Bar' });
   });
 
   it('says to check the connection, in words, when nothing can be reached', async () => {
