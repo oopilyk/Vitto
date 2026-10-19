@@ -86,7 +86,7 @@ export const ACHIEVEMENT_BY_ID: Record<AchievementId, Achievement> = Object.from
 
 export interface AchievementInput {
   events: HealthEvent[];
-  pet: Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'> | null;
+  pet: (Pick<PetState, 'level' | 'endurance' | 'strength' | 'mind'> & Partial<Pick<PetState, 'earnedBuilds'>>) | null;
   /** From `earnedTrophies` — passed in rather than recomputed so a dev override flows through. */
   trophies: readonly TrophyId[];
   today?: Date;
@@ -115,7 +115,8 @@ export const earnedAchievements = ({ events, pet, trophies, today = new Date() }
   if (events.length >= CARE_MILESTONE_LARGE) earned.add('care_250');
   if (pet && pet.level >= LEVEL_MILESTONE_SMALL) earned.add('level_5');
   if (pet && pet.level >= LEVEL_MILESTONE_LARGE) earned.add('level_10');
-  if (pet && hasEvolved(pet)) earned.add('evolved');
+  // Earned, not worn: a pet wearing its base look by choice has still evolved.
+  if (pet && (hasEvolved(pet) || Boolean(pet.earnedBuilds?.length))) earned.add('evolved');
   for (const id of trophies) earned.add(id);
 
   return ACHIEVEMENTS.map((achievement) => achievement.id).filter((id) => earned.has(id));

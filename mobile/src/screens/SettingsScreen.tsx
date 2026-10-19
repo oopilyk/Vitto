@@ -1,5 +1,5 @@
 import { Linking, View } from 'react-native';
-import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, tracksArea } from '@vitto/core';
+import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, ownedBreedsOf, tracksArea } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { NavGroup, NavRow, SettingsPage } from '../components/settingsKit';
 import { sheetByBreed, portraitFrame } from '../components/petSprites';
@@ -9,15 +9,15 @@ import { colors, themedStyles } from '../theme';
 interface Props {
   profile: BodyProfile;
   onClose: () => void;
-  /** The pet's look; the Animal row shows only once it is wired up. */
+  /** The pet's look; the Animals row shows only once it is wired up. */
   breed?: PetBreed;
   onBreedChange?: (breed: PetBreed) => void;
-  /** The pet's coin balance, shown on the Animal row. */
+  /** The pet's coin balance, shown on the Animals row. */
   coins?: number;
-  /** What switching the animal costs; zero (the dev account) is free. */
+  /** What a new animal costs; zero (the dev account) is free. */
   breedChangeCost?: number;
   /** The pet, for its name and personality on the rows. */
-  pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona' | 'careAreas'>;
+  pet?: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona' | 'careAreas'> & Partial<Pick<PetState, 'ownedBreeds'>>;
   /** Whether the account has Plus, for the Plus row's wording. */
   isPlus?: boolean;
   /** Whether personalities can be changed (Plus); otherwise the row says so. Defaults to true. */
@@ -103,8 +103,12 @@ export function SettingsScreen({
       <NavGroup title="Your companion">
         {onBreedChange && onOpenChooseCompanion ? (
           <NavRow
-            title="Animal"
-            value={[breed ? sheetByBreed(breed).label : null, breedChangeCost > 0 ? `${coins} coins` : 'Switching is free']
+            title="Animals & forms"
+            value={[
+              breed ? sheetByBreed(breed).label : null,
+              `${ownedBreedsOf({ breed, ownedBreeds: pet?.ownedBreeds }).length} owned`,
+              breedChangeCost > 0 ? `${coins} coins` : 'Switching is free',
+            ]
               .filter(Boolean)
               .join(' · ')}
             leading={

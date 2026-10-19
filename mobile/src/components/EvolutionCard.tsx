@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
   EVOLUTION_LEVEL,
@@ -5,9 +6,9 @@ import {
   PET_BUILD_LABEL,
   canSwitchForm,
   evolutionProgress,
-  getPetBuild,
+  wornForm,
   type EvolutionProgress,
-  type EvolvedBuild,
+  type PetForm,
   type PetState,
 } from '@vitto/core';
 import { SpriteFrame } from './SpriteFrame';
@@ -17,8 +18,8 @@ import { colors, fonts, text, themedStyles } from '../theme';
 
 interface Props {
   pet: PetState;
-  /** Wears another form. Rows only become tappable once all three are earned. */
-  onChooseForm?: (build: EvolvedBuild) => void;
+  /** Wears another form: the base look, or any evolution already earned. */
+  onChooseForm?: (form: PetForm) => void;
 }
 
 const STAT_WORD: Record<EvolutionProgress['stat']['key'], string> = {
@@ -48,74 +49,114 @@ const stillNeeded = (progress: EvolutionProgress): string[] => {
 const SILHOUETTE = 64;
 
 /**
- * How close the pet is to each evolution, with the evolved form as a teaser:
- * a solid silhouette until it is earned, the real thing after. Once all three
- * are earned the rows become a picker for the form the pet wears.
+ * The pet's forms, as skins: its base look (always its own) and each
+ * evolution, with the evolved form as a teaser -- a solid silhouette until it
+ * is earned, with what is left to earn it, the real thing after. Once anything
+ * is earned the unlocked rows become a picker for the form the pet wears.
  */
 export function EvolutionCard({ pet, onChooseForm }: Props) {
   const all = EVOLVED_BUILDS.map((build) => evolutionProgress(pet, build));
   const switchable = canSwitchForm(pet) && Boolean(onChooseForm);
-  const wearing = getPetBuild(pet);
+  const wearing = wornForm(pet);
   const earnedCount = all.filter((entry) => entry.earned).length;
   const closest = all
     .filter((entry) => !entry.earned)
     .reduce<EvolutionProgress | null>((best, entry) => (!best || entry.progress > best.progress ? entry : best), null);
 
   const hint = switchable
-    ? `All three earned. Tap a form for ${pet.name} to wear it.`
+    ? `Tap a form for ${pet.name} to wear it, base included. Locked ones unlock as ${pet.name} evolves.`
     : earnedCount > 0
-      ? `Earn all three forms and ${pet.name} can switch between them.`
+      ? `${pet.name} has evolved. Every form earned stays unlocked.`
       : `From level ${EVOLUTION_LEVEL}, whichever you train most (workouts, cardio or mind sessions) decides who ${pet.name} becomes.`;
+
+  /** One skin: tappable when it is unlocked, not worn, and there is a picker. */
+  const skin = (form: PetForm, row: (isWorn: boolean) => ReactNode, unlocked: boolean) => {
+    const isWorn = unlocked && wearing === form;
+    const label = form === 'base' ? 'Base' : PET_BUILD_LABEL[form];
+    return switchable && unlocked && !isWorn ? (
+      <Pressable
+        key={form}
+        accessibilityRole="button"
+        accessibilityLabel={`Wear the ${label} form`}
+        onPress={() => onChooseForm?.(form)}
+        testID={`form-${form}`}
+      >
+        {row(false)}
+      </Pressable>
+    ) : (
+      <View key={form} testID={`form-${form}`}>
+        {row(isWorn)}
+      </View>
+    );
+  };
+
+  const baseSheet = evolutionSheetFor(pet, 'balanced');
 
   return (
     <View style={styles.card} testID="evolution-card">
-      <Kicker>Evolution</Kicker>
+      <Kicker>Forms</Kicker>
       <Text style={styles.hint}>{hint}</Text>
-      {all.map((entry) => {
-        const sheet = evolutionSheetFor(pet, entry.build);
-        const frame = portraitFrame(sheet);
-        const isWorn = entry.earned && wearing === entry.build;
-        const needs = stillNeeded(entry);
-        const status = isWorn ? 'Wearing' : entry.earned ? (switchable ? 'Tap to wear' : 'Earned') : `${Math.round(entry.progress * 100)}%`;
-        const row = (
+      {skin(
+        'base',
+        (isWorn) => (
           <View style={[styles.row, isWorn && styles.rowWorn]}>
             <View style={styles.silhouette}>
-              <SpriteFrame
-                sheet={sheet}
-                frame={frame}
-                size={SILHOUETTE}
-                // Solid ink until earned: the teaser shows the shape, not the details.
-                tintColor={entry.earned ? undefined : colors.inkSoft}
-              />
+              <SpriteFrame sheet={baseSheet} frame={portraitFrame(baseSheet)} size={SILHOUETTE} />
             </View>
             <View style={styles.detail}>
               <View style={styles.titleRow}>
-                <Text style={styles.title}>{entry.earned ? PET_BUILD_LABEL[entry.build] : `${PET_BUILD_LABEL[entry.build]}?`}</Text>
-                {entry === closest && entry.progress > 0 ? <Text style={styles.closest}>closest</Text> : null}
-                <Text style={[styles.status, entry.earned && styles.statusEarned]}>{status}</Text>
-              </View>
-              <View style={styles.track}>
-                <View style={[styles.fill, { width: `${Math.round(entry.progress * 100)}%` }, entry.earned && styles.fillEarned]} />
-              </View>
-              {!entry.earned ? (
-                <Text style={styles.needs} numberOfLines={2}>
-                  {needs.length ? needs.join(' · ') : 'Ready — it happens on the next thing you log.'}
+                <Text style={styles.title}>Base</Text>
+                <Text style={[styles.status, styles.statusEarned]}>
+                  {isWorn ? 'Wearing' : switchable ? 'Tap to wear' : 'Unlocked'}
                 </Text>
-              ) : null}
+              </View>
+              <Text style={styles.needs}>{`Always ${pet.name}'s to wear.`}</Text>
             </View>
           </View>
-        );
-        return switchable && entry.earned && !isWorn ? (
-          <Pressable
-            key={entry.build}
-            accessibilityRole="button"
-            accessibilityLabel={`Wear the ${PET_BUILD_LABEL[entry.build]} form`}
-            onPress={() => onChooseForm?.(entry.build)}
-          >
-            {row}
-          </Pressable>
-        ) : (
-          <View key={entry.build}>{row}</View>
+        ),
+        true,
+      )}
+      {all.map((entry) => {
+        const sheet = evolutionSheetFor(pet, entry.build);
+        const frame = portraitFrame(sheet);
+        const needs = stillNeeded(entry);
+        return skin(
+          entry.build,
+          (isWorn) => (
+            <View style={[styles.row, isWorn && styles.rowWorn]}>
+              <View style={styles.silhouette}>
+                <SpriteFrame
+                  sheet={sheet}
+                  frame={frame}
+                  size={SILHOUETTE}
+                  // Solid ink until earned: the teaser shows the shape, not the details.
+                  tintColor={entry.earned ? undefined : colors.inkSoft}
+                />
+              </View>
+              <View style={styles.detail}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.title}>{entry.earned ? PET_BUILD_LABEL[entry.build] : `${PET_BUILD_LABEL[entry.build]}?`}</Text>
+                  {entry === closest && entry.progress > 0 ? <Text style={styles.closest}>closest</Text> : null}
+                  <Text style={[styles.status, entry.earned && styles.statusEarned]}>
+                    {isWorn
+                      ? 'Wearing'
+                      : entry.earned
+                        ? switchable ? 'Tap to wear' : 'Earned'
+                        : `Locked · ${Math.round(entry.progress * 100)}%`}
+                  </Text>
+                </View>
+                <View style={styles.track}>
+                  <View style={[styles.fill, { width: `${Math.round(entry.progress * 100)}%` }, entry.earned && styles.fillEarned]} />
+                </View>
+                {!entry.earned ? (
+                  <Text style={styles.needs} numberOfLines={2}>
+                    {needs.length ? needs.join(' · ') : 'Ready — it happens on the next thing you log.'}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ),
+          entry.earned,
         );
       })}
     </View>

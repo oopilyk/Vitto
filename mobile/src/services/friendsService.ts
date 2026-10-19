@@ -69,7 +69,7 @@ const toRecentActivitySignal = (row: RecentActivityRow): RecentActivitySignal =>
  */
 type FriendPetRow = Omit<
   PetState,
-  'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'mindSessions'
+  'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'showBase' | 'mindSessions'
 > & {
   user_id: string;
   last_event_at: string | null;
@@ -83,6 +83,8 @@ type FriendPetRow = Omit<
   evolved_build?: PetState['evolvedBuild'] | null;
   earned_builds?: PetState['earnedBuilds'] | null;
   chosen_build?: PetState['chosenBuild'] | null;
+  /** Absent until the pet-collection migration has run. */
+  show_base?: boolean | null;
   mind_sessions?: number | null;
 };
 
@@ -98,6 +100,7 @@ const toPetState = (row: FriendPetRow): PetState => ({
   evolvedBuild: row.evolved_build ?? undefined,
   earnedBuilds: row.earned_builds ?? undefined,
   chosenBuild: row.chosen_build ?? undefined,
+  showBase: row.show_base || undefined,
   mindSessions: row.mind_sessions ?? 0,
   // Read-only display of a friend's pet has no need for the exact adoption-date
   // repair `SupabaseRepository.loadPet` does for the owner's own pet -- falling

@@ -156,12 +156,24 @@ export interface PetState {
    */
   evolvedBuild?: EvolvedBuild;
   /**
-   * Every specialism the pet has ever evolved into, in the order earned. Once it
-   * holds all three the pet may wear whichever it likes (`chosenBuild`).
+   * Every specialism the pet has ever evolved into, in the order earned. Each
+   * one is a form the pet may wear (`chosenBuild`), alongside its base look.
    */
   earnedBuilds?: EvolvedBuild[];
-  /** The form picked by hand once all three are earned; see `chooseForm`. */
+  /** The evolution picked by hand, out of `earnedBuilds`; see `chooseForm`. */
   chosenBuild?: EvolvedBuild;
+  /**
+   * Wearing the base look by choice, whatever it has evolved into. A flag of its
+   * own rather than a `chosenBuild` of 'base': app builds from before it read
+   * `chosen_build` straight into a sprite lookup, and simply ignore this.
+   */
+  showBase?: boolean;
+  /**
+   * Every animal this pet has been, bought once (`BREED_CHANGE_COST`) and then
+   * free to switch back to. Absent on a pet from before it existed; read it
+   * with `ownedBreedsOf`, which always counts the current breed.
+   */
+  ownedBreeds?: PetBreed[];
   /** Coins earned by caring for the pet, spent on changes (see coins.ts). Absent reads as 0. */
   coins?: number;
   /** Mind sessions ever played. Only counts up; the scholar evolution is read from it (`buildMindScore`). */
@@ -301,23 +313,51 @@ const liveBuild = (pet: BuildStats): PetBuild => {
  * back to even -- the one it already evolved into. A pet never devolves.
  */
 export const getPetBuild = (
-  pet: BuildStats & Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
+  pet: BuildStats & Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'showBase'>>,
 ): PetBuild => {
-  // A pet that has earned every form wears the one picked for it.
-  if (pet.chosenBuild && canSwitchForm(pet)) return pet.chosenBuild;
+  // A form picked by hand is worn whatever the stats say: the base look, or any
+  // evolution already earned.
+  if (pet.showBase) return 'balanced';
+  if (pet.chosenBuild && isFormUnlocked(pet, pet.chosenBuild)) return pet.chosenBuild;
   const live = liveBuild(pet);
   return live === 'balanced' ? (pet.evolvedBuild ?? 'balanced') : live;
 };
 
 export const EVOLVED_BUILDS: readonly EvolvedBuild[] = ['runner', 'lifter', 'scholar'];
 
-/** Whether every evolution has been earned, which is what unlocks switching between them. */
-export const canSwitchForm = (pet: Partial<Pick<PetState, 'earnedBuilds'>>): boolean =>
-  EVOLVED_BUILDS.every((build) => pet.earnedBuilds?.includes(build));
+/** A look the pet can wear: its base form, or one of its evolutions. */
+export type PetForm = 'base' | EvolvedBuild;
 
-/** The pet wearing `build`, if it may; unchanged otherwise. */
-export const chooseForm = <T extends PetState>(pet: T, build: EvolvedBuild): T =>
-  canSwitchForm(pet) ? { ...pet, chosenBuild: build } : pet;
+/** Every form, base first: the order the picker shows them in. */
+export const PET_FORMS: readonly PetForm[] = ['base', ...EVOLVED_BUILDS];
+
+/** Whether the pet may wear `form`: the base always, an evolution once earned. */
+export const isFormUnlocked = (
+  pet: Partial<Pick<PetState, 'earnedBuilds' | 'evolvedBuild'>>,
+  form: PetForm,
+): boolean => form === 'base' || Boolean(pet.earnedBuilds?.includes(form) || pet.evolvedBuild === form);
+
+/** Whether there is anything to switch between: the base look and at least one evolution. */
+export const canSwitchForm = (pet: Partial<Pick<PetState, 'earnedBuilds' | 'evolvedBuild'>>): boolean =>
+  EVOLVED_BUILDS.some((build) => isFormUnlocked(pet, build));
+
+/** The form the pet is drawn in right now. */
+export const wornForm = (
+  pet: Pick<PetState, 'level'> & BuildStats & Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'showBase'>>,
+): PetForm => (hasEvolved(pet) ? (getPetBuild(pet) as EvolvedBuild) : 'base');
+
+/**
+ * The pet wearing `form`, if it may; unchanged otherwise (an unearned
+ * evolution, or the form it already wears). The pick sticks until the next
+ * one: a pet that later earns another evolution keeps wearing what was picked.
+ * Nothing picked, it wears what it has grown into, as it always did.
+ */
+export const chooseForm = <T extends PetState>(pet: T, form: PetForm): T => {
+  if (!isFormUnlocked(pet, form) || wornForm(pet) === form) return pet;
+  return form === 'base'
+    ? { ...pet, showBase: true, chosenBuild: undefined }
+    : { ...pet, showBase: undefined, chosenBuild: form };
+};
 
 /** What each evolution is grown from. The scholar's is counted in sessions. */
 export const BUILD_STAT: Record<EvolvedBuild, 'endurance' | 'strength' | 'mindSessions'> = {
@@ -409,8 +449,18 @@ export const PET_BUILD_LABEL: Record<PetBuild, string> = {
  * on the dashboard and the sheet the avatar draws can never disagree about it.
  */
 export const hasEvolved = (
-  pet: Pick<PetState, 'level'> & BuildStats & Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
+  pet: Pick<PetState, 'level'> & BuildStats & Partial<Pick<PetState, 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'showBase'>>,
 ): boolean => pet.level >= EVOLUTION_LEVEL && getPetBuild(pet) !== 'balanced';
+
+/** Every animal the pet owns, the one it is now included. */
+export const ownedBreedsOf = (pet: Partial<Pick<PetState, 'breed' | 'ownedBreeds'>>): PetBreed[] => {
+  const owned = pet.ownedBreeds ?? [];
+  return pet.breed && !owned.includes(pet.breed) ? [...owned, pet.breed] : [...owned];
+};
+
+export const ownsBreed = (pet: Partial<Pick<PetState, 'breed' | 'ownedBreeds'>>, breed: PetBreed): boolean =>
+  ownedBreedsOf(pet).includes(breed);
+
 
 /**
  * DEV TOOL -- which form to preview. Evolutions are earned over weeks of real
@@ -478,6 +528,7 @@ export const applyForcedForm = (pet: PetState, form: ForcedPetForm | null): PetS
     evolvedBuild: form === 'base' ? undefined : form,
     // A picked form would override the preview, so the preview drops it.
     chosenBuild: undefined,
+    showBase: undefined,
   };
 };
 

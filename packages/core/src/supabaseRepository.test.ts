@@ -256,6 +256,37 @@ describe('SupabaseRepository.loadPet version', () => {
   });
 });
 
+describe('SupabaseRepository pet collection', () => {
+  it('reads the base flag and the owned animals', async () => {
+    responses.push({ data: [petRow({ breed: 'fox', show_base: true, owned_breeds: ['bear', 'fox'] })], error: null });
+
+    const pet = await new SupabaseRepository().loadPet();
+    expect(pet?.showBase).toBe(true);
+    expect(pet?.ownedBreeds).toEqual(['bear', 'fox']);
+  });
+
+  it('reads a database without the columns as no pick and nothing extra owned', async () => {
+    responses.push({ data: [petRow()], error: null });
+
+    const pet = await new SupabaseRepository().loadPet();
+    expect(pet?.showBase).toBeUndefined();
+    expect(pet?.ownedBreeds).toBeUndefined();
+  });
+
+  it('saves the base flag but never the owned animals, which only switch_pet_breed adds to', async () => {
+    maybeSingle.mockResolvedValueOnce({ data: { version: 4 }, error: null });
+
+    await new SupabaseRepository().savePetIfUnchanged(
+      { ...createPet('user-1', 'Miso', 'dog', 'fox'), showBase: true, ownedBreeds: ['bear', 'fox'], version: 3 },
+      3,
+    );
+
+    const payload = update.mock.calls[0][0];
+    expect(payload).toMatchObject({ show_base: true, chosen_build: null });
+    expect(payload).not.toHaveProperty('owned_breeds');
+  });
+});
+
 describe('SupabaseRepository.savePetIfUnchanged', () => {
   const pet = { ...createPet('user-1', 'Miso'), version: 3 };
 

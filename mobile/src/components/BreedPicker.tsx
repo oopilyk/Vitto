@@ -18,10 +18,16 @@ interface Props {
   lockedNote?: string;
   /** The breed the pet is now, marked as such when the selection moves off it. */
   current?: PetBreed;
+  /**
+   * A line under each tile ("Owned", a price), in place of the `current` and
+   * `lockedNote` marks. Tiles in `owned` say theirs in the owned colour.
+   */
+  noteFor?: (breed: PetBreed) => string | undefined;
+  owned?: readonly PetBreed[];
 }
 
 /** Portraits in a wrapping grid — the choice is visual, so show the actual sprite. */
-export function BreedPicker({ value, onChange, size = 84, locked, lockedNote, current }: Props) {
+export function BreedPicker({ value, onChange, size = 84, locked, lockedNote, current, noteFor, owned }: Props) {
   // Which sheets have arrived. Ten sheets of up to 2MB each are requested at
   // once, and until one lands its tile was simply empty — no sprite, no hint
   // that anything was coming. A soft placeholder holds the space instead.
@@ -60,8 +66,16 @@ export function BreedPicker({ value, onChange, size = 84, locked, lockedNote, cu
               </View>
             </View>
             <Text style={[styles.label, selected && styles.labelOn]}>{sheet.label}</Text>
-            {current === sheet.name && value !== current ? <Text style={styles.note}>Current</Text> : null}
-            {isLocked && lockedNote ? <Text style={styles.note}>{lockedNote}</Text> : null}
+            {noteFor ? (
+              noteFor(sheet.name) ? (
+                <Text style={[styles.note, owned?.includes(sheet.name) && styles.noteOwned]}>{noteFor(sheet.name)}</Text>
+              ) : null
+            ) : (
+              <>
+                {current === sheet.name && value !== current ? <Text style={styles.note}>Current</Text> : null}
+                {isLocked && lockedNote ? <Text style={styles.note}>{lockedNote}</Text> : null}
+              </>
+            )}
           </Pressable>
         );
       })}
@@ -93,4 +107,5 @@ const styles = themedStyles(() => ({
   // Greyed right down: the animal is still recognisable, but plainly not on offer.
   optionLocked: { opacity: 0.38 },
   note: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 2 },
+  noteOwned: { color: colors.mintDeep },
 }));

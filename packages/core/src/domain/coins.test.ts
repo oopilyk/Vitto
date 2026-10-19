@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BREED_CHANGE_COST, LEVEL_UP_COINS, canAfford, coinsEarned, coinsOf, spendCoins } from './coins';
-import { createPet } from './pet';
+import { BREED_CHANGE_COST, LEVEL_UP_COINS, breedSwitchCost, canAfford, coinsEarned, coinsOf, spendCoins, switchBreed } from './coins';
+import { createPet, ownedBreedsOf } from './pet';
 import { applyDelta } from './petHealthEngine';
 
 describe('coins', () => {
@@ -26,5 +26,37 @@ describe('coins', () => {
     expect(coinsOf(spendCoins(rich, BREED_CHANGE_COST)!)).toBe(20);
     expect(spendCoins({ ...pet(), coins: 10 }, BREED_CHANGE_COST)).toBeNull();
     expect(coinsOf(pet())).toBe(0);
+  });
+
+  it('charge for a new animal, and add it to the ones owned', () => {
+    const blue = { ...pet(), coins: BREED_CHANGE_COST + 20 };
+    expect(ownedBreedsOf(blue)).toEqual(['bear']);
+    expect(breedSwitchCost(blue, 'fox')).toBe(BREED_CHANGE_COST);
+    const fox = switchBreed(blue, 'fox')!;
+    expect(fox.breed).toBe('fox');
+    expect(coinsOf(fox)).toBe(20);
+    expect(fox.ownedBreeds).toEqual(['bear', 'fox']);
+    // The same pet, only a new look.
+    expect({ ...fox, breed: blue.breed, coins: blue.coins, ownedBreeds: undefined }).toEqual({ ...blue, ownedBreeds: undefined });
+    // Not enough for another new one.
+    expect(switchBreed(fox, 'shiba')).toBeNull();
+  });
+
+  it('switch back to an owned animal free, keeping every one owned', () => {
+    const fox = switchBreed({ ...pet(), coins: BREED_CHANGE_COST }, 'fox')!;
+    expect(coinsOf(fox)).toBe(0);
+    expect(breedSwitchCost(fox, 'bear')).toBe(0);
+    const bear = switchBreed(fox, 'bear')!;
+    expect(bear.breed).toBe('bear');
+    expect(coinsOf(bear)).toBe(0);
+    expect(bear.ownedBreeds).toEqual(['bear', 'fox']);
+    const back = switchBreed(bear, 'fox')!;
+    expect(back.ownedBreeds).toEqual(['bear', 'fox']);
+  });
+
+  it('are not spent on a free switch (the dev account), which still keeps the animal', () => {
+    const fox = switchBreed(pet(), 'fox', true)!;
+    expect(coinsOf(fox)).toBe(0);
+    expect(fox.ownedBreeds).toEqual(['bear', 'fox']);
   });
 });

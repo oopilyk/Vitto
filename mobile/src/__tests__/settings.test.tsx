@@ -239,7 +239,7 @@ describe('settings menu', () => {
 
     for (const [label, page] of [
       ['Vitto Plus', 'plus'],
-      ['Animal', 'animal'],
+      ['Animals & forms', 'animal'],
       ['Personality', 'personality'],
       ['Notifications', 'notifications'],
       ['Your preferences', 'preferences'],
@@ -261,7 +261,7 @@ describe('settings menu', () => {
 
   it('leaves out rows whose page is not wired up', () => {
     const tree = renderMenu({ onBreedChange: undefined, onOpenDeleteAccount: undefined, notificationsOn: null });
-    expect(byLabel(tree, 'Animal')).toBeUndefined();
+    expect(byLabel(tree, 'Animals & forms')).toBeUndefined();
     expect(byLabel(tree, 'Delete account')).toBeUndefined();
     expect(byLabel(tree, 'Notifications')).toBeUndefined();
     tree.unmount();

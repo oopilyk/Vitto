@@ -1434,7 +1434,7 @@ export const portraitFrame = (sheet: PetSheet): Frame => PORTRAIT[sheet.name] ??
  */
 export const sheetForPet = (
   pet: Pick<PetState, 'id' | 'breed'> &
-    Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mindSessions' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild'>>,
+    Partial<Pick<PetState, 'level' | 'endurance' | 'strength' | 'mindSessions' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'showBase'>>,
 ): PetSheet => {
   const base = baseSheetForPet(pet);
   // Gated on level as well as build: a level-2 pet that has been walked a lot has
@@ -1447,6 +1447,7 @@ export const sheetForPet = (
     evolvedBuild: pet.evolvedBuild,
     earnedBuilds: pet.earnedBuilds,
     chosenBuild: pet.chosenBuild,
+    showBase: pet.showBase,
   });
   return base.evolutions?.[build] ?? base;
 };

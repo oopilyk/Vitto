@@ -6,7 +6,7 @@ import {
   statValue,
   type PetStatKey,
 } from './petStats';
-import { applyForcedForm, canSwitchForm, chooseForm, EVOLUTION_LEVEL, evolutionProgress, getPetBuild, hasEvolved, lockEvolution } from './pet';
+import { applyForcedForm, canSwitchForm, chooseForm, EVOLUTION_LEVEL, evolutionProgress, getPetBuild, hasEvolved, lockEvolution, wornForm } from './pet';
 import { applyTimeDecay } from './decay';
 import { applyDelta } from './petHealthEngine';
 import { assessCondition } from './petCondition';
@@ -392,16 +392,63 @@ describe('evolution progress and switching', () => {
     blue = lockEvolution({ ...blue, endurance: 20, strength: 80 });
     expect(blue.earnedBuilds).toEqual(['runner', 'lifter']);
     expect(evolutionProgress(blue, 'runner').earned).toBe(true);
-    expect(canSwitchForm(blue)).toBe(false);
-    // Picking is refused until all three are earned.
-    expect(chooseForm(blue, 'runner')).toBe(blue);
+    // One earned is enough to switch: any earned form, or the base look.
+    expect(canSwitchForm(blue)).toBe(true);
+    expect(getPetBuild(chooseForm(blue, 'runner'))).toBe('runner');
+    // An unearned one is refused.
+    expect(chooseForm(blue, 'scholar')).toBe(blue);
+  });
+
+  it('has nothing to switch between before the first evolution', () => {
+    const young = pet();
+    expect(canSwitchForm(young)).toBe(false);
+    expect(wornForm(young)).toBe('base');
+    // Already wearing base: picking it again records nothing, so the first
+    // evolution still shows when it comes.
+    expect(chooseForm(young, 'base')).toBe(young);
+    expect(chooseForm(young, 'runner')).toBe(young);
+  });
+
+  it('goes back to the base look by choice, and keeps it until another pick', () => {
+    const runner = lockEvolution(pet({ level: EVOLUTION_LEVEL, endurance: 80 }));
+    expect(wornForm(runner)).toBe('runner');
+    const plain = chooseForm(runner, 'base');
+    expect(plain.showBase).toBe(true);
+    expect(wornForm(plain)).toBe('base');
+    expect(hasEvolved(plain)).toBe(false);
+    // Still earned: it is a look, not a devolution.
+    expect(plain.earnedBuilds).toEqual(['runner']);
+    // Earning another evolution does not override the pick...
+    const later = lockEvolution({ ...plain, endurance: 20, strength: 80 });
+    expect(later.earnedBuilds).toEqual(['runner', 'lifter']);
+    expect(wornForm(later)).toBe('base');
+    // ...until the owner picks again.
+    const lifter = chooseForm(later, 'lifter');
+    expect(lifter.showBase).toBeUndefined();
+    expect(wornForm(lifter)).toBe('lifter');
+  });
+
+  it('visibly evolves by default when nothing was picked', () => {
+    const runner = lockEvolution(pet({ level: EVOLUTION_LEVEL, endurance: 80 }));
+    const lifter = lockEvolution({ ...runner, endurance: 20, strength: 80 });
+    expect(wornForm(lifter)).toBe('lifter');
+  });
+
+  it('keeps a picked evolution when the stats point elsewhere', () => {
+    const blue = pet({ level: EVOLUTION_LEVEL, strength: 80, earnedBuilds: ['runner', 'lifter'], evolvedBuild: 'lifter' });
+    const runner = chooseForm(blue, 'runner');
+    expect(wornForm(runner)).toBe('runner');
+    // A pick of something not earned (a stale or tampered row) is not worn.
+    expect(getPetBuild({ ...blue, chosenBuild: 'scholar' })).toBe('lifter');
+    // The dev preview still wins over a base pick.
+    expect(getPetBuild(applyForcedForm(chooseForm(blue, 'base'), 'runner'))).toBe('runner');
   });
 
   it('carries a form locked before the list existed', () => {
     expect(lockEvolution(pet({ level: EVOLUTION_LEVEL, evolvedBuild: 'scholar' })).earnedBuilds).toEqual(['scholar']);
   });
 
-  it('wears the picked form once all three are earned, whatever the stats say', () => {
+  it('wears the picked form with all three earned, whatever the stats say', () => {
     const blue = pet({ level: EVOLUTION_LEVEL, strength: 80, earnedBuilds: ['runner', 'lifter', 'scholar'], evolvedBuild: 'lifter' });
     expect(canSwitchForm(blue)).toBe(true);
     expect(getPetBuild(blue)).toBe('lifter');

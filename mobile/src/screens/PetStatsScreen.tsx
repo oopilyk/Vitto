@@ -25,7 +25,7 @@ import {
   statValue,
   toDateKey,
   MOOD_WORD,
-  type EvolvedBuild,
+  type PetForm,
   LEVEL_UP_COINS,
   coinsOf,
 } from '@vitto/core';
@@ -49,8 +49,8 @@ interface Props {
   onClose: () => void;
   /** Opens the shareable card. Absent where there is nothing to share it with. */
   onShare?: () => void;
-  /** Wears another evolution, once all three are earned. */
-  onChooseForm?: (build: EvolvedBuild) => void;
+  /** Wears another form: the base look, or any evolution already earned. */
+  onChooseForm?: (form: PetForm) => void;
 }
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
