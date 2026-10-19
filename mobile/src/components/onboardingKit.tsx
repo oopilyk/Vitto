@@ -100,18 +100,29 @@ export function OnbInput({ form, placeholder, ...props }: TextInputProps & { for
   // of a centred number field with its letters spread wide apart and cut off
   // ("T y p e  i t  h e r e , e . g ."); plain text over the empty box cannot.
   const flat = (StyleSheet.flatten(style) ?? {}) as TextStyle;
+  // Spacing round the box belongs to the wrapper, not the field: the hint is
+  // laid over the wrapper, so a margin left on the field put the box lower than
+  // the hint (the code box's 26pt top margin floated its "000000" 13pt high).
+  const outer: TextStyle = {};
+  const inner: TextStyle = {};
+  for (const [key, value] of Object.entries(flat)) {
+    ((/^margin/.test(key) || key === 'alignSelf' || key === 'flex' ? outer : inner) as Record<string, unknown>)[key] = value;
+  }
   const inset = (Number(flat.paddingHorizontal ?? flat.padding ?? 0) || 0) + (Number(flat.borderWidth ?? 0) || 0);
   const empty = !props.value;
   return (
-    <View style={kit.inputBox}>
+    <View style={[kit.inputBox, outer]}>
       {/* The native placeholder stays for VoiceOver, drawn invisible. */}
-      <TextInput placeholder={placeholder} placeholderTextColor="transparent" {...props} style={style} />
+      <TextInput placeholder={placeholder} placeholderTextColor="transparent" {...props} style={inner} />
       {placeholder && empty ? (
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, kit.hintBox, { paddingHorizontal: inset }]}>
           <FitText
             style={[
               kit.hint,
-              { fontFamily: flat.fontFamily, fontSize: flat.fontSize, textAlign: flat.textAlign ?? 'left' },
+              // The field's own letter spacing too: iOS puts the caret where its
+              // invisible placeholder starts, so a hint drawn narrower than it sat
+              // to one side of the caret.
+              { fontFamily: flat.fontFamily, fontSize: flat.fontSize, letterSpacing: flat.letterSpacing, textAlign: flat.textAlign ?? 'left' },
             ]}
           >
             {placeholder}

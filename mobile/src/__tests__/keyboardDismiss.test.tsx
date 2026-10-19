@@ -22,3 +22,23 @@ describe('buttons close the keyboard', () => {
     tree.unmount();
   });
 });
+
+describe('onboarding text boxes line their hint up with the box and the caret', () => {
+  it('puts the box spacing on the wrapper, and gives the hint the field letter spacing', () => {
+    const { OnbInput: Input } = require('../components/onboardingKit');
+    const { TextInput, StyleSheet } = require('react-native');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<Input value="" placeholder="000000" style={{ marginTop: 26, height: 64, fontSize: 30, letterSpacing: 8 }} />);
+    });
+    const field = tree.root.findByType(TextInput);
+    // The hint is laid over the wrapper, so a margin on the field itself pushed
+    // the box below the hint ("000000" floated 13pt high on the code screen).
+    expect(StyleSheet.flatten(field.props.style).marginTop).toBeUndefined();
+    expect(StyleSheet.flatten(field.parent!.props.style).marginTop).toBe(26);
+    const hint = tree.root.findAll((n: any) => n.props.children === '000000' && n.props.style)
+      .map((n: any) => StyleSheet.flatten(n.props.style)).find((style: any) => style.letterSpacing !== undefined);
+    expect(hint?.letterSpacing).toBe(8);
+    tree.unmount();
+  });
+});
