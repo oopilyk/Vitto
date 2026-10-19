@@ -45,12 +45,22 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
   // The keyboard takes the bottom of the screen, and the newest messages are
   // at the bottom of the thread: keep them in view as it opens (and as the
   // thread's window shrinks to make room), rather than hidden behind it.
+  // Scrolled again once it is fully open: on "will show" the thread has not
+  // shrunk yet, so that scroll went to the old bottom and the newest message
+  // ended up behind the message box.
+  const [keyboardUp, setKeyboardUp] = useState(false);
   useEffect(() => {
-    const event = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const subscription = Keyboard.addListener(event, () => {
-      requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
-    });
-    return () => subscription.remove();
+    const ios = Platform.OS === 'ios';
+    const toEnd = () => requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
+    const subscriptions = [
+      Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => {
+        setKeyboardUp(true);
+        toEnd();
+      }),
+      Keyboard.addListener('keyboardDidShow', toEnd),
+      Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardUp(false)),
+    ];
+    return () => subscriptions.forEach((subscription) => subscription.remove());
   }, []);
   // Read through a ref so `load` does not re-run every time the day's numbers tick.
   const lifeRef = useRef(life);
@@ -170,7 +180,13 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
           ) : null}
         </View>
       ) : (
-        <View style={styles.composer}>
+        <>
+        {/* Above the box, not under it: under it, it sat between the box and the keyboard. */}
+        {access && access.messagesLeftToday <= 5 ? (
+          <Text style={styles.remaining}>{`${access.messagesLeftToday} message${access.messagesLeftToday === 1 ? '' : 's'} left today`}</Text>
+        ) : null}
+        {/* The home-bar space only when the keyboard is down: up, the box sits right on it. */}
+        <View style={[styles.composer, keyboardUp && styles.composerKeyboardUp]}>
           <TextInput
             style={[layout.input, styles.input]}
             value={draft}
@@ -198,10 +214,8 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus }: Props) {
             <Text style={styles.sendMark}>↑</Text>
           </Pressable>
         </View>
+        </>
       )}
-      {access && access.canChat && access.messagesLeftToday <= 5 ? (
-        <Text style={styles.remaining}>{`${access.messagesLeftToday} message${access.messagesLeftToday === 1 ? '' : 's'} left today`}</Text>
-      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -236,5 +250,6 @@ const styles = themedStyles(() => ({
   limit: { margin: 14, padding: 16, borderRadius: 4, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card },
   limitTitle: { fontFamily: fonts.pixel, fontSize: 22, color: colors.ink },
   limitBody: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25, color: colors.inkSoft, marginTop: 6 },
-  remaining: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, textAlign: 'center', paddingBottom: 8 },
+  remaining: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, textAlign: 'center', paddingTop: 6 },
+  composerKeyboardUp: { paddingBottom: 8 },
 }));

@@ -364,6 +364,8 @@ const buzz = (fire: () => Promise<unknown> | undefined) => {
 };
 const tick = () => buzz(() => Haptics.selectionAsync?.());
 const thump = () => buzz(() => Haptics.impactAsync?.(Haptics.ImpactFeedbackStyle?.Light));
+/** How long a page takes to slide in. */
+const STEP_ENTER_MS = 240;
 const cheer = () => buzz(() => Haptics.notificationAsync?.(Haptics.NotificationFeedbackType?.Success));
 
 
@@ -500,9 +502,16 @@ export function OnboardingScreen({
    */
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [keyboardUp, setKeyboardUp] = useState(false);
+  /** When the page last changed, so the keyboard's layout animation can stay out of its way. */
+  const stepChangedAt = useRef(0);
   useEffect(() => {
     const ios = Platform.OS === 'ios';
     const ease = (duration?: number) => {
+      // Not while a page is sliding in: Next both changes the page and closes
+      // the keyboard, and the layout animation on that same commit cancelled
+      // the slide-in, leaving the new page at no opacity -- a blank screen
+      // until Back and Next again (after height and weight, the name pages).
+      if (Date.now() - stepChangedAt.current < STEP_ENTER_MS + 120) return;
       if (ios && duration) LayoutAnimation.configureNext({ duration, update: { type: LayoutAnimation.Types.keyboard } });
     };
     const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', (event) => {
@@ -534,12 +543,18 @@ export function OnboardingScreen({
   const index = Math.max(0, sequence.indexOf(stepId));
   const isLast = index === sequence.length - 1;
 
-  // Each screen slides in from the side it is coming from.
+  // Each screen slides in from the side it is coming from. On the JS driver: a
+  // native-driven fade could be dropped by a layout animation landing in the
+  // same frame (the keyboard closing on Next), and a dropped fade is a page
+  // stuck invisible. If it is ever cut short anyway, the page is shown whole.
   const enter = useRef(new Animated.Value(1)).current;
   const direction = useRef(1);
   useEffect(() => {
+    stepChangedAt.current = Date.now();
     enter.setValue(0);
-    Animated.timing(enter, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(enter, { toValue: 1, duration: STEP_ENTER_MS, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start(({ finished }) => {
+      if (!finished) enter.setValue(1);
+    });
   }, [stepId, enter]);
 
   // Meeting your pet gets the big buzz, the moment the page opens.

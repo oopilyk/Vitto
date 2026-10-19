@@ -13,7 +13,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
+import {  assessCondition, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type EvolvedBuild, spendCoins, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -103,6 +103,8 @@ const STEP_GOAL_LINE = 'We hit our step goal today! I loved every step of it.';
 
 /** Set once Apple Health is connected on this phone, so later launches reconnect quietly. */
 const HEALTH_CONNECTED_KEY = 'vitto.appleHealthConnected';
+/** Set once Today has been opened, so the main screen stops saying it can be tapped. */
+const TODAY_OPENED_KEY = 'vitto.todayOpened';
 /** How often steps re-sync while the app is open. */
 const STEP_AUTO_SYNC_MS = 5 * 60 * 1000;
 /** How long one step read may take before it is abandoned (see syncSteps). */
@@ -2036,6 +2038,28 @@ function VittoApp() {
     return earnedTrophies(events, profile, now);
   }, [session, forcedTrophies, events, profile, now]);
 
+  // How much of today's goals are done, for the TODAY button on the main
+  // screen: the same figure the Today page leads with. Above the early returns
+  // for the same reason `trophiesNow` is.
+  const todayProgress = useMemo(
+    () => (pet ? buildDailyRecap({ events, profile, pet, stepGoal, day: now }).dailyProgress : undefined),
+    [events, profile, pet, stepGoal, now],
+  );
+  // "Tap to see your day" on the plaque until Today is first opened, then never
+  // again on this phone. Assumed opened until storage answers, so someone who
+  // has been in Today a hundred times never sees the hint flash past.
+  const [todayOpened, setTodayOpened] = useState(true);
+  useEffect(() => {
+    void AsyncStorage.getItem(TODAY_OPENED_KEY)
+      .then((value) => setTodayOpened(value === '1'))
+      .catch(() => undefined);
+  }, []);
+  const openedToday = () => {
+    if (todayOpened) return;
+    setTodayOpened(true);
+    void AsyncStorage.setItem(TODAY_OPENED_KEY, '1').catch(() => undefined);
+  };
+
   // Everything earned, badges and trophies, in display order. Above the early
   // returns for the same reason `trophiesNow` is.
   const achievementsNow: readonly AchievementId[] = useMemo(
@@ -2372,7 +2396,12 @@ function VittoApp() {
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenSettings={() => navigation.navigate('Settings')}
               onOpenStats={() => navigation.navigate('PetStats')}
-              onOpenToday={() => navigation.navigate('Today')}
+              onOpenToday={() => {
+                openedToday();
+                navigation.navigate('Today');
+              }}
+              todayProgress={todayProgress}
+              showTodayHint={!todayOpened}
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
               // Sleep has no manual entry: a SLEEP event is only ever created by
               // the HealthKit import. Telling an exhausted pet's owner to "get

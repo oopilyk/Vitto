@@ -101,7 +101,7 @@ export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
   {
     target: 'chat',
     title: 'Chat',
-    body: 'Come talk to me here! Ask how I am doing. I know how your day is going.',
+    body: 'Come talk to me here! Ask me anything about health and fitness, or just say what’s up. I remember things about you.',
   },
   {
     target: 'level',

@@ -61,6 +61,10 @@ interface Props {
   onOpenStats: () => void;
   /** Opens the day's detail (nutrition, care, movement, mind). */
   onOpenToday: () => void;
+  /** How much of today's goals are done, 0-100, for the TODAY button. */
+  todayProgress?: number;
+  /** Until Today has been opened once: the plaque says it can be tapped. */
+  showTodayHint?: boolean;
   /** Opens the friends list from the account menu. Absent when signed out/offline — see `PetWorldHud`. */
   onOpenFriends?: () => void;
   /** Letter shown in the account button — the signed-in email's initial. */
@@ -125,6 +129,8 @@ export function DashboardScreen({
   onOpenSettings,
   onOpenStats,
   onOpenToday,
+  todayProgress,
+  showTodayHint,
   onOpenFriends,
   accountInitial,
   pets,
@@ -250,6 +256,8 @@ export function DashboardScreen({
       hudOverlay={
         <PetWorldHud
           pet={pet}
+          todayProgress={todayProgress}
+          showTodayHint={showTodayHint}
           canLogSleep={canLogSleep}
           events={events}
           careToast={careToast}

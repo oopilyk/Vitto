@@ -66,20 +66,20 @@ export const installNotificationHandler = (): void => {
 };
 
 /**
- * Asks, mints a token and hands it to the server. Safe to call on every launch:
- * the server upserts on the token, so this refreshes the timezone and the
- * last-seen time rather than piling up rows.
+ * Mints a token and hands it to the server, if notifications are already
+ * allowed. Safe to call on every launch: the server upserts on the token, so
+ * this refreshes the timezone and the last-seen time rather than piling up rows.
  *
- * Called once there is a pet worth being notified about, not at first launch —
- * a permission prompt before anyone has met their pet is asking for a "no".
+ * It never asks. It runs as soon as there is a pet, which is in the middle of
+ * onboarding, and asking then put iOS's prompt up two screens before the
+ * step that explains it. The prompt belongs to the person turning
+ * notifications on (`setPushEnabled(true)`: onboarding's step, Settings).
  */
 export const registerForPush = async (): Promise<PushRegistration> => {
   if (!available()) return { status: 'unsupported' };
   if (!projectId) return { status: 'unconfigured' };
   try {
-    const existing = await Notifications.getPermissionsAsync();
-    const granted = existing.granted || (await Notifications.requestPermissionsAsync()).granted;
-    if (!granted) return { status: 'denied' };
+    if (!(await Notifications.getPermissionsAsync()).granted) return { status: 'denied' };
 
     if (Platform.OS === 'android' && typeof Notifications.setNotificationChannelAsync === 'function') {
       await Notifications.setNotificationChannelAsync('companion', {
@@ -105,11 +105,19 @@ export const registerForPush = async (): Promise<PushRegistration> => {
   }
 };
 
-/** Stops notifications for this device without touching the OS permission. */
+/**
+ * Turns notifications on or off for this device. Turning them on is the one
+ * place that asks iOS, because it is the person asking (see registerForPush);
+ * turning them off leaves the OS permission alone.
+ */
 export const setPushEnabled = async (enabled: boolean): Promise<PushStatus> => {
   if (!available()) return 'unsupported';
   if (!projectId) return 'unconfigured';
   try {
+    if (enabled) {
+      const granted = (await Notifications.getPermissionsAsync()).granted || (await Notifications.requestPermissionsAsync()).granted;
+      if (!granted) return 'denied';
+    }
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
     await companionService.registerDevice({
       token,
