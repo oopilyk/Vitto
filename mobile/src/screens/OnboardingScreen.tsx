@@ -1945,11 +1945,8 @@ function FChoice({
       </View>
       {/* A word or two, written to fit beside any label: no shrinking needed. */}
       {note ? <Text style={styles.choiceNote}>{note}</Text> : null}
-      {selected ? (
-        <View style={styles.check}>
-          <Text style={styles.checkMark}>✓</Text>
-        </View>
-      ) : null}
+      {/* Picked shows as the coral outline alone: a tick beside the label took
+          its room and made longer labels shrink to fit. */}
     </Pressable>
   );
 }
@@ -2119,7 +2116,9 @@ const styles = themedStyles(() => {
       borderColor: F.border,
       backgroundColor: F.bg,
     },
-    selected: { borderColor: F.green, borderWidth: 3 },
+    // A point less padding for the point more border, so picking never nudges the text.
+    // The same coral highlight the toggles and chips use: outline and a pale coral fill.
+    selected: { borderColor: F.green, borderWidth: 3, paddingHorizontal: 17, backgroundColor: F.greenPale },
     pressed: { transform: [{ scale: 0.98 }] },
     choiceText: { flex: 1 },
     choiceTextCentred: { alignItems: 'center' },
@@ -2130,8 +2129,6 @@ const styles = themedStyles(() => {
     // What a choice raises, in the accent, so it reads as a reward.
     choiceStats: { fontFamily: FONT.bold, fontSize: 12, lineHeight: 16, letterSpacing: 0.2, color: F.green, marginTop: 3 },
     choiceNote: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, flexShrink: 1, textAlign: 'right' },
-    check: { width: 26, height: 26, borderRadius: 13, backgroundColor: F.green, alignItems: 'center', justifyContent: 'center' },
-    checkMark: { fontFamily: FONT.bold, fontSize: 14, lineHeight: 18, color: '#ffffff' },
 
     toggle: { flexDirection: 'row', gap: 10 },
     heightPick: { alignSelf: 'stretch', gap: 8 },
