@@ -194,6 +194,26 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it('offers "Sync steps" once Apple Health is connected, and says what the sync found', async () => {
+    const onSyncSteps = jest.fn(async () => 'Synced: 6,400 steps from Apple Health.');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <TodayScreen pet={pet} events={[]} profile={profile} stepGoal={10000} onStepGoalChange={() => {}}
+          onTrainMind={() => {}} onOpenProfile={() => {}} onClose={() => {}} onSyncSteps={onSyncSteps} />,
+      );
+    });
+    const { Text } = require('react-native');
+    const sync = tree.root
+      .findAll((node: any) => typeof node.props.onPress === 'function')
+      .find((node: any) => node.findAllByType(Text).some((t: any) => t.props.children === 'Sync steps'));
+    expect(sync).toBeTruthy();
+    await act(async () => { sync!.props.onPress(); });
+    expect(onSyncSteps).toHaveBeenCalledTimes(1);
+    expect(tree.root.findAllByType(Text).some((t: any) => t.props.children === 'Synced: 6,400 steps from Apple Health.')).toBe(true);
+    tree.unmount();
+  });
+
   it('fills a water cup the moment + is tapped, before the save lands, and takes it back if the save fails', async () => {
     const saves: Array<{ ml: number; settle: (ok: boolean) => void }> = [];
     const onLogWater = (ml: number) =>

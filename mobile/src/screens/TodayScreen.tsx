@@ -92,6 +92,11 @@ interface Props {
    * so the steps card offers the connection instead of sitting at 0.
    */
   onConnectHealth?: () => void;
+  /**
+   * Once Apple Health is connected: sync steps now, in case the count looks
+   * wrong. Resolves to a line saying what happened, shown under the card.
+   */
+  onSyncSteps?: () => Promise<string>;
   forcedTrophies?: ForcedTrophies | null;
   onForceTrophies?: (state: ForcedTrophies | null) => void;
   /** Forgets which achievement unlocks have been shown, so every earned one pops again. */
@@ -172,11 +177,19 @@ export function TodayScreen({
   onClearSeededData,
   isSeeding,
   onConnectHealth,
+  onSyncSteps,
   forcedTrophies,
   onForceTrophies,
   onReplayAchievements,
   onOpenCompanionDebug,
 }: Props) {
+  // The steps card's own sync: 'syncing' while it runs, then what it found.
+  const [stepSync, setStepSync] = useState<string | null>(null);
+  const syncStepsNow = async () => {
+    if (!onSyncSteps || stepSync === 'syncing') return;
+    setStepSync('syncing');
+    setStepSync(await onSyncSteps().catch(() => "Couldn't reach Apple Health. Try again."));
+  };
   // Dark mode takes the night palette, whatever the hour: the panels as well
   // as the type on them. Deciding those two separately once put the night's
   // cream type on the day's cream panels in dark mode.
@@ -405,7 +418,13 @@ export function TodayScreen({
             done={outdoors.goalReached}
             xp={outdoors.xp}
             headline={`${outdoors.steps.toLocaleString()} / ${outdoors.goal.toLocaleString()} steps`}
-            actions={onConnectHealth ? [{ label: 'Connect Apple Health', onPress: onConnectHealth }] : undefined}
+            actions={
+              onConnectHealth
+                ? [{ label: 'Connect Apple Health', onPress: onConnectHealth }]
+                : onSyncSteps
+                  ? [{ label: stepSync === 'syncing' ? 'Syncing…' : 'Sync steps', onPress: () => void syncStepsNow() }]
+                  : undefined
+            }
             detail={
               onConnectHealth && outdoors.steps === 0
                 ? `Connect Apple Health and ${petName} counts every step you take, on its own.`
@@ -422,6 +441,9 @@ export function TodayScreen({
                 🔥 {outdoors.caloriesBurned.toLocaleString()} cal burned
                 {outdoors.caloriesBurnedFromHealth ? '' : ' (estimate)'}
               </Text>
+            ) : null}
+            {stepSync && stepSync !== 'syncing' ? (
+              <Text style={[styles.syncNote, { color: c.soft }]} accessibilityLiveRegion="polite">{stepSync}</Text>
             ) : null}
             <View style={styles.goalEdit}>
               <Text style={[styles.goalEditLabel, { color: c.soft }]}>Daily goal</Text>
@@ -986,6 +1008,7 @@ const styles = themedStyles(() => ({
   xpChip: { borderWidth: 2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
   xpChipText: { fontFamily: fonts.pixelBold, fontSize: 14, letterSpacing: 0.4 },
   caloriesLine: { fontFamily: fonts.pixel, fontSize: 14, marginTop: 2 },
+  syncNote: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 18, marginTop: 8 },
   goalEdit: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
   goalEditLabel: {
     fontFamily: fonts.pixel,

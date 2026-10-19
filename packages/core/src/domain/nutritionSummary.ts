@@ -52,18 +52,25 @@ const CALORIES_BURNED_PER_WORKOUT_MINUTE = 7;
 const CALORIES_BURNED_PER_STEP = 0.04;
 
 /**
- * The day's total steps: every `STEP_ACTIVITY` event for the day, summed.
- * Safe because a device only ever holds one such event per day for the
- * HealthKit auto-sync flow — a re-sync updates that same event's count in
- * place (`replaceEvent`, see App.tsx's `syncSteps`) rather than adding a new
- * one, so re-syncing a cumulative daily reading can never be double-counted
- * here. A second, genuinely separate `STEP_ACTIVITY` for the same day (a
- * manual log, seeded test data) is real additional activity and should add.
+ * The day's step rows that count, once each. Apple Health's count is the day's
+ * running total, so only the latest Apple Health row is the day: a second one
+ * (two syncs racing on open, one run before the day's rows had loaded) is the
+ * same steps again, and adding it doubled the count. Anything else (a manual
+ * log, seeded test data) is real extra activity and still adds.
  */
+export const countedStepRows = (dayEvents: HealthEvent[]): HealthEvent<StepMetadata>[] => {
+  const rows = dayEvents.filter((event): event is HealthEvent<StepMetadata> => event.type === 'STEP_ACTIVITY');
+  const fromHealth = rows.filter((event) => event.source === 'healthkit');
+  const latest = fromHealth.reduce<HealthEvent<StepMetadata> | null>(
+    (best, event) => (best === null || Date.parse(event.occurredAt) > Date.parse(best.occurredAt) ? event : best),
+    null,
+  );
+  return [...(latest ? [latest] : []), ...rows.filter((event) => event.source !== 'healthkit')];
+};
+
+/** The day's total steps (see `countedStepRows` for why it is not a plain sum). */
 export const stepsForDay = (dayEvents: HealthEvent[]): number =>
-  dayEvents
-    .filter((event) => event.type === 'STEP_ACTIVITY')
-    .reduce((total, event) => total + ((event.metadata as StepMetadata).steps ?? 0), 0);
+  countedStepRows(dayEvents).reduce((total, event) => total + (event.metadata.steps ?? 0), 0);
 
 /**
  * Same aggregation as `stepsForDay`, for whichever `STEP_ACTIVITY` events
@@ -73,10 +80,7 @@ export const stepsForDay = (dayEvents: HealthEvent[]): number =>
  * `estimateCaloriesBurned` rather than silently showing a zero.
  */
 export const healthCaloriesBurnedForDay = (dayEvents: HealthEvent[]): number | null => {
-  const withReading = dayEvents.filter(
-    (event): event is HealthEvent<StepMetadata> =>
-      event.type === 'STEP_ACTIVITY' && (event.metadata as StepMetadata).caloriesBurned !== undefined,
-  );
+  const withReading = countedStepRows(dayEvents).filter((event) => event.metadata.caloriesBurned !== undefined);
   if (withReading.length === 0) return null;
   return Math.round(
     withReading.reduce((total, event) => total + (event.metadata.caloriesBurned ?? 0), 0),

@@ -612,7 +612,57 @@ export const describePortion = (food: FoodSearchResult, servings: number): strin
 
 export const toMealAnalysis = (food: FoodSearchResult, servings: number): MealAnalysis => {
   const factor = Number.isFinite(servings) && servings > 0 ? servings : 1;
-  const scaled = scaleMacros(food.macros, factor);
+  return gradePlate([{ food, servings: factor }], scaleMacros(food.macros, factor), describePortion(food, factor), food.brand ? `${food.name} · ${food.brand}` : food.name);
+};
+
+/** One food picked for a plate, and how many of its servings. */
+export interface PlateItem {
+  food: FoodSearchResult;
+  servings: number;
+}
+
+/**
+ * Several foods logged as one meal ("chicken breast + rice + broccoli"): their
+ * macros added up and the plate graded as a whole, so a vegetable on the side
+ * lifts the grade of the meal it was eaten with. One food is exactly
+ * `toMealAnalysis`. A sub-macro is only totalled when every food reports it: a
+ * figure missing from one food is not a zero, and a total that silently left
+ * it out would read low.
+ */
+export const toPlateAnalysis = (items: readonly PlateItem[]): MealAnalysis => {
+  const plate = items
+    .filter((item) => Number.isFinite(item.servings) && item.servings > 0)
+    .map((item) => ({ ...item, macros: scaleMacros(item.food.macros, item.servings) }));
+  if (plate.length === 0) throw new Error('A plate needs at least one food.');
+  if (plate.length === 1) return toMealAnalysis(plate[0]!.food, plate[0]!.servings);
+
+  const total = (key: keyof FoodMacros) => plate.reduce((sum, item) => sum + (item.macros[key] ?? 0), 0);
+  const totalIfAll = (key: 'sugarGrams' | 'saturatedFatGrams' | 'sodiumMg') =>
+    plate.every((item) => item.macros[key] !== undefined) ? total(key) : undefined;
+  const macros: FoodMacros = {
+    calories: total('calories'),
+    proteinGrams: total('proteinGrams'),
+    carbsGrams: total('carbsGrams'),
+    fatGrams: total('fatGrams'),
+    fiberGrams: total('fiberGrams'),
+    ...optionalSubMacros({
+      sugarGrams: totalIfAll('sugarGrams'),
+      saturatedFatGrams: ((value) => (value === undefined ? undefined : Math.round(value * 10) / 10))(totalIfAll('saturatedFatGrams')),
+      sodiumMg: totalIfAll('sodiumMg'),
+    }),
+  };
+  return gradePlate(
+    plate,
+    macros,
+    plate.map((item) => describePortion(item.food, item.servings)).join(' + '),
+    plate.map((item) => item.food.name).join(', '),
+  );
+};
+
+/** The grade, nutrient flags and analysis for a plate whose macros are already totalled. */
+const gradePlate = (plate: readonly PlateItem[], scaled: FoodMacros, foodDescription: string, summary: string): MealAnalysis => {
+  const names = plate.map((item) => item.food.name);
+  const any = (pattern: RegExp) => names.some((name) => pattern.test(name));
   const macros = {
     calories: scaled.calories,
     proteinGrams: scaled.proteinGrams,
@@ -625,11 +675,11 @@ export const toMealAnalysis = (food: FoodSearchResult, servings: number): MealAn
 
   const nutrients = {
     protein: macros.proteinGrams >= PROTEIN_GRAMS_THRESHOLD,
-    vegetables: VEGETABLE_PATTERN.test(food.name),
-    fruit: FRUIT_PATTERN.test(food.name),
-    wholeGrains: WHOLE_GRAIN_PATTERN.test(food.name),
+    vegetables: any(VEGETABLE_PATTERN),
+    fruit: any(FRUIT_PATTERN),
+    wholeGrains: any(WHOLE_GRAIN_PATTERN),
     fiber: scaled.fiberGrams >= FIBER_GRAMS_THRESHOLD,
-    treats: TREAT_PATTERN.test(food.name),
+    treats: any(TREAT_PATTERN),
   };
 
   const positiveCount = [
@@ -645,10 +695,10 @@ export const toMealAnalysis = (food: FoodSearchResult, servings: number): MealAn
 
   return withEstimatedCalories({
     grade,
-    foodDescription: describePortion(food, factor),
-    summary: food.brand ? `${food.name} · ${food.brand}` : food.name,
+    foodDescription,
+    summary,
     confidence: 1,
-    detectedFoods: [food.name],
+    detectedFoods: names,
     macros,
     nutrients,
   });

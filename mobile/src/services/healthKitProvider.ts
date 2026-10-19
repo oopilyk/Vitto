@@ -91,16 +91,22 @@ export class HealthKitProvider implements HealthDataProvider {
   }
 
   /**
-   * Picks up a connection made on an earlier launch, without ever asking.
-   * iOS never says whether READ access was granted, only whether the person
-   * has already been asked (`unnecessary`, 2); once they have, re-requesting
-   * shows nothing and simply re-arms this provider. A person who has never
-   * been asked is left alone: that sheet only appears when they tap Connect.
+   * Picks up a connection made on an earlier launch. iOS never says whether
+   * READ access was granted, only whether the person has already been asked
+   * (`unnecessary`, 2); once they have answered for steps, re-requesting
+   * re-arms this provider, and shows a sheet only for types an update has
+   * added since. A person who has never been asked is left alone: that sheet
+   * only appears when they tap Connect.
    */
   async restoreAuthorization(): Promise<boolean> {
     if (Platform.OS !== 'ios') return false;
     try {
-      const status = await getRequestStatusForAuthorization({ toRead: READ_TYPES });
+      // Asked about steps alone. Asking about every type said "not asked yet"
+      // whenever an update added one (sleep, sodium...), so a phone that had
+      // long since said yes never reconnected, and steps silently stopped
+      // syncing. If steps were answered, reconnect: iOS then shows its sheet
+      // only for whatever is new.
+      const status = await getRequestStatusForAuthorization({ toRead: [STEP_COUNT] });
       if (Number(status) !== 2) return false;
       return await this.requestAuthorization();
     } catch {
@@ -129,7 +135,12 @@ export class HealthKitProvider implements HealthDataProvider {
   }
 
   async getTodaySteps(userId: string): Promise<HealthEvent<StepMetadata>> {
-    this.assertAuthorized();
+    // As the old "Sync steps" button did: connect first if this launch has not
+    // yet, rather than refusing. Only reached once the person has connected
+    // Apple Health (see syncSteps), so this never asks out of the blue.
+    if (!this.authorized && !(await this.requestAuthorization())) {
+      throw new Error('Apple Health access was not granted.');
+    }
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const filter = { date: { startDate: startOfToday, endDate: now } };

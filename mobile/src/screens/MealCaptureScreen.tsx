@@ -11,7 +11,7 @@ import {
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
 import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
@@ -56,6 +56,13 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodSearchResult[]>([]);
+  /**
+   * The foods ticked in search, with how many servings of each, logged
+   * together as one meal. Kept across searches, so "chicken", then "rice",
+   * builds one plate.
+   */
+  const [plate, setPlate] = useState<{ food: FoodSearchResult; servings: number }[]>([]);
+  /** The scanned food. */
   const [selected, setSelected] = useState<FoodSearchResult | null>(null);
   const [servings, setServings] = useState('1');
 
@@ -102,16 +109,19 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       setError('That photo could not be read. Try another one.');
       return;
     }
-    setImage(await shrinkForUpload({ ...asset, base64: asset.base64, mimeType: asset.mimeType ?? undefined }));
+    const shrunk = await shrinkForUpload({ ...asset, base64: asset.base64, mimeType: asset.mimeType ?? undefined });
+    setImage(shrunk);
+    // Straight to reading it: choosing the photo is the decision to log it.
+    await analyze(shrunk);
   };
 
-  const analyze = async () => {
-    if (!image) return;
+  const analyze = async (photo: PickedImage | null = image) => {
+    if (!photo) return;
     setBusy('analyzing');
     onAnalyzingChange(true);
     setError(null);
     try {
-      setAnalysis(await analyzeMealImage(image, petContext));
+      setAnalysis(await analyzeMealImage(photo, petContext));
     } catch (cause) {
       setError(errorMessage(cause, 'Meal analysis failed.'));
     } finally {
@@ -144,7 +154,6 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     if (!query.trim() || busy) return;
     setBusy('searching');
     setError(null);
-    setSelected(null);
     try {
       const found = await searchFoodsByName(query);
       setResults(found);
@@ -192,9 +201,42 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     }
   };
 
+  const onPlate = (food: FoodSearchResult) => plate.some((item) => item.food.id === food.id);
+  const togglePlate = (food: FoodSearchResult) =>
+    setPlate((current) =>
+      current.some((item) => item.food.id === food.id)
+        ? current.filter((item) => item.food.id !== food.id)
+        : [...current, { food, servings: 1 }],
+    );
+  const setPlateServings = (id: string, next: number) =>
+    setPlate((current) => current.map((item) => (item.food.id === id ? { ...item, servings: next } : item)));
+  const plateAnalysis = plate.length > 0 ? toPlateAnalysis(plate) : null;
+
   const selectedAnalysis = selected
     ? toMealAnalysis(selected, Math.max(0.1, Number(servings) || 1))
     : null;
+
+  // The one thing to do next, pinned under the page so it is never a scroll
+  // away: log the meal, or (photo) say it is being read or offer a retry.
+  const footer: { label: string; summary?: string; busy?: boolean; disabled?: boolean; onPress: () => void } | null =
+    mode === 'photo' && canScanPhotos
+      ? busy === 'analyzing'
+        ? { label: 'Reading your plate...', busy: true, disabled: true, onPress: () => {} }
+        : analysis && fixText === null
+          ? { label: busy === 'saving' ? 'Saving...' : 'Add to care log', summary: summaryOf(analysis), busy: busy === 'saving', onPress: () => void saveAnalysis(analysis, 'ai') }
+          : image && !analysis
+            ? { label: 'Try again', onPress: () => void analyze() }
+            : null
+      : mode === 'search' && plateAnalysis
+        ? {
+            label: busy === 'saving' ? 'Saving...' : plate.length === 1 ? 'Add to care log' : `Add ${plate.length} foods`,
+            summary: summaryOf(plateAnalysis),
+            busy: busy === 'saving',
+            onPress: () => void saveAnalysis(plateAnalysis, 'manual'),
+          }
+        : mode === 'scan' && selectedAnalysis
+          ? { label: busy === 'saving' ? 'Saving...' : 'Add to care log', summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
+          : null;
 
   return (
     <SheetPage onBackPress={onClose}>
@@ -219,6 +261,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               onPress={() => {
                 setMode(option);
                 reset();
+                setPlate([]);
                 setScanned(false);
               }}
               style={[styles.tab, mode === option && styles.tabOn]}
@@ -307,25 +350,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   </View>
                 </View>
               ) : null}
+              {busy === 'analyzing' ? <Text style={styles.reading}>Reading your plate...</Text> : null}
               <ErrorText>{error}</ErrorText>
-
-              <View style={styles.actions}>
-                {analysis && fixText === null ? (
-                  <PrimaryButton
-                    label={busy === 'saving' ? 'Saving...' : 'Add to care log'}
-                    busy={busy === 'saving'}
-                    onPress={() => void saveAnalysis(analysis, 'ai')}
-                  />
-                ) : analysis ? null : (
-                  <PrimaryButton
-                    label={busy === 'analyzing' ? 'Reading your plate...' : 'Analyze meal'}
-                    disabled={!image}
-                    busy={busy === 'analyzing'}
-                    onPress={() => void analyze()}
-                  />
-                )}
-                <TextButton label="Cancel" onPress={onClose} />
-              </View>
             </>
           ) : null}
 
@@ -350,38 +376,56 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 </Pressable>
               </View>
 
-              {results.map((food) => (
-                <Pressable
-                  key={food.id}
-                  style={[styles.result, selected?.id === food.id && styles.resultOn]}
-                  onPress={() => setSelected(food)}
-                >
-                  <Text style={styles.resultName}>{food.name}</Text>
-                  <Text style={styles.resultMeta}>
-                    {food.macros.calories} kcal · {food.servingDescription}
-                  </Text>
-                </Pressable>
-              ))}
+              {plate.length > 0 ? (
+                <View style={styles.plate} testID="plate">
+                  <Text style={styles.plateTitle}>Your plate</Text>
+                  {plate.map(({ food, servings: count }) => (
+                    <View key={food.id} style={styles.plateRow}>
+                      <View style={styles.plateText}>
+                        <Text style={styles.plateName} numberOfLines={1}>{food.name}</Text>
+                        <Text style={styles.resultMeta} numberOfLines={1}>
+                          {Math.round(food.macros.calories * count)} kcal · {food.servingDescription}
+                        </Text>
+                      </View>
+                      <Stepper
+                        value={count}
+                        label={food.name}
+                        onChange={(next) => (next > 0 ? setPlateServings(food.id, next) : togglePlate(food))}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              {/* Tap to put a food on the plate, tap again to take it off; as
+                  many as the meal had. */}
+              {results.map((food) => {
+                const on = onPlate(food);
+                return (
+                  <Pressable
+                    key={food.id}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={food.name}
+                    style={[styles.result, on && styles.resultOn]}
+                    onPress={() => togglePlate(food)}
+                  >
+                    <View style={styles.resultText}>
+                      <Text style={styles.resultName}>{food.name}</Text>
+                      <Text style={styles.resultMeta}>
+                        {food.macros.calories} kcal · {food.servingDescription}
+                      </Text>
+                    </View>
+                    <View style={[styles.tick, on && styles.tickOn]}>
+                      {on ? <Text style={styles.tickMark}>✓</Text> : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
               {/* FatSecret's terms: its credit wherever its foods are shown. */}
               {results.some((food) => food.source === 'fatsecret') ? <FatSecretCredit /> : null}
 
-              {selectedAnalysis ? (
-                <>
-                  <ServingsRow food={selected} servings={servings} onChange={setServings} />
-                  <AnalysisCard analysis={selectedAnalysis} />
-                </>
-              ) : null}
               <ErrorText>{error}</ErrorText>
-
-              <View style={styles.actions}>
-                <PrimaryButton
-                  label={busy === 'saving' ? 'Saving...' : 'Add to care log'}
-                  disabled={!selectedAnalysis}
-                  busy={busy === 'saving'}
-                  onPress={() => selectedAnalysis && void saveAnalysis(selectedAnalysis, 'manual')}
-                />
-                <TextButton label="Cancel" onPress={onClose} />
-              </View>
             </>
           ) : null}
 
@@ -420,27 +464,47 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               {selected?.source === 'fatsecret' ? <FatSecretCredit /> : null}
               <ErrorText>{error}</ErrorText>
 
-              <View style={styles.actions}>
-                <PrimaryButton
-                  label={busy === 'saving' ? 'Saving...' : 'Add to care log'}
-                  disabled={!selectedAnalysis}
-                  busy={busy === 'saving'}
-                  onPress={() => selectedAnalysis && void saveAnalysis(selectedAnalysis, 'barcode')}
-                />
-                <TextButton
-                  label={scanned ? 'Scan another' : 'Cancel'}
-                  onPress={() => {
-                    if (!scanned) return onClose();
-                    setScanned(false);
-                    setSelected(null);
-                  }}
-                />
-              </View>
+              {scanned ? (
+                <View style={styles.actions}>
+                  <TextButton
+                    label="Scan another"
+                    onPress={() => {
+                      setScanned(false);
+                      setSelected(null);
+                    }}
+                  />
+                </View>
+              ) : null}
             </>
           ) : null}
         </ScrollView>
+        {footer ? (
+          <View style={styles.footer} testID="meal-footer">
+            {footer.summary ? <Text style={styles.footerSummary} numberOfLines={1}>{footer.summary}</Text> : null}
+            <PrimaryButton label={footer.label} busy={footer.busy} disabled={footer.disabled} onPress={footer.onPress} />
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
     </SheetPage>
+  );
+}
+
+/** The footer's one line about the meal: its grade and the numbers that matter most. */
+const summaryOf = (meal: MealAnalysis): string =>
+  `Grade ${meal.grade} · ${calorieEstimate(meal.macros)} kcal · ${meal.macros.proteinGrams}g protein`;
+
+/** Servings of one food on the plate, in halves; below a half takes it off. */
+function Stepper({ value, label, onChange }: { value: number; label: string; onChange: (next: number) => void }) {
+  return (
+    <View style={styles.stepper}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Less ${label}`} hitSlop={6} onPress={() => onChange(value - 0.5)} style={styles.stepButton}>
+        <Text style={styles.stepMark}>{value <= 0.5 ? '×' : '−'}</Text>
+      </Pressable>
+      <Text style={styles.stepValue}>{`${value}×`}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={`More ${label}`} hitSlop={6} onPress={() => onChange(value + 0.5)} style={styles.stepButton}>
+        <Text style={styles.stepMark}>+</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -555,7 +619,7 @@ const styles = themedStyles(() => ({
   tabOn: { borderBottomColor: colors.coral },
   tabLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint },
   tabLabelOn: { color: colors.ink },
-  body: { padding: 22, paddingBottom: 60 },
+  body: { padding: 22, paddingBottom: 24 },
   preview: { width: '100%', height: 230, borderRadius: 4, backgroundColor: colors.sage },
   fixBox: { gap: 8, marginTop: 4 },
   fixLabel: { fontFamily: fonts.pixelBold, fontSize: 16, color: colors.ink },
@@ -638,8 +702,24 @@ const styles = themedStyles(() => ({
     minWidth: 72,
   },
   searchButtonLabel: { color: '#fff', fontFamily: fonts.pixel, fontSize: 16 },
-  result: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  result: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: colors.divider },
   resultOn: { backgroundColor: colors.selectedFill },
+  resultText: { flex: 1 },
+  tick: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  tickOn: { backgroundColor: colors.coral, borderColor: colors.coral },
+  tickMark: { fontFamily: fonts.pixelBold, fontSize: 15, color: '#fff', lineHeight: 18 },
+  plate: { marginTop: 14, marginBottom: 6, padding: 12, gap: 10, borderRadius: 4, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardSoft },
+  plateTitle: { fontFamily: fonts.pixelBold, fontSize: 15, color: colors.ink },
+  plateRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  plateText: { flex: 1 },
+  plateName: { fontFamily: fonts.pixel, fontSize: 16, color: colors.ink },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stepButton: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  stepMark: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.inkSoft, lineHeight: 20 },
+  stepValue: { fontFamily: fonts.pixel, fontSize: 15, color: colors.ink, minWidth: 34, textAlign: 'center' },
+  reading: { fontFamily: fonts.pixel, fontSize: 15, color: colors.muted, textAlign: 'center', marginTop: 14 },
+  footer: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 26, gap: 8, borderTopWidth: 1, borderTopColor: colors.hairline, backgroundColor: colors.paper },
+  footerSummary: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, textAlign: 'center' },
   resultName: { fontFamily: fonts.pixel, fontSize: 18, color: colors.ink },
   resultMeta: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 3 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },

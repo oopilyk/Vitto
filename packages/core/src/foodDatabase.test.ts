@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { describePortion, fatsecretFoodToResult, lookupBarcode, searchFoodsByName, toMealAnalysis } from './foodDatabase';
+import { describePortion, fatsecretFoodToResult, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from './foodDatabase';
 import { configureCore } from './config';
 
 const mockFetchOnce = (body: unknown): void => {
@@ -570,5 +570,31 @@ describe('describePortion', () => {
   });
   it('does not repeat a brand already in the name', () => {
     expect(describePortion({ ...bar, name: 'Barebells Peanut Butter Bar' }, 1)).toBe('Barebells Peanut Butter Bar · 1 bar (55 g)');
+  });
+});
+
+describe('toPlateAnalysis — several foods as one meal', () => {
+  const chicken = { id: 'c', name: 'Chicken Breast', servingDescription: '4 oz (112 g)', basisGrams: 112,
+    macros: { calories: 120, proteinGrams: 26, carbsGrams: 0, fatGrams: 2, fiberGrams: 0, sodiumMg: 60 } };
+  const broccoli = { id: 'b', name: 'Broccoli', servingDescription: '1 cup (91 g)', basisGrams: 91,
+    macros: { calories: 31, proteinGrams: 3, carbsGrams: 6, fatGrams: 0, fiberGrams: 2, sodiumMg: 30 } };
+  const rice = { id: 'r', name: 'Brown Rice', servingDescription: '1 cup (195 g)', basisGrams: 195,
+    macros: { calories: 216, proteinGrams: 5, carbsGrams: 45, fatGrams: 2, fiberGrams: 4 } };
+
+  it('adds the macros up, servings included, and grades the plate as a whole', () => {
+    const plate = toPlateAnalysis([{ food: chicken, servings: 2 }, { food: broccoli, servings: 1 }, { food: rice, servings: 1 }]);
+    expect(plate.macros).toMatchObject({ calories: 487, proteinGrams: 60, carbsGrams: 51, fatGrams: 6, fiberGrams: 6 });
+    // Rice has no sodium figure, so there is no total to claim.
+    expect(plate.macros.sodiumMg).toBeUndefined();
+    expect(plate.detectedFoods).toEqual(['Chicken Breast', 'Broccoli', 'Brown Rice']);
+    expect(plate.foodDescription).toBe('Chicken Breast · 2 × 4 oz (112 g) + Broccoli · 1 cup (91 g) + Brown Rice · 1 cup (195 g)');
+    // Protein, a vegetable, a whole grain and fiber: the side dishes lift the meal.
+    expect(plate.grade).toBe('A');
+    expect(toMealAnalysis(chicken, 2).grade).toBe('C');
+  });
+
+  it('is exactly toMealAnalysis for one food, and refuses an empty plate', () => {
+    expect(toPlateAnalysis([{ food: chicken, servings: 1.5 }])).toEqual(toMealAnalysis(chicken, 1.5));
+    expect(() => toPlateAnalysis([])).toThrow();
   });
 });

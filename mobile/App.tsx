@@ -105,6 +105,8 @@ const STEP_GOAL_LINE = 'We hit our step goal today! I loved every step of it.';
 const HEALTH_CONNECTED_KEY = 'vitto.appleHealthConnected';
 /** How often steps re-sync while the app is open. */
 const STEP_AUTO_SYNC_MS = 5 * 60 * 1000;
+/** How long one step read may take before it is abandoned (see syncSteps). */
+const STEP_SYNC_TIMEOUT_MS = 20_000;
 
 /** The age sign-up stored (see checkBirthYear), if it is a sane one. */
 const signUpAge = (value: unknown): number | undefined =>
@@ -1684,20 +1686,34 @@ function VittoApp() {
     if (remote) void tellCompanion(reached, pet, false).finally(() => setAwaitingPetLine(false));
   };
 
-  const syncSteps = async () => {
-    if (stepSyncInFlight.current || !isAppleHealthConnected || !pet) return;
+  /**
+   * What a sync found, for the Today card's own "Sync steps": the count, or
+   * why there is none. The automatic syncs ignore it.
+   */
+  type StepSyncResult = { status: 'synced'; steps: number } | { status: 'busy' } | { status: 'off' } | { status: 'failed'; message: string };
+
+  const syncSteps = async (): Promise<StepSyncResult> => {
+    if (!isAppleHealthConnected || !pet) return { status: 'off' };
+    if (stepSyncInFlight.current) return { status: 'busy' };
     stepSyncInFlight.current = true;
     try {
-      const event = (await stepsProvider.getTodaySteps(userId)) as HealthEvent<StepMetadata>;
+      // Given up on after a while: a read that never answers would otherwise
+      // hold `stepSyncInFlight` forever, and every sync after it would skip.
+      const event = (await Promise.race([
+        stepsProvider.getTodaySteps(userId),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Apple Health took too long to answer.')), STEP_SYNC_TIMEOUT_MS)),
+      ])) as HealthEvent<StepMetadata>;
       const newSteps = event.metadata.steps ?? 0;
 
       // One STEP_ACTIVITY per day: the first sync is a real care moment (engine,
       // XP, "Went exploring"); every re-sync after that just corrects the count
-      // on that same row, no second XP and no second diary line.
+      // on that same row, no second XP and no second diary line. The LATEST
+      // Apple Health row if a day somehow has two: it is the one the day's
+      // total reads (countedStepRows), so it is the one to keep current.
       const today = new Date();
-      const existing = events.find(
-        (candidate) => candidate.type === 'STEP_ACTIVITY' && isSameDay(candidate.occurredAt, today),
-      );
+      const existing = events
+        .filter((candidate) => candidate.type === 'STEP_ACTIVITY' && candidate.source === 'healthkit' && isSameDay(candidate.occurredAt, today))
+        .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))[0];
       if (existing) {
         const had = (existing.metadata as StepMetadata).steps ?? 0;
         // Apple Health is the truth for steps, so the day's count follows it
@@ -1763,11 +1779,31 @@ function VittoApp() {
         // The day's first sync can already be past the goal (an evening open).
         if (newSteps >= stepGoal) announceStepGoal(event);
       }
-    } catch {
-      // Quiet by design; the next sync tries again.
+      return { status: 'synced', steps: newSteps };
+    } catch (cause) {
+      // Quiet on screen for the automatic syncs (the next one tries again), but
+      // never invisible: a sync that keeps failing has to show up somewhere.
+      console.warn('[steps] sync failed', cause);
+      return { status: 'failed', message: errorMessage(cause, 'Apple Health did not answer.') };
     } finally {
       stepSyncInFlight.current = false;
     }
+  };
+
+  /**
+   * The Today card's "Sync steps": the same sync, run now, said out loud.
+   * Apple Health never says when Vitto may not read steps, it just answers 0,
+   * so a 0 points at the setting that is usually why.
+   */
+  const syncStepsNow = async (): Promise<string> => {
+    const result = await syncSteps();
+    if (result.status === 'busy') return 'Already syncing. Give it a second.';
+    if (result.status === 'off') return 'Connect Apple Health first.';
+    if (result.status === 'failed') return `Couldn't read Apple Health: ${result.message}`;
+    if (result.steps === 0) {
+      return 'Apple Health has 0 steps for today. If that is wrong, let Vitto read Steps: Settings → Health → Data Access & Devices → Vitto.';
+    }
+    return `Synced: ${result.steps.toLocaleString()} steps from Apple Health.`;
   };
 
   // Steps keep themselves up to date: synced on open, on every return to the
@@ -2720,6 +2756,7 @@ function VittoApp() {
               onClearSeededData={isDev ? () => void clearSeededData() : undefined}
               isSeeding={isSeeding}
               onConnectHealth={Platform.OS === 'ios' && !isAppleHealthConnected ? () => void connectAppleHealth() : undefined}
+              onSyncSteps={Platform.OS === 'ios' && isAppleHealthConnected ? syncStepsNow : undefined}
               forcedTrophies={isDev ? forcedTrophies : undefined}
               onForceTrophies={isDev ? setForcedTrophies : undefined}
               onReplayAchievements={isDev ? replayAchievements : undefined}

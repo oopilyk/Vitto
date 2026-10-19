@@ -70,12 +70,11 @@ describe('meal photo', () => {
 
   it('re-analyzes from what the person says it was, without the photo', async () => {
     const tree = mount();
+    // Choosing the photo is enough: it is read straight away, no Analyze button.
     await act(async () => {
       await byText(tree, 'Take photo')!.props.onPress();
     });
-    await act(async () => {
-      await byText(tree, 'Analyze meal')!.props.onPress();
-    });
+    expect(byText(tree, 'Analyze meal')).toBeFalsy();
     expect(shows(tree, 'iced matcha latte')).toBe(true);
 
     act(() => byText(tree, 'Not quite right? Fix it')!.props.onPress());
