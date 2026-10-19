@@ -46,8 +46,6 @@ interface PetWorldHudProps {
   pet: PetState;
   /** How much of today's goals are done, 0-100, shown on the TODAY button. */
   todayProgress?: number;
-  /** Until Today has been opened once: say the plaque can be tapped. */
-  showTodayHint?: boolean;
   events: HealthEvent[];
   /**
    * Confirmation of the care moment just logged. Separate from `reaction`
@@ -139,7 +137,6 @@ export function PetWorldHud({
   onOpenStats,
   onOpenToday,
   todayProgress,
-  showTodayHint = false,
   onOpenFriends,
   unreadMessages = 0,
   onOpenChat,
@@ -291,15 +288,9 @@ export function PetWorldHud({
         OPAQUE on purpose: on a plaque the text's contrast depends only on the
         panel, never on the art behind it (see hudContrast.test).
       */}
-      {/* The whole plaque opens Today: how the pet feels and how your day is
-          going are one story, and one big target is easy to find. */}
-      <Pressable
-        ref={todayTourRef}
-        accessibilityRole="button"
-        accessibilityLabel={`${feeling} Today${todayProgress !== undefined ? `, ${Math.round(todayProgress)} percent done` : ''}. Open today's detail`}
-        accessibilityHint="Your goals for today"
-        onPress={onOpenToday}
-        style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.readout, pressed && retroPressed]}
+      <View
+        style={[retro.panel, night && retro.panelNight, styles.readout]}
+        pointerEvents="none"
       >
         {/* Two lines at most, whatever the pet says: the readout has a fixed
             ceiling so the rows under it never move far. A longer line shrinks
@@ -343,24 +334,7 @@ export function PetWorldHud({
           </View>
         ) : null}
         {partnerName ? <Text style={[styles.metaPartner, night && styles.metaPartnerNight]}>{`Raised with ${partnerName}`}</Text> : null}
-        {/* The day, as the plaque's action strip: tinted edge to edge, so the
-            panel reads as something to tap and not only to read. */}
-        <View style={[styles.todayRow, night && styles.todayRowNight]}>
-          <Text style={[retro.label, styles.todayLabel, night && retro.labelNight]}>TODAY</Text>
-          {showTodayHint ? (
-            // Until the first visit: what tapping does, where the blocks will be.
-            <Text style={[styles.todayHint, night && styles.todayHintNight]} numberOfLines={1}>TAP TO SEE YOUR DAY</Text>
-          ) : todayProgress !== undefined ? (
-            <BlockBar percent={todayProgress} night={night} />
-          ) : (
-            <View style={styles.todaySpacer} />
-          )}
-          {todayProgress !== undefined ? (
-            <Text style={[retro.label, styles.todayPercent, night && retro.labelNight]}>{`${Math.round(todayProgress)}%`}</Text>
-          ) : null}
-          <Text style={[styles.todayChevron, night && styles.todayChevronNight]}>›</Text>
-        </View>
-      </Pressable>
+      </View>
 
       {/* Row 3, tools: which pet (only with two), then chat. */}
       <View ref={hudEdge.ref} onLayout={hudEdge.onLayout} style={styles.toolRow} pointerEvents="box-none">
@@ -391,8 +365,21 @@ export function PetWorldHud({
           <View />
         )}
 
+        {/* TODAY, the thing opened most, as a disc like the level's: the day's
+            progress runs round it. CHAT sits under it. */}
         <View style={styles.tools} pointerEvents="box-none">
-
+          <View ref={todayTourRef} collapsable={false}>
+            <LevelRing
+              level={0}
+              kicker="TODAY"
+              value={`${Math.round(todayProgress ?? 0)}%`}
+              xpPct={todayProgress ?? 0}
+              onPress={onOpenToday}
+              night={night}
+              size={RING}
+              accessibilityLabel={`Open today's detail, ${Math.round(todayProgress ?? 0)} percent done`}
+            />
+          </View>
           {/* Talking to the pet, with a dot when it has said something unread. */}
           {onOpenChat ? (
             <Pressable
@@ -413,19 +400,6 @@ export function PetWorldHud({
       </View>
 
       <CareToastBanner toast={careToast} night={night} />
-    </View>
-  );
-}
-
-/** How much of the day's goals are done, as ten pixel blocks: the HUD's own look, not a smooth ring. */
-const BLOCKS = 10;
-function BlockBar({ percent, night }: { percent: number; night?: boolean }) {
-  const filled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * BLOCKS);
-  return (
-    <View style={styles.blocks} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {Array.from({ length: BLOCKS }, (_, index) => (
-        <View key={index} style={[styles.block, night && styles.blockNight, index < filled && (night ? styles.blockOnNight : styles.blockOn)]} />
-      ))}
     </View>
   );
 }
@@ -596,12 +570,14 @@ const styles = themedStyles(() => ({
   menuIcon: { width: 18, height: 18 },
   toolRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    // Top-aligned: TODAY's column is taller than the switch beside it.
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingHorizontal: GUTTER,
     marginTop: 12,
   },
-  tools: { flexDirection: 'row', gap: 10 },
+  // TODAY's disc with CHAT under it, in a column at the right.
+  tools: { alignItems: 'center', gap: 10 },
   pill: {
     height: TOOL,
     borderRadius: TOOL / 2,
@@ -610,41 +586,11 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
   },
   pillLabel: { fontSize: 11, letterSpacing: 1.3 },
-  // TODAY as the plaque's action strip: coral-tinted, out to the panel's
-  // inner edges (past the readout's padding) and down to its bottom.
-  todayRow: {
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 10,
-    marginHorizontal: -READOUT_PAD,
-    marginBottom: -9,
-    paddingHorizontal: READOUT_PAD,
-    paddingVertical: 9,
-    backgroundColor: 'rgba(197,106,78,0.20)',
-    borderTopWidth: 2,
-    borderTopColor: 'rgba(197,106,78,0.55)',
-  },
-  // Stronger at night: on the dark panel the day's tint read brown, not coral.
-  todayRowNight: { backgroundColor: 'rgba(209,127,96,0.26)', borderTopColor: 'rgba(209,127,96,0.6)' },
-  todayHint: { flex: 1, fontFamily: fonts.systemMono, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, color: world.accentDeep },
-  todayHintNight: { color: world.nightAccent },
-  todayLabel: { fontSize: 13, letterSpacing: 1.5 },
-  todaySpacer: { flex: 1 },
-  todayPercent: { fontSize: 12, minWidth: 34, textAlign: 'right' },
-  todayChevron: { fontFamily: fonts.systemMono, fontSize: 26, fontWeight: '700', color: world.accent, marginTop: -4, marginLeft: -2 },
-  todayChevronNight: { color: world.nightAccent },
-  blocks: { flex: 1, flexDirection: 'row', gap: 3, height: 10 },
-  // Empty blocks light enough to count at a glance against the tinted strip.
-  block: { flex: 1, backgroundColor: 'rgba(67,55,44,0.22)' },
-  blockNight: { backgroundColor: 'rgba(239,229,208,0.24)' },
-  blockOn: { backgroundColor: world.accent },
-  blockOnNight: { backgroundColor: world.nightAccent },
 
   // Two pets, one control: a segmented switch, the selected half filled.
   switcher: { flexDirection: 'row', height: TOOL, padding: 3, borderRadius: TOOL / 2, flexShrink: 1 },
-  petTab: { paddingHorizontal: 12, borderRadius: (TOOL - 6) / 2, justifyContent: 'center', maxWidth: 110 },
+  // Capped, and long names end in "…", so the switch never grows over the room.
+  petTab: { paddingHorizontal: 12, borderRadius: (TOOL - 6) / 2, justifyContent: 'center', maxWidth: 96 },
   petTabOn: { backgroundColor: world.accentWash },
   petTabJoint: { fontSize: 8, letterSpacing: 1, opacity: 0.75 },
   petTabName: { fontFamily: fonts.systemMono, fontSize: 12, fontWeight: '700', color: world.inkSoft },

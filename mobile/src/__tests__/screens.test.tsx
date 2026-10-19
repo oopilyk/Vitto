@@ -2218,41 +2218,20 @@ describe('pet sprite', () => {
     }
   });
 
-  it('makes TODAY the obvious button, with how much of the day is done on it', () => {
+  it('makes TODAY a disc like the level, with how much of the day is done round it', () => {
     const { PetWorldHud } = require('../petWorld/PetWorldHud');
     const { Text } = require('react-native');
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <PetWorldHud pet={pet} events={[]} environment="main" formLabel="Level 1" todayProgress={42.4}
-          onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} />,
+          onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} onOpenChat={() => {}} />,
       );
     });
-    // The whole plaque is the button: the pet's line and the day together.
-    const today = tree.root.find((node: any) => String(node.props.accessibilityLabel ?? '').endsWith("Open today's detail") && node.props.onPress);
-    const labels = today.findAllByType(Text).map((t: any) => t.props.children);
-    expect(labels).toEqual(expect.arrayContaining(['TODAY', '42%', '›']));
+    const today = tree.root.find((node: any) => String(node.props.accessibilityLabel ?? '').startsWith("Open today's detail") && node.props.onPress);
+    expect(today.findAllByType(Text).map((t: any) => t.props.children)).toEqual(['TODAY', '42%']);
     expect(today.props.accessibilityLabel).toContain('42 percent done');
     tree.unmount();
-  });
-
-  it('says the plaque can be tapped until Today has been opened once', () => {
-    const { PetWorldHud } = require('../petWorld/PetWorldHud');
-    const { Text } = require('react-native');
-    const shown = (hint: boolean) => {
-      let tree!: renderer.ReactTestRenderer;
-      act(() => {
-        tree = renderer.create(
-          <PetWorldHud pet={pet} events={[]} environment="main" formLabel="Level 1" todayProgress={42} showTodayHint={hint}
-            onOpenProfile={() => {}} onOpenStats={() => {}} onOpenToday={() => {}} />,
-        );
-      });
-      const texts = tree.root.findAllByType(Text).map((t: any) => t.props.children);
-      tree.unmount();
-      return texts;
-    };
-    expect(shown(true)).toEqual(expect.arrayContaining(['TAP TO SEE YOUR DAY', '42%']));
-    expect(shown(false)).not.toContain('TAP TO SEE YOUR DAY');
   });
 
   it('says what was just logged once, in the bubble, never again on the plaque', () => {
@@ -3274,7 +3253,7 @@ describe('care partners', () => {
         />,
       );
     });
-    const link = tree.root.findAll((node: any) => String(node.props.accessibilityLabel ?? '').endsWith("Open today's detail") && node.props.onPress)[0];
+    const link = tree.root.findAll((node: any) => String(node.props.accessibilityLabel ?? '').startsWith("Open today's detail") && node.props.onPress)[0];
     act(() => link.props.onPress());
     expect(opened).toBe(1);
     tree.unmount();

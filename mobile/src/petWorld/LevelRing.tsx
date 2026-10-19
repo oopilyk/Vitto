@@ -22,16 +22,25 @@ export function LevelRing({
   onPress,
   night,
   size = SIZE,
+  kicker = 'LV',
+  value,
+  accessibilityLabel = 'Open pet stats',
 }: {
   level: number;
   xpPct: number;
   onPress: () => void;
+  /** The small word over the number. "LV" for the level; the TODAY button reuses the disc. */
+  kicker?: string;
+  /** What to show in place of the level number ("53%"). */
+  value?: string;
+  accessibilityLabel?: string;
   /** The disc's diameter; everything inside scales with it. Defaults to 90. */
   size?: number;
   /** Warm-cream number so it stays legible over a dark night backdrop. */
   night?: boolean;
 }) {
   const pct = Math.max(0, Math.min(100, xpPct));
+  const shown = value ?? String(level);
   const quarters = [pct >= 25, pct >= 50, pct >= 75, pct >= 100];
   // The unearned part of the ring — a warm hairline, per theme.
   const track = night ? 'rgba(239,229,208,0.22)' : world.surfaceSoft;
@@ -46,7 +55,7 @@ export function LevelRing({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Open pet stats"
+      accessibilityLabel={accessibilityLabel}
       hitSlop={8}
       style={({ pressed }) => [styles.wrap, disc, pressed && retroPressed]}
     >
@@ -72,8 +81,10 @@ export function LevelRing({
           },
         ]}
       />
-      <Text style={[styles.kicker, { fontSize: Math.max(8, Math.round(10 * scale)) }, night && styles.levelNight]}>LV</Text>
-      <Text style={[styles.level, { fontSize: Math.round(32 * scale) }, night && styles.levelNight]}>{level}</Text>
+      <Text style={[styles.kicker, { fontSize: Math.max(8, Math.round(10 * scale)) }, night && styles.levelNight]}>{kicker}</Text>
+      {/* A value in place of the level ("53%") sits smaller than a level number,
+          and four characters ("100%") smaller again, so it stays inside the ring. */}
+      <Text style={[styles.level, { fontSize: Math.round((value === undefined ? 32 : shown.length > 3 ? 18 : 22) * scale) }, night && styles.levelNight]}>{shown}</Text>
     </Pressable>
   );
 }

@@ -103,8 +103,6 @@ const STEP_GOAL_LINE = 'We hit our step goal today! I loved every step of it.';
 
 /** Set once Apple Health is connected on this phone, so later launches reconnect quietly. */
 const HEALTH_CONNECTED_KEY = 'vitto.appleHealthConnected';
-/** Set once Today has been opened, so the main screen stops saying it can be tapped. */
-const TODAY_OPENED_KEY = 'vitto.todayOpened';
 /** How often steps re-sync while the app is open. */
 const STEP_AUTO_SYNC_MS = 5 * 60 * 1000;
 /** How long one step read may take before it is abandoned (see syncSteps). */
@@ -2050,20 +2048,6 @@ function VittoApp() {
     () => (pet ? buildDailyRecap({ events, profile, pet, stepGoal, day: now }).dailyProgress : undefined),
     [events, profile, pet, stepGoal, now],
   );
-  // "Tap to see your day" on the plaque until Today is first opened, then never
-  // again on this phone. Assumed opened until storage answers, so someone who
-  // has been in Today a hundred times never sees the hint flash past.
-  const [todayOpened, setTodayOpened] = useState(true);
-  useEffect(() => {
-    void AsyncStorage.getItem(TODAY_OPENED_KEY)
-      .then((value) => setTodayOpened(value === '1'))
-      .catch(() => undefined);
-  }, []);
-  const openedToday = () => {
-    if (todayOpened) return;
-    setTodayOpened(true);
-    void AsyncStorage.setItem(TODAY_OPENED_KEY, '1').catch(() => undefined);
-  };
 
   // Everything earned, badges and trophies, in display order. Above the early
   // returns for the same reason `trophiesNow` is.
@@ -2401,12 +2385,8 @@ function VittoApp() {
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenSettings={() => navigation.navigate('Settings')}
               onOpenStats={() => navigation.navigate('PetStats')}
-              onOpenToday={() => {
-                openedToday();
-                navigation.navigate('Today');
-              }}
+              onOpenToday={() => navigation.navigate('Today')}
               todayProgress={todayProgress}
-              showTodayHint={!todayOpened}
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
               // Sleep has no manual entry: a SLEEP event is only ever created by
               // the HealthKit import. Telling an exhausted pet's owner to "get
