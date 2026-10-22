@@ -1717,7 +1717,7 @@ function VittoApp() {
       // total reads (countedStepRows), so it is the one to keep current.
       const today = new Date();
       const existing = events
-        .filter((candidate) => candidate.type === 'STEP_ACTIVITY' && candidate.source === 'healthkit' && isSameDay(candidate.occurredAt, today))
+        .filter((candidate) => candidate.type === 'STEP_ACTIVITY' && candidate.source === 'healthkit' && isSameDay(candidate.occurredAt, today) && (candidate.userId === undefined || candidate.userId === userId))
         .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))[0];
       if (existing) {
         const had = (existing.metadata as StepMetadata).steps ?? 0;
@@ -1735,6 +1735,9 @@ function VittoApp() {
           const fresh = event.metadata as StepMetadata;
           const updated: HealthEvent<StepMetadata> = {
             ...(existing as HealthEvent<StepMetadata>),
+            // Always this account's: the database only takes a row its owner
+            // saves, and a row read back without its owner was refused.
+            userId,
             occurredAt: today.toISOString(),
             metadata: {
               ...(existing.metadata as StepMetadata),

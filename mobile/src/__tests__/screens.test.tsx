@@ -194,6 +194,24 @@ describe('screens render', () => {
     tree.unmount();
   });
 
+  it("lists the day's meals under the food totals", () => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <TodayScreen pet={pet} events={[mealEvent]} profile={profile} stepGoal={10000} onStepGoalChange={() => {}}
+          onTrainMind={() => {}} onOpenProfile={() => {}} onClose={() => {}} />,
+      );
+    });
+    const { Text } = require('react-native');
+    const texts = () => tree.root.find((node: any) => node.props.testID === 'food-log').findAllByType(Text).map((t: any) => String(t.props.children));
+    // Folded at first: the header and the count, no meals.
+    expect(texts()[0]).toBe('LOGGED TODAY');
+    expect(texts().some((t) => t.endsWith('kcal'))).toBe(false);
+    act(() => tree.root.find((node: any) => node.props.accessibilityLabel === 'Logged today, 1 meal' && node.props.onPress).props.onPress());
+    expect(texts().some((t) => t.endsWith('kcal'))).toBe(true);
+    tree.unmount();
+  });
+
   it('offers "Sync steps" once Apple Health is connected, and says what the sync found', async () => {
     const onSyncSteps = jest.fn(async () => 'Synced: 6,400 steps from Apple Health.');
     let tree!: renderer.ReactTestRenderer;

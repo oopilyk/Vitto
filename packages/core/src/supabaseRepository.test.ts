@@ -374,6 +374,17 @@ describe('SupabaseRepository.loadPetMembers', () => {
   });
 });
 
+describe('SupabaseRepository.loadEvents', () => {
+  it("keeps each row's owner, so re-saving a loaded row (the day's steps) passes row-level security", async () => {
+    responses.push({
+      data: [{ id: 'e1', user_id: 'user-1', occurred_at: '2026-10-21T00:00:00Z', type: 'STEP_ACTIVITY', source: 'healthkit', metadata: { steps: 4234 } }],
+      error: null,
+    });
+    const [event] = await new SupabaseRepository().loadEvents();
+    expect(event).toEqual({ id: 'e1', userId: 'user-1', occurredAt: '2026-10-21T00:00:00Z', type: 'STEP_ACTIVITY', source: 'healthkit', metadata: { steps: 4234 } });
+  });
+});
+
 describe('SupabaseRepository.loadCareLog', () => {
   it('reads newest first with the default limit and maps rows', async () => {
     responses.push({

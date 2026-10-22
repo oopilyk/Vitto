@@ -393,8 +393,13 @@ export class SupabaseRepository {
       .order('occurred_at', { ascending: false })
       .limit(2000);
     if (error) throw error;
-    return (data as HealthEventRow[]).map(({ user_id: _userId, occurred_at: occurredAt, ...event }) => ({
+    // `userId` kept from `user_id`. Dropping it left every loaded row without
+    // an owner, so re-saving one (the day's step row, updated on every sync)
+    // sent no user_id and row-level security refused it: steps froze at the
+    // count from before the app was last opened.
+    return (data as HealthEventRow[]).map(({ user_id: userId, occurred_at: occurredAt, ...event }) => ({
       ...event,
+      userId,
       occurredAt,
     }));
   }

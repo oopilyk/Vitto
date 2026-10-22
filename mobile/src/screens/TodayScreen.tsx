@@ -32,6 +32,8 @@ import {
   WATER_CUP_ML,
   formatWater,
   measurementSystemOf,
+  getMealsForDay,
+  calorieEstimate,
 } from '@vitto/core';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
@@ -183,6 +185,8 @@ export function TodayScreen({
   onReplayAchievements,
   onOpenCompanionDebug,
 }: Props) {
+  // Today's meal list, folded until opened.
+  const [foodLogOpen, setFoodLogOpen] = useState(false);
   // The steps card's own sync: 'syncing' while it runs, then what it found.
   const [stepSync, setStepSync] = useState<string | null>(null);
   const syncStepsNow = async () => {
@@ -396,6 +400,45 @@ export function TodayScreen({
                 {describeSubMacros(food.consumed, { includeFiber: false }) ? (
                   <Text style={[styles.subMacros, { color: c.soft }]}>{describeSubMacros(food.consumed, { includeFiber: false })}</Text>
                 ) : null}
+              </View>
+            ) : null}
+            {/* What was eaten, meal by meal: the totals above say how much, this
+                says what. */}
+            {food.mealCount > 0 ? (
+              <View style={[styles.foodLog, { borderTopColor: c.hairline }]} testID="food-log">
+                {/* Folded by default: the totals above are the headline, the list
+                    is a tap away rather than a long scroll every visit. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: foodLogOpen }}
+                  accessibilityLabel={`Logged today, ${food.mealCount} meal${food.mealCount > 1 ? 's' : ''}`}
+                  onPress={() => setFoodLogOpen((open) => !open)}
+                  hitSlop={8}
+                  style={styles.foodLogHeader}
+                >
+                  <Text style={[styles.foodLogTitle, { color: c.soft }]}>LOGGED TODAY</Text>
+                  <Text style={[styles.foodLogTitle, { color: c.soft }]}>
+                    {`${food.mealCount} meal${food.mealCount > 1 ? 's' : ''}  ${foodLogOpen ? '▾' : '▸'}`}
+                  </Text>
+                </Pressable>
+                {foodLogOpen && getMealsForDay(events, today)
+                  .slice()
+                  .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt))
+                  .map((meal) => {
+                    const analysis = meal.metadata.analysis;
+                    const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
+                    return (
+                      <View key={meal.id} style={styles.foodLogRow}>
+                        <Text style={[styles.foodLogTime, { color: c.soft }]}>
+                          {new Date(meal.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                        </Text>
+                        <Text style={[styles.foodLogName, { color: c.ink }]} numberOfLines={2}>{name}</Text>
+                        <Text style={[styles.foodLogKcal, { color: c.ink }]}>
+                          {analysis ? `${calorieEstimate(analysis.macros).toLocaleString()} kcal` : '—'}
+                        </Text>
+                      </View>
+                    );
+                  })}
               </View>
             ) : null}
             {onLogWater ? (
@@ -1045,6 +1088,13 @@ const styles = themedStyles(() => ({
   waterStepText: { fontFamily: fonts.pixelBold, fontSize: 22, lineHeight: 24, color: WATER_BLUE },
   waterHint: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.4, textAlign: 'center', marginTop: -4 },
   subMacros: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22, marginTop: 6 },
+  foodLog: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, gap: 9 },
+  foodLogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  foodLogTitle: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 1.2 },
+  foodLogRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  foodLogTime: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 19, width: 62 },
+  foodLogName: { flex: 1, fontFamily: fonts.pixel, fontSize: 15, lineHeight: 19 },
+  foodLogKcal: { fontFamily: fonts.pixel, fontSize: 14, lineHeight: 19 },
   macroRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   macroLabel: { width: 48, fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.4 },
   macroTrack: { flex: 1, minWidth: 0, height: 4, borderRadius: 2, overflow: 'hidden' },
