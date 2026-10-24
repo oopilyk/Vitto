@@ -28,6 +28,8 @@ interface Props {
   onOpenPlus?: () => void;
   onOpenChooseCompanion?: () => void;
   onOpenPersonality?: () => void;
+  /** What the pet remembers about them (needs the server, so absent offline). */
+  onOpenMemories?: () => void;
   onOpenNotifications?: () => void;
   onOpenPreferences?: () => void;
   /** What affects the pet (see CareAreasScreen). */
@@ -73,6 +75,7 @@ export function SettingsScreen({
   onOpenPlus,
   onOpenChooseCompanion,
   onOpenPersonality,
+  onOpenMemories,
   onOpenNotifications,
   onOpenPreferences,
   onOpenCareAreas,
@@ -132,6 +135,14 @@ export function SettingsScreen({
         ) : null}
         {pet && onOpenPersonality ? (
           <NavRow title="Personality" value={personalityLabel} onPress={onOpenPersonality} testID="open-personality" />
+        ) : null}
+        {pet && onOpenMemories ? (
+          <NavRow
+            title={`What ${pet.name} remembers`}
+            value="See and delete what it knows about you"
+            onPress={onOpenMemories}
+            testID="open-memories"
+          />
         ) : null}
       </NavGroup>
 

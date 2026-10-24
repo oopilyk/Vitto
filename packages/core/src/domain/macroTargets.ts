@@ -27,6 +27,8 @@ export type Motivation =
 
 export interface BodyProfile {
   age: number;
+  /** Year of birth, kept so `age` goes up on its own; see withCurrentAge. */
+  birthYear?: number;
   sex: 'female' | 'male' | 'other';
   heightCm: number;
   heightUnit: 'cm' | 'ft';

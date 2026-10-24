@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors, fonts, themedStyles } from '../theme';
 import { ROOM_ACTION_HEIGHT, RoomActionSlot } from './RoomActionSlot';
+import { useChromeScale } from './chromeScale';
 
 /**
  * A room's call to action ("Log meal", "Log workout", "Log a run", "Train
@@ -15,6 +16,8 @@ import { ROOM_ACTION_HEIGHT, RoomActionSlot } from './RoomActionSlot';
  */
 export function RoomActionButton({ label, onPress }: { label: string; onPress: () => void }) {
   const reduceMotion = useReducedMotion();
+  // Bigger on a tablet, with the rest of the chrome (see chromeScale).
+  const scale = useChromeScale();
   const glow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -34,7 +37,7 @@ export function RoomActionButton({ label, onPress }: { label: string; onPress: (
 
   return (
     <RoomActionSlot>
-      <View>
+      <View style={scale === 1 ? undefined : { transform: [{ scale }] }}>
         {reduceMotion ? null : (
           <Animated.View
             pointerEvents="none"

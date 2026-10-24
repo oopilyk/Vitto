@@ -16,9 +16,14 @@ jest.mock('../services/companionService', () => {
   }
   return {
     CompanionLimitError,
-    companionService: { load: jest.fn(), send: jest.fn(), record: jest.fn(), checkIn: jest.fn(), debug: jest.fn(), reset: jest.fn() },
+    companionService: { load: jest.fn(), cached: jest.fn(async () => null), send: jest.fn(), record: jest.fn(), checkIn: jest.fn(), debug: jest.fn(), reset: jest.fn() },
   };
 });
+
+jest.mock('expo-haptics', () => ({
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success', Error: 'error' },
+}));
 
 const { companionService, CompanionLimitError } = require('../services/companionService');
 const { CompanionChatScreen } = require('../screens/CompanionChatScreen');
@@ -98,6 +103,14 @@ describe('talking to the pet', () => {
     const tree = await open();
     expect(companionService.load).toHaveBeenCalledWith(pet.id, life);
     expect(texts(tree)).toEqual(expect.arrayContaining(['there you are', 'Friends']));
+    tree.unmount();
+  });
+
+  it('opens on the conversation kept on this phone, before the server answers', async () => {
+    companionService.cached.mockResolvedValueOnce({ state, messages: [message('old', 'pet', 'missed you')], access: free });
+    companionService.load.mockReturnValue(new Promise(() => {})); // the server has not answered yet
+    const tree = await open();
+    expect(texts(tree)).toContain('missed you');
     tree.unmount();
   });
 
@@ -194,6 +207,107 @@ describe('talking to the pet', () => {
     const tree = await open();
     expect(texts(tree)).toContain('3 messages left today');
     tree.unmount();
+  });
+});
+
+describe('a change the pet offers', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  // Today's target is 2,300 kcal, so the card can say where it is coming from.
+  const today = ai.sanitizeLifeContext({ pet: { name: 'Blue' }, adult: true, today: { calorieTarget: 2300, stepGoal: 8000 } });
+  const calories = { kind: 'setting' as const, setting: 'calorieGoal' as const, value: 2000 };
+  const open = async (onApplyProposal?: (proposal: unknown) => Promise<void>, proposal: unknown = calories) => {
+    companionService.load.mockResolvedValue({ state, messages: [], access: free });
+    companionService.send.mockResolvedValue({
+      userMessage: message('u', 'user', 'yo can you change my daily calories to 2000'),
+      reply: message('p', 'pet', 'say less'),
+      state, access: free, degraded: false, proposal,
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<CompanionChatScreen pet={pet} life={today} onClose={() => {}} onApplyProposal={onApplyProposal} />);
+    });
+    act(() => tree.root.findByType(TextInput).props.onChangeText('yo can you change my daily calories to 2000'));
+    await act(async () => { byLabel(tree, 'Send').props.onPress(); await Promise.resolve(); await Promise.resolve(); });
+    return tree;
+  };
+
+  it('shows it under the reply it came with, from the current value to the new one', async () => {
+    const tree = await open(jest.fn(async () => {}));
+    expect(texts(tree)).toEqual(expect.arrayContaining(['say less', 'Daily calories: 2,300 → 2,000']));
+    expect(byLabel(tree, 'Change')).toBeTruthy();
+    expect(byLabel(tree, 'Cancel')).toBeTruthy();
+    tree.unmount();
+  });
+
+  it('applies the value on Change, says so, and cannot apply it twice', async () => {
+    const apply = jest.fn(async () => {});
+    const tree = await open(apply);
+    const change = byLabel(tree, 'Change');
+    await act(async () => { change.props.onPress(); change.props.onPress(); await Promise.resolve(); });
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(apply).toHaveBeenCalledWith(calories);
+    expect(texts(tree)).toContain('Changed');
+    expect(byLabel(tree, 'Change')).toBeUndefined();
+    expect(require('expo-haptics').notificationAsync).toHaveBeenCalledWith('success');
+    tree.unmount();
+  });
+
+  it('changes nothing on Cancel', async () => {
+    const apply = jest.fn(async () => {});
+    const tree = await open(apply);
+    await act(async () => { byLabel(tree, 'Cancel').props.onPress(); });
+    expect(apply).not.toHaveBeenCalled();
+    expect(texts(tree)).toContain('Cancelled');
+    expect(byLabel(tree, 'Change')).toBeUndefined();
+    tree.unmount();
+  });
+
+  it('shows why it could not be applied, and lets it be tried again', async () => {
+    const apply = jest.fn().mockRejectedValueOnce(new Error('Under 18, your daily calories stay at 2,400 or more.')).mockResolvedValueOnce(undefined);
+    const tree = await open(apply);
+    await act(async () => { byLabel(tree, 'Change').props.onPress(); await Promise.resolve(); });
+    expect(texts(tree)).toContain('Under 18, your daily calories stay at 2,400 or more.');
+    await act(async () => { byLabel(tree, 'Change').props.onPress(); await Promise.resolve(); });
+    expect(apply).toHaveBeenCalledTimes(2);
+    expect(texts(tree)).toContain('Changed');
+    tree.unmount();
+  });
+
+  it('offers a reminder with its time and days', async () => {
+    const apply = jest.fn(async () => {});
+    const water = { kind: 'reminder' as const, label: 'Drink water', hour: 15, minute: 0, days: [] };
+    const tree = await open(apply, water);
+    expect(texts(tree)).toEqual(expect.arrayContaining(['Reminder: Drink water', '3:00 pm · Every day']));
+    await act(async () => { byLabel(tree, 'Add reminder').props.onPress(); await Promise.resolve(); });
+    expect(apply).toHaveBeenCalledWith(water);
+    expect(texts(tree)).toContain('Added');
+    tree.unmount();
+  });
+
+  it('draws no card without a proposal, or without a way to apply one', async () => {
+    const none = await open(jest.fn(async () => {}), null);
+    expect(byLabel(none, 'Change')).toBeUndefined();
+    none.unmount();
+    const unwired = await open(undefined);
+    expect(texts(unwired)).toContain('say less');
+    expect(byLabel(unwired, 'Change')).toBeUndefined();
+    unwired.unmount();
+  });
+
+  it('does not bring a card back when the conversation is reloaded', async () => {
+    const tree = await open(jest.fn(async () => {}));
+    expect(byLabel(tree, 'Change')).toBeTruthy();
+    tree.unmount();
+    // A fresh screen loads the stored messages, which never carry a proposal.
+    companionService.load.mockResolvedValue({ state, messages: [message('p', 'pet', 'say less')], access: free });
+    let again!: renderer.ReactTestRenderer;
+    await act(async () => {
+      again = renderer.create(<CompanionChatScreen pet={pet} life={today} onClose={() => {}} onApplyProposal={jest.fn()} />);
+    });
+    expect(texts(again)).toContain('say less');
+    expect(byLabel(again, 'Change')).toBeUndefined();
+    again.unmount();
   });
 });
 

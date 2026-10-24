@@ -62,3 +62,40 @@ export const checkBirthYear = (year: string, month = '', now = new Date()): Birt
   const hadBirthday = Number.isInteger(m) && m >= 1 && m <= 12 ? now.getMonth() + 1 > m : now.getMonth() >= 6;
   return { ok: true, age: hadBirthday ? byYear : byYear - 1 };
 };
+
+/**
+ * Ages from a birth year alone, so a profile's age goes up on its own instead
+ * of staying whatever it was at sign-up. Without a month the birthday is taken
+ * as mid-year (July), the same guess `checkBirthYear` makes, so the age is
+ * never more than a year out either way. The two below are exact inverses.
+ */
+const pastMidYear = (now: Date): boolean => now.getMonth() >= 6;
+
+export const ageFromBirthYear = (birthYear: number, now = new Date()): number =>
+  now.getFullYear() - birthYear - (pastMidYear(now) ? 0 : 1);
+
+export const birthYearFromAge = (age: number, now = new Date()): number =>
+  now.getFullYear() - age - (pastMidYear(now) ? 0 : 1);
+
+const plausibleBirthYear = (year: unknown, now: Date): year is number =>
+  typeof year === 'number' && Number.isInteger(year) && year > now.getFullYear() - 120 && year <= now.getFullYear();
+
+/**
+ * A loaded profile with its age brought up to date from its birth year. One
+ * saved before birth years were kept gets a birth year worked out from the
+ * age it has, and ages from then on.
+ */
+export const withCurrentAge = <T extends { age: number; birthYear?: number }>(profile: T, now = new Date()): T => {
+  const birthYear = plausibleBirthYear(profile.birthYear, now) ? profile.birthYear : birthYearFromAge(profile.age, now);
+  return { ...profile, birthYear, age: ageFromBirthYear(birthYear, now) };
+};
+
+/**
+ * The birth year to store with a profile being saved. The age wins: if it no
+ * longer matches the stored birth year, the person edited it, so the birth
+ * year follows the new age.
+ */
+export const birthYearToSave = (profile: { age: number; birthYear?: number }, now = new Date()): number =>
+  plausibleBirthYear(profile.birthYear, now) && ageFromBirthYear(profile.birthYear, now) === profile.age
+    ? profile.birthYear
+    : birthYearFromAge(profile.age, now);

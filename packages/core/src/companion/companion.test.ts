@@ -389,6 +389,11 @@ describe('sounding like someone, not like software', () => {
     // Notes ride on any base, not only on "your own"; the prompt then says they win.
     expect(sanitizeLifeContext({ pet: { temperament: 'sweet', persona: 'x'.repeat(20) } } as never).pet.persona).toBe('x'.repeat(20));
     expect(customVoice('calls me chief', { standalone: false })).toMatch(/^ON TOP OF THAT/);
+    // Played with the gloves off only for an adult; the limits stay either way.
+    expect(customVoice('a cynical jerk', { adult: true })).toMatch(/not politically correct/);
+    expect(customVoice('a cynical jerk', { adult: true })).toMatch(/never contempt for people/);
+    expect(customVoice('a cynical jerk')).not.toMatch(/not politically correct/);
+    expect(customVoice('a cynical jerk')).toMatch(/no slurs and nothing sexual/);
     expect(sanitizeLifeContext({ pet: { temperament: 'custom', persona: 'x'.repeat(900) } } as never).pet.persona).toHaveLength(300);
   });
 

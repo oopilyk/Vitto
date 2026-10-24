@@ -224,7 +224,7 @@ describe('screens render', () => {
     const { Text } = require('react-native');
     const sync = tree.root
       .findAll((node: any) => typeof node.props.onPress === 'function')
-      .find((node: any) => node.findAllByType(Text).some((t: any) => t.props.children === 'Sync steps'));
+      .find((node: any) => node.findAllByType(Text).some((t: any) => t.props.children === 'Steps look off? Sync now'));
     expect(sync).toBeTruthy();
     await act(async () => { sync!.props.onPress(); });
     expect(onSyncSteps).toHaveBeenCalledTimes(1);

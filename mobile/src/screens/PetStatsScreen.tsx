@@ -37,6 +37,7 @@ import { StatBar } from '../components/StatBar';
 import { sheetForPet, portraitFrame } from '../components/petSprites';
 import { Kicker } from '../components/ui';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
+import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
 
 interface Props {
   /**
@@ -438,7 +439,8 @@ const styles = themedStyles(() => ({
   backMark: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
   backLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted },
   topTitle: { ...text.heading, fontSize: 21 },
-  body: { padding: 16, gap: 14 },
+  // One readable column on a tablet, as Settings has; no change on a phone.
+  body: { padding: 16, gap: 14, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
   identity: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, paddingHorizontal: 2, paddingTop: 6 },
   portrait: {
     width: 96,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildLifeContext, newPersonalRecords, toCompanionEvent } from './companionBridge';
+import { buildLifeContext, newPersonalRecords, proposalProblem, toCompanionEvent } from './companionBridge';
 import type { HealthEvent } from './health';
-import { withSurveyDefaults } from './macroTargets';
+import { maintenanceCalories, withSurveyDefaults } from './macroTargets';
 import { createPet } from './pet';
 import { sanitizeLifeContext } from '../companion/context';
 
@@ -103,4 +103,31 @@ describe('what the person chose not to track', () => {
     expect(sanitizeLifeContext(life).today.skips).toEqual(['food']);
   });
 });
+});
+
+describe('applying what the pet proposed', () => {
+  const teen = withSurveyDefaults({ ...profile, age: 15 });
+  const setting = (setting: 'calorieGoal' | 'stepGoal', value: number) => ({ kind: 'setting' as const, setting, value });
+
+  it('allows a change inside the limits', () => {
+    expect(proposalProblem(setting('calorieGoal', 2000), { profile, reminderCount: 0 })).toBeNull();
+    expect(proposalProblem(setting('stepGoal', 12000), { profile, reminderCount: 0 })).toBeNull();
+    expect(proposalProblem({ kind: 'reminder', label: 'Drink water', hour: 15, minute: 0, days: [] }, { profile, reminderCount: 0 })).toBeNull();
+  });
+
+  it('refuses anything outside them, whatever the server said', () => {
+    expect(proposalProblem(setting('calorieGoal', 900), { profile, reminderCount: 0 })).toMatch(/1,000 and 6,000/);
+    expect(proposalProblem(setting('stepGoal', 60000), { profile, reminderCount: 0 })).toMatch(/1,000 and 50,000/);
+    expect(proposalProblem(setting('calorieGoal', 2000.5), { profile, reminderCount: 0 })).not.toBeNull();
+    expect(proposalProblem({ kind: 'reminder', label: 'x', hour: 25, minute: 0, days: [] }, { profile, reminderCount: 0 })).not.toBeNull();
+    expect(proposalProblem({ kind: 'reminder', label: 'x', hour: 9, minute: 0, days: [9] }, { profile, reminderCount: 0 })).not.toBeNull();
+    expect(proposalProblem({ kind: 'reminder', label: 'x', hour: 9, minute: 0, days: [] }, { profile, reminderCount: 8 })).toMatch(/most reminders/);
+  });
+
+  it('keeps someone under 18 at or above what they burn', () => {
+    const floor = maintenanceCalories(teen);
+    expect(proposalProblem(setting('calorieGoal', floor - 100), { profile: teen, reminderCount: 0 })).toMatch(/Under 18/);
+    expect(proposalProblem(setting('calorieGoal', floor + 100), { profile: teen, reminderCount: 0 })).toBeNull();
+    expect(proposalProblem(setting('calorieGoal', floor - 100), { profile, reminderCount: 0 })).toBeNull();
+  });
 });

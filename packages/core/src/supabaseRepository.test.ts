@@ -200,6 +200,13 @@ describe('SupabaseRepository.loadProfile', () => {
 
     expect((await new SupabaseRepository().loadProfile())?.displayName).toBeUndefined();
   });
+
+  it('ages a profile from its birth year rather than the age stored at sign-up', async () => {
+    const year = new Date().getFullYear();
+    maybeSingle.mockResolvedValueOnce({ data: profileRow({ age: 17, birth_year: year - 40 }), error: null });
+    const age = (await new SupabaseRepository().loadProfile())?.age;
+    expect(age === 39 || age === 40).toBe(true);
+  });
 });
 
 describe('SupabaseRepository.loadPet', () => {

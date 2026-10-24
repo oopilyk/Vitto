@@ -10,8 +10,8 @@
  * cache entry, both callers benefit.
  */
 import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
-import { humanizeReply, type CompanionTier, type PetContext } from './companion/index.ts';
-import { chatRequest, systemFor, takesEffort } from './chatRequest.ts';
+import { humanizeReply, type CompanionTier, type PetContext, type ProposalToolCall } from './companion/index.ts';
+import { chatRequest, noTools, systemFor, takesEffort } from './chatRequest.ts';
 
 /**
  * Plus chat with a built-in personality. The personalities are written out in
@@ -63,6 +63,12 @@ export interface Generated {
   usage: unknown | null;
   /** True when the words came from the templated fallback, not the model. */
   degraded: boolean;
+  /**
+   * The proposal tools the model called, unchecked. Only ever non-empty when
+   * the caller passed `proposals`; see companion/proposals.ts for what is
+   * done with them. Never sent to a phone as they are.
+   */
+  toolCalls: ProposalToolCall[];
 }
 
 export const generate = async (
@@ -71,14 +77,22 @@ export const generate = async (
   fallback: () => string,
   label = 'companion',
   model = CHAT_MODEL,
+  { proposals = false } = {},
 ): Promise<Generated> => {
-  if (!anthropic) return { text: fallback(), usage: null, degraded: true };
+  if (!anthropic) return { text: fallback(), usage: null, degraded: true, toolCalls: [] };
   try {
-    const response = await anthropic.messages.create(chatRequest(ctx, turns, model));
+    const response = await anthropic.messages.create(chatRequest(ctx, turns, model, { proposals }));
     const usage = { model, ...response.usage };
-    if (response.stop_reason === 'refusal') return { text: "…okay I'm gonna not touch that one.", usage, degraded: false };
+    if (response.stop_reason === 'refusal') return { text: "…okay I'm gonna not touch that one.", usage, degraded: false, toolCalls: [] };
     const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();
-    return { text: humanizeReply(text) || '…', usage, degraded: false };
+    // A tool call is the end of the turn: nothing is run and no result is sent
+    // back, because the tools only propose. The words before it are the reply.
+    const toolCalls = proposals
+      ? response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use').map((b) => ({ name: b.name, input: b.input }))
+      : [];
+    // Empty only when the model called a tool and said nothing; the caller has
+    // a line for that, which depends on whether the call survives checking.
+    return { text: humanizeReply(text) || (toolCalls.length ? '' : '…'), usage, degraded: false, toolCalls };
   } catch (error) {
     // A reply the person is waiting on must not become an error page. Log what
     // kind of failure it was, then answer from the templated fallback.
@@ -87,7 +101,7 @@ export const generate = async (
     else if (error instanceof Anthropic.AuthenticationError) console.error(`[${label}] ANTHROPIC_API_KEY rejected`);
     else if (error instanceof Anthropic.APIError) console.error(`[${label}] API error ${error.status}: ${error.message}`);
     else console.error(`[${label}] generation failed`, error);
-    return { text: fallback(), usage: null, degraded: true };
+    return { text: fallback(), usage: null, degraded: true, toolCalls: [] };
   }
 };
 
@@ -111,6 +125,8 @@ export const generatePushLines = async (
       thinking: { type: 'disabled' },
       ...(takesEffort(model) ? { output_config: { effort: 'low' as const } } : {}),
       system: systemFor(ctx),
+      // Present, and off: the same prefix as a chat reply, so the same cache.
+      ...noTools,
       messages: [...turns, { role: 'user', content: instruction }],
     });
     const text = response.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');

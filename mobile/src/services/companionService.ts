@@ -1,4 +1,5 @@
 import { companion as ai } from '@vitto/core';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 
 /**
@@ -12,9 +13,11 @@ import { supabase } from './supabaseClient';
  */
 export type CompanionState = ai.CompanionState;
 export type CompanionMessage = ai.CompanionMessage;
+export type CompanionMemory = ai.CompanionMemory;
 export type CompanionAccess = ai.CompanionAccess;
 export type LifeContext = ai.LifeContext;
 export type CompanionEventInput = ai.CompanionEventInput;
+export type CompanionProposal = ai.CompanionProposal;
 
 /** The account has used today's allowance. Carries what it is allowed, for the UI. */
 export class CompanionLimitError extends Error {
@@ -61,14 +64,49 @@ const within = <T,>(work: Promise<T>, ms: number, message: string): Promise<T> =
     );
   });
 
+type ChatSnapshot = { state: CompanionState; messages: CompanionMessage[]; access: CompanionAccess };
+
+/**
+ * The last conversation seen on this phone, per pet, so the chat opens on it at
+ * once instead of a spinner while the server answers (several queries, and a
+ * cold start after a quiet spell). The server's answer replaces it moments later.
+ */
+const chatCacheKey = (petId: string) => `vitto.chat.${petId}`;
+
 export const companionService = {
   /** The character, the recent conversation, and what this account may still do today. */
-  load: (petId: string, life: LifeContext) =>
-    invoke<{ state: CompanionState; messages: CompanionMessage[]; access: CompanionAccess }>({ action: 'state', petId, life }),
+  load: async (petId: string, life: LifeContext): Promise<ChatSnapshot> => {
+    const loaded = await invoke<ChatSnapshot>({ action: 'state', petId, life });
+    void AsyncStorage.setItem(chatCacheKey(petId), JSON.stringify(loaded)).catch(() => undefined);
+    return loaded;
+  },
+
+  /** What `load` last returned for this pet on this phone, or null. Never throws. */
+  cached: async (petId: string): Promise<ChatSnapshot | null> => {
+    try {
+      const raw = await AsyncStorage.getItem(chatCacheKey(petId));
+      const parsed = raw ? (JSON.parse(raw) as ChatSnapshot) : null;
+      return parsed && Array.isArray(parsed.messages) ? parsed : null;
+    } catch {
+      return null;
+    }
+  },
 
   send: (petId: string, life: LifeContext, message: string) =>
     within(
-      invoke<{ userMessage: CompanionMessage; reply: CompanionMessage; state: CompanionState; access: CompanionAccess; degraded: boolean }>(
+      invoke<{
+        userMessage: CompanionMessage;
+        reply: CompanionMessage;
+        state: CompanionState;
+        access: CompanionAccess;
+        degraded: boolean;
+        /**
+         * A settings change the pet offered because they asked for one, already
+         * checked by the server. Only on this response: it is not stored, so a
+         * reloaded conversation never shows it again. Absent from an older server.
+         */
+        proposal?: CompanionProposal | null;
+      }>(
         { action: 'chat', petId, life, message },
       ),
       SEND_TIMEOUT_MS,
@@ -107,6 +145,15 @@ export const companionService = {
 
   /** Drops this device, so a signed-out phone stops hearing from the pet. */
   forgetDevice: (token: string) => invoke<{ ok: true }>({ action: 'forgetDevice', token }),
+
+  /** What the pet remembers about this person, most important first. Theirs alone, even on a shared pet. */
+  memories: (petId: string) => invoke<{ memories: CompanionMemory[] }>({ action: 'memories', petId }).then((result) => result.memories),
+
+  /** Deletes one memory for good (the row, not a flag). */
+  forgetMemory: (petId: string, memoryId: string) => invoke<{ ok: true }>({ action: 'forgetMemory', petId, memoryId }),
+
+  /** Deletes every memory the pet holds about this person. Their chat and the pet's character stay. */
+  forgetAllMemories: (petId: string) => invoke<{ ok: true; forgotten: number }>({ action: 'forgetAllMemories', petId }),
 
   /** Forgets everything: a fresh stranger with the current temperament. Dev only. */
   reset: (petId: string, life: LifeContext) => invoke<{ state: CompanionState }>({ action: 'reset', petId, life }),

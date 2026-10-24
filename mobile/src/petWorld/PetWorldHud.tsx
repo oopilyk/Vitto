@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
 import {
   AILMENT_MESSAGE,
   bondFor,
@@ -19,6 +19,7 @@ import { CareToastBanner } from './CareToastBanner';
 import { useReportHudEdge } from './RoomActionSlot';
 import { useTourTarget } from '../tour/FirstRunTour';
 import { LevelRing } from './LevelRing';
+import { chromeScaleFor, topInsetFor } from './chromeScale';
 import { retro, retroPressed } from './retroStyle';
 import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
 
@@ -208,12 +209,19 @@ export function PetWorldHud({
   // The last row is where the HUD ends: rooms keep their buttons below it.
   const hudEdge = useReportHudEdge();
 
+  // Sized for the screen: a notch-free screen needs less room up top, and a
+  // tablet draws the whole HUD zoomed (see chromeScale). Both are no-ops on a
+  // notched phone.
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const zoom = hudZoom(screenWidth, screenHeight, chromeScaleFor(screenWidth, screenHeight));
+  const topInset = topInsetFor(screenWidth, screenHeight);
+
   return (
     // `box-none`: the HUD layer spans the whole screen and sits on top of the
     // environment's action row, so without this its empty space swallows every
     // tap meant for the buttons underneath. Its own controls stay tappable
     // because they are real press targets.
-    <View style={styles.fill} pointerEvents="box-none">
+    <View style={[styles.fill, zoom]} pointerEvents="box-none">
       {menuOpen ? (
         // A real press target under everything, so a tap on the scene closes
         // the menu instead of poking the pet.
@@ -221,7 +229,7 @@ export function PetWorldHud({
       ) : null}
 
       {/* Row 1, the top bar: progression, where you are, and you. */}
-      <View style={styles.topRow} pointerEvents="box-none">
+      <View style={[styles.topRow, { paddingTop: topInset }]} pointerEvents="box-none">
         <View ref={levelTourRef} collapsable={false}>
           <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} size={RING} />
         </View>
@@ -404,8 +412,27 @@ export function PetWorldHud({
   );
 }
 
-/** Clears the notch / status bar — no boxed top bar reserves that space now. */
-const TOP_INSET = 56;
+/**
+ * A tablet's HUD: laid out on a screen `scale` times smaller than the real one,
+ * then zoomed about its centre to cover it exactly. Every row, gap and font
+ * grows together, so the layout is the phone's, just bigger — no second set of
+ * sizes to keep in step. Nothing at a scale of 1.
+ */
+const hudZoom = (width: number, height: number, scale: number): ViewStyle | null => {
+  if (scale === 1 || !(width > 0) || !(height > 0)) return null;
+  const innerWidth = width / scale;
+  const innerHeight = height / scale;
+  return {
+    flex: 0,
+    position: 'absolute',
+    width: innerWidth,
+    height: innerHeight,
+    left: (width - innerWidth) / 2,
+    top: (height - innerHeight) / 2,
+    transform: [{ scale }],
+  };
+};
+
 /** The level ring and the account disc frame the top bar; the plate sits between. */
 const RING = 64;
 const DISC = 44;
@@ -420,7 +447,7 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: GUTTER,
-    paddingTop: TOP_INSET,
+    // `paddingTop` is set inline: it clears the notch or status bar (see topInsetFor).
     // Above the rows that follow it, so the account menu it opens is drawn
     // over the status card and the tools rather than under them.
     zIndex: 10,

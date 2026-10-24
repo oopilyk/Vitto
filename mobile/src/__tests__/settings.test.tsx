@@ -217,6 +217,7 @@ describe('settings menu', () => {
           onOpenPlus={() => opened.push('plus')}
           onOpenChooseCompanion={() => opened.push('animal')}
           onOpenPersonality={() => opened.push('personality')}
+          onOpenMemories={() => opened.push('memories')}
           onOpenNotifications={() => opened.push('notifications')}
           onOpenPreferences={() => opened.push('preferences')}
           onOpenDeleteAccount={() => opened.push('delete')}
@@ -241,6 +242,7 @@ describe('settings menu', () => {
       ['Vitto Plus', 'plus'],
       ['Animals & forms', 'animal'],
       ['Personality', 'personality'],
+      ['What Blue remembers', 'memories'],
       ['Notifications', 'notifications'],
       ['Your preferences', 'preferences'],
       ['Delete account', 'delete'],
@@ -260,10 +262,11 @@ describe('settings menu', () => {
   });
 
   it('leaves out rows whose page is not wired up', () => {
-    const tree = renderMenu({ onBreedChange: undefined, onOpenDeleteAccount: undefined, notificationsOn: null });
+    const tree = renderMenu({ onBreedChange: undefined, onOpenDeleteAccount: undefined, notificationsOn: null, onOpenMemories: undefined });
     expect(byLabel(tree, 'Animals & forms')).toBeUndefined();
     expect(byLabel(tree, 'Delete account')).toBeUndefined();
     expect(byLabel(tree, 'Notifications')).toBeUndefined();
+    expect(byLabel(tree, 'What Blue remembers')).toBeUndefined();
     tree.unmount();
   });
 });

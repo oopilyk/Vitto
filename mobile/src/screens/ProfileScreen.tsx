@@ -21,7 +21,7 @@ import {
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { Kicker } from '../components/ui';
-import { NavGroup, NavRow } from '../components/settingsKit';
+import { NavGroup, NavRow, SETTINGS_MAX_WIDTH } from '../components/settingsKit';
 import { StrengthMap } from '../components/StrengthMap';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { formatMinutes } from '../services/minutes';
@@ -434,7 +434,8 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
   },
   settingsLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
-  body: { paddingHorizontal: 16, gap: 14 },
+  // One readable column on a tablet, as Settings has; no change on a phone.
+  body: { paddingHorizontal: 16, gap: 14, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
 
   header: { paddingHorizontal: 4, paddingTop: 8, paddingBottom: 6, gap: 14 },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 18 },

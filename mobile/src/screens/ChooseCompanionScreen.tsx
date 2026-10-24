@@ -6,6 +6,7 @@ import { EvolutionCard } from '../components/EvolutionCard';
 import { sheetByBreed } from '../components/petSprites';
 import { Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
+import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
 
 interface Props {
   /** The animal the pet is now. */
@@ -136,7 +137,8 @@ const styles = themedStyles(() => ({
   backMark: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
   backLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted },
   topTitle: { ...text.heading, fontSize: 21 },
-  body: { padding: 16, gap: 12 },
+  // One readable column on a tablet, as Settings has; no change on a phone.
+  body: { padding: 16, gap: 12, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
   wallet: {
     flexDirection: 'row',
     justifyContent: 'space-between',

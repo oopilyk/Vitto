@@ -61,6 +61,7 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
     ? SKIPPABLE_CARE.filter((kind) => (today.skips as unknown[]).includes(kind))
     : [];
   return {
+    ...(source.adult === true ? { adult: true } : {}),
     pet: {
       name: text(pet.name, 24, 'Vitto'),
       species: text(pet.species, 32, 'pet'),

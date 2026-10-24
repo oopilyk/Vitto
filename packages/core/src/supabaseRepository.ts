@@ -4,6 +4,7 @@ import type { WorkoutTemplate } from './domain/workoutTemplates';
 import { chargeOf, type EvolvedBuild, type PetBreed, type PetState } from './domain/pet';
 import { sanitizeMeals } from './domain/hunger';
 import { withSurveyDefaults, type BodyProfile, type FocusArea } from './domain/macroTargets';
+import { birthYearToSave, withCurrentAge } from './domain/ageGate';
 import {
   normalizeInviteCode,
   type CareLogEntry,
@@ -202,8 +203,9 @@ export class SupabaseRepository {
       return null;
     }
 
-    return withSurveyDefaults({
+    const profile = withCurrentAge(withSurveyDefaults({
       age: data.age,
+      birthYear: data.birth_year ?? undefined,
       sex: data.sex,
       heightCm: data.height_cm,
       heightUnit: data.height_unit === 'ft' ? 'ft' : 'cm',
@@ -229,7 +231,17 @@ export class SupabaseRepository {
       trainingTypes: Array.isArray(data.training_types) ? data.training_types : undefined,
       dietaryPreference: data.dietary_preference ?? undefined,
       motivations: Array.isArray(data.motivations) ? data.motivations : undefined,
-    });
+    }));
+    // A profile from before birth years were kept: store the one just worked
+    // out, so its age goes up from now on. Best effort; the next save does it too.
+    if (data.birth_year == null || profile.age !== data.age) {
+      try {
+        await client.from('profiles').update({ birth_year: profile.birthYear, age: profile.age }).eq('id', data.id);
+      } catch {
+        // A database without the column yet: the age still reads right this time.
+      }
+    }
+    return profile;
   }
 
   async saveProfile(profile: BodyProfile): Promise<void> {
@@ -239,6 +251,8 @@ export class SupabaseRepository {
 
     const payload = {
       age: profile.age,
+      // Dropped and retried by saveDroppingMissingColumns before 20261022120000.
+      birth_year: birthYearToSave(profile),
       sex: profile.sex,
       height_cm: profile.heightCm,
       height_unit: profile.heightUnit,

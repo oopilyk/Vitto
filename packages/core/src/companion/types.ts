@@ -129,6 +129,12 @@ export type SkippedCare = 'food' | 'workouts' | 'steps' | 'mind';
 export const SKIPPABLE_CARE: readonly SkippedCare[] = ['food', 'workouts', 'steps', 'mind'];
 
 export interface LifeContext {
+  /**
+   * 18 or older, from their profile. A character they wrote is only played with
+   * the gloves off (edgy, not politically correct) for an adult; see customVoice.
+   * Absent from an older app, which reads as not.
+   */
+  adult?: boolean;
   pet: {
     name: string;
     species: string;

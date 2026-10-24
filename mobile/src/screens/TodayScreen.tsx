@@ -43,6 +43,7 @@ import { isNightTime } from '../petWorld/timeOfDay';
 import { retro } from '../petWorld/retroStyle';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { fonts, getColorScheme, layout, world, themedStyles } from '../theme';
+import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
 
 /**
  * Today: a daily game recap, not an event log and not a nutrition dashboard. It
@@ -465,7 +466,7 @@ export function TodayScreen({
               onConnectHealth
                 ? [{ label: 'Connect Apple Health', onPress: onConnectHealth }]
                 : onSyncSteps
-                  ? [{ label: stepSync === 'syncing' ? 'Syncing…' : 'Sync steps', onPress: () => void syncStepsNow() }]
+                  ? [{ label: stepSync === 'syncing' ? 'Syncing…' : 'Steps look off? Sync now', onPress: () => void syncStepsNow() }]
                   : undefined
             }
             detail={
@@ -996,7 +997,8 @@ const styles = themedStyles(() => ({
   backMark: { fontFamily: fonts.pixel, fontSize: 23 },
   backLabel: { fontFamily: fonts.pixel, fontSize: 16 },
   topTitle: { fontFamily: fonts.pixelBold, fontSize: 18, letterSpacing: 2 },
-  body: { paddingHorizontal: 18, paddingTop: 18, gap: 14 },
+  // One readable column on a tablet, as Settings has; no change on a phone.
+  body: { paddingHorizontal: 18, paddingTop: 18, gap: 14, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
 
   overview: { paddingHorizontal: 2, paddingTop: 4, paddingBottom: 20, borderBottomWidth: 1 },
   overKicker: {

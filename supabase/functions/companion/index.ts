@@ -12,7 +12,7 @@ import {
   MAX_TURNS, MEMORY_CATEGORIES, STABLE_SYSTEM_PROMPT, TONE_SIGNALS, DAY,
   accessFor, applyCompanionEvent, customVoice, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
   fillTraits, humanizeReply, initialTraits, levelIndex, limitsFor, sameBasis, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
-  planMemoryWrites, renderDynamicSystemPrompt, renderExtractionPrompt, renderProactiveInstruction, sanitizeEventMetadata,
+  planMemoryWrites, proposalFallbackLine, proposalFrom, renderDynamicSystemPrompt, renderExtractionPrompt, renderProactiveInstruction, sanitizeEventMetadata,
   lifeForTier, rebaseTraits, sanitizeLifeContext, summarizeRelationship, worthRemembering, tickMood, turnsFromContext, COMPANION_EVENT_TYPES,
   PERSONALITY_VOICE,
   type CompanionEvent, type CompanionEventInput, type CompanionMemory, type CompanionMessage, type CompanionState,
@@ -32,8 +32,9 @@ import { isDevAccount } from '../_shared/devAccount.ts';
  * Actions (POST JSON, authenticated):
  *   state      -> the character, recent messages, and what the account may do
  *   event      -> something happened in their life; shift the character
- *   chat       -> they said something; reply, then learn from it
+ *   chat       -> they said something; reply, then learn from it (and maybe propose a settings change)
  *   proactive  -> the app opened; speak first IF a rule says something is worth saying
+ *   memories / forgetMemory / forgetAllMemories -> what the pet remembers, and deleting it
  *
  * Secrets: ANTHROPIC_API_KEY. Without it the function still works, on a keyless
  * templated fallback, so the feature can be wired up and tested before the key
@@ -205,9 +206,9 @@ class Companion {
     if (error) throw error;
   }
 
-  async events(now: number): Promise<CompanionEvent[]> {
+  async events(now: number, windowMs = HISTORY_WINDOW_MS): Promise<CompanionEvent[]> {
     const { data, error } = await this.db.from('companion_events').select('*').match(this.owner)
-      .gte('occurred_at', iso(now - HISTORY_WINDOW_MS)).order('occurred_at', { ascending: false }).limit(HISTORY_EVENTS);
+      .gte('occurred_at', iso(now - windowMs)).order('occurred_at', { ascending: false }).limit(HISTORY_EVENTS);
     if (error) throw error;
     return (data ?? []).map(toEvent);
   }
@@ -295,7 +296,9 @@ class Companion {
       const { count: total } = await query;
       return total ?? 0;
     };
-    return { sent: await count('user'), proactive: await count('pet', 'proactive') };
+    // Side by side: two independent counts, not one after the other.
+    const [sent, proactive] = await Promise.all([count('user'), count('pet', 'proactive')]);
+    return { sent, proactive };
   }
 
   async tier(now: number): Promise<CompanionTier> {
@@ -304,12 +307,42 @@ class Companion {
     return data.tier === 'plus' ? 'plus' : 'free';
   }
 
+  /**
+   * Counted from the event log, not the transcript: messages are deleted after
+   * 90 days (20261023120000_companion_messages_retention.sql), and "talked 40
+   * times" from a pet known for a year would be wrong. Every chat message
+   * records a USER_SENT_MESSAGE event, and events are kept.
+   */
   async stats() {
-    const { count } = await this.db.from('companion_messages').select('id', { count: 'exact', head: true }).match(this.owner).eq('role', 'user');
-    const { data } = await this.db.from('companion_messages').select('created_at').match(this.owner).eq('role', 'user')
-      .order('created_at', { ascending: false }).limit(400);
-    const daysActive = new Set((data ?? []).map((row) => String(row.created_at).slice(0, 10))).size;
+    const { count } = await this.db.from('companion_events').select('id', { count: 'exact', head: true })
+      .match(this.owner).eq('type', 'USER_SENT_MESSAGE');
+    const { data } = await this.db.from('companion_events').select('occurred_at').match(this.owner).eq('type', 'USER_SENT_MESSAGE')
+      .order('occurred_at', { ascending: false }).limit(400);
+    const daysActive = new Set((data ?? []).map((row) => String(row.occurred_at).slice(0, 10))).size;
     return { messageCount: count ?? 0, daysActive };
+  }
+
+  /** What the pet remembers now, for the person to look over: most important first, then newest. */
+  async rememberedNow(now: number): Promise<CompanionMemory[]> {
+    const { data, error } = await this.db.from('companion_memories').select('*').match(this.owner).eq('active', true)
+      // Expired ones are out of the prompt already (see rankMemories); listing them would be misleading.
+      .or(`expires_at.is.null,expires_at.gt.${iso(now)}`)
+      .order('importance', { ascending: false }).order('created_at', { ascending: false }).limit(400);
+    if (error) throw error;
+    return (data ?? []).map(toMemory);
+  }
+
+  /**
+   * Deleted, not deactivated: this is the person asking for it to be gone.
+   * Returns how many rows went. Every row of theirs for this pet when `id` is
+   * absent, expired and inactive ones included.
+   */
+  async forget(id?: string): Promise<number> {
+    let query = this.db.from('companion_memories').delete({ count: 'exact' }).match(this.owner);
+    if (id) query = query.eq('id', id);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
   }
 }
 
@@ -369,6 +402,23 @@ const learnFrom = async (companion: Companion, ctx: PetContext, userText: string
     await companion.saveState(next);
   } catch (error) {
     console.error('[companion] learning failed', error);
+  }
+};
+
+/**
+ * After memories are forgotten. The relationship summary in the prompt says how
+ * much the pet knows about them ("you know a fair amount about their life"),
+ * and would go on saying it until the next memory pass; it is redone now.
+ */
+const resummarize = async (companion: Companion, now: number) => {
+  try {
+    const state = await companion.loadState(now);
+    const memoryCount = (await companion.memories()).length;
+    const relationshipSummary = summarizeRelationship(state, { ...(await companion.stats()), memoryCount }, observePatterns(await companion.events(now), now), now);
+    await companion.saveState({ ...state, relationshipSummary });
+  } catch (error) {
+    // The forgetting already happened; a stale summary must not report it as failed.
+    console.error('[companion] resummarize failed', error);
   }
 };
 
@@ -447,25 +497,32 @@ Deno.serve(async (request) => {
 
     // Being able to READ a pet is not enough: accepted friends can read each
     // other's pets. Only someone who actually cares for this pet may talk to it.
+    // The plan is looked up alongside the membership check rather than after
+    // it: it reads only this person's own entitlement, so starting early
+    // reveals nothing, and opening the chat waits on one round trip, not two.
+    const now = Date.now();
+    const companion = new Companion(admin, user.id, petId);
+    const isDev = isDevAccount(user);
+    const tierLookup = isDev ? Promise.resolve<CompanionTier>('plus') : companion.tier(now);
+    tierLookup.catch(() => undefined); // awaited below; never an unhandled rejection meanwhile
     const { data: isMember } = await asUser.rpc('is_active_pet_member', { p_pet_id: petId });
     if (isMember !== true) {
       // The creator of a pet with no membership rows yet. Not one who has left
       // a shared pet: `pets.user_id` stays on them, but the pet is not theirs.
-      const { data: owned } = await admin.from('pets').select('id').eq('id', petId).eq('user_id', user.id).maybeSingle();
-      const { data: left } = await admin.from('pet_members').select('pet_id')
-        .eq('pet_id', petId).eq('user_id', user.id).not('left_at', 'is', null).maybeSingle();
+      const [{ data: owned }, { data: left }] = await Promise.all([
+        admin.from('pets').select('id').eq('id', petId).eq('user_id', user.id).maybeSingle(),
+        admin.from('pet_members').select('pet_id')
+          .eq('pet_id', petId).eq('user_id', user.id).not('left_at', 'is', null).maybeSingle(),
+      ]);
       if (!owned || left) return json({ error: 'That pet is not yours to talk to.' }, 403);
     }
 
-    const now = Date.now();
-    const companion = new Companion(admin, user.id, petId);
     const sentLife = body?.life ? sanitizeLifeContext(body.life) : undefined;
     // A dev account is treated as paid, and then some: it gets the `plus` tier
     // so everything a subscriber would see can be tested, and no daily ceiling,
     // because testing is exactly the use that burns through one. Decided here,
     // from the verified session's email — nothing the client sends can claim it.
-    const isDev = isDevAccount(user);
-    const tier: CompanionTier = isDev ? 'plus' : await companion.tier(now);
+    const tier: CompanionTier = await tierLookup;
     const limits = isDev ? { ...limitsFor('plus'), messagesPerDay: DEV_UNCAPPED, proactivePerDay: DEV_UNCAPPED } : limitsFor(tier);
     // Personalities are Plus: a free pet speaks in the default voice whatever
     // temperament, dials or persona the phone sent.
@@ -482,10 +539,20 @@ Deno.serve(async (request) => {
       return isDev ? { ...resolved, messagesLeftToday: DEV_UNCAPPED, canChat: true } : resolved;
     };
 
+    // Opening the chat. Everything it needs is fetched at once rather than in
+    // turn, only the two days of events the mood tick reads (not the whole
+    // history window), and the ticked state is saved after replying: the
+    // screen shows the state it is sent, so nothing waits on that write.
     if (action === 'state') {
-      const state = tickMood(await companion.loadState(now, life?.pet.temperament, life?.pet.dials), (await companion.events(now)).filter((e) => now - e.timestamp < 2 * DAY), life, now);
-      await companion.saveState(state);
-      return json({ state, messages: await companion.messages(50), access: await access() });
+      const [loaded, recent, messages, usageNow] = await Promise.all([
+        companion.loadState(now, life?.pet.temperament, life?.pet.dials),
+        companion.events(now, 2 * DAY),
+        companion.messages(50),
+        access(),
+      ]);
+      const state = tickMood(loaded, recent, life, now);
+      await inBackground(companion.saveState(state).catch((error) => console.error('[companion] state save failed', error)));
+      return json({ state, messages, access: usageNow });
     }
 
     if (action === 'event') {
@@ -524,9 +591,18 @@ Deno.serve(async (request) => {
       const ctx = buildPetContext({ state, life, events, memories, messages: history, currentMessage: message, now });
       const turns = turnsFromContext(ctx);
       const askedAt = Date.now();
-      const generated = await generate(ctx, turns, () => mockReply(ctx, message), 'companion', model);
+      const generated = await generate(ctx, turns, () => mockReply(ctx, message), 'companion', model, { proposals: true });
+      // What the model asked to change, checked here and never taken on its
+      // word: it may only be something this message asked for, inside the
+      // app's limits. Nothing is written; the phone shows it as a card and the
+      // person's own tap saves it, through their own session (see proposals.ts).
+      // Not stored either: it rides on this response only, so a reloaded chat
+      // never shows a card that could be tapped twice.
+      const proposal = proposalFrom(generated.toolCalls, life, message);
+      if (generated.toolCalls.length && !proposal) console.log('[companion] chat: proposal dropped');
+      const text = generated.text || proposalFallbackLine(proposal);
       console.log(`[companion] chat: reads ${askedAt - loadedAt}ms, model ${Date.now() - askedAt}ms, degraded=${generated.degraded}`);
-      const reply = await companion.appendMessage({ role: 'pet', content: generated.text, usage: generated.usage });
+      const reply = await companion.appendMessage({ role: 'pet', content: text, usage: generated.usage });
 
       // Whatever the reply may have spoken about is now handled, including a due
       // event it had in mind, so the pet does not raise the same thing twice.
@@ -538,9 +614,9 @@ Deno.serve(async (request) => {
       // A templated fallback reply teaches nothing worth a second model call.
       // Remembering is Plus: the memory pass is a second model call on every
       // message, so free chat skips it and costs about half as much.
-      if (!generated.degraded && tier === 'plus') await inBackground(learnFrom(companion, ctx, message, generated.text, now));
+      if (!generated.degraded && tier === 'plus') await inBackground(learnFrom(companion, ctx, message, text, now));
 
-      return json({ userMessage, reply, state, access: await access(), degraded: generated.degraded });
+      return json({ userMessage, reply, state, access: await access(), degraded: generated.degraded, proposal });
     }
 
     if (action === 'proactive') {
@@ -631,6 +707,35 @@ Deno.serve(async (request) => {
         prompt: { stable: STABLE_SYSTEM_PROMPT, dynamic, turns },
         tokens: { stable: estimate(STABLE_SYSTEM_PROMPT), dynamic: estimate(dynamic), history: historyTokens },
       });
+    }
+
+    /**
+     * What the pet remembers about them, and forgetting it. Everyone's, free or
+     * Plus: it is their data. Scoped like everything else here to this user AND
+     * this pet, so on a shared pet each carer sees and deletes only their own.
+     * Forgetting deletes the rows. Extraction only ever reads the message just
+     * sent, never the transcript, so a forgotten fact comes back only if they
+     * tell the pet again.
+     */
+    if (action === 'memories') {
+      return json({ memories: await companion.rememberedNow(now) });
+    }
+    if (action === 'forgetMemory') {
+      const memoryId = body?.memoryId;
+      if (typeof memoryId !== 'string' || !/^[0-9a-f-]{36}$/i.test(memoryId)) return json({ error: 'Invalid memory.' }, 400);
+      if (await companion.forget(memoryId)) await resummarize(companion, now);
+      return json({ ok: true });
+    }
+    if (action === 'forgetAllMemories') {
+      const forgotten = await companion.forget();
+      if (forgotten) {
+        // The notification lines were written with these memories in view; they
+        // are told to keep to generalities, but "everything" should mean it.
+        await admin.from('companion_state').update({ push_lines: null, push_lines_key: null, push_lines_at: null })
+          .match({ user_id: user.id, pet_id: petId });
+        await resummarize(companion, now);
+      }
+      return json({ ok: true, forgotten });
     }
 
     /** Forgets everything: a fresh stranger with the current temperament. */

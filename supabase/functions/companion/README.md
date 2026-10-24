@@ -43,6 +43,20 @@ background memory pass. Override with
 `COMPANION_CHAT_MODEL` / `COMPANION_CUSTOM_MODEL` / `COMPANION_FREE_CHAT_MODEL` /
 `COMPANION_EXTRACT_MODEL`.
 
+## Changing settings from the chat
+
+"can you set my calories to 2000" gets a reply AND a card under it: "Daily
+calories: 2,300 → 2,000 · Change / Cancel". The model has two tools,
+`propose_setting_change` (calorie goal, step goal) and `propose_reminder`, and
+they only propose: the function checks the call (`packages/core/src/companion/proposals.ts`:
+types, the app's limits, calories never lowered for under-18s, and the person's
+own message must have asked), returns it as `proposal` on the `chat` response,
+and writes nothing. The phone applies it on a tap through the same save the
+Settings screens use. Proposals are not stored, so a reloaded chat shows no card.
+
+The tools are sent on every call in the pet's voice (with `tool_choice: none`
+outside chat replies), so they are one fixed part of the cached prefix.
+
 ## Spend limits
 
 Every paid AI call goes through `claim_ai_call` first (`_shared/aiBudget.ts`,
@@ -75,6 +89,19 @@ day is validated field by field (`sanitizeLifeContext`) and rendered into a prom
 the server owns. The companion tables have **no client write policy**: only this
 function writes them. State is keyed by `(user_id, pet_id)`, so on a shared pet
 one carer's memories never reach the other.
+
+## Retention and forgetting
+
+Chat messages are deleted after 90 days by a daily pg_cron job,
+`companion-messages-90-days`, which calls `public.prune_companion_messages()`
+(migration `20261023120000_companion_messages_retention.sql`; the 90 days is in
+that function). Memories, state and events are kept. pg_cron has to be enabled
+(Dashboard → Database → Extensions); check the job with
+`select * from cron.job where jobname = 'companion-messages-90-days';`.
+
+People can see what the pet remembers about them, and delete any of it, in
+Settings → "What <pet> remembers" (`memories`, `forgetMemory`,
+`forgetAllMemories`). Forgetting deletes the rows.
 
 ## The paywall
 

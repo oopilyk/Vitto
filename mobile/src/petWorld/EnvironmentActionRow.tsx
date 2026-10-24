@@ -3,6 +3,7 @@ import { type ImageSourcePropType, Platform, StyleSheet, View } from 'react-nati
 import { world, themedStyles } from '../theme';
 import { EnvironmentButton } from './EnvironmentButton';
 import { useTourTarget, type TourTargetId } from '../tour/FirstRunTour';
+import { useChromeScale } from './chromeScale';
 import type { EnvironmentId } from './types';
 
 /**
@@ -74,6 +75,9 @@ export interface EnvironmentActionRowProps {
 }
 
 export function EnvironmentActionRow({ current, onNavigate, night }: EnvironmentActionRowProps) {
+  // A tablet draws the icons bigger, in a taller strip (see chromeScale).
+  const scale = useChromeScale();
+  const zoomed = scale !== 1;
   // A plain opaque-to-touch View (not `box-none`): taps on the gaps between the
   // icons must be caught here, not fall through to the pet's tap layer beneath.
   return (
@@ -88,9 +92,9 @@ export function EnvironmentActionRow({ current, onNavigate, night }: Environment
       ]}
     >
       <View style={styles.hairline} />
-      <View style={styles.icons}>
+      <View style={[styles.icons, zoomed && { height: ICON_AREA_HEIGHT * scale, paddingHorizontal: ICON_EDGE_PADDING * scale }]}>
         {SCENES.map((scene) => (
-          <TourableScene key={scene.id} id={scene.id}>
+          <TourableScene key={scene.id} id={scene.id} scale={scale}>
             <EnvironmentButton
               accessibilityLabel={scene.accessibilityLabel}
               filledSource={scene.filledSource}
@@ -128,9 +132,10 @@ const styles = themedStyles(() => ({
 /** The rooms the first-run tour points at (see FirstRunTour); the others need no wrapper. */
 const TOUR_ROOMS: Partial<Record<EnvironmentId, TourTargetId>> = { kitchen: 'kitchen', gym: 'gym', outside: 'outside', study: 'study' };
 
-function TourableScene({ id, children }: { id: EnvironmentId; children: React.ReactNode }) {
+function TourableScene({ id, scale, children }: { id: EnvironmentId; scale: number; children: React.ReactNode }) {
   const target = TOUR_ROOMS[id];
-  return target ? <TourTarget id={target}>{children}</TourTarget> : <>{children}</>;
+  const zoomed = scale === 1 ? children : <View style={{ transform: [{ scale }] }}>{children}</View>;
+  return target ? <TourTarget id={target}>{zoomed}</TourTarget> : <>{zoomed}</>;
 }
 
 function TourTarget({ id, children }: { id: TourTargetId; children: React.ReactNode }) {

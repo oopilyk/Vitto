@@ -1,7 +1,8 @@
 import { tracksArea } from './careAreas';
-import { convertWeightValue } from './macroTargets';
+import { convertWeightValue, isMinor, maintenanceCalories } from './macroTargets';
 import { liftScores, STANDARD_LIFT_LABEL } from './strengthRanks';
 import type { CompanionEventInput, LifeContext } from '../companion/types';
+import { PROPOSAL_RANGES, type CompanionProposal } from '../companion/proposals';
 import { timeOfDayFor, WEEKDAYS } from '../companion/util';
 import { bondFor } from './bond';
 import { describeLoggedEvent } from './careToast';
@@ -14,6 +15,7 @@ import { personalRecords } from './personalRecords';
 import { EVOLVED_BUILDS, PET_BUILD_LABEL, chargeOf, evolutionProgress, getPetBuild, hasEvolved, type PetState } from './pet';
 import { assessCondition, type PetAilment } from './petCondition';
 import { daysWithPet } from './petStats';
+import { reminderError } from './reminders';
 import { calculateStreakStatus } from './streaks';
 
 /**
@@ -197,6 +199,7 @@ export const buildLifeContext = (input: {
     .filter(([area]) => !tracksArea(input.pet.careAreas, area))
     .map(([, kind]) => kind);
   return {
+    adult: !isMinor(input.profile),
     pet: {
       name: pet.name,
       species: SPECIES[pet.breed ?? ''] ?? 'pet',
@@ -256,4 +259,30 @@ export const buildLifeContext = (input: {
       utcOffsetMinutes: -now.getTimezoneOffset(),
     },
   };
+};
+
+/**
+ * Why a change the pet proposed cannot be applied to this person, or null when
+ * it can. The server already checked it; this checks again against what only
+ * the phone knows: the actual profile and the reminders on this device. Under
+ * 18, a calorie goal below what they burn is refused, the same floor
+ * `calculateMacroTargets` applies (it would otherwise be saved and then
+ * silently ignored).
+ */
+export const proposalProblem = (
+  proposal: CompanionProposal,
+  { profile, reminderCount }: { profile: BodyProfile; reminderCount: number },
+): string | null => {
+  if (proposal.kind === 'reminder') {
+    if (!proposal.days.every((day) => Number.isInteger(day) && day >= 1 && day <= 7)) return 'Those are not days of the week.';
+    return reminderError(proposal, reminderCount);
+  }
+  const range = PROPOSAL_RANGES[proposal.setting];
+  if (!range || !Number.isInteger(proposal.value) || proposal.value < range.min || proposal.value > range.max) {
+    return `Choose between ${range ? `${range.min.toLocaleString('en-US')} and ${range.max.toLocaleString('en-US')}` : 'the allowed values'}.`;
+  }
+  if (proposal.setting === 'calorieGoal' && isMinor(profile) && proposal.value < maintenanceCalories(profile)) {
+    return `Under 18, your daily calories stay at ${maintenanceCalories(profile).toLocaleString('en-US')} or more.`;
+  }
+  return null;
 };

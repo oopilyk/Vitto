@@ -13,7 +13,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -57,7 +57,7 @@ import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { FourCornersScreen } from './src/screens/FourCornersScreen';
 import { CompanionChatScreen } from './src/screens/CompanionChatScreen';
 import { CompanionDebugScreen } from './src/screens/CompanionDebugScreen';
-import { companionService, loadCompanionTier } from './src/services/companionService';
+import { companionService, loadCompanionTier, type CompanionProposal } from './src/services/companionService';
 import { PetJeopardyScreen } from './src/screens/PetJeopardyScreen';
 import { MindGymScreen } from './src/screens/MindGymScreen';
 import { PlusScreen } from './src/screens/PlusScreen';
@@ -72,6 +72,7 @@ import { AppleHealthScreen } from './src/screens/AppleHealthScreen';
 import { ActivityHistoryScreen } from './src/screens/ActivityHistoryScreen';
 import { LiftProgressScreen } from './src/screens/LiftProgressScreen';
 import { PersonalityScreen } from './src/screens/PersonalityScreen';
+import { CompanionMemoriesScreen } from './src/screens/CompanionMemoriesScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { CareAreasScreen } from './src/screens/CareAreasScreen';
 import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
@@ -164,6 +165,8 @@ type RootStackParamList = {
   /** `fromTour`: opened by the first-run tour, over the main screen, so back reads as going home. */
   Personality: { welcome?: boolean; fromTour?: boolean } | undefined;
   Notifications: undefined;
+  /** What the pet remembers about them, each deletable. */
+  CompanionMemories: undefined;
   DeleteAccount: undefined;
   Appearance: undefined;
   MealCapture: undefined;
@@ -853,7 +856,8 @@ function VittoApp() {
       // sharing, so there is only ever the one pet.
       setPets(storedPet ? [storedPet] : []);
       setEvents(storedEvents);
-      if (storedProfile) setProfile(withSurveyDefaults({ ...DEFAULT_PROFILE, ...storedProfile }));
+      // Aged from its birth year, as the remote load does (see withCurrentAge).
+      if (storedProfile) setProfile(withCurrentAge(withSurveyDefaults({ ...DEFAULT_PROFILE, ...storedProfile })));
       setMembers([]);
       setCareLog([]);
       setInvite(null);
@@ -906,7 +910,9 @@ function VittoApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, session?.user.id]);
 
-  const persistProfile = async (next: BodyProfile) => {
+  const persistProfile = async (edited: BodyProfile) => {
+    // The birth year follows an edited age, so the age keeps going up from it.
+    const next = { ...edited, birthYear: birthYearToSave(edited) };
     setProfile(next);
     if (isSupabaseConfigured && session) {
       await remoteRepository.saveProfile(next);
@@ -1956,6 +1962,30 @@ function VittoApp() {
     void commitReminders(reminders.filter((item) => item.id !== id));
   };
 
+  /**
+   * A change the pet proposed in the chat, confirmed by a tap on its card.
+   * Applied exactly as Settings would apply it: the profile through
+   * `persistProfile` (the signed-in person's own row, under RLS), a reminder
+   * through `addReminder`. Checked again first, against this person's real
+   * profile, whatever the server already decided. Throws the reason when it
+   * cannot, which the card shows.
+   */
+  const applyCompanionProposal = async (proposal: CompanionProposal) => {
+    const problem = proposalProblem(proposal, { profile, reminderCount: reminders.length });
+    if (problem) throw new Error(problem);
+    if (proposal.kind === 'reminder') {
+      await addReminder({ label: proposal.label, hour: proposal.hour, minute: proposal.minute, days: proposal.days as Weekday[] });
+      return;
+    }
+    // An edit still waiting in the debounce is already in `profile`, so this
+    // save carries it. Dropped rather than flushed: flushed, that older copy
+    // could land after this one and put the old goal back.
+    if (profileSaveTimer.current) clearTimeout(profileSaveTimer.current);
+    profileSaveTimer.current = null;
+    pendingProfile.current = null;
+    await persistProfile({ ...profile, [proposal.setting]: proposal.value });
+  };
+
   const syncAppleHealth = async () => {
     if (!pet) return;
     setIsSyncingAppleHealth(true);
@@ -2152,6 +2182,9 @@ function VittoApp() {
           setUnreadCompanion((count) => count + 1);
           setCompanionSaid({ id: message.id, text: message.content });
         }
+        // Warms the chat: `load` keeps a copy on the phone, so opening the
+        // chat later shows the conversation at once. No model call.
+        return companionService.load(current.id, life);
       })
       .catch(() => undefined); // offline, or the function is not deployed yet: the pet just says nothing
     return () => {
@@ -2545,6 +2578,7 @@ function VittoApp() {
               onOpenPlus={() => navigation.navigate('Plus')}
               onOpenChooseCompanion={() => navigation.navigate('ChooseCompanion')}
               onOpenPersonality={() => navigation.navigate('Personality')}
+              onOpenMemories={isOnline ? () => navigation.navigate('CompanionMemories') : undefined}
               onOpenNotifications={() => navigation.navigate('Notifications')}
               onOpenPreferences={() => navigation.navigate('Preferences')}
               onOpenCareAreas={() => navigation.navigate('CareAreas')}
@@ -2594,6 +2628,16 @@ function VittoApp() {
               canCustomise={canCustomise}
               onOpenPlus={() => navigation.navigate('Plus')}
               changesLeft={personalityChangesLeft}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="CompanionMemories">
+          {({ navigation }) => (
+            <CompanionMemoriesScreen
+              petId={livePet.id}
+              petName={livePet.name}
+              confirm={confirmDialog}
               onClose={() => navigation.goBack()}
             />
           )}
@@ -2729,6 +2773,7 @@ function VittoApp() {
               pet={livePet}
               life={buildLifeContext({ pet: livePet, events, profile, stepGoal })}
               onOpenPlus={canCustomise ? undefined : () => navigation.navigate('Plus')}
+              onApplyProposal={applyCompanionProposal}
               onClose={() => {
                 // Opening the conversation is reading it.
                 setUnreadCompanion(0);
