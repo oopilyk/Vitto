@@ -242,18 +242,39 @@ export const clamp = (value: number, minimum = 0, maximum = 100) =>
  */
 export const EVOLUTION_LEVEL = 15;
 
-/** How much xp `applyDelta` rolls into the next level. Whole-number levels only. */
+/**
+ * The stored `xp` is progress through the current level, 0-100, whatever that
+ * level costs: the column, the level ring and every older app read it as a
+ * percentage. What a level COSTS in earned xp is `xpToLevelUp`.
+ */
 export const XP_PER_LEVEL = 100;
+
+/**
+ * Levels get harder from here on: each costs `LEVEL_COST_STEP` more than the
+ * last, up to `MAX_LEVEL_COST`. Below it every level is 100, so the early
+ * levels (and the first evolution's runway) stay quick and the later ones are
+ * earned. 10 -> 11 costs 115, 15 -> 16 190, 20 -> 21 265, and from 29 on 400.
+ */
+export const HARDER_FROM_LEVEL = 10;
+const LEVEL_COST_STEP = 15;
+const MAX_LEVEL_COST = 400;
+
+/** Earned xp it takes to go from `level` to the next. */
+export const xpToLevelUp = (level: number): number =>
+  level < HARDER_FROM_LEVEL ? XP_PER_LEVEL : Math.min(MAX_LEVEL_COST, XP_PER_LEVEL + LEVEL_COST_STEP * (level - HARDER_FROM_LEVEL + 1));
 
 /**
  * A pet's total lifetime xp, as one number instead of a level/xp pair — the
  * form every other total (a day's, a week's) is a difference of. Never stored:
- * `level`/`xp` stay the two persisted fields, this is just their sum read back
- * out, so a diff against an earlier reading of the same function can never
- * drift from what the pet actually has.
+ * `level`/`xp` stay the two persisted fields, this is them read back out in
+ * earned xp (each level at its own cost), so a diff against an earlier reading
+ * is the xp actually earned in between ("+33 XP" stays 33 at level 40).
  */
-export const totalPetXp = (pet: Pick<PetState, 'level' | 'xp'>): number =>
-  pet.level * XP_PER_LEVEL + pet.xp;
+export const totalPetXp = (pet: Pick<PetState, 'level' | 'xp'>): number => {
+  let total = 0;
+  for (let level = 1; level < pet.level; level += 1) total += xpToLevelUp(level);
+  return total + Math.round((pet.xp / XP_PER_LEVEL) * xpToLevelUp(pet.level));
+};
 
 /**
  * The shape a pet has grown into. Derived from how it was actually raised, never

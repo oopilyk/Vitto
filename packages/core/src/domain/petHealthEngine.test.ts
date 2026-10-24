@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MEAL_HEALTH, PetHealthEngine, applyDelta, mealQuality } from './petHealthEngine';
 import { MEAL_POINTS_DEFAULT } from './hunger';
-import { clamp, createPet } from './pet';
+import { clamp, createPet, totalPetXp, xpToLevelUp } from './pet';
 import type { HealthEvent, WorkoutStats } from './health';
 
 const event = { id: 'event-1', userId: 'user-1', occurredAt: '2026-08-28T12:00:00Z', type: 'WORKOUT' as const, source: 'manual' as const, metadata: { workoutType: 'strength', durationMinutes: 30, intensity: 'moderate' as const } };
@@ -799,5 +799,35 @@ describe('food effects on a meal', () => {
     expect(spicy.pet.charge).toBe(plain.pet.charge! + 2);
     // The meal's own copy is untouched — the effect is a second line, not a replacement.
     expect(spicy.reaction.message).toContain('loved the variety');
+  });
+});
+
+describe('levelling gets harder after level 10', () => {
+  const at = (level: number, xp = 0) => ({ ...createPet('user-1', 'Blue'), level, xp });
+
+  it('costs 100 a level below 10, then 15 more each level, up to 400', () => {
+    expect(xpToLevelUp(1)).toBe(100);
+    expect(xpToLevelUp(9)).toBe(100);
+    expect(xpToLevelUp(10)).toBe(115);
+    expect(xpToLevelUp(15)).toBe(190);
+    expect(xpToLevelUp(29)).toBe(400);
+    expect(xpToLevelUp(60)).toBe(400);
+  });
+
+  it('fills a low level as before, and a high one more slowly', () => {
+    expect(applyDelta(at(5, 40), { xp: 30 }, '2026-10-23T12:00:00Z')).toMatchObject({ level: 5, xp: 70 });
+    // 95 of level 15's 190 is half way.
+    expect(applyDelta(at(15), { xp: 95 }, '2026-10-23T12:00:00Z')).toMatchObject({ level: 15, xp: 50 });
+  });
+
+  it('pays each level its own price when one gain crosses several', () => {
+    // 9 -> 10 needs the last 50 of 100; 10 -> 11 needs 115; what is left is 35/130 of level 11.
+    expect(applyDelta(at(9, 50), { xp: 200 }, '2026-10-23T12:00:00Z')).toMatchObject({ level: 11, xp: 27 });
+  });
+
+  it('counts lifetime xp in earned xp, so a diff is what was earned at any level', () => {
+    const before = at(40, 30);
+    const after = applyDelta(before, { xp: 33 }, '2026-10-23T12:00:00Z');
+    expect(Math.abs(totalPetXp(after) - totalPetXp(before) - 33)).toBeLessThanOrEqual(2);
   });
 });

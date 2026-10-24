@@ -2,7 +2,7 @@ import { tracksArea } from './careAreas';
 import type { BodyProfile } from './macroTargets';
 import { calculateMacroTargets, measurementSystemOf } from './macroTargets';
 import type { BrainTrainingMetadata, HealthEvent, MealMetadata, WorkoutMetadata } from './health';
-import { XP_PER_LEVEL, type PetState } from './pet';
+import { XP_PER_LEVEL, xpToLevelUp, type PetState } from './pet';
 import {
   type MacroTotals,
   caloriesBurnedForDay,
@@ -336,6 +336,7 @@ export function buildDailyRecap({
     food,
     dailyProgress,
     activity,
-    levelProgress: { level: pet.level, xpIntoLevel: pet.xp, xpForLevel: XP_PER_LEVEL },
+    // In earned xp, so "60/190 to level 16" matches the +XP each log shows.
+    levelProgress: { level: pet.level, xpIntoLevel: Math.round((pet.xp / XP_PER_LEVEL) * xpToLevelUp(pet.level)), xpForLevel: xpToLevelUp(pet.level) },
   };
 }

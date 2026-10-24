@@ -1,7 +1,7 @@
 import type { BrainTrainingMetadata, HealthEvent, MealAnalysis, MealMetadata, ScreenTimeMetadata, SleepMetadata, StepMetadata, WorkoutMetadata } from './health';
 import { getScreenTimeBand, type ScreenTimeBandId } from './screenTime';
 import { coinsEarned, coinsOf } from './coins';
-import { chargeOf, clamp, lockEvolution, XP_PER_LEVEL, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
+import { chargeOf, clamp, lockEvolution, XP_PER_LEVEL, xpToLevelUp, type PetDelta, type PetMood, type PetReaction, type PetState } from './pet';
 import { formatMinutes } from './careToast';
 import { waterMlOf, waterReachesGoal } from './hydration';
 import { type FoodEffect, detectFoodEffects, foodEffectsDelta } from './foodEffects';
@@ -177,9 +177,31 @@ const mergeDelta = (base: PetDelta, extra: PetDelta): PetDelta => {
   return merged;
 };
 
+/**
+ * Earned xp spent across levels, each at its own cost (`xpToLevelUp`), into the
+ * stored level and 0-100 progress. A gain that crosses several levels pays each
+ * one's price in turn. Progress rounds to a whole point and stops at 99: the
+ * column is whole numbers, and only an actual level-up reaches 100.
+ */
+const spendXp = (level: number, progress: number, earned: number): { level: number; xp: number } => {
+  let remaining = Math.max(0, earned);
+  let at = { level, progress };
+  while (remaining > 0) {
+    const cost = xpToLevelUp(at.level);
+    const toNext = ((XP_PER_LEVEL - at.progress) / XP_PER_LEVEL) * cost;
+    if (remaining + 1e-9 < toNext) {
+      at = { level: at.level, progress: at.progress + (remaining / cost) * XP_PER_LEVEL };
+      break;
+    }
+    remaining -= toNext;
+    at = { level: at.level + 1, progress: 0 };
+  }
+  return { level: at.level, xp: Math.min(XP_PER_LEVEL - 1, Math.round(at.progress)) };
+};
+
 export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): PetState => {
-  const nextXp = pet.xp + (delta.xp ?? 0);
-  const nextLevel = pet.level + Math.floor(nextXp / XP_PER_LEVEL);
+  const spent = spendXp(pet.level, pet.xp, delta.xp ?? 0);
+  const nextLevel = spent.level;
   const nextEnergy = clamp(pet.energy + (delta.energy ?? 0));
   const nextNutrition = clamp(pet.nutrition + (delta.nutrition ?? 0));
   const nextHappiness = clamp(pet.happiness + (delta.happiness ?? 0));
@@ -187,7 +209,7 @@ export const applyDelta = (pet: PetState, delta: PetDelta, occurredAt: string): 
   return lockEvolution({
     ...pet,
     level: nextLevel,
-    xp: nextXp % XP_PER_LEVEL,
+    xp: spent.xp,
     // Earned with the XP, never spent here.
     coins: coinsOf(pet) + coinsEarned(nextLevel - pet.level),
     health: clamp(pet.health + (delta.health ?? 0)),
