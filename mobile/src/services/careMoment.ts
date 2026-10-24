@@ -132,10 +132,13 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
   // Strength is scored against recent training, so hand the engine the
   // history it needs plus body weight for bodyweight-exercise volume.
   // Maintenance too: a meal feeds the pet by its share of what this person burns.
+  // The first meal after starving or the brink revives it past hungry and sleepy.
+  const before = assessCondition(decayed);
   const result = engine.apply(decayed, event, {
     history: events,
     bodyWeightKg: profile.weightKg,
     maintenanceCalories: maintenanceCalories(profile),
+    recovering: before.primary === 'dying' || before.ailments.includes('starving'),
   });
   let nextPet = result.pet;
   let nextReaction = result.reaction;

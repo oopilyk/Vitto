@@ -25,10 +25,19 @@ export interface PetHealthContext {
   bodyWeightKg?: number;
   /** What the logger burns in a day (see maintenanceCalories): a meal feeds the pet by its share of it. */
   maintenanceCalories?: number;
+  /**
+   * The pet was starving or dying when this was logged. A meal then brings it
+   * back to just past hungry and just past sleepy, whatever its size: the
+   * first plate after the brink should visibly revive it, not leave it asking
+   * for the sleep most phones never record (see RECOVERY_MARGIN).
+   */
+  recovering?: boolean;
 }
 
 /** Under this Energy (`charge`: sleep and food) the pet is sleepy. */
 export const SLEEPY_ENERGY_THRESHOLD = 40;
+/** How far past hungry and sleepy a recovery meal leaves the pet (see PetHealthContext.recovering). */
+const RECOVERY_MARGIN = 5;
 /** Under this Vitality (`energy`: workouts and walks) the pet is sluggish. */
 export const SLUGGISH_VITALITY_THRESHOLD = 40;
 const BRIGHT_ENERGY_THRESHOLD = 65;
@@ -435,17 +444,22 @@ export class PetHealthEngine {
         // Health: only the plate.
         const eatenMs = Date.parse(event.occurredAt);
         const anchorMs = Math.max(eatenMs, Date.parse(pet.lastEventAt ?? pet.adoptedAt) || eatenMs);
-        recentMeals = mealsStillFeeding(
-          [...mealsOf(pet), { at: event.occurredAt, points: mealPoints(meal.analysis?.macros?.calories, context.maintenanceCalories) }],
-          anchorMs,
-        );
+        const stillFeeding = mealsStillFeeding(mealsOf(pet), anchorMs);
+        const points = mealPoints(meal.analysis?.macros?.calories, context.maintenanceCalories);
+        // A recovery meal counts for at least enough to clear hungry.
+        const recoveryPoints = context.recovering
+          ? Math.max(points, HUNGRY_NUTRITION_THRESHOLD + RECOVERY_MARGIN - hungerAt(stillFeeding, anchorMs))
+          : points;
+        recentMeals = mealsStillFeeding([...stillFeeding, { at: event.occurredAt, points: recoveryPoints }], anchorMs);
+        // Energy: any meal gives some, a balanced plate more. Vitality is
+        // for moving, so a meal leaves it alone. A recovery meal lifts it
+        // past sleepy too.
+        const mealCharge = quality === 'A' ? 12 : 8;
         delta = {
           nutrition: hungerAt(recentMeals, anchorMs) - pet.nutrition,
           health: MEAL_HEALTH[quality],
           happiness: meal.treats ? 4 : 2,
-          // Energy: any meal gives some, a balanced plate more. Vitality is
-          // for moving, so a meal leaves it alone.
-          charge: quality === 'A' ? 12 : 8,
+          charge: context.recovering ? Math.max(mealCharge, SLEEPY_ENERGY_THRESHOLD + RECOVERY_MARGIN - chargeOf(pet)) : mealCharge,
           xp: 10,
         };
         // Food effects ride on top: a spicy plate is a little energising, a feast

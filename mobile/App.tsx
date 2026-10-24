@@ -2427,7 +2427,14 @@ function VittoApp() {
               // Sleep has no manual entry: a SLEEP event is only ever created by
               // the HealthKit import. Telling an exhausted pet's owner to "get
               // some rest" anywhere else asks for the one thing they cannot do.
-              canLogSleep={Platform.OS === 'ios' && isAppleHealthConnected}
+              // And connected is not enough: most iPhones record no sleep
+              // without a watch or a tracker, so the pet only asks for sleep once
+              // a night has actually come in this past week; a meal otherwise.
+              canLogSleep={
+                Platform.OS === 'ios' &&
+                isAppleHealthConnected &&
+                events.some((event) => event.type === 'SLEEP' && Date.now() - Date.parse(event.occurredAt) < 7 * 86_400_000)
+              }
               trophies={trophiesNow}
               accountInitial={session?.user.email?.charAt(0)}
               pets={pets.map((candidate) => ({

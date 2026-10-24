@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MEAL_HEALTH, PetHealthEngine, applyDelta, mealQuality } from './petHealthEngine';
-import { MEAL_POINTS_DEFAULT } from './hunger';
+import { MEAL_HEALTH, PetHealthEngine, SLEEPY_ENERGY_THRESHOLD, applyDelta, mealQuality } from './petHealthEngine';
+import { HUNGRY_NUTRITION_THRESHOLD, MEAL_POINTS_DEFAULT } from './hunger';
 import { clamp, createPet, totalPetXp, xpToLevelUp } from './pet';
 import type { HealthEvent, WorkoutStats } from './health';
 
@@ -829,5 +829,29 @@ describe('levelling gets harder after level 10', () => {
     const before = at(40, 30);
     const after = applyDelta(before, { xp: 33 }, '2026-10-23T12:00:00Z');
     expect(Math.abs(totalPetXp(after) - totalPetXp(before) - 33)).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('the first meal back from starving or the brink', () => {
+  const starving = { ...createPet('user-1', 'Augustine'), nutrition: 5, charge: 10, recentMeals: [], lastEventAt: '2026-10-23T11:00:00Z' };
+  const snack: HealthEvent = {
+    id: 's', userId: 'user-1', occurredAt: '2026-10-23T12:00:00Z', type: 'MEAL', source: 'manual',
+    metadata: { protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: true,
+      analysis: { grade: 'D', summary: '', confidence: 1, detectedFoods: ['chips'], macros: { calories: 150, proteinGrams: 2, carbsGrams: 15, fatGrams: 9 },
+        nutrients: { protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: true } } },
+  } as HealthEvent;
+
+  it('leaves it just past hungry and just past sleepy, however small the plate', () => {
+    const pet = new PetHealthEngine().apply(starving, snack, { maintenanceCalories: 2000, recovering: true }).pet;
+    expect(pet.nutrition).toBeGreaterThan(HUNGRY_NUTRITION_THRESHOLD);
+    expect(pet.charge).toBeGreaterThan(SLEEPY_ENERGY_THRESHOLD);
+    expect(pet.mood).not.toBe('hungry');
+    expect(pet.mood).not.toBe('sleepy');
+  });
+
+  it('is an ordinary meal otherwise', () => {
+    const pet = new PetHealthEngine().apply(starving, snack, { maintenanceCalories: 2000 }).pet;
+    expect(pet.nutrition).toBeLessThan(HUNGRY_NUTRITION_THRESHOLD);
+    expect(pet.charge).toBeLessThan(SLEEPY_ENERGY_THRESHOLD);
   });
 });
