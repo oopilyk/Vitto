@@ -107,6 +107,18 @@ export function SettingsPage({
 }
 
 /**
+ * A bar pinned to the bottom of a settings page, for an action that should
+ * never be a scroll away (pass it as SettingsPage's footer). Same look as SaveBar.
+ */
+export function PinnedBar({ children }: { children: ReactNode }) {
+  return (
+    <View style={[kit.saveBar, { paddingBottom: HOME_INDICATOR_INSET }]}>
+      <View style={[kit.saveInner, kit.pinnedInner]}>{children}</View>
+    </View>
+  );
+}
+
+/**
  * The save bar for a settings page with a draft: pinned to the bottom, shown
  * by the page only once something differs (pass it as SettingsPage's footer).
  */
@@ -628,6 +640,7 @@ export const kit = themedStyles(() => ({
   },
   saveInner: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
   saveRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  pinnedInner: { gap: 8 },
   saveError: { ...text.error, fontSize: 17, marginBottom: 10 },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

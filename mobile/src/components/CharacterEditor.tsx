@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Keyboard, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -49,6 +49,7 @@ export function CharacterEditor({
   onSave,
   saving,
   changesLeft,
+  layout,
 }: {
   pet: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
   /** Gates the notes field and the temperaments that swear (see MATURE_PERSONALITY_AGE). */
@@ -61,6 +62,12 @@ export function CharacterEditor({
    * personality_change_limit migration). Null or absent: no limit shown.
    */
   changesLeft?: number | null;
+  /**
+   * Lets the page place the save button and what it says (the page pins it to
+   * the bottom of the screen, so it is never a scroll away). Without it, the
+   * button sits at the end of the editor as before.
+   */
+  layout?: (body: ReactNode, saveArea: ReactNode) => ReactNode;
 }) {
   const stored = characterOf(pet);
   const [draft, setDraft] = useState<Character>(stored);
@@ -99,7 +106,43 @@ export function CharacterEditor({
   // The choices, for the first-run tour's personality step (see FirstRunTour).
   const choicesTourRef = useTourTarget('personality');
 
-  return (
+  // The save button and what it says, kept together so a page can pin them.
+  const saveArea = (
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !savable }}
+        disabled={!savable}
+        onPress={() => void save()}
+        style={({ pressed }) => [
+          styles.save,
+          justSaved ? styles.saveDone : !savable && styles.saveOff,
+          pressed && styles.pressed,
+        ]}
+        testID="save-character"
+      >
+        <Text style={[styles.saveLabel, !justSaved && !busy && !savable && styles.saveLabelOff]}>
+          {busy ? 'Saving…' : justSaved ? '✓ Saved' : 'Save character'}
+        </Text>
+      </Pressable>
+      {justSaved ? (
+        <View style={styles.savedBanner} testID="character-saved">
+          <Text style={styles.savedBannerMark}>✓</Text>
+          <View style={styles.savedBannerText}>
+            <Text style={styles.savedBannerBody}>{`${pet.name} talks like this from their next message.`}</Text>
+          </View>
+        </View>
+      ) : null}
+      {saveState === 'failed' && saveError ? (
+        <View style={styles.failed} testID="character-save-failed">
+          <Text style={styles.failedTitle}>Not saved</Text>
+          <Text style={styles.failedBody}>{saveError}</Text>
+        </View>
+      ) : null}
+    </>
+  );
+
+  const body = (
     <View style={styles.wrap}>
       <CurrentCharacter
         pet={pet}
@@ -151,37 +194,7 @@ export function CharacterEditor({
           )}
         />
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !savable }}
-        disabled={!savable}
-        onPress={() => void save()}
-        style={({ pressed }) => [
-          styles.save,
-          justSaved ? styles.saveDone : !savable && styles.saveOff,
-          pressed && styles.pressed,
-        ]}
-        testID="save-character"
-      >
-        <Text style={[styles.saveLabel, !justSaved && !busy && !savable && styles.saveLabelOff]}>
-          {busy ? 'Saving…' : justSaved ? '✓ Saved' : 'Save character'}
-        </Text>
-      </Pressable>
-      {justSaved ? (
-        <View style={styles.savedBanner} testID="character-saved">
-          <Text style={styles.savedBannerMark}>✓</Text>
-          <View style={styles.savedBannerText}>
-            <Text style={styles.savedBannerTitle}>Saved and in place</Text>
-            <Text style={styles.savedBannerBody}>{`Checked on the server. ${pet.name} talks this way from their next message.`}</Text>
-          </View>
-        </View>
-      ) : null}
-      {saveState === 'failed' && saveError ? (
-        <View style={styles.failed} testID="character-save-failed">
-          <Text style={styles.failedTitle}>Not saved</Text>
-          <Text style={styles.failedBody}>{saveError}</Text>
-        </View>
-      ) : null}
+      {layout ? null : saveArea}
       {typeof changesLeft === 'number' ? (
         <Text style={[styles.note, outOfChanges && styles.noteOut]} testID="changes-left">
           {outOfChanges
@@ -191,6 +204,7 @@ export function CharacterEditor({
       ) : null}
     </View>
   );
+  return <>{layout ? layout(body, saveArea) : body}</>;
 }
 
 /**
@@ -283,7 +297,6 @@ const styles = themedStyles(() => ({
     overflow: 'hidden',
   },
   savedBannerText: { flex: 1 },
-  savedBannerTitle: { fontFamily: fonts.pixelBold, fontSize: 20, color: '#ffffff' },
   savedBannerBody: { fontFamily: fonts.pixel, fontSize: 16, color: '#e6f2e8', lineHeight: 22, marginTop: 1 },
   failed: { gap: 2, padding: 10, borderRadius: 4, backgroundColor: colors.coralWash },
   failedTitle: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.coralDeep },

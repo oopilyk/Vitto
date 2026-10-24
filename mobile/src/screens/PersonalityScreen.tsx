@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { CharacterEditor, type Character } from '../components/CharacterEditor';
-import { SettingsPage } from '../components/settingsKit';
+import { PinnedBar, SettingsPage } from '../components/settingsKit';
 import { TextButton } from '../components/ui';
 import { colors, themedStyles, fonts } from '../theme';
 
@@ -26,7 +27,7 @@ interface Props {
 
 /** The pet's personality, on its own page (from Settings). */
 export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpenPlus, changesLeft, welcome = false, fromTour = false, onClose }: Props) {
-  return (
+  const page = (content: ReactNode, footer?: ReactNode) => (
     <SettingsPage
       title={welcome ? `Who should ${pet.name} be?` : 'Personality'}
       lead={
@@ -36,6 +37,7 @@ export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpe
       }
       backLabel={welcome ? 'Later' : fromTour ? 'Home' : 'Settings'}
       onBack={onClose}
+      footer={footer}
     >
       <View style={styles.body}>
         {welcome ? (
@@ -44,19 +46,33 @@ export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpe
             <Text style={styles.welcomeBody}>{`Until now ${pet.name} has had the default voice. This is where they become yours.`}</Text>
           </View>
         ) : null}
-        {canCustomise ? (
-          <CharacterEditor pet={pet} age={age} onSave={onSave} changesLeft={changesLeft} />
-        ) : (
-          <View style={styles.locked} testID="personality-locked">
-            <Text style={styles.lockedTitle}>A Plus feature</Text>
-            <Text style={styles.lockedBody}>
-              {`${pet.name} talks in their own easygoing voice. With Plus you can pick a temperament, fine-tune it, or write them a whole character.`}
-            </Text>
-            {onOpenPlus ? <TextButton label="See Plus" tone="coral" onPress={onOpenPlus} /> : null}
-          </View>
-        )}
+        {content}
       </View>
     </SettingsPage>
+  );
+
+  if (!canCustomise) {
+    return page(
+      <View style={styles.locked} testID="personality-locked">
+        <Text style={styles.lockedTitle}>A Plus feature</Text>
+        <Text style={styles.lockedBody}>
+          {`${pet.name} talks in their own easygoing voice. With Plus you can pick a temperament, fine-tune it, or write them a whole character.`}
+        </Text>
+        {onOpenPlus ? <TextButton label="See Plus" tone="coral" onPress={onOpenPlus} /> : null}
+      </View>,
+    );
+  }
+
+  // Save character pinned to the bottom of the screen: the list of characters
+  // is long, and the button sat a scroll away from wherever the change was made.
+  return (
+    <CharacterEditor
+      pet={pet}
+      age={age}
+      onSave={onSave}
+      changesLeft={changesLeft}
+      layout={(body, saveArea) => page(body, <PinnedBar>{saveArea}</PinnedBar>)}
+    />
   );
 }
 
