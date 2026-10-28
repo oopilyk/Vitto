@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, InputAccessoryView, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { companion as ai, describeReminderDays, errorMessage, formatReminderTime, type PetState, type Weekday } from '@vitto/core';
 import { TextButton } from '../components/ui';
@@ -88,6 +88,12 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
   // shrunk yet, so that scroll went to the old bottom and the newest message
   // ended up behind the message box.
   const [keyboardUp, setKeyboardUp] = useState(false);
+  // On iPhone the message box is the keyboard's own accessory bar, as in
+  // Messages: iOS moves it with the keyboard frame by frame, finger drags
+  // included, which no JavaScript animation can match. Docked, it overlays the
+  // bottom of the screen, so the thread keeps its height free.
+  const accessory = Platform.OS === 'ios';
+  const [composerHeight, setComposerHeight] = useState(0);
   useEffect(() => {
     const ios = Platform.OS === 'ios';
     const toEnd = () => requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
@@ -200,8 +206,9 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
   const limitReached = access !== null && !access.canChat;
   const limits = ai.limitsFor(access?.tier);
 
+  const Root = accessory ? View : KeyboardAvoidingView;
   return (
-    <KeyboardAvoidingView style={[layout.screen, styles.screen]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <Root style={[layout.screen, styles.screen]}>
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onClose} hitSlop={10} style={styles.back}>
           <Text style={styles.backArrow}>←</Text>
@@ -228,10 +235,13 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
       */}
       <ScrollView
         ref={list}
-        contentContainerStyle={styles.thread}
+        contentContainerStyle={[styles.thread, accessory && { paddingBottom: 16 + composerHeight }]}
         onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
         onLayout={() => list.current?.scrollToEnd({ animated: false })}
         keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive"
+        // The keyboard's own insets, applied by iOS as it moves: the thread
+        // rides up with it in step, like Messages.
+        automaticallyAdjustKeyboardInsets={accessory}
       >
         {messages.length === 0 ? (
           state ? (
@@ -254,7 +264,8 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
         {sending ? <Text style={styles.typing}>{`${pet.name} is thinking…`}</Text> : null}
       </ScrollView>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {/* With the docked bar on iPhone the error rides in it, above the box; here it would sit behind it. */}
+      {error && (!accessory || limitReached) ? <Text style={styles.error}>{error}</Text> : null}
 
       {limitReached ? (
         // The paywall seam, as the person meets it.
@@ -266,13 +277,16 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
           ) : null}
         </View>
       ) : (
-        <>
+        <ComposerDock accessory={accessory} onHeight={setComposerHeight}>
+        {accessory && error ? <Text style={styles.error}>{error}</Text> : null}
         {/* Above the box, not under it: under it, it sat between the box and the keyboard. */}
         {access && access.messagesLeftToday <= 5 ? (
           <Text style={styles.remaining}>{`${access.messagesLeftToday} message${access.messagesLeftToday === 1 ? '' : 's'} left today`}</Text>
         ) : null}
         {/* The home-bar space only when the keyboard is down: up, the box sits right on it. */}
-        <View style={[styles.composer, keyboardUp && styles.composerKeyboardUp]}>
+        {/* iOS keeps the docked bar clear of the home indicator itself, so there
+            it never needs the extra bottom space. */}
+        <View style={[styles.composer, (keyboardUp || accessory) && styles.composerKeyboardUp]}>
           <TextInput
             style={[layout.input, styles.input]}
             value={draft}
@@ -300,9 +314,25 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
             <Text style={styles.sendMark}>↑</Text>
           </Pressable>
         </View>
-        </>
+        </ComposerDock>
       )}
-    </KeyboardAvoidingView>
+    </Root>
+  );
+}
+
+/**
+ * Where the message box lives: on iPhone, in the keyboard's accessory bar (see
+ * `accessory` above), reporting its height so the thread can keep clear of it;
+ * elsewhere, simply in the layout under the thread.
+ */
+function ComposerDock({ accessory, onHeight, children }: { accessory: boolean; onHeight: (height: number) => void; children: ReactNode }) {
+  if (!accessory) return <>{children}</>;
+  return (
+    <InputAccessoryView backgroundColor={colors.paper}>
+      <View style={styles.dock} onLayout={(event) => onHeight(event.nativeEvent.layout.height)}>
+        {children}
+      </View>
+    </InputAccessoryView>
   );
 }
 
@@ -402,4 +432,5 @@ const styles = themedStyles(() => ({
   limitBody: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25, color: colors.inkSoft, marginTop: 6 },
   remaining: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, textAlign: 'center', paddingTop: 6 },
   composerKeyboardUp: { paddingBottom: 8 },
+  dock: { backgroundColor: colors.paper },
 }));

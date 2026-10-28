@@ -97,7 +97,7 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
 
       <SettingsSection title="New reminder">
         <FormField label="What should Vitto say?">
-          <TextField placeholder="Take creatine" value={label} onChangeText={setLabel} maxLength={60} returnKeyType="done" />
+          <TextField placeholder="Your reminder, e.g. Take creatine" value={label} onChangeText={setLabel} maxLength={60} returnKeyType="done" />
         </FormField>
         <FieldRow>
           <FormField label="Hour" hint="0-23">

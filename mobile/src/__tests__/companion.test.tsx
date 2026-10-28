@@ -114,6 +114,17 @@ describe('talking to the pet', () => {
     tree.unmount();
   });
 
+  it('docks the message box to the keyboard on iPhone, as Messages does', async () => {
+    const { InputAccessoryView, ScrollView } = require('react-native');
+    companionService.load.mockResolvedValue({ state, messages: [], access: free });
+    const tree = await open();
+    // The box is the keyboard's accessory bar, which iOS moves with the keyboard itself.
+    expect(tree.root.findByType(InputAccessoryView).findAllByType(TextInput)).toHaveLength(1);
+    // And the thread takes the keyboard's insets as it moves.
+    expect(tree.root.findByType(ScrollView).props.automaticallyAdjustKeyboardInsets).toBe(true);
+    tree.unmount();
+  });
+
   it('sends a message and shows the reply', async () => {
     companionService.load.mockResolvedValue({ state, messages: [], access: free });
     companionService.send.mockResolvedValue({ userMessage: message('u', 'user', 'hello'), reply: message('p', 'pet', 'oh hi!!'), state, access: free, degraded: false });

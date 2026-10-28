@@ -3069,7 +3069,7 @@ describe('care partners', () => {
     });
     const label = tree.root
       .findAllByType(RNTextInput)
-      .find((node: any) => node.props.placeholder === 'Take creatine');
+      .find((node: any) => node.props.placeholder === 'Your reminder, e.g. Take creatine');
     act(() => label!.props.onChangeText('Take creatine'));
     await act(async () => {
       await findButton(tree, 'Add reminder')!.props.onPress();
