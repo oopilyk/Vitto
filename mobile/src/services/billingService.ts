@@ -230,7 +230,18 @@ export const billingService = {
       }
       throw new Error(failure.message || 'The purchase did not go through.');
     }
-    return sync();
+    // Apple took the payment; the server unlocks Plus once RevenueCat shows the
+    // entitlement. One more look a moment later covers a slow first read.
+    let next = await sync();
+    if (next.tier !== 'plus') {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      next = await sync();
+    }
+    // Paid but still free would otherwise look like a button that did nothing.
+    if (next.tier !== 'plus') {
+      throw new Error('Your purchase went through, but Plus has not switched on yet. In a minute, tap Restore in Settings → Vitto Plus, or email getvitto@gmail.com.');
+    }
+    return next;
   },
   /** "Restore purchases": hands the device's App Store purchases to this account. */
   restore: async (): Promise<PlusStatus> => {

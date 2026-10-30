@@ -1,4 +1,5 @@
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
+import { useState } from 'react';
+import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
 import { FitText } from './FitText';
 import { colors, getColorScheme, themedStyles } from '../theme';
 
@@ -110,13 +111,32 @@ export function OnbInput({ form, placeholder, ...props }: TextInputProps & { for
   }
   const inset = (Number(flat.paddingHorizontal ?? flat.padding ?? 0) || 0) + (Number(flat.borderWidth ?? 0) || 0);
   const empty = !props.value;
+  // iOS puts the caret of an empty centred field where its placeholder starts,
+  // and lays even an invisible placeholder out spread wide, so the caret sat
+  // well left of the hint ("|     Your name"). There, the field gets no
+  // placeholder and, while empty, its hint's width as extra right padding:
+  // the caret, centred in what is left, lands on the hint's first letter.
+  const caretToHint = Platform.OS === 'ios' && flat.textAlign === 'center' && Boolean(placeholder);
+  const [hintWidth, setHintWidth] = useState(0);
+  const field: TextStyle =
+    caretToHint && empty ? { ...inner, paddingRight: (Number(inner.paddingRight ?? inner.paddingHorizontal ?? 0) || 0) + hintWidth } : inner;
   return (
     <View style={[kit.inputBox, outer]}>
       {/* The native placeholder stays for VoiceOver, drawn invisible. */}
-      <TextInput placeholder={placeholder} placeholderTextColor="transparent" {...props} style={inner} />
+      <TextInput
+        placeholder={caretToHint ? undefined : placeholder}
+        placeholderTextColor="transparent"
+        accessibilityLabel={caretToHint ? (props.accessibilityLabel ?? placeholder) : undefined}
+        {...props}
+        style={field}
+      />
       {placeholder && empty ? (
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, kit.hintBox, { paddingHorizontal: inset }]}>
           <FitText
+            onTextLayout={(event) => {
+              const width = event.nativeEvent.lines[0]?.width ?? 0;
+              setHintWidth((current) => (Math.abs(current - width) < 0.5 ? current : width));
+            }}
             style={[
               kit.hint,
               // The field's own letter spacing too: iOS puts the caret where its

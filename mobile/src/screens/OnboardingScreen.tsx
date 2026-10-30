@@ -974,6 +974,7 @@ export function OnboardingScreen({
                       autoCorrect={false}
                       maxLength={INVITE_INPUT_MAX_LENGTH}
                       placeholder="ABCD-EFGH"
+                      accessibilityLabel="Invite code"
                     />
                     <FButton
                       label="Join their pet"
@@ -1637,7 +1638,28 @@ export function OnboardingScreen({
                   </View>
                 ))}
               </View>
-              ) : null}
+              ) : (
+                // No trial to lay out (Apple gives it to first-time subscribers
+                // only): what Plus brings instead, so the page is not empty.
+                <View style={styles.timeline} testID="plus-offer-perks">
+                  {[
+                    { title: 'Their personality', body: `Pick who ${petName} is, or write them a character of your own.` },
+                    { title: 'Photo meals', body: 'Snap a plate and get the calories and macros.' },
+                    { title: 'More chat', body: `Many more messages a day, and ${petName} remembers what you tell them.` },
+                    { title: 'Lift progress and insights', body: 'Your estimated max over time, and patterns your pet notices.' },
+                  ].map((row) => (
+                    <View key={row.title} style={styles.timelineRow}>
+                      <View style={styles.timelineMarkWrap}>
+                        <View style={[styles.timelineMark, styles.timelineMarkOn]} />
+                      </View>
+                      <View style={styles.timelineText}>
+                        <Text style={styles.timelineTitle}>{row.title}</Text>
+                        <Text style={styles.timelineBody}>{row.body}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
               {paywall.isDevAccount ? <Text style={styles.hint}>Dev account: Plus is always on here.</Text> : null}
               {plusStatus?.mode === 'test' ? <Text style={styles.hint}>Test mode: no real payment is taken.</Text> : null}
             </View>

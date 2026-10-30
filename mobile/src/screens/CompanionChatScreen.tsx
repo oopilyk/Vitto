@@ -93,7 +93,6 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
   // included, which no JavaScript animation can match. Docked, it overlays the
   // bottom of the screen, so the thread keeps its height free.
   const accessory = Platform.OS === 'ios';
-  const [composerHeight, setComposerHeight] = useState(0);
   useEffect(() => {
     const ios = Platform.OS === 'ios';
     const toEnd = () => requestAnimationFrame(() => list.current?.scrollToEnd({ animated: true }));
@@ -235,12 +234,14 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
       */}
       <ScrollView
         ref={list}
-        contentContainerStyle={[styles.thread, accessory && { paddingBottom: 16 + composerHeight }]}
+        contentContainerStyle={styles.thread}
         onContentSizeChange={() => list.current?.scrollToEnd({ animated: true })}
         onLayout={() => list.current?.scrollToEnd({ animated: false })}
         keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive"
         // The keyboard's own insets, applied by iOS as it moves: the thread
-        // rides up with it in step, like Messages.
+        // rides up with it in step, like Messages. iOS counts the docked bar
+        // as keyboard, down or up, so these already clear it; padding the
+        // thread by the bar's height as well left a bar-high gap above it.
         automaticallyAdjustKeyboardInsets={accessory}
       >
         {messages.length === 0 ? (
@@ -277,7 +278,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
           ) : null}
         </View>
       ) : (
-        <ComposerDock accessory={accessory} onHeight={setComposerHeight}>
+        <ComposerDock accessory={accessory}>
         {accessory && error ? <Text style={styles.error}>{error}</Text> : null}
         {/* Above the box, not under it: under it, it sat between the box and the keyboard. */}
         {access && access.messagesLeftToday <= 5 ? (
@@ -322,14 +323,13 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
 
 /**
  * Where the message box lives: on iPhone, in the keyboard's accessory bar (see
- * `accessory` above), reporting its height so the thread can keep clear of it;
- * elsewhere, simply in the layout under the thread.
+ * `accessory` above); elsewhere, simply in the layout under the thread.
  */
-function ComposerDock({ accessory, onHeight, children }: { accessory: boolean; onHeight: (height: number) => void; children: ReactNode }) {
+function ComposerDock({ accessory, children }: { accessory: boolean; children: ReactNode }) {
   if (!accessory) return <>{children}</>;
   return (
     <InputAccessoryView backgroundColor={colors.paper}>
-      <View style={styles.dock} onLayout={(event) => onHeight(event.nativeEvent.layout.height)}>
+      <View style={styles.dock}>
         {children}
       </View>
     </InputAccessoryView>

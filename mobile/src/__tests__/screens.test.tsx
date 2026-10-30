@@ -3335,7 +3335,7 @@ describe('care partners', () => {
     const reveal = findButton(tree, "Have an invite code? Join a partner’s pet");
     expect(reveal).toBeTruthy();
     act(() => reveal!.props.onPress());
-    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.placeholder === 'ABCD-EFGH');
+    const input = tree.root.findAllByType(RNTextInput).find((node: any) => node.props.accessibilityLabel === 'Invite code');
     expect(input).toBeTruthy();
     act(() => input!.props.onChangeText('abc def'));
     await act(async () => {

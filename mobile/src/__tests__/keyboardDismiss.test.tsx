@@ -41,4 +41,25 @@ describe('onboarding text boxes line their hint up with the box and the caret', 
     expect(hint?.letterSpacing).toBe(8);
     tree.unmount();
   });
+
+  it('puts the iOS caret of an empty centred box on the first letter of its hint', () => {
+    const { OnbInput: Input } = require('../components/onboardingKit');
+    const { TextInput, Text, StyleSheet } = require('react-native');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<Input value="" placeholder="Your name" accessibilityLabel="Your name" />);
+    });
+    const field = () => tree.root.findByType(TextInput);
+    // No native placeholder: iOS laid even an invisible one out wide, and put
+    // the caret at its start, well left of the drawn hint.
+    expect(field().props.placeholder).toBeUndefined();
+    expect(field().props.accessibilityLabel).toBe('Your name');
+    const shown = tree.root.findAllByType(Text).find((n: any) => n.props.children === 'Your name' && n.props.onTextLayout);
+    act(() => shown!.props.onTextLayout({ nativeEvent: { lines: [{ width: 96 }] } }));
+    // Padded right by the hint's width, the centred caret lands where the hint starts.
+    expect(StyleSheet.flatten(field().props.style).paddingRight).toBe(18 + 96);
+    act(() => tree.update(<Input value="Kyle" placeholder="Your name" accessibilityLabel="Your name" />));
+    expect(StyleSheet.flatten(field().props.style).paddingRight).toBeUndefined();
+    tree.unmount();
+  });
 });
