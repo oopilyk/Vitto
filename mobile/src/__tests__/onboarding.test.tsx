@@ -226,11 +226,16 @@ describe('onboarding', () => {
     expect(has(tree, 'Talk with Miso anytime')).toBe(true);
     press(tree, 'Next');
     expect(tree.root.findAll((n) => n.props.testID === 'plus-offer').length).toBeGreaterThan(0);
+    // Asked for on the Plus pages before: in by now, so no trial promised then taken back.
+    await act(async () => {});
+    expect(tree.root.findAll((n) => n.props.testID === 'plus-offer-loading')).toHaveLength(0);
     expect(has(tree, 'Start your 14-day free trial')).toBe(true);
     await act(async () => {
       await button(tree, 'Start my free trial')!.props.onPress();
     });
     expect(billingService.purchase).toHaveBeenCalledWith('yearly', true);
+    // The reminder never puts iOS's prompt up ahead of the notifications step.
+    expect(jest.requireMock('../services/pushService').scheduleTrialReminder).toHaveBeenCalledWith(12, 14, { ask: false });
     expect(tiers).toEqual(['plus']);
     // Bought: on with onboarding. (In the app the new tier also opens the
     // personality step; here canCustomise is fixed, so it is the next one.)

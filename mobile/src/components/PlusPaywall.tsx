@@ -316,7 +316,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
                 <View style={styles.timelineRail} />
                 {[
                   { day: 'Today', what: 'Full access, free', tint: colors.mintDeep },
-                  { day: `Day ${reminderDay}`, what: 'We remind you before it ends', tint: colors.lilacDeep },
+                  { day: `Day ${reminderDay}`, what: 'A reminder, if you allow it', tint: colors.lilacDeep },
                   { day: `Day ${trialDays}`, what: `${yearlyPrice} / year, cancel anytime`, tint: colors.inkSoft },
                 ].map((step) => (
                   <View key={step.day} style={styles.stop}>

@@ -174,12 +174,14 @@ const TRIAL_REMINDER_ID = 'vitto-plus-trial-reminder';
  * web, which cannot schedule) it quietly does nothing, and the paywall's copy
  * is only shown where that is acceptable (see PlusPaywall). Replaces any
  * reminder already scheduled, so starting a trial twice cannot remind twice.
+ * `ask: false` only schedules if notifications are already allowed: onboarding
+ * sells Plus before its notifications step, and iOS's prompt belongs there.
  */
-export const scheduleTrialReminder = async (daysIn: number, trialDays: number): Promise<boolean> => {
+export const scheduleTrialReminder = async (daysIn: number, trialDays: number, { ask = true } = {}): Promise<boolean> => {
   if (Platform.OS === 'web') return false;
   try {
     const permission = await Notifications.getPermissionsAsync();
-    const granted = permission.granted || (await Notifications.requestPermissionsAsync()).granted;
+    const granted = permission.granted || (ask && (await Notifications.requestPermissionsAsync()).granted);
     if (!granted) return false;
     await Notifications.cancelScheduledNotificationAsync(TRIAL_REMINDER_ID).catch(() => {});
     await Notifications.scheduleNotificationAsync({

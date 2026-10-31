@@ -52,7 +52,7 @@ describe('Vitto Plus paywall (test mode)', () => {
     expect(all).toContain('Only $4.99 a month');
     expect(byTestId(tree, 'trial-toggle')[0]!.props.value).toBe(true);
     expect(byTestId(tree, 'trial-timeline').length).toBeGreaterThan(0);
-    expect(all).toContain('We remind you before it ends');
+    expect(all).toContain('A reminder, if you allow it');
     expect(byTestId(tree, 'plus-terms')[0]!.props.children).toBe('Free for 14 days, then $59.99 / year. Cancel anytime.');
     expect(pressable(tree, 'Start Free Trial')).toBeDefined();
     expect(pressable(tree, 'Restore')).toBeDefined();

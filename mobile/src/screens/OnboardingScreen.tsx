@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   Easing,
@@ -475,6 +476,8 @@ export function OnboardingScreen({
   const [commitDays, setCommitDays] = useState<number | null>(saved?.commitDays ?? null);
   const [celebrating, setCelebrating] = useState(false);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
+  /** A trial bought on the offer page, whose reminder waits for notifications to be on. */
+  const trialReminder = useRef<{ reminderDay: number; trialDays: number } | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
   const [handle, setHandle] = useState(saved?.handle ?? '');
   const [claiming, setClaiming] = useState(false);
@@ -767,12 +770,15 @@ export function OnboardingScreen({
   const monthly = sellable.find((plan) => plan.value === 'monthly') ?? PLUS_PLANS.find((plan) => plan.value === 'monthly')!;
   const plusStore = plusStatus?.mode === 'store';
   // Store mode: the trial Apple will give this person (first-time subscribers
-  // only), or none. Test mode: always.
-  const trialDays = plusStore ? (plusStatus?.trialDays ?? null) : TRIAL_DAYS;
+  // only), or none. Test mode: always. Until the store answers, neither: the
+  // page waits rather than promise a trial and take it back a second later.
+  const plusLoading = plusStatus === null;
+  const trialDays = plusLoading ? null : plusStore ? (plusStatus.trialDays ?? null) : TRIAL_DAYS;
   const reminderDay = trialDays === null ? null : plusStore ? Math.max(1, trialDays - 2) : TRIAL_REMINDER_DAY;
 
   useEffect(() => {
-    if (stepId !== 'plusOffer' || plusStatus !== null) return;
+    // Asked from the Plus intro pages on, so the answer is in by the offer.
+    if (!PLUS_STEPS.has(stepId) || plusStatus !== null) return;
     void billingService
       .status()
       .then(setPlusStatus)
@@ -792,8 +798,11 @@ export function OnboardingScreen({
       if (next.tier === 'plus') {
         cheer();
         // The reminder is a courtesy: if it cannot be scheduled, the purchase still stands.
+        // Not asked for here: the notifications step a few pages on asks, and
+        // schedules it then (see trialReminder).
         if (trial && trialDays !== null && reminderDay !== null) {
-          await Promise.resolve(scheduleTrialReminder(reminderDay, trialDays)).catch(() => {});
+          trialReminder.current = { reminderDay, trialDays };
+          await Promise.resolve(scheduleTrialReminder(reminderDay, trialDays, { ask: false })).catch(() => {});
         }
         goNext('plusOffer');
       }
@@ -1612,6 +1621,10 @@ export function OnboardingScreen({
               <Pressable accessibilityRole="button" onPress={() => goNext('plusOffer')} hitSlop={10} style={styles.offerSkip}>
                 <Text style={styles.link}>Not now</Text>
               </Pressable>
+              {plusLoading ? (
+                <ActivityIndicator color={F.green} style={styles.offerLoading} testID="plus-offer-loading" />
+              ) : (
+              <>
               <Text style={styles.offerReady}>{trialDays !== null ? 'Your free trial is ready' : 'Everything your pet can be'}</Text>
               <Text style={[styles.title, short && styles.titleShort]}>
                 {trialDays !== null ? `Start your ${trialDays}-day free trial` : 'Get Vitto Plus'}
@@ -1621,7 +1634,7 @@ export function OnboardingScreen({
                 <View style={styles.timelineBar} />
                 {[
                   { title: 'Today', body: `Unlock everything in Plus and see what ${petName} can be.`, filled: true },
-                  { title: `Day ${reminderDay}`, body: 'We’ll remind you with a notification that your trial is ending.' },
+                  { title: `Day ${reminderDay}`, body: 'If notifications are on, we’ll remind you your trial is ending.' },
                   {
                     title: `Day ${trialDays}`,
                     body: `You’ll be charged on ${new Date(Date.now() + trialDays * 86_400_000).toLocaleDateString([], { month: 'short', day: 'numeric' })}. Cancel anytime before.`,
@@ -1659,6 +1672,8 @@ export function OnboardingScreen({
                     </View>
                   ))}
                 </View>
+              )}
+              </>
               )}
               {paywall.isDevAccount ? <Text style={styles.hint}>Dev account: Plus is always on here.</Text> : null}
               {plusStatus?.mode === 'test' ? <Text style={styles.hint}>Test mode: no real payment is taken.</Text> : null}
@@ -1790,7 +1805,9 @@ export function OnboardingScreen({
       <View style={[styles.footer, { backgroundColor: F.bg }, keyboardUp && styles.footerOverKeyboard]}>
         <View style={styles.footerInner}>
           {(stepError ?? error) ? <Text style={styles.error}>{stepError ?? error}</Text> : null}
-          {stepId === 'plusOffer' ? (
+          {stepId === 'plusOffer' && plusLoading ? (
+            <FButton label="Loading" busy disabled onPress={() => {}} />
+          ) : stepId === 'plusOffer' ? (
             <>
               <Text style={styles.offerPrice}>
                 {trialDays !== null ? `${trialDays} days free, then ` : ''}
@@ -1841,6 +1858,12 @@ export function OnboardingScreen({
                   setNotificationsBusy(true);
                   void (onEnableNotifications?.() ?? Promise.resolve(false))
                     .catch(() => false)
+                    .then(async (on) => {
+                      const pending = trialReminder.current;
+                      if (on && pending) {
+                        await Promise.resolve(scheduleTrialReminder(pending.reminderDay, pending.trialDays, { ask: false })).catch(() => {});
+                      }
+                    })
                     .finally(() => {
                       setNotificationsBusy(false);
                       goNext('notifications');
@@ -2253,6 +2276,7 @@ const styles = themedStyles(() => {
     compareValuePlus: { color: F.text },
 
     offerSkip: { alignSelf: 'flex-end', paddingVertical: 4 },
+    offerLoading: { marginTop: 80 },
     offerReady: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.green, textAlign: 'center', marginTop: 4 },
     timeline: { marginTop: 16, gap: 14 },
     timelineBar: { position: 'absolute', left: 11, top: 10, bottom: 10, width: 6, borderRadius: 3, backgroundColor: F.greenPale },
