@@ -13,6 +13,8 @@ interface FadingProps {
   sheet: PetSheet;
   frame: readonly [number, number];
   size: number;
+  /** The centre the frame under it is drawn on, so the wash lines up with it (see SpriteFrame). */
+  centre?: number;
 }
 
 /**
@@ -30,7 +32,7 @@ interface FadingProps {
  * it, but this is grey laid over colour, not colour drained out of it. A real
  * desaturation needs a native filter dependency.
  */
-export function Fading({ active, severity, sheet, frame, size }: FadingProps) {
+export function Fading({ active, severity, sheet, frame, size, centre }: FadingProps) {
   const target = Math.max(0, Math.min(1, severity)) * 0.45;
   const wash = useRef(new Animated.Value(0)).current;
 
@@ -47,7 +49,7 @@ export function Fading({ active, severity, sheet, frame, size }: FadingProps) {
 
   return (
     <Animated.View style={[styles.fade, { opacity: wash }]} pointerEvents="none">
-      <SpriteFrame sheet={sheet} frame={frame} size={size} tintColor={colors.slateDeep} />
+      <SpriteFrame sheet={sheet} frame={frame} size={size} centre={centre} tintColor={colors.slateDeep} />
     </Animated.View>
   );
 }

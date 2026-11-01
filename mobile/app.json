@@ -41,14 +41,14 @@
         {
           "photosPermission": "Vitto reads meal photos you choose so it can grade the plate.",
           "cameraPermission": "Vitto uses the camera to photograph meals.",
-          "microphonePermission": "Vitto never records audio. The camera is only used for meal photos and barcodes."
+          "microphonePermission": "Vitto listens only while you hold the mic button, so you can talk to your pet. Your voice itself is never saved."
         }
       ],
       [
         "expo-camera",
         {
           "cameraPermission": "Vitto uses the camera to scan product barcodes.",
-          "microphonePermission": "Vitto never records audio. The camera is only used for meal photos and barcodes."
+          "microphonePermission": "Vitto listens only while you hold the mic button, so you can talk to your pet. Your voice itself is never saved."
         }
       ],
       [
@@ -62,9 +62,16 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Vitto never records audio. The camera is only used for meal photos and barcodes.",
+          "microphonePermission": "Vitto listens only while you hold the mic button, so you can talk to your pet. Your voice itself is never saved.",
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Vitto listens only while you hold the mic button, so you can talk to your pet. Your voice itself is never saved.",
+          "speechRecognitionPermission": "Vitto turns what you say to your pet into text, on your iPhone where it can, so your pet can answer."
         }
       ],
       "expo-notifications",

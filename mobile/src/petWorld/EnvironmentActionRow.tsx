@@ -57,6 +57,13 @@ const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
  *  bottom equally so the icons sit centred in the bar rather than up against
  *  its top edge. */
 const ICON_AREA_HEIGHT = 60;
+/**
+ * How much of the screen's bottom the bar covers, at a chrome `scale` (see
+ * chromeScale), in the units of a layer zoomed by that scale -- the HUD's.
+ * For anything that has to sit just above it.
+ */
+export const navBarHeight = (scale = 1): number => ICON_AREA_HEIGHT + (HOME_INDICATOR_INSET * 2) / scale;
+
 /** Keeps the two end icons off the very screen edge while they spread out. */
 const ICON_EDGE_PADDING = 24;
 /** Translucent enough that the room reads through the bar -- the whole point.

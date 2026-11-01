@@ -22,3 +22,32 @@ jest.mock('expo-audio', () => ({
   setAudioModeAsync: () => Promise.resolve(),
   createAudioPlayer: () => ({ volume: 1, play: () => {}, pause: () => {}, replace: () => {}, addListener: () => ({ remove: () => {} }) }),
 }));
+
+// expo-speech-recognition's native recogniser is absent under jest. The stand-in
+// records what was started and lets a test play events back through `__emit`.
+jest.mock('expo-speech-recognition', () => {
+  const React = require('react');
+  const listeners = new Map();
+  const module = {
+    isRecognitionAvailable: () => true,
+    supportsOnDeviceRecognition: () => true,
+    getPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+    requestPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+    start: jest.fn(),
+    stop: jest.fn(),
+    abort: jest.fn(),
+  };
+  return {
+    ExpoSpeechRecognitionModule: module,
+    useSpeechRecognitionEvent: (name, listener) => {
+      const ref = React.useRef(listener);
+      ref.current = listener;
+      React.useEffect(() => {
+        const call = (event) => ref.current(event);
+        listeners.set(name, call);
+        return () => listeners.delete(name);
+      }, [name]);
+    },
+    __emit: (name, event) => listeners.get(name)?.(event),
+  };
+});

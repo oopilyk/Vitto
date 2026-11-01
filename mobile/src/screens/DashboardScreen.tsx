@@ -47,6 +47,10 @@ interface Props {
   awaitingPetLine?: boolean;
   /** Opens the conversation with the pet. Absent offline, where there is no companion. */
   onOpenChat?: () => void;
+  /** Talks to the pet out loud; the reply arrives as `petSaid`. Absent hides the mic. */
+  onTalkToPet?: (text: string) => void;
+  /** A spoken message's reply is on its way. */
+  talkingToPet?: boolean;
   /** Opens the meal-capture modal — now the Kitchen's job to call, once the
    * user has actually chosen to pick food, not the top-level Feed tap. */
   onLogMeal: () => void;
@@ -119,6 +123,8 @@ export function DashboardScreen({
   petSaid,
   awaitingPetLine = false,
   onOpenChat,
+  onTalkToPet,
+  talkingToPet,
   onLogMeal,
   onLogWorkout,
   onLogRun,
@@ -259,6 +265,8 @@ export function DashboardScreen({
           careToast={careToast}
           unreadMessages={unreadMessages}
           onOpenChat={onOpenChat}
+          onTalk={onTalkToPet}
+          talking={talkingToPet}
           environment={environment}
           formLabel={formLabel}
           accountInitial={accountInitial}

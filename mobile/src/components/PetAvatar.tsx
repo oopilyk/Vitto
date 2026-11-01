@@ -9,6 +9,7 @@ import {
   assessDecline,
 } from '@vitto/core';
 import { FRAME_MS, footShift, HOLDS_LAST_FRAME, type PetAnimation, sheetForPet } from './petSprites';
+import { animationCentre, centringShift, clipCentre } from './petCentring';
 import { PetClipStack, videoClipFor } from './PetVideo';
 import { SpriteFrame } from './SpriteFrame';
 import { Fading, PetAura } from './PetEffects';
@@ -366,9 +367,10 @@ export function PetAvatar({
             artScale={sheet.artScale}
             paused={paused}
             footShift={footShift(sheet, size)}
+            across={centringShift(clipCentre(sheet, animation), size)}
           />
         ) : (
-          <SpriteFrame sheet={sheet} frame={currentFrame} size={size} />
+          <SpriteFrame sheet={sheet} frame={currentFrame} size={size} centre={animationCentre(sheet, animation)} />
         )}
         {/* Inside the window on purpose: the wash is a tinted copy of the frame
             stacked on it, so it must share the sprite's exact position. It ramps
@@ -383,6 +385,7 @@ export function PetAvatar({
             sheet={sheet}
             frame={currentFrame}
             size={size}
+            centre={animationCentre(sheet, animation)}
           />
         ) : null}
       </Animated.View>

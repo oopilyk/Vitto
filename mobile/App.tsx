@@ -452,6 +452,8 @@ function VittoApp() {
   const [companionSaid, setCompanionSaid] = useState<{ id: string; text: string } | null>(null);
   /** True while the pet is being asked what it thinks of something just logged. */
   const [awaitingPetLine, setAwaitingPetLine] = useState(false);
+  /** Something said to the pet out loud, its reply not back yet (see talkToPet). */
+  const [talkingToPet, setTalkingToPet] = useState(false);
   /**
    * A full-screen reward moment (currently only a level-up). Presentation only,
    * never persisted: raised by `recordEvent` off the engine's own result, and
@@ -2411,6 +2413,26 @@ function VittoApp() {
   // A forced cue (dev-only) wins over the sensors, the same way a forced status
   // wins over the pet's real stats above.
 
+  /**
+   * Said out loud from the room (PetMicButton): sent exactly as a typed chat
+   * message is, so it counts the same and is in the conversation afterwards,
+   * and the reply goes up in the speech bubble. A failure is said there too,
+   * plainly, since that is where they are looking.
+   */
+  const talkToPet = async (text: string) => {
+    if (!isOnline || talkingToPet) return;
+    setTalkingToPet(true);
+    setCompanionSaid({ id: `listening-${Date.now()}`, text: '…' });
+    try {
+      const result = await companionService.send(livePet.id, buildLifeContext({ pet: livePet, events, profile, stepGoal }), text);
+      setCompanionSaid({ id: result.reply.id, text: result.reply.content });
+    } catch (cause) {
+      setCompanionSaid({ id: `talk-error-${Date.now()}`, text: errorMessage(cause, 'That did not reach me. Try again.') });
+    } finally {
+      setTalkingToPet(false);
+    }
+  };
+
   return (
     <NavigationContainer
       key={scheme}
@@ -2436,6 +2458,8 @@ function VittoApp() {
               petSaid={companionSaid}
               awaitingPetLine={awaitingPetLine}
               onOpenChat={isOnline ? () => navigation.navigate('Companion') : undefined}
+              onTalkToPet={isOnline ? (text) => void talkToPet(text) : undefined}
+              talkingToPet={talkingToPet}
               onLogMeal={() => navigation.navigate('MealCapture')}
               onLogWorkout={() => navigation.navigate('Workout')}
               onLogRun={() => navigation.navigate('Workout', { cardio: true })}

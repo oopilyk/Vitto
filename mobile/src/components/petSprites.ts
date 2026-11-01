@@ -126,6 +126,12 @@ export interface PetSheet {
    * the sheet above still stands in.
    */
   videos?: PetVideos;
+  /**
+   * Which row of PET_CENTRES (petCentres.ts) measures this sheet's art, when
+   * it is not `name`: the evolved forms share their breed's name. Set once,
+   * below PET_SHEETS.
+   */
+  centreKey?: string;
 }
 
 export interface PetVideoClip extends ClipFiles {
@@ -1370,6 +1376,14 @@ export const PET_SHEETS: PetSheet[] = [
   AXOLOTL,
   DINO,
 ];
+
+// The evolved forms carry their breed's `name`; their measured centres are
+// kept under "breed:build" (see petCentring.ts).
+for (const base of PET_SHEETS) {
+  for (const [build, form] of Object.entries(base.evolutions ?? {})) {
+    if (form) form.centreKey = `${base.name}:${build}`;
+  }
+}
 
 export const sheetByBreed = (breed: PetBreed): PetSheet =>
   PET_SHEETS.find((sheet) => sheet.name === breed) ?? PET_SHEETS[0];

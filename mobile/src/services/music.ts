@@ -45,10 +45,13 @@ export const saveMusicEnabled = async (enabled: boolean): Promise<void> => {
   }
 };
 
+/** Under other audio, quiet on silent, never in the background. */
+const setSession = () => setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers', shouldPlayInBackground: false });
+
 /** The player, made once: the session set up and the next track queued on each ending. */
 const ensurePlayer = async (): Promise<AudioPlayer> => {
   if (player) return player;
-  await setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers', shouldPlayInBackground: false });
+  await setSession();
   track = Math.floor(Math.random() * TRACKS.length);
   const created = createAudioPlayer(TRACKS[track]);
   created.volume = VOLUME;
@@ -82,4 +85,29 @@ export const pauseMusic = (): void => {
   } catch {
     // Nothing playing to pause.
   }
+};
+
+/** Paused for the mic (see PetMicButton), to come back after. */
+let held = false;
+
+/** Stops the music while someone talks to the pet, so the mic hears them, not it. */
+export const holdMusic = (): void => {
+  held = playing;
+  pauseMusic();
+};
+
+/**
+ * After talking: the speech recogniser leaves iOS set up for recording, which
+ * plays quietly through the earpiece, so the music's own setup is put back
+ * before it carries on.
+ */
+export const releaseMusic = async (): Promise<void> => {
+  if (!held) return;
+  held = false;
+  try {
+    await setSession();
+  } catch {
+    // Plays on whatever setup there is.
+  }
+  await playMusic();
 };

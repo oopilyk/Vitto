@@ -1,4 +1,5 @@
 import { Image, View } from 'react-native';
+import { centringShift, frameCentre } from './petCentring';
 import { footShift, SHEET_COLUMNS, SHEET_ROWS, type PetSheet } from './petSprites';
 
 interface Props {
@@ -13,6 +14,12 @@ interface Props {
    * alpha. Used to lay a wash over the pet's silhouette rather than its bounding box.
    */
   tintColor?: string;
+  /**
+   * Where the art's middle sits, to centre on (see petCentring.ts). Defaults
+   * to this frame's own, which is right for a still; an animation passes one
+   * value for all its frames so the pet is not pulled about frame by frame.
+   */
+  centre?: number;
 }
 
 /** Pixels trimmed from each side of a cell's clip; see SpriteFrame. */
@@ -22,7 +29,7 @@ const GUARD = 1;
  * One cell of a sprite sheet: a window `size` across with the whole sheet slid
  * behind it. Used both by the animated avatar and by the still previews in pickers.
  */
-export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
+export function SpriteFrame({ sheet, frame, size, tintColor, onLoad, centre }: Props) {
   // A sheet drawn large for its cell can be dialled back without redrawing it
   // (see `artScale`): the cell is laid out smaller inside the same window, so
   // the pet shrinks while the window it is measured at stays the same. Pinned to
@@ -46,8 +53,10 @@ export function SpriteFrame({ sheet, frame, size, tintColor, onLoad }: Props) {
   // screen. Every cell has empty margin around the art, so nothing is lost.
   // Every breed's feet on the same floor line (see footShift).
   const shift = footShift(sheet, size);
+  // And every pose in the middle of its spot.
+  const across = centringShift(centre ?? frameCentre(sheet, frame), size);
   return (
-    <View style={{ width: size, height: size, transform: [{ translateY: shift }] }}>
+    <View style={{ width: size, height: size, transform: [{ translateX: across }, { translateY: shift }] }}>
       <View
         style={{
           width: cell - GUARD * 2,

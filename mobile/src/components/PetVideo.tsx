@@ -116,6 +116,8 @@ export const CLIP_SWAP_TIMEOUT_MS = 600;
 interface Layer {
   key: string;
   clip: PetVideoClip;
+  /** Points across that centre this clip's art; kept per layer so the outgoing clip does not jump. */
+  across: number;
 }
 
 /**
@@ -132,20 +134,23 @@ export function PetClipStack({
   clipKey: animationKey,
   clip,
   footShift = 0,
+  across = 0,
   ...rest
 }: Omit<Props, 'onFirstFrame'> & {
   clipKey: string;
   /** Points to move the art down so the feet meet the floor (see `footShift` in petSprites). */
   footShift?: number;
+  /** Points to move the clip across so the pet is in the middle (see petCentring.ts). */
+  across?: number;
 }) {
   // The file as well as the animation: a new form or breed on the same
   // animation is a different clip.
   const clipKey = `${animationKey}:${String(clip.hevc)}`;
-  const [shown, setShown] = useState<Layer>({ key: clipKey, clip });
+  const [shown, setShown] = useState<Layer>({ key: clipKey, clip, across });
   const [incoming, setIncoming] = useState<Layer | null>(null);
 
   useEffect(() => {
-    setIncoming(clipKey === shown.key ? null : { key: clipKey, clip });
+    setIncoming(clipKey === shown.key ? null : { key: clipKey, clip, across });
     // `clip` follows `clipKey`; a new object for the same key is not a new clip.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clipKey, shown.key]);
@@ -165,7 +170,10 @@ export function PetClipStack({
     <View style={{ width: rest.size, height: rest.size, transform: [{ translateY: footShift }] }} pointerEvents="none">
       {[shown, incoming].map((layer) =>
         layer ? (
-          <View key={layer.key} style={[StyleSheet.absoluteFill, { opacity: layer === incoming ? 0 : 1 }]}>
+          <View
+            key={layer.key}
+            style={[StyleSheet.absoluteFill, { opacity: layer === incoming ? 0 : 1, transform: [{ translateX: layer.across }] }]}
+          >
             <PetVideo {...rest} clip={layer.clip} onFirstFrame={layer === incoming ? () => takeOver(layer) : undefined} />
           </View>
         ) : null,

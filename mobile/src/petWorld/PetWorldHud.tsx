@@ -18,7 +18,9 @@ import { fonts, world, themedStyles } from '../theme';
 import { CareToastBanner } from './CareToastBanner';
 import { useReportHudEdge } from './RoomActionSlot';
 import { useTourTarget } from '../tour/FirstRunTour';
+import { navBarHeight } from './EnvironmentActionRow';
 import { LevelRing } from './LevelRing';
+import { canListen, PetMicButton } from './PetMicButton';
 import { chromeScaleFor, topInsetFor } from './chromeScale';
 import { retro, retroPressed } from './retroStyle';
 import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
@@ -81,6 +83,10 @@ interface PetWorldHudProps {
   unreadMessages?: number;
   /** Opens the conversation. Absent offline, which also hides the button. */
   onOpenChat?: () => void;
+  /** Says something to the pet out loud (see PetMicButton). Absent hides the mic. */
+  onTalk?: (text: string) => void;
+  /** A spoken message's reply is on its way. */
+  talking?: boolean;
   /** `own` marks the adopted pet; the other one is the joint pet. Only shown as
    *  a switcher, and only when there really are two — adding one lives in
    *  Profile's care-partner card, not on the world screen. */
@@ -141,6 +147,8 @@ export function PetWorldHud({
   onOpenFriends,
   unreadMessages = 0,
   onOpenChat,
+  onTalk,
+  talking = false,
   pets,
   activePetId,
   onSelectPet,
@@ -213,7 +221,8 @@ export function PetWorldHud({
   // tablet draws the whole HUD zoomed (see chromeScale). Both are no-ops on a
   // notched phone.
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const zoom = hudZoom(screenWidth, screenHeight, chromeScaleFor(screenWidth, screenHeight));
+  const chromeScale = chromeScaleFor(screenWidth, screenHeight);
+  const zoom = hudZoom(screenWidth, screenHeight, chromeScale);
   const topInset = topInsetFor(screenWidth, screenHeight);
 
   return (
@@ -407,6 +416,14 @@ export function PetWorldHud({
         </View>
       </View>
 
+      {/* Talking out loud, from the bottom-right corner just above the room
+          bar, where a thumb rests: the reply comes back in the speech bubble. */}
+      {onTalk && canListen() ? (
+        <View style={[styles.mic, { bottom: navBarHeight(chromeScale) + 14 }]} pointerEvents="box-none">
+          <PetMicButton petName={pet.name} onSay={onTalk} busy={talking} night={night} size={MIC} />
+        </View>
+      ) : null}
+
       <CareToastBanner toast={careToast} night={night} />
     </View>
   );
@@ -439,6 +456,8 @@ const DISC = 44;
 /** Today, chat and the pet switcher share one height. */
 const TOOL = 36;
 const GUTTER = 16;
+/** The mic: a size up from the pills, being the one held down. */
+const MIC = 52;
 
 const styles = themedStyles(() => ({
   fill: { flex: 1 },
@@ -613,6 +632,7 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
   },
   pillLabel: { fontSize: 11, letterSpacing: 1.3 },
+  mic: { position: 'absolute', right: GUTTER },
 
   // Two pets, one control: a segmented switch, the selected half filled.
   switcher: { flexDirection: 'row', height: TOOL, padding: 3, borderRadius: TOOL / 2, flexShrink: 1 },
