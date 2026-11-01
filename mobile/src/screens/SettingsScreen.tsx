@@ -1,7 +1,7 @@
 import { Linking, View } from 'react-native';
 import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, ownedBreedsOf, tracksArea } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
-import { NavGroup, NavRow, SettingsPage } from '../components/settingsKit';
+import { NavGroup, NavRow, SettingsPage, ToggleRow } from '../components/settingsKit';
 import { sheetByBreed, portraitFrame } from '../components/petSprites';
 import { LEGAL_LINKS } from '../services/billingService';
 import { colors, themedStyles } from '../theme';
@@ -37,6 +37,9 @@ interface Props {
   /** The appearance choice, for its row's value ("System", "Dark"...). */
   appearanceLabel?: string;
   onOpenAppearance?: () => void;
+  /** The background music; absent hides the switch. */
+  musicOn?: boolean;
+  onMusicChange?: (on: boolean) => void;
   /** Opens the page that deletes the account. Absent offline. */
   onOpenDeleteAccount?: () => void;
 }
@@ -81,6 +84,8 @@ export function SettingsScreen({
   onOpenCareAreas,
   appearanceLabel,
   onOpenAppearance,
+  musicOn,
+  onMusicChange,
   onOpenDeleteAccount,
 }: Props) {
   const preferenceSummary = [profile.displayName, profile.age ? `${profile.age}` : null, GOAL_LABEL[profile.goal]]
@@ -155,11 +160,16 @@ export function SettingsScreen({
         ) : null}
       </NavGroup>
 
-      {onOpenAppearance ? (
-        <NavGroup title="App">
+      <NavGroup title="App">
+        {onOpenAppearance ? (
           <NavRow title="Appearance" value={appearanceLabel} onPress={onOpenAppearance} testID="open-appearance" />
-        </NavGroup>
-      ) : null}
+        ) : null}
+        {typeof musicOn === 'boolean' && onMusicChange ? (
+          <View style={styles.toggle} testID="music-toggle">
+            <ToggleRow title="Music" description="Quiet lo-fi while the app is open." value={musicOn} onChange={onMusicChange} />
+          </View>
+        ) : null}
+      </NavGroup>
 
       {/* Always reachable, not only next to a purchase: App Review asks for both. */}
       <NavGroup title="Legal">
@@ -179,6 +189,8 @@ export function SettingsScreen({
 }
 
 const styles = themedStyles(() => ({
+  // A switch among the menu rows, padded to line up with them.
+  toggle: { paddingHorizontal: 16, paddingVertical: 4 },
   // The sprite is drawn larger than its tile and cropped: its cell has empty margins.
   art: {
     width: 44,

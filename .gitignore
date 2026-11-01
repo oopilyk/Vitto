@@ -14,3 +14,7 @@ supabase/.temp/
 # from expo-target.config.js and sprites/. The sprites themselves are committed.
 /mobile/targets/*/Assets.xcassets/
 /mobile/targets/*/Info.plist
+
+# The music as it arrived: uncompressed, ~180 MB. The app ships the AAC
+# conversions beside them (lofi-N.m4a); these are kept locally as the masters.
+/mobile/assets/music/*.wav

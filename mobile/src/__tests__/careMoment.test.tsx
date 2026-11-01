@@ -231,9 +231,9 @@ describe('stepSyncTopUp', () => {
     const topUp = stepSyncTopUp(engine, pet, event, 300);
 
     // Straight from PetHealthEngine's own STEP_ACTIVITY formula:
-    // milestone (7 energy, 4 happiness, 3 endurance, 16 xp) minus
+    // milestone (7 energy, 4 happiness, 2 endurance, 16 xp) minus
     // base (3 energy, 4 happiness, 1 endurance, 8 xp).
-    expect(topUp).toEqual({ energy: 4, endurance: 2, xp: 8 });
+    expect(topUp).toEqual({ energy: 4, endurance: 1, xp: 8 });
   });
 
   it('grants nothing when the re-sync stays under the milestone', () => {

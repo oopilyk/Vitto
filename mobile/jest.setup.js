@@ -16,3 +16,9 @@ jest.mock('expo-video', () => {
     VideoView: (props) => require('react').createElement(View, { testID: 'pet-video', ...props }),
   };
 });
+
+// expo-audio's native player is absent under jest; the music stays silent.
+jest.mock('expo-audio', () => ({
+  setAudioModeAsync: () => Promise.resolve(),
+  createAudioPlayer: () => ({ volume: 1, play: () => {}, pause: () => {}, replace: () => {}, addListener: () => ({ remove: () => {} }) }),
+}));

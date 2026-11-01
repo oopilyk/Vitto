@@ -299,6 +299,14 @@ const SCREEN_TIME_BAND_DELTA: Record<ScreenTimeBandId, PetDelta> = {
 const SCREEN_TIME_BUDGET_BONUS_XP = 3;
 const SCREEN_TIME_NO_BUDGET_XP = 6;
 
+/**
+ * Walking keeps a pet on its feet but does not make it a runner: steps build
+ * endurance only up to here, and the rest of the way to the Runner's 60 takes
+ * cardio. Without it a person who walked 8,000 steps a day evolved into a
+ * Runner in about two weeks without ever running.
+ */
+export const STEP_ENDURANCE_CEILING = 40;
+
 /** The whole of water's reward: paid once a day, on reaching the goal. */
 const WATER_GOAL_XP = 5;
 
@@ -391,12 +399,14 @@ export class PetHealthEngine {
               energy: Math.min(8, 3 + Math.floor(sets / 3)),
               happiness: Math.min(7, 3 + Math.floor(sets / 4)),
               ...strengthDelta,
-              endurance: Math.min(4, 1 + Math.floor(reps / 40)),
+              // A little: lifting is not running, and more than this let a
+              // lifter's own sessions keep the Runner's lead within reach.
+              endurance: Math.min(2, 1 + Math.floor(reps / 80)),
               recovery: mobility,
               mind: 1,
               xp: workXp,
             }
-          : { energy: 6, happiness: 5, strength: 4, endurance: 2, xp: 18 + hardBonus };
+          : { energy: 6, happiness: 5, strength: 4, endurance: 1, xp: 18 + hardBonus };
         message = hasWorkoutStats
           ? sets > 0
             ? `I pushed through ${sets} ${sets === 1 ? 'set' : 'sets'} with you and feel stronger.`
@@ -407,7 +417,8 @@ export class PetHealthEngine {
       case 'STEP_ACTIVITY': {
         const metadata = event.metadata as unknown as StepMetadata;
         const milestone = metadata.steps >= 8000;
-        delta = { energy: milestone ? 7 : 3, happiness: 4, endurance: milestone ? 3 : 1, xp: milestone ? 16 : 8 };
+        const walkEndurance = pet.endurance < STEP_ENDURANCE_CEILING ? (milestone ? 2 : 1) : 0;
+        delta = { energy: milestone ? 7 : 3, happiness: 4, endurance: walkEndurance, xp: milestone ? 16 : 8 };
         message = milestone ? 'I explored somewhere new today.' : 'I enjoyed a little walk with you.';
         eventLabel = milestone ? 'Explored the wilds' : 'Went for a walk';
         break;

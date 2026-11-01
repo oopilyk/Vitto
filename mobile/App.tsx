@@ -18,6 +18,7 @@ import { type WordPuzzleProgress, LocalRepository } from './src/services/localRe
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
 import { loadAffirmationsEnabled, saveAffirmationsEnabled, syncAffirmations } from './src/services/affirmations';
+import { loadMusicEnabled, pauseMusic, playMusic, saveMusicEnabled } from './src/services/music';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
 import { saveWithRetry } from './src/services/saveWithRetry';
@@ -538,6 +539,27 @@ function VittoApp() {
     if (affirmationsEnabled === null || !affirmingPetId || !affirmingPetName) return;
     void syncAffirmations({ enabled: affirmationsEnabled, petId: affirmingPetId, petName: affirmingPetName });
   }, [affirmationsEnabled, affirmingPetId, affirmingPetName, reminderPermission]);
+  // The background music. On until switched off; plays only while the app is on
+  // screen, and picks up where it stopped when it comes back.
+  const [musicEnabled, setMusicEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    void loadMusicEnabled().then(setMusicEnabled);
+  }, []);
+  useEffect(() => {
+    if (!musicEnabled) {
+      pauseMusic();
+      return;
+    }
+    if (AppState.currentState === 'active') void playMusic();
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void playMusic();
+      else pauseMusic();
+    });
+    return () => {
+      foreground.remove();
+      pauseMusic();
+    };
+  }, [musicEnabled]);
   // The Dynamic Island. On until switched off; the choice is kept on the device.
   const [islandEnabled, setIslandEnabled] = useState(true);
   useEffect(() => {
@@ -2593,6 +2615,11 @@ function VittoApp() {
                 preference === 'system' ? `System · ${scheme === 'dark' ? 'Dark' : 'Light'}` : APPEARANCE_LABEL[preference]
               }
               onOpenAppearance={() => navigation.navigate('Appearance')}
+              musicOn={musicEnabled ?? undefined}
+              onMusicChange={(next) => {
+                setMusicEnabled(next);
+                void saveMusicEnabled(next);
+              }}
               onOpenDeleteAccount={isOnline ? () => navigation.navigate('DeleteAccount') : undefined}
             />
           )}

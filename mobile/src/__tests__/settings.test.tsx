@@ -261,6 +261,20 @@ describe('settings menu', () => {
     tree.unmount();
   });
 
+  it('turns the music on and off from the menu, and hides the switch until it is known', () => {
+    const changes: boolean[] = [];
+    const tree = renderMenu({ musicOn: true, onMusicChange: (on) => changes.push(on) });
+    const music = tree.root.findAll((node) => node.props.accessibilityLabel === 'Music' && typeof node.props.onValueChange === 'function')[0];
+    expect(music?.props.value).toBe(true);
+    act(() => music!.props.onValueChange(false));
+    expect(changes).toEqual([false]);
+    tree.unmount();
+
+    const unknown = renderMenu();
+    expect(unknown.root.findAll((node) => node.props.testID === 'music-toggle')).toHaveLength(0);
+    unknown.unmount();
+  });
+
   it('leaves out rows whose page is not wired up', () => {
     const tree = renderMenu({ onBreedChange: undefined, onOpenDeleteAccount: undefined, notificationsOn: null, onOpenMemories: undefined });
     expect(byLabel(tree, 'Animals & forms')).toBeUndefined();

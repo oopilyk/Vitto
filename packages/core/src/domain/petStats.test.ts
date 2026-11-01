@@ -8,7 +8,7 @@ import {
 } from './petStats';
 import { applyForcedForm, canSwitchForm, chooseForm, EVOLUTION_LEVEL, evolutionProgress, getPetBuild, hasEvolved, lockEvolution, wornForm } from './pet';
 import { applyTimeDecay } from './decay';
-import { applyDelta } from './petHealthEngine';
+import { applyDelta, PetHealthEngine, STEP_ENDURANCE_CEILING } from './petHealthEngine';
 import { assessCondition } from './petCondition';
 import { DECAY_PER_DAY } from './decay';
 import type { HealthEvent, HealthEventType } from './health';
@@ -457,5 +457,24 @@ describe('evolution progress and switching', () => {
     expect(hasEvolved(scholar)).toBe(true);
     // The dev preview still wins over the pick.
     expect(getPetBuild(applyForcedForm(scholar, 'runner'))).toBe('runner');
+  });
+});
+
+describe('walking and the Runner', () => {
+  const walk = (steps: number): HealthEvent => ({
+    id: `walk-${steps}`,
+    userId: 'u',
+    type: 'STEP_ACTIVITY',
+    occurredAt: '2026-11-01T18:00:00.000Z',
+    source: 'healthkit',
+    metadata: { steps },
+  });
+  const engine = new PetHealthEngine();
+  const gained = (endurance: number, steps: number) => engine.apply(basePet({ endurance }), walk(steps)).pet.endurance - endurance;
+
+  it('builds endurance from steps only up to the ceiling, so walking alone never makes a Runner', () => {
+    expect(gained(20, 9000)).toBe(2);
+    expect(gained(20, 3000)).toBe(1);
+    expect(gained(STEP_ENDURANCE_CEILING, 9000)).toBe(0);
   });
 });

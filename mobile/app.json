@@ -59,6 +59,14 @@
           "NSHealthUpdateUsageDescription": "Vitto does not save anything to Apple Health. It only reads your steps, workouts, sleep and meals to care for your pet."
         }
       ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Vitto never records audio. The camera is only used for meal photos and barcodes.",
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
       "expo-notifications",
       "expo-sharing",
       "@bacons/apple-targets"
