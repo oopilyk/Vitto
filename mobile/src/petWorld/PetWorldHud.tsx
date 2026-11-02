@@ -418,7 +418,8 @@ export function PetWorldHud({
 
       {/* Talking out loud, from the bottom-right corner just above the room
           bar, where a thumb rests: the reply comes back in the speech bubble. */}
-      {onTalk && canListen() ? (
+      {/* Living room only: every other room keeps that corner for its log button. */}
+      {onTalk && environment === 'main' && canListen() ? (
         <View style={[styles.mic, { bottom: navBarHeight(chromeScale) + 14 }]} pointerEvents="box-none">
           <PetMicButton petName={pet.name} onSay={onTalk} busy={talking} night={night} size={MIC} />
         </View>

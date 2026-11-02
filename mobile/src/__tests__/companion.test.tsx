@@ -53,6 +53,13 @@ describe('the message button', () => {
     return tree;
   };
 
+  it('offers the mic in the living room only, where no log button needs the corner', () => {
+    const mics = (environment: 'main' | 'gym') =>
+      hud({ environment, onTalk: () => {} }).root.findAll((node) => node.props.testID === 'pet-mic' && typeof node.props.onPressIn === 'function').length;
+    expect(mics('main')).toBe(1);
+    expect(mics('gym')).toBe(0);
+  });
+
   it('opens the conversation, and leaves the plaque to the pet', () => {
     let opened = 0;
     const tree = hud({ onOpenChat: () => { opened += 1; } });
