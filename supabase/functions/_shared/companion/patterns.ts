@@ -3,20 +3,23 @@
 // Regenerate with: node scripts/syncCompanion.mjs
 
 import type { CompanionEvent, UserPattern } from './types.ts';
-import { DAY, WEEKDAYS, dayKey, timeOfDayFor } from './util.ts';
+import { DAY, WEEKDAYS, dayKey, localParts, previousDayKey, timeOfDayFor } from './util.ts';
 
 const isWorkout = (event: CompanionEvent) => event.type === 'WORKOUT_COMPLETED';
 const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** Consecutive calendar days, ending today or yesterday, with a workout. */
-export const currentWorkoutStreak = (events: readonly CompanionEvent[], now: number): number => {
-  const days = new Set(events.filter(isWorkout).map((event) => dayKey(event.timestamp)));
+/**
+ * Consecutive calendar days, ending today or yesterday, with a workout.
+ * `utcOffsetMinutes` places the days where the user is (see localParts).
+ */
+export const currentWorkoutStreak = (events: readonly CompanionEvent[], now: number, utcOffsetMinutes?: number): number => {
+  const days = new Set(events.filter(isWorkout).map((event) => dayKey(event.timestamp, utcOffsetMinutes)));
   let streak = 0;
-  let cursor = now;
-  if (!days.has(dayKey(cursor))) cursor -= DAY; // today is not over yet
-  while (days.has(dayKey(cursor))) {
+  let cursor = dayKey(now, utcOffsetMinutes);
+  if (!days.has(cursor)) cursor = previousDayKey(cursor); // today is not over yet
+  while (days.has(cursor)) {
     streak += 1;
-    cursor -= DAY;
+    cursor = previousDayKey(cursor);
   }
   return streak;
 };
@@ -25,21 +28,23 @@ export const currentWorkoutStreak = (events: readonly CompanionEvent[], now: num
 export const expectedWorkoutMissing = (
   events: readonly CompanionEvent[],
   now: number,
+  utcOffsetMinutes?: number,
 ): { expected: boolean; weekday: string } => {
-  const today = new Date(now);
-  const weekday = WEEKDAYS[today.getDay()]!;
+  const today = localParts(now, utcOffsetMinutes);
+  const todayKey = dayKey(now, utcOffsetMinutes);
+  const weekday = WEEKDAYS[today.weekday]!;
   const sameWeekday = new Set(
     events
       .filter(
         (event) =>
           isWorkout(event) &&
-          new Date(event.timestamp).getDay() === today.getDay() &&
-          dayKey(event.timestamp) !== dayKey(now) &&
+          localParts(event.timestamp, utcOffsetMinutes).weekday === today.weekday &&
+          dayKey(event.timestamp, utcOffsetMinutes) !== todayKey &&
           now - event.timestamp < 35 * DAY,
       )
-      .map((event) => dayKey(event.timestamp)),
+      .map((event) => dayKey(event.timestamp, utcOffsetMinutes)),
   );
-  const doneToday = events.some((event) => isWorkout(event) && dayKey(event.timestamp) === dayKey(now));
+  const doneToday = events.some((event) => isWorkout(event) && dayKey(event.timestamp, utcOffsetMinutes) === todayKey);
   return { expected: sameWeekday.size >= 2 && !doneToday, weekday };
 };
 
@@ -47,15 +52,15 @@ export const expectedWorkoutMissing = (
  * "Habits observed", derived from the raw event log on demand. Nothing is stored:
  * patterns are cheap to recompute, and that keeps them honest as the data changes.
  */
-export const observePatterns = (events: readonly CompanionEvent[], now: number): UserPattern[] => {
+export const observePatterns = (events: readonly CompanionEvent[], now: number, utcOffsetMinutes?: number): UserPattern[] => {
   const patterns: UserPattern[] = [];
   const workouts = events.filter(isWorkout);
 
   const byWeekday = new Map<number, Set<string>>();
   for (const workout of workouts) {
-    const day = new Date(workout.timestamp).getDay();
+    const day = localParts(workout.timestamp, utcOffsetMinutes).weekday;
     if (!byWeekday.has(day)) byWeekday.set(day, new Set());
-    byWeekday.get(day)!.add(dayKey(workout.timestamp));
+    byWeekday.get(day)!.add(dayKey(workout.timestamp, utcOffsetMinutes));
   }
   const routineDays = [...byWeekday.entries()].filter(([, days]) => days.size >= 2).sort((a, b) => b[1].size - a[1].size);
   if (routineDays.length) {
@@ -89,7 +94,7 @@ export const observePatterns = (events: readonly CompanionEvent[], now: number):
     });
   }
 
-  const streak = currentWorkoutStreak(events, now);
+  const streak = currentWorkoutStreak(events, now, utcOffsetMinutes);
   if (streak >= 2) patterns.push({ key: 'workout_streak', description: `On a ${streak}-day workout streak`, confidence: 1 });
 
   const poorSleep = events.filter((event) => event.type === 'POOR_SLEEP' && now - event.timestamp < 7 * DAY).length;
@@ -100,7 +105,7 @@ export const observePatterns = (events: readonly CompanionEvent[], now: number):
   const opens = events.filter((event) => event.type === 'USER_OPENED_APP' || event.type === 'USER_SENT_MESSAGE');
   const slots = new Map<string, number>();
   for (const open of opens) {
-    const slot = timeOfDayFor(new Date(open.timestamp).getHours());
+    const slot = timeOfDayFor(localParts(open.timestamp, utcOffsetMinutes).hour);
     slots.set(slot, (slots.get(slot) ?? 0) + 1);
   }
   const topSlot = [...slots.entries()].sort((a, b) => b[1] - a[1])[0];

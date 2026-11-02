@@ -19,6 +19,7 @@ import {
 } from '../_shared/companion/index.ts';
 import { bankFor } from '../_shared/pushLineBank.ts';
 import { sendPush, type PushMessage } from '../_shared/push.ts';
+import { zoneOffsetMinutes } from '../_shared/timeZone.ts';
 
 /**
  * The pet, speaking to a closed app.
@@ -88,6 +89,12 @@ interface Device {
  */
 const sleeping = (device: Device, now: number): boolean =>
   inQuietHours(now, device.utcOffsetMinutes, device.quietStart, device.quietEnd);
+
+/** The cached day, with the offset its phone is at now. */
+const withCurrentOffset = (life: LifeContext, utcOffsetMinutes: number): LifeContext => ({
+  ...life,
+  now: { ...life.now, utcOffsetMinutes },
+});
 
 /** Types that mean the person did something today, for the streak re-check. */
 const LOGGING_EVENTS = new Set([
@@ -250,11 +257,11 @@ Deno.serve(async (request) => {
     // Every enabled device, most recently seen first. It used to read just the
     // first 500 rows in no order, so anyone past them (or crowded out by junk
     // registrations) silently never heard from their pet.
-    const deviceRows: { token: string; user_id: string; utc_offset_minutes: number; quiet_start: number; quiet_end: number }[] = [];
+    const deviceRows: { token: string; user_id: string; utc_offset_minutes: number; time_zone: string | null; quiet_start: number; quiet_end: number }[] = [];
     for (let page = 0; page < MAX_DEVICE_PAGES; page += 1) {
       // eslint-disable-next-line no-await-in-loop
       const { data, error: deviceError } = await db.from('push_devices')
-        .select('token, user_id, utc_offset_minutes, quiet_start, quiet_end')
+        .select('token, user_id, utc_offset_minutes, time_zone, quiet_start, quiet_end')
         .eq('enabled', true)
         .order('last_seen_at', { ascending: false })
         .order('token')
@@ -267,7 +274,9 @@ Deno.serve(async (request) => {
     const byUser = new Map<string, Device[]>();
     for (const row of deviceRows) {
       const device: Device = {
-        token: row.token, userId: row.user_id, utcOffsetMinutes: row.utc_offset_minutes,
+        // The zone's offset as of now, so a clock change since the app was last
+        // opened is already counted; the reported offset for older builds.
+        token: row.token, userId: row.user_id, utcOffsetMinutes: zoneOffsetMinutes(row.time_zone, now) ?? row.utc_offset_minutes,
         quietStart: row.quiet_start, quietEnd: row.quiet_end,
       };
       if (sleeping(device, now)) continue;
@@ -295,7 +304,9 @@ Deno.serve(async (request) => {
       userId: row.user_id,
       petId: row.pet_id,
       state: toState(row),
-      life: row.last_life as LifeContext,
+      // Placed where their most recent phone is now, not where it was when this
+      // was cached: every rule about "their evening" reads this offset.
+      life: withCurrentOffset(row.last_life as LifeContext, byUser.get(row.user_id)![0]!.utcOffsetMinutes),
       devices: byUser.get(row.user_id)!,
       tier: tiers.get(row.user_id) ?? 'free',
       pushLines: (row.push_lines as PushLineBank | null) ?? null,

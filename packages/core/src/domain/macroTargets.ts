@@ -307,7 +307,9 @@ export const planForGoal = (profile: BodyProfile): GoalPlan | null => {
     requestedDaily: Math.round(requestedDaily),
     capped,
     achievableWeeks: capped ? Math.ceil(totalKg / cappedRatePerWeek) : weeks,
-    targetDate: targetDate.toISOString().slice(0, 10),
+    // The local date, not the UTC one: after about 7pm in the Americas the
+    // UTC date is already tomorrow, and the goal read a day late.
+    targetDate: `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`,
   };
 };
 

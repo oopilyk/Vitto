@@ -42,7 +42,8 @@ export const calculateStreaks = (
   for (const key of sortedKeys) {
     const [year, month, day] = key.split('-').map(Number);
     const current = new Date(year, month - 1, day);
-    runLength = previousDay && current.getTime() - previousDay.getTime() === ONE_DAY_MS ? runLength + 1 : 1;
+    // Rounded: across a clock change two midnights are 23 or 25 hours apart.
+    runLength = previousDay && Math.round((current.getTime() - previousDay.getTime()) / ONE_DAY_MS) === 1 ? runLength + 1 : 1;
     longestStreak = Math.max(longestStreak, runLength);
     previousDay = current;
   }

@@ -66,6 +66,18 @@ export const installNotificationHandler = (): void => {
 };
 
 /**
+ * The phone's time zone by name. The offset above is right only until the
+ * clocks next change; with the name the server keeps up on its own.
+ */
+const deviceTimeZone = (): string | undefined => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/**
  * Mints a token and hands it to the server, if notifications are already
  * allowed. Safe to call on every launch: the server upserts on the token, so
  * this refreshes the timezone and the last-seen time rather than piling up rows.
@@ -97,6 +109,7 @@ export const registerForPush = async (): Promise<PushRegistration> => {
       // Negated: getTimezoneOffset counts minutes WEST of UTC. This is what
       // lets the server work out whether it is the evening where THEY are.
       utcOffsetMinutes: -new Date().getTimezoneOffset(),
+      timeZone: deviceTimeZone(),
     });
     return { status: 'ready', enabled };
   } catch (error) {
@@ -123,6 +136,7 @@ export const setPushEnabled = async (enabled: boolean): Promise<PushStatus> => {
       token,
       platform: Platform.OS === 'ios' || Platform.OS === 'android' ? Platform.OS : 'unknown',
       utcOffsetMinutes: -new Date().getTimezoneOffset(),
+      timeZone: deviceTimeZone(),
       enabled,
     });
     return 'ready';

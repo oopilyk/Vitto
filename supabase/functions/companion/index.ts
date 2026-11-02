@@ -11,7 +11,7 @@ import {
   pickPushLine,
   MAX_TURNS, MEMORY_CATEGORIES, STABLE_SYSTEM_PROMPT, TONE_SIGNALS, DAY,
   accessFor, applyCompanionEvent, customVoice, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
-  fillTraits, humanizeReply, initialTraits, levelIndex, limitsFor, sameBasis, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
+  dayKey, fillTraits, humanizeReply, initialTraits, levelIndex, limitsFor, sameBasis, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
   planMemoryWrites, proposalFallbackLine, proposalFrom, renderDynamicSystemPrompt, renderExtractionPrompt, renderProactiveInstruction, sanitizeEventMetadata,
   lifeForTier, rebaseTraits, sanitizeLifeContext, summarizeRelationship, worthRemembering, tickMood, turnsFromContext, COMPANION_EVENT_TYPES,
   PERSONALITY_VOICE,
@@ -19,6 +19,7 @@ import {
   type CompanionTier, type ExtractionResult, type LifeContext, type PersonalityDials, type PetContext, type TraitBasis,
 } from '../_shared/companion/index.ts';
 import { isDevAccount } from '../_shared/devAccount.ts';
+import { zoneOffsetMinutes } from '../_shared/timeZone.ts';
 
 /**
  * The AI companion's one server endpoint.
@@ -193,6 +194,17 @@ class Companion {
     await this.db.from('companion_state').update({ last_life: life, last_life_at: iso(now) }).match(this.owner);
   }
 
+  /**
+   * Where the user was, from the last description of their day, for the
+   * requests that carry no life context of their own (forgetting a memory).
+   * Without it their days and hours are read on this machine's UTC.
+   */
+  async lastUtcOffset(): Promise<number | undefined> {
+    const { data } = await this.db.from('companion_state').select('last_life').match(this.owner).maybeSingle();
+    const offset = (data?.last_life as LifeContext | null)?.now?.utcOffsetMinutes;
+    return typeof offset === 'number' && Number.isFinite(offset) ? offset : undefined;
+  }
+
   /** What the stored traits grew from; known once the state has been loaded. */
   private basis: TraitBasis | null = null;
   private row(state: CompanionState): Row {
@@ -358,7 +370,8 @@ const extract = async (ctx: PetContext, userText: string, replyText: string, exi
       system: renderExtractionPrompt({ petName: ctx.life.pet.name, existingMemories: existing, askForNickname }),
       messages: [{
         role: 'user',
-        content: `Today is ${ctx.life.now.weekday}, ${new Date().toISOString().slice(0, 10)}.\n\nConversation:\nUser: ${userText}\n${ctx.life.pet.name}: ${replyText}`,
+        // Their date, not this machine's UTC one: in the evening that is already tomorrow.
+        content: `Today is ${ctx.life.now.weekday}, ${dayKey(Date.now(), ctx.life.now.utcOffsetMinutes)}.\n\nConversation:\nUser: ${userText}\n${ctx.life.pet.name}: ${replyText}`,
       }],
       output_config: { format: zodOutputFormat(ExtractionSchema) },
     });
@@ -398,7 +411,7 @@ const learnFrom = async (companion: Companion, ctx: PetContext, userText: string
 
     const stats = await companion.stats();
     const memoryCount = (await companion.memories()).length;
-    next = { ...next, relationshipSummary: summarizeRelationship(next, { ...stats, memoryCount }, observePatterns(await companion.events(now), now), now) };
+    next = { ...next, relationshipSummary: summarizeRelationship(next, { ...stats, memoryCount }, observePatterns(await companion.events(now), now, ctx.life.now.utcOffsetMinutes), now) };
     await companion.saveState(next);
   } catch (error) {
     console.error('[companion] learning failed', error);
@@ -414,7 +427,12 @@ const resummarize = async (companion: Companion, now: number) => {
   try {
     const state = await companion.loadState(now);
     const memoryCount = (await companion.memories()).length;
-    const relationshipSummary = summarizeRelationship(state, { ...(await companion.stats()), memoryCount }, observePatterns(await companion.events(now), now), now);
+    const relationshipSummary = summarizeRelationship(
+      state,
+      { ...(await companion.stats()), memoryCount },
+      observePatterns(await companion.events(now), now, await companion.lastUtcOffset()),
+      now,
+    );
     await companion.saveState({ ...state, relationshipSummary });
   } catch (error) {
     // The forgetting already happened; a stale summary must not report it as failed.
@@ -461,6 +479,8 @@ Deno.serve(async (request) => {
       const offset = typeof body?.utcOffsetMinutes === 'number' && Number.isFinite(body.utcOffsetMinutes)
         ? Math.round(Math.max(-840, Math.min(840, body.utcOffsetMinutes)))
         : 0;
+      // Kept only when this runtime knows it, so the notify job can trust it.
+      const timeZone = zoneOffsetMinutes(body?.timeZone, Date.now()) === null ? null : body.timeZone as string;
       // A token another account is still actively using is not ours to take:
       // registering it would point their phone at this account's pet. It moves
       // only once that account has gone quiet on it (or signed out, which
@@ -474,6 +494,8 @@ Deno.serve(async (request) => {
         user_id: user.id,
         platform: ['ios', 'android'].includes(body?.platform) ? body.platform : 'unknown',
         utc_offset_minutes: offset,
+        // Only from builds that send it: an older one must not wipe it.
+        ...(timeZone ? { time_zone: timeZone } : {}),
         // Only when the caller actually said so. Every launch re-registers to
         // refresh the timezone, and defaulting this to true there would
         // silently switch notifications back on for somebody who turned them
@@ -608,7 +630,7 @@ Deno.serve(async (request) => {
       // event it had in mind, so the pet does not raise the same thing twice.
       await companion.markReacted(events.filter((e) => e.reactedAt === null).map((e) => e.id), now);
       const inMind = new Set(ctx.relevantMemories.map((m) => m.id));
-      for (const due of dueImportantEvents(memories, now)) if (inMind.has(due.id)) await companion.markFollowedUp(due.id, now);
+      for (const due of dueImportantEvents(memories, now, ctx.life.now.utcOffsetMinutes)) if (inMind.has(due.id)) await companion.markFollowedUp(due.id, now);
       await companion.touchMemories([...inMind], now);
 
       // A templated fallback reply teaches nothing worth a second model call.

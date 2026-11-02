@@ -1,6 +1,7 @@
 import { chromeScaleFor, MAX_CHROME_SCALE, NOTCH_TOP_INSET, STATUS_BAR_TOP_INSET, topInsetFor } from '../petWorld/chromeScale';
 import { stageMetrics } from '../petWorld/EnvironmentBackdrop';
 import { ROOM_ACTION_HEIGHT, roomActionTop } from '../petWorld/RoomActionSlot';
+import { speechBubbleFit } from '../petWorld/PetSpeechBubble';
 
 /** Portrait screens, in points: [name, width, height]. */
 const PHONES: [string, number, number][] = [
@@ -72,5 +73,36 @@ describe('roomActionTop — a room button never sits on the pet', () => {
 
   it('keeps the old placement until the pet has been measured', () => {
     expect(roomActionTop({ slotY: 0, slotHeight: 667, hudBottom: 0, petReach: 0 })).toBe((667 - ROOM_ACTION_HEIGHT) / 2);
+  });
+
+  it('rises clear of the speech bubble, but never above the HUD', () => {
+    const at = (speechTop: number) => roomActionTop({ slotY: 0, slotHeight: 844, hudBottom: 266, petReach: 0, speechTop });
+    expect(at(0)).toBe((844 - ROOM_ACTION_HEIGHT) / 2);
+    expect(at(700)).toBe((844 - ROOM_ACTION_HEIGHT) / 2); // a bubble well below it moves nothing
+    expect(at(389)).toBe(389 - 14 - ROOM_ACTION_HEIGHT);
+    expect(at(250)).toBe(266 + 14);
+  });
+});
+
+describe('speechBubbleFit — the speech bubble never covers the room button', () => {
+  it('shows its usual six lines with no button to clear, or before measuring', () => {
+    expect(speechBubbleFit({ anchorY: 0, actionReach: 300 })).toEqual({ textMax: 96, drop: 0 });
+    expect(speechBubbleFit({ anchorY: 500, actionReach: 0 })).toEqual({ textMax: 96, drop: 0 });
+  });
+
+  it('stops at the button and scrolls the rest', () => {
+    const { textMax, drop } = speechBubbleFit({ anchorY: 400, actionReach: 300 });
+    expect(drop).toBe(0);
+    expect(textMax).toBeGreaterThanOrEqual(32);
+    expect(textMax).toBeLessThan(96);
+  });
+
+  it('drops over the pet on a short phone rather than shrinking past two lines', () => {
+    const { textMax, drop } = speechBubbleFit({ anchorY: 333, actionReach: 308 });
+    expect(textMax).toBe(32);
+    expect(drop).toBeGreaterThan(0);
+    // Its top, × included, then sits exactly at the reach.
+    const chrome = 400 - 300 - speechBubbleFit({ anchorY: 400, actionReach: 300 }).textMax;
+    expect(333 + drop - textMax - chrome).toBe(308);
   });
 });

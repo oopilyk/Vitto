@@ -20,10 +20,45 @@ export const formatAgo = (ts: number, now: number): string => {
 
 export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
-/** Local calendar day as YYYY-MM-DD, used to group events by day. */
-export const dayKey = (ts: number): string => {
+/**
+ * A moment's calendar date, weekday and hour where the user is. On the phone
+ * that is its own clock. The edge functions run on UTC, so there the user's
+ * `utcOffsetMinutes` (sent with every request) says where they are: without
+ * it a Monday-evening workout in New York was a Tuesday one, and an 8pm
+ * check-in counted as night.
+ */
+export const localParts = (ts: number, utcOffsetMinutes?: number) => {
+  if (utcOffsetMinutes !== undefined) {
+    const d = new Date(ts + utcOffsetMinutes * MINUTE);
+    return { year: d.getUTCFullYear(), month: d.getUTCMonth(), date: d.getUTCDate(), weekday: d.getUTCDay(), hour: d.getUTCHours() };
+  }
   const d = new Date(ts);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { year: d.getFullYear(), month: d.getMonth(), date: d.getDate(), weekday: d.getDay(), hour: d.getHours() };
+};
+
+/** Local calendar day as YYYY-MM-DD, used to group events by day. */
+export const dayKey = (ts: number, utcOffsetMinutes?: number): string => {
+  const { year, month, date } = localParts(ts, utcOffsetMinutes);
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+};
+
+/**
+ * The calendar day before a YYYY-MM-DD key. Calendar arithmetic, never "minus
+ * 24 hours": a day is 23 or 25 hours long when the clocks change, and stepping
+ * by hours there skipped a day or counted one twice.
+ */
+export const previousDayKey = (key: string): string => {
+  const [year, month, date] = key.split('-').map(Number);
+  return new Date(Date.UTC(year!, month! - 1, date! - 1)).toISOString().slice(0, 10);
+};
+
+/** Whole calendar days from one YYYY-MM-DD key to another; negative when `to` is earlier. */
+export const daysBetweenKeys = (from: string, to: string): number => {
+  const utc = (key: string) => {
+    const [year, month, date] = key.split('-').map(Number);
+    return Date.UTC(year!, month! - 1, date!);
+  };
+  return Math.round((utc(to) - utc(from)) / DAY);
 };
 
 export const timeOfDayFor = (hour: number): 'morning' | 'afternoon' | 'evening' | 'night' =>

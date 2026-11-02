@@ -55,7 +55,6 @@ export const trophyRule = (id: TrophyId, profile: Pick<BodyProfile, 'trainingDay
   }
 };
 
-const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 interface DayRecord {
   workout: boolean;
@@ -66,9 +65,15 @@ interface DayRecord {
 
 const emptyDay = (): DayRecord => ({ workout: false, steps: 0, hitGoals: false, mind: false });
 
+/**
+ * A key's day, at noon. The day walks below step and compare at noon because
+ * midnight does not always exist: where clocks change at midnight (Chile,
+ * Paraguay, Cuba) it becomes 1am, the walk drifted an hour past its end
+ * point, and today was never counted.
+ */
 const parseKey = (key: string): Date => {
   const [year, month, day] = key.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  return new Date(year, month - 1, day, 12);
 };
 
 /**
@@ -146,15 +151,16 @@ const hadConsecutiveDays = (
   if (days.size === 0) return false;
   const keys = [...days.keys()].sort();
   const cursor = parseKey(keys[0]);
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
   let run = 0;
   while (cursor.getTime() <= end.getTime()) {
     const day = days.get(toDateKey(cursor));
     run = day && predicate(day) ? run + 1 : 0;
     if (run >= length) return true;
-    cursor.setTime(cursor.getTime() + ONE_DAY_MS);
-    // Guard DST: normalise back to local midnight so the key stays a whole day.
-    cursor.setHours(0, 0, 0, 0);
+    // A calendar step, not 24 hours: on the night the clocks go back the day is
+    // 25 hours long, and midnight + 24h snapped back to midnight was the same
+    // day again -- the loop never ended and the app hung on its spinner.
+    cursor.setDate(cursor.getDate() + 1);
   }
   return false;
 };
@@ -175,7 +181,7 @@ const hadConsecutiveWorkoutWeeks = (
   if (days.size === 0) return false;
   const keys = [...days.keys()].sort();
   const start = parseKey(keys[0]);
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12);
   const span = weeks * 7;
 
   // Workout flags as a flat day array from the first event to today.
@@ -183,8 +189,7 @@ const hadConsecutiveWorkoutWeeks = (
   const cursor = new Date(start);
   while (cursor.getTime() <= end.getTime()) {
     flags.push(Boolean(days.get(toDateKey(cursor))?.workout));
-    cursor.setTime(cursor.getTime() + ONE_DAY_MS);
-    cursor.setHours(0, 0, 0, 0);
+    cursor.setDate(cursor.getDate() + 1); // a calendar step; see hadConsecutiveDays
   }
   if (flags.length < span) return false;
 

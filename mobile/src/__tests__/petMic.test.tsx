@@ -33,6 +33,21 @@ describe('talking to the pet', () => {
   });
   afterEach(() => jest.useRealTimers());
 
+  it('only asks for permission on the first press, without listening yet', async () => {
+    // First on purpose: once granted, the permission is remembered for the session.
+    speech.ExpoSpeechRecognitionModule.getPermissionsAsync.mockResolvedValue({ granted: false });
+    speech.ExpoSpeechRecognitionModule.requestPermissionsAsync.mockResolvedValueOnce({ granted: true });
+    const tree = mount(() => {});
+    await act(async () => {
+      await button(tree).props.onPressIn();
+    });
+    expect(speech.ExpoSpeechRecognitionModule.requestPermissionsAsync).toHaveBeenCalled();
+    expect(speech.ExpoSpeechRecognitionModule.start).not.toHaveBeenCalled();
+    expect(caption(tree)).toContain('Now hold the button and talk');
+    speech.ExpoSpeechRecognitionModule.getPermissionsAsync.mockResolvedValue({ granted: true });
+    tree.unmount();
+  });
+
   it('listens while held, shows what it heard, and sends it on letting go', async () => {
     const said: string[] = [];
     const tree = mount((text) => said.push(text));
@@ -40,6 +55,9 @@ describe('talking to the pet', () => {
       await button(tree).props.onPressIn();
     });
     expect(speech.ExpoSpeechRecognitionModule.start).toHaveBeenCalledWith(expect.objectContaining({ interimResults: true, requiresOnDeviceRecognition: true }));
+    // Until iOS has the mic recording, it says to wait rather than to talk.
+    expect(caption(tree)).toContain('One sec');
+    act(() => speech.__emit('audiostart', {}));
     expect(caption(tree)).toContain('Listening');
 
     act(() => speech.__emit('result', { results: [{ transcript: 'did you miss me' }], isFinal: false }));
@@ -67,15 +85,4 @@ describe('talking to the pet', () => {
     tree.unmount();
   });
 
-  it('only asks for permission on the first press, without listening yet', async () => {
-    speech.ExpoSpeechRecognitionModule.getPermissionsAsync.mockResolvedValueOnce({ granted: false });
-    const tree = mount(() => {});
-    await act(async () => {
-      await button(tree).props.onPressIn();
-    });
-    expect(speech.ExpoSpeechRecognitionModule.requestPermissionsAsync).toHaveBeenCalled();
-    expect(speech.ExpoSpeechRecognitionModule.start).not.toHaveBeenCalled();
-    expect(caption(tree)).toContain('Now hold the button and talk');
-    tree.unmount();
-  });
 });

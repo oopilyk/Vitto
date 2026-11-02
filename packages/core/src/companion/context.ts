@@ -179,7 +179,7 @@ export const buildPetContext = (input: {
   now: number;
 }): PetContext => {
   const { state, life, events, memories, messages, now } = input;
-  const ranked = selectRelevantMemories(memories, input.currentMessage, now, MAX_MEMORIES);
+  const ranked = selectRelevantMemories(memories, input.currentMessage, now, MAX_MEMORIES, life.now.utcOffsetMinutes);
   return {
     life,
     personality: {
@@ -202,7 +202,7 @@ export const buildPetContext = (input: {
       .slice(0, MAX_EVENTS)
       .map((event) => ({ type: event.type, ago: formatAgo(event.timestamp, now), metadata: event.metadata })),
     relevantMemories: ranked.map(({ memory, score }) => ({ id: memory.id, category: memory.category, content: memory.content, score })),
-    userPatterns: observePatterns(events, now),
+    userPatterns: observePatterns(events, now, life.now.utcOffsetMinutes),
     recentConversation: messages.slice(-MAX_TURNS).map((message) => ({ role: message.role, content: message.content })),
   };
 };

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import Svg, { Rect } from 'react-native-svg';
 import { holdMusic, releaseMusic } from '../services/music';
@@ -18,6 +19,12 @@ interface Props {
 
 /** Shorter than this is a tap, not a sentence: it shows how to use the button instead. */
 const MIN_HOLD_MS = 350;
+
+/**
+ * Permission, once granted, is remembered for the session: asking iOS on every
+ * press cost a round trip before the mic could even start.
+ */
+let allowed = false;
 
 /** Whether this phone or browser can turn speech into text at all. */
 export const canListen = (): boolean => {
@@ -39,7 +46,11 @@ export const canListen = (): boolean => {
  * so nobody is recorded mid-prompt.
  */
 export function PetMicButton({ petName, onSay, busy = false, night = false, size }: Props) {
+  /** Pressed, and the recogniser asked to start. */
   const [listening, setListening] = useState(false);
+  /** The mic is actually recording: only now is it worth talking. */
+  const [ready, setReady] = useState(false);
+  const active = useRef(false);
   const [heard, setHeard] = useState('');
   const [hint, setHint] = useState<string | null>(null);
   const heardRef = useRef('');
@@ -49,7 +60,7 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!listening) {
+    if (!ready) {
       pulse.setValue(0);
       return;
     }
@@ -61,7 +72,16 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
     );
     loop.start();
     return () => loop.stop();
-  }, [listening, pulse]);
+  }, [ready, pulse]);
+
+  // Asked quietly up front, so the first press can start the mic at once.
+  useEffect(() => {
+    void ExpoSpeechRecognitionModule.getPermissionsAsync()
+      .then((permission) => {
+        if (permission.granted) allowed = true;
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!hint) return;
@@ -71,6 +91,13 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
 
   useSpeechRecognitionEvent('start', () => {
     if (released.current) ExpoSpeechRecognitionModule.stop();
+  });
+  // Starting the mic takes iOS a moment (the audio switches from playback to
+  // recording): say so until it is really listening, then a tap to go.
+  useSpeechRecognitionEvent('audiostart', () => {
+    if (released.current) return;
+    setReady(true);
+    void Haptics.selectionAsync?.().catch(() => undefined);
   });
   useSpeechRecognitionEvent('result', (event) => {
     const text = event.results[0]?.transcript ?? '';
@@ -83,7 +110,9 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
     setHint(event.error === 'not-allowed' ? 'Allow the microphone in Settings to talk.' : 'I could not hear that. Try again.');
   });
   useSpeechRecognitionEvent('end', () => {
+    active.current = false;
     setListening(false);
+    setReady(false);
     void releaseMusic();
     const text = heardRef.current.trim();
     heardRef.current = '';
@@ -95,16 +124,21 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
     released.current = false;
     pressedAt.current = Date.now();
     setHint(null);
-    const permission = await ExpoSpeechRecognitionModule.getPermissionsAsync().catch(() => null);
-    if (!permission?.granted) {
-      const asked = await ExpoSpeechRecognitionModule.requestPermissionsAsync().catch(() => null);
-      setHint(asked?.granted ? 'Now hold the button and talk.' : 'Allow the microphone in Settings to talk.');
-      return;
+    if (!allowed) {
+      const permission = await ExpoSpeechRecognitionModule.getPermissionsAsync().catch(() => null);
+      if (!permission?.granted) {
+        const asked = await ExpoSpeechRecognitionModule.requestPermissionsAsync().catch(() => null);
+        if (asked?.granted) allowed = true;
+        setHint(asked?.granted ? 'Now hold the button and talk.' : 'Allow the microphone in Settings to talk.');
+        return;
+      }
+      allowed = true;
+      if (released.current) return;
     }
-    if (released.current) return;
     holdMusic();
     heardRef.current = '';
     setHeard('');
+    active.current = true;
     setListening(true);
     let onDevice = false;
     try {
@@ -124,12 +158,12 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
   const end = () => {
     released.current = true;
     if (Date.now() - pressedAt.current < MIN_HOLD_MS && !heardRef.current) setHint('Hold to talk.');
-    if (listening) ExpoSpeechRecognitionModule.stop();
+    if (active.current) ExpoSpeechRecognitionModule.stop();
   };
 
   const ring = { width: size, height: size, borderRadius: size / 2 };
   const glow = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
-  const caption = listening ? heard || 'Listening…' : hint;
+  const caption = listening ? heard || (ready ? 'Listening…' : 'One sec…') : hint;
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
@@ -140,7 +174,7 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
           </Text>
         </View>
       ) : null}
-      {listening ? <Animated.View style={[styles.halo, ring, { transform: [{ scale: glow }] }]} pointerEvents="none" /> : null}
+      {ready ? <Animated.View style={[styles.halo, ring, { transform: [{ scale: glow }] }]} pointerEvents="none" /> : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Hold to talk to ${petName}`}

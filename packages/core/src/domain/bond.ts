@@ -43,6 +43,10 @@ const DAY_MS = 86_400_000;
 const localDayKey = (date: Date): string =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const dayStart = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+/** `date`'s calendar day moved by `days`: a calendar step, which a clock change cannot skip or repeat. */
+const shiftDays = (date: Date, days: number): Date => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+/** Whole calendar days from one day start to another. Rounded: across a clock change they are 23 or 25 hours apart. */
+const daysBetween = (from: Date, to: Date): number => Math.round((to.getTime() - from.getTime()) / DAY_MS);
 
 export const bondFor = (
   events: readonly HealthEvent[],
@@ -62,7 +66,7 @@ export const bondFor = (
   // How much history there is to judge on: days since adoption, capped at the window.
   const adopted = options.adoptedAt ? dayStart(new Date(options.adoptedAt)) : null;
   const knownDays = adopted && !Number.isNaN(adopted.getTime())
-    ? Math.max(1, Math.min(BOND_WINDOW_DAYS, Math.floor((today.getTime() - adopted.getTime()) / DAY_MS) + 1))
+    ? Math.max(1, Math.min(BOND_WINDOW_DAYS, daysBetween(adopted, today) + 1))
     : BOND_WINDOW_DAYS;
 
   // Weighted vote over the window: today counts only if cared for, then each
@@ -71,7 +75,7 @@ export const bondFor = (
   let possible = 0;
   for (let daysAgo = 0; daysAgo < knownDays; daysAgo += 1) {
     const weight = (BOND_WINDOW_DAYS - daysAgo) / BOND_WINDOW_DAYS;
-    const key = localDayKey(new Date(today.getTime() - daysAgo * DAY_MS));
+    const key = localDayKey(shiftDays(today, -daysAgo));
     const cared = caredDays.has(key);
     if (daysAgo === 0) {
       if (cared) { signed += weight; possible += weight; }
@@ -88,7 +92,7 @@ export const bondFor = (
 
   const silentDays = latest === -Infinity
     ? knownDays
-    : Math.max(0, Math.floor((today.getTime() - dayStart(new Date(latest)).getTime()) / DAY_MS));
+    : Math.max(0, daysBetween(dayStart(new Date(latest)), today));
 
   return { score, stage: bondStage(score), silentDays };
 };

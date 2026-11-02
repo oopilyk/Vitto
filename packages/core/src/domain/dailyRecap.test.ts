@@ -60,8 +60,12 @@ const pet: PetState = {
 };
 
 const day = new Date(2026, 8, 10); // 2026-09-10
-const onDay = (time: string) => `2026-09-10T${time}:00.000Z`;
-const onOtherDay = (time: string) => `2026-09-09T${time}:00.000Z`;
+// Local wall-clock times, like the day they are compared against: written as
+// UTC, they fell on another local day for anyone far from it.
+const localAt = (date: number, hour: number, minute: number) => new Date(2026, 8, date, hour, minute).toISOString();
+const atTime = (date: number, time: string) => localAt(date, Number(time.slice(0, 2)), Number(time.slice(3, 5)));
+const onDay = (time: string) => atTime(10, time);
+const onOtherDay = (time: string) => atTime(9, time);
 
 describe('buildDailyRecap', () => {
   it('returns an all-empty, encouraging recap for a day with no events', () => {
@@ -298,7 +302,7 @@ describe('buildDailyRecap', () => {
 
   it('keys mind sessions on puzzleDate when set, so a late-night puzzle still counts for its day', () => {
     const events: HealthEvent[] = [
-      makeEvent<BrainTrainingMetadata>('BRAIN_TRAINING', '2026-09-11T00:30:00.000Z', {
+      makeEvent<BrainTrainingMetadata>('BRAIN_TRAINING', localAt(11, 0, 30), {
         game: 'wordPuzzle',
         correct: 4,
         total: 5,
@@ -336,9 +340,9 @@ describe('mindRecapForDay', () => {
   it('sums the xp the engine actually stamped on that day’s mind sessions', () => {
     // Arrange
     const events: HealthEvent[] = [
-      mindEvent('2026-09-10T09:00:00.000Z', { game: 'fourCorners', xpAwarded: 18 }),
-      mindEvent('2026-09-10T10:00:00.000Z', { game: 'petJeopardy', xpAwarded: 40 }),
-      mindEvent('2026-09-09T10:00:00.000Z', { game: 'math', xpAwarded: 20 }),
+      mindEvent(localAt(10, 9, 0), { game: 'fourCorners', xpAwarded: 18 }),
+      mindEvent(localAt(10, 10, 0), { game: 'petJeopardy', xpAwarded: 40 }),
+      mindEvent(localAt(9, 10, 0), { game: 'math', xpAwarded: 20 }),
     ];
 
     // Act
@@ -352,9 +356,9 @@ describe('mindRecapForDay', () => {
   it('sums the mind points the scored games reported, ignoring games that report none', () => {
     // Arrange
     const events: HealthEvent[] = [
-      mindEvent('2026-09-10T09:00:00.000Z', { game: 'fourCorners', points: 240 }),
-      mindEvent('2026-09-10T10:00:00.000Z', { game: 'wordGarden', points: 60 }),
-      mindEvent('2026-09-10T11:00:00.000Z', { game: 'reading' }),
+      mindEvent(localAt(10, 9, 0), { game: 'fourCorners', points: 240 }),
+      mindEvent(localAt(10, 10, 0), { game: 'wordGarden', points: 60 }),
+      mindEvent(localAt(10, 11, 0), { game: 'reading' }),
     ];
 
     // Act
@@ -382,7 +386,7 @@ describe('mindRecapForDay', () => {
     // Arrange — finished after midnight, but it is the 10th's puzzle. The
     // session counts for the 10th; the xp was granted on the 11th.
     const events: HealthEvent[] = [
-      mindEvent('2026-09-11T00:30:00.000Z', {
+      mindEvent(localAt(11, 0, 30), {
         game: 'wordPuzzle',
         xpAwarded: 22,
         puzzleDate: '2026-09-10',
@@ -401,7 +405,7 @@ describe('mindRecapForDay', () => {
   it('is the same figure the full daily recap reports, never a second derivation', () => {
     // Arrange
     const events: HealthEvent[] = [
-      mindEvent('2026-09-10T09:00:00.000Z', { game: 'countryGuess', xpAwarded: 14, points: 30 }),
+      mindEvent(localAt(10, 9, 0), { game: 'countryGuess', xpAwarded: 14, points: 30 }),
     ];
 
     // Act
@@ -425,8 +429,8 @@ describe('mindGamesPlayedOn', () => {
   it('reports every game id recorded that day, so a hub can mark them played', () => {
     // Arrange
     const events: HealthEvent[] = [
-      mindEvent('2026-09-10T09:00:00.000Z', { game: 'fourCorners' }),
-      mindEvent('2026-09-09T09:00:00.000Z', { game: 'math' }),
+      mindEvent(localAt(10, 9, 0), { game: 'fourCorners' }),
+      mindEvent(localAt(9, 9, 0), { game: 'math' }),
     ];
 
     // Act
@@ -440,7 +444,7 @@ describe('mindGamesPlayedOn', () => {
   it('keys a word puzzle on its puzzleDate, matching how the recap counts it', () => {
     // Arrange
     const events: HealthEvent[] = [
-      mindEvent('2026-09-11T00:30:00.000Z', { game: 'wordPuzzle', puzzleDate: '2026-09-10' }),
+      mindEvent(localAt(11, 0, 30), { game: 'wordPuzzle', puzzleDate: '2026-09-10' }),
     ];
 
     // Act / Assert

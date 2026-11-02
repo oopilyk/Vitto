@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { HealthEvent } from './health';
 import { PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, type BodyProfile } from './macroTargets';
 import {
@@ -177,5 +177,58 @@ describe('trophyRule', () => {
   it('states the workout rule in the user\'s own weekly number', () => {
     expect(trophyRule('dumbbell', { trainingDaysPerWeek: 3 })).toBe(`${WORKOUT_TROPHY_WEEKS} weeks in a row of 3 workouts a week`);
     expect(trophyRule('dumbbell', { trainingDaysPerWeek: 1 })).toContain('1 workout a week');
+  });
+});
+
+describe('across a clock change', () => {
+  // US clocks went back an hour on 1 Nov 2026, making it a 25-hour day. The
+  // day loops used to step 24 hours and snap back to midnight, which landed on
+  // the same day forever: every account with history from before then hung
+  // the app on its loading spinner.
+  const zone = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'America/New_York';
+  });
+  afterAll(() => {
+    process.env.TZ = zone;
+  });
+
+  it('finishes, and still counts the days either side', () => {
+    const today = new Date(2026, 10, 12, 12);
+    const at = (daysBack: number, hour: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - daysBack);
+      d.setHours(hour, 0, 0, 0);
+      return d.toISOString();
+    };
+    const events = Array.from({ length: TROPHY_DAYS }, (_, n) =>
+      event('STEP_ACTIVITY', at(n, 21), { steps: STEP_TROPHY_DAILY_STEPS }),
+    );
+    expect(earnedTrophies(events, profile, today)).toContain('shoe');
+  });
+});
+
+describe('where the clocks change at midnight', () => {
+  // Chile went forward at midnight on 6 Sep 2026, so that midnight never
+  // happened and became 1am; the day walk drifted past its end and never
+  // counted today.
+  const zone = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'America/Santiago';
+  });
+  afterAll(() => {
+    process.env.TZ = zone;
+  });
+
+  it('still counts today', () => {
+    const today = new Date(2026, 8, 20, 12);
+    const at = (daysBack: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - daysBack);
+      d.setHours(21, 0, 0, 0);
+      return d.toISOString();
+    };
+    const events = Array.from({ length: TROPHY_DAYS }, (_, n) => event('STEP_ACTIVITY', at(n), { steps: STEP_TROPHY_DAILY_STEPS }));
+    expect(earnedTrophies(events, profile, today)).toContain('shoe');
   });
 });

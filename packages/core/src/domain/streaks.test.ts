@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   calculateQualifyingStreaks,
   calculateStreakStatus,
@@ -212,5 +212,21 @@ describe('createsNewStreakDay', () => {
     const existing = [meal('2026-09-01T08:00:00'), workout('2026-09-08T08:00:00')]; // last one two days before the gap
     // 2026-09-09 was missed entirely; today (the 10th) is a new day.
     expect(createsNewStreakDay(existing, meal('2026-09-10T08:00:00'))).toBe(true);
+  });
+});
+
+describe('streaks across a clock change', () => {
+  // Two midnights either side of 1 Nov 2026 (US) are 25 hours apart, not 24.
+  const zone = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'America/New_York';
+  });
+  afterAll(() => {
+    process.env.TZ = zone;
+  });
+
+  it('keeps the longest run going through the 25-hour day', () => {
+    const events = ['2026-10-31T09:00:00', '2026-11-01T09:00:00', '2026-11-02T09:00:00', '2026-11-03T09:00:00'].map(makeEvent);
+    expect(calculateStreaks(events, new Date(2026, 10, 3)).longestStreak).toBe(4);
   });
 });

@@ -122,7 +122,7 @@ const eventReaction = (input: TriggerInput): TriggerFire | null => {
 };
 
 const importantEvent = (input: TriggerInput): TriggerFire | null => {
-  const [due] = dueImportantEvents(input.memories, input.now);
+  const [due] = dueImportantEvents(input.memories, input.now, input.life.now.utcOffsetMinutes);
   if (!due) return null;
   const todayKey = localDayKey(input.now, input);
   return {
@@ -155,7 +155,7 @@ const absence = (input: TriggerInput): TriggerFire | null => {
 };
 
 const habitDeviation = (input: TriggerInput): TriggerFire | null => {
-  const { expected, weekday } = expectedWorkoutMissing(input.events, input.now);
+  const { expected, weekday } = expectedWorkoutMissing(input.events, input.now, input.life.now.utcOffsetMinutes);
   if (!expected || localHour(input.now, input) < 18) return null; // give them the day
   if (firedToday(input, 'habit_deviation')) return null;
   return {

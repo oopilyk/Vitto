@@ -3,7 +3,7 @@
 // Regenerate with: node scripts/syncCompanion.mjs
 
 import type { CompanionMemory, ExtractedMemory } from './types.ts';
-import { DAY, clamp01, overlap, tokenize } from './util.ts';
+import { DAY, clamp01, dayKey, daysBetweenKeys, overlap, tokenize } from './util.ts';
 
 /**
  * One line, no control characters. A memory is rendered into the pet's system
@@ -25,13 +25,15 @@ export interface RankedMemory {
   score: number;
 }
 
-/** Whole days from `today` (local) to an ISO date; negative when in the past. */
-const daysUntil = (isoDate: string, today: Date): number | null => {
+/**
+ * Whole days from the user's today to an ISO date; negative when in the past.
+ * `utcOffsetMinutes` puts "today" where the user is (see localParts in util):
+ * the server's own today ran ahead of theirs every evening.
+ */
+const daysUntil = (isoDate: string, now: number, utcOffsetMinutes?: number): number | null => {
   const [y, m, d] = isoDate.split('-').map(Number);
   if (!y || !m || !d) return null;
-  const target = new Date(y, m - 1, d);
-  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return Math.round((target.getTime() - base.getTime()) / DAY);
+  return daysBetweenKeys(dayKey(now, utcOffsetMinutes), `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
 };
 
 /**
@@ -39,9 +41,13 @@ const daysUntil = (isoDate: string, today: Date): number | null => {
  * relevance to the current message. Deliberately simple weights; tune once there
  * is real usage data.
  */
-export const rankMemories = (list: readonly CompanionMemory[], query: string | undefined, now: number): RankedMemory[] => {
+export const rankMemories = (
+  list: readonly CompanionMemory[],
+  query: string | undefined,
+  now: number,
+  utcOffsetMinutes?: number,
+): RankedMemory[] => {
   const queryTokens = query ? tokenize(query) : new Set<string>();
-  const today = new Date(now);
   return list
     .filter((memory) => memory.active && (memory.expiresAt === null || memory.expiresAt >= now))
     .map((memory) => {
@@ -54,7 +60,7 @@ export const rankMemories = (list: readonly CompanionMemory[], query: string | u
       let relevance = overlap(queryTokens, tokenize(memory.content));
       // An upcoming or just-passed important event is relevant whatever was said.
       if (memory.category === 'importantEvent' && memory.eventDate) {
-        const days = daysUntil(memory.eventDate, today);
+        const days = daysUntil(memory.eventDate, now, utcOffsetMinutes);
         if (days !== null && days >= -1 && days <= 3) relevance = Math.max(relevance, 0.9 - Math.abs(days) * 0.15);
       }
       const score = 0.45 * importance * memory.confidence + 0.15 * recency + 0.1 * frequency + 0.3 * relevance;
@@ -68,14 +74,14 @@ export const selectRelevantMemories = (
   query: string | undefined,
   now: number,
   limit = 8,
-): RankedMemory[] => rankMemories(list, query, now).filter((ranked) => ranked.score >= MIN_RELEVANCE_SCORE).slice(0, limit);
+  utcOffsetMinutes?: number,
+): RankedMemory[] => rankMemories(list, query, now, utcOffsetMinutes).filter((ranked) => ranked.score >= MIN_RELEVANCE_SCORE).slice(0, limit);
 
 /** Important events dated today or yesterday that the pet has not asked about yet. */
-export const dueImportantEvents = (list: readonly CompanionMemory[], now: number): CompanionMemory[] => {
-  const today = new Date(now);
+export const dueImportantEvents = (list: readonly CompanionMemory[], now: number, utcOffsetMinutes?: number): CompanionMemory[] => {
   return list.filter((memory) => {
     if (!memory.active || memory.category !== 'importantEvent' || !memory.eventDate || memory.followedUpAt) return false;
-    const days = daysUntil(memory.eventDate, today);
+    const days = daysUntil(memory.eventDate, now, utcOffsetMinutes);
     return days !== null && days <= 0 && days >= -1;
   });
 };

@@ -138,6 +138,8 @@ export const companionService = {
     token: string;
     platform: 'ios' | 'android' | 'unknown';
     utcOffsetMinutes: number;
+    /** IANA name, e.g. "America/New_York": lets the server follow clock changes (see notify). */
+    timeZone?: string;
     enabled?: boolean;
     quietStart?: number;
     quietEnd?: number;
