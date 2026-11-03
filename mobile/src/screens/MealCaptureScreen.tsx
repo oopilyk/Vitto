@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -52,6 +52,16 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   const [busy, setBusy] = useState<'analyzing' | 'fixing' | 'saving' | 'searching' | null>(null);
   /** What the person says the plate really was, while they correct the AI; null when not correcting. */
   const [fixText, setFixText] = useState<string | null>(null);
+  // The fix box is the last thing on the photo page, so it opened straight
+  // under the keyboard: once the sheet has shrunk above the keyboard, the
+  // page is scrolled down to it.
+  const scroll = useRef<ScrollView>(null);
+  const fixing = fixText !== null;
+  useEffect(() => {
+    if (!fixing) return undefined;
+    const shown = Keyboard.addListener('keyboardDidShow', () => scroll.current?.scrollToEnd({ animated: true }));
+    return () => shown.remove();
+  }, [fixing]);
   const [error, setError] = useState<string | null>(null);
 
   const [query, setQuery] = useState('');
@@ -273,7 +283,16 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           ))}
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <ScrollView
+          ref={scroll}
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          // As the box grows line by line, or Re-analyze's error appears under it.
+          onContentSizeChange={() => {
+            if (fixing) scroll.current?.scrollToEnd({ animated: true });
+          }}
+        >
           {mode === 'photo' && !canScanPhotos ? (
             <View style={styles.locked} testID="photo-locked">
               <Text style={styles.lockedTitle}>Snap your plate. Plus does the macros.</Text>

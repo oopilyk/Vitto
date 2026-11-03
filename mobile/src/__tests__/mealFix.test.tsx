@@ -68,6 +68,32 @@ describe('meal photo', () => {
     act(() => tree.unmount());
   });
 
+  it('scrolls the fix box into view once the keyboard is up, and stops when the fix is put away', async () => {
+    const { Keyboard, ScrollView } = require('react-native');
+    const listeners: Record<string, () => void> = {};
+    const listen = jest.spyOn(Keyboard, 'addListener').mockImplementation((name: unknown, fn: unknown) => {
+      listeners[name as string] = fn as () => void;
+      return { remove: () => delete listeners[name as string] } as never;
+    });
+    const toEnd = jest.spyOn(ScrollView.prototype, 'scrollToEnd').mockImplementation(() => {});
+    const tree = mount();
+    await act(async () => {
+      await byText(tree, 'Take photo')!.props.onPress();
+    });
+    expect(listeners.keyboardDidShow).toBeUndefined();
+
+    act(() => byText(tree, 'Not quite right? Fix it')!.props.onPress());
+    toEnd.mockClear();
+    act(() => listeners.keyboardDidShow!());
+    expect(toEnd).toHaveBeenCalled();
+
+    act(() => byText(tree, 'Never mind')!.props.onPress());
+    expect(listeners.keyboardDidShow).toBeUndefined();
+    act(() => tree.unmount());
+    listen.mockRestore();
+    toEnd.mockRestore();
+  });
+
   it('re-analyzes from what the person says it was, without the photo', async () => {
     const tree = mount();
     // Choosing the photo is enough: it is read straight away, no Analyze button.
