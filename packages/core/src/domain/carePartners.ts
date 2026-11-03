@@ -290,6 +290,7 @@ const INVITE_ERROR_COPY: Record<string, string> = {
   HAS_JOINT_PET: 'Your joint slot is taken. Leave that pet first to join another.',
   ALREADY_OWNS_PET: 'You already have a pet of your own. A second pet can only be a joint one.',
   NOT_A_MEMBER: "You're not caring for this pet any more.",
+  NOT_THE_OWNER: 'Only the owner can remove a care partner.',
   NOT_SIGNED_IN: 'Sign in to use invite codes.',
 };
 

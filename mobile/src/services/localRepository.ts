@@ -266,4 +266,10 @@ export class LocalRepository {
     void petId;
     throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
   }
+
+  async removePetMember(petId: string, userId: string): Promise<void> {
+    void petId;
+    void userId;
+    throw new Error(CARE_PARTNERS_OFFLINE_MESSAGE);
+  }
 }

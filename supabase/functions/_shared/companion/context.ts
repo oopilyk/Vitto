@@ -110,7 +110,7 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
               lift: text(entry.lift, 24, 'Lift'),
               unit: entry.unit === 'kg' ? ('kg' as const) : ('lb' as const),
               oneRepMax: Math.round(num(entry.oneRepMax, 0, 1500, 0)),
-              from: text(entry.from, 32),
+              from: text(entry.from, 48),
             }))
             .filter((entry) => entry.oneRepMax > 0),
         }

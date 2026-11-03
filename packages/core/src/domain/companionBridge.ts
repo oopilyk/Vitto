@@ -232,7 +232,9 @@ export const buildLifeContext = (input: {
         lift: STANDARD_LIFT_LABEL[score.lift],
         unit: input.profile.weightUnit,
         oneRepMax: Math.round(convertWeightValue(score.oneRepMaxKg!, 'kg', input.profile.weightUnit)),
-        from: `${score.from!.weight} ${score.from!.unit} x ${score.from!.reps}`,
+        // The exercise too: a dumbbell set is counted as its barbell equivalent,
+        // and "your 90 x 8 dumbbell press" explains a max far above 90.
+        from: `${score.from!.exercise} ${score.from!.weight} ${score.from!.unit} x ${score.from!.reps}`,
       })),
     today: {
       meals: recap.food.mealCount,

@@ -118,8 +118,8 @@ export const companionService = {
     invoke<{ state: CompanionState }>({ action: 'event', petId, life, event }),
 
   /** Ask whether the pet has something to say. Usually it does not, and no model is called. */
-  checkIn: (petId: string, life: LifeContext) =>
-    invoke<{ message: CompanionMessage | null; trigger: string | null; state: CompanionState }>({ action: 'proactive', petId, life }),
+  checkIn: (petId: string, life: LifeContext, force?: ai.DevCheckIn) =>
+    invoke<{ message: CompanionMessage | null; trigger: string | null; state: CompanionState }>({ action: 'proactive', petId, life, ...(force ? { force } : {}) }),
 
   /**
    * Everything the pet is about to be told, without telling it. Dev accounts

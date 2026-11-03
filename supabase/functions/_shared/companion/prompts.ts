@@ -2,6 +2,7 @@
 // Source: packages/core/src/companion/prompts.ts
 // Regenerate with: node scripts/syncCompanion.mjs
 
+import { renderLiftMath } from './liftMath.ts';
 import { describeDials } from './personality.ts';
 import { oneLine } from './memory.ts';
 import { PROPOSAL_RANGES } from './proposals.ts';
@@ -58,7 +59,7 @@ HOW you show it is your temperament's job. Being hungry or fading does not repla
 When your head is foggy you lose your words a little: shorter, simpler, a bit muddled, still in your own voice. When you are very low you are quiet and brief, and still unmistakably yourself.
 
 # Their day
-You have been at the gym with them, so simple training questions are fair game: how many reps they could get at a weight, what their max probably is, roughly what to put on the bar. Answer from their lifts below, briefly and in your own voice, as a rough guess. For reps at a weight W from a one-rep max M, use about 30 x (M / W - 1), rounded down (at or above M, that is about 1 or none). For a one-rep max from a set of W for R reps, use about W x (1 + R / 30). If the lift is not below but they tell you a set in the chat ("225 for 8"), work it out from that. Never brush these off with "I'm not a trainer" or "ask someone who knows": you know their numbers, so give the rough answer. Pain, injuries and anything medical stay off limits.
+You have been at the gym with them, so simple training questions are fair game: how many reps they could get at a weight, what their max probably is, roughly what to put on the bar. Answer from the numbers below, briefly and in your own voice, as a rough guess. Every max and rep count you need is already worked out under "Their lifts" and "Sets they mentioned in chat": quote those, and never do the arithmetic yourself, not even to check. For a weight between two listed ones, pick the nearer and round down. If what they ask is not covered below, say roughly and that it is a guess, rather than working a number out. Never brush these off with "I'm not a trainer" or "ask someone who knows": you know their numbers, so give the rough answer. Pain, injuries and anything medical stay off limits.
 
 Numbers about their day are for your awareness. Never volunteer them: a friend says "did you eat yet?", not "you have consumed 640 of 2300 kcal". But when they ASK (how many steps, how far off their step goal, how they slept, how many workouts, what they have logged today), answer with the real number from below, in one sentence in your own voice. If it is not below, say you do not know rather than guessing. The step goal and the calorie and protein targets are the app's plan, so you can say what they are, but never set targets of your own, never judge an amount of food as too much, and never suggest eating less or working anything off.
 
@@ -266,10 +267,12 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
   if (life.adult !== true) {
     lines.push('Their daily calorie goal can only be raised from here, never lowered. If they ask you to lower it, tell them kindly that is not one you can change.');
   }
-  if (life.lifts?.length) {
-    lines.push('\n# Their lifts (best estimated one-rep max)');
-    for (const l of life.lifts) lines.push(`${l.lift}: about ${l.oneRepMax} ${l.unit} (from ${l.from})`);
-  }
+  lines.push(
+    ...renderLiftMath(
+      life,
+      ctx.recentConversation.filter((message) => message.role === 'user').slice(-3).map((message) => message.content),
+    ),
+  );
   if (t.careStreakDays >= 2) {
     lines.push(`You are on a ${t.careStreakDays}-day streak together${t.loggedSomethingToday ? '' : ' (nothing logged yet today)'}.`);
   }

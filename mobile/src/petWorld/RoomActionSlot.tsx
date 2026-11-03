@@ -31,6 +31,12 @@ interface HudEdge {
    */
   actionReach: number;
   reportActionReach: (reach: number) => void;
+  /**
+   * The last room's slot, as measured. Every room's slot covers the same stage,
+   * so a new room's button starts where it will end up instead of in the
+   * middle, measuring itself, and jumping: the dip when changing rooms.
+   */
+  lastSlot: { current: { y: number; height: number } | null };
 }
 
 const HudEdgeContext = createContext<HudEdge>({
@@ -41,6 +47,7 @@ const HudEdgeContext = createContext<HudEdge>({
   reportSpeechTop: () => {},
   actionReach: 0,
   reportActionReach: () => {},
+  lastSlot: { current: null },
 });
 
 // Rounded so sub-pixel layout passes don't re-render the stage for nothing.
@@ -61,8 +68,9 @@ export function HudEdgeProvider({ children, petReach = 0 }: { children: ReactNod
   const [bottom, report] = useRoundedEdge();
   const [speechTop, reportSpeechTop] = useRoundedEdge();
   const [actionReach, reportActionReach] = useRoundedEdge();
+  const lastSlot = useRef<{ y: number; height: number } | null>(null);
   return (
-    <HudEdgeContext.Provider value={{ bottom, report, petReach, speechTop, reportSpeechTop, actionReach, reportActionReach }}>
+    <HudEdgeContext.Provider value={{ bottom, report, petReach, speechTop, reportSpeechTop, actionReach, reportActionReach, lastSlot }}>
       {children}
     </HudEdgeContext.Provider>
   );
@@ -131,17 +139,20 @@ const highestActionTop = (slotY: number, hudBottom: number) => (hudBottom > 0 ? 
  * screen, or just under the HUD when the HUD reaches further down than that.
  */
 export function RoomActionSlot({ children }: { children: ReactNode }) {
-  const { bottom, petReach, speechTop, reportActionReach } = useContext(HudEdgeContext);
+  const { bottom, petReach, speechTop, reportActionReach, lastSlot } = useContext(HudEdgeContext);
   // The button zooms about its own centre on a tablet (see RoomActionButton);
   // place the box it is drawn in, then put the unzoomed box at its middle.
   const scale = useChromeScale();
   const drawnHeight = ROOM_ACTION_HEIGHT * scale;
   const ref = useRef<View>(null);
-  const [frame, setFrame] = useState<{ y: number; height: number } | null>(null);
+  const [frame, setFrame] = useState<{ y: number; height: number } | null>(() => lastSlot.current);
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const { height } = event.nativeEvent.layout;
-    ref.current?.measureInWindow((_x, y) => setFrame({ y, height }));
-  }, []);
+    ref.current?.measureInWindow((_x, y) => {
+      lastSlot.current = { y, height };
+      setFrame((current) => (current && current.y === y && current.height === height ? current : { y, height }));
+    });
+  }, [lastSlot]);
 
   const top: DimensionValue = frame
     ? roomActionTop({ slotY: frame.y, slotHeight: frame.height, hudBottom: bottom, petReach, speechTop, buttonHeight: drawnHeight }) +
@@ -151,14 +162,22 @@ export function RoomActionSlot({ children }: { children: ReactNode }) {
   // Tells the speech bubble how high it may grow: to just under this button at
   // its highest. Cleared when the room (and its button) goes.
   const reach = frame ? frame.y + highestActionTop(frame.y, bottom) + drawnHeight + GAP : 0;
+  // Cleared only when the button goes, not on every move: clearing in between
+  // let the bubble grow for a frame and shove the button about.
   useEffect(() => {
     reportActionReach(reach);
-    return () => reportActionReach(0);
   }, [reach, reportActionReach]);
+  useEffect(() => () => reportActionReach(0), [reportActionReach]);
 
   return (
     <View ref={ref} onLayout={onLayout} pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-      <View pointerEvents="box-none" style={{ position: 'absolute', top, left: 0, right: 0, alignItems: 'center' }} testID="room-action-slot">
+      {/* Hidden until placed, the first time only: after that the last room's
+          measurement places it straight away. */}
+      <View
+        pointerEvents="box-none"
+        style={{ position: 'absolute', top, left: 0, right: 0, alignItems: 'center', opacity: frame ? 1 : 0 }}
+        testID="room-action-slot"
+      >
         {children}
       </View>
     </View>

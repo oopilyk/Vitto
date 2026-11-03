@@ -154,8 +154,12 @@ const styles = themedStyles(() => ({
   },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
   scrim: { position: 'absolute', left: 0, bottom: 0 },
-  // The pet stands on the floor line of the art, above the panel.
-  pet: { position: 'absolute', left: 0, right: 0, bottom: 150, alignItems: 'center' },
+  // The pet stands on the middle of the rug (59-76% down the art), its feet
+  // about 68% down: higher, at 150, they met the rug's back edge and the pet
+  // seemed to float in front of the sofa. SpriteFrame's `footShift` puts every
+  // breed's feet ~16% up its box: measured over all 40 forms at 176pt they sit
+  // 25-31pt up, so every pet lands within ~3pt of 300pt, day art or night.
+  pet: { position: 'absolute', left: 0, right: 0, bottom: 112, alignItems: 'center' },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingBottom: 18 },
   headline: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   name: { flex: 1, fontFamily: fonts.pixel, fontSize: 39, color: '#fff', letterSpacing: 0.5 },

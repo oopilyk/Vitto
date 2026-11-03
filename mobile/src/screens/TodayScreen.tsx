@@ -34,6 +34,7 @@ import {
   measurementSystemOf,
   getMealsForDay,
   calorieEstimate,
+  type companion,
 } from '@vitto/core';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
@@ -42,7 +43,7 @@ import { ChoiceRow, TextButton } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { retro } from '../petWorld/retroStyle';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
-import { fonts, getColorScheme, layout, world, themedStyles } from '../theme';
+import { colors, fonts, getColorScheme, layout, world, themedStyles } from '../theme';
 import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
 
 /**
@@ -106,6 +107,8 @@ interface Props {
   onReplayAchievements?: () => void;
   /** DEV: the companion's prompt, memories and triggers. Needs an account. */
   onOpenCompanionDebug?: () => void;
+  /** DEV: has the pet say a neglect check-in now, in the room. Rejects with what went wrong. */
+  onDevCheckIn?: (kind: companion.DevCheckIn) => Promise<void>;
 }
 
 /**
@@ -138,6 +141,13 @@ const DEV_AILMENT_OPTIONS: { value: DevAilmentChoice; label: string; detail?: st
     value: ailment as DevAilmentChoice,
     label: ailment.charAt(0).toUpperCase() + ailment.slice(1),
   })),
+];
+/** Neglect check-ins to hear on demand; each is days of real neglect otherwise. */
+const DEV_CHECK_IN_OPTIONS: { value: companion.DevCheckIn; label: string }[] = [
+  { value: 'absence', label: 'Away 3 days' },
+  { value: 'absence_again', label: 'Still ignored' },
+  { value: 'streak_at_risk', label: 'Streak at risk' },
+  { value: 'unwell', label: 'Feeling sick' },
 ];
 /** Forms to preview. An evolution is weeks of real training away otherwise. */
 const DEV_FORM_OPTIONS: { value: DevFormChoice; label: string; detail?: string }[] = [
@@ -185,7 +195,23 @@ export function TodayScreen({
   onForceTrophies,
   onReplayAchievements,
   onOpenCompanionDebug,
+  onDevCheckIn,
 }: Props) {
+  // The neglect check-in being fetched, and why the last one failed.
+  const [checkingIn, setCheckingIn] = useState<companion.DevCheckIn | null>(null);
+  const [checkInError, setCheckInError] = useState<string | null>(null);
+  const devCheckIn = async (kind: companion.DevCheckIn) => {
+    if (!onDevCheckIn || checkingIn) return;
+    setCheckingIn(kind);
+    setCheckInError(null);
+    try {
+      await onDevCheckIn(kind);
+    } catch (cause) {
+      setCheckInError(cause instanceof Error && cause.message ? cause.message : 'The pet did not answer.');
+    } finally {
+      setCheckingIn(null);
+    }
+  };
   // Today's meal list, folded until opened.
   const [foodLogOpen, setFoodLogOpen] = useState(false);
   // The steps card's own sync: 'syncing' while it runs, then what it found.
@@ -643,6 +669,25 @@ export function TodayScreen({
               value={forcedAilment ?? 'live'}
               onChange={(next) => onForceAilment(next === 'live' ? null : next)}
             />
+          </DevPanel>
+        ) : null}
+        {onDevCheckIn ? (
+          <DevPanel
+            c={c}
+            title="Dev · neglect lines"
+            hint={`Closes this and ${petName} says it in the room, in its own voice. For "Feeling sick", force a status above first.`}
+          >
+            <View style={styles.devButtonGrid}>
+              {DEV_CHECK_IN_OPTIONS.map((option) => (
+                <TextButton
+                  key={option.value}
+                  label={checkingIn === option.value ? 'Asking…' : option.label}
+                  onPress={() => void devCheckIn(option.value)}
+                  disabled={checkingIn !== null}
+                />
+              ))}
+            </View>
+            {checkInError ? <Text style={[styles.devHint, { color: colors.coral }]}>{checkInError}</Text> : null}
           </DevPanel>
         ) : null}
         {onForceForm ? (
@@ -1149,4 +1194,5 @@ const styles = themedStyles(() => ({
   },
   devHint: { fontFamily: fonts.pixel, fontSize: 14, lineHeight: 21, marginTop: 10 },
   devButtons: { flexDirection: 'row', gap: 16 },
+  devButtonGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: 10 },
 }));

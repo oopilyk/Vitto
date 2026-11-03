@@ -13,3 +13,4 @@ export * from './entitlements';
 export * from './mock';
 export * from './pushLines';
 export * from './proposals';
+export * from './liftMath';

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DAY, HOUR, MAX_TRAIT_STEP, STABLE_SYSTEM_PROMPT, TIER_LIMITS,
   accessFor, applyCompanionEvent, applyToneSignals, buildPetContext, computeMood, dueImportantEvents, initialTraits,
-  levelFor, levelProgress, mockExtract, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
+  levelFor, levelProgress, mockExtract, mockReply, newCompanionState, observePatterns, pickProactiveTrigger, devCheckIn,
   planMemoryWrites, rankMemories, renderDynamicSystemPrompt, sanitizeEventMetadata, sanitizeLifeContext, turnsFromContext,
   type CompanionEvent, type CompanionMemory, type LifeContext,
   PERSONALITY_VOICE, customVoice, describeDials, dialsFor, humanizeReply, inQuietHours, localDayStart, rebaseTraits,
@@ -187,6 +187,14 @@ describe('proactive triggers', () => {
     expect(fire).toMatchObject({ key: 'event_reaction', bypassCooldown: true });
     expect(fire!.situation).toContain('levelled up');
     expect(fire!.markEventsReacted.sort()).toEqual(['LEVEL_UP-2', 'MEAL_LOGGED-1']);
+  });
+
+  it('fires a named check-in on demand for dev accounts, and nothing for an unknown name', () => {
+    expect(devCheckIn('absence', life())).toMatchObject({ key: 'absence', lineKind: 'absence', lineVars: { days: 3 } });
+    expect(devCheckIn('absence_again', life())!.lineKind).toBe('absence_again');
+    expect(devCheckIn('streak_at_risk', life())!.lineVars!.streak).toBeGreaterThanOrEqual(3);
+    expect(devCheckIn('unwell', { ...life(), statuses: ['Starving'] })!.situation).toContain('Starving');
+    expect(devCheckIn('anything', life())).toBeNull();
   });
 
   it('reaches out once per absence rather than nagging', () => {
@@ -527,8 +535,11 @@ describe('answering questions about the app', () => {
     const known = sanitizeLifeContext({ lifts: [{ lift: 'Bench', unit: 'lb', oneRepMax: 231.4, from: '205 lb x 4' }, { lift: 'Junk', oneRepMax: -5 }] });
     expect(known.lifts).toEqual([{ lift: 'Bench', unit: 'lb', oneRepMax: 231, from: '205 lb x 4' }]);
     const ctx = buildPetContext({ state: newCompanionState('k', NOW), life: known, events: [], memories: [], messages: [], now: NOW });
-    expect(renderDynamicSystemPrompt(ctx)).toContain('Bench: about 231 lb (from 205 lb x 4)');
+    expect(renderDynamicSystemPrompt(ctx)).toContain('Bench: one-rep max about 231 lb (from 205 lb x 4)');
     expect(STABLE_SYSTEM_PROMPT).toContain('simple training questions are fair game');
+    // The sums are done in code: the pet is told to quote them, not handed a formula.
+    expect(STABLE_SYSTEM_PROMPT).toContain('never do the arithmetic yourself');
+    expect(STABLE_SYSTEM_PROMPT).not.toContain('W x (1 + R / 30)');
     expect(STABLE_SYSTEM_PROMPT).not.toContain('a coach');
   });
 

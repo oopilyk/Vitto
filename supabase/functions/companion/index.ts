@@ -10,7 +10,7 @@ import {
   BANKED_CHECK_IN_KINDS,
   pickPushLine,
   MAX_TURNS, MEMORY_CATEGORIES, STABLE_SYSTEM_PROMPT, TONE_SIGNALS, DAY,
-  accessFor, applyCompanionEvent, customVoice, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
+  accessFor, applyCompanionEvent, devCheckIn, customVoice, applyDisclosure, applyToneSignals, buildPetContext, clamp01, dueImportantEvents,
   dayKey, fillTraits, humanizeReply, initialTraits, levelIndex, limitsFor, sameBasis, mockExtract, mockProactive, mockReply, newCompanionState, observePatterns, pickProactiveTrigger,
   planMemoryWrites, proposalFallbackLine, proposalFrom, renderDynamicSystemPrompt, renderExtractionPrompt, renderProactiveInstruction, sanitizeEventMetadata,
   lifeForTier, rebaseTraits, sanitizeLifeContext, summarizeRelationship, worthRemembering, tickMood, turnsFromContext, COMPANION_EVENT_TYPES,
@@ -647,7 +647,9 @@ Deno.serve(async (request) => {
       const state = tickMood(await companion.loadState(now, life?.pet.temperament, life?.pet.dials), events.filter((e) => now - e.timestamp < 2 * DAY), life, now);
       const [memories, recentMessages] = await Promise.all([companion.memories(), companion.messages(40)]);
       // The rules decide WHETHER to speak. No rule fires, no model is called.
-      const fire = pickProactiveTrigger({ state, events, memories, recentMessages, life, now });
+      // A dev account can name a check-in to hear it now (see `devCheckIn`).
+      const forced = isDev ? devCheckIn(body?.force, life) : null;
+      const fire = forced ?? pickProactiveTrigger({ state, events, memories, recentMessages, life, now });
       // Banked check-ins (away for a while, streak at risk) are a line the pet
       // already wrote in its own voice, so they cost no model call per send:
       // only the daily count applies, not the AI budget.

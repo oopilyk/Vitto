@@ -17,3 +17,4 @@ export * from './entitlements.ts';
 export * from './mock.ts';
 export * from './pushLines.ts';
 export * from './proposals.ts';
+export * from './liftMath.ts';

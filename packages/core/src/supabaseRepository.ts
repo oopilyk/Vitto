@@ -650,9 +650,8 @@ export class SupabaseRepository {
    * Deletes the signed-in user and everything that belongs to them.
    *
    * Irreversible, and not something the client can do itself: `auth.users` is
-   * out of reach from an authenticated client, and a shared pet the user
-   * created has to be handed to its other carer in the same transaction or the
-   * cascade takes it. Both live in `delete_my_account`.
+   * out of reach from an authenticated client. The pet the user adopted goes
+   * with them, shared or not; a pet they only joined stays with its owner.
    */
   async deleteAccount(): Promise<void> {
     const client = requireClient();
@@ -663,6 +662,13 @@ export class SupabaseRepository {
   async leavePet(petId: string): Promise<void> {
     const client = requireClient();
     const { error } = await client.rpc('leave_pet', { p_pet_id: petId });
+    if (error) throw error;
+  }
+
+  /** The owner removes their care partner: the partner's seat closes, the pet stays. */
+  async removePetMember(petId: string, userId: string): Promise<void> {
+    const client = requireClient();
+    const { error } = await client.rpc('remove_pet_member', { p_pet_id: petId, p_user_id: userId });
     if (error) throw error;
   }
 }

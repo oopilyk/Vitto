@@ -13,7 +13,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -414,6 +414,9 @@ function VittoApp() {
     const own = pets.find((candidate) => isOwnPet(candidate, session?.user.id ?? 'demo-user'));
     return own ?? pets[0] ?? null;
   }, [pets, activePetId, session?.user.id]);
+  /** Which pet is on screen, for async work that must not land on the other one. */
+  const petOnScreen = useRef<string | null>(null);
+  petOnScreen.current = pet?.id ?? null;
   /**
    * Replaces one pet in the list, keeping the call sites that predate two pets
    * working unchanged. `null` clears everything, which is what signing out means.
@@ -552,7 +555,11 @@ function VittoApp() {
       pauseMusic();
       return;
     }
-    if (AppState.currentState === 'active') void playMusic();
+    // On a cold launch iOS can still report 'unknown' or 'inactive' here, and
+    // the 'active' change may already have fired before this listener exists:
+    // waiting for it left the music silent until something nudged the app
+    // state. Only a backgrounded app stays quiet.
+    if (AppState.currentState !== 'background') void playMusic();
     const foreground = AppState.addEventListener('change', (state) => {
       if (state === 'active') void playMusic();
       else pauseMusic();
@@ -1014,8 +1021,8 @@ function VittoApp() {
     lastSeenCareLogAt.current = null;
   };
 
-  const refreshShared = async () => {
-    if (!isSupabaseConfigured || !session || !pet) return;
+  const refreshShared = async (target: PetState | null = pet) => {
+    if (!isSupabaseConfigured || !session || !target) return;
     if (careMomentInFlight.current) {
       refreshPending.current = true;
       return;
@@ -1024,14 +1031,17 @@ function VittoApp() {
     const [petResult, membersResult, careLogResult, inviteResult] = await Promise.allSettled([
       // By id, not `loadPet()`: that returns the FIRST pet, which is the wrong
       // one whenever the joint pet is the one on screen.
-      remoteRepository.loadPetById(pet.id),
-      remoteRepository.loadPetMembers(pet.id),
-      remoteRepository.loadCareLog(pet.id),
-      remoteRepository.loadOpenInvite(pet.id),
+      remoteRepository.loadPetById(target.id),
+      remoteRepository.loadPetMembers(target.id),
+      remoteRepository.loadCareLog(target.id),
+      remoteRepository.loadOpenInvite(target.id),
     ]);
     // Signed out, or a different account, while these were in flight: the
     // results belong to nobody on screen now.
     if (sessionUserRef.current !== startedFor) return;
+    // Switched to the other pet while these were in flight: they are that
+    // pet's members and log no longer, and would show on the wrong card.
+    if (petOnScreen.current !== target.id) return;
     // A pet write that started while this was in flight owns the pet now.
     if (careMomentInFlight.current) {
       refreshPending.current = true;
@@ -1045,12 +1055,12 @@ function VittoApp() {
       currentMembers: members,
       lastSeenCareLogAt: lastSeenCareLogAt.current,
       selfUserId: startedFor,
-      petName: pet.name,
+      petName: target.name,
     });
     if (outcome.kind === 'gone') {
       // This pet is no longer ours (left on another device, or the owner
       // removed us). Drop just it; the other pet, if any, carries on.
-      const remaining = pets.filter((candidate) => candidate.id !== pet.id);
+      const remaining = pets.filter((candidate) => candidate.id !== target.id);
       if (remaining.length === 0) {
         clearPetState();
         return;
@@ -1525,6 +1535,36 @@ function VittoApp() {
       void refreshShared();
     });
 
+  /**
+   * The owner removes their care partner from the pet on screen. The pet and
+   * its history stay; the partner's app finds it gone on its next refresh.
+   */
+  const removePartner = () =>
+    runPartnerAction(async () => {
+      if (!pet || !partner) return;
+      const name = partnerName ?? 'your partner';
+      const confirmed = await confirmDialog(
+        `Remove ${name}?`,
+        `${name} will stop caring for ${pet.name}. ${pet.name} and everything you have done together stay with you.`,
+        'Remove',
+      );
+      if (!confirmed) return;
+      await remoteRepository.removePetMember(pet.id, partner.userId);
+      void refreshShared();
+    });
+
+  /**
+   * DEV: the pet says a neglect check-in now, from the pet as shown -- so a
+   * forced status is what it feels. The line lands in the room's bubble.
+   */
+  const devCheckIn = async (kind: companion.DevCheckIn) => {
+    if (!livePet) return;
+    const life = buildLifeContext({ pet: livePet, events, profile, stepGoal, now: new Date() });
+    const { message } = await companionService.checkIn(livePet.id, life, kind);
+    if (!message) throw new Error('The pet had nothing to say. Is the companion function deployed?');
+    setCompanionSaid({ id: message.id, text: message.content });
+  };
+
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   /**
@@ -1546,8 +1586,8 @@ function VittoApp() {
     const second = await confirmDialog(
       'Really delete everything?',
       shared
-        ? 'Your own pet and all your history will be gone for good. A pet you share stays with your care partner.'
-        : 'Your pet and all your history will be gone for good.',
+        ? 'Your own pet and all your history will be gone for good, for your care partner too. A pet you joined stays with its owner.'
+        : 'Your pet and all your history will be gone for good, for your care partner too if you have one.',
       'Delete forever',
     );
     if (!second) return;
@@ -2490,10 +2530,18 @@ function VittoApp() {
               }))}
               activePetId={pet.id}
               onSelectPet={(petId) => {
+                const next = pets.find((candidate) => candidate.id === petId) ?? null;
+                if (!next || next.id === pet.id) return;
                 setActivePetId(petId);
-                // Members, care log and invite all belong to one pet, so they are
-                // refetched for whichever is now on screen.
-                if (isSupabaseConfigured && session) void refreshShared();
+                // Members, care log and invite all belong to one pet: the old
+                // pet's are dropped at once, and the new one's fetched -- for
+                // `next`, since `pet` here is still the one being left.
+                setMembers([]);
+                setCareLog([]);
+                setInvite(null);
+                // Nothing already in the new pet's log is news.
+                lastSeenCareLogAt.current = new Date().toISOString();
+                if (isSupabaseConfigured && session) void refreshShared(next);
               }}
               interaction={interaction}
               partnerName={shared ? partnerName : undefined}
@@ -2780,6 +2828,7 @@ function VittoApp() {
                       onRevokeInvite: revokeInvite,
                       onRedeemInvite: redeemInvite,
                       onLeave: leavePet,
+                      onRemovePartner: removePartner,
                     }
                   : undefined
               }
@@ -2870,7 +2919,7 @@ function VittoApp() {
               onOpenProfile={() => navigation.navigate('Profile')}
               onClose={() => navigation.goBack()}
               careDiary={careDiary}
-              onRefresh={isOnline && shared ? refreshShared : undefined}
+              onRefresh={isOnline && shared ? () => refreshShared() : undefined}
               forcedAilment={isDev ? forcedAilment : undefined}
               onForceAilment={isDev ? setForcedAilment : undefined}
               forcedForm={isDev ? forcedForm : undefined}
@@ -2884,6 +2933,14 @@ function VittoApp() {
               onForceTrophies={isDev ? setForcedTrophies : undefined}
               onReplayAchievements={isDev ? replayAchievements : undefined}
               onOpenCompanionDebug={isDev && isOnline ? () => navigation.navigate('CompanionDebug') : undefined}
+              onDevCheckIn={
+                isDev && isOnline
+                  ? async (kind) => {
+                      await devCheckIn(kind);
+                      navigation.goBack();
+                    }
+                  : undefined
+              }
             />
           )}
         </RootStack.Screen>

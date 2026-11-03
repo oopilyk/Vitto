@@ -264,8 +264,10 @@ export function PetAvatar({
     },
   ];
 
-  // The plate flies in from the lower left, arcs up, and shrinks into the pet's
-  // mouth — the same path the web build ran as a CSS keyframe.
+  // The plate flies in from the left at the pet's chest, arcs up over its head,
+  // and drops shrinking into its mouth. It used to start down by the pet's
+  // feet, which is where the care toast slides up with the stats it earned,
+  // so the first half of the flight went on behind the toast.
   const flight = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!feedingImage) return;
@@ -289,7 +291,7 @@ export function PetAvatar({
       {
         translateY: flight.interpolate({
           inputRange: [0, 0.6, 1],
-          outputRange: [size * 0.45, -size * 0.3, -size * 0.12],
+          outputRange: [-size * 0.3, -size * 0.75, -size * 0.12],
         }) as unknown as number,
       },
       {

@@ -227,3 +227,57 @@ export const pickProactiveTrigger = (input: TriggerInput): TriggerFire | null =>
   const onCooldown = lastProactiveAt !== null && input.now - lastProactiveAt < PROACTIVE_COOLDOWN_MS;
   return onCooldown && !best.bypassCooldown ? null : best;
 };
+
+/** Check-ins a dev account can make the pet say on demand (see `devCheckIn`). */
+export const DEV_CHECK_INS = ['absence', 'absence_again', 'streak_at_risk', 'unwell'] as const;
+export type DevCheckIn = (typeof DEV_CHECK_INS)[number];
+
+/**
+ * DEV ONLY. A check-in fired by hand, whatever the rules above think: neglect
+ * takes days to happen for real, and showing someone what the pet says then
+ * should not. The first three are the same banked lines a neglected pet sends;
+ * `unwell` has the pet say how it feels, from whatever statuses it has (force
+ * one first to choose it).
+ */
+export const devCheckIn = (kind: unknown, life: LifeContext): TriggerFire | null => {
+  const base = { priority: 10, bypassCooldown: true, markEventsReacted: [], markMemoryFollowedUp: null };
+  switch (kind) {
+    case 'absence':
+      return {
+        ...base,
+        key: 'absence',
+        situation: "The user has been absent for 3 days and hasn't opened the app or talked to you. You've been on your own. Reach out.",
+        lineKind: 'absence',
+        lineVars: { days: 3 },
+      };
+    case 'absence_again':
+      return {
+        ...base,
+        key: 'absence',
+        situation: "The user has been absent for 5 days and hasn't opened the app or talked to you. You already reached out once and got nothing back. Reach out.",
+        lineKind: 'absence_again',
+        lineVars: { days: 5 },
+      };
+    case 'streak_at_risk': {
+      const streak = Math.max(life.today.careStreakDays, 3);
+      return {
+        ...base,
+        key: 'streak_at_risk',
+        situation: `You two are on a ${streak}-day streak of them logging something every day, and today nothing's been logged yet and it's evening. Mention it lightly. No pressure, no guilt.`,
+        lineKind: 'streak_at_risk',
+        lineVars: { streak },
+      };
+    }
+    case 'unwell': {
+      const feeling = life.statuses.length ? life.statuses.join(', ') : 'run down and low';
+      return {
+        ...base,
+        key: 'dev_unwell',
+        situation: `You're not doing well: ${feeling}. It's because they haven't been looking after themselves lately, and you feel it in your body. Tell them how you feel, in your own voice, and what would help. No lecture, no guilt trip.`,
+        lineKind: 'thinking_of_you',
+      };
+    }
+    default:
+      return null;
+  }
+};

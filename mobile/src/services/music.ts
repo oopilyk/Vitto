@@ -65,13 +65,41 @@ const ensurePlayer = async (): Promise<AudioPlayer> => {
   return created;
 };
 
+/** Checks after a play that it took, this many times, this far apart. */
+const PLAY_CHECKS = 4;
+const PLAY_CHECK_MS = 600;
+let checking: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Asks again until the player is really playing. In the first moments of a
+ * launch iOS can refuse to start the audio session, and `play()` fails
+ * without a word -- the music then stayed silent until something else
+ * restarted it.
+ */
+const confirmPlaying = (current: AudioPlayer, left: number) => {
+  if (checking) clearTimeout(checking);
+  checking = setTimeout(() => {
+    checking = null;
+    if (!playing || current.playing || left <= 0) return;
+    void setSession()
+      .catch(() => undefined)
+      .then(() => {
+        if (!playing) return;
+        current.play();
+        confirmPlaying(current, left - 1);
+      });
+  }, PLAY_CHECK_MS);
+};
+
 /** Starts the music, or resumes it where it stopped. Quietly does nothing where audio cannot play. */
 export const playMusic = async (): Promise<void> => {
   playing = true;
   try {
     const current = await ensurePlayer();
     // Turned off again while the player was being made.
-    if (playing) current.play();
+    if (!playing) return;
+    current.play();
+    confirmPlaying(current, PLAY_CHECKS);
   } catch (error) {
     console.warn('[music] could not play', error);
   }

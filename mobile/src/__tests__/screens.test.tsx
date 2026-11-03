@@ -2858,6 +2858,29 @@ describe('care partners', () => {
     tree.unmount();
   });
 
+  it('lets the owner remove their partner, and only the owner', async () => {
+    let removed = 0;
+    const onRemovePartner = async () => {
+      removed += 1;
+    };
+    const tree = renderCard(partnerProps({ members: [owner, alex], canJoin: false, onRemovePartner }));
+    const remove = findButton(tree, 'Remove Alex');
+    expect(remove).toBeTruthy();
+    await act(async () => {
+      await remove!.props.onPress();
+    });
+    expect(removed).toBe(1);
+    tree.unmount();
+
+    // The partner's card for the same pet has Leave, never Remove.
+    const theirs = renderCard(
+      partnerProps({ selfUserId: 'user-2', isOwnPet: false, canJoin: false, members: [owner, alex], onRemovePartner }),
+    );
+    expect(findButton(theirs, 'Remove Kyle')).toBeUndefined();
+    expect(findButton(theirs, 'Leave Miso')).toBeTruthy();
+    theirs.unmount();
+  });
+
   it('arrives with the join field open when asked', () => {
     const tree = renderCard(partnerProps(), true);
     // The code field is already open: no "I have a code" step in the way.

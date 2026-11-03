@@ -42,6 +42,8 @@ export interface CarePartnerProps {
   /** Resolves true once joined, false when the user backed out of the confirm; rejects on failure. */
   onRedeemInvite: (code: string) => Promise<boolean>;
   onLeave: () => Promise<void>;
+  /** The owner removes their partner; confirms first, and rejects on failure. */
+  onRemovePartner?: () => Promise<void>;
 }
 
 interface Props {
@@ -95,6 +97,8 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
   const openInvite =
     carePartner.invite && isInviteOpen(carePartner.invite, new Date()) ? carePartner.invite : null;
   const members = activeMembers(carePartner.members);
+  const partner = members.find((member) => member.userId !== carePartner.selfUserId);
+  const partnerName = partner ? memberDisplayName(carePartner.members, partner.userId) : 'partner';
   const primary = { color: palette.primaryText };
   const secondary = { color: palette.secondaryText };
   const edge = { borderColor: palette.divider };
@@ -183,6 +187,17 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
                 <Text style={[styles.optionNote, secondary]}>You get a code to send them. They enter it on their phone.</Text>
               </View>
             )
+          ) : null}
+
+          {isOwner && shared && carePartner.onRemovePartner ? (
+            <View style={styles.footer}>
+              <TextButton
+                label={`Remove ${partnerName}`}
+                tone="coral"
+                onPress={() => void runPartnerAction(carePartner.onRemovePartner!, 'Could not remove your partner.')}
+                disabled={carePartner.busy}
+              />
+            </View>
           ) : null}
 
           {/* Joining adds a second pet; it never touches this one. Hidden once
