@@ -86,6 +86,9 @@ export const PET_BREEDS: PetBreed[] = [
   'dino',
 ];
 
+/** Whose voice the pet speaks in, when its voice is on (mobile/src/voice). */
+export type PetVoice = 'female' | 'male';
+
 export interface PetState {
   id: string;
   /**
@@ -134,6 +137,11 @@ export interface PetState {
    * the companion's traits then drift from. Absent on pets adopted before them.
    */
   dials?: PersonalityDials;
+  /**
+   * Its voice, picked in Settings. Absent until someone picks: the phone then
+   * picks one from the pet's id, the same on every phone.
+   */
+  voice?: PetVoice;
   /**
    * What affects this pet: the care areas its owner chose (see careAreas.ts).
    * A need none of them feeds is held steady instead of decaying. Absent means

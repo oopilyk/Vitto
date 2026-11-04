@@ -1,7 +1,7 @@
-import { Linking, View } from 'react-native';
-import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, ownedBreedsOf, tracksArea } from '@vitto/core';
+import { Alert, Linking, Platform, View } from 'react-native';
+import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, type PetVoice, ownedBreedsOf, tracksArea } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
-import { NavGroup, NavRow, SettingsPage, ToggleRow } from '../components/settingsKit';
+import { NavGroup, NavRow, SegmentedControl, SettingsPage, ToggleRow } from '../components/settingsKit';
 import { sheetByBreed, portraitFrame } from '../components/petSprites';
 import { LEGAL_LINKS } from '../services/billingService';
 import { colors, themedStyles } from '../theme';
@@ -40,9 +40,32 @@ interface Props {
   /** The background music; absent hides the switch. */
   musicOn?: boolean;
   onMusicChange?: (on: boolean) => void;
+  /** The pet reading its lines aloud; absent hides the switch. */
+  voiceOn?: boolean;
+  /** Under the switch instead of the usual line: the download's progress, or why it failed. */
+  voiceStatus?: string;
+  onVoiceChange?: (on: boolean) => void;
+  /** Whose voice the pet speaks in; shown while the voice is on. */
+  petVoice?: PetVoice;
+  onPetVoiceChange?: (voice: PetVoice) => void;
   /** Opens the page that deletes the account. Absent offline. */
   onOpenDeleteAccount?: () => void;
 }
+
+/**
+ * The open-source work the app ships, with the attribution its licences ask
+ * for. The pet's voice is Kokoro, its pronunciations are misaki's, and both
+ * run on ONNX Runtime.
+ */
+const CREDITS = [
+  'Pet voice: Kokoro-82M by hexgrad (Apache License 2.0), via the ONNX build by onnx-community.',
+  'Pronunciations: misaki by hexgrad (Apache License 2.0).',
+  'Voice engine: ONNX Runtime by Microsoft (MIT License).',
+  'Apache License 2.0: apache.org/licenses/LICENSE-2.0',
+].join('\n\n');
+
+// react-native-web's Alert does nothing, so the browser's own alert there.
+const showCredits = () => (Platform.OS === 'web' ? window.alert(`Credits\n\n${CREDITS}`) : Alert.alert('Credits', CREDITS));
 
 const CARE_AREA_LABEL: Record<CareArea, string> = { nutrition: 'Food', training: 'Workouts', movement: 'Steps', mind: 'Mind games' };
 
@@ -86,6 +109,11 @@ export function SettingsScreen({
   onOpenAppearance,
   musicOn,
   onMusicChange,
+  voiceOn,
+  voiceStatus,
+  onVoiceChange,
+  petVoice,
+  onPetVoiceChange,
   onOpenDeleteAccount,
 }: Props) {
   const preferenceSummary = [profile.displayName, profile.age ? `${profile.age}` : null, GOAL_LABEL[profile.goal]]
@@ -169,6 +197,23 @@ export function SettingsScreen({
             <ToggleRow title="Music" description="Quiet lo-fi while the app is open." value={musicOn} onChange={onMusicChange} />
           </View>
         ) : null}
+        {typeof voiceOn === 'boolean' && onVoiceChange ? (
+          <View style={styles.toggle} testID="voice-toggle">
+            <ToggleRow title="Pet voice" description={voiceStatus ?? 'Your pet says its lines out loud.'} value={voiceOn} onChange={onVoiceChange} />
+          </View>
+        ) : null}
+        {voiceOn && petVoice && onPetVoiceChange ? (
+          <View style={styles.toggle} testID="pet-voice-choice">
+            <SegmentedControl<PetVoice>
+              options={[
+                { value: 'female', label: 'Girl' },
+                { value: 'male', label: 'Boy' },
+              ]}
+              value={petVoice}
+              onChange={onPetVoiceChange}
+            />
+          </View>
+        ) : null}
       </NavGroup>
 
       {/* Always reachable, not only next to a purchase: App Review asks for both. */}
@@ -177,6 +222,7 @@ export function SettingsScreen({
           <NavRow title="Privacy Policy" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)} testID="open-privacy" />
         ) : null}
         <NavRow title="Terms of Use" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)} testID="open-terms" />
+        <NavRow title="Credits" onPress={showCredits} testID="open-credits" />
       </NavGroup>
 
       {onOpenDeleteAccount ? (

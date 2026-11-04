@@ -44,7 +44,8 @@ interface ProposalCard {
 
 const SETTING_LABEL: Record<ai.ProposalSetting, string> = { calorieGoal: 'Daily calories', stepGoal: 'Daily steps' };
 
-const proposalTitle = (card: ProposalCard): string => {
+/** The card's heading, and the mic's confirm dialog's: "Daily calories: 2,200 → 1,900". */
+export const proposalTitle = (card: Pick<ProposalCard, 'proposal' | 'from'>): string => {
   const { proposal } = card;
   if (proposal.kind === 'reminder') return `Reminder: ${proposal.label}`;
   const to = proposal.value.toLocaleString('en-US');

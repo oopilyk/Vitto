@@ -51,3 +51,10 @@ jest.mock('expo-speech-recognition', () => {
     __emit: (name, event) => listeners.get(name)?.(event),
   };
 });
+
+// onnxruntime's native engine is absent under jest: the pet's voice never loads
+// (its model is never downloaded there either), so the stand-in only has to exist.
+jest.mock('onnxruntime-react-native', () => ({
+  InferenceSession: { create: () => Promise.reject(new Error('no onnxruntime under jest')) },
+  Tensor: function Tensor() {},
+}));

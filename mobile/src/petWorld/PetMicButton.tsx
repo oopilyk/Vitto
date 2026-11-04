@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import Svg, { Rect } from 'react-native-svg';
 import { holdMusic, releaseMusic } from '../services/music';
+import { stopPetVoice } from '../services/petVoice';
 import { fonts, themedStyles, world } from '../theme';
 import { retro, retroPressed } from './retroStyle';
 
@@ -136,6 +137,8 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
       if (released.current) return;
     }
     holdMusic();
+    // Hush the pet mid-sentence too, or the mic hears it instead of them.
+    stopPetVoice();
     heardRef.current = '';
     setHeard('');
     active.current = true;

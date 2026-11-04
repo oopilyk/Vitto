@@ -48,6 +48,9 @@ export const saveMusicEnabled = async (enabled: boolean): Promise<void> => {
 /** Under other audio, quiet on silent, never in the background. */
 const setSession = () => setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers', shouldPlayInBackground: false });
 
+/** The same setup, for the pet's voice when the music is off. */
+export const setQuietAudioSession = () => setSession().catch(() => undefined);
+
 /** The player, made once: the session set up and the next track queued on each ending. */
 const ensurePlayer = async (): Promise<AudioPlayer> => {
   if (player) return player;
@@ -112,6 +115,17 @@ export const pauseMusic = (): void => {
     player?.pause();
   } catch {
     // Nothing playing to pause.
+  }
+};
+
+/** While the pet talks (petVoice.ts): the music drops to this, then comes back. */
+const DUCKED_VOLUME = 0.12;
+
+export const duckMusic = (ducked: boolean): void => {
+  try {
+    if (player) player.volume = ducked ? DUCKED_VOLUME : VOLUME;
+  } catch {
+    // No player yet: nothing to duck.
   }
 };
 

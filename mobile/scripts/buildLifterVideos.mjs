@@ -14,16 +14,19 @@
  * that colour is made transparent and each clip is re-encoded twice, because
  * no one format plays transparent everywhere:
  *
- *   .mov   HEVC with alpha — iOS (AVPlayer) and Safari
+ *   .mov   HEVC with alpha — iOS (AVPlayer) and Safari, at quality 0.5
+ *          (see compressAssets.mjs: the highest quality was 4x the size for
+ *          no difference at the size the pet is drawn)
  *   .webm  VP9 with alpha  — Chrome, Firefox, Edge (the Expo web build)
  *
  * The source files are never modified.
  *
  * The background is keyed by flooding inward from the frame border, so the
  * white fur INSIDE the dark outline survives even though it is nearly the
- * background's colour. Needs macOS: the alpha encoder is `avconvert`'s.
+ * background's colour. Needs macOS: the alpha encoder is Apple's (hevcAlpha.swift).
  */
 import { execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -255,6 +258,15 @@ const FPS = 6;
 
 fs.mkdirSync(output, { recursive: true });
 const work = fs.mkdtempSync(path.join(os.tmpdir(), `${pet.output}-video-`));
+const hevcAlpha = path.join(work, 'hevcAlpha');
+/** Already at compressAssets.mjs's quality: recorded there, so it is not squeezed a second time. */
+const compressedLedger = path.join(root, 'scripts/data/compressedAssets.json');
+const markCompressed = (file) => {
+  const ledger = fs.existsSync(compressedLedger) ? JSON.parse(fs.readFileSync(compressedLedger, 'utf8')) : {};
+  ledger[path.relative(root, file)] = crypto.createHash('sha1').update(fs.readFileSync(file)).digest('hex');
+  fs.writeFileSync(compressedLedger, `${JSON.stringify(ledger, null, 2)}\n`);
+};
+execFileSync('swiftc', ['-O', path.join(root, 'scripts/hevcAlpha.swift'), '-o', hevcAlpha], { stdio: 'inherit' });
 
 try {
   for (const entry of CLIPS) {
@@ -299,7 +311,8 @@ try {
     }
     // ProRes 4444 first (it carries alpha and ffmpeg can write it anywhere),
     // then Apple's own encoder for the HEVC-with-alpha the app ships. ffmpeg's
-    // hevc_videotoolbox cannot do alpha when it runs under Rosetta.
+    // hevc_videotoolbox cannot do alpha when it runs under Rosetta, and
+    // avconvert's only alpha preset is its largest.
     const prores = path.join(work, `${clip}.mov`);
     execFileSync('ffmpeg', [
       '-y', '-v', 'error',
@@ -308,7 +321,8 @@ try {
       prores,
     ]);
     const target = path.join(output, `${clip}.mov`);
-    execFileSync('avconvert', ['--source', prores, '--preset', 'PresetHEVCHighestQualityWithAlpha', '--output', target, '--replace'], { stdio: 'ignore' });
+    execFileSync(hevcAlpha, [prores, target, '0.5']);
+    markCompressed(target);
     const webm = path.join(output, `${clip}.webm`);
     execFileSync('ffmpeg', [
       '-y', '-v', 'error',

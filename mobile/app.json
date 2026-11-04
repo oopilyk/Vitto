@@ -36,6 +36,7 @@
     },
     "plugins": [
       "expo-font",
+      "./plugins/withOnnxruntimePin",
       [
         "expo-image-picker",
         {

@@ -13,12 +13,13 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
 import { loadAffirmationsEnabled, saveAffirmationsEnabled, syncAffirmations } from './src/services/affirmations';
 import { loadMusicEnabled, pauseMusic, playMusic, saveMusicEnabled } from './src/services/music';
+import { discardVoice, voiceOf, isVoiceReady, loadVoiceEnabled, prepareVoice, saveVoiceEnabled, speakAsPet, stopPetVoice, VOICE_DOWNLOAD_BYTES } from './src/services/petVoice';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
 import { saveWithRetry } from './src/services/saveWithRetry';
@@ -56,7 +57,7 @@ import { FriendPetScreen } from './src/screens/FriendPetScreen';
 import { type ForcedTrophies, TodayScreen } from './src/screens/TodayScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
 import { FourCornersScreen } from './src/screens/FourCornersScreen';
-import { CompanionChatScreen } from './src/screens/CompanionChatScreen';
+import { CompanionChatScreen, proposalTitle } from './src/screens/CompanionChatScreen';
 import { CompanionDebugScreen } from './src/screens/CompanionDebugScreen';
 import { companionService, loadCompanionTier, type CompanionProposal } from './src/services/companionService';
 import { PetJeopardyScreen } from './src/screens/PetJeopardyScreen';
@@ -271,7 +272,7 @@ const withTimeout = <T,>(promise: Promise<T>, message: string) =>
  * account) looked like a dead button. `window.confirm` cannot show a custom
  * button label, so the label is folded into the prompt text instead.
  */
-const confirmDialog = (title: string, message: string, confirmLabel: string): Promise<boolean> => {
+const confirmDialog = (title: string, message: string, confirmLabel: string, destructive = true): Promise<boolean> => {
   if (Platform.OS === 'web') {
     const ask = typeof window !== 'undefined' ? window.confirm : undefined;
     // No `confirm` at all (SSR, a locked-down embed): refuse rather than
@@ -285,7 +286,7 @@ const confirmDialog = (title: string, message: string, confirmLabel: string): Pr
       message,
       [
         { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-        { text: confirmLabel, style: 'destructive', onPress: () => resolve(true) },
+        { text: confirmLabel, style: destructive ? 'destructive' : 'default', onPress: () => resolve(true) },
       ],
       { cancelable: true, onDismiss: () => resolve(false) },
     );
@@ -569,6 +570,52 @@ function VittoApp() {
       pauseMusic();
     };
   }, [musicEnabled]);
+  // The pet's voice: what goes up in the room's bubble is said out loud. Off
+  // until switched on, since on means downloading the model; quiet the moment
+  // the app leaves the screen.
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean | null>(null);
+  /** The download, 0-1, while it runs; or why it failed. */
+  const [voiceProgress, setVoiceProgress] = useState<number | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const getVoiceReady = (sayHello = false) => {
+    setVoiceError(null);
+    if (!isVoiceReady()) setVoiceProgress(0);
+    void prepareVoice(setVoiceProgress)
+      // Just switched on: the pet says hello, so they know it worked.
+      .then(() => {
+        if (sayHello && pet) void speakAsPet(`Hi! It's me, ${pet.name}. Can you hear me?`, pet);
+      })
+      .catch((cause: unknown) => setVoiceError(errorMessage(cause, 'The voice did not download. Try again on Wi-Fi.')))
+      .finally(() => setVoiceProgress(null));
+  };
+  useEffect(() => {
+    void loadVoiceEnabled().then((on) => {
+      setVoiceEnabled(on);
+      // Switched on before, and the model is missing (or just not loaded yet).
+      if (on) getVoiceReady();
+    });
+  }, []);
+  useEffect(() => {
+    if (!voiceEnabled) {
+      stopPetVoice();
+      return;
+    }
+    const leaving = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') stopPetVoice();
+    });
+    return () => leaving.remove();
+  }, [voiceEnabled]);
+  // Each new line in the bubble, said once. Not the "…" while it thinks, and
+  // not an error, which is ours, not the pet's.
+  const voicePetId = pet?.id;
+  const voicePetVoice = pet?.voice;
+  useEffect(() => {
+    if (!voiceEnabled || !voicePetId || !companionSaid) return;
+    if (companionSaid.id.startsWith('listening-') || companionSaid.id.startsWith('talk-error-')) return;
+    void speakAsPet(companionSaid.text, { id: voicePetId, voice: voicePetVoice });
+    // Not on a voice change: that is not a new line to say.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companionSaid, voiceEnabled, voicePetId]);
   // The Dynamic Island. On until switched off; the choice is kept on the device.
   const [islandEnabled, setIslandEnabled] = useState(true);
   useEffect(() => {
@@ -1416,6 +1463,42 @@ function VittoApp() {
       await repository.savePet(nextPet);
     } catch (cause) {
       setError(errorMessage(cause, 'Could not change your companion.'));
+    } finally {
+      releasePetWrite();
+    }
+  };
+
+  /**
+   * Whose voice the pet speaks in. Saved on the pet, so a care partner hears
+   * the same one; versioned with a retry, like `changeForm`. It says a line in
+   * the new voice, so the choice can be heard.
+   */
+  const changePetVoice = async (next: PetVoice) => {
+    if (!pet || pet.voice === next) return;
+    const withVoice = (p: PetState): PetState => ({ ...p, voice: next });
+    const nextPet = withVoice(pet);
+    setPet(nextPet);
+    if (voiceEnabled) void speakAsPet(`Hi! This is my voice now.`, nextPet);
+    careMomentInFlight.current = true;
+    try {
+      if (isSupabaseConfigured && session) {
+        let base = pet;
+        let saved = await remoteRepository.savePetIfUnchanged(nextPet, base.version ?? 0);
+        if (saved.status === 'conflict') {
+          const fresh = await remoteRepository.loadPetById(pet.id);
+          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          base = fresh;
+          saved = await remoteRepository.savePetIfUnchanged(withVoice(fresh), fresh.version ?? 0);
+          if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
+        }
+        const stored = { ...withVoice(base), version: saved.version };
+        setPet(stored);
+        await repository.savePet(stored);
+        return;
+      }
+      await repository.savePet(nextPet);
+    } catch (cause) {
+      setError(errorMessage(cause, "Could not change your pet's voice."));
     } finally {
       releasePetWrite();
     }
@@ -2464,8 +2547,30 @@ function VittoApp() {
     setTalkingToPet(true);
     setCompanionSaid({ id: `listening-${Date.now()}`, text: '…' });
     try {
-      const result = await companionService.send(livePet.id, buildLifeContext({ pet: livePet, events, profile, stepGoal }), text);
+      const life = buildLifeContext({ pet: livePet, events, profile, stepGoal });
+      const result = await companionService.send(livePet.id, life, text);
       setCompanionSaid({ id: result.reply.id, text: result.reply.content });
+      // Asked for a change ("set my calories to 1,900"): the chat shows a card
+      // to confirm it; from the room there is no card, so the same question
+      // comes up as a dialog. Nothing changes without the tap either way.
+      const proposal = result.proposal;
+      if (proposal) {
+        const from = proposal.kind === 'setting' ? (proposal.setting === 'calorieGoal' ? life.today.calorieTarget : life.today.stepGoal) : null;
+        const adding = proposal.kind === 'reminder';
+        const agreed = await confirmDialog(
+          proposalTitle({ proposal, from }),
+          adding ? `${livePet.name} can add this reminder for you.` : `${livePet.name} can change this for you.`,
+          adding ? 'Add' : 'Change',
+          false,
+        );
+        if (agreed) {
+          try {
+            await applyCompanionProposal(proposal);
+          } catch (cause) {
+            setCompanionSaid({ id: `talk-error-${Date.now()}`, text: errorMessage(cause, 'That did not save. Try again.') });
+          }
+        }
+      }
     } catch (cause) {
       setCompanionSaid({ id: `talk-error-${Date.now()}`, text: errorMessage(cause, 'That did not reach me. Try again.') });
     } finally {
@@ -2691,6 +2796,24 @@ function VittoApp() {
               onMusicChange={(next) => {
                 setMusicEnabled(next);
                 void saveMusicEnabled(next);
+              }}
+              // Native only: the voice runs on the phone (see voice/kokoro.web.ts).
+              voiceOn={Platform.OS === 'web' ? undefined : voiceEnabled ?? undefined}
+              petVoice={pet ? voiceOf(pet) : undefined}
+              onPetVoiceChange={pet ? (next) => void changePetVoice(next) : undefined}
+              voiceStatus={
+                voiceProgress !== null
+                  ? `Downloading the voice… ${Math.round(voiceProgress * 100)}%`
+                  : voiceError ?? (voiceEnabled ? undefined : `Turning it on downloads the voice (${Math.round(VOICE_DOWNLOAD_BYTES / 1e6)} MB, once).`)
+              }
+              onVoiceChange={(next) => {
+                setVoiceEnabled(next);
+                void saveVoiceEnabled(next);
+                if (next) getVoiceReady(true);
+                else {
+                  discardVoice();
+                  setVoiceError(null);
+                }
               }}
               onOpenDeleteAccount={isOnline ? () => navigation.navigate('DeleteAccount') : undefined}
             />

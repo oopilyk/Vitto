@@ -13,6 +13,8 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
+// The pet's voice ships its lexicon (text) and voice (raw floats) as assets.
+config.resolver.assetExts.push('txt', 'bin');
 // Without this, a hoisted duplicate of React could be resolved from a parent dir.
 config.resolver.disableHierarchicalLookup = true;
 
