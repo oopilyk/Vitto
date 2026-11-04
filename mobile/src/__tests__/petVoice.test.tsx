@@ -32,6 +32,22 @@ describe('pet voice: text to speech', () => {
     expect(soundOut('Zork')).toBe('zˈɔɹk');
   });
 
+  it('says a sentence per piece, with a short first one so the voice starts quickly', () => {
+    expect(chunkPhonemes('hˈI! hˌW ɑɹ ju? ˈIm ɡˈʊd.')).toEqual(['hˈI!', 'hˌW ɑɹ ju?', 'ˈIm ɡˈʊd.']);
+    const longFirst = 'ˈO, ænd tˈu hˈʌndɹəd twˈɛnti fˈIv fɔɹ ˈAt ˌɔn bˈɛnʧ, ðæts hjˈuʤ ænd ˈɔsəm? jˈɛs.';
+    const [first, ...rest] = chunkPhonemes(longFirst);
+    expect(first.length).toBeLessThanOrEqual(60);
+    expect(first.endsWith(',')).toBe(true);
+    expect(rest.at(-1)).toBe('jˈɛs.');
+  });
+
+  it('copies the style row rather than viewing it (the phone ignores a view\'s offset)', () => {
+    const voice = new Float32Array(510 * 256).map((_, i) => i);
+    const style = styleFor(voice, 3);
+    expect(style.byteOffset).toBe(0);
+    expect(style.buffer).not.toBe(voice.buffer);
+  });
+
   it('pads token ids and keeps each piece within what the model takes', () => {
     expect(tokenize('hˈI!')).toEqual([0, 50, 156, 25, 5, 0]);
     const long = Array.from({ length: 80 }, () => 'hˈI ðˈɛɹ.').join(' ');

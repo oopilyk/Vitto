@@ -3,7 +3,8 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { InferenceSession, Tensor } from 'onnxruntime-react-native';
 import type { PetVoice } from '@vitto/core';
 import { parseLexicon, phonemize, type Lexicon } from './g2p';
-import { encodeWav, joinSamples, synthesize, type RunKokoro } from './synth';
+import { encodeWav, joinSamples, styleFor, synthesize, type RunKokoro } from './synth';
+import { tokenize } from './tokens';
 
 /**
  * Kokoro (hexgrad/Kokoro-82M, Apache-2.0) on the phone.
@@ -114,7 +115,10 @@ let session: Promise<Engine> | null = null;
 const engine = (): Promise<Engine> => {
   session ??= (async () => {
     const [model, lexiconFile] = await Promise.all([
-      InferenceSession.create(pathOf(modelFile()), { intraOpNumThreads: 1 }),
+      // Two threads: fastest on the simulator (4.0 s for an 8 s line, against
+      // 5.2 s on one and 4.4 s on four), and one thread has given all-NaN
+      // output for longer lines in onnxruntime 1.24.
+      InferenceSession.create(pathOf(modelFile()), { intraOpNumThreads: 2 }),
       readAsset(require('../../assets/voice-lexicon.txt')),
     ]);
     const lexiconText = await lexiconFile.text();
@@ -152,9 +156,16 @@ const voiceData = (voice: PetVoice): Promise<Float32Array> => {
   return data;
 };
 
-/** Loads it ahead of the first line, so that one is not slow. */
+/**
+ * Loads it ahead of the first line, so that one is not slow: the model, the
+ * lexicon, both voices, and one short throwaway run (a model's first run is
+ * always its slowest).
+ */
 export const warmUp = (): void => {
-  if (isModelDownloaded()) void engine().catch(() => undefined);
+  if (!isModelDownloaded()) return;
+  void Promise.all([engine(), voiceData('female'), voiceData('male')])
+    .then(([{ run }, voice]) => run(tokenize('hˈI.'), styleFor(voice, 3), 1))
+    .catch(() => undefined);
 };
 
 let clip = 0;
