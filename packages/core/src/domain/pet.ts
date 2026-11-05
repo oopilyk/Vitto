@@ -86,8 +86,13 @@ export const PET_BREEDS: PetBreed[] = [
   'dino',
 ];
 
-/** Whose voice the pet speaks in, when its voice is on (mobile/src/voice). */
-export type PetVoice = 'female' | 'male';
+/**
+ * Whose voice the pet speaks in, when its voice is on (mobile/src/voice).
+ * 'female' and 'male' are the everyday Girl and Boy; the rest are for fun.
+ */
+export const PET_VOICES = ['female', 'male', 'deep', 'squeaky-female', 'squeaky-male', 'fast-female', 'fast-male', 'santa'] as const;
+export type PetVoice = (typeof PET_VOICES)[number];
+export const isPetVoice = (value: unknown): value is PetVoice => (PET_VOICES as readonly unknown[]).includes(value);
 
 export interface PetState {
   id: string;

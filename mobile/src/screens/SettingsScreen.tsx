@@ -1,9 +1,10 @@
 import { Alert, Linking, Platform, View } from 'react-native';
-import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, type PetVoice, ownedBreedsOf, tracksArea } from '@vitto/core';
+import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, PET_VOICES, type PetBreed, type PetState, type PetVoice, ownedBreedsOf, tracksArea } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
-import { NavGroup, NavRow, SegmentedControl, SettingsPage, ToggleRow } from '../components/settingsKit';
+import { NavGroup, NavRow, SelectionList, SettingsPage, ToggleRow } from '../components/settingsKit';
 import { sheetByBreed, portraitFrame } from '../components/petSprites';
 import { LEGAL_LINKS } from '../services/billingService';
+import { VOICE_STYLES } from '../services/petVoice';
 import { colors, themedStyles } from '../theme';
 
 interface Props {
@@ -45,6 +46,8 @@ interface Props {
   /** Under the switch instead of the usual line: the download's progress, or why it failed. */
   voiceStatus?: string;
   onVoiceChange?: (on: boolean) => void;
+  /** The voice is Plus: without it the switch becomes a row that opens Plus. */
+  voiceLocked?: boolean;
   /** Whose voice the pet speaks in; shown while the voice is on. */
   petVoice?: PetVoice;
   onPetVoiceChange?: (voice: PetVoice) => void;
@@ -112,6 +115,7 @@ export function SettingsScreen({
   voiceOn,
   voiceStatus,
   onVoiceChange,
+  voiceLocked = false,
   petVoice,
   onPetVoiceChange,
   onOpenDeleteAccount,
@@ -197,18 +201,17 @@ export function SettingsScreen({
             <ToggleRow title="Music" description="Quiet lo-fi while the app is open." value={musicOn} onChange={onMusicChange} />
           </View>
         ) : null}
-        {typeof voiceOn === 'boolean' && onVoiceChange ? (
+        {typeof voiceOn === 'boolean' && onVoiceChange && voiceLocked ? (
+          onOpenPlus ? <NavRow title="Pet voice" value="A Plus feature" onPress={onOpenPlus} testID="voice-locked" /> : null
+        ) : typeof voiceOn === 'boolean' && onVoiceChange ? (
           <View style={styles.toggle} testID="voice-toggle">
             <ToggleRow title="Pet voice" description={voiceStatus ?? 'Your pet says its lines out loud.'} value={voiceOn} onChange={onVoiceChange} />
           </View>
         ) : null}
-        {voiceOn && petVoice && onPetVoiceChange ? (
+        {voiceOn && !voiceLocked && petVoice && onPetVoiceChange ? (
           <View style={styles.toggle} testID="pet-voice-choice">
-            <SegmentedControl<PetVoice>
-              options={[
-                { value: 'female', label: 'Girl' },
-                { value: 'male', label: 'Boy' },
-              ]}
+            <SelectionList<PetVoice>
+              options={PET_VOICES.map((voice) => ({ value: voice, label: VOICE_STYLES[voice].label }))}
               value={petVoice}
               onChange={onPetVoiceChange}
             />

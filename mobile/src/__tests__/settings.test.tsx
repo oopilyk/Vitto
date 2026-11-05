@@ -9,7 +9,7 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { ScreenTimeScreen } from '../screens/ScreenTimeScreen';
 import { CareAreasScreen } from '../screens/CareAreasScreen';
-import { ActivityHistoryScreen } from '../screens/ActivityHistoryScreen';
+import { ActivityHistoryScreen, describeEvent } from '../screens/ActivityHistoryScreen';
 import { LiftProgressScreen } from '../screens/LiftProgressScreen';
 
 const profile: BodyProfile = {
@@ -302,6 +302,47 @@ describe('settings legal links', () => {
   });
 });
 
+describe('settings pet voice', () => {
+  const renderVoice = (voiceLocked: boolean, opened: string[]) => {
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <SettingsScreen
+          profile={profile}
+          onClose={() => {}}
+          voiceOn
+          onVoiceChange={() => opened.push('toggle')}
+          voiceLocked={voiceLocked}
+          petVoice="female"
+          onPetVoiceChange={() => {}}
+          onOpenPlus={() => opened.push('plus')}
+        />,
+      );
+    });
+    return tree;
+  };
+  const byTestId = (tree: renderer.ReactTestRenderer, id: string) => tree.root.findAll((node) => node.props.testID === id);
+
+  it('is a Plus feature: without Plus the switch is a row that opens Plus', () => {
+    const opened: string[] = [];
+    const tree = renderVoice(true, opened);
+    expect(byTestId(tree, 'voice-toggle')).toHaveLength(0);
+    expect(byTestId(tree, 'pet-voice-choice')).toHaveLength(0);
+    const locked = byTestId(tree, 'voice-locked').find((node) => typeof node.props.onPress === 'function');
+    act(() => locked!.props.onPress());
+    expect(opened).toEqual(['plus']);
+    tree.unmount();
+  });
+
+  it('with Plus shows the switch and the Girl/Boy choice', () => {
+    const tree = renderVoice(false, []);
+    expect(byTestId(tree, 'voice-toggle').length).toBeGreaterThan(0);
+    expect(byTestId(tree, 'pet-voice-choice').length).toBeGreaterThan(0);
+    expect(byTestId(tree, 'voice-locked')).toHaveLength(0);
+    tree.unmount();
+  });
+});
+
 describe('what affects your pet', () => {
   const toggles = (tree: renderer.ReactTestRenderer) =>
     tree.root.findAll((node) => typeof node.props.onValueChange === 'function' && typeof node.type !== 'string');
@@ -545,6 +586,13 @@ describe('activity history page', () => {
     expect(rendered).toContain('Yesterday');
     expect(rendered).toContain('2 care moments');
     tree.unmount();
+  });
+
+  it("says how many steps, and the workout's name when it has one", () => {
+    expect(describeEvent({ id: 's', type: 'STEP_ACTIVITY', occurredAt: '', metadata: { steps: 8432 } } as any)).toBe(`Steps · ${(8432).toLocaleString()}`);
+    expect(describeEvent({ id: 'n', type: 'WORKOUT', occurredAt: '', metadata: { workoutType: 'strength', durationMinutes: 45, name: 'Push day' } } as any)).toBe('Push day · 45m');
+    expect(describeEvent({ id: 'u', type: 'WORKOUT', occurredAt: '', metadata: { workoutType: 'strength', durationMinutes: 0 } } as any)).toBe('Workout');
+    expect(describeEvent({ id: 'c', type: 'WORKOUT', occurredAt: '', metadata: { workoutType: 'running' } } as any)).toBe('Running');
   });
 });
 

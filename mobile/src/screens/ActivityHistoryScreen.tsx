@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata } from '@vitto/core';
+import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, StepMetadata, WorkoutMetadata } from '@vitto/core';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { SettingsPage } from '../components/settingsKit';
 import { formatMinutes } from '../services/minutes';
@@ -8,9 +8,21 @@ import { colors, fonts, themedStyles } from '../theme';
 
 const PAGE_SIZE = 20;
 
+/** "Push day · 45 min", or the kind of session when it was never named. */
+const describeWorkout = (workout: Partial<WorkoutMetadata>): string => {
+  const kind = workout.workoutType?.trim();
+  const fallback = !kind || kind === 'strength' ? 'Workout' : `${kind[0].toUpperCase()}${kind.slice(1)}`;
+  const title = workout.name?.trim() || fallback;
+  return workout.durationMinutes ? `${title} · ${formatMinutes(workout.durationMinutes)}` : title;
+};
+
 export const describeEvent = (event: HealthEvent): string => {
-  if (event.type === 'WORKOUT') return 'Workout';
-  if (event.type === 'STEP_ACTIVITY') return 'Steps';
+  if (event.type === 'WORKOUT') return describeWorkout((event.metadata ?? {}) as Partial<WorkoutMetadata>);
+  if (event.type === 'STEP_ACTIVITY') {
+    // The day's count as of that sync.
+    const steps = (event.metadata as Partial<StepMetadata> | undefined)?.steps;
+    return typeof steps === 'number' ? `Steps · ${steps.toLocaleString()}` : 'Steps';
+  }
   if (event.type === 'BRAIN_TRAINING') {
     const session = event.metadata as BrainTrainingMetadata;
     return `${session.game === 'math' ? 'Quick maths' : 'Read and recall'} · ${session.score} mind score`;

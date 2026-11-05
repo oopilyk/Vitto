@@ -136,6 +136,30 @@ const searchUsda = async (text: string, appKey: string | null): Promise<unknown[
   return Array.isArray(data.foods) ? data.foods : [];
 };
 
+/** Per account, barcode lookups included. See the food_search_limit migration. */
+const SEARCHES_PER_HOUR = 60;
+const SEARCHES_PER_DAY = 300;
+
+/**
+ * Claims one search against the account's limit. Fails OPEN, unlike the AI
+ * budget: what is at stake is a free quota, not a bill, and failing closed
+ * would break FatSecret for everyone if this function went out before its
+ * migration.
+ */
+const claimSearch = async (userId: string): Promise<boolean> => {
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const { data, error } = await admin.rpc('claim_food_search', {
+    p_user: userId,
+    p_hour_limit: SEARCHES_PER_HOUR,
+    p_day_limit: SEARCHES_PER_DAY,
+  });
+  if (error) {
+    console.error('[food-search] limit check failed; allowing the search', error);
+    return true;
+  }
+  return data !== false;
+};
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
@@ -146,6 +170,7 @@ Deno.serve(async (request) => {
     });
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Authentication required.' }, 401);
+    if (!(await claimSearch(user.id))) return json({ error: 'RATE_LIMITED' }, 429);
 
     const { query, key, sources, barcode } = (await request.json().catch(() => ({}))) as {
       query?: unknown; key?: unknown; sources?: unknown; barcode?: unknown;

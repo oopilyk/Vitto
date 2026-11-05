@@ -104,6 +104,11 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
       }),
       Keyboard.addListener('keyboardDidShow', toEnd),
       Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardUp(false)),
+      // Scrolled again once it is gone: the thread was scrolled up to clear the
+      // keyboard, and iOS leaves it there when the inset shrinks back. A short
+      // thread then sat with its first messages above the top of the screen
+      // and empty space below, until it was scrolled by hand.
+      Keyboard.addListener('keyboardDidHide', toEnd),
     ];
     return () => subscriptions.forEach((subscription) => subscription.remove());
   }, []);

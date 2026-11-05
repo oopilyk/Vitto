@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import type { PetState, PetVoice } from '@vitto/core';
-import { deleteModel, downloadModel, isModelDownloaded, speakToFiles, warmUp } from '../voice/kokoro';
+import { deleteModel, downloadModel, isModelDownloaded, speakToFiles, warmUp, type KokoroVoice } from '../voice/kokoro';
 import { duckMusic, setQuietAudioSession } from './music';
 
 /**
@@ -36,9 +36,10 @@ export const saveVoiceEnabled = async (enabled: boolean): Promise<void> => {
 export { isModelDownloaded as isVoiceReady, MODEL_BYTES as VOICE_DOWNLOAD_BYTES } from '../voice/kokoro';
 
 /** Gets the voice ready: downloads the model if it is not here yet, then loads it. */
-export const prepareVoice = async (onProgress?: (fraction: number) => void): Promise<void> => {
+export const prepareVoice = async (onProgress?: (fraction: number) => void, pet?: Pick<PetState, 'id' | 'voice'>): Promise<void> => {
   await downloadModel(onProgress);
-  warmUp();
+  if (pet) warmUpVoice(pet);
+  else warmUp();
 };
 
 /** Switched off: the model is deleted, so it does not sit in 86 MB of their storage. */
@@ -61,8 +62,31 @@ const hashOf = (petId: string) => {
 
 export const playbackRateFor = (petId: string): number => RATE_LOW + ((hashOf(petId) % 1000) / 1000) * (RATE_HIGH - RATE_LOW);
 
-/** The voice picked for it, or else one from its id: the same on every phone, about half each way. */
+/**
+ * What each voice is made of. `speed` is how fast Kokoro speaks it;
+ * `playbackRate` is how much faster it is then played, which raises the pitch
+ * and the pace together (below 1 lowers both) -- so a voice played fast is
+ * spoken slowly to keep its words at a talking pace, and the other way round.
+ * Absent `playbackRate`: the pet's own, from its id. Tuned by ear on Mac.
+ */
+export const VOICE_STYLES: Record<PetVoice, { label: string; kokoro: KokoroVoice; speed: number; playbackRate?: number }> = {
+  female: { label: 'Girl', kokoro: 'af_heart', speed: SPEED },
+  male: { label: 'Boy', kokoro: 'am_puck', speed: SPEED },
+  // ~80 Hz, against ~140 Hz for Boy.
+  deep: { label: 'Super deep', kokoro: 'am_onyx', speed: 1.2, playbackRate: 0.76 },
+  'squeaky-female': { label: 'Squeaky girl', kokoro: 'af_heart', speed: 0.7, playbackRate: 1.6 },
+  'squeaky-male': { label: 'Squeaky boy', kokoro: 'am_puck', speed: 0.7, playbackRate: 1.6 },
+  'fast-female': { label: 'Speedy girl', kokoro: 'af_heart', speed: 1.45 },
+  'fast-male': { label: 'Speedy boy', kokoro: 'am_puck', speed: 1.45 },
+  // Santa as he is: pitching him up would make him an elf.
+  santa: { label: 'Santa', kokoro: 'am_santa', speed: 0.95, playbackRate: 1 },
+};
+
+/** The voice picked for it, or else Girl or Boy from its id: the same on every phone, about half each way. */
 export const voiceOf = (pet: Pick<PetState, 'id' | 'voice'>): PetVoice => pet.voice ?? (hashOf(pet.id) % 2 === 0 ? 'female' : 'male');
+
+/** Loads this pet's voice ahead of its first line. */
+export const warmUpVoice = (pet: Pick<PetState, 'id' | 'voice'>): void => warmUp(VOICE_STYLES[voiceOf(pet)].kokoro);
 
 /** Which line is being said; a newer one, or a stop, ends the older. */
 let generation = 0;
@@ -100,7 +124,8 @@ export const speakAsPet = async (text: string, pet: Pick<PetState, 'id' | 'voice
   const isCurrent = () => mine === generation;
   try {
     await setQuietAudioSession();
-    const clips = speakToFiles(text, { voice: voiceOf(pet), speed: SPEED, playbackRate: playbackRateFor(pet.id), isCurrent });
+    const style = VOICE_STYLES[voiceOf(pet)];
+    const clips = speakToFiles(text, { voice: style.kokoro, speed: style.speed, playbackRate: style.playbackRate ?? playbackRateFor(pet.id), isCurrent });
     let next = clips.next();
     for (;;) {
       const { value, done } = await next;

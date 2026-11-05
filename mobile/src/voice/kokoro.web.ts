@@ -1,5 +1,6 @@
-import type { PetVoice } from '@vitto/core';
 import type { File } from 'expo-file-system';
+
+export type KokoroVoice = 'af_heart' | 'am_puck' | 'am_onyx' | 'am_santa';
 
 /**
  * The web build has no voice. onnxruntime-react-native is native only (it
@@ -17,9 +18,9 @@ export const downloadModel = (_onProgress?: (fraction: number) => void): Promise
 
 export const deleteModel = (): void => {};
 
-export const warmUp = (): void => {};
+export const warmUp = (_voice?: KokoroVoice): void => {};
 
 export async function* speakToFiles(
   _text: string,
-  _options: { voice: PetVoice; speed: number; playbackRate: number; isCurrent: () => boolean },
+  _options: { voice: KokoroVoice; speed: number; playbackRate: number; isCurrent: () => boolean },
 ): AsyncGenerator<File> {}

@@ -2,7 +2,8 @@ import { phonemize, parseLexicon, soundOut } from '../voice/g2p';
 import { normalizeForSpeech, numberToWords } from '../voice/normalize';
 import { chunkPhonemes, encodeWav, styleFor } from '../voice/synth';
 import { tokenize } from '../voice/tokens';
-import { playbackRateFor, voiceOf } from '../services/petVoice';
+import { isPetVoice, PET_VOICES } from '@vitto/core';
+import { playbackRateFor, voiceOf, VOICE_STYLES } from '../services/petVoice';
 
 /** A few entries in the real lexicon's format and phonemes (misaki us_gold). */
 const lexicon = parseLexicon(['hi\thˈI', 'lift\tlˈɪft', 'run\tɹˈʌn', 'gym\tʤˈɪm', 'bro\tbɹˈO', 'nice\tnˈIs', 'set\tsˈɛt', 'apple\tˈæpᵊl', 'pounds\tpˈWndz'].join('\n'));
@@ -79,5 +80,22 @@ describe('pet voice: text to speech', () => {
     expect(voiceOf({ id: 'pet-a' })).toBe(voiceOf({ id: 'pet-a' }));
     const picks = new Set(Array.from({ length: 20 }, (_, i) => voiceOf({ id: `pet-${i}` })));
     expect(picks).toEqual(new Set(['female', 'male']));
+    expect(voiceOf({ id: 'pet-a', voice: 'santa' })).toBe('santa');
+  });
+
+  it('has a style for every voice, deep below a normal pitch and squeaky above', () => {
+    for (const voice of PET_VOICES) expect(VOICE_STYLES[voice].label).toBeTruthy();
+    expect(VOICE_STYLES.deep.playbackRate).toBeLessThan(1);
+    expect(VOICE_STYLES['squeaky-female'].playbackRate).toBeGreaterThan(1.22);
+    expect(VOICE_STYLES['squeaky-male'].kokoro).toBe('am_puck');
+    // Fast keeps the pet's own pitch and just talks faster.
+    expect(VOICE_STYLES['fast-female'].playbackRate).toBeUndefined();
+    expect(VOICE_STYLES['fast-female'].speed).toBeGreaterThan(VOICE_STYLES.female.speed);
+  });
+
+  it('reads only voices it knows from the database', () => {
+    expect(isPetVoice('squeaky-male')).toBe(true);
+    expect(isPetVoice('robot')).toBe(false);
+    expect(isPetVoice(null)).toBe(false);
   });
 });

@@ -1,7 +1,6 @@
 import { Asset } from 'expo-asset';
 import { Directory, File, Paths } from 'expo-file-system';
 import { InferenceSession, Tensor } from 'onnxruntime-react-native';
-import type { PetVoice } from '@vitto/core';
 import { parseLexicon, phonemize, type Lexicon } from './g2p';
 import { encodeWav, joinSamples, styleFor, synthesize, type RunKokoro } from './synth';
 import { tokenize } from './tokens';
@@ -100,9 +99,26 @@ const readAsset = async (module: number): Promise<File> => {
   return new File(asset.localUri ?? asset.uri);
 };
 
-/** Kokoro's voices for each: af_heart, its best-rated, and am_puck, light enough for a small animal. */
-const voiceFile = (voice: PetVoice): number =>
-  voice === 'male' ? require('../../assets/voice-am_puck.f16.bin') : require('../../assets/voice-af_heart.f16.bin');
+/**
+ * The Kokoro voices the app ships: af_heart, its best-rated, and am_puck,
+ * light enough for a small animal; am_onyx, the deepest, and am_santa. The
+ * pet's voices are these, pitched and paced (see services/petVoice.ts).
+ */
+export type KokoroVoice = 'af_heart' | 'am_puck' | 'am_onyx' | 'am_santa';
+
+/** Each `require` written out: Metro only bundles files named literally. */
+const voiceFile = (voice: KokoroVoice): number => {
+  switch (voice) {
+    case 'am_puck':
+      return require('../../assets/voice-am_puck.f16.bin');
+    case 'am_onyx':
+      return require('../../assets/voice-am_onyx.f16.bin');
+    case 'am_santa':
+      return require('../../assets/voice-am_santa.f16.bin');
+    default:
+      return require('../../assets/voice-af_heart.f16.bin');
+  }
+};
 
 interface Engine {
   run: RunKokoro;
@@ -138,10 +154,10 @@ const engine = (): Promise<Engine> => {
   return session;
 };
 
-const voices = new Map<PetVoice, Promise<Float32Array>>();
+const voices = new Map<KokoroVoice, Promise<Float32Array>>();
 
 /** A voice's style vectors, read once. */
-const voiceData = (voice: PetVoice): Promise<Float32Array> => {
+const voiceData = (voice: KokoroVoice): Promise<Float32Array> => {
   let data = voices.get(voice);
   if (!data) {
     data = readAsset(voiceFile(voice))
@@ -158,12 +174,12 @@ const voiceData = (voice: PetVoice): Promise<Float32Array> => {
 
 /**
  * Loads it ahead of the first line, so that one is not slow: the model, the
- * lexicon, both voices, and one short throwaway run (a model's first run is
+ * lexicon, the voice, and one short throwaway run (a model's first run is
  * always its slowest).
  */
-export const warmUp = (): void => {
+export const warmUp = (voice: KokoroVoice = 'af_heart'): void => {
   if (!isModelDownloaded()) return;
-  void Promise.all([engine(), voiceData('female'), voiceData('male')])
+  void Promise.all([engine(), voiceData(voice)])
     .then(([{ run }, voice]) => run(tokenize('hˈI.'), styleFor(voice, 3), 1))
     .catch(() => undefined);
 };
@@ -177,7 +193,7 @@ let clip = 0;
  */
 export async function* speakToFiles(
   text: string,
-  { voice: who, speed, playbackRate, isCurrent }: { voice: PetVoice; speed: number; playbackRate: number; isCurrent: () => boolean },
+  { voice: who, speed, playbackRate, isCurrent }: { voice: KokoroVoice; speed: number; playbackRate: number; isCurrent: () => boolean },
 ): AsyncGenerator<File> {
   const [{ run, lexicon }, voice] = await Promise.all([engine(), voiceData(who)]);
   const phonemes = phonemize(text, lexicon);

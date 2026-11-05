@@ -76,6 +76,12 @@ const COMPARISON: { feature: string; detail: string; free: string; plus: string 
     plus: 'Included',
   },
   {
+    feature: 'Talks out loud',
+    detail: 'Hear your pet say its lines',
+    free: '—',
+    plus: 'Included',
+  },
+  {
     feature: 'Voice',
     detail: 'Their personality in every reply',
     free: 'Default',

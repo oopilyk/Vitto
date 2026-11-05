@@ -580,7 +580,7 @@ function VittoApp() {
   const getVoiceReady = (sayHello = false) => {
     setVoiceError(null);
     if (!isVoiceReady()) setVoiceProgress(0);
-    void prepareVoice(setVoiceProgress)
+    void prepareVoice(setVoiceProgress, pet ?? undefined)
       // Just switched on: the pet says hello, so they know it worked.
       .then(() => {
         if (sayHello && pet) void speakAsPet(`Hi! It's me, ${pet.name}. Can you hear me?`, pet);
@@ -595,8 +595,11 @@ function VittoApp() {
       if (on) getVoiceReady();
     });
   }, []);
+  // The voice is Plus. Switched on and then lapsed, it stays quiet (the model
+  // stays too, so coming back to Plus is not another download).
+  const voiceActive = voiceEnabled === true && canCustomise;
   useEffect(() => {
-    if (!voiceEnabled) {
+    if (!voiceActive) {
       stopPetVoice();
       return;
     }
@@ -604,18 +607,18 @@ function VittoApp() {
       if (state !== 'active') stopPetVoice();
     });
     return () => leaving.remove();
-  }, [voiceEnabled]);
+  }, [voiceActive]);
   // Each new line in the bubble, said once. Not the "…" while it thinks, and
   // not an error, which is ours, not the pet's.
   const voicePetId = pet?.id;
   const voicePetVoice = pet?.voice;
   useEffect(() => {
-    if (!voiceEnabled || !voicePetId || !companionSaid) return;
+    if (!voiceActive || !voicePetId || !companionSaid) return;
     if (companionSaid.id.startsWith('listening-') || companionSaid.id.startsWith('talk-error-')) return;
     void speakAsPet(companionSaid.text, { id: voicePetId, voice: voicePetVoice });
     // Not on a voice change: that is not a new line to say.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companionSaid, voiceEnabled, voicePetId]);
+  }, [companionSaid, voiceActive, voicePetId]);
   // The Dynamic Island. On until switched off; the choice is kept on the device.
   const [islandEnabled, setIslandEnabled] = useState(true);
   useEffect(() => {
@@ -1478,7 +1481,7 @@ function VittoApp() {
     const withVoice = (p: PetState): PetState => ({ ...p, voice: next });
     const nextPet = withVoice(pet);
     setPet(nextPet);
-    if (voiceEnabled) void speakAsPet(`Hi! This is my voice now.`, nextPet);
+    if (voiceActive) void speakAsPet(`Hi! This is my voice now.`, nextPet);
     careMomentInFlight.current = true;
     try {
       if (isSupabaseConfigured && session) {
@@ -2799,6 +2802,7 @@ function VittoApp() {
               }}
               // Native only: the voice runs on the phone (see voice/kokoro.web.ts).
               voiceOn={Platform.OS === 'web' ? undefined : voiceEnabled ?? undefined}
+              voiceLocked={!canCustomise}
               petVoice={pet ? voiceOf(pet) : undefined}
               onPetVoiceChange={pet ? (next) => void changePetVoice(next) : undefined}
               voiceStatus={
