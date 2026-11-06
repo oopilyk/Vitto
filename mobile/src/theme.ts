@@ -202,13 +202,13 @@ export const world = {
 } as const;
 
 /**
- * The web used Fraunces for display text and DM Mono for labels. Rather than ship
- * font files, native maps them to the platform's own serif and monospace faces,
- * which keeps the same typographic contrast without a font-loading step.
+ * Two typographic worlds: the pet's room (the main page, the pet, its
+ * celebrations) is set in the pixel face; every other page is set in the
+ * system's own, San Francisco on iOS (`ui`).
  */
 export const fonts = {
-  // Every face is the pixel one now (see `pixel` below): the old names stay so
-  // existing styles read on, and resolve to the matching pixel weight.
+  // The pet world's names, all the pixel face: the old names stay so its
+  // styles read on, and resolve to the matching pixel weight.
   display: 'Jersey10_400Regular',
   mono: 'Jersey10_400Regular',
   body: 'Jersey10_400Regular',
@@ -225,26 +225,40 @@ export const fonts = {
    * The pet world's own HUD keeps the platform's faces it was designed in: the
    * clean monospace sits better over the pixel-art rooms than the pixel font.
    */
+  /**
+   * Everything outside the pet's world: San Francisco on iOS, the platform
+   * sans elsewhere. Sizes are a system font's (17 body, 34 large title), and
+   * weight comes from `fontWeight`.
+   */
+  ui: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }) as string,
+  /** A serif for letters that must read alone, like a word game's capital I (SF draws it as a bare stroke). */
+  serif: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }) as string,
   systemMono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) as string,
   system: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }) as string,
 };
 
+/**
+ * Apple's type scale, in San Francisco: large title 34, title 28, headline
+ * 17 semibold, body 17, subhead 15, footnote 13. Tracking stays at the face's
+ * own; only the small uppercase eyebrow is opened up.
+ */
 export const text = themedStyles(() => ({
   kicker: {
-    fontFamily: fonts.mono,
+    fontFamily: fonts.ui,
     fontSize: 13,
-    letterSpacing: 1.3,
+    fontWeight: '600',
+    letterSpacing: 0.6,
     color: colors.faint,
     textTransform: 'uppercase',
   },
-  display: { fontFamily: fonts.display, fontSize: 42, color: colors.ink, letterSpacing: 0.5 },
-  title: { fontFamily: fonts.display, fontSize: 33, color: colors.ink, letterSpacing: 0.3 },
-  heading: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
-  body: { fontFamily: fonts.pixel, fontSize: 20, color: colors.inkSoft, lineHeight: 27 },
-  small: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted },
-  mono: { fontFamily: fonts.mono, fontSize: 14, letterSpacing: 0.6, color: colors.muted },
-  stat: { fontFamily: fonts.pixelBold, fontSize: 23, color: colors.ink },
-  error: { fontFamily: fonts.pixel, color: colors.danger, fontSize: 18 },
+  display: { fontFamily: fonts.ui, fontSize: 34, fontWeight: '700', color: colors.ink },
+  title: { fontFamily: fonts.ui, fontSize: 28, fontWeight: '700', color: colors.ink },
+  heading: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '600', color: colors.ink },
+  body: { fontFamily: fonts.ui, fontSize: 17, color: colors.inkSoft, lineHeight: 24 },
+  small: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 20 },
+  mono: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, fontVariant: ['tabular-nums'] },
+  stat: { fontFamily: fonts.ui, fontSize: 20, fontWeight: '700', color: colors.ink, fontVariant: ['tabular-nums'] },
+  error: { fontFamily: fonts.ui, color: colors.danger, fontSize: 15, lineHeight: 20 },
 }));
 
 export const layout = themedStyles(() => ({
@@ -266,42 +280,44 @@ export const layout = themedStyles(() => ({
     height: '100%',
   },
   padded: { paddingHorizontal: 22 },
+  // Surfaces lift off the page by tone and a soft shadow, not an outline.
   card: {
     backgroundColor: colors.card,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: 4,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     padding: 16,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   row: { flexDirection: 'row', alignItems: 'center' },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   hairline: { borderBottomWidth: 1, borderBottomColor: colors.hairline },
   primaryButton: {
     backgroundColor: colors.coral,
-    borderWidth: 3,
-    borderColor: colors.shadow,
-    borderRadius: 4,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 0.9,
-    shadowRadius: 0,
-    elevation: 4,
-    paddingVertical: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    minHeight: 52,
+    paddingVertical: 15,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 10,
   },
-  primaryLabel: { color: colors.onCoral, fontFamily: fonts.pixelBold, fontSize: 20, letterSpacing: 1 },
+  primaryLabel: { color: colors.onCoral, fontFamily: fonts.ui, fontSize: 17, fontWeight: '600' },
   input: {
-    borderWidth: 2,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: colors.card,
-    borderRadius: 4,
-    fontFamily: fonts.pixel,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-    fontSize: 20,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    fontFamily: fonts.ui,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    fontSize: 17,
     color: colors.ink,
   },
 }));

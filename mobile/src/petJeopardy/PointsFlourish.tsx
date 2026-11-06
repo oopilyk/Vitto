@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Text } from 'react-native';
-import { RETRO_RADIUS, retroShadow } from '../petWorld/retroStyle';
+import { SURFACE_RADIUS, surfaceShadow } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { ON_FILL_TEXT } from './board';
 
@@ -65,17 +65,17 @@ const styles = themedStyles(() => ({
   chip: {
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: RETRO_RADIUS,
-    borderWidth: 2,
+    borderRadius: SURFACE_RADIUS,
+    borderWidth: 1,
     borderColor: world.ink,
     backgroundColor: world.accentDeep,
-    ...retroShadow,
+    ...surfaceShadow,
   },
   label: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 20,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 17,
     
-    letterSpacing: 0.8,
+    letterSpacing: 0,
     color: ON_FILL_TEXT,
   },
 }));

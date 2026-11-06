@@ -3,6 +3,7 @@ import {
   Platform,
   Pressable,
   RefreshControl,
+  StyleSheet,
   ScrollView,
   Text,
   TextInput,
@@ -39,9 +40,9 @@ import {
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
 import { NutrientRing } from '../components/NutrientRing';
-import { ChoiceRow, TextButton } from '../components/ui';
+import { ChoiceRow, PressableScale, TextButton, KEYBOARD_DONE_ID } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
-import { retro } from '../petWorld/retroStyle';
+import { surface } from '../components/surfaceStyle';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { colors, fonts, getColorScheme, layout, world, themedStyles } from '../theme';
 import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
@@ -71,6 +72,10 @@ interface Props {
   onOpenWordPuzzle?: () => void;
   /** "Full history →" — Profile lists the user's own events. */
   onOpenProfile: () => void;
+  /** The Food, Outdoors and Gym cards' "more" rows. Each absent hides its row. */
+  onOpenFoodTrends?: () => void;
+  onOpenStepTrends?: () => void;
+  onOpenLiftProgress?: () => void;
   /** Insights ("Miso noticed") are Plus. Locked, a found insight shows as a teaser that opens Plus. Defaults to unlocked. */
   insightsUnlocked?: boolean;
   onOpenPlus?: () => void;
@@ -178,6 +183,9 @@ export function TodayScreen({
   onLogWater,
   onOpenWordPuzzle,
   onOpenProfile,
+  onOpenFoodTrends,
+  onOpenStepTrends,
+  onOpenLiftProgress,
   insightsUnlocked = true,
   onOpenPlus,
   onClose,
@@ -271,7 +279,7 @@ export function TodayScreen({
           hitSlop={8}
           style={styles.back}
         >
-          <Text style={[styles.backMark, { color: world.accent }]}>←</Text>
+          <Text style={[styles.backMark, { color: world.accent }]}>‹</Text>
           <Text style={[styles.backLabel, { color: c.soft }]}>Pet</Text>
         </Pressable>
         <Text style={[styles.topTitle, { color: c.ink }]}>Today</Text>
@@ -349,6 +357,7 @@ export function TodayScreen({
             c={c}
             night={night}
             kicker="FOOD"
+            more={onOpenFoodTrends ? { label: 'Trends & averages', onPress: onOpenFoodTrends } : undefined}
             done={food.caloriePercent >= 90 && food.caloriePercent <= 110}
             xp={recap.xpByPillar.food}
             headline={
@@ -485,6 +494,7 @@ export function TodayScreen({
             c={c}
             night={night}
             kicker="OUTDOORS"
+            more={onOpenStepTrends ? { label: 'Trends & averages', onPress: onOpenStepTrends } : undefined}
             done={outdoors.goalReached}
             xp={outdoors.xp}
             headline={`${outdoors.steps.toLocaleString()} / ${outdoors.goal.toLocaleString()} steps`}
@@ -519,7 +529,7 @@ export function TodayScreen({
               <Text style={[styles.goalEditLabel, { color: c.soft }]}>Daily goal</Text>
               <TextInput
                 style={[styles.goalInput, { color: c.ink, borderColor: c.hairline }]}
-                keyboardType="number-pad"
+                keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                 value={String(stepGoal)}
                 onChangeText={(value) =>
                   onStepGoalChange(Number(value.replace(/[^0-9]/g, '')) || 1000)
@@ -534,6 +544,7 @@ export function TodayScreen({
             c={c}
             night={night}
             kicker="GYM"
+            more={onOpenLiftProgress ? { label: 'Lift progress', onPress: onOpenLiftProgress } : undefined}
             done={gym.done}
             xp={gym.xp}
             headline={
@@ -594,7 +605,7 @@ export function TodayScreen({
         ) : null}
 
         {/* --- Today's activity: aggregated, meaningful only --- */}
-        <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.activity]}>
+        <View style={[surface.panelQuiet, night && surface.panelQuietNight, styles.activity]}>
           <Text style={[styles.activityTitle, { color: c.ink }]}>Today's activity</Text>
           {recap.activity.length === 0 ? (
             <Text style={[styles.activityEmpty, { color: c.soft }]}>
@@ -614,7 +625,7 @@ export function TodayScreen({
         </View>
 
         {topInsight && insightsUnlocked ? (
-          <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.softPanel]}>
+          <View style={[surface.panelQuiet, night && surface.panelQuietNight, styles.softPanel]}>
             <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
             <Text style={[styles.softHeadline, { color: c.ink }]}>{topInsight.headline}</Text>
             <Text style={[styles.softDetail, { color: c.soft }]}>{topInsight.detail}</Text>
@@ -625,7 +636,7 @@ export function TodayScreen({
             accessibilityRole="button"
             onPress={onOpenPlus}
             disabled={!onOpenPlus}
-            style={[retro.panelQuiet, night && retro.panelQuietNight, styles.softPanel]}
+            style={[surface.panelQuiet, night && surface.panelQuietNight, styles.softPanel]}
             testID="insight-locked"
           >
             <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
@@ -639,7 +650,7 @@ export function TodayScreen({
         ) : null}
 
         {screenTimeToday ? (
-          <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.softPanel]}>
+          <View style={[surface.panelQuiet, night && surface.panelQuietNight, styles.softPanel]}>
             <Text style={[styles.softKicker, { color: c.soft }]}>Screen time</Text>
             <Text style={[styles.softHeadline, { color: c.ink }]}>
               {formatScreenMinutes(screenTimeToday.metadata.minutes)}
@@ -801,6 +812,7 @@ function Pillar({
   detail,
   progressPercent,
   actions,
+  more,
   children,
 }: {
   c: Palette;
@@ -812,10 +824,12 @@ function Pillar({
   detail: string;
   progressPercent?: number;
   actions?: { label: string; onPress: () => void }[];
+  /** A row along the card's foot to its own page: averages, history. */
+  more?: { label: string; onPress: () => void };
   children?: ReactNode;
 }) {
   return (
-    <View style={[retro.panel, night && retro.panelNight, styles.pillar]}>
+    <View style={[surface.panel, night && surface.panelNight, styles.pillar]}>
       <View style={styles.pillarHead}>
         <View style={{ flex: 1 }}>
           <View style={styles.pillarKickerRow}>
@@ -843,6 +857,18 @@ function Pillar({
             </Pressable>
           ))}
         </View>
+      ) : null}
+      {more ? (
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel={more.label}
+          onPress={more.onPress}
+          scaleTo={0.98}
+          style={[styles.more, { borderTopColor: c.hairline }]}
+        >
+          <Text style={[styles.moreLabel, { color: c.ink }]}>{more.label}</Text>
+          <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text>
+        </PressableScale>
       ) : null}
     </View>
   );
@@ -1028,7 +1054,7 @@ const nightColors: Palette = {
 
 const styles = themedStyles(() => ({
   rings: { flexDirection: 'row', justifyContent: 'space-between', gap: 4, marginTop: 12 },
-  targetLine: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 19, marginTop: 10 },
+  targetLine: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 18, marginTop: 10 },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1038,36 +1064,36 @@ const styles = themedStyles(() => ({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 60 },
-  backMark: { fontFamily: fonts.pixel, fontSize: 23 },
-  backLabel: { fontFamily: fonts.pixel, fontSize: 16 },
-  topTitle: { fontFamily: fonts.pixelBold, fontSize: 18, letterSpacing: 2 },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 60 },
+  backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
+  backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
+  topTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, letterSpacing: 0 },
   // One readable column on a tablet, as Settings has; no change on a phone.
   body: { paddingHorizontal: 18, paddingTop: 18, gap: 14, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
 
   overview: { paddingHorizontal: 2, paddingTop: 4, paddingBottom: 20, borderBottomWidth: 1 },
   overKicker: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 13,
-    letterSpacing: 1.4,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
+    letterSpacing: 0.6,
     
     textTransform: 'uppercase',
   },
   xpRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 8, marginBottom: 12 },
-  xpValue: { fontFamily: fonts.pixelBold, fontSize: 52, letterSpacing: 0.5 },
+  xpValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 41, letterSpacing: 0 },
   xpUnit: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 14,
-    letterSpacing: 1,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
+    letterSpacing: 0.6,
     
     textTransform: 'uppercase',
   },
   overMeta: {
-    fontFamily: fonts.pixel,
-    fontSize: 13,
-    letterSpacing: 0.4,
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    letterSpacing: 0,
     marginTop: 6,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   glanceRow: {
     flexDirection: 'row',
@@ -1077,122 +1103,132 @@ const styles = themedStyles(() => ({
     borderTopWidth: 1,
   },
   glance: { alignItems: 'center', flex: 1 },
-  glanceValue: { fontFamily: fonts.pixelBold, fontSize: 23, },
-  glanceLabel: { fontFamily: fonts.pixel, fontSize: 10, letterSpacing: 1, marginTop: 3 },
+  glanceValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 20, },
+  glanceLabel: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0, marginTop: 3 },
 
   pillar: { padding: 16, gap: 8 },
   pillarHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   pillarKickerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  pillarKicker: { fontFamily: fonts.pixelBold, fontSize: 13, letterSpacing: 1.6, },
-  pillarDone: { fontFamily: fonts.pixelBold, fontSize: 16, },
+  pillarKicker: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0, },
+  pillarDone: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, },
   pillarHeadline: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 22,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 17,
     
     marginTop: 4,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
-  pillarDetail: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22 },
+  pillarDetail: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18 },
+  more: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 13,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  moreLabel: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '600' },
+  moreChevron: { fontFamily: fonts.ui, fontSize: 22, lineHeight: 22, marginTop: -2 },
   pillarActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 4 },
-  pillarAction: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.3 },
-  xpChip: { borderWidth: 2, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4 },
-  xpChipText: { fontFamily: fonts.pixelBold, fontSize: 14, letterSpacing: 0.4 },
-  caloriesLine: { fontFamily: fonts.pixel, fontSize: 14, marginTop: 2 },
-  syncNote: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 18, marginTop: 8 },
+  pillarAction: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0 },
+  xpChip: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  xpChipText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0 },
+  caloriesLine: { fontFamily: fonts.ui, fontSize: 12, marginTop: 2 },
+  syncNote: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, marginTop: 8 },
   goalEdit: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
   goalEditLabel: {
-    fontFamily: fonts.pixel,
-    fontSize: 12,
-    letterSpacing: 1,
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   goalInput: {
     width: 88,
     textAlign: 'center',
-    fontFamily: fonts.pixel,
-    fontSize: 18,
-    borderWidth: 2,
-    borderRadius: 4,
+    fontFamily: fonts.ui,
+    fontSize: 15,
+    borderWidth: 1,
+    borderRadius: 12,
     paddingVertical: 6,
   },
 
   macros: { gap: 9, marginTop: 4 },
   water: { borderTopWidth: 1, marginTop: 8, paddingTop: 12, gap: 10 },
   waterHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  waterLabel: { fontFamily: fonts.pixelBold, fontSize: 13, letterSpacing: 1.6, textTransform: 'uppercase' },
-  waterCount: { fontFamily: fonts.pixelBold, fontSize: 16 },
+  waterLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
+  waterCount: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13 },
   waterCupsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   waterCups: { flex: 1, flexDirection: 'row', justifyContent: 'space-between' },
   waterStep: {
     width: 34,
     height: 34,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: WATER_BLUE,
-    borderRadius: 4,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  waterStepText: { fontFamily: fonts.pixelBold, fontSize: 22, lineHeight: 24, color: WATER_BLUE },
-  waterHint: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.4, textAlign: 'center', marginTop: -4 },
-  subMacros: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22, marginTop: 6 },
+  waterStepText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, lineHeight: 18, color: WATER_BLUE },
+  waterHint: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0, textAlign: 'center', marginTop: -4 },
+  subMacros: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18, marginTop: 6 },
   foodLog: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, gap: 9 },
   foodLogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  foodLogTitle: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 1.2 },
+  foodLogTitle: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0 },
   foodLogRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  foodLogTime: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 19, width: 62 },
-  foodLogName: { flex: 1, fontFamily: fonts.pixel, fontSize: 15, lineHeight: 19 },
-  foodLogKcal: { fontFamily: fonts.pixel, fontSize: 14, lineHeight: 19 },
+  foodLogTime: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 18, width: 62 },
+  foodLogName: { flex: 1, fontFamily: fonts.ui, fontSize: 13, lineHeight: 16 },
+  foodLogKcal: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 16 },
   macroRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  macroLabel: { width: 48, fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.4 },
-  macroTrack: { flex: 1, minWidth: 0, height: 4, borderRadius: 2, overflow: 'hidden' },
+  macroLabel: { width: 48, fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0 },
+  macroTrack: { flex: 1, minWidth: 0, height: 4, borderRadius: 6, overflow: 'hidden' },
   macroFill: { height: '100%', backgroundColor: world.accent },
   macroValue: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 14,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
     minWidth: 72,
     textAlign: 'right',
   },
   macroTarget: { fontWeight: '400' },
 
-  progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 3 },
+  progressTrack: { height: 6, borderRadius: 6, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 6 },
 
   activity: { padding: 16 },
   activityTitle: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 14,
-    letterSpacing: 1.6,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
+    letterSpacing: 0.6,
     
     marginBottom: 10,
     textTransform: 'uppercase',
   },
-  activityEmpty: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 23 },
+  activityEmpty: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 20 },
   activityRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  activityCheck: { fontFamily: fonts.pixelBold, fontSize: 17, },
-  activityLabel: { fontFamily: fonts.pixel, fontSize: 17, flex: 1 },
-  activityMore: { fontFamily: fonts.pixel, fontSize: 14, marginTop: 10 },
+  activityCheck: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, },
+  activityLabel: { fontFamily: fonts.ui, fontSize: 13, flex: 1 },
+  activityMore: { fontFamily: fonts.ui, fontSize: 12, marginTop: 10 },
 
   softPanel: { padding: 16, gap: 6 },
   softKicker: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 13,
-    letterSpacing: 1.4,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
+    letterSpacing: 0.6,
     
     textTransform: 'uppercase',
   },
-  softHeadline: { fontFamily: fonts.pixelBold, fontSize: 20, },
-  softDetail: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22 },
+  softHeadline: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, },
+  softDetail: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18 },
 
   devPanel: { paddingVertical: 16, borderTopWidth: 1 },
   devKicker: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 13,
-    letterSpacing: 1.2,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
+    letterSpacing: 0.6,
     
     textTransform: 'uppercase',
   },
-  devHint: { fontFamily: fonts.pixel, fontSize: 14, lineHeight: 21, marginTop: 10 },
+  devHint: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, marginTop: 10 },
   devButtons: { flexDirection: 'row', gap: 16 },
   devButtonGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: 10 },
 }));

@@ -1,0 +1,44 @@
+env: load .env.local
+env: export EXPO_PUBLIC_EMAIL_CONFIRMED_URL EXPO_PUBLIC_PRIVACY_URL EXPO_PUBLIC_TERMS_URL
+Starting project at /Users/kli/dev/vitto/mobile
+Expo Autolinking module resolution enabled
+Starting Metro Bundler
+
+Waiting on http://localhost:8082
+
+An update for expo is available: 57.0.19 → ~57.0.32
+11 other packages may need updating. Run npx expo install --check for details.
+Logs for your project will appear below.
+iOS Bundled 1096ms mobile/index.ts (1976 modules)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 233ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 584ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 493ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+ ERROR  [Error: Uncaught (in promise, id: 0): "Error: Failed to create storage directory.Error Domain=NSCocoaErrorDomain Code=640 "You can’t save the file “RCTAsyncLocalStorage_V1” because there isn’t enough space." UserInfo={NSFilePath=/Users/kli/Library/Developer/CoreSimulator/Devices/FDDC3B5D-04D0-4DDF-B4C3-77E62730EA59/data/Containers/Data/Application/6C6E50EE-FEFE-4C54-B191-F29EF25B3CF7/Library/Application Support/com.getvitto.app/RCTAsyncLocalStorage_V1, NSURL=file:///Users/kli/Library/Developer/CoreSimulator/Devices/FDDC3B5D-04D0-4DDF-B4C3-77E62730EA59/data/Containers/Data/Application/6C6E50EE-FEFE-4C54-B191-F29EF25B3CF7/Library/Application%20Support/com.getvitto.app/RCTAsyncLocalStorage_V1, NSUnderlyingError=0x11cdea340 {Error Domain=NSPOSIXErrorDomain Code=28 "No space left on device"}}"]
+ ERROR  [Error: Uncaught (in promise, id: 1): "Error: Failed to create storage directory.Error Domain=NSCocoaErrorDomain Code=640 "You can’t save the file “RCTAsyncLocalStorage_V1” because there isn’t enough space." UserInfo={NSFilePath=/Users/kli/Library/Developer/CoreSimulator/Devices/FDDC3B5D-04D0-4DDF-B4C3-77E62730EA59/data/Containers/Data/Application/6C6E50EE-FEFE-4C54-B191-F29EF25B3CF7/Library/Application Support/com.getvitto.app/RCTAsyncLocalStorage_V1, NSURL=file:///Users/kli/Library/Developer/CoreSimulator/Devices/FDDC3B5D-04D0-4DDF-B4C3-77E62730EA59/data/Containers/Data/Application/6C6E50EE-FEFE-4C54-B191-F29EF25B3CF7/Library/Application%20Support/com.getvitto.app/RCTAsyncLocalStorage_V1, NSUnderlyingError=0x11cdea2b0 {Error Domain=NSPOSIXErrorDomain Code=28 "No space left on device"}}"]
+
+Node.js v22.18.0
+env: load .env.local
+env: export EXPO_PUBLIC_EMAIL_CONFIRMED_URL EXPO_PUBLIC_PRIVACY_URL EXPO_PUBLIC_TERMS_URL
+Starting project at /Users/kli/dev/vitto/mobile
+Expo Autolinking module resolution enabled
+Starting Metro Bundler
+
+Waiting on http://localhost:8082
+
+An update for expo is available: 57.0.19 → ~57.0.32
+11 other packages may need updating. Run npx expo install --check for details.
+Logs for your project will appear below.
+iOS Bundled 1116ms mobile/index.ts (1907 modules)
+iOS Bundled 953ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]

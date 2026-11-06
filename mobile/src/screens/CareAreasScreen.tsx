@@ -99,11 +99,11 @@ export function CareAreasScreen({ petName, areas, onChange, canEdit = true, onCl
 
 const styles = themedStyles(() => ({
   body: { marginTop: 16, gap: 16 },
-  note: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25, color: colors.muted },
+  note: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 19, color: colors.muted },
   readRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   readText: { flex: 1, gap: 2 },
-  readTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
-  readBody: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 23, color: colors.muted },
-  readState: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.faint },
+  readTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  readBody: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18, color: colors.muted },
+  readState: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.faint },
   readStateOn: { color: colors.ink },
 }));

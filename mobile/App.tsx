@@ -13,13 +13,13 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, lastSetsByExercise, repeatableMeals,type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
 import { loadAffirmationsEnabled, saveAffirmationsEnabled, syncAffirmations } from './src/services/affirmations';
 import { loadMusicEnabled, pauseMusic, playMusic, saveMusicEnabled } from './src/services/music';
-import { discardVoice, voiceOf, isVoiceReady, loadVoiceEnabled, prepareVoice, saveVoiceEnabled, speakAsPet, stopPetVoice, VOICE_DOWNLOAD_BYTES } from './src/services/petVoice';
+import { discardVoice, preparePreviews, previewVoice, voiceOf, isVoiceReady, loadVoiceEnabled, prepareVoice, saveVoiceEnabled, speakAsPet, stopPetVoice, VOICE_DOWNLOAD_BYTES } from './src/services/petVoice';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
 import { saveWithRetry } from './src/services/saveWithRetry';
@@ -32,7 +32,7 @@ import { findScreenTimeForDate, mapManualScreenTime } from './src/services/scree
 import { hasUsageAccess, isScreenTimeModuleAvailable, openUsageAccessSettings } from './modules/screen-time';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
-import { PrimaryButton, TextButton } from './src/components/ui';
+import { PrimaryButton, TextButton, KeyboardDoneBar } from './src/components/ui';
 import { usePetInteraction } from './src/petWorld/usePetInteraction';
 import { AuthScreen, HAS_SIGNED_IN_KEY } from './src/screens/AuthScreen';
 import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft, type OnboardingProgress } from './src/services/onboardingDraft';
@@ -49,6 +49,7 @@ import {
 } from './src/services/reminders';
 import { forgetThisDevice, installNotificationHandler, onNotificationTap, registerForPush, setPushEnabled as setDevicePush } from './src/services/pushService';
 import { canShowIsland, clearPetIsland, islandSignature, syncPetIsland } from './src/services/petIsland';
+import { buildWidgetSnapshot, clearPetWidget, syncPetWidget } from './src/services/petWidget';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { ShareCardScreen } from './src/screens/ShareCardScreen';
@@ -73,12 +74,15 @@ import { RemindersScreen } from './src/screens/RemindersScreen';
 import { AppleHealthScreen } from './src/screens/AppleHealthScreen';
 import { ActivityHistoryScreen } from './src/screens/ActivityHistoryScreen';
 import { LiftProgressScreen } from './src/screens/LiftProgressScreen';
+import { FoodTrendsScreen } from './src/screens/FoodTrendsScreen';
+import { StepTrendsScreen } from './src/screens/StepTrendsScreen';
 import { PersonalityScreen } from './src/screens/PersonalityScreen';
 import { CompanionMemoriesScreen } from './src/screens/CompanionMemoriesScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { CareAreasScreen } from './src/screens/CareAreasScreen';
 import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
 import { APPEARANCE_LABEL, AppearanceScreen } from './src/screens/AppearanceScreen';
+import { PetVoiceScreen } from './src/screens/PetVoiceScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
 import { WorkoutScreen } from './src/screens/WorkoutScreen';
 import { deviceMeasurementSystem } from './src/services/deviceLocale';
@@ -159,7 +163,10 @@ type RootStackParamList = {
   Reminders: undefined;
   AppleHealth: undefined;
   ActivityHistory: undefined;
-  LiftProgress: undefined;
+  LiftProgress: { from?: 'Today' } | undefined;
+  // The Today cards' "Trends & averages".
+  FoodTrends: undefined;
+  StepTrends: undefined;
   // Settings' own pages, each pushed from its row there.
   Preferences: undefined;
   CareAreas: undefined;
@@ -171,6 +178,8 @@ type RootStackParamList = {
   CompanionMemories: undefined;
   DeleteAccount: undefined;
   Appearance: undefined;
+  /** Which voice the pet speaks in. */
+  PetVoice: undefined;
   MealCapture: undefined;
   /** `cardio` opens it on the runs-and-rides list (Outdoors' "Log a run"). */
   Workout: { cardio?: boolean } | undefined;
@@ -441,6 +450,10 @@ function VittoApp() {
   // Bumped by the retry button to re-run the loading effect.
   const [reloadToken, setReloadToken] = useState(0);
   const [events, setEvents] = useState<HealthEvent[]>([]);
+  /** Each exercise's sets from last time, for the workout screen's Previous column. */
+  const lastSets = useMemo(() => lastSetsByExercise(events), [events]);
+  /** Meals to log again in a tap, at the top of the meal sheet. */
+  const mealsToRepeat = useMemo(() => repeatableMeals(events), [events]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
   const [toast, setToast] = useState<CareToast | null>(null);
@@ -1477,11 +1490,14 @@ function VittoApp() {
    * the new voice, so the choice can be heard.
    */
   const changePetVoice = async (next: PetVoice) => {
-    if (!pet || pet.voice === next) return;
+    if (!pet) return;
     const withVoice = (p: PetState): PetState => ({ ...p, voice: next });
     const nextPet = withVoice(pet);
+    // Said on every tap, the one already picked too: the page is also where
+    // a voice is heard again.
+    if (voiceActive) void previewVoice(pet, next);
+    if (pet.voice === next) return;
     setPet(nextPet);
-    if (voiceActive) void speakAsPet(`Hi! This is my voice now.`, nextPet);
     careMomentInFlight.current = true;
     try {
       if (isSupabaseConfigured && session) {
@@ -2181,6 +2197,7 @@ function VittoApp() {
     // a pet it no longer has. Neither blocks the sign-out.
     void forgetThisDevice();
     void clearPetIsland();
+    void clearPetWidget();
     // The App Store account stays signed in to the phone; RevenueCat's does not,
     // or the next person to sign in here would be looked up as this one.
     void billingService.signOut();
@@ -2380,6 +2397,28 @@ function VittoApp() {
     });
     return () => foreground.remove();
   }, [islandEnabled, sendIsland]);
+  // The pet on the Home Screen widget, with today's food and steps. Rewritten
+  // when the pet or the day's log changes and on foreground; unchanged
+  // snapshots are dropped in syncPetWidget, so this can run freely.
+  const widgetInput = useRef({ events, profile, stepGoal });
+  widgetInput.current = { events, profile, stepGoal };
+  const sendWidget = useCallback(() => {
+    const current = islandPet.current;
+    if (!current) return;
+    const at = new Date();
+    void syncPetWidget(buildWidgetSnapshot({ pet: applyTimeDecay(current, at), ...widgetInput.current }, at));
+  }, []);
+  useEffect(() => {
+    if (!dataReady || !island) return;
+    const timer = setTimeout(sendWidget, 800);
+    return () => clearTimeout(timer);
+  }, [dataReady, island, events, profile, stepGoal, sendWidget]);
+  useEffect(() => {
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sendWidget();
+    });
+    return () => foreground.remove();
+  }, [sendWidget]);
   // No pet here (signed out, or none adopted yet): nothing for the Island to
   // show, so any activity still up is ended. One could outlive its pet: a
   // session that expired rather than signing out never ran logOut's clear, and
@@ -2389,6 +2428,7 @@ function VittoApp() {
     if (!authReady || pet) return;
     if (session && !dataReady) return;
     void clearPetIsland();
+    void clearPetWidget();
   }, [authReady, session, dataReady, pet]);
 
   // Tapping the pet's notification opens the conversation it came from, rather
@@ -2423,6 +2463,7 @@ function VittoApp() {
       <View style={layout.screen}>
           <StatusBar barStyle={statusBarStyle} />
           <AuthScreen />
+          <KeyboardDoneBar />
       </View>
     );
   }
@@ -2452,6 +2493,7 @@ function VittoApp() {
     return (
       <View style={layout.screen}>
         <StatusBar barStyle={statusBarStyle} />
+        <KeyboardDoneBar />
         <OnboardingScreen
           resume={onboardingResume}
           onProgress={(progress) => {
@@ -2594,7 +2636,11 @@ function VittoApp() {
       <StatusBar barStyle={statusBarStyle} />
       {/* Around every screen, so the first-run tour can point at a page it opens (Personality). */}
       <TourProvider>
-      <RootStack.Navigator initialRouteName="Dashboard" screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator
+        initialRouteName="Dashboard"
+        // iOS's own push, with the back swipe from anywhere on the page rather than the edge alone.
+        screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }}
+      >
         <RootStack.Screen name="Dashboard">
           {({ navigation }) => (
             <DashboardScreen
@@ -2693,7 +2739,7 @@ function VittoApp() {
               appleHealthStatus={Platform.OS === 'ios' ? (isAppleHealthConnected ? 'connected' : 'disconnected') : undefined}
               onOpenAppleHealth={() => navigation.navigate('AppleHealth')}
               onOpenHistory={() => navigation.navigate('ActivityHistory')}
-              onOpenLiftProgress={() => navigation.navigate('LiftProgress')}
+              onOpenLiftProgress={() => navigation.navigate('LiftProgress', { from: 'Today' })}
             />
           )}
         </RootStack.Screen>
@@ -2754,8 +2800,9 @@ function VittoApp() {
           )}
         </RootStack.Screen>
         <RootStack.Screen name="LiftProgress">
-          {({ navigation }) => (
+          {({ navigation, route }) => (
             <LiftProgressScreen
+              backLabel={route.params?.from === 'Today' ? 'Today' : 'Profile'}
               profile={profile}
               events={events}
               locked={!canCustomise}
@@ -2764,8 +2811,22 @@ function VittoApp() {
             />
           )}
         </RootStack.Screen>
+        <RootStack.Screen name="FoodTrends">
+          {({ navigation }) => <FoodTrendsScreen events={events} profile={profile} onClose={() => navigation.goBack()} />}
+        </RootStack.Screen>
+        <RootStack.Screen name="StepTrends">
+          {({ navigation }) => (
+            <StepTrendsScreen
+              events={events}
+              stepGoal={stepGoal}
+              petName={livePet?.name ?? 'Your pet'}
+              miles={profile.weightUnit === 'lb'}
+              onClose={() => navigation.goBack()}
+            />
+          )}
+        </RootStack.Screen>
         <RootStack.Screen name="ActivityHistory">
-          {({ navigation }) => <ActivityHistoryScreen events={events} onClose={() => navigation.goBack()} />}
+          {({ navigation }) => <ActivityHistoryScreen events={events} system={measurementSystemOf(profile)} onClose={() => navigation.goBack()} />}
         </RootStack.Screen>
         <RootStack.Screen name="Settings">
           {({ navigation }) => (
@@ -2804,7 +2865,15 @@ function VittoApp() {
               voiceOn={Platform.OS === 'web' ? undefined : voiceEnabled ?? undefined}
               voiceLocked={!canCustomise}
               petVoice={pet ? voiceOf(pet) : undefined}
-              onPetVoiceChange={pet ? (next) => void changePetVoice(next) : undefined}
+              onOpenPetVoice={
+                pet
+                  ? () => {
+                      // Each voice's line is made while they look, so a tap plays at once.
+                      if (voiceActive) preparePreviews(pet);
+                      navigation.navigate('PetVoice');
+                    }
+                  : undefined
+              }
               voiceStatus={
                 voiceProgress !== null
                   ? `Downloading the voice… ${Math.round(voiceProgress * 100)}%`
@@ -2826,6 +2895,16 @@ function VittoApp() {
         <RootStack.Screen name="Appearance">
           {({ navigation }) => (
             <AppearanceScreen preference={preference} scheme={scheme} onChange={setPreference} onClose={() => navigation.goBack()} />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="PetVoice">
+          {({ navigation }) => (
+            <PetVoiceScreen
+              petName={livePet.name}
+              voice={voiceOf(livePet)}
+              onChange={(next) => void changePetVoice(next)}
+              onClose={() => navigation.goBack()}
+            />
           )}
         </RootStack.Screen>
         <RootStack.Screen name="CareAreas">
@@ -3042,6 +3121,9 @@ function VittoApp() {
               onStepGoalChange={setStepGoal}
               onLogWater={logWater}
               onTrainMind={() => navigation.navigate('MindGym')}
+              onOpenFoodTrends={() => navigation.navigate('FoodTrends')}
+              onOpenStepTrends={() => navigation.navigate('StepTrends')}
+              onOpenLiftProgress={() => navigation.navigate('LiftProgress')}
               onOpenWordPuzzle={() => navigation.navigate('WordPuzzle')}
               onOpenProfile={() => navigation.navigate('Profile')}
               onClose={() => navigation.goBack()}
@@ -3085,6 +3167,7 @@ function VittoApp() {
                 onComplete={completeMeal}
                 // Photo macro tracking is Plus; the paywall opens once this modal is gone.
                 canScanPhotos={canCustomise}
+                repeatable={mealsToRepeat}
                 onOpenPlus={() => {
                   navigation.goBack();
                   navigation.navigate('Plus');
@@ -3113,6 +3196,7 @@ function VittoApp() {
                 startWithCardio={route.params?.cardio === true}
                 weightUnit={profile.weightUnit}
                 templates={workoutTemplates}
+                lastSets={lastSets}
                 onSaveTemplate={saveWorkoutTemplate}
                 onDeleteTemplate={deleteWorkoutTemplate}
                 onFinish={async (metadata) => {
@@ -3200,6 +3284,8 @@ function VittoApp() {
           <Text style={styles.bannerText}>{error}</Text>
         </View>
       ) : null}
+      {/* The Done bar over iOS's number pads, for every screen's number fields. */}
+      <KeyboardDoneBar />
     </NavigationContainer>
   );
 }
@@ -3207,8 +3293,8 @@ function VittoApp() {
 const styles = themedStyles(() => ({
   center: { alignItems: 'center', justifyContent: 'center' },
   loadFailed: { paddingHorizontal: 32, gap: 12 },
-  loadFailedTitle: { fontFamily: fonts.pixel, fontSize: 29, color: colors.ink, textAlign: 'center' },
-  loadFailedBody: { fontFamily: fonts.pixel, fontSize: 20, color: colors.inkSoft, textAlign: 'center' },
+  loadFailedTitle: { fontFamily: fonts.ui, fontSize: 22, color: colors.ink, textAlign: 'center' },
+  loadFailedBody: { fontFamily: fonts.ui, fontSize: 17, color: colors.inkSoft, textAlign: 'center' },
   banner: {
     position: 'absolute',
     left: 16,
@@ -3217,8 +3303,8 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.coralWash,
     borderWidth: 1,
     borderColor: colors.dangerBorder,
-    borderRadius: 4,
+    borderRadius: 12,
     padding: 13,
   },
-  bannerText: { fontFamily: fonts.pixel, fontSize: 14, color: colors.coralDeep, lineHeight: 21 },
+  bannerText: { fontFamily: fonts.ui, fontSize: 12, color: colors.coralDeep, lineHeight: 17 },
 }));

@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
-import { RETRO_BORDER_WIDTH, retro, retroPressed } from '../petWorld/retroStyle';
+import { SURFACE_BORDER_WIDTH, surface, surfacePressed } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { ON_FILL_TEXT, answerLabel } from './board';
 
@@ -49,11 +49,11 @@ export function AnswerTile({ answer, state, mark, night, disabled, onPress }: An
       onPress={onPress}
       style={({ pressed }) => [
         styles.tile,
-        retro.panel,
-        night && retro.panelNight,
+        surface.panel,
+        night && surface.panelNight,
         filled && { backgroundColor: fill, borderColor: night ? world.nightInk : world.ink },
         state === 'muted' && styles.muted,
-        pressed && !disabled && retroPressed,
+        pressed && !disabled && surfacePressed,
       ]}
     >
       <View style={styles.body}>
@@ -63,9 +63,9 @@ export function AnswerTile({ answer, state, mark, night, disabled, onPress }: An
         {mark ? (
           <Text
             style={[
-              retro.kicker,
+              surface.kicker,
               styles.mark,
-              filled ? { color: ON_FILL_TEXT } : night && retro.kickerNight,
+              filled ? { color: ON_FILL_TEXT } : night && surface.kickerNight,
             ]}
           >
             {mark}
@@ -82,17 +82,17 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderWidth: RETRO_BORDER_WIDTH,
+    borderWidth: SURFACE_BORDER_WIDTH,
   },
   muted: { opacity: 0.5 },
   body: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   answer: {
     flexShrink: 1,
-    fontFamily: fonts.pixelBold,
-    fontSize: 18,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 15,
     
-    lineHeight: 25,
-    letterSpacing: 0.2,
+    lineHeight: 20,
+    letterSpacing: 0,
     color: world.ink,
   },
   answerNight: { color: world.nightText },

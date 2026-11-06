@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { JEOPARDY_PICKS_PER_ROUND, type JeopardyGame } from '@vitto/core';
 import { PrimaryButton } from '../components/ui';
 import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
-import { retro, retroPressed } from '../petWorld/retroStyle';
+import { surface, surfacePressed } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 
 /**
@@ -77,7 +77,7 @@ export function JeopardyHeader({ night, progress, onClose, closeDisabled }: Head
         disabled={closeDisabled}
         onPress={onClose}
         hitSlop={10}
-        style={({ pressed }) => [styles.close, pressed && retroPressed]}
+        style={({ pressed }) => [styles.close, pressed && surfacePressed]}
       >
         <Text style={styles.closeMark}>✕</Text>
       </Pressable>
@@ -96,9 +96,9 @@ export function JeopardyUnavailable({
   onClose: () => void;
 }) {
   return (
-    <View style={[styles.errorPanel, retro.panel, night && retro.panelNight]}>
-      <Text style={[retro.label, night && retro.labelNight]}>Pet Jeopardy</Text>
-      <Text style={[retro.caption, night && retro.captionNight, styles.errorLine]}>{message}</Text>
+    <View style={[styles.errorPanel, surface.panel, night && surface.panelNight]}>
+      <Text style={[surface.label, night && surface.labelNight]}>Pet Jeopardy</Text>
+      <Text style={[surface.caption, night && surface.captionNight, styles.errorLine]}>{message}</Text>
       <View style={styles.errorAction}>
         <PrimaryButton label="Back to Mind" onPress={onClose} />
       </View>
@@ -130,15 +130,15 @@ const styles = themedStyles(() => ({
   },
   headerText: { flexShrink: 1 },
   title: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 21,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 17,
     
-    letterSpacing: 2,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: world.nightText,
     marginBottom: 3,
   },
-  progress: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 0.6, color: world.nightTextSoft },
+  progress: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0, color: world.nightTextSoft },
   close: {
     width: 36,
     height: 36,
@@ -149,5 +149,5 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: world.barHairline,
   },
-  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, color: world.nightText },
+  closeMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: world.nightText },
 }));

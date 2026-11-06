@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_WORKOUT_TEMPLATES,
+  exerciseFromHistory,
+  lastSetsByExercise,
   removeTemplate,
   sessionFromTemplate,
   templateError,
@@ -8,6 +10,7 @@ import {
   upsertTemplate,
 } from './workoutTemplates';
 import { MINUTES_PER_SET, addSet, createExercise, sessionMinutes } from './workout';
+import type { HealthEvent, WorkoutExercise } from './health';
 
 const NOW = new Date('2026-09-11T10:00:00Z');
 
@@ -159,5 +162,43 @@ describe('how long a session took', () => {
     expect(sessionMinutes({ completedSets: 0, elapsedMs: minutes(1), cardioMinutes: 34 })).toBe(34);
     expect(sessionMinutes({ completedSets: 0, elapsedMs: null })).toBe(1);
     expect(sessionMinutes({ completedSets: 5, elapsedMs: minutes(400) })).toBe(180);
+  });
+});
+
+describe('history', () => {
+  const workout = (occurredAt: string, exercises: WorkoutExercise[]): HealthEvent => ({
+    id: occurredAt,
+    userId: 'u',
+    occurredAt,
+    type: 'WORKOUT',
+    source: 'manual',
+    metadata: { workoutType: 'strength', durationMinutes: 40, exercises },
+  });
+  const bench = (weight: number, completed = true): WorkoutExercise => ({
+    id: 'e',
+    name: 'Bench Press',
+    muscleGroup: 'chest',
+    sets: [
+      { id: 'a', reps: 8, weight, unit: 'kg', completed },
+      { id: 'b', reps: 0, weight, unit: 'kg', completed: true },
+    ],
+  });
+
+  it("takes each exercise's newest done sets", () => {
+    const last = lastSetsByExercise([
+      workout('2026-11-01T10:00:00.000Z', [bench(60)]),
+      workout('2026-11-04T10:00:00.000Z', [bench(65)]),
+      workout('2026-11-05T10:00:00.000Z', [bench(70, false)]),
+    ]);
+    expect(last.get('Bench Press')!.map((set) => set.weight)).toEqual([65]);
+  });
+
+  it('starts a picked exercise on last time, with previous filled in', () => {
+    const fresh: WorkoutExercise = { id: 'x', name: 'Bench Press', muscleGroup: 'chest', sets: [{ id: 's', reps: 8, weight: 20, completed: true }] };
+    const started = exerciseFromHistory(fresh, [{ id: 'a', reps: 6, weight: 80, unit: 'kg', completed: true }]);
+    expect(started.sets).toHaveLength(1);
+    expect(started.sets[0]).toMatchObject({ reps: 6, weight: 80, completed: true, previous: { reps: 6, weight: 80 } });
+    expect(started.sets[0]!.id).not.toBe('a');
+    expect(exerciseFromHistory(fresh, undefined)).toBe(fresh);
   });
 });

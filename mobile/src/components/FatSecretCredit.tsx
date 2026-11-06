@@ -24,8 +24,8 @@ export function FatSecretCredit({ style }: { style?: StyleProp<TextStyle> }) {
 
 const styles = themedStyles(() => ({
   credit: {
-    fontFamily: fonts.pixel,
-    fontSize: 13,
+    fontFamily: fonts.ui,
+    fontSize: 12,
     color: colors.faint,
     textDecorationLine: 'underline',
     textAlign: 'center',

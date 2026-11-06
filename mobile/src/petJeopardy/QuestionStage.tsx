@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Text, View, type LayoutChangeEvent } from 'react-native';
-import { retro } from '../petWorld/retroStyle';
+import { surface } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { AnswerTile, type AnswerTileState } from './AnswerTile';
 
@@ -78,15 +78,15 @@ export function QuestionStage({
   return (
     <View style={styles.wrap}>
       <View style={styles.headRow}>
-        <View style={[styles.chip, retro.panelQuiet, night && retro.panelQuietNight]}>
-          <Text style={[retro.kicker, night && retro.kickerNight]}>{kicker}</Text>
+        <View style={[styles.chip, surface.panelQuiet, night && surface.panelQuietNight]}>
+          <Text style={[surface.kicker, night && surface.kickerNight]}>{kicker}</Text>
         </View>
-        <View style={[styles.chip, retro.panelQuiet, night && retro.panelQuietNight]}>
-          <Text style={[retro.kicker, night && retro.kickerNight]}>{stake}</Text>
+        <View style={[styles.chip, surface.panelQuiet, night && surface.panelQuietNight]}>
+          <Text style={[surface.kicker, night && surface.kickerNight]}>{stake}</Text>
         </View>
       </View>
 
-      <View style={[styles.prompt, retro.panel, night && retro.panelNight]}>
+      <View style={[styles.prompt, surface.panel, night && surface.panelNight]}>
         <Text style={[styles.promptText, emphasis && styles.promptTextBig, night && styles.promptTextNight]}>
           {prompt}
         </Text>
@@ -111,7 +111,7 @@ export function QuestionStage({
       */}
       <View style={styles.verdictSlot} accessibilityLiveRegion="polite">
         {reveal ? (
-          <View style={[styles.verdictChip, retro.panelQuiet, night && retro.panelQuietNight]}>
+          <View style={[styles.verdictChip, surface.panelQuiet, night && surface.panelQuietNight]}>
             <Text style={[styles.verdict, night && styles.verdictNight]}>{reveal.line}</Text>
           </View>
         ) : null}
@@ -141,8 +141,8 @@ const styles = themedStyles(() => ({
   headRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   chip: { paddingVertical: 5, paddingHorizontal: 10 },
   prompt: { marginTop: 10, paddingVertical: 14, paddingHorizontal: 16 },
-  promptText: { fontFamily: fonts.pixel, fontSize: 25, lineHeight: 33, color: world.ink },
-  promptTextBig: { fontFamily: fonts.pixel, fontSize: 29, lineHeight: 38 },
+  promptText: { fontFamily: fonts.ui, fontSize: 20, lineHeight: 26, color: world.ink },
+  promptTextBig: { fontFamily: fonts.ui, fontSize: 22, lineHeight: 29 },
   promptTextNight: { color: world.nightText },
   // The flexible row. `minHeight` keeps the pet present even on the shortest
   // phone; `flex` hands it every spare point on a tall one.
@@ -151,7 +151,7 @@ const styles = themedStyles(() => ({
   flourishSlot: { position: 'absolute', top: 8, alignItems: 'center' },
   verdictSlot: { height: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   verdictChip: { paddingVertical: 4, paddingHorizontal: 12 },
-  verdict: { fontFamily: fonts.pixelBold, fontSize: 14, letterSpacing: 1.2, color: world.ink },
+  verdict: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0, color: world.ink },
   verdictNight: { color: world.nightText },
   answers: { gap: 10, paddingBottom: 16 },
   footer: { paddingBottom: 20 },

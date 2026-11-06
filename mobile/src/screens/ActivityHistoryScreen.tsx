@@ -1,6 +1,18 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import type { BrainTrainingMetadata, HealthEvent, MealMetadata, ScreenTimeMetadata, StepMetadata, WorkoutMetadata } from '@vitto/core';
+import {
+  BRAIN_GAME_LABEL,
+  formatWater,
+  type BrainTrainingMetadata,
+  type HealthEvent,
+  type HydrationMetadata,
+  type MealMetadata,
+  type MeasurementSystem,
+  type ScreenTimeMetadata,
+  type SleepMetadata,
+  type StepMetadata,
+  type WorkoutMetadata,
+} from '@vitto/core';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { SettingsPage } from '../components/settingsKit';
 import { formatMinutes } from '../services/minutes';
@@ -16,7 +28,7 @@ const describeWorkout = (workout: Partial<WorkoutMetadata>): string => {
   return workout.durationMinutes ? `${title} · ${formatMinutes(workout.durationMinutes)}` : title;
 };
 
-export const describeEvent = (event: HealthEvent): string => {
+export const describeEvent = (event: HealthEvent, system: MeasurementSystem = 'metric'): string => {
   if (event.type === 'WORKOUT') return describeWorkout((event.metadata ?? {}) as Partial<WorkoutMetadata>);
   if (event.type === 'STEP_ACTIVITY') {
     // The day's count as of that sync.
@@ -24,15 +36,57 @@ export const describeEvent = (event: HealthEvent): string => {
     return typeof steps === 'number' ? `Steps · ${steps.toLocaleString()}` : 'Steps';
   }
   if (event.type === 'BRAIN_TRAINING') {
-    const session = event.metadata as BrainTrainingMetadata;
-    return `${session.game === 'math' ? 'Quick maths' : 'Read and recall'} · ${session.score} mind score`;
+    const session = event.metadata as Partial<BrainTrainingMetadata>;
+    const name = (session.game && BRAIN_GAME_LABEL[session.game]) || 'Mind training';
+    // Only the games with a points scale report one; a bare score means different things per game.
+    return typeof session.points === 'number' ? `${name} · ${session.points} points` : name;
+  }
+  if (event.type === 'HYDRATION') {
+    const ml = (event.metadata as Partial<HydrationMetadata> | undefined)?.ml;
+    return typeof ml === 'number' ? `Water · ${formatWater(ml, system)}` : 'Water';
+  }
+  if (event.type === 'SLEEP') {
+    const minutes = (event.metadata as Partial<SleepMetadata> | undefined)?.asleepMinutes;
+    return typeof minutes === 'number' ? `Sleep · ${formatMinutes(minutes)}` : 'Sleep';
   }
   if (event.type === 'SCREEN_TIME') {
     const screen = event.metadata as ScreenTimeMetadata;
     const verdict = screen.withinBudget === undefined ? '' : screen.withinBudget ? ' · under budget' : ' · over budget';
     return `Screen time · ${formatMinutes(screen.minutes)}${verdict}`;
   }
-  return 'Healthy moment';
+  return 'Activity';
+};
+
+/** Drinks this close together are one sitting, shown as one row. */
+const SAME_SITTING_MS = 10 * 60 * 1000;
+
+/**
+ * A day's events as rows. Water is logged a cup at a time, so eight taps on
+ * the tracker were eight identical rows; drinks in one sitting (each within
+ * ten minutes of the last) become one row with their total.
+ */
+export const historyRows = (events: readonly HealthEvent[]): { key: string; events: HealthEvent[] }[] => {
+  const rows: { key: string; events: HealthEvent[] }[] = [];
+  for (const event of events) {
+    const last = rows.at(-1);
+    const previous = last?.events.at(-1);
+    if (
+      event.type === 'HYDRATION' &&
+      previous?.type === 'HYDRATION' &&
+      Math.abs(Date.parse(previous.occurredAt) - Date.parse(event.occurredAt)) <= SAME_SITTING_MS
+    ) {
+      last!.events.push(event);
+    } else {
+      rows.push({ key: event.id, events: [event] });
+    }
+  }
+  return rows;
+};
+
+export const describeRow = (events: readonly HealthEvent[], system: MeasurementSystem = 'metric'): string => {
+  if (events.length < 2) return describeEvent(events[0]!, system);
+  const total = events.reduce((sum, event) => sum + ((event.metadata as Partial<HydrationMetadata>)?.ml ?? 0), 0);
+  return `Water · ${formatWater(total, system)} · ${events.length} drinks`;
 };
 
 /** "Today", "Yesterday", or "Mon, Sep 28". */
@@ -46,7 +100,16 @@ const dayHeading = (iso: string, now = new Date()): string => {
 };
 
 /** Everything logged, newest first, under a heading per day (from Profile). */
-export function ActivityHistoryScreen({ events, onClose }: { events: HealthEvent[]; onClose: () => void }) {
+export function ActivityHistoryScreen({
+  events,
+  system = 'metric',
+  onClose,
+}: {
+  events: HealthEvent[];
+  /** For water amounts, in the person's own units. */
+  system?: MeasurementSystem;
+  onClose: () => void;
+}) {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const shown = events.slice(0, limit);
   const days: { heading: string; events: HealthEvent[] }[] = [];
@@ -68,23 +131,24 @@ export function ActivityHistoryScreen({ events, onClose }: { events: HealthEvent
         <View key={day.heading} style={styles.day}>
           <Text style={styles.dayHeading}>{day.heading}</Text>
           <View style={styles.list}>
-            {day.events.map((event) =>
-              event.type === 'MEAL' ? (
-                <View key={event.id} style={styles.mealRow}>
+            {historyRows(day.events).map(({ key, events: group }) => {
+              const event = group[0]!;
+              return event.type === 'MEAL' ? (
+                <View key={key} style={styles.mealRow}>
                   <MealDiaryRow event={event as HealthEvent<MealMetadata>} />
                 </View>
               ) : (
-                <View key={event.id} style={styles.row}>
+                <View key={key} style={styles.row}>
                   <View style={styles.dot} />
                   <View style={styles.rowText}>
-                    <Text style={styles.rowName}>{describeEvent(event)}</Text>
+                    <Text style={styles.rowName}>{describeRow(group, system)}</Text>
                     <Text style={styles.rowTime}>
                       {new Date(event.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </Text>
                   </View>
                 </View>
-              ),
-            )}
+              );
+            })}
           </View>
         </View>
       ))}
@@ -98,10 +162,10 @@ export function ActivityHistoryScreen({ events, onClose }: { events: HealthEvent
 }
 
 const styles = themedStyles(() => ({
-  empty: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, marginTop: 20 },
+  empty: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, marginTop: 20 },
   day: { marginTop: 22, gap: 8 },
-  dayHeading: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase', color: colors.faint, marginLeft: 4 },
-  list: { borderRadius: 4, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, paddingHorizontal: 16 },
+  dayHeading: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint, marginLeft: 4 },
+  list: { borderRadius: 12, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, paddingHorizontal: 16 },
   mealRow: {},
   row: {
     flexDirection: 'row',
@@ -111,17 +175,17 @@ const styles = themedStyles(() => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral },
+  dot: { width: 8, height: 8, borderRadius: 12, backgroundColor: colors.coral },
   rowText: { flex: 1 },
-  rowName: { fontFamily: fonts.pixel, fontSize: 18, fontWeight: '500', color: colors.ink },
-  rowTime: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 3 },
+  rowName: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '500', color: colors.ink },
+  rowTime: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
   more: {
     marginTop: 16,
     alignItems: 'center',
     paddingVertical: 12,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  moreLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
+  moreLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.inkSoft },
 }));

@@ -1,6 +1,131 @@
-import { Fragment, type ReactNode } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, Text, TextInput, View } from 'react-native';
+import { Fragment, useRef, useState, type ReactNode } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  InputAccessoryView,
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import * as Haptics from 'expo-haptics';
+import Svg, { Path } from 'react-native-svg';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
+
+/** A light tap felt in the hand: `select` for a choice changing, `press` for an action. */
+export const haptic = (kind: 'select' | 'press') => {
+  if (Platform.OS === 'web') return;
+  const felt = kind === 'select' ? Haptics.selectionAsync?.() : Haptics.impactAsync?.(Haptics.ImpactFeedbackStyle?.Light);
+  void felt?.catch(() => undefined);
+};
+
+/** Number fields point their `inputAccessoryViewID` here, for the Done bar above iOS's keypad. */
+export const KEYBOARD_DONE_ID = 'vitto-keyboard-done';
+
+/**
+ * A Done bar above the keyboard, for iOS's number pads, which have no return
+ * key and so no way to put them away. Mounted once at the app's root; any
+ * field with `inputAccessoryViewID={KEYBOARD_DONE_ID}` shows it.
+ */
+export function KeyboardDoneBar() {
+  if (Platform.OS !== 'ios') return null;
+  return (
+    <InputAccessoryView nativeID={KEYBOARD_DONE_ID}>
+      <View style={styles.doneBar}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => Keyboard.dismiss()}
+          hitSlop={10}
+          style={({ pressed }) => pressed && styles.textPressed}
+          testID="keyboard-done"
+        >
+          <Text style={styles.doneLabel}>Done</Text>
+        </Pressable>
+      </View>
+    </InputAccessoryView>
+  );
+}
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** How a pressed control gives: quick down, a soft spring back up. */
+const PRESS_IN = { toValue: 1, speed: 50, bounciness: 0, useNativeDriver: Platform.OS !== 'web' } as const;
+const PRESS_OUT = { toValue: 0, speed: 20, bounciness: 6, useNativeDriver: Platform.OS !== 'web' } as const;
+
+/**
+ * A Pressable that sinks a little under the finger and springs back on release,
+ * the way iOS controls give. `scaleTo` is how far it goes (0.97 for a button,
+ * nearer 1 for a wide card). With Reduce Motion it only dims.
+ */
+/**
+ * The one way out of a logging sheet: a small round button with a cross, top
+ * right, as on iOS's own sheets. The cross is drawn, not typed: a "×" glyph
+ * sits on the font's baseline and never quite lands in the middle of a circle.
+ */
+export function CloseButton({ onPress, label = 'Close' }: { onPress: () => void; label?: string }) {
+  return (
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={10}
+      onPress={() => {
+        haptic('press');
+        onPress();
+      }}
+      style={styles.close}
+      testID="sheet-close"
+    >
+      <Svg width={12} height={12} viewBox="0 0 12 12">
+        <Path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" stroke={colors.muted} strokeWidth={2} strokeLinecap="round" />
+      </Svg>
+    </PressableScale>
+  );
+}
+
+export function PressableScale({
+  style,
+  scaleTo = 0.97,
+  children,
+  onPressIn,
+  onPressOut,
+  ...props
+}: Omit<PressableProps, 'style' | 'children'> & {
+  style?: StyleProp<ViewStyle> | ((state: { pressed: boolean }) => StyleProp<ViewStyle>);
+  scaleTo?: number;
+  children?: ReactNode;
+}) {
+  const reduced = useReducedMotion();
+  const press = useRef(new Animated.Value(0)).current;
+  // The style is on the Pressable itself, so a caller's flex and margins lay it out as before.
+  const [pressed, setPressed] = useState(false);
+  const transform = reduced ? undefined : [{ scale: press.interpolate({ inputRange: [0, 1], outputRange: [1, scaleTo] }) }];
+  const opacity = reduced ? press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }) : undefined;
+  return (
+    <AnimatedPressable
+      {...props}
+      onPressIn={(event) => {
+        setPressed(true);
+        Animated.spring(press, PRESS_IN).start();
+        onPressIn?.(event);
+      }}
+      onPressOut={(event) => {
+        setPressed(false);
+        Animated.spring(press, PRESS_OUT).start();
+        onPressOut?.(event);
+      }}
+      style={[typeof style === 'function' ? style({ pressed }) : style, { transform, opacity }]}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
 
 export function Kicker({ children }: { children: ReactNode }) {
   return <Text style={text.kicker}>{children}</Text>;
@@ -18,26 +143,25 @@ export function PrimaryButton({
   busy?: boolean;
 }) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       // Every action closes the keyboard: the screens let a tap through to a
       // button while it is up, and nothing else would put it away.
-      onPress={() => { Keyboard.dismiss(); onPress(); }}
+      onPress={() => {
+        Keyboard.dismiss();
+        haptic('press');
+        onPress();
+      }}
       disabled={disabled || busy}
-      style={({ pressed }) => [
+      style={[
         layout.primaryButton,
         // Busy keeps its colour (the spinner says what is happening); not-yet-pressable goes neutral.
         busy ? styles.busy : disabled && styles.disabledButton,
-        pressed && styles.pressed,
       ]}
     >
+      {busy ? <ActivityIndicator color={colors.onCoral} size="small" /> : null}
       <Text style={[layout.primaryLabel, disabled && !busy && styles.disabledLabel]}>{label}</Text>
-      {busy ? (
-        <ActivityIndicator color={colors.onCoral} size="small" />
-      ) : (
-        <Text style={[styles.arrow, disabled && styles.disabledLabel]}>→</Text>
-      )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -53,7 +177,17 @@ export function TextButton({
   tone?: 'muted' | 'coral';
 }) {
   return (
-    <Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); onPress(); }} disabled={disabled} hitSlop={8}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        Keyboard.dismiss();
+        onPress();
+      }}
+      disabled={disabled}
+      hitSlop={8}
+      // iOS text buttons dim under the finger rather than move.
+      style={({ pressed }) => pressed && styles.textPressed}
+    >
       <Text
         style={[
           styles.textButton,
@@ -105,6 +239,7 @@ export function NumberField({
       <TextInput
         style={layout.input}
         keyboardType="number-pad"
+        inputAccessoryViewID={KEYBOARD_DONE_ID}
         value={value === undefined ? '' : String(value)}
         placeholder={placeholder}
         placeholderTextColor={colors.faint}
@@ -140,17 +275,21 @@ export function ChoiceRow<T extends string>({
     <View style={[styles.choices, stacked && styles.choicesStacked]}>
       {options.map((option) => (
         <Fragment key={option.value}>
-        <Pressable
+        <PressableScale
           accessibilityRole="button"
           accessibilityState={{ selected: selected(option.value) }}
-          onPress={() => onChange(option.value)}
+          onPress={() => {
+            haptic('select');
+            onChange(option.value);
+          }}
+          scaleTo={stacked ? 0.985 : 0.96}
           style={[styles.choice, stacked && styles.choiceWide, selected(option.value) && styles.choiceOn]}
         >
           <Text style={[styles.choiceLabel, selected(option.value) && styles.choiceLabelOn]}>
             {option.label}
           </Text>
           {option.detail ? <Text style={styles.choiceDetail}>{option.detail}</Text> : null}
-        </Pressable>
+        </PressableScale>
         {stacked && expanded && selected(option.value) ? (
           <View style={styles.choiceExpanded} testID={`choice-expanded-${option.value}`}>
             {expanded(option.value)}
@@ -171,29 +310,46 @@ export function ErrorText({ children }: { children: ReactNode }) {
 }
 
 const styles = themedStyles(() => ({
-  arrow: { fontFamily: fonts.pixel, color: colors.onCoral, fontSize: 22 },
-  // Presses down into its own hard shadow, as the pet world's buttons do.
-  pressed: { opacity: 0.88, transform: [{ translateX: 2 }, { translateY: 2 }] },
+  close: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.tile,
+  },
   disabled: { opacity: 0.5 },
   busy: { opacity: 0.85 },
   disabledButton: { backgroundColor: colors.disabledFill },
   disabledLabel: { color: colors.onDisabled },
-  textButton: { fontFamily: fonts.pixel, fontSize: 16, letterSpacing: 0.5 },
+  textButton: { fontFamily: fonts.ui, fontSize: 17 },
+  textPressed: { opacity: 0.4 },
+  doneBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: colors.cardSoft,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.hairline,
+  },
+  doneLabel: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '600', color: colors.coral },
   // `flexBasis: 'auto'`, not 130: a Field sits in two kinds of parent. In a
   // two-up row the basis is width, and 130 was a sensible floor. In the usual
   // column it became HEIGHT — every field 130px tall — which on web opened a
   // hand's width of empty space between one field and the next. Auto sizes to
   // content either way; `flexGrow` still splits a row evenly.
   field: { marginTop: 14, flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minWidth: 0 },
-  fieldLabel: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted, marginBottom: 7, letterSpacing: 0.5 },
-  fieldHint: { color: colors.faint },
+  fieldLabel: { fontFamily: fonts.ui, fontSize: 13, fontWeight: '500', color: colors.muted, marginBottom: 7 },
+  fieldHint: { color: colors.faint, fontWeight: '400' },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 12 },
   choicesStacked: { flexDirection: 'column' },
   choice: {
-    borderWidth: 2,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     backgroundColor: colors.card,
-    borderRadius: 4,
+    borderRadius: 14,
+    borderCurve: 'continuous',
     paddingVertical: 13,
     paddingHorizontal: 15,
     minWidth: 96,
@@ -204,12 +360,12 @@ const styles = themedStyles(() => ({
   // Hangs under the chosen option, inset so it reads as belonging to it.
   choiceExpanded: { width: '100%', paddingLeft: 12, paddingRight: 4, paddingTop: 2, paddingBottom: 6, gap: 10 },
   choiceOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
-  choiceLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
+  choiceLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 16, color: colors.ink },
   choiceLabelOn: { color: colors.coralDeep },
-  choiceDetail: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 4, lineHeight: 18 },
+  choiceDetail: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 3, lineHeight: 18 },
   panel: {
     paddingVertical: 18,
-    borderBottomWidth: 2,
+    borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
     flexDirection: 'row',
     alignItems: 'center',

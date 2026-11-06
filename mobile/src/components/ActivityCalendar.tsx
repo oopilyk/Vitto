@@ -28,6 +28,6 @@ export function ActivityCalendar({ activeDateKeys, weeks = 12 }: ActivityCalenda
 
 const styles = themedStyles(() => ({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 14 },
-  cell: { width: 12, height: 12, borderRadius: 3, backgroundColor: colors.track },
+  cell: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.track },
   cellActive: { backgroundColor: colors.coral },
 }));

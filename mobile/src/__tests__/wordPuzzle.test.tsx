@@ -173,7 +173,9 @@ describe('wordPuzzle screen', () => {
 
     expect(JSON.stringify(tree.toJSON())).toContain(`The word was ${answer.toUpperCase()}.`);
     act(() => byText(tree, 'See your score')!.props.onPress());
-    expect(JSON.stringify(tree.toJSON())).toContain('Not solved');
+    expect(JSON.stringify(tree.toJSON())).toContain('Not this time');
+    // The missed word is spelled out on the score card too.
+    expect(tree.root.findByProps({ accessibilityLabel: `The word was ${answer}` })).toBeTruthy();
     tree.unmount();
   });
 });
@@ -224,7 +226,7 @@ describe('word puzzle keyboard', () => {
       .findAllByType(Text)
       .find((t: any) => t.props.children === 'I');
     const style = Object.assign({}, ...[iKey!.props.style].flat().filter(Boolean));
-    expect(style.fontFamily).toBe(fonts.display);
+    expect(style.fontFamily).toBe(fonts.serif);
     tree.unmount();
   });
 });

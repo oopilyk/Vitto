@@ -36,8 +36,8 @@ export function AppleHealthScreen({ status, onConnect, onSync, syncing, onClose 
 }
 
 const styles = themedStyles(() => ({
-  status: { marginTop: 20, padding: 16, borderRadius: 4, backgroundColor: colors.cardSoft, gap: 4 },
-  statusTitle: { fontFamily: fonts.pixelBold, fontSize: 23, color: colors.ink },
-  statusBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.inkSoft, lineHeight: 26 },
+  status: { marginTop: 20, padding: 16, borderRadius: 12, backgroundColor: colors.cardSoft, gap: 4 },
+  statusTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 20, color: colors.ink },
+  statusBody: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkSoft, lineHeight: 21 },
   actions: { marginTop: 20 },
 }));

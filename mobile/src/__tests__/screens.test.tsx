@@ -521,7 +521,7 @@ describe('screens render', () => {
     const done = tree.root
       .findAll((node: any) => typeof node.props.onPress === 'function')
       .find((node: any) =>
-        node.findAllByType(WorkoutText).some((t: any) => t.props.children === 'Done'),
+        node.findAllByType(WorkoutText).some((t: any) => String(t.props.children).startsWith('Done')),
       );
     act(() => done!.props.onPress());
 
@@ -601,7 +601,7 @@ describe('screens render', () => {
     act(() => press('Add Running')!.props.onPress());
     const done = tree.root
       .findAll((n: any) => typeof n.props.onPress === 'function')
-      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Done'));
+      .find((n: any) => n.findAllByType(Text).some((t: any) => String(t.props.children).startsWith('Done')));
     act(() => done!.props.onPress());
 
     // No set row, no reps box, nothing to add a set to.
@@ -670,7 +670,7 @@ describe('screens render', () => {
     act(() => press('Add Burpees')!.props.onPress());
     const done = tree.root
       .findAll((n: any) => typeof n.props.onPress === 'function')
-      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Done'));
+      .find((n: any) => n.findAllByType(Text).some((t: any) => String(t.props.children).startsWith('Done')));
     act(() => done!.props.onPress());
 
     // Burpees are cardio, but they are reps: the set table stays.
@@ -867,7 +867,7 @@ describe('screens render', () => {
     act(() => press('Add Shoulder Press')!.props.onPress());
     const done = tree.root
       .findAll((node: any) => typeof node.props.onPress === 'function')
-      .find((node: any) => node.findAllByType(WText).some((t: any) => t.props.children === 'Done'));
+      .find((node: any) => node.findAllByType(WText).some((t: any) => String(t.props.children).startsWith('Done')));
     act(() => done!.props.onPress());
 
     // No done-circles while defining a routine — nothing to tick off a workout
@@ -928,7 +928,7 @@ describe('screens render', () => {
     act(() => press('Add Bench Press')!.props.onPress());
     const done = tree.root
       .findAll((node: any) => typeof node.props.onPress === 'function')
-      .find((node: any) => node.findAllByType(WText).some((t: any) => t.props.children === 'Done'));
+      .find((node: any) => node.findAllByType(WText).some((t: any) => String(t.props.children).startsWith('Done')));
     act(() => done!.props.onPress());
 
     expect(cardsNamed('Bench Press')).toBe(1);
@@ -968,7 +968,7 @@ describe('screens render', () => {
     act(() => press('Add Bench Press')!.props.onPress());
     const doneBtn = tree.root
       .findAll((node: any) => typeof node.props.onPress === 'function')
-      .find((node: any) => node.findAllByType(WText).some((t: any) => t.props.children === 'Done'));
+      .find((node: any) => node.findAllByType(WText).some((t: any) => String(t.props.children).startsWith('Done')));
     act(() => doneBtn!.props.onPress());
 
     const save = tree.root
@@ -1793,7 +1793,7 @@ describe('profile screen', () => {
     act(() => press('Add Bench Press')!.props.onPress());
     const done = workout.root
       .findAll((n: any) => typeof n.props.onPress === 'function')
-      .find((n: any) => n.findAllByType(Text).some((t: any) => t.props.children === 'Done'));
+      .find((n: any) => n.findAllByType(Text).some((t: any) => String(t.props.children).startsWith('Done')));
     act(() => done!.props.onPress());
 
     const weightField = workout.root.findAllByType(TextInput).find((n: any) => n.props.placeholder === 'kg');

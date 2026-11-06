@@ -20,7 +20,7 @@ import {
   runRecords,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
-import { Kicker } from '../components/ui';
+import { Kicker, PressableScale } from '../components/ui';
 import { NavGroup, NavRow, SETTINGS_MAX_WIDTH } from '../components/settingsKit';
 import { StrengthMap } from '../components/StrengthMap';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
@@ -209,11 +209,11 @@ export function ProfileScreen({
     <View style={layout.screen}>
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" onPress={onClose} hitSlop={10} style={styles.back}>
-          <Text style={styles.backMark}>←</Text>
+          <Text style={styles.backMark}>‹</Text>
           <Text style={styles.backLabel}>Pet</Text>
         </Pressable>
         {onOpenSettings ? (
-          <Pressable
+          <PressableScale
             accessibilityRole="button"
             accessibilityLabel="Open settings"
             onPress={onOpenSettings}
@@ -221,7 +221,7 @@ export function ProfileScreen({
             style={({ pressed }) => [styles.settingsButton, pressed && styles.headerButtonPressed]}
           >
             <Text style={styles.settingsLabel}>Settings</Text>
-          </Pressable>
+          </PressableScale>
         ) : null}
       </View>
 
@@ -259,24 +259,24 @@ export function ProfileScreen({
           {onEditProfile || onOpenFriends ? (
             <View style={styles.headerButtons}>
               {onEditProfile ? (
-                <Pressable
+                <PressableScale
                   accessibilityRole="button"
                   onPress={onEditProfile}
                   style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
                   testID="edit-profile"
                 >
                   <Text style={styles.headerButtonLabel}>Edit profile</Text>
-                </Pressable>
+                </PressableScale>
               ) : null}
               {onOpenFriends ? (
-                <Pressable
+                <PressableScale
                   accessibilityRole="button"
                   onPress={onOpenFriends}
                   style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
                   testID="open-friends"
                 >
                   <Text style={styles.headerButtonLabel}>Friends</Text>
-                </Pressable>
+                </PressableScale>
               ) : null}
             </View>
           ) : null}
@@ -421,9 +421,9 @@ const styles = themedStyles(() => ({
     paddingTop: 58,
     paddingBottom: 4,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
-  backMark: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
-  backLabel: { fontFamily: fonts.pixel, fontSize: 20, fontWeight: '500', color: colors.inkSoft },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44 },
+  backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
+  backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
   settingsButton: {
     minHeight: 36,
     paddingHorizontal: 14,
@@ -433,7 +433,7 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.card,
     justifyContent: 'center',
   },
-  settingsLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
+  settingsLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.inkSoft },
   // One readable column on a tablet, as Settings has; no change on a phone.
   body: { paddingHorizontal: 16, gap: 14, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
 
@@ -447,38 +447,38 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     backgroundColor: colors.tile,
   },
-  avatarInitial: { fontFamily: fonts.pixel, fontSize: 44, color: colors.ink },
+  avatarInitial: { fontFamily: fonts.ui, fontSize: 34, color: colors.ink },
   stats: { flex: 1, flexDirection: 'row', justifyContent: 'space-around' },
   stat: { alignItems: 'center', minWidth: 64 },
-  statValue: { fontFamily: fonts.pixelBold, fontSize: 29, color: colors.ink },
-  statLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 2 },
+  statValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink },
+  statLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 2 },
   who: { gap: 2 },
-  name: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
-  handle: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted },
-  handleLink: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.coral },
-  bio: { fontFamily: fonts.pixel, fontSize: 20, color: colors.inkSoft, lineHeight: 27, marginTop: 6 },
-  bioEmpty: { fontFamily: fonts.pixel, fontSize: 20, color: colors.faint, marginTop: 6 },
+  name: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  handle: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted },
+  handleLink: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.coral },
+  bio: { fontFamily: fonts.ui, fontSize: 17, color: colors.inkSoft, lineHeight: 24, marginTop: 6 },
+  bioEmpty: { fontFamily: fonts.ui, fontSize: 17, color: colors.faint, marginTop: 6 },
   headerButtons: { flexDirection: 'row', gap: 8 },
   headerButton: {
     flex: 1,
     minHeight: 40,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.cardSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerButtonPressed: { opacity: 0.7 },
-  headerButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
+  headerButtonLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
 
   calendarHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10, marginBottom: 4 },
-  calendarStreak: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
-  calendarLongest: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint },
+  calendarStreak: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  calendarLongest: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint },
   tools: { marginTop: -8 },
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.hairline,
-    borderRadius: 4,
+    borderRadius: 12,
     padding: 18,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
@@ -492,8 +492,8 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardOpenMark: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.coral },
-  cardHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, marginTop: 6, lineHeight: 22 },
+  cardOpenMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.coral },
+  cardHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 6, lineHeight: 18 },
   cardBody: { marginTop: 4 },
   records: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   record: {
@@ -501,22 +501,22 @@ const styles = themedStyles(() => ({
     flexGrow: 1,
     paddingVertical: 12,
     paddingHorizontal: 12,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.paper,
   },
   recordEmpty: { borderStyle: 'dashed' },
-  recordLift: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint },
-  recordValue: { fontFamily: fonts.pixelBold, fontSize: 29, color: colors.ink, marginTop: 6 },
+  recordLift: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint },
+  recordValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink, marginTop: 6 },
   recordValueEmpty: { color: colors.faint },
-  recordUnit: { fontFamily: fonts.pixel, fontSize: 14, fontWeight: '400', color: colors.faint },
-  recordMeta: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 3 },
-  recordRank: { fontFamily: fonts.pixel, fontSize: 13, color: colors.mintDeep, marginTop: 4 },
-  recordFootnote: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint, lineHeight: 21, marginTop: 14 },
-  link: { fontFamily: fonts.pixel, fontSize: 14, color: colors.coral, paddingVertical: 14 },
+  recordUnit: { fontFamily: fonts.ui, fontSize: 12, fontWeight: '400', color: colors.faint },
+  recordMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
+  recordRank: { fontFamily: fonts.ui, fontSize: 12, color: colors.mintDeep, marginTop: 4 },
+  recordFootnote: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, lineHeight: 17, marginTop: 14 },
+  link: { fontFamily: fonts.ui, fontSize: 12, color: colors.coral, paddingVertical: 14 },
   foldToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
-  foldChevron: { fontFamily: fonts.pixel, fontSize: 16, color: colors.coral },
+  foldChevron: { fontFamily: fonts.ui, fontSize: 13, color: colors.coral },
   trophyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -530,22 +530,22 @@ const styles = themedStyles(() => ({
   badge: {
     width: 40,
     height: 40,
-    borderRadius: 4,
-    borderWidth: 2,
+    borderRadius: 12,
+    borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.cardSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeEarned: { borderColor: colors.ink, backgroundColor: colors.yellow },
-  badgeStar: { fontFamily: fonts.pixel, fontSize: 26, color: colors.faint },
+  badgeStar: { fontFamily: fonts.ui, fontSize: 22, color: colors.faint },
   badgeStarEarned: { color: colors.yellowDeep },
   // Flattened to a grey silhouette: the shape still reads, the gold does not.
   trophyArtLocked: { opacity: 0.28, tintColor: colors.faint },
   trophyText: { flex: 1, minWidth: 0 },
-  trophyName: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
+  trophyName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
   trophyNameLocked: { color: colors.muted },
-  trophyRule: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted, marginTop: 3, lineHeight: 18 },
-  trophyState: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 0.8, color: colors.faint },
+  trophyRule: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 3, lineHeight: 17 },
+  trophyState: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0, color: colors.faint },
   trophyStateEarned: { color: colors.mintDeep },
 }));

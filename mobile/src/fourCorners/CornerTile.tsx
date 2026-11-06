@@ -1,6 +1,6 @@
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { FourCorner } from '@vitto/core';
-import { RETRO_BORDER_WIDTH, RETRO_RADIUS, retro, retroPressed, retroShadow } from '../petWorld/retroStyle';
+import { SURFACE_BORDER_WIDTH, SURFACE_RADIUS, surface, surfacePressed, surfaceShadow } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { cornerLabel, isLeftCorner, isTopCorner } from './corners';
 
@@ -72,12 +72,12 @@ export function CornerTile({
       style={({ pressed }) => [
         styles.tile,
         position,
-        retro.panel,
-        night && retro.panelNight,
+        surface.panel,
+        night && surface.panelNight,
         cornerRadius(corner),
         filled && { backgroundColor: fill, borderColor: night ? world.nightInk : world.ink },
         state === 'muted' && styles.muted,
-        pressed && !disabled && retroPressed,
+        pressed && !disabled && surfacePressed,
       ]}
     >
       <View style={[styles.body, { alignItems: isLeftCorner(corner) ? 'flex-start' : 'flex-end' }]}>
@@ -92,7 +92,7 @@ export function CornerTile({
           {answer}
         </Text>
         {mark ? (
-          <Text style={[retro.kicker, styles.mark, filled ? { color: ON_FILL_TEXT } : night && retro.kickerNight]}>
+          <Text style={[surface.kicker, styles.mark, filled ? { color: ON_FILL_TEXT } : night && surface.kickerNight]}>
             {mark}
           </Text>
         ) : null}
@@ -103,10 +103,10 @@ export function CornerTile({
 
 /** Square on the outside, rounded on the inside — the "anchored" read. */
 const cornerRadius = (corner: FourCorner) => ({
-  borderTopLeftRadius: isTopCorner(corner) && isLeftCorner(corner) ? 0 : RETRO_RADIUS * 2.5,
-  borderTopRightRadius: isTopCorner(corner) && !isLeftCorner(corner) ? 0 : RETRO_RADIUS * 2.5,
-  borderBottomLeftRadius: !isTopCorner(corner) && isLeftCorner(corner) ? 0 : RETRO_RADIUS * 2.5,
-  borderBottomRightRadius: !isTopCorner(corner) && !isLeftCorner(corner) ? 0 : RETRO_RADIUS * 2.5,
+  borderTopLeftRadius: isTopCorner(corner) && isLeftCorner(corner) ? 0 : SURFACE_RADIUS * 2.5,
+  borderTopRightRadius: isTopCorner(corner) && !isLeftCorner(corner) ? 0 : SURFACE_RADIUS * 2.5,
+  borderBottomLeftRadius: !isTopCorner(corner) && isLeftCorner(corner) ? 0 : SURFACE_RADIUS * 2.5,
+  borderBottomRightRadius: !isTopCorner(corner) && !isLeftCorner(corner) ? 0 : SURFACE_RADIUS * 2.5,
 });
 
 const styles = themedStyles(() => ({
@@ -119,17 +119,17 @@ const styles = themedStyles(() => ({
     paddingVertical: 10,
     paddingHorizontal: 11,
     justifyContent: 'center',
-    borderWidth: RETRO_BORDER_WIDTH,
-    ...retroShadow,
+    borderWidth: SURFACE_BORDER_WIDTH,
+    ...surfaceShadow,
   },
   muted: { opacity: 0.5 },
   body: { gap: 4, width: '100%' },
   answer: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 17,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 13,
     
-    letterSpacing: 0.2,
-    lineHeight: 22,
+    letterSpacing: 0,
+    lineHeight: 17,
     color: world.ink,
   },
   answerNight: { color: world.nightText },

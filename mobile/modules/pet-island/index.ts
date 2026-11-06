@@ -27,12 +27,17 @@ export interface IslandState {
   happinessEmptyAt: number;
   nextNeedAt?: number;
   nextNeed?: string;
+  /** A rest between sets, while one is running: its start and end, and the exercise. */
+  restStartedAt?: number;
+  restEndsAt?: number;
+  restLabel?: string;
 }
 
 interface PetIslandNativeModule {
   isAvailable(): boolean;
   sync(state: IslandState): Promise<void>;
   end(): Promise<void>;
+  setWidget?(json: string | null): Promise<void>;
 }
 
 const native: PetIslandNativeModule | null =
@@ -63,5 +68,19 @@ export const endIsland = async (): Promise<void> => {
     await native.end();
   } catch {
     // Nothing to take down, or nothing that can be. Either way, done.
+  }
+};
+
+/**
+ * Hands the Home Screen widget its snapshot (see src/services/petWidget.ts), or
+ * clears it with null. Optional on the native side, so an older binary that
+ * predates the widget just skips it.
+ */
+export const setWidgetSnapshot = async (json: string | null): Promise<void> => {
+  if (!native?.setWidget) return;
+  try {
+    await native.setWidget(json);
+  } catch (error) {
+    console.warn('[widget] update failed', error);
   }
 };

@@ -49,16 +49,19 @@ const available = (): boolean =>
  * The pet speaks on screen when the app is foregrounded — the speech bubble
  * over its head — so a banner carrying the same sentence is the message twice.
  * Reminders are the opposite: a reminder the user set is worth interrupting for.
+ * The rest timer's alert is for a locked phone; with the app open, the workout
+ * screen is already counting down and buzzes itself.
  */
 export const installNotificationHandler = (): void => {
   if (typeof Notifications.setNotificationHandler !== 'function') return;
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
       const fromPet = notification.request.content.data?.screen === 'companion';
+      const rest = notification.request.content.data?.tag === 'vitto.rest';
       return {
-        shouldShowBanner: !fromPet,
-        shouldShowList: true,
-        shouldPlaySound: !fromPet,
+        shouldShowBanner: !fromPet && !rest,
+        shouldShowList: !rest,
+        shouldPlaySound: !fromPet && !rest,
         shouldSetBadge: false,
       };
     },

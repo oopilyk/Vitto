@@ -121,6 +121,34 @@ export const islandSignature = (pet: PetState): string =>
 
 export const canShowIsland = (): boolean => Platform.OS === 'ios' && isIslandAvailable();
 
+/** A rest between sets, in epoch ms, shown on the Island as a countdown. */
+export interface IslandRest {
+  startedAt: number;
+  endsAt: number;
+  label: string;
+}
+
+/**
+ * What the Island was last sent, and the rest running now. A rest changes
+ * between pet updates, so it is laid over the last state as sent rather than
+ * rebuilt from the pet: the need bars stay anchored where they were.
+ */
+let lastState: IslandState | null = null;
+let rest: IslandRest | null = null;
+
+export const withRest = (state: IslandState, current: IslandRest | null, now: number = Date.now()): IslandState => {
+  const { restStartedAt: _start, restEndsAt: _end, restLabel: _label, ...plain } = state;
+  if (!current || current.endsAt <= now) return plain;
+  return { ...plain, restStartedAt: seconds(current.startedAt), restEndsAt: seconds(current.endsAt), restLabel: current.label };
+};
+
+/** Shows a rest on the Island, or clears it. Nothing when the pet is not on the Island. */
+export const setIslandRest = async (next: IslandRest | null): Promise<void> => {
+  rest = next;
+  if (!canShowIsland() || !lastState) return;
+  await syncIsland(withRest(lastState, rest));
+};
+
 /** Puts the pet on the Island, or takes it off when the setting is off. */
 export const syncPetIsland = async (
   pet: PetState,
@@ -130,13 +158,16 @@ export const syncPetIsland = async (
 ): Promise<void> => {
   if (!canShowIsland()) return;
   if (!enabled) {
+    lastState = null;
     await endIsland();
     return;
   }
-  await syncIsland(buildIslandState(pet, now, careAreas));
+  lastState = buildIslandState(pet, now, careAreas);
+  await syncIsland(withRest(lastState, rest, now));
 };
 
 export const clearPetIsland = async (): Promise<void> => {
   if (Platform.OS !== 'ios') return;
+  lastState = null;
   await endIsland();
 };

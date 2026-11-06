@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import type { JeopardyCell } from '@vitto/core';
-import { RETRO_BORDER_WIDTH, RETRO_RADIUS, retroPressed, retroShadow } from '../petWorld/retroStyle';
+import { SURFACE_BORDER_WIDTH, SURFACE_RADIUS, surfacePressed, surfaceShadow } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { cellLabel, valueTone } from './board';
 
@@ -33,7 +33,7 @@ export function ValueTile({ cell, categoryLabel, night, onPress }: ValueTileProp
         styles.tile,
         { backgroundColor: tone.fill, borderColor: night ? world.nightInk : world.ink },
         cell.played && styles.spent,
-        pressed && !cell.played && retroPressed,
+        pressed && !cell.played && surfacePressed,
       ]}
     >
       {cell.played ? (
@@ -56,14 +56,14 @@ const styles = themedStyles(() => ({
     minHeight: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: RETRO_BORDER_WIDTH,
-    borderRadius: RETRO_RADIUS,
-    ...retroShadow,
+    borderWidth: SURFACE_BORDER_WIDTH,
+    borderRadius: SURFACE_RADIUS,
+    ...surfaceShadow,
   },
   // No shadow once spent: the tile drops back into the board instead of sitting
   // proud of it, which is most of the "this one is done" read at a glance.
   spent: { opacity: 0.45, shadowOpacity: 0, elevation: 0 },
-  value: { fontFamily: fonts.pixel, fontSize: 34, letterSpacing: 0.5 },
+  value: { fontFamily: fonts.ui, fontSize: 28, letterSpacing: 0 },
   spentBody: { alignItems: 'center' },
-  spentMark: { fontFamily: fonts.pixelBold, fontSize: 17, letterSpacing: 0.8 },
+  spentMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, letterSpacing: 0 },
 }));

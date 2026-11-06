@@ -38,6 +38,11 @@ struct PetActivityAttributes: ActivityAttributes {
     /// can say "by now" instead of showing a countdown frozen at zero.
     var nextNeedAt: Date?
     var nextNeed: String?
+    /// A rest between sets, while one runs: drawn as a countdown in place of
+    /// the mood. Optional, so a state sent by an older build still decodes.
+    var restStartedAt: Date?
+    var restEndsAt: Date?
+    var restLabel: String?
   }
 
   var petId: String

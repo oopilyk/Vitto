@@ -100,15 +100,18 @@ const readAsset = async (module: number): Promise<File> => {
 };
 
 /**
- * The Kokoro voices the app ships: af_heart, its best-rated, and am_puck,
- * light enough for a small animal; am_onyx, the deepest, and am_santa. The
- * pet's voices are these, pitched and paced (see services/petVoice.ts).
+ * The Kokoro voices the app ships: af_heart, its best-rated; am_fenrir, the
+ * Boy (am_puck was, and sounded robotic to people); am_puck, which still makes
+ * the squeaky boy; am_onyx, the deepest, and am_santa. The pet's voices are
+ * these, pitched and paced (see services/petVoice.ts).
  */
-export type KokoroVoice = 'af_heart' | 'am_puck' | 'am_onyx' | 'am_santa';
+export type KokoroVoice = 'af_heart' | 'am_fenrir' | 'am_puck' | 'am_onyx' | 'am_santa';
 
 /** Each `require` written out: Metro only bundles files named literally. */
 const voiceFile = (voice: KokoroVoice): number => {
   switch (voice) {
+    case 'am_fenrir':
+      return require('../../assets/voice-am_fenrir.f16.bin');
     case 'am_puck':
       return require('../../assets/voice-am_puck.f16.bin');
     case 'am_onyx':
@@ -189,20 +192,29 @@ let clip = 0;
 /**
  * The line as WAV files, one per sentence, each handed over as soon as it is
  * made so the first can play while the rest are still being worked out.
- * `isCurrent` going false stops it between sentences.
+ * `isCurrent` going false stops it between sentences. `name` keeps the files
+ * apart from the usual eight, which are reused in turn, so they can be kept
+ * and played again.
  */
 export async function* speakToFiles(
   text: string,
-  { voice: who, speed, playbackRate, isCurrent }: { voice: KokoroVoice; speed: number; playbackRate: number; isCurrent: () => boolean },
+  {
+    voice: who,
+    speed,
+    playbackRate,
+    isCurrent,
+    name,
+  }: { voice: KokoroVoice; speed: number; playbackRate: number; isCurrent: () => boolean; name?: string },
 ): AsyncGenerator<File> {
   const [{ run, lexicon }, voice] = await Promise.all([engine(), voiceData(who)]);
   const phonemes = phonemize(text, lexicon);
   if (!phonemes) return;
   const dir = new Directory(Paths.cache, 'kokoro');
   if (!dir.exists) dir.create({ intermediates: true });
+  let sentence = 0;
   for await (const samples of synthesize(phonemes, voice, run, speed)) {
     if (!isCurrent()) return;
-    const file = new File(dir, `line-${(clip = (clip + 1) % 8)}.wav`);
+    const file = new File(dir, name ? `${name}-${sentence++}.wav` : `line-${(clip = (clip + 1) % 8)}.wav`);
     if (file.exists) file.delete();
     file.create();
     // A short tail of silence, so the end of a word is not clipped.

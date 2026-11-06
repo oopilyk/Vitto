@@ -108,7 +108,7 @@ export const brainTrainingXp = (
 };
 
 /** Keyed on the whole union, so a new brain game must be labelled here or the build fails. */
-const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
+export const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
   math: 'Quick maths',
   reading: 'Read and recall',
   wordPuzzle: "Daily word puzzle",

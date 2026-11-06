@@ -1,0 +1,3 @@
+appId: com.getvitto.app
+---
+- tapOn: { point: "201,812" }

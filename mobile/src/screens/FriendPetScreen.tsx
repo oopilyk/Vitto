@@ -117,7 +117,7 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   const Topbar = ({ title }: { title: string }) => (
     <View style={[styles.topbar, { borderBottomColor: palette.divider }]}>
       <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.back}>
-        <Text style={styles.backMark}>←</Text>
+        <Text style={styles.backMark}>‹</Text>
         <Text style={[styles.backLabel, { color: palette.secondaryText }]}>Friends</Text>
       </Pressable>
       <Text style={[styles.topTitle, { color: palette.primaryText }]}>{title}</Text>
@@ -393,9 +393,9 @@ const styles = themedStyles(() => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 64 },
-  backMark: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
-  backLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 64 },
+  backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
+  backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
   topTitle: { ...text.heading, fontSize: 21 },
   pager: {
     flexDirection: 'row',
@@ -407,9 +407,9 @@ const styles = themedStyles(() => ({
     borderBottomColor: colors.hairline,
   },
   pagerButton: { paddingVertical: 4, paddingHorizontal: 6 },
-  pagerLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.coral, letterSpacing: 0.4 },
+  pagerLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.coral, letterSpacing: 0 },
   pagerLabelDisabled: { color: colors.faint },
-  pagerCount: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint },
+  pagerCount: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint },
   // The visit: a full-bleed stage with the visitor's chrome laid over it. The
   // column widths and inset match `PetWorldHud` so moving between your own
   // room and a friend's does not jump the plate around.
@@ -426,17 +426,17 @@ const styles = themedStyles(() => ({
   hudSideRight: { alignItems: 'flex-end' },
   hudCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
   backButton: { paddingHorizontal: 10, paddingVertical: 6 },
-  visitBackLabel: { fontFamily: fonts.pixel, fontSize: 13 },
+  visitBackLabel: { fontFamily: fonts.ui, fontSize: 12 },
   plate: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, alignItems: 'center', maxWidth: '100%' },
-  plateKicker: { fontFamily: fonts.pixel, fontSize: 12, marginBottom: 1 },
-  plateName: { fontFamily: fonts.pixelBold, fontSize: 23, letterSpacing: 1, color: world.ink },
-  plateRoom: { fontFamily: fonts.pixel, fontSize: 12, marginTop: 2 },
+  plateKicker: { fontFamily: fonts.ui, fontSize: 11, marginBottom: 1 },
+  plateName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 20, letterSpacing: 0, color: world.ink },
+  plateRoom: { fontFamily: fonts.ui, fontSize: 11, marginTop: 2 },
   feeling: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 17,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 13,
     
-    lineHeight: 23,
-    letterSpacing: 0.2,
+    lineHeight: 18,
+    letterSpacing: 0,
     color: '#241a11',
     textAlign: 'center',
     marginTop: 10,
@@ -446,10 +446,10 @@ const styles = themedStyles(() => ({
   },
   feelingNight: { color: '#f4ecda', textShadowColor: 'rgba(0,0,0,0.55)' },
   meta: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 13,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
     color: '#4a3c2b',
     textAlign: 'center',
     marginTop: 5,
@@ -460,10 +460,10 @@ const styles = themedStyles(() => ({
   },
   metaNight: { color: '#cdbfa6', textShadowColor: 'rgba(0,0,0,0.5)' },
   metaSoft: { fontWeight: '400', textTransform: 'none' },
-  visitCount: { fontFamily: fonts.pixel, fontSize: 13 },
+  visitCount: { fontFamily: fonts.ui, fontSize: 12 },
   disc: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   discDisabled: { opacity: 0.35 },
-  discMark: { fontFamily: fonts.pixelBold, fontSize: 29, color: world.ink, marginTop: -2 },
+  discMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: world.ink, marginTop: -2 },
   messageBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
   messageTitle: { ...text.title, fontSize: 26, textAlign: 'center' },
   messageBodyText: { ...text.body, textAlign: 'center' },

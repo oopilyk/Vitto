@@ -1,5 +1,6 @@
 import ActivityKit
 import ExpoModulesCore
+import WidgetKit
 
 /// The app's side of the Dynamic Island: start, refresh, end.
 ///
@@ -26,6 +27,9 @@ struct IslandState: Record {
   @Field var happinessEmptyAt: Double = 0
   @Field var nextNeedAt: Double? = nil
   @Field var nextNeed: String? = nil
+  @Field var restStartedAt: Double? = nil
+  @Field var restEndsAt: Double? = nil
+  @Field var restLabel: String? = nil
 
   private func date(_ seconds: Double) -> Date { Date(timeIntervalSince1970: seconds) }
 
@@ -44,13 +48,19 @@ struct IslandState: Record {
       happinessFullAt: date(happinessFullAt),
       happinessEmptyAt: date(happinessEmptyAt),
       nextNeedAt: nextNeedAt.map(date),
-      nextNeed: nextNeed
+      nextNeed: nextNeed,
+      restStartedAt: restStartedAt.map(date),
+      restEndsAt: restEndsAt.map(date),
+      restLabel: restLabel
     )
   }
 
   /// The moment the shown state stops being true. Past it the system marks the
-  /// activity stale and the widget says "by now" instead of counting down.
-  var staleDate: Date? { nextNeedAt.map(date) }
+  /// activity stale and the widget says "by now" instead of counting down. A
+  /// rest ending is such a moment too: the redraw it causes takes the timer down.
+  var staleDate: Date? {
+    [nextNeedAt, restEndsAt].compactMap { $0 }.min().map(date)
+  }
 }
 
 public class PetIslandModule: Module {
@@ -89,6 +99,16 @@ public class PetIslandModule: Module {
           pushType: nil
         )
       }
+    }
+
+    /// Hands the Home Screen widget its snapshot (JSON, see WidgetSnapshot in
+    /// targets/pet-island/PetWidget.swift) through the App Group the two share,
+    /// named after the app, and has it redrawn. Nil clears it: signed out.
+    AsyncFunction("setWidget") { (json: String?) in
+      guard let id = Bundle.main.bundleIdentifier,
+            let suite = UserDefaults(suiteName: "group.\(id)") else { return }
+      if let json { suite.set(json, forKey: "vitto.widget") } else { suite.removeObject(forKey: "vitto.widget") }
+      WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Takes the pet off the Island: sign-out, or the setting switched off.

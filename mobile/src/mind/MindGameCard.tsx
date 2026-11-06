@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import type { MindCategory, MindGameEntry } from './types';
-import { retro, retroPressed } from '../petWorld/retroStyle';
+import { surface, surfacePressed } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 
 /**
@@ -70,10 +70,10 @@ export function MindGameCard({ game, playedToday, night, onPress }: MindGameCard
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        retro.panel,
-        night && retro.panelNight,
+        surface.panel,
+        night && surface.panelNight,
         playedToday && styles.cardPlayed,
-        pressed && retroPressed,
+        pressed && surfacePressed,
       ]}
     >
       <View style={styles.cardTop}>
@@ -85,11 +85,11 @@ export function MindGameCard({ game, playedToday, night, onPress }: MindGameCard
       <Text style={[styles.name, night && styles.nameNight]} numberOfLines={1}>
         {game.name}
       </Text>
-      <Text style={[retro.caption, night && retro.captionNight, styles.blurb]} numberOfLines={2}>
+      <Text style={[surface.caption, night && surface.captionNight, styles.blurb]} numberOfLines={2}>
         {game.blurb}
       </Text>
       <View style={styles.cardFooter}>
-        <Text style={[retro.caption, night && retro.captionNight, styles.meta]} numberOfLines={1}>
+        <Text style={[surface.caption, night && surface.captionNight, styles.meta]} numberOfLines={1}>
           {minutesLine(game)} · {rewardLine(game)}
         </Text>
         <Text style={[styles.playLabel, { color: night ? world.nightAccent : world.accentDeep }]}>
@@ -109,10 +109,10 @@ export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameC
       onPress={onPress}
       style={({ pressed }) => [
         styles.featureCard,
-        retro.panel,
-        night && retro.panelNight,
+        surface.panel,
+        night && surface.panelNight,
         playedToday && styles.cardPlayed,
-        pressed && retroPressed,
+        pressed && surfacePressed,
       ]}
     >
       <View style={styles.cardTop}>
@@ -122,14 +122,14 @@ export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameC
       <Text style={[styles.featureName, night && styles.featureNameNight]} numberOfLines={2}>
         {game.name}
       </Text>
-      <Text style={[retro.caption, night && retro.captionNight, styles.featureBlurb]} numberOfLines={2}>
+      <Text style={[surface.caption, night && surface.captionNight, styles.featureBlurb]} numberOfLines={2}>
         {game.blurb}
       </Text>
       <View style={styles.featureFooter}>
         <Text style={[styles.featureCategory, { color: accent }]} numberOfLines={1}>
           {game.category}
         </Text>
-        <Text style={[retro.caption, night && retro.captionNight]}>{minutesLine(game)}</Text>
+        <Text style={[surface.caption, night && surface.captionNight]}>{minutesLine(game)}</Text>
         <Text style={[styles.reward, night && styles.rewardNight, styles.featureReward]} numberOfLines={1}>
           {rewardLine(game)}
         </Text>
@@ -157,22 +157,22 @@ const styles = themedStyles(() => ({
     gap: 8,
   },
   category: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 13,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 1.2,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
   playedMark: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 13,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 0.6,
+    letterSpacing: 0,
     color: world.positive,
   },
   name: {
-    fontFamily: fonts.pixel,
-    fontSize: 23,
+    fontFamily: fonts.ui,
+    fontSize: 20,
     color: world.ink,
     marginTop: 6,
   },
@@ -186,10 +186,10 @@ const styles = themedStyles(() => ({
     gap: 8,
   },
   reward: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 13,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 0.6,
+    letterSpacing: 0,
     color: world.inkSoft,
   },
   rewardNight: { color: world.nightTextSoft },
@@ -198,10 +198,10 @@ const styles = themedStyles(() => ({
   // line would run past the card's edge instead of ellipsing.
   meta: { flexShrink: 1 },
   playLabel: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 14,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 1.2,
+    letterSpacing: 0,
   },
 
   featureCard: {
@@ -210,17 +210,17 @@ const styles = themedStyles(() => ({
     paddingVertical: 18,
   },
   kicker: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 13,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 1.4,
+    letterSpacing: 0.6,
     color: world.accentDeep,
     textTransform: 'uppercase',
   },
   kickerNight: { color: world.nightAccent },
   featureName: {
-    fontFamily: fonts.pixel,
-    fontSize: 34,
+    fontFamily: fonts.ui,
+    fontSize: 28,
     color: world.ink,
     marginTop: 10,
   },
@@ -234,24 +234,24 @@ const styles = themedStyles(() => ({
     marginTop: 14,
   },
   featureCategory: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 14,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 1.2,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-  featureReward: { fontFamily: fonts.pixel, fontSize: 14 },
+  featureReward: { fontFamily: fonts.ui, fontSize: 12 },
   playBar: {
     marginTop: 16,
-    borderWidth: 2,
-    borderRadius: 4,
+    borderWidth: 1,
+    borderRadius: 12,
     paddingVertical: 10,
     alignItems: 'center',
   },
   playBarLabel: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 16,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 13,
     
-    letterSpacing: 1.4,
+    letterSpacing: 0,
   },
 }));

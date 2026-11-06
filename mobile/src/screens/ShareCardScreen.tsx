@@ -38,7 +38,7 @@ export function ShareCardScreen({ pet, events, onClose }: Props) {
     <View style={[layout.screen, styles.screen]}>
       <View style={styles.header}>
         <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onClose} hitSlop={10} style={styles.back}>
-          <Text style={styles.backLabel}>←</Text>
+          <Text style={styles.backLabel}>‹</Text>
           <Text style={styles.backText}>Pet</Text>
         </Pressable>
         <Text style={styles.title}>Share</Text>
@@ -89,19 +89,19 @@ const styles = themedStyles(() => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 64, minHeight: 44 },
-  backLabel: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
-  backText: { fontFamily: fonts.pixel, fontSize: 20, fontWeight: '500', color: colors.inkSoft },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 64, minHeight: 44 },
+  backLabel: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
+  backText: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '500', color: colors.inkSoft },
   title: { ...text.heading },
   body: { padding: 20, gap: 14, alignItems: 'stretch', paddingBottom: 48 },
   stage: { alignItems: 'center', marginBottom: 6 },
   loading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
-  note: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25, color: colors.inkSoft },
-  error: { fontFamily: fonts.pixel, fontSize: 17, color: colors.danger },
-  action: { marginTop: 4, paddingVertical: 14, alignItems: 'center', borderRadius: 4, backgroundColor: colors.coral },
+  note: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 19, color: colors.inkSoft },
+  error: { fontFamily: fonts.ui, fontSize: 13, color: colors.danger },
+  action: { marginTop: 4, paddingVertical: 14, alignItems: 'center', borderRadius: 12, backgroundColor: colors.coral },
   actionOff: { backgroundColor: colors.disabledFill },
   actionBusy: { opacity: 0.85 },
-  actionLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.onCoral },
+  actionLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.onCoral },
   actionLabelOff: { color: colors.onDisabled },
   pressed: { opacity: 0.85 },
 }));

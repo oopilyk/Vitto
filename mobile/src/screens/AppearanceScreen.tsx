@@ -46,10 +46,10 @@ export function AppearanceScreen({ preference, scheme, onChange, onClose }: Prop
 }
 
 const styles = themedStyles(() => ({
-  preview: { padding: 16, borderRadius: 4, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.hairline },
-  previewCard: { padding: 16, borderRadius: 4, backgroundColor: colors.card, gap: 6 },
-  previewTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
-  previewBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
-  previewButton: { marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 4, backgroundColor: colors.coral },
-  previewButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.onCoral },
+  preview: { padding: 16, borderRadius: 12, backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.hairline },
+  previewCard: { padding: 16, borderRadius: 12, backgroundColor: colors.card, gap: 6 },
+  previewTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  previewBody: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 21 },
+  previewButton: { marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: colors.coral },
+  previewButtonLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.onCoral },
 }));

@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import { KEYBOARD_DONE_ID } from '../components/ui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useFonts, Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_700Bold } from '@expo-google-fonts/rubik';
@@ -297,7 +298,7 @@ export function AuthScreen() {
           value={code}
           onChangeText={(next) => setCode(next.replace(/\D/g, '').slice(0, SIGNUP_CODE_MAX_LENGTH))}
           placeholder={'0'.repeat(SIGNUP_CODE_MIN_LENGTH)}
-          keyboardType="number-pad"
+          keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
           // iOS offers the code from Mail above the keyboard.
           textContentType="oneTimeCode"
           autoComplete="one-time-code"
@@ -387,7 +388,7 @@ export function AuthScreen() {
                 setReviewing(false);
               }}
               placeholder="YYYY"
-              keyboardType="number-pad"
+              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
               maxLength={4}
               accessibilityLabel="Year you were born"
             />

@@ -10,17 +10,27 @@
  * VITTO_ANDROID_PACKAGE if needed) in mobile/.env.local, which is gitignored,
  * to build under their own. Unset, this returns exactly what app.json says.
  */
-module.exports = ({ config }) => ({
-  ...config,
-  ios: {
-    ...config.ios,
-    bundleIdentifier: process.env.VITTO_IOS_BUNDLE_ID ?? config.ios?.bundleIdentifier,
-    // Signs the Dynamic Island widget target (targets/pet-island) as well as
-    // the app.
-    appleTeamId: process.env.VITTO_APPLE_TEAM_ID ?? config.ios?.appleTeamId,
-  },
-  android: {
-    ...config.android,
-    package: process.env.VITTO_ANDROID_PACKAGE ?? config.android?.package,
-  },
-});
+module.exports = ({ config }) => {
+  const bundleIdentifier = process.env.VITTO_IOS_BUNDLE_ID ?? config.ios?.bundleIdentifier;
+  return {
+    ...config,
+    ios: {
+      ...config.ios,
+      bundleIdentifier,
+      // Signs the Dynamic Island widget target (targets/pet-island) as well as
+      // the app.
+      appleTeamId: process.env.VITTO_APPLE_TEAM_ID ?? config.ios?.appleTeamId,
+      // Shared with the widget extension, which reads the Home Screen widget's
+      // snapshot from it. Named after the bundle id, so it follows a developer's
+      // own; both sides of the Swift work the name out the same way.
+      entitlements: {
+        ...config.ios?.entitlements,
+        'com.apple.security.application-groups': [`group.${bundleIdentifier}`],
+      },
+    },
+    android: {
+      ...config.android,
+      package: process.env.VITTO_ANDROID_PACKAGE ?? config.android?.package,
+    },
+  };
+};

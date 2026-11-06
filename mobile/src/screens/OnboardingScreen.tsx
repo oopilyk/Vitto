@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { KEYBOARD_DONE_ID } from '../components/ui';
 import {
   ActivityIndicator,
   Animated,
@@ -1230,7 +1231,7 @@ export function OnboardingScreen({
                   </View>
                   {metric ? (
                     <FInput
-                      keyboardType="number-pad"
+                      keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                       value={body.cm}
                       onChangeText={(value) => updateBody({ ...body, cm: digits(value) })}
                       placeholder="Height (cm)"
@@ -1287,7 +1288,7 @@ export function OnboardingScreen({
                       type in rather than a button like the choices around it. */}
                   <Text style={styles.heightLabel}>{`Weight (${profile.weightUnit})`}</Text>
                   <FInput
-                    keyboardType="number-pad"
+                    keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                     value={body.weight}
                     onChangeText={(value) => updateBody({ ...body, weight: digits(value) })}
                     placeholder={profile.weightUnit === 'lb' ? 'Type it here, e.g. 160' : 'Type it here, e.g. 72'}
@@ -1339,7 +1340,7 @@ export function OnboardingScreen({
                 },
                 <>
                   <FInput
-                    keyboardType="number-pad"
+                    keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                     value={goalText}
                     onChangeText={(value) => {
                       const next = digits(value);

@@ -262,9 +262,9 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
 }
 
 const styles = themedStyles(() => ({
-  card: { borderWidth: 1, borderRadius: 4, padding: 18 },
-  title: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase' },
-  lead: { fontFamily: fonts.pixel, fontSize: 20, lineHeight: 27, marginTop: 8 },
+  card: { borderWidth: 1, borderRadius: 12, padding: 18 },
+  title: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
+  lead: { fontFamily: fonts.ui, fontSize: 17, lineHeight: 24, marginTop: 8 },
 
   seats: { marginTop: 14, borderTopWidth: 1, borderBottomWidth: 1, paddingVertical: 4 },
   seat: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
@@ -272,40 +272,40 @@ const styles = themedStyles(() => ({
   seatDotOwner: { backgroundColor: colors.coral },
   seatDotPartner: { backgroundColor: colors.mintDeep },
   seatDotEmpty: { backgroundColor: 'transparent', borderWidth: 1.5, borderStyle: 'dashed' },
-  seatName: { fontFamily: fonts.pixelBold, flex: 1, fontSize: 18, },
+  seatName: { fontFamily: fonts.ui, fontWeight: '600', flex: 1, fontSize: 15, },
   seatNameEmpty: { fontWeight: '400', fontStyle: 'italic' },
-  seatRole: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 0.8, textTransform: 'uppercase' },
+  seatRole: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
 
   option: { marginTop: 14, gap: 8 },
-  optionLabel: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 0.8, textTransform: 'uppercase' },
-  optionNote: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22 },
+  optionLabel: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
+  optionNote: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18 },
   secondaryOption: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
-    borderRadius: 4,
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
   },
-  secondaryLabel: { fontFamily: fonts.pixelBold, fontSize: 18, marginBottom: 2 },
-  chevron: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
+  secondaryLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, marginBottom: 2 },
+  chevron: { fontFamily: fonts.ui, fontSize: 20, color: colors.coral },
   pressed: { opacity: 0.7 },
 
-  joinPanel: { borderWidth: 1, borderRadius: 4, padding: 14 },
-  codeInput: { fontFamily: fonts.pixel, fontSize: 26, letterSpacing: 4, textAlign: 'center' },
+  joinPanel: { borderWidth: 1, borderRadius: 12, padding: 14 },
+  codeInput: { fontFamily: fonts.ui, fontSize: 22, letterSpacing: 0, textAlign: 'center' },
 
   codeBlock: { marginTop: 14, gap: 8 },
   codeBox: {
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderRadius: 4,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  code: { fontFamily: fonts.pixel, fontSize: 39, letterSpacing: 5 },
+  code: { fontFamily: fonts.ui, fontSize: 34, letterSpacing: 0 },
 
   footer: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 6 },
-  privacy: { fontFamily: fonts.pixel, fontSize: 14, lineHeight: 21, marginTop: 16 },
+  privacy: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, marginTop: 16 },
   error: { ...text.error, fontSize: 16, marginTop: 12 },
 }));

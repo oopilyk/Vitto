@@ -59,7 +59,7 @@ export function ChooseCompanionScreen({ breed, owned, coins, cost, onChoose, onC
     <View style={layout.screen}>
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.back}>
-          <Text style={styles.backMark}>←</Text>
+          <Text style={styles.backMark}>‹</Text>
           <Text style={styles.backLabel}>Settings</Text>
         </Pressable>
         <Text style={styles.topTitle}>Your companion</Text>
@@ -133,9 +133,9 @@ const styles = themedStyles(() => ({
     paddingTop: 62,
     paddingBottom: 12,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 64 },
-  backMark: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
-  backLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 64 },
+  backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
+  backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
   topTitle: { ...text.heading, fontSize: 21 },
   // One readable column on a tablet, as Settings has; no change on a phone.
   body: { padding: 16, gap: 12, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
@@ -146,14 +146,14 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.hairline,
-    borderRadius: 4,
+    borderRadius: 12,
     padding: 16,
   },
   walletRight: { alignItems: 'flex-end' },
-  walletLabel: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', color: colors.faint },
-  walletValue: { fontFamily: fonts.pixelBold, fontSize: 36, color: colors.yellowDeep, marginTop: 2 },
-  walletCost: { fontFamily: fonts.pixelBold, fontSize: 26, color: colors.ink, marginTop: 2 },
-  hint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, lineHeight: 22 },
+  walletLabel: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint },
+  walletValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 28, color: colors.yellowDeep, marginTop: 2 },
+  walletCost: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink, marginTop: 2 },
+  hint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, lineHeight: 18 },
   short: { ...text.body, color: colors.inkSoft, textAlign: 'center' },
   confirm: { gap: 8, marginTop: 4 },
   confirmText: { ...text.body, color: colors.inkSoft, textAlign: 'center' },

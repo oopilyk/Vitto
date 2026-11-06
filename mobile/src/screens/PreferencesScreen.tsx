@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { KEYBOARD_DONE_ID } from '../components/ui';
 import { Text, View } from 'react-native';
 import {
   type BodyProfile,
@@ -119,14 +120,14 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         <FieldRow>
           <FormField label="Age">
             <TextField
-              keyboardType="number-pad"
+              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
               value={String(profile.age)}
               onChangeText={(value) => update('age', Number(digits(value)) || 0)}
             />
           </FormField>
           <FormField label={`Weight (${profile.weightUnit})`}>
             <TextField
-              keyboardType="decimal-pad"
+              keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
               value={String(displayedWeight)}
               onChangeText={(value) => update('weightKg', toKg(Number(digits(value, true)) || 0))}
             />
@@ -135,7 +136,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         {profile.heightUnit === 'cm' ? (
           <FormField label="Height (cm)">
             <TextField
-              keyboardType="number-pad"
+              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
               value={String(profile.heightCm)}
               onChangeText={(value) => update('heightCm', Number(digits(value)) || 0)}
             />
@@ -144,14 +145,14 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           <FieldRow>
             <FormField label="Height (ft)">
               <TextField
-                keyboardType="number-pad"
+                keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                 value={String(displayedHeight.feet)}
                 onChangeText={(value) => update('heightCm', feetAndInchesToCm(Number(digits(value)) || 0, displayedHeight.inches))}
               />
             </FormField>
             <FormField label="Height (in)">
               <TextField
-                keyboardType="number-pad"
+                keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                 value={String(displayedHeight.inches)}
                 onChangeText={(value) => update('heightCm', feetAndInchesToCm(displayedHeight.feet, Number(digits(value)) || 0))}
               />
@@ -214,7 +215,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
             <FieldRow>
               <FormField label={`Target (${profile.weightUnit})`} hint="optional">
                 <TextField
-                  keyboardType="decimal-pad"
+                  keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                   placeholder="—"
                   value={displayedTarget === undefined ? '' : String(displayedTarget)}
                   onChangeText={(value) => {
@@ -225,7 +226,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
               </FormField>
               <FormField label="Weeks" hint="optional">
                 <TextField
-                  keyboardType="number-pad"
+                  keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                   placeholder="—"
                   value={profile.goalWeeks === undefined ? '' : String(profile.goalWeeks)}
                   onChangeText={(value) => {
@@ -285,7 +286,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         {ownCalories ? (
           <FormField label="Calories a day" hint={`recommended ${recommended.toLocaleString()}`}>
             <TextField
-              keyboardType="number-pad"
+              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
               value={calorieText}
               accessibilityLabel="Your daily calorie goal"
               onChangeText={(value) => {
@@ -320,7 +321,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         <FieldRow>
           <FormField label="Training days a week">
             <TextField
-              keyboardType="number-pad"
+              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
               value={String(profile.trainingDaysPerWeek)}
               onChangeText={(value) => update('trainingDaysPerWeek', Math.max(0, Math.min(7, Number(digits(value)) || 0)))}
             />
@@ -346,8 +347,8 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
 
 const styles = themedStyles(() => ({
   fieldSpacer: { flex: 1 },
-  plan: { padding: 14, borderRadius: 4, backgroundColor: colors.cardSoft },
-  planText: { fontFamily: fonts.pixel, fontSize: 18, lineHeight: 26, color: colors.inkSoft },
+  plan: { padding: 14, borderRadius: 12, backgroundColor: colors.cardSoft },
+  planText: { fontFamily: fonts.ui, fontSize: 15, lineHeight: 21, color: colors.inkSoft },
   planValue: { fontWeight: '700', color: colors.ink },
-  planWarning: { fontFamily: fonts.pixel, fontSize: 16, color: colors.caution, marginTop: 6 },
+  planWarning: { fontFamily: fonts.ui, fontSize: 13, color: colors.caution, marginTop: 6 },
 }));

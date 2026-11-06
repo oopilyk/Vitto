@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { isValidJeopardyWager } from '@vitto/core';
 import { PrimaryButton } from '../components/ui';
-import { RETRO_BORDER_WIDTH, RETRO_RADIUS, retro, retroPressed } from '../petWorld/retroStyle';
+import { SURFACE_BORDER_WIDTH, SURFACE_RADIUS, surface, surfacePressed } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { WAGER_STEP } from './board';
 
@@ -39,12 +39,12 @@ export function WagerPanel({
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.panel, retro.panel, night && retro.panelNight]}>
-        <Text style={[retro.kicker, night && retro.kickerNight]}>Final Jeopardy</Text>
+      <View style={[styles.panel, surface.panel, night && surface.panelNight]}>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>Final Jeopardy</Text>
         <Text style={[styles.heading, night && styles.headingNight]}>How much do you risk?</Text>
         {/* The ceiling IS what was earned this round, stated plainly: winning
             doubles it, losing gives it back. */}
-        <Text style={[retro.caption, night && retro.captionNight, styles.line]}>
+        <Text style={[surface.caption, night && surface.captionNight, styles.line]}>
           {max > 0
             ? `You earned ${max} XP this round. Risk any part of it — win, and you double it; lose, and it's gone.`
             : "You didn't bank any XP this round — this one is a free shot."}
@@ -65,7 +65,7 @@ export function WagerPanel({
             >
               {amount}
             </Text>
-            <Text style={[retro.kicker, night && retro.kickerNight]}>XP</Text>
+            <Text style={[surface.kicker, night && surface.kickerNight]}>XP</Text>
           </View>
           <StepButton
             label={`+${WAGER_STEP}`}
@@ -115,7 +115,7 @@ function StepButton({
         { borderColor: night ? world.nightInk : world.ink },
         night && styles.stepNight,
         disabled && styles.stepOff,
-        pressed && !disabled && retroPressed,
+        pressed && !disabled && surfacePressed,
       ]}
     >
       <Text style={[styles.stepLabel, night && styles.stepLabelNight]}>{label}</Text>
@@ -131,12 +131,12 @@ function Preset({ label, night, onPress }: { label: string; night: boolean; onPr
       onPress={onPress}
       style={({ pressed }) => [
         styles.preset,
-        retro.panelQuiet,
-        night && retro.panelQuietNight,
-        pressed && retroPressed,
+        surface.panelQuiet,
+        night && surface.panelQuietNight,
+        pressed && surfacePressed,
       ]}
     >
-      <Text style={[retro.kicker, night && retro.kickerNight]}>{label}</Text>
+      <Text style={[surface.kicker, night && surface.kickerNight]}>{label}</Text>
     </Pressable>
   );
 }
@@ -144,7 +144,7 @@ function Preset({ label, night, onPress }: { label: string; night: boolean; onPr
 const styles = themedStyles(() => ({
   wrap: { flex: 1, paddingHorizontal: 18, paddingTop: 14 },
   panel: { paddingVertical: 20, paddingHorizontal: 18, alignItems: 'center' },
-  heading: { fontFamily: fonts.pixel, fontSize: 31, color: world.ink, marginTop: 8, letterSpacing: 0.5 },
+  heading: { fontFamily: fonts.ui, fontSize: 28, color: world.ink, marginTop: 8, letterSpacing: 0 },
   headingNight: { color: world.nightText },
   line: { marginTop: 8, textAlign: 'center', lineHeight: 15 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 18 },
@@ -153,16 +153,16 @@ const styles = themedStyles(() => ({
     height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: RETRO_BORDER_WIDTH,
-    borderRadius: RETRO_RADIUS,
+    borderWidth: SURFACE_BORDER_WIDTH,
+    borderRadius: SURFACE_RADIUS,
     backgroundColor: world.surfaceSoft,
   },
   stepNight: { backgroundColor: world.nightSurfaceSoft },
   stepOff: { opacity: 0.4 },
-  stepLabel: { fontFamily: fonts.pixelBold, fontSize: 21, color: world.ink },
+  stepLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: world.ink },
   stepLabelNight: { color: world.nightText },
   readout: { minWidth: 84, alignItems: 'center' },
-  amount: { fontFamily: fonts.pixel, fontSize: 52, color: world.ink, letterSpacing: 0.5 },
+  amount: { fontFamily: fonts.ui, fontSize: 41, color: world.ink, letterSpacing: 0 },
   amountNight: { color: world.nightText },
   presets: { flexDirection: 'row', gap: 8, marginTop: 18, flexWrap: 'wrap', justifyContent: 'center' },
   preset: { paddingVertical: 8, paddingHorizontal: 14 },

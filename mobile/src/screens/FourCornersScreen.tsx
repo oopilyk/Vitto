@@ -31,7 +31,7 @@ import {
 import { usePetJump } from '../fourCorners/usePetJump';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
-import { retro, retroPressed } from '../petWorld/retroStyle';
+import { surface, surfacePressed } from '../components/surfaceStyle';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { fonts, world, themedStyles } from '../theme';
@@ -239,9 +239,9 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
       <SheetPage onBackPress={onClose}>
         <View style={[styles.screen, night && styles.screenNight, styles.centred]}>
           <FourCornersBackdrop night={night} />
-          <View style={[styles.errorPanel, retro.panel, night && retro.panelNight]}>
-            <Text style={[retro.label, night && retro.labelNight]}>Four Corners</Text>
-            <Text style={[retro.caption, night && retro.captionNight, styles.errorLine]}>
+          <View style={[styles.errorPanel, surface.panel, night && surface.panelNight]}>
+            <Text style={[surface.label, night && surface.labelNight]}>Four Corners</Text>
+            <Text style={[surface.caption, night && surface.captionNight, styles.errorLine]}>
               {deal.error ?? 'This game is unavailable right now.'}
             </Text>
             <View style={styles.errorAction}>
@@ -310,7 +310,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
         closeDisabled={saving}
       />
 
-      <View style={[styles.prompt, retro.panel, night && retro.panelNight]}>
+      <View style={[styles.prompt, surface.panel, night && surface.panelNight]}>
         <Text style={[styles.promptText, night && styles.promptTextNight]}>{card?.question.prompt}</Text>
       </View>
 
@@ -325,7 +325,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
       */}
       <View style={styles.flashSlot} accessibilityLiveRegion="polite">
         {revealing && given ? (
-          <View style={[styles.flashChip, retro.panelQuiet, night && retro.panelQuietNight]}>
+          <View style={[styles.flashChip, surface.panelQuiet, night && surface.panelQuietNight]}>
             <Text style={[styles.flash, night && styles.flashNight]}>
               {given.correct ? `CORRECT!  +${given.points} MIND` : `NOT THAT ONE  ·  +${given.points} MIND`}
             </Text>
@@ -394,7 +394,7 @@ function Header({
         disabled={closeDisabled}
         onPress={onClose}
         hitSlop={10}
-        style={({ pressed }) => [styles.close, pressed && retroPressed]}
+        style={({ pressed }) => [styles.close, pressed && surfacePressed]}
       >
         <Text style={styles.closeMark}>✕</Text>
       </Pressable>
@@ -436,15 +436,15 @@ const styles = themedStyles(() => ({
     borderBottomColor: world.barHairline,
   },
   title: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 21,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 17,
     
-    letterSpacing: 2,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: world.nightText,
     marginBottom: 3,
   },
-  progress: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 0.6, color: world.nightTextSoft },
+  progress: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0, color: world.nightTextSoft },
   close: {
     width: 36,
     height: 36,
@@ -455,15 +455,15 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: world.barHairline,
   },
-  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, color: world.nightText },
+  closeMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: world.nightText },
 
   prompt: { marginTop: 14, marginHorizontal: 18, paddingVertical: 14, paddingHorizontal: 16 },
-  promptText: { fontFamily: fonts.pixel, fontSize: 25, lineHeight: 33, color: world.ink },
+  promptText: { fontFamily: fonts.ui, fontSize: 20, lineHeight: 26, color: world.ink },
   promptTextNight: { color: world.nightText },
 
   flashSlot: { height: 32, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   flashChip: { paddingVertical: 4, paddingHorizontal: 12 },
-  flash: { fontFamily: fonts.pixelBold, fontSize: 16, letterSpacing: 1.4, color: world.ink },
+  flash: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, letterSpacing: 0, color: world.ink },
   flashNight: { color: world.nightText },
 
   board: { flex: 1, marginTop: 6, marginHorizontal: 16, marginBottom: 8 },

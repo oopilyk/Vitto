@@ -152,7 +152,7 @@ function StatInfoPage({ group, petName, onBack }: { group: PetStatGroup; petName
     <View style={layout.screen}>
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" accessibilityLabel="Back to stats" onPress={onBack} hitSlop={8} style={styles.back}>
-          <Text style={styles.backMark}>←</Text>
+          <Text style={styles.backMark}>‹</Text>
           <Text style={styles.backLabel}>Stats</Text>
         </Pressable>
         <Text style={styles.topTitle}>{info.title}</Text>
@@ -277,7 +277,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
           hitSlop={8}
           style={styles.back}
         >
-          <Text style={styles.backMark}>←</Text>
+          <Text style={styles.backMark}>‹</Text>
           <Text style={styles.backLabel}>Pet</Text>
         </Pressable>
         <Text style={styles.topTitle}>Stats</Text>
@@ -423,8 +423,8 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
 
 const styles = themedStyles(() => ({
   coinsRow: { marginTop: 12, gap: 2 },
-  coinsValue: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.yellowDeep },
-  coinsHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, lineHeight: 22 },
+  coinsValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.yellowDeep },
+  coinsHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, lineHeight: 18 },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -435,9 +435,9 @@ const styles = themedStyles(() => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 64 },
-  backMark: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
-  backLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 64 },
+  backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
+  backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
   topTitle: { ...text.heading, fontSize: 21 },
   // One readable column on a tablet, as Settings has; no change on a phone.
   body: { padding: 16, gap: 14, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
@@ -445,18 +445,18 @@ const styles = themedStyles(() => ({
   portrait: {
     width: 96,
     height: 96,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.sageSoft,
     overflow: 'hidden',
   },
   identityText: { flex: 1, minWidth: 0 },
   petName: { ...text.title, marginTop: 6 },
-  identityMeta: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted, marginTop: 5 },
+  identityMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 5 },
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.hairline,
-    borderRadius: 4,
+    borderRadius: 12,
     padding: 18,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -469,14 +469,14 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  infoMark: { fontFamily: fonts.pixelBold, fontSize: 16, color: colors.muted, marginTop: -1 },
-  infoIntro: { fontFamily: fonts.pixel, fontSize: 20, lineHeight: 29, color: colors.muted, marginBottom: 14 },
+  infoMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted, marginTop: -1 },
+  infoIntro: { fontFamily: fonts.ui, fontSize: 17, lineHeight: 25, color: colors.muted, marginBottom: 14 },
   infoRow: { paddingVertical: 12 },
   infoRowRule: { borderTopWidth: 1, borderTopColor: colors.hairline },
   infoName: { ...text.heading, fontSize: 20 },
-  infoBody: { fontFamily: fonts.pixel, fontSize: 18, lineHeight: 27, color: colors.muted, marginTop: 4 },
-  infoOutro: { fontFamily: fonts.pixel, fontSize: 18, lineHeight: 27, color: colors.muted, marginTop: 14 },
-  cardHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, marginTop: 6, lineHeight: 22 },
+  infoBody: { fontFamily: fonts.ui, fontSize: 15, lineHeight: 23, color: colors.muted, marginTop: 4 },
+  infoOutro: { fontFamily: fonts.ui, fontSize: 15, lineHeight: 23, color: colors.muted, marginTop: 14 },
+  cardHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 6, lineHeight: 18 },
   cardBody: { marginTop: 4 },
   facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
   fact: {
@@ -484,13 +484,13 @@ const styles = themedStyles(() => ({
     flexBasis: '28%',
     minWidth: 0,
     backgroundColor: colors.cardSoft,
-    borderRadius: 4,
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
   },
-  factValue: { fontFamily: fonts.pixelBold, fontSize: 26, color: colors.ink },
-  factValueLong: { fontFamily: fonts.pixel, fontSize: 20 },
-  factLabel: { fontFamily: fonts.pixel, fontSize: 12, color: colors.faint, marginTop: 3 },
+  factValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink },
+  factValueLong: { fontFamily: fonts.ui, fontSize: 17 },
+  factLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.faint, marginTop: 3 },
   // A pill, not a card: it hugs its words and sits under the name like a status.
   feeling: {
     alignSelf: 'flex-start',
@@ -503,15 +503,15 @@ const styles = themedStyles(() => ({
     borderRadius: 999,
     borderWidth: 1,
   },
-  feelingDot: { width: 8, height: 8, borderRadius: 4 },
-  feelingText: { fontFamily: fonts.pixel, fontSize: 20, fontWeight: '500', letterSpacing: 0.5 },
-  feelingWhy: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 7, lineHeight: 21 },
+  feelingDot: { width: 8, height: 8, borderRadius: 12 },
+  feelingText: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '500', letterSpacing: 0 },
+  feelingWhy: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 7, lineHeight: 17 },
   shareButton: { justifyContent: 'flex-end' },
   sharePressed: { opacity: 0.6 },
-  shareLabel: { fontFamily: fonts.pixel, fontSize: 17, color: colors.coral },
+  shareLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.coral },
   moodRow: { marginTop: 18 },
-  moodValue: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
-  moodHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 5, lineHeight: 23 },
+  moodValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  moodHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 5, lineHeight: 20 },
   tableHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -527,37 +527,37 @@ const styles = themedStyles(() => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
-  tableLabel: { fontFamily: fonts.pixel, flex: 1, fontSize: 17, color: colors.ink },
-  tableLabelHead: { fontFamily: fonts.pixel, fontSize: 12, color: colors.faint, letterSpacing: 0.8 },
+  tableLabel: { fontFamily: fonts.ui, flex: 1, fontSize: 13, color: colors.ink },
+  tableLabelHead: { fontFamily: fonts.ui, fontSize: 11, color: colors.faint, letterSpacing: 0 },
   tableCount: {
     width: 46,
     textAlign: 'right',
-    fontFamily: fonts.pixel,
-    fontSize: 12,
+    fontFamily: fonts.ui,
+    fontSize: 11,
     color: colors.faint,
-    letterSpacing: 0.8,
+    letterSpacing: 0,
   },
   tableValue: {
     width: 46,
     textAlign: 'right',
-    fontFamily: fonts.pixel,
-    fontSize: 16,
+    fontFamily: fonts.ui,
+    fontSize: 13,
     color: colors.ink,
   },
-  lastCare: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted, marginTop: 14, lineHeight: 21 },
-  decayNote: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, marginTop: 8, lineHeight: 23 },
+  lastCare: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 14, lineHeight: 19 },
+  decayNote: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 8, lineHeight: 20 },
   testBanner: {
     backgroundColor: colors.coral,
-    borderRadius: 4,
+    borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
   testBannerTitle: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 16,
-    letterSpacing: 0.8,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 13,
+    letterSpacing: 0,
     color: colors.card,
     
   },
-  testBannerBody: { fontFamily: fonts.pixel, fontSize: 16, color: colors.card, marginTop: 6, lineHeight: 22 },
+  testBannerBody: { fontFamily: fonts.ui, fontSize: 13, color: colors.card, marginTop: 6, lineHeight: 18 },
 }));

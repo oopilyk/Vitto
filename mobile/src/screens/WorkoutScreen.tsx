@@ -6,12 +6,14 @@ import {
   type WorkoutExercise,
   type WorkoutMetadata,
   type WorkoutTemplate,
+  type WorkoutSet,
   addSet,
   calculateWorkoutStats,
   sessionMinutes,
   tracksDistance,
   createExercise,
   errorMessage,
+  exerciseFromHistory,
   exerciseLibrary,
   MAX_TEMPLATE_NAME,
   sessionFromTemplate,
@@ -20,7 +22,9 @@ import {
   updateSet,
 } from '@vitto/core';
 import { KM_PER_MILE } from '@vitto/core';
-import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, TextButton, KEYBOARD_DONE_ID, haptic } from '../components/ui';
+import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
+import { startRest, stopRest } from '../services/restTimer';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
@@ -45,7 +49,19 @@ interface Props {
    * run"): only the activities logged by distance, and one tap picks it.
    */
   startWithCardio?: boolean;
+  /**
+   * What each exercise had the last time it was logged (lastSetsByExercise).
+   * An exercise picked by hand starts on those sets, and every set shows them
+   * as "Previous", the way a routine already does.
+   */
+  lastSets?: ReadonlyMap<string, WorkoutSet[]>;
 }
+
+/** "60 × 8", or "8" for bodyweight: what a set's Previous cell reads. */
+export const previousLabel = (previous: WorkoutSet['previous'], bodyweight?: boolean): string => {
+  if (!previous) return '—';
+  return bodyweight || !previous.weight ? String(previous.reps) : `${previous.weight} × ${previous.reps}`;
+};
 
 /** The unnamed session. Saving a routine still called this asks for a real name. */
 const DEFAULT_SESSION_NAME = 'Strength session';
@@ -73,6 +89,7 @@ export function WorkoutScreen({
   onSaveTemplate,
   onDeleteTemplate,
   startWithCardio = false,
+  lastSets,
 }: Props) {
   const [mode, setMode] = useState<Mode>('log');
   const [name, setName] = useState(DEFAULT_SESSION_NAME);
@@ -88,6 +105,17 @@ export function WorkoutScreen({
     if (exercises.length > 0 && startedAt === null) setStartedAt(Date.now());
     else if (exercises.length === 0 && startedAt !== null) setStartedAt(null);
   }, [exercises.length, startedAt]);
+  /**
+   * Sets ticked off as they are done. Only progress and the rest timer: every
+   * set on the list still counts whether ticked or not (see newSet in
+   * @vitto/core), so finishing without ticking anything loses nothing.
+   */
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
+  const [rest, setRest] = useState<Rest | null>(null);
+  /** How long a rest runs, nudged by −15/+15 and kept for the next one. */
+  const [restLength, setRestLength] = useState(DEFAULT_REST_MS);
+  // The alert and the Island's countdown go when the screen does.
+  useEffect(() => () => void stopRest(), []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,7 +143,7 @@ export function WorkoutScreen({
     if (exercises.length === 0 && name === DEFAULT_SESSION_NAME && tracksDistance(exerciseName)) setName(exerciseName);
     setExercises((current) => [
       ...current,
-      createExercise(exerciseName, muscle, bodyweight, weightUnit),
+      exerciseFromHistory(createExercise(exerciseName, muscle, bodyweight, weightUnit), lastSets?.get(exerciseName)),
     ]);
     setError(null);
     // A run is one thing: picking it is the whole choice, so straight to its
@@ -138,6 +166,50 @@ export function WorkoutScreen({
     setExercises((current) =>
       current.map((item) => (item.id === exerciseId ? updateSet(item, setId, patch) : item)),
     );
+
+  // ---- ticking and resting -------------------------------------------------
+
+  const beginRest = (length: number, label: string) => {
+    const startedAt = Date.now();
+    const next = { startedAt, endsAt: startedAt + length, label };
+    setRest(next);
+    void startRest(next.endsAt, startedAt, label);
+  };
+
+  const endRest = () => {
+    setRest(null);
+    void stopRest();
+  };
+
+  /** Ticks a set off and starts the rest after it; a second tap unticks it. */
+  const toggleTick = (exercise: WorkoutExercise, setId: string) => {
+    const on = !ticked.has(setId);
+    setTicked((current) => {
+      const next = new Set(current);
+      if (on) next.add(setId);
+      else next.delete(setId);
+      return next;
+    });
+    haptic('press');
+    if (on) beginRest(restLength, exercise.name);
+  };
+
+  const adjustRest = (delta: number) => {
+    if (!rest) return;
+    haptic('select');
+    const endsAt = Math.max(Date.now() + 5_000, rest.endsAt + delta);
+    setRestLength((length) => Math.max(15_000, length + delta));
+    const next = { ...rest, endsAt };
+    setRest(next);
+    void startRest(endsAt, rest.startedAt, rest.label);
+  };
+
+  /** Fills a set in with what it was last time: one tap instead of two fields. */
+  const fillFromPrevious = (exerciseId: string, set: WorkoutSet) => {
+    if (!set.previous) return;
+    haptic('select');
+    patchSet(exerciseId, set.id, { reps: set.previous.reps, weight: set.previous.weight });
+  };
 
   // ---- routines -----------------------------------------------------------
 
@@ -308,7 +380,7 @@ export function WorkoutScreen({
     const more = template.exercises.length - 3;
     return (
       <View key={template.id} style={styles.routineRowWrap}>
-        <Pressable
+        <PressableScale
           accessibilityRole="button"
           accessibilityLabel={managingRoutines ? `Edit routine ${template.name}` : `Load routine ${template.name}`}
           onPress={() => (managingRoutines ? startEditingRoutine(template) : loadRoutine(template))}
@@ -322,7 +394,7 @@ export function WorkoutScreen({
             </Text>
           </View>
           <Text style={styles.routineGo}>{managingRoutines ? 'Edit' : 'Start'}</Text>
-        </Pressable>
+        </PressableScale>
         {managingRoutines && onDeleteTemplate ? (
           <Pressable
             accessibilityRole="button"
@@ -366,10 +438,12 @@ export function WorkoutScreen({
                   : name || 'Workout'}
             </Text>
           </View>
-          <TextButton
-            label={routineMode ? 'Cancel' : 'Exit'}
-            onPress={routineMode ? leaveRoutineMode : onClose}
-          />
+          {/* Cancel leaves the routine editor, not the sheet, so it stays a word. */}
+          {routineMode ? (
+            <TextButton label="Cancel" onPress={leaveRoutineMode} tone="coral" />
+          ) : (
+            <CloseButton onPress={onClose} />
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
@@ -399,7 +473,7 @@ export function WorkoutScreen({
             <>
               <Text style={styles.lead}>What are you training today?</Text>
 
-              <Pressable
+              <PressableScale
                 accessibilityRole="button"
                 accessibilityLabel="Add exercise"
                 onPress={openPicker}
@@ -410,7 +484,7 @@ export function WorkoutScreen({
                   <Text style={styles.startHint}>Choose from {exerciseLibrary.length} moves, then fill in your sets</Text>
                 </View>
                 <Text style={styles.startArrow}>→</Text>
-              </Pressable>
+              </PressableScale>
 
               {onSaveTemplate ? (
                 <View style={styles.routines}>
@@ -422,6 +496,7 @@ export function WorkoutScreen({
                           <TextButton
                             label={managingRoutines ? 'Done' : 'Edit'}
                             onPress={() => setManagingRoutines((current) => !current)}
+                            tone="coral"
                           />
                         ) : null}
                       </View>
@@ -431,7 +506,7 @@ export function WorkoutScreen({
 
                   {/* The way to MAKE one. Always here, so building a routine never
                       means logging a session first. */}
-                  <Pressable
+                  <PressableScale
                     accessibilityRole="button"
                     accessibilityLabel="Make a new routine"
                     onPress={startNewRoutine}
@@ -443,14 +518,14 @@ export function WorkoutScreen({
                         ? 'Same workout every week? Set it up once, then start it in one tap.'
                         : 'Save another day of your split.'}
                     </Text>
-                  </Pressable>
+                  </PressableScale>
                 </View>
               ) : null}
             </>
           ) : null}
 
           {routineMode && empty ? (
-            <Pressable
+            <PressableScale
               accessibilityRole="button"
               accessibilityLabel="Add exercise"
               onPress={openPicker}
@@ -461,7 +536,7 @@ export function WorkoutScreen({
                 <Text style={styles.startHint}>Pick everything you do on this day</Text>
               </View>
               <Text style={styles.startArrow}>→</Text>
-            </Pressable>
+            </PressableScale>
           ) : null}
 
           {exercises.map((exercise, position) => (
@@ -500,7 +575,7 @@ export function WorkoutScreen({
                         style={[layout.input, styles.cardioInput]}
                         value={duration}
                         onChangeText={setDuration}
-                        keyboardType="number-pad"
+                        keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                         placeholder="0"
                         placeholderTextColor={colors.faint}
                         accessibilityLabel="Minutes"
@@ -515,7 +590,7 @@ export function WorkoutScreen({
                         style={[layout.input, styles.cardioInput]}
                         value={distance}
                         onChangeText={setDistance}
-                        keyboardType="decimal-pad"
+                        keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                         placeholder="0.0"
                         placeholderTextColor={colors.faint}
                         accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}, optional`}
@@ -528,18 +603,36 @@ export function WorkoutScreen({
                 <>
                   <View style={styles.setHead}>
                     <Text style={[styles.setHeadLabel, styles.setIndex]}>SET</Text>
+                    {exercise.sets.some((set) => set.previous) ? (
+                      <Text style={[styles.setHeadLabel, styles.setPrevious]}>LAST</Text>
+                    ) : null}
                     <Text style={[styles.setHeadLabel, styles.setInputHead]}>
                       {exercise.bodyweight ? 'body' : weightUnit}
                     </Text>
                     <Text style={[styles.setHeadLabel, styles.setInputHead]}>reps</Text>
+                    {routineMode ? null : <View style={styles.tickSlot} />}
                     <View style={styles.setRemoveSlot} />
                   </View>
                   {exercise.sets.map((set, index) => (
-                    <View key={set.id} style={styles.setRow}>
+                    <View key={set.id} style={[styles.setRow, ticked.has(set.id) && styles.setRowDone]}>
                       <Text style={[styles.setIndex, styles.setIndexValue]}>{index + 1}</Text>
+                      {exercise.sets.some((candidate) => candidate.previous) ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={set.previous ? `Use last time for set ${index + 1}: ${previousLabel(set.previous, exercise.bodyweight)}` : `No last time for set ${index + 1}`}
+                          disabled={!set.previous}
+                          hitSlop={4}
+                          onPress={() => fillFromPrevious(exercise.id, set)}
+                          style={({ pressed }) => [styles.setPrevious, pressed && styles.pressed]}
+                        >
+                          <Text style={styles.setPreviousValue} numberOfLines={1}>
+                            {previousLabel(set.previous, exercise.bodyweight)}
+                          </Text>
+                        </Pressable>
+                      ) : null}
                       <TextInput
                         style={[layout.input, styles.setInput, exercise.bodyweight && styles.setInputOff]}
-                        keyboardType="number-pad"
+                        keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                         selectTextOnFocus
                         editable={!exercise.bodyweight}
                         value={exercise.bodyweight ? '' : String(set.weight ?? '')}
@@ -550,7 +643,7 @@ export function WorkoutScreen({
                       />
                       <TextInput
                         style={[layout.input, styles.setInput]}
-                        keyboardType="number-pad"
+                        keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                         selectTextOnFocus
                         value={String(set.reps)}
                         placeholder="reps"
@@ -558,8 +651,22 @@ export function WorkoutScreen({
                         accessibilityLabel={`Set ${index + 1} reps`}
                         onChangeText={(value) => patchSet(exercise.id, set.id, { reps: Number(value) || 0 })}
                       />
-                      {/* No tick: a set on the list is a set you did. One you did
-                          not do comes off here. */}
+                      {/* The tick is for the rest timer and your own place in
+                          the session; the set counts either way. One you did not
+                          do comes off with the − beside it. */}
+                      {routineMode ? null : (
+                        <Pressable
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: ticked.has(set.id) }}
+                          accessibilityLabel={`Set ${index + 1} of ${exercise.name} done`}
+                          hitSlop={4}
+                          onPress={() => toggleTick(exercise, set.id)}
+                          style={[styles.tickSlot, styles.tick, ticked.has(set.id) && styles.tickOn]}
+                          testID={`tick-${exercise.name}-${index + 1}`}
+                        >
+                          {ticked.has(set.id) ? <Text style={styles.tickMark}>✓</Text> : null}
+                        </Pressable>
+                      )}
                       {exercise.sets.length > 1 ? (
                         <Pressable
                           accessibilityRole="button"
@@ -601,14 +708,14 @@ export function WorkoutScreen({
           ))}
 
           {!empty ? (
-            <Pressable
+            <PressableScale
               accessibilityRole="button"
               accessibilityLabel="Add exercise"
               onPress={openPicker}
               style={({ pressed }) => [styles.addExercise, pressed && styles.pressed]}
             >
               <Text style={styles.addExerciseLabel}>+ Add another exercise</Text>
-            </Pressable>
+            </PressableScale>
           ) : null}
 
           {/* The session's details, once there is a session to describe. */}
@@ -663,6 +770,7 @@ export function WorkoutScreen({
             </>
           ) : (
             <>
+              {rest ? <RestTimer rest={rest} onAdjust={adjustRest} onSkip={endRest} onDone={endRest} /> : null}
               <Text style={styles.stats}>{empty ? 'Add an exercise to finish' : summary}</Text>
               <PrimaryButton
                 label={saving ? 'Saving...' : 'Finish workout'}
@@ -684,7 +792,10 @@ export function WorkoutScreen({
                 <Kicker>{cardioOnly ? 'Vitto / outdoors' : 'Vitto / exercises'}</Kicker>
                 <Text style={styles.title}>{cardioOnly ? 'What did you do?' : 'Add exercise'}</Text>
               </View>
-              <TextButton label={cardioOnly ? 'Close' : 'Done'} onPress={() => (cardioOnly ? onClose() : setPicking(false))} />
+              <CloseButton
+                label={cardioOnly ? 'Close' : 'Close the exercise list'}
+                onPress={() => (cardioOnly ? onClose() : setPicking(false))}
+              />
             </View>
             <View style={styles.pickerBody}>
               {/* A short list needs no search, and no keyboard over it. */}
@@ -759,10 +870,10 @@ const styles = themedStyles(() => ({
   body: { padding: 22, paddingBottom: 40 },
   field: { marginTop: 8 },
 
-  sectionLabel: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 1.3, color: colors.faint },
+  sectionLabel: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0, color: colors.faint },
   sectionHint: { ...text.small, marginTop: 10, lineHeight: 18 },
-  fieldLabel: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.muted, marginTop: 16, marginBottom: 6 },
-  lead: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
+  fieldLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted, marginTop: 16, marginBottom: 6 },
+  lead: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
 
   // The big "start here" button
   startCard: {
@@ -772,13 +883,13 @@ const styles = themedStyles(() => ({
     marginTop: 14,
     paddingVertical: 18,
     paddingHorizontal: 18,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.coral,
   },
   routineStart: { marginTop: 20 },
-  startTitle: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.onCoral },
-  startHint: { fontFamily: fonts.pixel, fontSize: 17, color: colors.onCoral, opacity: 0.85, marginTop: 3 },
-  startArrow: { fontFamily: fonts.pixel, fontSize: 29, color: colors.onCoral },
+  startTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.onCoral },
+  startHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.onCoral, opacity: 0.85, marginTop: 3 },
+  startArrow: { fontFamily: fonts.ui, fontSize: 22, color: colors.onCoral },
 
   // Routines
   routines: { marginTop: 26 },
@@ -792,14 +903,14 @@ const styles = themedStyles(() => ({
     gap: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
   },
-  routineName: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
-  routinePreview: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 3 },
-  routineGo: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.coralDeep },
+  routineName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  routinePreview: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 3 },
+  routineGo: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.coralDeep },
   routineDelete: {
     width: 30,
     height: 30,
@@ -808,20 +919,20 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     backgroundColor: colors.dangerWash,
   },
-  routineDeleteMark: { fontFamily: fonts.pixel, fontSize: 22, color: colors.danger, marginTop: -1 },
+  routineDeleteMark: { fontFamily: fonts.ui, fontSize: 17, color: colors.danger, marginTop: -1 },
   newRoutine: {
     marginTop: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: colors.border,
   },
-  newRoutineTitle: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
-  newRoutineHint: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, marginTop: 3, lineHeight: 22 },
-  routineMessage: { fontFamily: fonts.pixel, fontSize: 17, color: colors.mintDeep, marginBottom: 12 },
-  routineError: { fontFamily: fonts.pixel, fontSize: 17, color: colors.danger },
+  newRoutineTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  newRoutineHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 3, lineHeight: 18 },
+  routineMessage: { fontFamily: fonts.ui, fontSize: 13, color: colors.mintDeep, marginBottom: 12 },
+  routineError: { fontFamily: fonts.ui, fontSize: 13, color: colors.danger },
 
   // Exercise cards
   exercise: {
@@ -829,24 +940,24 @@ const styles = themedStyles(() => ({
     padding: 14,
     borderWidth: 1,
     borderColor: colors.hairline,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.card,
   },
   exerciseHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  exerciseNumber: { fontFamily: fonts.pixelBold,
+  exerciseNumber: { fontFamily: fonts.ui, fontWeight: '600',
     width: 26,
     height: 26,
     borderRadius: 13,
     overflow: 'hidden',
     textAlign: 'center',
-    lineHeight: 34,
-    fontSize: 17,
+    lineHeight: 26,
+    fontSize: 13,
     
     color: colors.coralDeep,
     backgroundColor: colors.coralWash,
   },
-  exerciseName: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
-  exerciseMuscle: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint, marginTop: 1, textTransform: 'capitalize' },
+  exerciseName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  exerciseMuscle: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 1, textTransform: 'capitalize' },
   exerciseRemove: {
     width: 30,
     height: 30,
@@ -855,59 +966,73 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     backgroundColor: colors.tile,
   },
-  exerciseRemoveMark: { fontFamily: fonts.pixel, fontSize: 22, color: colors.muted, marginTop: -1 },
+  exerciseRemoveMark: { fontFamily: fonts.ui, fontSize: 17, color: colors.muted, marginTop: -1 },
   setHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
   setHeadLabel: {
-    fontFamily: fonts.pixel,
-    fontSize: 13,
-    letterSpacing: 1,
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    letterSpacing: 0.6,
     color: colors.faint,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
   setInputHead: { flex: 1, minWidth: 0 },
   setIndex: { width: 32, textAlign: 'center' },
-  setIndexValue: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.muted },
-  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  setIndexValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.muted },
+  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, borderRadius: 10 },
+  setRowDone: { backgroundColor: colors.mint },
+  setPrevious: { width: 64, alignItems: 'center', justifyContent: 'center', textAlign: 'center' },
+  setPreviousValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, fontVariant: ['tabular-nums'] },
+  tickSlot: { width: 30, height: 30 },
+  tick: {
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.card,
+  },
+  tickOn: { backgroundColor: colors.mintDeep, borderColor: colors.mintDeep },
+  tickMark: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 15, color: '#fff', lineHeight: 18 },
   // minWidth 0 lets the field shrink; without it the row runs off the screen.
-  setInput: { fontFamily: fonts.pixelBold,
+  setInput: { fontFamily: fonts.ui, fontWeight: '600',
     flex: 1,
     minWidth: 0,
     paddingVertical: 10,
     paddingHorizontal: 6,
     textAlign: 'center',
-    fontSize: 22,
+    fontSize: 17,
     
   },
   setInputOff: { opacity: 0.6 },
   setRemoveSlot: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  setRemoveMark: { fontFamily: fonts.pixel, fontSize: 26, color: colors.faint, lineHeight: 29 },
+  setRemoveMark: { fontFamily: fonts.ui, fontSize: 22, color: colors.faint, lineHeight: 24 },
   addSet: {
     marginTop: 10,
     paddingVertical: 10,
-    borderRadius: 4,
+    borderRadius: 12,
     alignItems: 'center',
     backgroundColor: colors.tile,
   },
-  addSetLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.ink },
-  cardioNote: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, marginTop: 10, lineHeight: 23 },
+  addSetLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  cardioNote: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 10, lineHeight: 18 },
   cardioFields: { gap: 8, marginTop: 12 },
   cardioRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardioLabel: { fontFamily: fonts.pixelBold, flex: 1, fontSize: 20, color: colors.ink },
+  cardioLabel: { fontFamily: fonts.ui, fontWeight: '600', flex: 1, fontSize: 17, color: colors.ink },
   cardioOptional: { fontWeight: '400', color: colors.muted },
-  cardioInput: { fontFamily: fonts.pixelBold, width: 96, textAlign: 'center', fontSize: 23, },
-  cardioUnit: { fontFamily: fonts.pixel, width: 30, fontSize: 18, color: colors.muted },
+  cardioInput: { fontFamily: fonts.ui, fontWeight: '600', width: 96, textAlign: 'center', fontSize: 20, },
+  cardioUnit: { fontFamily: fonts.ui, width: 30, fontSize: 15, color: colors.muted },
 
   addExercise: {
     marginTop: 14,
     paddingVertical: 14,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: colors.coral,
     alignItems: 'center',
   },
-  addExerciseLabel: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.coralDeep },
+  addExerciseLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.coralDeep },
 
   // Details
   details: { marginTop: 28 },
@@ -923,8 +1048,8 @@ const styles = themedStyles(() => ({
     borderTopColor: colors.divider,
     backgroundColor: colors.paper,
   },
-  stats: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, textAlign: 'center' },
-  empty: { fontFamily: fonts.pixel, marginTop: 14, fontSize: 17, color: colors.faint, textAlign: 'center' },
+  stats: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, textAlign: 'center' },
+  empty: { fontFamily: fonts.ui, marginTop: 14, fontSize: 13, color: colors.faint, textAlign: 'center' },
   pressed: { opacity: 0.75 },
 
   // Picker overlay
@@ -949,7 +1074,7 @@ const styles = themedStyles(() => ({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.hairline,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.card,
   },
   libraryRow: {
@@ -961,8 +1086,8 @@ const styles = themedStyles(() => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
-  libraryName: { fontFamily: fonts.pixel, fontSize: 18, color: colors.ink },
-  libraryMuscle: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 2 },
-  libraryAdded: { fontFamily: fonts.pixel, fontSize: 22, color: colors.mintDeep },
-  libraryPlus: { fontFamily: fonts.pixel, fontSize: 22, color: colors.coral },
+  libraryName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
+  libraryMuscle: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 2 },
+  libraryAdded: { fontFamily: fonts.ui, fontSize: 17, color: colors.mintDeep },
+  libraryPlus: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
 }));

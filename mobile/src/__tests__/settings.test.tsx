@@ -9,8 +9,9 @@ import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { DeleteAccountScreen } from '../screens/DeleteAccountScreen';
 import { ScreenTimeScreen } from '../screens/ScreenTimeScreen';
 import { CareAreasScreen } from '../screens/CareAreasScreen';
-import { ActivityHistoryScreen, describeEvent } from '../screens/ActivityHistoryScreen';
+import { ActivityHistoryScreen, describeEvent, describeRow, historyRows } from '../screens/ActivityHistoryScreen';
 import { LiftProgressScreen } from '../screens/LiftProgressScreen';
+import { PetVoiceScreen } from '../screens/PetVoiceScreen';
 
 const profile: BodyProfile = {
   age: 30,
@@ -314,7 +315,7 @@ describe('settings pet voice', () => {
           onVoiceChange={() => opened.push('toggle')}
           voiceLocked={voiceLocked}
           petVoice="female"
-          onPetVoiceChange={() => {}}
+          onOpenPetVoice={() => opened.push('voice page')}
           onOpenPlus={() => opened.push('plus')}
         />,
       );
@@ -334,11 +335,30 @@ describe('settings pet voice', () => {
     tree.unmount();
   });
 
-  it('with Plus shows the switch and the Girl/Boy choice', () => {
-    const tree = renderVoice(false, []);
+  it('with Plus shows the switch, and a Voice row that opens its own page', () => {
+    const opened: string[] = [];
+    const tree = renderVoice(false, opened);
     expect(byTestId(tree, 'voice-toggle').length).toBeGreaterThan(0);
-    expect(byTestId(tree, 'pet-voice-choice').length).toBeGreaterThan(0);
     expect(byTestId(tree, 'voice-locked')).toHaveLength(0);
+    expect(json(tree)).toContain('Girl');
+    const row = byTestId(tree, 'pet-voice-choice').find((node) => typeof node.props.onPress === 'function');
+    act(() => row!.props.onPress());
+    expect(opened).toEqual(['voice page']);
+    tree.unmount();
+  });
+});
+
+describe('pet voice page', () => {
+  it('lists every voice and picks one on a tap', () => {
+    const picked: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<PetVoiceScreen petName="Dumpling" voice="female" onChange={(next) => picked.push(next)} onClose={() => {}} />);
+    });
+    const screen = json(tree);
+    for (const label of ['Girl', 'Boy', 'Super deep', 'Squeaky girl', 'Squeaky boy', 'Speedy girl', 'Speedy boy', 'Santa']) expect(screen).toContain(label);
+    act(() => findButton(tree, 'Santa')!.props.onPress());
+    expect(picked).toEqual(['santa']);
     tree.unmount();
   });
 });
@@ -593,6 +613,28 @@ describe('activity history page', () => {
     expect(describeEvent({ id: 'n', type: 'WORKOUT', occurredAt: '', metadata: { workoutType: 'strength', durationMinutes: 45, name: 'Push day' } } as any)).toBe('Push day · 45m');
     expect(describeEvent({ id: 'u', type: 'WORKOUT', occurredAt: '', metadata: { workoutType: 'strength', durationMinutes: 0 } } as any)).toBe('Workout');
     expect(describeEvent({ id: 'c', type: 'WORKOUT', occurredAt: '', metadata: { workoutType: 'running' } } as any)).toBe('Running');
+  });
+
+  it('names water, sleep and each mind game rather than a generic moment', () => {
+    expect(describeEvent({ id: 'w', type: 'HYDRATION', occurredAt: '', metadata: { ml: 250 } } as any)).toBe('Water · 250 mL');
+    expect(describeEvent({ id: 'w', type: 'HYDRATION', occurredAt: '', metadata: { ml: 237 } } as any, 'imperial')).toBe('Water · 8 fl oz');
+    expect(describeEvent({ id: 'z', type: 'SLEEP', occurredAt: '', metadata: { asleepMinutes: 450 } } as any)).toBe('Sleep · 7h 30m');
+    expect(describeEvent({ id: 'p', type: 'BRAIN_TRAINING', occurredAt: '', metadata: { game: 'wordPuzzle', score: 4 } } as any)).toBe('Daily word puzzle');
+    expect(describeEvent({ id: 'j', type: 'BRAIN_TRAINING', occurredAt: '', metadata: { game: 'petJeopardy', score: 3, points: 1200 } } as any)).toBe('Pet Jeopardy · 1200 points');
+  });
+
+  it('folds a run of drinks into one row with the total', () => {
+    const drink = (id: string, at: string) => ({ id, type: 'HYDRATION', occurredAt: at, metadata: { ml: 250 } }) as any;
+    const steps = { id: 's', type: 'STEP_ACTIVITY', occurredAt: '2026-11-06T17:00:00Z', metadata: { steps: 10 } } as any;
+    const rows = historyRows([
+      drink('a', '2026-11-06T17:57:30Z'),
+      drink('b', '2026-11-06T17:57:10Z'),
+      drink('c', '2026-11-06T17:56:00Z'),
+      steps,
+      drink('d', '2026-11-06T09:00:00Z'),
+    ]);
+    expect(rows.map((row) => row.events.length)).toEqual([3, 1, 1]);
+    expect(describeRow(rows[0]!.events)).toBe('Water · 750 mL · 3 drinks');
   });
 });
 

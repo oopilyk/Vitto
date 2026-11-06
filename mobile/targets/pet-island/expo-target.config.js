@@ -11,10 +11,11 @@ const path = require('node:path');
  * which rules out adding the target by hand in Xcode; this folder is the
  * source of truth and the plugin does the Xcode work on every prebuild.
  *
- * Signing: no entitlement is needed. Live Activities are an Info.plist key
- * (`NSSupportsLiveActivities`, set in app.json), not a capability, so a free
- * personal team can sign this — unlike push, which the same team cannot. The
- * team id falls back to whatever the main app target uses.
+ * The same extension holds the Home Screen widget (PetWidget.swift). Live
+ * Activities need no entitlement (`NSSupportsLiveActivities` is an Info.plist
+ * key, set in app.json), but the widget reads the app's snapshot from an App
+ * Group, which both targets must carry: the app's is set in app.config.js and
+ * mirrored here. The team id falls back to whatever the main app target uses.
  */
 const sprites = path.join(__dirname, 'sprites');
 // Paths are resolved by the plugin relative to this folder, not to the cwd.
@@ -33,6 +34,9 @@ module.exports = (config) => ({
   bundleIdentifier: '.petisland',
   deploymentTarget: '16.4',
   frameworks: ['SwiftUI', 'WidgetKit', 'ActivityKit'],
+  entitlements: {
+    'com.apple.security.application-groups': config.ios?.entitlements?.['com.apple.security.application-groups'] ?? [],
+  },
   // One still frame per sprite sheet, cut by scripts/buildIslandSprites.mjs.
   // Referenced from Swift as Image("bichonRunner") etc.
   images,

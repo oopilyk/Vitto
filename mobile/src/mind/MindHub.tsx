@@ -8,7 +8,7 @@ import {
   toDateKey,
 } from '@vitto/core';
 import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
-import { retro, retroPressed } from '../petWorld/retroStyle';
+import { surface, surfacePressed } from '../components/surfaceStyle';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { fonts, world, themedStyles } from '../theme';
 import { MindGameCard, MindFeatureCard } from './MindGameCard';
@@ -88,7 +88,7 @@ export function MindHub({ pet, events, routes, onStartStage, onClose }: Props) {
           accessibilityLabel="Close Mind"
           onPress={onClose}
           hitSlop={10}
-          style={({ pressed }) => [styles.close, pressed && retroPressed]}
+          style={({ pressed }) => [styles.close, pressed && surfacePressed]}
         >
           <Text style={styles.closeMark}>✕</Text>
         </Pressable>
@@ -149,15 +149,15 @@ const styles = themedStyles(() => ({
   },
   barText: { flexShrink: 1 },
   title: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 23,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 20,
     
-    letterSpacing: 3,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: world.nightText,
     marginBottom: 4,
   },
-  flavour: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 20, color: world.nightTextSoft },
+  flavour: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 18, color: world.nightTextSoft },
   close: {
     width: 40,
     height: 40,
@@ -168,12 +168,12 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
     borderColor: world.barHairline,
   },
-  closeMark: { fontFamily: fonts.pixelBold, fontSize: 20, color: world.nightText },
+  closeMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: world.nightText },
 
   body: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 56 },
   feature: { marginTop: 18 },
   // Sits straight on the art rather than on a panel, so it is always the cream
   // highlight — the same reason the bar's type is, and it is never ink-on-art.
-  section: { ...retro.kicker, color: world.nightText, marginTop: 26, marginBottom: 12 },
+  section: { ...surface.kicker, color: world.nightText, marginTop: 26, marginBottom: 12 },
   card: { marginBottom: 12 },
 }));

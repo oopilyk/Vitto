@@ -4,7 +4,7 @@ import { SheetPage } from '../components/SheetPage';
 import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
-import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { CloseButton, ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { MathRunGame } from '../mathRun/MathRunGame';
 import { MindHub } from '../mind/MindHub';
 import type { MindRouteHandlers } from '../mind/hub';
@@ -214,9 +214,7 @@ export function MindGymScreen({
             <Kicker>Mind</Kicker>
             <Text style={styles.title}>{STAGE_TITLE[stage]}</Text>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={styles.close}>
-            <Text style={styles.closeMark}>×</Text>
-          </Pressable>
+          <CloseButton onPress={onClose} />
         </View>
 
         <ScrollView
@@ -355,47 +353,36 @@ const styles = themedStyles(() => ({
     paddingHorizontal: 22,
   },
   title: { ...text.title, marginTop: 8 },
-  close: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeMark: { fontFamily: fonts.pixel, fontSize: 31, color: colors.muted, lineHeight: 36 },
   body: { padding: 22, paddingBottom: 60 },
   passage: {
     padding: 20,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
   },
-  passageTitle: { fontFamily: fonts.pixel, fontSize: 27, color: colors.ink, marginBottom: 12 },
+  passageTitle: { fontFamily: fonts.ui, fontSize: 22, color: colors.ink, marginBottom: 12 },
   passageText: { ...text.body, marginBottom: 12 },
-  note: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 12 },
+  note: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 12 },
   question: { marginBottom: 22 },
-  questionPrompt: { fontFamily: fonts.pixel, fontSize: 20, fontWeight: '500', color: colors.ink, marginBottom: 10, lineHeight: 27 },
+  questionPrompt: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '500', color: colors.ink, marginBottom: 10, lineHeight: 24 },
   option: {
     padding: 13,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
     marginBottom: 7,
   },
   optionOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
-  optionLabel: { fontFamily: fonts.pixel, fontSize: 18, color: colors.inkSoft },
+  optionLabel: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkSoft },
   optionLabelOn: { color: colors.ink },
   resultCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     padding: 16,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(132,160,138,0.3)',
     backgroundColor: colors.sageSoft,
@@ -408,19 +395,19 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scoreNumber: { fontFamily: fonts.pixel, fontSize: 36, color: '#fff' },
-  scoreCaption: { fontFamily: fonts.pixel, fontSize: 9, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.6 },
-  resultLabel: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
-  resultMeta: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 6, lineHeight: 22 },
+  scoreNumber: { fontFamily: fonts.ui, fontSize: 28, color: '#fff' },
+  scoreCaption: { fontFamily: fonts.ui, fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: 0 },
+  resultLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  resultMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 6, lineHeight: 19 },
   review: { marginTop: 16, gap: 10 },
   reviewRow: {
     padding: 12,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.divider,
     backgroundColor: colors.card,
   },
-  reviewPrompt: { fontFamily: fonts.pixel, fontSize: 17, fontWeight: '500', color: colors.ink },
-  reviewDetail: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 4, lineHeight: 20 },
+  reviewPrompt: { fontFamily: fonts.ui, fontSize: 13, fontWeight: '500', color: colors.ink },
+  reviewDetail: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 4, lineHeight: 18 },
   actions: { marginTop: 24, gap: 16 },
 }));

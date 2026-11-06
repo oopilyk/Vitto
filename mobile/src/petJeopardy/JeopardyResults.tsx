@@ -11,7 +11,7 @@ import {
 import { PetAvatar } from '../components/PetAvatar';
 import { ErrorText, PrimaryButton, TextButton } from '../components/ui';
 import { PixelConfetti } from '../celebrations/PixelConfetti';
-import { retro } from '../petWorld/retroStyle';
+import { surface } from '../components/surfaceStyle';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { fonts, world, themedStyles } from '../theme';
 import { isJeopardyWin } from './board';
@@ -54,10 +54,10 @@ export function JeopardyResults({
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.scorePanel, retro.panel, night && retro.panelNight]}>
-        <Text style={[retro.kicker, night && retro.kickerNight]}>Pet Jeopardy</Text>
+      <View style={[styles.scorePanel, surface.panel, night && surface.panelNight]}>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>Pet Jeopardy</Text>
         <Text style={[styles.score, night && styles.scoreNight]}>{`${correct} / ${answered} correct`}</Text>
-        <Text style={[retro.caption, night && retro.captionNight, styles.line]}>
+        <Text style={[surface.caption, night && surface.captionNight, styles.line]}>
           {closingLine(game, correct, answered)}
         </Text>
       </View>
@@ -98,9 +98,9 @@ export function JeopardyResults({
 
 function Reward({ value, unit, night }: { value: string; unit: string; night: boolean }) {
   return (
-    <View style={[styles.reward, retro.panelQuiet, night && retro.panelQuietNight]}>
+    <View style={[styles.reward, surface.panelQuiet, night && surface.panelQuietNight]}>
       <Text style={[styles.rewardValue, night && styles.rewardValueNight]}>{value}</Text>
-      <Text style={[retro.kicker, night && retro.kickerNight]}>{unit}</Text>
+      <Text style={[surface.kicker, night && surface.kickerNight]}>{unit}</Text>
     </View>
   );
 }
@@ -108,7 +108,7 @@ function Reward({ value, unit, night }: { value: string; unit: string; night: bo
 const styles = themedStyles(() => ({
   wrap: { flex: 1, alignItems: 'center', paddingHorizontal: 20, paddingTop: 8 },
   scorePanel: { alignSelf: 'stretch', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 },
-  score: { fontFamily: fonts.pixel, fontSize: 39, color: world.ink, marginTop: 8, letterSpacing: 0.5 },
+  score: { fontFamily: fonts.ui, fontSize: 34, color: world.ink, marginTop: 8, letterSpacing: 0 },
   scoreNight: { color: world.nightText },
   line: { marginTop: 6, textAlign: 'center' },
   stage: {
@@ -121,7 +121,7 @@ const styles = themedStyles(() => ({
   petStage: { height: RESULT_PET_SIZE + 20, backgroundColor: 'transparent', overflow: 'visible' },
   rewards: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
   reward: { paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', minWidth: 96 },
-  rewardValue: { fontFamily: fonts.pixelBold, fontSize: 23, color: world.ink },
+  rewardValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 20, color: world.ink },
   rewardValueNight: { color: world.nightText },
   actions: { width: '100%', marginTop: 'auto', paddingBottom: 28 },
   again: { alignItems: 'center', marginTop: 16 },

@@ -11,7 +11,7 @@ import {
   reminderError,
 } from '@vitto/core';
 import { FieldRow, FormField, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
-import { ChoiceRow, TextButton } from '../components/ui';
+import { ChoiceRow, TextButton, KEYBOARD_DONE_ID } from '../components/ui';
 import { colors, fonts, text, themedStyles } from '../theme';
 
 export interface RemindersProps {
@@ -101,10 +101,10 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
         </FormField>
         <FieldRow>
           <FormField label="Hour" hint="0-23">
-            <TextField keyboardType="number-pad" placeholder="8" value={hour} onChangeText={(value) => setHour(digits(value))} />
+            <TextField keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID} placeholder="8" value={hour} onChangeText={(value) => setHour(digits(value))} />
           </FormField>
           <FormField label="Minute">
-            <TextField keyboardType="number-pad" placeholder="00" value={minute} onChangeText={(value) => setMinute(digits(value))} />
+            <TextField keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID} placeholder="00" value={minute} onChangeText={(value) => setMinute(digits(value))} />
           </FormField>
         </FieldRow>
         {/* No days chosen means every day -- see `isEveryDay`. */}
@@ -128,16 +128,16 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
 }
 
 const styles = themedStyles(() => ({
-  warning: { marginTop: 12, padding: 14, borderRadius: 4, backgroundColor: colors.dangerWash, borderWidth: 1, borderColor: colors.dangerBorder },
-  warningText: { fontFamily: fonts.pixel, fontSize: 17, color: colors.inkSoft, lineHeight: 25 },
-  empty: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
-  list: { borderRadius: 4, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, overflow: 'hidden' },
+  warning: { marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: colors.dangerWash, borderWidth: 1, borderColor: colors.dangerBorder },
+  warningText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, lineHeight: 19 },
+  empty: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 21 },
+  list: { borderRadius: 12, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, minHeight: 60 },
   rowRuled: { borderTopWidth: 1, borderTopColor: colors.hairline },
   rowText: { flex: 1, minWidth: 0 },
-  rowLabel: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
+  rowLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
   rowOff: { color: colors.faint },
-  rowMeta: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 3 },
+  rowMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 3 },
   actions: { flexDirection: 'row', alignItems: 'center' },
   error: { ...text.error, fontSize: 17 },
 }));

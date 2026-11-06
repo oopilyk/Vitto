@@ -22,6 +22,8 @@ interface Props {
   /** The graph and sessions are Plus. Locked, the page keeps the headline numbers and offers Plus. */
   locked?: boolean;
   onOpenPlus?: () => void;
+  /** Where the back link goes: Profile's Personal records, or the Today card. */
+  backLabel?: string;
 }
 
 const LIFTS = Object.keys(STANDARD_LIFT_LABEL) as StandardLift[];
@@ -45,7 +47,7 @@ const niceStep = (span: number) => {
  * dashed line to aim at. Estimated from every logged set the way the ranks
  * are, so a heavy triple counts as much as a true single.
  */
-export function LiftProgressScreen({ profile, events, onClose, locked = false, onOpenPlus }: Props) {
+export function LiftProgressScreen({ profile, events, onClose, locked = false, onOpenPlus, backLabel = 'Profile' }: Props) {
   const histories = useMemo(
     () =>
       Object.fromEntries(LIFTS.map((lift) => [lift, liftHistory(events, lift)])) as Record<StandardLift, ReturnType<typeof liftHistory>>,
@@ -90,7 +92,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
     <SettingsPage
       title="Lift progress"
       lead="Your estimated one-rep max over time, worked out from the sets you log."
-      backLabel="Profile"
+      backLabel={backLabel}
       onBack={onClose}
     >
       <View style={styles.picker}>
@@ -274,67 +276,67 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
 
 const styles = themedStyles(() => ({
   picker: { marginTop: 16, marginHorizontal: -24, paddingLeft: 24 },
-  empty: { marginTop: 24, padding: 20, borderRadius: 4, backgroundColor: colors.cardSoft, gap: 4 },
-  emptyTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
-  emptyBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
+  empty: { marginTop: 24, padding: 20, borderRadius: 12, backgroundColor: colors.cardSoft, gap: 4 },
+  emptyTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  emptyBody: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 21 },
   summary: { marginTop: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  summaryLabel: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.muted },
-  summaryValue: { fontFamily: fonts.pixelBold, fontSize: 52, color: colors.ink, letterSpacing: 0.5 },
-  summaryUnit: { fontFamily: fonts.pixel, fontSize: 18, fontWeight: '400', color: colors.faint, letterSpacing: 0 },
-  change: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted },
+  summaryLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted },
+  summaryValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 41, color: colors.ink, letterSpacing: 0 },
+  summaryUnit: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '400', color: colors.faint, letterSpacing: 0 },
+  change: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted },
   changeUp: { color: colors.mintDeep, fontWeight: '600' },
   changeDown: { color: colors.caution, fontWeight: '600' },
   summaryRight: { alignItems: 'flex-end', gap: 6, paddingTop: 4 },
   tierPill: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 14,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 0.4,
+    letterSpacing: 0,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
     overflow: 'hidden',
   },
-  best: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint },
+  best: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint },
   chart: {
     marginTop: 16,
     height: CHART_HEIGHT,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
     overflow: 'hidden',
   },
-  toNext: { fontFamily: fonts.pixel, fontSize: 18, color: colors.inkSoft, textAlign: 'center', marginTop: 12 },
-  locked: { marginTop: 20, padding: 20, borderRadius: 4, backgroundColor: colors.cardSoft, gap: 8 },
-  lockedTitle: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
-  lockedBody: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26 },
+  toNext: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkSoft, textAlign: 'center', marginTop: 12 },
+  locked: { marginTop: 20, padding: 20, borderRadius: 12, backgroundColor: colors.cardSoft, gap: 8 },
+  lockedTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  lockedBody: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 21 },
   lockedButton: {
     alignSelf: 'flex-start',
     marginTop: 4,
     paddingHorizontal: 18,
     paddingVertical: 11,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.coral,
   },
-  lockedButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.onCoral },
+  lockedButtonLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.onCoral },
   pressed: { opacity: 0.85 },
   sessionsTitle: {
-    fontFamily: fonts.pixel,
-    fontSize: 14,
-    letterSpacing: 1,
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: colors.faint,
     marginTop: 28,
     marginBottom: 8,
     marginLeft: 4,
   },
-  sessions: { borderRadius: 4, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, overflow: 'hidden' },
+  sessions: { borderRadius: 12, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, overflow: 'hidden' },
   session: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
   sessionRuled: { borderTopWidth: 1, borderTopColor: colors.hairline },
   sessionText: { flex: 1, minWidth: 0 },
-  sessionDate: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
-  sessionSet: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 2 },
-  sessionMax: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink },
+  sessionDate: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  sessionSet: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 2 },
+  sessionMax: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
 }));

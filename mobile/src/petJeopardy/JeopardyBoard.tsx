@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
 import { JEOPARDY_PICKS_PER_ROUND, JEOPARDY_VALUES, type JeopardyGame } from '@vitto/core';
 import { FitText } from '../components/FitText';
-import { retro } from '../petWorld/retroStyle';
+import { surface } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { ValueTile } from './ValueTile';
 
@@ -28,10 +28,10 @@ export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.scoreStrip, retro.panelQuiet, night && retro.panelQuietNight]}>
-        <Text style={[retro.kicker, night && retro.kickerNight]}>This session</Text>
+      <View style={[styles.scoreStrip, surface.panelQuiet, night && surface.panelQuietNight]}>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>This session</Text>
         <Text style={[styles.score, night && styles.scoreNight]}>{`${game.boardPoints} XP`}</Text>
-        <Text style={[retro.caption, night && retro.captionNight]}>
+        <Text style={[surface.caption, night && surface.captionNight]}>
           {`${picked} / ${JEOPARDY_PICKS_PER_ROUND} picks used`}
         </Text>
       </View>
@@ -39,7 +39,7 @@ export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
       <View style={styles.grid}>
         {game.categories.map((category) => (
           <View key={category.id} style={styles.column}>
-            <View style={[styles.categoryHead, retro.panel, night && retro.panelNight]}>
+            <View style={[styles.categoryHead, surface.panel, night && surface.panelNight]}>
               {/* The column head names the category once; every tile beneath it
                   repeats the name in its accessibility label, since a screen
                   reader lands on a tile with no sense of which column it is in. */}
@@ -73,16 +73,16 @@ export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
 const styles = themedStyles(() => ({
   wrap: { flex: 1, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 6 },
   scoreStrip: { alignItems: 'center', paddingVertical: 8, paddingHorizontal: 14, gap: 2 },
-  score: { fontFamily: fonts.pixel, fontSize: 26, color: world.ink, letterSpacing: 0.5 },
+  score: { fontFamily: fonts.ui, fontSize: 22, color: world.ink, letterSpacing: 0 },
   scoreNight: { color: world.nightText },
   grid: { flex: 1, flexDirection: 'row', gap: 8, marginTop: 10 },
   column: { flex: 1, gap: 8 },
   categoryHead: { paddingVertical: 8, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },
   categoryLabel: {
-    fontFamily: fonts.pixelBold,
-    fontSize: 14,
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
     
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
     textAlign: 'center',
     textTransform: 'uppercase',
     color: world.ink,

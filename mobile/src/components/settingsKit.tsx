@@ -1,9 +1,9 @@
-import { Children, Fragment, useState, type ReactNode } from 'react';
+import { Children, Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -12,18 +12,22 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { layout, text, themedStyles } from '../theme';
-import { PrimaryButton, TextButton } from './ui';
+import { PressableScale, PrimaryButton, TextButton, haptic } from './ui';
 import { colors, fonts } from '../theme';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 /**
- * The building blocks for settings-style screens.
+ * The building blocks for settings-style screens, in the iOS idiom: a large
+ * title that hands over to the bar as the page scrolls, inset grouped lists,
+ * San Francisco at the system's sizes, and controls that give under the finger
+ * and spring back.
  *
  * The rule they follow: the pet, the pixel art and the copy carry Vitto's
- * personality; the controls around them stay quiet. So sections are grouped by
- * space and a hairline, not a box; a control has a border only where the border
- * says "you can touch this"; and coral is spent on what is selected or primary,
- * never on every outline.
+ * personality; the controls around them stay quiet. Surfaces are told apart by
+ * tone, not outlines; coral is spent on what is selected or primary.
  */
+
+const NATIVE_DRIVER = Platform.OS !== 'web';
 
 /**
  * A section of a settings page: an optional small eyebrow, a title, a line of
@@ -61,10 +65,15 @@ const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
 /** Settings content stops growing here, so tablet and desktop previews keep phone-like controls. */
 export const SETTINGS_MAX_WIDTH = 640;
 
+/** How far the page scrolls before the large title has gone under the bar. */
+const TITLE_HANDOFF = [28, 48];
+
 /**
  * One settings page: a back link naming where it goes, a large title, an
- * optional lead line, then the page's content in a scroll view. `footer` sits
- * pinned to the bottom (a save bar), and the scroll leaves room for it.
+ * optional lead line, then the page's content in a scroll view. As the large
+ * title scrolls away the same title fades into the bar, over a hairline, as in
+ * iOS. `footer` sits pinned to the bottom (a save bar), and the scroll leaves
+ * room for it.
  */
 export function SettingsPage({
   title,
@@ -81,17 +90,39 @@ export function SettingsPage({
   footer?: ReactNode;
   children: ReactNode;
 }) {
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const handedOff = scrollY.interpolate({ inputRange: TITLE_HANDOFF, outputRange: [0, 1], extrapolate: 'clamp' });
   return (
     <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={kit.topbar}>
-        <Pressable accessibilityRole="button" onPress={onBack} hitSlop={10} style={kit.back}>
-          <Text style={kit.backMark}>←</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onBack}
+          hitSlop={10}
+          style={({ pressed }) => [kit.back, pressed && kit.backPressed]}
+        >
+          <Text style={kit.backMark}>‹</Text>
           <Text style={kit.backLabel}>{backLabel}</Text>
         </Pressable>
+        {/* The bar's copy of the title, for once the large one has scrolled away: decoration to a screen reader. */}
+        <Animated.View
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[kit.barTitleWrap, { opacity: handedOff }]}
+        >
+          <Text style={kit.barTitle} numberOfLines={1} testID="settings-bar-title">
+            {title}
+          </Text>
+        </Animated.View>
+        <Animated.View style={[kit.barRule, { opacity: handedOff }]} />
       </View>
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[kit.scroll, { paddingBottom: (footer ? 120 : 48) + HOME_INDICATOR_INSET }]}
-        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: NATIVE_DRIVER })}
       >
         <View style={kit.page}>
           <Text style={kit.pageTitle} accessibilityRole="header">
@@ -100,7 +131,7 @@ export function SettingsPage({
           {lead ? <Text style={kit.pageLead}>{lead}</Text> : null}
           {children}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
       {footer}
     </KeyboardAvoidingView>
   );
@@ -121,6 +152,7 @@ export function PinnedBar({ children }: { children: ReactNode }) {
 /**
  * The save bar for a settings page with a draft: pinned to the bottom, shown
  * by the page only once something differs (pass it as SettingsPage's footer).
+ * It rises into place rather than appearing.
  */
 export function SaveBar({
   saving,
@@ -133,8 +165,15 @@ export function SaveBar({
   onSave: () => void;
   onDiscard: () => void;
 }) {
+  const reduced = useReducedMotion();
+  const rise = useRef(new Animated.Value(reduced ? 0 : 1)).current;
+  useEffect(() => {
+    Animated.spring(rise, { toValue: 0, speed: 16, bounciness: 4, useNativeDriver: NATIVE_DRIVER }).start();
+  }, [rise]);
+  const translateY = rise.interpolate({ inputRange: [0, 1], outputRange: [0, 40] });
+  const opacity = rise.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
   return (
-    <View style={[kit.saveBar, { paddingBottom: HOME_INDICATOR_INSET }]}>
+    <Animated.View style={[kit.saveBar, { paddingBottom: HOME_INDICATOR_INSET, opacity, transform: [{ translateY }] }]}>
       <View style={kit.saveInner}>
         {error ? <Text style={kit.saveError}>{error}</Text> : null}
         <View style={kit.saveRow}>
@@ -144,13 +183,13 @@ export function SaveBar({
           <TextButton label="Discard" onPress={onDiscard} disabled={saving} />
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 /**
- * A titled group of menu rows on one card, the way Instagram and TikTok lay
- * settings out: the title is small and above, the rows are ruled inside.
+ * A titled group of menu rows on one card, as iOS Settings lays them out: the
+ * title small and above, the rows divided by hairlines inset from the left.
  */
 export function NavGroup({ title, children }: { title?: string; children: ReactNode }) {
   const rows = (Array.isArray(children) ? children : [children]).flat().filter(Boolean);
@@ -160,7 +199,8 @@ export function NavGroup({ title, children }: { title?: string; children: ReactN
       {title ? <Text style={kit.navGroupTitle}>{title}</Text> : null}
       <View style={kit.list}>
         {rows.map((row, index) => (
-          <View key={index} style={index > 0 ? kit.rowRuled : undefined}>
+          <View key={index}>
+            {index > 0 ? <View style={kit.separator} /> : null}
             {row}
           </View>
         ))}
@@ -256,10 +296,14 @@ export function TextField(props: TextInputProps) {
   );
 }
 
+/** The track's inset around the thumb. */
+const SEGMENT_INSET = 2;
+
 /**
  * Two to four short, mutually exclusive options on one track (Metric |
- * Imperial). Labels may wrap to two lines rather than squash, so a long one like
- * "Prefer not to say" still sits well beside "Male".
+ * Imperial), as iOS draws them: a raised thumb that springs across to the
+ * option picked. Labels may wrap to two lines rather than squash, so a long one
+ * like "Prefer not to say" still sits well beside "Male".
  */
 export function SegmentedControl<T extends string>({
   options,
@@ -270,8 +314,24 @@ export function SegmentedControl<T extends string>({
   value: T | undefined;
   onChange: (value: T) => void;
 }) {
+  const index = options.findIndex((option) => option.value === value);
+  const [width, setWidth] = useState(0);
+  const position = useRef(new Animated.Value(Math.max(index, 0))).current;
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (index < 0) return;
+    if (reduced) position.setValue(index);
+    else Animated.spring(position, { toValue: index, speed: 18, bounciness: 3, useNativeDriver: NATIVE_DRIVER }).start();
+  }, [index, position, reduced]);
+  const segmentWidth = width > 0 ? (width - SEGMENT_INSET * 2) / options.length : 0;
   return (
-    <View style={kit.segmentTrack} accessibilityRole="radiogroup">
+    <View style={kit.segmentTrack} accessibilityRole="radiogroup" onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+      {index >= 0 && segmentWidth > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[kit.segmentThumb, { width: segmentWidth, transform: [{ translateX: Animated.multiply(position, segmentWidth) }] }]}
+        />
+      ) : null}
       {options.map((option) => {
         const on = option.value === value;
         return (
@@ -279,8 +339,11 @@ export function SegmentedControl<T extends string>({
             key={option.value}
             accessibilityRole="radio"
             accessibilityState={{ selected: on }}
-            onPress={() => onChange(option.value)}
-            style={({ pressed }) => [kit.segment, on && kit.segmentOn, pressed && !on && kit.pressed]}
+            onPress={() => {
+              if (!on) haptic('select');
+              onChange(option.value);
+            }}
+            style={({ pressed }) => [kit.segment, pressed && !on && kit.pressed]}
           >
             <Text style={[kit.segmentLabel, on && kit.segmentLabelOn]}>{option.label}</Text>
           </Pressable>
@@ -309,21 +372,25 @@ export function ChipGroup<T extends string>({
   const chips = options.map((option) => {
     const on = option.value === value;
     return (
-      <Pressable
+      <PressableScale
         key={option.value}
         accessibilityRole="radio"
         accessibilityState={{ selected: on }}
-        onPress={() => onChange(option.value)}
-        style={({ pressed }) => [kit.chip, on && kit.chipOn, pressed && !on && kit.pressed]}
+        onPress={() => {
+          if (!on) haptic('select');
+          onChange(option.value);
+        }}
+        scaleTo={0.94}
+        style={[kit.chip, on && kit.chipOn]}
       >
         <Text style={[kit.chipLabel, on && kit.chipLabelOn]}>{option.label}</Text>
-      </Pressable>
+      </PressableScale>
     );
   });
   return scroll ? (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={kit.chipsScroll}>
+    <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={kit.chipsScroll}>
       {chips}
-    </ScrollView>
+    </Animated.ScrollView>
   ) : (
     <View style={kit.chips} accessibilityRole="radiogroup">
       {chips}
@@ -333,8 +400,8 @@ export function ChipGroup<T extends string>({
 
 /**
  * A list of options as rows in one container, divided by hairlines: radio
- * (one) or checkbox (several). Selected rows get a soft tint, a stronger label
- * and a mark. `expanded` drops content under the selected row.
+ * (one) or checkbox (several). A picked row gets a coral check on the right,
+ * as in iOS. `expanded` drops content under the selected row.
  */
 export function SelectionList<T extends string>({
   options,
@@ -356,17 +423,25 @@ export function SelectionList<T extends string>({
         const on = isOn(option.value);
         return (
           <Fragment key={option.value}>
+            {index > 0 ? <View style={kit.separator} /> : null}
             <Pressable
               accessibilityRole={multiple ? 'checkbox' : 'radio'}
               accessibilityState={multiple ? { checked: on } : { selected: on }}
-              onPress={() => onChange(option.value)}
-              style={({ pressed }) => [kit.row, index > 0 && kit.rowRuled, on && kit.rowOn, pressed && !on && kit.pressed]}
+              onPress={() => {
+                haptic('select');
+                onChange(option.value);
+              }}
+              style={({ pressed }) => [kit.row, pressed && kit.navRowPressed]}
             >
               <View style={kit.rowText}>
                 <Text style={[kit.rowLabel, on && kit.rowLabelOn]}>{option.label}</Text>
                 {option.detail ? <Text style={kit.rowDetail}>{option.detail}</Text> : null}
               </View>
-              <View style={[multiple ? kit.checkbox : kit.radio, on && kit.markOn]}>{on ? <Text style={kit.markTick}>✓</Text> : null}</View>
+              {multiple ? (
+                <View style={[kit.checkbox, on && kit.markOn]}>{on ? <Text style={kit.markTick}>✓</Text> : null}</View>
+              ) : (
+                <Text style={[kit.check, !on && kit.checkOff]}>✓</Text>
+              )}
             </Pressable>
             {expanded && on ? (
               <View style={kit.rowExpanded} testID={`choice-expanded-${option.value}`}>
@@ -395,16 +470,19 @@ export function SelectionTiles<T extends string>({
       {options.map((option) => {
         const on = value.includes(option.value);
         return (
-          <Pressable
+          <PressableScale
             key={option.value}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: on }}
-            onPress={() => onChange(option.value)}
-            style={({ pressed }) => [kit.tile, on && kit.tileOn, pressed && !on && kit.pressed]}
+            onPress={() => {
+              haptic('select');
+              onChange(option.value);
+            }}
+            style={[kit.tile, on && kit.tileOn]}
           >
             <View style={[kit.checkbox, kit.tileCheck, on && kit.markOn]}>{on ? <Text style={kit.markTick}>✓</Text> : null}</View>
             <Text style={[kit.tileLabel, on && kit.rowLabelOn]}>{option.label}</Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>
@@ -432,9 +510,9 @@ export function ToggleRow({
       <Switch
         value={value}
         onValueChange={onChange}
-        trackColor={{ true: colors.coral, false: colors.hairline }}
+        trackColor={{ true: colors.coral, false: colors.track }}
         thumbColor="#ffffff"
-        ios_backgroundColor={colors.hairline}
+        ios_backgroundColor={colors.track}
         accessibilityLabel={title}
         {...({ activeThumbColor: '#ffffff' } as object)}
       />
@@ -456,106 +534,116 @@ export function DangerZone({ title, description, children }: { title: string; de
   );
 }
 
-/** A destructive button: red outline and label, filled only while pressed. */
+/** A destructive button: red label on a red wash, deeper while pressed. */
 export function DangerButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [kit.dangerButton, pressed && kit.dangerButtonPressed, disabled && kit.disabled]}
     >
       <Text style={kit.dangerButtonLabel}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
-/** Radii: 12 for controls, 16 for surfaces, pill only for pills. */
-const RADIUS_CONTROL = 4;
-const RADIUS_SURFACE = 4;
+/** Radii: 12 for controls, 14 for grouped lists, 16 for surfaces, pill only for pills. All continuous, as iOS draws them. */
+const RADIUS_CONTROL = 12;
+const RADIUS_LIST = 14;
+const RADIUS_SURFACE = 16;
 
 export const kit = themedStyles(() => ({
-  section: { paddingVertical: 28 },
-  sectionRuled: { borderTopWidth: StyleSheet.hairlineWidth * 2, borderTopColor: colors.hairline },
+  section: { paddingVertical: 24 },
+  sectionRuled: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
   eyebrow: {
-    fontFamily: fonts.pixel,
-    fontSize: 14,
-    letterSpacing: 0.6,
+    fontFamily: fonts.ui,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
     color: colors.faint,
     marginBottom: 6,
   },
-  sectionTitle: { fontFamily: fonts.pixelBold, fontSize: 25, color: colors.ink, letterSpacing: 0.3 },
-  sectionDescription: { fontFamily: fonts.pixel, fontSize: 18, color: colors.muted, lineHeight: 26, marginTop: 4 },
+  sectionTitle: { fontFamily: fonts.ui, fontSize: 22, fontWeight: '700', color: colors.ink },
+  sectionDescription: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 21, marginTop: 4 },
   sectionBody: { marginTop: 16, gap: 16 },
 
   field: { gap: 8 },
   fieldRowItem: { flex: 1, minWidth: 0 },
-  fieldLabel: { fontFamily: fonts.pixelBold, fontSize: 18, color: colors.inkSoft },
-  fieldHint: { fontFamily: fonts.pixel, fontSize: 17, fontWeight: '400', color: colors.faint },
+  fieldLabel: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '600', color: colors.inkSoft },
+  fieldHint: { fontFamily: fonts.ui, fontSize: 13, fontWeight: '400', color: colors.faint },
   fieldRow: { flexDirection: 'row', gap: 12 },
-  input: { fontFamily: fonts.pixel,
-    minHeight: 52,
-    borderWidth: 2,
+  input: {
+    fontFamily: fonts.ui,
+    minHeight: 50,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     backgroundColor: colors.card,
     borderRadius: RADIUS_CONTROL,
+    borderCurve: 'continuous',
     paddingHorizontal: 14,
-    fontSize: 21,
+    fontSize: 17,
     color: colors.ink,
   },
   inputFocused: { borderColor: colors.coral, backgroundColor: colors.inputFocus },
 
   segmentTrack: {
     flexDirection: 'row',
-    padding: 3,
-    gap: 3,
-    borderRadius: RADIUS_CONTROL,
+    padding: SEGMENT_INSET,
+    borderRadius: 10,
+    borderCurve: 'continuous',
     backgroundColor: colors.track,
+  },
+  // The picked option's raised thumb, drawn once under the labels and slid between them.
+  segmentThumb: {
+    position: 'absolute',
+    top: SEGMENT_INSET,
+    bottom: SEGMENT_INSET,
+    left: SEGMENT_INSET,
+    borderRadius: 8,
+    borderCurve: 'continuous',
+    backgroundColor: colors.raised,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   segment: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 36,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    borderRadius: RADIUS_CONTROL - 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // The chosen segment stands up off the track on a hard pixel shadow.
-  segmentOn: {
-    backgroundColor: colors.raised,
-    borderWidth: 2,
-    borderColor: colors.shadow,
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.85,
-    shadowRadius: 0,
-    shadowOffset: { width: 2, height: 2 },
-    elevation: 2,
-  },
-  segmentLabel: { fontFamily: fonts.pixel, fontSize: 18, fontWeight: '500', color: colors.muted, textAlign: 'center' },
-  segmentLabelOn: { color: colors.ink, fontWeight: '700' },
+  segmentLabel: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '500', color: colors.muted, textAlign: 'center' },
+  segmentLabelOn: { color: colors.ink, fontWeight: '600' },
 
   list: {
-    borderRadius: RADIUS_SURFACE,
-    borderWidth: 2,
-    borderColor: colors.hairline,
+    borderRadius: RADIUS_LIST,
+    borderCurve: 'continuous',
     backgroundColor: colors.card,
     overflow: 'hidden',
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, paddingVertical: 12 },
-  rowRuled: { borderTopWidth: 2, borderTopColor: colors.hairline },
+  // Rows are divided by a hairline that starts where their text does.
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: colors.divider, marginLeft: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingHorizontal: 16, paddingVertical: 11 },
+  rowRuled: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
   rowOn: { backgroundColor: colors.selectedFill },
   rowText: { flex: 1 },
-  rowLabel: { fontFamily: fonts.pixel, fontSize: 21, fontWeight: '500', color: colors.ink },
-  rowLabelOn: { fontWeight: '700', color: colors.coralDeep },
-  rowDetail: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, lineHeight: 23, marginTop: 2 },
-  rowExpanded: { backgroundColor: colors.selectedFill, paddingHorizontal: 16, paddingBottom: 16, gap: 14 },
+  rowLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.ink },
+  rowLabelOn: { fontWeight: '600' },
+  rowDetail: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, lineHeight: 18, marginTop: 2 },
+  rowExpanded: { backgroundColor: colors.cardSoft, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 16, gap: 14 },
+  check: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '700', color: colors.coral, width: 20, textAlign: 'center' },
+  checkOff: { opacity: 0 },
   radio: {
     width: 22,
     height: 22,
-    borderRadius: 3,
-    borderWidth: 2,
+    borderRadius: 11,
+    borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
@@ -563,14 +651,14 @@ export const kit = themedStyles(() => ({
   checkbox: {
     width: 22,
     height: 22,
-    borderRadius: 2,
-    borderWidth: 2,
+    borderRadius: 11,
+    borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   markOn: { backgroundColor: colors.coral, borderColor: colors.coral },
-  markTick: { fontFamily: fonts.pixelBold, color: colors.onCoral, fontSize: 16, lineHeight: 18 },
+  markTick: { fontFamily: fonts.ui, fontWeight: '700', color: colors.onCoral, fontSize: 13, lineHeight: 16 },
 
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: {
@@ -582,13 +670,14 @@ export const kit = themedStyles(() => ({
     gap: 10,
     paddingHorizontal: 14,
     borderRadius: RADIUS_CONTROL,
-    borderWidth: 2,
-    borderColor: colors.hairline,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: 'transparent',
     backgroundColor: colors.card,
   },
   tileOn: { backgroundColor: colors.selectedFill, borderColor: colors.selectedBorder },
   tileCheck: { width: 20, height: 20 },
-  tileLabel: { fontFamily: fonts.pixel, flex: 1, fontSize: 20, fontWeight: '500', color: colors.ink },
+  tileLabel: { fontFamily: fonts.ui, flex: 1, fontSize: 16, fontWeight: '500', color: colors.ink },
 
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 },
 
@@ -596,82 +685,85 @@ export const kit = themedStyles(() => ({
     marginTop: 12,
     padding: 18,
     borderRadius: RADIUS_SURFACE,
-    borderWidth: 2,
-    borderColor: colors.dangerBorder,
+    borderCurve: 'continuous',
     backgroundColor: colors.dangerWash,
   },
-  dangerTitle: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
-  dangerDescription: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, lineHeight: 25, marginTop: 4 },
+  dangerTitle: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '600', color: colors.ink },
+  dangerDescription: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 21, marginTop: 4 },
   dangerAction: { marginTop: 14, alignItems: 'flex-start' },
   dangerButton: {
     minHeight: 44,
     paddingHorizontal: 18,
     borderRadius: RADIUS_CONTROL,
-    borderWidth: 2,
-    borderColor: colors.danger,
+    borderCurve: 'continuous',
+    backgroundColor: colors.dangerPressed,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dangerButtonPressed: { backgroundColor: colors.dangerPressed },
-  dangerButtonLabel: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.danger },
+  dangerButtonPressed: { opacity: 0.8 },
+  dangerButtonLabel: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '600', color: colors.danger },
 
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: 0.6 },
   disabled: { opacity: 0.5 },
 
-  topbar: { paddingHorizontal: 24, paddingTop: 58, paddingBottom: 4 },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, alignSelf: 'flex-start' },
-  backMark: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
-  backLabel: { fontFamily: fonts.pixel, fontSize: 20, fontWeight: '500', color: colors.inkSoft },
-  scroll: { paddingHorizontal: 24 },
+  topbar: { paddingHorizontal: 16, paddingTop: 54, paddingBottom: 2, backgroundColor: colors.paper, zIndex: 1 },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2, minHeight: 44, alignSelf: 'flex-start', paddingRight: 8 },
+  backPressed: { opacity: 0.4 },
+  backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, fontWeight: '400', color: colors.coral, marginTop: -4 },
+  backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
+  barTitleWrap: { position: 'absolute', left: 96, right: 96, bottom: 2, minHeight: 44, justifyContent: 'center' },
+  barTitle: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '600', color: colors.ink, textAlign: 'center' },
+  barRule: { position: 'absolute', left: 0, right: 0, bottom: 0, height: StyleSheet.hairlineWidth, backgroundColor: colors.hairline },
+  scroll: { paddingHorizontal: 20 },
   page: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
-  pageTitle: { fontFamily: fonts.pixelBold, fontSize: 39, color: colors.ink, letterSpacing: 0.3, marginTop: 4, marginBottom: 8 },
-  pageLead: { fontFamily: fonts.pixel, fontSize: 20, color: colors.muted, lineHeight: 27, marginBottom: 8 },
+  pageTitle: { fontFamily: fonts.ui, fontSize: 34, fontWeight: '700', color: colors.ink, marginTop: 2, marginBottom: 6 },
+  pageLead: { fontFamily: fonts.ui, fontSize: 17, color: colors.muted, lineHeight: 23, marginBottom: 6 },
 
   saveBar: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 12,
     backgroundColor: colors.paper,
-    borderTopWidth: 2,
-    borderTopColor: colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.hairline,
   },
   saveInner: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
   saveRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   pinnedInner: { gap: 8 },
-  saveError: { ...text.error, fontSize: 17, marginBottom: 10 },
+  saveError: { ...text.error, marginBottom: 10 },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chipsScroll: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 24 },
   chip: {
-    minHeight: 40,
+    minHeight: 36,
     paddingHorizontal: 16,
-    borderRadius: 4,
-    borderWidth: 2,
+    borderRadius: 999,
+    borderWidth: 1,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipOn: { backgroundColor: colors.selectedFill, borderColor: colors.selectedBorder },
-  chipLabel: { fontFamily: fonts.pixel, fontSize: 18, fontWeight: '500', color: colors.inkSoft },
-  chipLabelOn: { color: colors.coralDeep, fontWeight: '700' },
+  chipOn: { backgroundColor: colors.coral, borderColor: colors.coral },
+  chipLabel: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '500', color: colors.inkSoft },
+  chipLabelOn: { color: colors.onCoral, fontWeight: '600' },
 
-  navGroup: { marginTop: 22, gap: 8 },
+  navGroup: { marginTop: 24, gap: 7 },
   navGroupTitle: {
-    fontFamily: fonts.pixel,
-    fontSize: 14,
-    letterSpacing: 1,
+    fontFamily: fonts.ui,
+    fontSize: 13,
+    letterSpacing: 0.2,
     textTransform: 'uppercase',
-    color: colors.faint,
-    marginLeft: 4,
+    color: colors.muted,
+    marginLeft: 16,
   },
-  navRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 16, paddingVertical: 12 },
+  navRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingHorizontal: 16, paddingVertical: 11 },
   navRowPressed: { backgroundColor: colors.cardSoft },
-  navTitle: { fontFamily: fonts.pixel, fontSize: 21, fontWeight: '500', color: colors.ink },
-  navTitleDanger: { color: colors.danger, fontWeight: '600' },
-  navValue: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, marginTop: 2 },
-  navChevron: { fontFamily: fonts.pixel, fontSize: 31, color: colors.faint, fontWeight: '300', marginTop: -2 },
+  navTitle: { fontFamily: fonts.ui, fontSize: 17, color: colors.ink },
+  navTitleDanger: { color: colors.danger },
+  navValue: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, marginTop: 1 },
+  navChevron: { fontFamily: fonts.ui, fontSize: 24, color: colors.faint, fontWeight: '400', marginTop: -2 },
 }));

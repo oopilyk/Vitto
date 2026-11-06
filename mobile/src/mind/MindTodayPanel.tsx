@@ -2,7 +2,7 @@ import { Text, View } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
-import { retro } from '../petWorld/retroStyle';
+import { surface } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 
 /**
@@ -35,7 +35,7 @@ function Figure({ value, label, night }: FigureProps) {
   return (
     <View style={styles.figure}>
       <Text style={[styles.figureValue, night && styles.figureValueNight]}>{value}</Text>
-      <Text style={[retro.kicker, night && retro.kickerNight]}>{label}</Text>
+      <Text style={[surface.kicker, night && surface.kickerNight]}>{label}</Text>
     </View>
   );
 }
@@ -43,12 +43,12 @@ function Figure({ value, label, night }: FigureProps) {
 export function MindTodayPanel({ pet, today, night }: MindTodayPanelProps) {
   const zero = isZeroDay(today);
   return (
-    <View style={[styles.panel, retro.panel, night && retro.panelNight]}>
+    <View style={[styles.panel, surface.panel, night && surface.panelNight]}>
       <PetAvatar pet={pet} {...IDLE_ACTIVITY} size={PET_SIZE} hideStatusCaption />
       <View style={styles.body}>
-        <Text style={[retro.kicker, night && retro.kickerNight]}>MIND TODAY</Text>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>MIND TODAY</Text>
         {zero ? (
-          <Text style={[retro.caption, night && retro.captionNight, styles.zeroLine]} numberOfLines={2}>
+          <Text style={[surface.caption, night && surface.captionNight, styles.zeroLine]} numberOfLines={2}>
             no games yet today — {pet.name} is ready whenever you are.
           </Text>
         ) : (
@@ -80,8 +80,8 @@ const styles = themedStyles(() => ({
   },
   figure: { alignItems: 'flex-start' },
   figureValue: {
-    fontFamily: fonts.pixel,
-    fontSize: 29,
+    fontFamily: fonts.ui,
+    fontSize: 22,
     color: world.ink,
     marginBottom: 2,
   },

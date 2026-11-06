@@ -1,5 +1,5 @@
 import { newId } from './ids';
-import type { WorkoutExercise, WorkoutSet } from './health';
+import type { HealthEvent, WorkoutExercise, WorkoutMetadata, WorkoutSet } from './health';
 
 /**
  * Saved routines — "Push", "Pull", "Legs" — so logging a workout you do every
@@ -121,3 +121,33 @@ export const templateError = (
   }
   return null;
 };
+
+/**
+ * The sets each exercise had the last time it was logged, by exercise name:
+ * what the "Previous" column shows, and what an exercise added by hand starts
+ * from, the way a routine starts from last time. Newest first, so the first
+ * session to mention an exercise wins. Sets that were never done (stored under
+ * the old tick-to-count rule) and empty ones are left out.
+ */
+export const lastSetsByExercise = (events: readonly HealthEvent[]): Map<string, WorkoutSet[]> => {
+  const last = new Map<string, WorkoutSet[]>();
+  const newestFirst = [...events]
+    .filter((event) => event.type === 'WORKOUT')
+    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  for (const event of newestFirst) {
+    for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
+      if (last.has(exercise.name)) continue;
+      const done = exercise.sets.filter((set) => set.completed && set.reps > 0);
+      if (done.length > 0) last.set(exercise.name, done);
+    }
+  }
+  return last;
+};
+
+/**
+ * An exercise picked from the library, starting on what was done last time
+ * (same sets, same numbers, each carrying `previous`), or as it is when it has
+ * never been logged.
+ */
+export const exerciseFromHistory = (exercise: WorkoutExercise, lastSets: readonly WorkoutSet[] | undefined): WorkoutExercise =>
+  lastSets && lastSets.length > 0 && !exercise.distance ? { ...exercise, sets: lastSets.map(rememberSet) } : exercise;

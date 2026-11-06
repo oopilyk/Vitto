@@ -98,14 +98,14 @@ const styles = themedStyles(() => ({
     paddingVertical: 12,
     borderWidth: 1,
     borderColor: colors.hairline,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.cardSoft,
   },
   optionOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
-  label: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, marginTop: 4 },
+  label: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 4 },
   labelOn: { color: colors.coralDeep },
   // Greyed right down: the animal is still recognisable, but plainly not on offer.
   optionLocked: { opacity: 0.38 },
-  note: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 2 },
+  note: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 2 },
   noteOwned: { color: colors.mintDeep },
 }));

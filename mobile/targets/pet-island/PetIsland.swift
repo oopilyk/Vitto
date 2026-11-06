@@ -2,7 +2,8 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-/// The pet, in the Dynamic Island and on the Lock Screen.
+/// The pet, in the Dynamic Island and on the Lock Screen. The Home Screen
+/// widget is in PetWidget.swift, in this same extension.
 ///
 /// Everything that moves here moves without the app: the three need bars drain
 /// on SwiftUI's own clock between the dates the app handed over, and the status
@@ -14,6 +15,7 @@ import WidgetKit
 struct PetIslandBundle: WidgetBundle {
   var body: some Widget {
     PetActivity()
+    PetWidget()
   }
 }
 
@@ -34,29 +36,43 @@ struct PetActivity: Widget {
             .padding(.leading, 2)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          NextNeed(state: state, stale: stale, compact: false)
-            .padding(.trailing, 4)
+          if let rest = Rest.window(state) {
+            RestClock(window: rest, size: 22)
+              .padding(.trailing, 4)
+          } else {
+            NextNeed(state: state, stale: stale, compact: false)
+              .padding(.trailing, 4)
+          }
         }
         DynamicIslandExpandedRegion(.center) {
           VStack(alignment: .leading, spacing: 2) {
             Text(state.name)
               .font(.system(size: 15, weight: .semibold))
               .foregroundStyle(.white)
-            Text(Headline.text(state: state, stale: stale))
+            Text(Rest.window(state) != nil ? Rest.line(state) : Headline.text(state: state, stale: stale))
               .font(.system(size: 12))
-              .foregroundStyle(Palette.tint(state.mood))
+              .foregroundStyle(Rest.window(state) != nil ? Palette.rest : Palette.tint(state.mood))
               .lineLimit(1)
           }
         }
         DynamicIslandExpandedRegion(.bottom) {
-          Bars(state: state)
-            .padding(.top, 4)
+          if let rest = Rest.window(state) {
+            RestBar(window: rest)
+              .padding(.top, 4)
+          } else {
+            Bars(state: state)
+              .padding(.top, 4)
+          }
         }
       } compactLeading: {
         Sprite(name: state.sprite)
           .frame(width: 22, height: 22)
       } compactTrailing: {
-        NextNeed(state: state, stale: stale, compact: true)
+        if let rest = Rest.window(state) {
+          RestClock(window: rest, size: 12)
+        } else {
+          NextNeed(state: state, stale: stale, compact: true)
+        }
       } minimal: {
         Sprite(name: state.sprite)
           .frame(width: 20, height: 20)
@@ -82,12 +98,26 @@ struct LockScreenView: View {
             .font(.system(size: 17, weight: .semibold))
             .foregroundStyle(Palette.ink)
           Spacer(minLength: 8)
-          NextNeed(state: state, stale: stale, compact: false)
+          if Rest.window(state) == nil {
+            NextNeed(state: state, stale: stale, compact: false)
+          }
         }
-        Text(Headline.text(state: state, stale: stale))
-          .font(.system(size: 13))
-          .foregroundStyle(Palette.tint(state.mood))
-        Bars(state: state)
+        if let rest = Rest.window(state) {
+          HStack(alignment: .firstTextBaseline) {
+            Text(Rest.line(state))
+              .font(.system(size: 13))
+              .foregroundStyle(Palette.rest)
+              .lineLimit(1)
+            Spacer(minLength: 8)
+            RestClock(window: rest, size: 20)
+          }
+          RestBar(window: rest)
+        } else {
+          Text(Headline.text(state: state, stale: stale))
+            .font(.system(size: 13))
+            .foregroundStyle(Palette.tint(state.mood))
+          Bars(state: state)
+        }
       }
     }
   }
@@ -148,6 +178,31 @@ struct NextNeed: View {
   }
 }
 
+/// The rest between sets, counting down on the system's clock.
+struct RestClock: View {
+  let window: ClosedRange<Date>
+  let size: CGFloat
+
+  var body: some View {
+    Text(timerInterval: window, countsDown: true)
+      .font(.system(size: size, weight: .semibold).monospacedDigit())
+      .foregroundStyle(Palette.rest)
+      .multilineTextAlignment(.trailing)
+      .frame(maxWidth: size * 3.2, alignment: .trailing)
+  }
+}
+
+struct RestBar: View {
+  let window: ClosedRange<Date>
+
+  var body: some View {
+    ProgressView(timerInterval: window, countsDown: true, label: { EmptyView() }, currentValueLabel: { EmptyView() })
+      .progressViewStyle(.linear)
+      .tint(Palette.rest)
+      .frame(height: 6)
+  }
+}
+
 struct Sprite: View {
   let name: String
 
@@ -168,11 +223,32 @@ struct Sprite: View {
 
 // MARK: - Words and colours
 
+/// A rest between sets, while one is running. The activity goes stale when it
+/// ends, and the redraw that brings finds it over and draws the pet again.
+enum Rest {
+  static func window(_ state: PetActivityAttributes.ContentState) -> ClosedRange<Date>? {
+    guard let end = state.restEndsAt, end > Date() else { return nil }
+    let start = min(state.restStartedAt ?? Date(), end.addingTimeInterval(-1))
+    return start...end
+  }
+
+  static func line(_ state: PetActivityAttributes.ContentState) -> String {
+    if let label = state.restLabel, !label.isEmpty { return "Resting · \(label)" }
+    return "Resting"
+  }
+}
+
 enum Headline {
   /// Once the countdown has passed the pet is, as far as anyone knows, in that
-  /// state — say so rather than show a clock stuck at zero.
+  /// state — say so rather than show a clock stuck at zero. Stale alone is not
+  /// enough: the end of a rest makes the activity stale too.
+  static func needPassed(state: PetActivityAttributes.ContentState, stale: Bool) -> Bool {
+    guard stale, let at = state.nextNeedAt else { return false }
+    return at <= Date()
+  }
+
   static func mood(state: PetActivityAttributes.ContentState, stale: Bool) -> String {
-    if stale, let need = state.nextNeed { return need }
+    if needPassed(state: state, stale: stale), let need = state.nextNeed { return need }
     return state.mood
   }
 
@@ -187,7 +263,7 @@ enum Headline {
   }
 
   static func text(state: PetActivityAttributes.ContentState, stale: Bool) -> String {
-    if stale, let need = state.nextNeed { return "\(state.name) is \(need) by now" }
+    if needPassed(state: state, stale: stale), let need = state.nextNeed { return "\(state.name) is \(need) by now" }
     return state.headline
   }
 }
@@ -199,6 +275,7 @@ enum Palette {
   static let food = Color(red: 0.96, green: 0.62, blue: 0.36)
   static let energy = Color(red: 0.55, green: 0.72, blue: 0.96)
   static let joy = Color(red: 0.98, green: 0.80, blue: 0.40)
+  static let rest = Color(red: 0.95, green: 0.55, blue: 0.45)
 
   static func tint(_ mood: String) -> Color {
     switch mood {

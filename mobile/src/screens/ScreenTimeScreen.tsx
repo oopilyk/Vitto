@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import type { BodyProfile, HealthEvent } from '@vitto/core';
 import { FieldRow, FormField, SaveBar, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
-import { TextButton } from '../components/ui';
+import { TextButton, KEYBOARD_DONE_ID } from '../components/ui';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { formatMinutes, joinMinutes } from '../services/minutes';
 import { colors, text, themedStyles, fonts } from '../theme';
@@ -113,7 +113,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
         <FieldRow>
           <FormField label="Hours">
             <TextField
-              keyboardType="decimal-pad"
+              keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
               placeholder="0"
               value={budgetFields.hours}
               onChangeText={(value) => updateBudget({ ...budgetFields, hours: digits(value, true) })}
@@ -122,7 +122,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
           </FormField>
           <FormField label="Minutes">
             <TextField
-              keyboardType="number-pad"
+              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
               placeholder="0"
               value={budgetFields.minutes}
               onChangeText={(value) => updateBudget({ ...budgetFields, minutes: digits(value) })}
@@ -152,7 +152,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
             <FieldRow>
               <FormField label="Hours">
                 <TextField
-                  keyboardType="number-pad"
+                  keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                   placeholder="0"
                   value={today.hours}
                   onChangeText={(value) => setToday({ ...today, hours: digits(value) })}
@@ -161,7 +161,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
               </FormField>
               <FormField label="Minutes">
                 <TextField
-                  keyboardType="number-pad"
+                  keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
                   placeholder="0"
                   value={today.minutes}
                   onChangeText={(value) => setToday({ ...today, minutes: digits(value) })}
@@ -203,10 +203,10 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
 }
 
 const styles = themedStyles(() => ({
-  logged: { padding: 16, borderRadius: 4, backgroundColor: colors.cardSoft, gap: 4 },
-  loggedValue: { fontFamily: fonts.pixelBold, fontSize: 36, color: colors.ink },
-  loggedVerdict: { fontFamily: fonts.pixel, fontSize: 18, color: colors.inkSoft },
+  logged: { padding: 16, borderRadius: 12, backgroundColor: colors.cardSoft, gap: 4 },
+  loggedValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 28, color: colors.ink },
+  loggedVerdict: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkSoft },
   actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18 },
-  hint: { fontFamily: fonts.pixel, fontSize: 17, color: colors.muted, lineHeight: 25 },
+  hint: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, lineHeight: 19 },
   error: { ...text.error, fontSize: 17 },
 }));

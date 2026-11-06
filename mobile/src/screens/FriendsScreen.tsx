@@ -207,7 +207,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
     <View style={[layout.screen, { backgroundColor: palette.screenBg }]}>
       <View style={[styles.topbar, { borderBottomColor: palette.divider }]}>
         <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.back}>
-          <Text style={styles.backMark}>←</Text>
+          <Text style={styles.backMark}>‹</Text>
           <Text style={[styles.backLabel, { color: palette.secondaryText }]}>Pet</Text>
         </Pressable>
         <Text style={[styles.topTitle, { color: palette.primaryText }]}>Friends</Text>
@@ -452,32 +452,32 @@ const styles = themedStyles(() => ({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 64 },
-  backMark: { fontFamily: fonts.pixel, fontSize: 23, color: colors.coral },
-  backLabel: { fontFamily: fonts.pixel, fontSize: 16 },
-  topTitle: { fontFamily: fonts.pixel, fontSize: 23, letterSpacing: 0.5 },
+  back: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 64 },
+  backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
+  backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
+  topTitle: { fontFamily: fonts.ui, fontSize: 20, letterSpacing: 0 },
   addButton: { minWidth: 64, alignItems: 'flex-end' },
-  addMark: { fontFamily: fonts.pixel, fontSize: 34, color: colors.coral, lineHeight: 34 },
+  addMark: { fontFamily: fonts.ui, fontSize: 28, color: colors.coral, lineHeight: 28 },
   body: { padding: 16, gap: 18 },
-  card: { borderWidth: 1, borderRadius: 4, padding: 18, gap: 10 },
-  cardTitle: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 1, textTransform: 'uppercase' },
+  card: { borderWidth: 1, borderRadius: 12, padding: 18, gap: 10 },
+  cardTitle: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
   gate: { gap: 4 },
-  gateText: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25 },
+  gateText: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 19 },
   section: { gap: 8 },
-  sectionLabel: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase' },
-  empty: { fontFamily: fonts.pixel, fontSize: 17, paddingVertical: 6 },
-  emptyTitle: { fontFamily: fonts.pixelBold, fontSize: 21, },
-  emptyBody: { fontFamily: fonts.pixel, fontSize: 17, lineHeight: 25, marginBottom: 4 },
+  sectionLabel: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
+  empty: { fontFamily: fonts.ui, fontSize: 13, paddingVertical: 6 },
+  emptyTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, },
+  emptyBody: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 19, marginBottom: 4 },
   banner: {
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
     gap: 10,
   },
-  bannerText: { fontFamily: fonts.pixelBold, fontSize: 18, },
+  bannerText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, },
   bannerActions: { flexDirection: 'row', gap: 20 },
-  link: { fontFamily: fonts.pixel, fontSize: 16, letterSpacing: 0.5, color: colors.coral },
+  link: { fontFamily: fonts.ui, fontSize: 13, letterSpacing: 0, color: colors.coral },
   accept: { color: colors.mintDeep },
   decline: { color: colors.coral },
   pendingRow: {
@@ -486,12 +486,12 @@ const styles = themedStyles(() => ({
     justifyContent: 'space-between',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderStyle: 'dashed',
     gap: 10,
   },
-  pendingName: { fontFamily: fonts.pixel, fontSize: 17, flexShrink: 1 },
+  pendingName: { fontFamily: fonts.ui, fontSize: 13, flexShrink: 1 },
   searchStatus: { paddingVertical: 10 },
   searchRow: {
     flexDirection: 'row',
@@ -501,6 +501,6 @@ const styles = themedStyles(() => ({
     borderBottomWidth: 1,
     gap: 10,
   },
-  searchName: { fontFamily: fonts.pixelBold, fontSize: 18, flexShrink: 1 },
-  searchStatusText: { fontFamily: fonts.pixel, fontSize: 14 },
+  searchName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, flexShrink: 1 },
+  searchStatusText: { fontFamily: fonts.ui, fontSize: 12 },
 }));

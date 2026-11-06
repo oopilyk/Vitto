@@ -38,16 +38,16 @@ export function StatBar({ label, value, color, hint, max = 100 }: StatBarProps) 
 const styles = themedStyles(() => ({
   row: { marginTop: 14 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted, letterSpacing: 0.5 },
-  value: { fontFamily: fonts.pixel, fontSize: 13, color: colors.ink },
+  label: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, letterSpacing: 0 },
+  value: { fontFamily: fonts.ui, fontSize: 12, color: colors.ink },
   ceiling: { color: colors.faint },
   track: {
     height: 6,
-    borderRadius: 3,
+    borderRadius: 6,
     backgroundColor: colors.track,
     marginTop: 6,
     overflow: 'hidden',
   },
-  fill: { height: '100%', borderRadius: 3 },
-  hint: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint, marginTop: 6, lineHeight: 21 },
+  fill: { height: '100%', borderRadius: 6 },
+  hint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 6, lineHeight: 17 },
 }));

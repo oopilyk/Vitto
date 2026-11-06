@@ -429,7 +429,8 @@ const styles = themedStyles(() => ({
   typing: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint, marginTop: 4 },
   error: { fontFamily: fonts.pixel, fontSize: 17, color: colors.danger, paddingHorizontal: 18, paddingBottom: 6 },
   composer: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center', flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 28 : 14 },
-  input: { flex: 1, maxHeight: 120, paddingTop: 11 },
+  // The pet's own pixel face and square edge, over the app's SF Pro input: the chat stays in the room's style.
+  input: { flex: 1, maxHeight: 120, paddingTop: 11, fontFamily: fonts.pixel, fontSize: 20, borderWidth: 2, borderRadius: 4 },
   send: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coral },
   sendOff: { backgroundColor: colors.hairline },
   sendMark: { fontFamily: fonts.pixelBold, fontSize: 26, color: '#fffdf8' },

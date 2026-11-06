@@ -11,9 +11,9 @@ import {
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, calorieEstimate, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, calorieEstimate, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
-import { ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, TextButton, KEYBOARD_DONE_ID } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
@@ -31,6 +31,8 @@ interface Props {
   canScanPhotos?: boolean;
   /** Opens the Plus paywall from the locked Photo tab. */
   onOpenPlus?: () => void;
+  /** Meals to log again in one tap (repeatableMeals), newest first. */
+  repeatable?: readonly RepeatableMeal[];
 }
 
 type Mode = 'photo' | 'search' | 'scan';
@@ -45,7 +47,7 @@ type Mode = 'photo' | 'search' | 'scan';
 export const closeUpLens = (lenses: readonly string[]): string | undefined =>
   lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
 
-export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus }: Props) {
+export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [] }: Props) {
   const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
@@ -75,6 +77,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   /** The scanned food. */
   const [selected, setSelected] = useState<FoodSearchResult | null>(null);
   const [servings, setServings] = useState('1');
+  /** A recent meal picked to log again, and how much of it this time. */
+  const [again, setAgain] = useState<{ meal: RepeatableMeal; servings: number } | null>(null);
+  const againAnalysis = again ? repeatMeal(again.meal.analysis, again.servings) : null;
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -85,6 +90,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     setAnalysis(null);
     setFixText(null);
     setSelected(null);
+    setAgain(null);
     setError(null);
   };
 
@@ -162,6 +168,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     // per IP, so an impatient second tap spends quota that the first request is
     // already waiting on.
     if (!query.trim() || busy) return;
+    setAgain(null);
     setBusy('searching');
     setError(null);
     try {
@@ -212,12 +219,14 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   };
 
   const onPlate = (food: FoodSearchResult) => plate.some((item) => item.food.id === food.id);
-  const togglePlate = (food: FoodSearchResult) =>
+  const togglePlate = (food: FoodSearchResult) => {
+    setAgain(null);
     setPlate((current) =>
       current.some((item) => item.food.id === food.id)
         ? current.filter((item) => item.food.id !== food.id)
         : [...current, { food, servings: 1 }],
     );
+  };
   const setPlateServings = (id: string, next: number) =>
     setPlate((current) => current.map((item) => (item.food.id === id ? { ...item, servings: next } : item)));
   const plateAnalysis = plate.length > 0 ? toPlateAnalysis(plate) : null;
@@ -229,7 +238,15 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   // The one thing to do next, pinned under the page so it is never a scroll
   // away: log the meal, or (photo) say it is being read or offer a retry.
   const footer: { label: string; summary?: string; busy?: boolean; disabled?: boolean; onPress: () => void } | null =
-    mode === 'photo' && canScanPhotos
+    againAnalysis
+      ? {
+          label: busy === 'saving' ? 'Saving...' : 'Add to care log',
+          summary: summaryOf(againAnalysis),
+          busy: busy === 'saving',
+          // A repeat is typed in, not read from a photo or a barcode.
+          onPress: () => void saveAnalysis(againAnalysis, 'manual'),
+        }
+      : mode === 'photo' && canScanPhotos
       ? busy === 'analyzing'
         ? { label: 'Reading your plate...', busy: true, disabled: true, onPress: () => {} }
         : analysis && fixText === null
@@ -259,9 +276,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             <Kicker>Nourishment check</Kicker>
             <Text style={styles.title}>What's on your plate?</Text>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} style={styles.close}>
-            <Text style={styles.closeMark}>×</Text>
-          </Pressable>
+          <CloseButton onPress={onClose} />
         </View>
 
         <View style={styles.tabs}>
@@ -326,13 +341,15 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 )}
               </Pressable>
               <View style={styles.pickRow}>
-                <Pressable style={styles.pickButton} onPress={() => pick('camera')}>
+                <PressableScale style={styles.pickButton} onPress={() => pick('camera')}>
                   <Text style={styles.pickLabel}>Take photo</Text>
-                </Pressable>
-                <Pressable style={styles.pickButton} onPress={() => pick('library')}>
+                </PressableScale>
+                <PressableScale style={styles.pickButton} onPress={() => pick('library')}>
                   <Text style={styles.pickLabel}>Choose from library</Text>
-                </Pressable>
+                </PressableScale>
               </View>
+
+              {!image && !analysis ? <RecentMeals meals={repeatable} again={again} onChange={setAgain} /> : null}
 
               {analysis ? <AnalysisCard analysis={analysis} /> : null}
               {/* The AI can mistake one drink for another; the person knows. */}
@@ -386,13 +403,13 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   returnKeyType="search"
                   onSubmitEditing={() => void runSearch()}
                 />
-                <Pressable style={styles.searchButton} onPress={() => void runSearch()}>
+                <PressableScale style={styles.searchButton} onPress={() => void runSearch()}>
                   {busy === 'searching' ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <Text style={styles.searchButtonLabel}>Find</Text>
                   )}
-                </Pressable>
+                </PressableScale>
               </View>
 
               {plate.length > 0 ? (
@@ -414,6 +431,10 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                     </View>
                   ))}
                 </View>
+              ) : null}
+
+              {results.length === 0 && plate.length === 0 ? (
+                <RecentMeals meals={repeatable} again={again} onChange={setAgain} />
               ) : null}
 
               {/* Tap to put a food on the plate, tap again to take it off; as
@@ -454,9 +475,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 <View style={styles.dropzone}>
                   <Text style={styles.dropTitle}>Camera access needed</Text>
                   <Text style={styles.dropHint}>To scan a barcode, allow the camera.</Text>
-                  <Pressable style={styles.pickButton} onPress={() => void requestPermission()}>
+                  <PressableScale style={styles.pickButton} onPress={() => void requestPermission()}>
                     <Text style={styles.pickLabel}>Allow camera</Text>
-                  </Pressable>
+                  </PressableScale>
                 </View>
               ) : (
                 <View style={styles.scanner}>
@@ -512,6 +533,62 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 const summaryOf = (meal: MealAnalysis): string =>
   `Grade ${meal.grade} · ${calorieEstimate(meal.macros)} kcal · ${meal.macros.proteinGrams}g protein`;
 
+/**
+ * The meals eaten lately, to log again in one tap: the likeliest first (what
+ * was eaten yesterday around now), then the newest. Tapping one picks it and
+ * the footer logs it; a stepper sets how much this time.
+ */
+function RecentMeals({
+  meals,
+  again,
+  onChange,
+}: {
+  meals: readonly RepeatableMeal[];
+  again: { meal: RepeatableMeal; servings: number } | null;
+  onChange: (next: { meal: RepeatableMeal; servings: number } | null) => void;
+}) {
+  if (meals.length === 0) return null;
+  return (
+    <View style={styles.recent} testID="recent-meals">
+      <Text style={styles.recentTitle}>Recent</Text>
+      {meals.map((meal) => {
+        const on = again?.meal.key === meal.key;
+        return (
+          <View key={meal.key} style={[styles.recentRow, on && styles.resultOn]}>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: on }}
+              accessibilityLabel={`Log ${meal.name} again`}
+              onPress={() => onChange(on ? null : { meal, servings: 1 })}
+              style={styles.recentMain}
+            >
+              <View style={styles.resultText}>
+                <Text style={styles.resultName} numberOfLines={1}>{meal.name}</Text>
+                <Text style={styles.resultMeta} numberOfLines={1}>
+                  {meal.sameTimeYesterday ? 'Yesterday around now · ' : ''}
+                  {calorieEstimate(repeatMeal(meal.analysis, on ? again!.servings : 1).macros).toLocaleString()} kcal · Grade {meal.analysis.grade}
+                </Text>
+              </View>
+              {on ? null : (
+                <View style={styles.tick}>
+                  <Text style={styles.recentPlus}>+</Text>
+                </View>
+              )}
+            </Pressable>
+            {on ? (
+              <Stepper
+                value={again!.servings}
+                label={meal.name}
+                onChange={(next) => onChange(next > 0 ? { meal, servings: next } : null)}
+              />
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 /** Servings of one food on the plate, in halves; below a half takes it off. */
 function Stepper({ value, label, onChange }: { value: number; label: string; onChange: (next: number) => void }) {
   return (
@@ -542,7 +619,7 @@ function ServingsRow({
       <Text style={styles.servingsLabel}>Servings{food ? ` · ${food.servingDescription}` : ''}</Text>
       <TextInput
         style={[layout.input, styles.servingsInput]}
-        keyboardType="decimal-pad"
+        keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
         value={servings}
         onChangeText={onChange}
         accessibilityLabel="Servings"
@@ -600,7 +677,7 @@ const styles = themedStyles(() => ({
   locked: {
     gap: 10,
     padding: 16,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.cardSoft,
@@ -615,17 +692,6 @@ const styles = themedStyles(() => ({
     paddingHorizontal: 22,
   },
   title: { ...text.title, marginTop: 8 },
-  close: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeMark: { fontFamily: fonts.pixel, fontSize: 31, color: colors.muted, lineHeight: 36 },
   tabs: {
     flexDirection: 'row',
     gap: 6,
@@ -634,22 +700,22 @@ const styles = themedStyles(() => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.hairline,
   },
-  tab: { paddingVertical: 11, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tab: { paddingVertical: 11, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'transparent' },
   tabOn: { borderBottomColor: colors.coral },
-  tabLabel: { fontFamily: fonts.pixel, fontSize: 16, color: colors.faint },
+  tabLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint },
   tabLabelOn: { color: colors.ink },
   body: { padding: 22, paddingBottom: 24 },
-  preview: { width: '100%', height: 230, borderRadius: 4, backgroundColor: colors.sage },
+  preview: { width: '100%', height: 230, borderRadius: 12, backgroundColor: colors.sage },
   fixBox: { gap: 8, marginTop: 4 },
-  fixLabel: { fontFamily: fonts.pixelBold, fontSize: 16, color: colors.ink },
+  fixLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.ink },
   fixInput: { minHeight: 64, textAlignVertical: 'top' },
-  fixHint: { fontFamily: fonts.pixel, fontSize: 13, lineHeight: 18, color: colors.faint },
+  fixHint: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, color: colors.faint },
   fixActions: { gap: 6 },
   dropPressed: { opacity: 0.7 },
   dropzone: {
     height: 190,
-    borderRadius: 4,
-    borderWidth: 2,
+    borderRadius: 12,
+    borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: colors.border,
     backgroundColor: colors.sageSoft,
@@ -657,36 +723,36 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     gap: 8,
   },
-  dropTitle: { fontFamily: fonts.pixelBold, fontSize: 22, color: colors.ink },
-  dropHint: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint },
+  dropTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  dropHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint },
   pickRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   pickButton: {
     flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.card,
-    borderRadius: 4,
+    borderRadius: 12,
     paddingVertical: 13,
     alignItems: 'center',
     marginTop: 10,
   },
-  pickLabel: { fontFamily: fonts.pixel, fontSize: 14, color: colors.inkSoft },
+  pickLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSoft },
   effectRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 10 },
   effectChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.yellow,
   },
-  effectChipLabel: { fontFamily: fonts.pixel, fontSize: 12, letterSpacing: 1, color: colors.yellowDeep },
-  effectLine: { fontFamily: fonts.pixel, fontSize: 14, color: colors.yellowDeep, marginLeft: 2 },
+  effectChipLabel: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0, color: colors.yellowDeep },
+  effectLine: { fontFamily: fonts.ui, fontSize: 12, color: colors.yellowDeep, marginLeft: 2 },
   analysis: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     marginTop: 18,
     padding: 16,
-    borderRadius: 4,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(132,160,138,0.3)',
     backgroundColor: colors.sageSoft,
@@ -700,50 +766,55 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     gap: 2,
   },
-  gradeLetter: { fontFamily: fonts.pixel, fontSize: 39, color: '#fff' },
-  gradeLabel: { fontFamily: fonts.pixel, fontSize: 9, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.6 },
+  gradeLetter: { fontFamily: fonts.ui, fontSize: 34, color: '#fff' },
+  gradeLabel: { fontFamily: fonts.ui, fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: 0 },
   analysisBody: { flex: 1 },
-  analysisName: { fontFamily: fonts.pixelBold, fontSize: 20, color: colors.ink, lineHeight: 26 },
+  analysisName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink, lineHeight: 23 },
   macroLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
-  subMacros: { fontFamily: fonts.pixel, fontSize: 16, lineHeight: 22, color: colors.muted, marginTop: 4 },
+  subMacros: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 4 },
   macro: { flexDirection: 'row', alignItems: 'baseline' },
-  macroValue: { fontFamily: fonts.pixelBold, fontSize: 21, color: colors.ink },
-  macroUnit: { fontFamily: fonts.pixel, fontSize: 13, color: colors.muted },
+  macroValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  macroUnit: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
   actions: { marginTop: 24, gap: 16, alignItems: 'stretch' },
   searchRow: { flexDirection: 'row', gap: 10 },
   searchInput: { flex: 1 },
   searchButton: {
     backgroundColor: colors.coral,
-    borderRadius: 4,
+    borderRadius: 12,
     paddingHorizontal: 18,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 72,
   },
-  searchButtonLabel: { color: '#fff', fontFamily: fonts.pixel, fontSize: 16 },
+  searchButtonLabel: { color: '#fff', fontFamily: fonts.ui, fontSize: 13 },
   result: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: colors.divider },
   resultOn: { backgroundColor: colors.selectedFill },
   resultText: { flex: 1 },
-  tick: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  tick: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   tickOn: { backgroundColor: colors.coral, borderColor: colors.coral },
-  tickMark: { fontFamily: fonts.pixelBold, fontSize: 15, color: '#fff', lineHeight: 18 },
-  plate: { marginTop: 14, marginBottom: 6, padding: 12, gap: 10, borderRadius: 4, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardSoft },
-  plateTitle: { fontFamily: fonts.pixelBold, fontSize: 15, color: colors.ink },
+  tickMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: '#fff', lineHeight: 15 },
+  plate: { marginTop: 14, marginBottom: 6, padding: 12, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardSoft },
+  plateTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.ink },
   plateRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   plateText: { flex: 1 },
-  plateName: { fontFamily: fonts.pixel, fontSize: 16, color: colors.ink },
+  plateName: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepButton: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
-  stepMark: { fontFamily: fonts.pixelBold, fontSize: 17, color: colors.inkSoft, lineHeight: 20 },
-  stepValue: { fontFamily: fonts.pixel, fontSize: 15, color: colors.ink, minWidth: 34, textAlign: 'center' },
-  reading: { fontFamily: fonts.pixel, fontSize: 15, color: colors.muted, textAlign: 'center', marginTop: 14 },
+  stepMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.inkSoft, lineHeight: 15 },
+  stepValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink, minWidth: 34, textAlign: 'center' },
+  recent: { marginTop: 18, gap: 2 },
+  recentTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 },
+  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 6, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  recentMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 6 },
+  recentPlus: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral, lineHeight: 20 },
+  reading: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, textAlign: 'center', marginTop: 14 },
   footer: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 26, gap: 8, borderTopWidth: 1, borderTopColor: colors.hairline, backgroundColor: colors.paper },
-  footerSummary: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted, textAlign: 'center' },
-  resultName: { fontFamily: fonts.pixel, fontSize: 18, color: colors.ink },
-  resultMeta: { fontFamily: fonts.pixel, fontSize: 13, color: colors.faint, marginTop: 3 },
+  footerSummary: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, textAlign: 'center' },
+  resultName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
+  resultMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },
-  servingsLabel: { fontFamily: fonts.pixel, fontSize: 14, color: colors.muted },
+  servingsLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
   servingsInput: { width: 90 },
-  scanner: { height: 280, borderRadius: 4, overflow: 'hidden', backgroundColor: '#000' },
-  scanHint: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint, marginTop: 12, textAlign: 'center' },
+  scanner: { height: 280, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' },
+  scanHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 12, textAlign: 'center' },
 }));

@@ -1,7 +1,7 @@
 import { Alert, Linking, Platform, View } from 'react-native';
-import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, PET_VOICES, type PetBreed, type PetState, type PetVoice, ownedBreedsOf, tracksArea } from '@vitto/core';
+import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, type PetVoice, ownedBreedsOf, tracksArea } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
-import { NavGroup, NavRow, SelectionList, SettingsPage, ToggleRow } from '../components/settingsKit';
+import { NavGroup, NavRow, SettingsPage, ToggleRow } from '../components/settingsKit';
 import { sheetByBreed, portraitFrame } from '../components/petSprites';
 import { LEGAL_LINKS } from '../services/billingService';
 import { VOICE_STYLES } from '../services/petVoice';
@@ -50,7 +50,8 @@ interface Props {
   voiceLocked?: boolean;
   /** Whose voice the pet speaks in; shown while the voice is on. */
   petVoice?: PetVoice;
-  onPetVoiceChange?: (voice: PetVoice) => void;
+  /** Opens the page that picks it. */
+  onOpenPetVoice?: () => void;
   /** Opens the page that deletes the account. Absent offline. */
   onOpenDeleteAccount?: () => void;
 }
@@ -117,7 +118,7 @@ export function SettingsScreen({
   onVoiceChange,
   voiceLocked = false,
   petVoice,
-  onPetVoiceChange,
+  onOpenPetVoice,
   onOpenDeleteAccount,
 }: Props) {
   const preferenceSummary = [profile.displayName, profile.age ? `${profile.age}` : null, GOAL_LABEL[profile.goal]]
@@ -208,14 +209,8 @@ export function SettingsScreen({
             <ToggleRow title="Pet voice" description={voiceStatus ?? 'Your pet says its lines out loud.'} value={voiceOn} onChange={onVoiceChange} />
           </View>
         ) : null}
-        {voiceOn && !voiceLocked && petVoice && onPetVoiceChange ? (
-          <View style={styles.toggle} testID="pet-voice-choice">
-            <SelectionList<PetVoice>
-              options={PET_VOICES.map((voice) => ({ value: voice, label: VOICE_STYLES[voice].label }))}
-              value={petVoice}
-              onChange={onPetVoiceChange}
-            />
-          </View>
+        {voiceOn && !voiceLocked && petVoice && onOpenPetVoice ? (
+          <NavRow title="Voice" value={VOICE_STYLES[petVoice].label} onPress={onOpenPetVoice} testID="pet-voice-choice" />
         ) : null}
       </NavGroup>
 
@@ -244,7 +239,7 @@ const styles = themedStyles(() => ({
   art: {
     width: 44,
     height: 44,
-    borderRadius: 4,
+    borderRadius: 12,
     backgroundColor: colors.tile,
     alignItems: 'center',
     justifyContent: 'flex-end',
