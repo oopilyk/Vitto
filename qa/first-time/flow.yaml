@@ -1,3 +1,4 @@
 appId: com.getvitto.app
 ---
-- tapOn: { point: "201,812" }
+- tapOn: { point: "370,811" }
+- tapOn: "Go to the kitchen"

@@ -42,3 +42,6 @@ iOS Bundled 953ms mobile/index.ts (1 module)
 → Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
  ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
 → Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+ WARN  Sending `onAnimatedValueUpdate` with no listeners registered.
+ WARN  Sending `onAnimatedValueUpdate` with no listeners registered.
+ WARN  Sending `onAnimatedValueUpdate` with no listeners registered.

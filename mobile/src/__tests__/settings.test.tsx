@@ -623,18 +623,22 @@ describe('activity history page', () => {
     expect(describeEvent({ id: 'j', type: 'BRAIN_TRAINING', occurredAt: '', metadata: { game: 'petJeopardy', score: 3, points: 1200 } } as any)).toBe('Pet Jeopardy · 1200 points');
   });
 
-  it('folds a run of drinks into one row with the total', () => {
-    const drink = (id: string, at: string) => ({ id, type: 'HYDRATION', occurredAt: at, metadata: { ml: 250 } }) as any;
+  it("shows a day's water as one row with Today's total, and none once every cup is taken back", () => {
+    const drink = (id: string, at: string, ml = 250) => ({ id, type: 'HYDRATION', occurredAt: at, metadata: { ml } }) as any;
     const steps = { id: 's', type: 'STEP_ACTIVITY', occurredAt: '2026-11-06T17:00:00Z', metadata: { steps: 10 } } as any;
+    // Newest first, as the page lists them: two cups in the morning, two later, one taken back.
     const rows = historyRows([
-      drink('a', '2026-11-06T17:57:30Z'),
-      drink('b', '2026-11-06T17:57:10Z'),
-      drink('c', '2026-11-06T17:56:00Z'),
+      drink('e', '2026-11-06T18:25:00Z', -250),
+      drink('d', '2026-11-06T18:24:00Z'),
+      drink('c', '2026-11-06T18:23:00Z'),
       steps,
-      drink('d', '2026-11-06T09:00:00Z'),
+      drink('b', '2026-11-06T09:01:00Z'),
+      drink('a', '2026-11-06T09:00:00Z'),
     ]);
-    expect(rows.map((row) => row.events.length)).toEqual([3, 1, 1]);
-    expect(describeRow(rows[0]!.events)).toBe('Water · 750 mL · 3 drinks');
+    expect(rows.map((row) => row.key)).toEqual(['e', 's']);
+    expect(describeRow(rows[0]!.events)).toBe('Water · 750 mL');
+    // Added and taken back again: nothing to show.
+    expect(historyRows([drink('y', '2026-11-06T18:25:00Z', -250), drink('x', '2026-11-06T18:24:00Z')])).toEqual([]);
   });
 });
 

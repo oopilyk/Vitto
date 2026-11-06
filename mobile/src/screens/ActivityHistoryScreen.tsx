@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import {
   BRAIN_GAME_LABEL,
   formatWater,
+  waterMlOf,
   type BrainTrainingMetadata,
   type HealthEvent,
   type HydrationMetadata,
@@ -57,37 +58,38 @@ export const describeEvent = (event: HealthEvent, system: MeasurementSystem = 'm
   return 'Activity';
 };
 
-/** Drinks this close together are one sitting, shown as one row. */
-const SAME_SITTING_MS = 10 * 60 * 1000;
-
 /**
- * A day's events as rows. Water is logged a cup at a time, so eight taps on
- * the tracker were eight identical rows; drinks in one sitting (each within
- * ten minutes of the last) become one row with their total.
+ * A day's events as rows. Water is logged a cup at a time, and taking a cup
+ * back on Today's tracker logs a cup the other way (the log only ever grows),
+ * so its entries listed one by one read as a run of identical rows and
+ * phantom drinks. A day's water is one row instead, with the day's total as
+ * Today counts it, where the latest drink was; a day whose cups were all taken
+ * back has none.
  */
 export const historyRows = (events: readonly HealthEvent[]): { key: string; events: HealthEvent[] }[] => {
   const rows: { key: string; events: HealthEvent[] }[] = [];
+  let water: { key: string; events: HealthEvent[] } | null = null;
   for (const event of events) {
-    const last = rows.at(-1);
-    const previous = last?.events.at(-1);
-    if (
-      event.type === 'HYDRATION' &&
-      previous?.type === 'HYDRATION' &&
-      Math.abs(Date.parse(previous.occurredAt) - Date.parse(event.occurredAt)) <= SAME_SITTING_MS
-    ) {
-      last!.events.push(event);
-    } else {
+    if (event.type !== 'HYDRATION') {
       rows.push({ key: event.id, events: [event] });
+    } else if (water) {
+      water.events.push(event);
+    } else {
+      water = { key: event.id, events: [event] };
+      rows.push(water);
     }
   }
-  return rows;
+  return rows.filter((row) => row.events[0]!.type !== 'HYDRATION' || waterTotal(row.events) > 0);
 };
 
-export const describeRow = (events: readonly HealthEvent[], system: MeasurementSystem = 'metric'): string => {
-  if (events.length < 2) return describeEvent(events[0]!, system);
-  const total = events.reduce((sum, event) => sum + ((event.metadata as Partial<HydrationMetadata>)?.ml ?? 0), 0);
-  return `Water · ${formatWater(total, system)} · ${events.length} drinks`;
-};
+/** The water in a day's entries, oldest first, never below zero: the same sum Today shows. */
+const waterTotal = (events: readonly HealthEvent[]): number =>
+  [...events]
+    .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt))
+    .reduce((total, event) => Math.max(0, total + waterMlOf(event)), 0);
+
+export const describeRow = (events: readonly HealthEvent[], system: MeasurementSystem = 'metric'): string =>
+  events[0]!.type === 'HYDRATION' ? `Water · ${formatWater(waterTotal(events), system)}` : describeEvent(events[0]!, system);
 
 /** "Today", "Yesterday", or "Mon, Sep 28". */
 const dayHeading = (iso: string, now = new Date()): string => {
