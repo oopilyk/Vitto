@@ -1,0 +1,84 @@
+21:46:03.835 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+21:46:03.837 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+21:46:03.838 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+21:46:03.838 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+21:46:03.839 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Launch app "com.getvitto.app" RUNNING
+21:46:04.199 [ INFO] maestro.Maestro.launchApp$lambda$6: Launching app com.getvitto.app
+21:46:04.200 [ INFO] maestro.Maestro.launchApp$lambda$6: Stopping com.getvitto.app app during launch
+21:46:05.437 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Launch app "com.getvitto.app" COMPLETED
+21:46:05.437 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Open pet stats" is visible RUNNING
+21:46:08.144 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Open pet stats" is visible COMPLETED
+21:46:08.145 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on point (92%,93%) RUNNING
+21:46:08.156 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (369, 812) using hierarchy based logic for wait
+21:46:08.279 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:46:08.280 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:46:12.317 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:46:12.317 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on point (92%,93%) COMPLETED
+21:46:12.318 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "Open today's detail.*" RUNNING
+21:46:12.443 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=Open today's detail, 38 percent done, title=, value=, text=, hintText=, resource-id=, bounds=[322,229][386,293], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=322, y=229, width=64, height=64))
+21:46:15.661 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+21:46:15.662 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (354, 261) using hierarchy based logic for wait
+21:46:15.662 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:46:15.662 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:46:16.920 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:46:16.920 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "Open today's detail.*" COMPLETED
+21:46:16.921 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Today" is visible RUNNING
+21:46:17.110 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Today" is visible COMPLETED
+21:46:17.111 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Scrolling DOWN until "Trends & averages" is visible with speed 40, visibility percentage 100%, timeout 20000 ms, with centering disabled RUNNING
+21:46:17.787 [ WARN] maestro.orchestra.Orchestra.scrollUntilVisible: Error: maestro.MaestroException$ElementNotFound: Element not found: Text matching regex: Trends & averages
+21:46:17.793 [ INFO] maestro.Maestro.swipeFromCenter: Swiping UP from center
+21:46:20.969 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Scrolling try count: 0, DeviceWidth: 402, DeviceWidth: 874
+21:46:20.970 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Element bounds: Bounds(x=34, y=402, width=334, height=33)
+21:46:20.970 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Visibility Percent: 1.0
+21:46:20.976 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Command centerElement: ScrollUntilVisibleCommand(selector=ElementSelector(textRegex=Trends & averages, idRegex=null, size=null, below=null, above=null, leftOf=null, rightOf=null, containsChild=null, containsDescendants=null, traits=null, index=null, enabled=null, optional=false, selected=null, checked=null, focused=null, childOf=null, css=null), direction=DOWN, scrollDuration=601, visibilityPercentage=100, timeout=20000, waitToSettleTimeoutMs=null, centerElement=false, originalSpeedValue=40, label=null, optional=false).centerElement
+21:46:20.976 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: visibilityPercentageNormalized: 1.0
+21:46:20.976 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Scrolling DOWN until "Trends & averages" is visible with speed 40, visibility percentage 100%, timeout 20000 ms, with centering disabled COMPLETED
+21:46:20.977 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "Trends & averages", Index: 0 RUNNING
+21:46:21.147 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=Trends & averages, title=, value=, text=, hintText=, resource-id=, bounds=[34,402][368,435], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=34, y=402, width=334, height=33))
+21:46:21.302 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via stabilised hierarchy (null settle after a scroll)
+21:46:21.468 [ INFO] maestro.Maestro.refreshElementUntilStable-Hkttul8: Element is still moving (null -> Bounds(x=34, y=402, width=334, height=33)). Waiting for its position to settle.
+21:46:21.743 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (201, 418) using hierarchy based logic for wait
+21:46:21.744 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:46:21.744 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:46:22.811 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:46:22.811 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "Trends & averages", Index: 0 COMPLETED
+21:46:22.811 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Food trends" is visible RUNNING
+21:46:22.950 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Food trends" is visible COMPLETED
+21:46:22.950 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on ".*Today", Index: 0 RUNNING
+21:46:23.086 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=‹, Today, title=, value=, text=, hintText=, resource-id=, bounds=[16,54][86,98], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=16, y=54, width=70, height=44))
+21:46:23.228 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via trusted pre-wait hierarchy (null settle, no recent scroll)
+21:46:23.228 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (51, 76) using hierarchy based logic for wait
+21:46:23.229 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:46:23.229 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:46:24.161 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:46:24.161 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on ".*Today", Index: 0 COMPLETED
+21:46:24.162 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Scrolling DOWN until "Lift progress" is visible with speed 40, visibility percentage 100%, timeout 20000 ms, with centering disabled RUNNING
+21:46:24.340 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Scrolling try count: 0, DeviceWidth: 402, DeviceWidth: 874
+21:46:24.340 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Element bounds: Bounds(x=34, y=569, width=334, height=34)
+21:46:24.340 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Visibility Percent: 1.0
+21:46:24.341 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: Command centerElement: ScrollUntilVisibleCommand(selector=ElementSelector(textRegex=Lift progress, idRegex=null, size=null, below=null, above=null, leftOf=null, rightOf=null, containsChild=null, containsDescendants=null, traits=null, index=null, enabled=null, optional=false, selected=null, checked=null, focused=null, childOf=null, css=null), direction=DOWN, scrollDuration=601, visibilityPercentage=100, timeout=20000, waitToSettleTimeoutMs=null, centerElement=false, originalSpeedValue=40, label=null, optional=false).centerElement
+21:46:24.341 [ INFO] maestro.orchestra.Orchestra.scrollUntilVisible: visibilityPercentageNormalized: 1.0
+21:46:24.341 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Scrolling DOWN until "Lift progress" is visible with speed 40, visibility percentage 100%, timeout 20000 ms, with centering disabled COMPLETED
+21:46:24.341 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "Lift progress" RUNNING
+21:46:24.512 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=Lift progress, title=, value=, text=, hintText=, resource-id=, bounds=[34,569][368,603], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=34, y=569, width=334, height=34))
+21:46:24.667 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via trusted pre-wait hierarchy (null settle, no recent scroll)
+21:46:24.669 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (201, 586) using hierarchy based logic for wait
+21:46:24.670 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:46:24.670 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:46:25.699 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:46:25.699 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "Lift progress" COMPLETED
+21:46:25.700 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Lift progress" is visible RUNNING
+21:46:25.815 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Lift progress" is visible COMPLETED
+21:46:25.815 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on ".*(Profile|Today)", Index: 0 RUNNING
+21:46:25.939 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=‹, Profile, title=, value=, text=, hintText=, resource-id=, bounds=[16,54][89,98], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=16, y=54, width=73, height=44))
+21:46:26.080 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via trusted pre-wait hierarchy (null settle, no recent scroll)
+21:46:26.081 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (52, 76) using hierarchy based logic for wait
+21:46:26.082 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:46:26.082 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:46:27.038 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:46:27.039 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on ".*(Profile|Today)", Index: 0 COMPLETED
+21:46:27.039 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "Pet" RUNNING
+21:46:44.238 [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: Element not found: Text matching regex: Pet
+21:46:44.473 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+21:46:44.473 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:46:44.583 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "Pet" FAILED

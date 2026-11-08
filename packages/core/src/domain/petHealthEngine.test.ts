@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MEAL_HEALTH, PetHealthEngine, SLEEPY_ENERGY_THRESHOLD, applyDelta, mealQuality } from './petHealthEngine';
+import { MEAL_HEALTH, MEALS_WITH_XP_PER_DAY, PetHealthEngine, SLEEPY_ENERGY_THRESHOLD, applyDelta, mealQuality, mealXp } from './petHealthEngine';
 import { HUNGRY_NUTRITION_THRESHOLD, MEAL_POINTS_DEFAULT } from './hunger';
 import { clamp, createPet, totalPetXp, xpToLevelUp } from './pet';
 import type { HealthEvent, WorkoutStats } from './health';
@@ -853,5 +853,50 @@ describe('the first meal back from starving or the brink', () => {
     const pet = new PetHealthEngine().apply(starving, snack, { maintenanceCalories: 2000 }).pet;
     expect(pet.nutrition).toBeLessThan(HUNGRY_NUTRITION_THRESHOLD);
     expect(pet.charge).toBeLessThan(SLEEPY_ENERGY_THRESHOLD);
+  });
+});
+
+describe('meal XP', () => {
+  const meal = (id: string, at: string, calories: number): HealthEvent => ({
+    id,
+    userId: 'u',
+    occurredAt: at,
+    type: 'MEAL',
+    source: 'manual',
+    metadata: {
+      protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false,
+      analysis: {
+        grade: 'B', summary: 'x', confidence: 1, detectedFoods: ['x'],
+        macros: { calories, proteinGrams: 10, carbsGrams: 10, fatGrams: 5 },
+        nutrients: { protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false },
+      },
+    },
+  });
+  const day = (hour: number) => new Date(2026, 10, 7, hour).toISOString();
+
+  it('pays for the first few real meals of the day, then nothing', () => {
+    const earlier = Array.from({ length: MEALS_WITH_XP_PER_DAY - 1 }, (_, i) => meal(`m${i}`, day(7 + i), 400));
+    expect(mealXp(meal('next', day(13), 400), earlier)).toBe(10);
+    const full = [...earlier, meal('last', day(12), 400)];
+    expect(mealXp(meal('more', day(14), 400), full)).toBe(0);
+  });
+
+  it('pays nothing for a drink under the floor, and does not count one towards the cap', () => {
+    expect(mealXp(meal('water', day(9), 0), [])).toBe(0);
+    const water = Array.from({ length: 10 }, (_, i) => meal(`w${i}`, day(8), 0));
+    expect(mealXp(meal('lunch', day(13), 600), water)).toBe(10);
+  });
+
+  it("starts again the next day", () => {
+    const yesterday = Array.from({ length: 8 }, (_, i) => meal(`y${i}`, new Date(2026, 10, 6, 8 + i).toISOString(), 400));
+    expect(mealXp(meal('breakfast', day(8), 400), yesterday)).toBe(10);
+  });
+
+  it('is what the engine grants for a meal', () => {
+    const engine = new PetHealthEngine();
+    const pet = createPet('u', 'Blue', 'dog', 'bunny');
+    const full = Array.from({ length: MEALS_WITH_XP_PER_DAY }, (_, i) => meal(`m${i}`, day(7 + i), 400));
+    expect(engine.apply(pet, meal('x', day(15), 400), { history: full }).reaction.delta.xp ?? 0).toBe(0);
+    expect(engine.apply(pet, meal('x', day(15), 400), { history: [] }).reaction.delta.xp).toBe(10);
   });
 });

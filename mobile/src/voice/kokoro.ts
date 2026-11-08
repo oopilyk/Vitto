@@ -218,7 +218,7 @@ export async function* speakToFiles(
     if (file.exists) file.delete();
     file.create();
     // A short tail of silence, so the end of a word is not clipped.
-    file.write(encodeWav(joinSamples([samples, new Float32Array(2400)], 0), playbackRate));
+    file.write(encodeWav(joinSamples([samples, new Float32Array(1200)], 0), playbackRate));
     yield file;
   }
 }

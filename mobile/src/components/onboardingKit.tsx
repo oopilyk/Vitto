@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
 import { FitText } from './FitText';
+import { DoneTextInput, keypadWithoutReturn } from './ui';
 import { colors, getColorScheme, themedStyles } from '../theme';
 
 /**
@@ -118,12 +119,14 @@ export function OnbInput({ form, placeholder, ...props }: TextInputProps & { for
   // the caret, centred in what is left, lands on the hint's first letter.
   const caretToHint = Platform.OS === 'ios' && flat.textAlign === 'center' && Boolean(placeholder);
   const [hintWidth, setHintWidth] = useState(0);
+  const Input = keypadWithoutReturn(props.keyboardType) ? DoneTextInput : TextInput;
   const field: TextStyle =
     caretToHint && empty ? { ...inner, paddingRight: (Number(inner.paddingRight ?? inner.paddingHorizontal ?? 0) || 0) + hintWidth } : inner;
   return (
     <View style={[kit.inputBox, outer]}>
-      {/* The native placeholder stays for VoiceOver, drawn invisible. */}
-      <TextInput
+      {/* The native placeholder stays for VoiceOver, drawn invisible. A number
+          pad has no key to close it, so it brings a Done bar. */}
+      <Input
         placeholder={caretToHint ? undefined : placeholder}
         placeholderTextColor="transparent"
         accessibilityLabel={caretToHint ? (props.accessibilityLabel ?? placeholder) : undefined}

@@ -40,7 +40,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
 import { NutrientRing } from '../components/NutrientRing';
-import { ChoiceRow, PressableScale, TextButton, KEYBOARD_DONE_ID } from '../components/ui';
+import { ChoiceRow, PressableScale, TextButton, DoneTextInput } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { surface } from '../components/surfaceStyle';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
@@ -527,9 +527,9 @@ export function TodayScreen({
             ) : null}
             <View style={styles.goalEdit}>
               <Text style={[styles.goalEditLabel, { color: c.soft }]}>Daily goal</Text>
-              <TextInput
+              <DoneTextInput
                 style={[styles.goalInput, { color: c.ink, borderColor: c.hairline }]}
-                keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                keyboardType="number-pad"
                 value={String(stepGoal)}
                 onChangeText={(value) =>
                   onStepGoalChange(Number(value.replace(/[^0-9]/g, '')) || 1000)

@@ -1,0 +1,37 @@
+21:40:44.702 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+21:40:44.705 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+21:40:44.706 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+21:40:44.706 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+21:40:44.706 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Launch app "com.getvitto.app" RUNNING
+21:40:44.974 [ INFO] maestro.Maestro.launchApp$lambda$6: Launching app com.getvitto.app
+21:40:44.974 [ INFO] maestro.Maestro.launchApp$lambda$6: Stopping com.getvitto.app app during launch
+21:40:46.407 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Launch app "com.getvitto.app" COMPLETED
+21:40:46.408 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Open pet stats" is visible RUNNING
+21:40:49.073 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Open pet stats" is visible COMPLETED
+21:40:49.074 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on point (92%,93%) RUNNING
+21:40:49.085 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (369, 812) using hierarchy based logic for wait
+21:40:49.215 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:40:49.215 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:40:53.268 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:40:53.270 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on point (92%,93%) COMPLETED
+21:40:53.271 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "Go to the gym" RUNNING
+21:40:53.385 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=Go to the gym, title=, value=, text=, hintText=, resource-id=, bounds=[24,792][72,840], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=24, y=792, width=48, height=48))
+21:40:56.693 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+21:40:56.694 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (48, 816) using hierarchy based logic for wait
+21:40:56.695 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:40:56.695 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:41:00.610 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:41:00.613 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "Go to the gym" COMPLETED
+21:41:00.613 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "Log workout" RUNNING
+21:41:00.719 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=Log workout, title=, value=, text=, hintText=, resource-id=, bounds=[128,418][274,456], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=128, y=418, width=146, height=38))
+21:41:05.083 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+21:41:05.084 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (201, 437) using hierarchy based logic for wait
+21:41:05.084 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:41:05.085 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:41:06.320 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:41:06.321 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "Log workout" COMPLETED
+21:41:06.322 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "Pick exercises.*" RUNNING
+21:41:23.428 [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: Element not found: Text matching regex: Pick exercises.*
+21:41:23.592 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+21:41:23.592 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:41:23.675 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "Pick exercises.*" FAILED

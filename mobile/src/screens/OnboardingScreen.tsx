@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { KEYBOARD_DONE_ID } from '../components/ui';
 import {
   ActivityIndicator,
   Animated,
@@ -54,6 +53,8 @@ import {
   type PetPersonality,
   type TrainingType,
   isMinor,
+  BODY_LIMITS,
+  bodyProblem,
 } from '@vitto/core';
 import { companion as ai } from '@vitto/core';
 import { FitText } from '../components/FitText';
@@ -648,8 +649,9 @@ export function OnboardingScreen({
 
   const validate = (): string | null => {
     if (stepId === 'body') {
-      if (profile.heightCm < 90 || profile.heightCm > 230) return 'That height doesn’t look right.';
-      if (profile.weightKg < 30 || profile.weightKg > 300) return 'That weight doesn’t look right.';
+      // Age is asked on its own step; only height and weight are checked here.
+      const problem = bodyProblem({ ...profile, age: BODY_LIMITS.age.min });
+      if (problem) return problem;
     }
     if (stepId === 'target' && goalNumber !== undefined && (goalNumber < bounds.min || goalNumber > bounds.max))
       return `Pick a goal between ${bounds.min} and ${bounds.max} ${profile.weightUnit}.`;
@@ -1231,7 +1233,7 @@ export function OnboardingScreen({
                   </View>
                   {metric ? (
                     <FInput
-                      keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                      keyboardType="number-pad"
                       value={body.cm}
                       onChangeText={(value) => updateBody({ ...body, cm: digits(value) })}
                       placeholder="Height (cm)"
@@ -1288,7 +1290,7 @@ export function OnboardingScreen({
                       type in rather than a button like the choices around it. */}
                   <Text style={styles.heightLabel}>{`Weight (${profile.weightUnit})`}</Text>
                   <FInput
-                    keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                    keyboardType="number-pad"
                     value={body.weight}
                     onChangeText={(value) => updateBody({ ...body, weight: digits(value) })}
                     placeholder={profile.weightUnit === 'lb' ? 'Type it here, e.g. 160' : 'Type it here, e.g. 72'}
@@ -1340,7 +1342,7 @@ export function OnboardingScreen({
                 },
                 <>
                   <FInput
-                    keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                    keyboardType="number-pad"
                     value={goalText}
                     onChangeText={(value) => {
                       const next = digits(value);

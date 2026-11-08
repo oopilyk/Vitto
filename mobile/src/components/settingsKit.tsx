@@ -12,7 +12,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { layout, text, themedStyles } from '../theme';
-import { PressableScale, PrimaryButton, TextButton, haptic } from './ui';
+import { DoneTextInput, PressableScale, PrimaryButton, TextButton, haptic, keypadWithoutReturn } from './ui';
 import { colors, fonts } from '../theme';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
@@ -279,8 +279,10 @@ export function FieldRow({ children }: { children: ReactNode }) {
 /** A text input with a clear focus state that does not change its size. */
 export function TextField(props: TextInputProps) {
   const [focused, setFocused] = useState(false);
+  // A number pad has no key to close it, so it brings a Done bar.
+  const Input = keypadWithoutReturn(props.keyboardType) ? DoneTextInput : TextInput;
   return (
-    <TextInput
+    <Input
       placeholderTextColor={colors.faint}
       {...props}
       onFocus={(event) => {

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { KEYBOARD_DONE_ID } from '../components/ui';
 import { Text, View } from 'react-native';
 import {
   type BodyProfile,
@@ -13,6 +12,7 @@ import {
   isMinor,
   recommendedCalories,
   withMeasurementSystem,
+  bodyProblem,
 } from '@vitto/core';
 import {
   FieldRow,
@@ -80,8 +80,11 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
       : null;
 
   const save = async () => {
-    if (calorieGoalProblem) {
-      setError(calorieGoalProblem);
+    // Nothing that can't be a real body gets saved: the day's targets are
+    // built from these numbers (an age of 999 cut the calorie target to 1,200).
+    const problem = calorieGoalProblem ?? bodyProblem(profile);
+    if (problem) {
+      setError(problem);
       return;
     }
     setSaving(true);
@@ -120,14 +123,14 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         <FieldRow>
           <FormField label="Age">
             <TextField
-              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+              keyboardType="number-pad"
               value={String(profile.age)}
               onChangeText={(value) => update('age', Number(digits(value)) || 0)}
             />
           </FormField>
           <FormField label={`Weight (${profile.weightUnit})`}>
             <TextField
-              keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+              keyboardType="decimal-pad"
               value={String(displayedWeight)}
               onChangeText={(value) => update('weightKg', toKg(Number(digits(value, true)) || 0))}
             />
@@ -136,7 +139,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         {profile.heightUnit === 'cm' ? (
           <FormField label="Height (cm)">
             <TextField
-              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+              keyboardType="number-pad"
               value={String(profile.heightCm)}
               onChangeText={(value) => update('heightCm', Number(digits(value)) || 0)}
             />
@@ -145,14 +148,14 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           <FieldRow>
             <FormField label="Height (ft)">
               <TextField
-                keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                keyboardType="number-pad"
                 value={String(displayedHeight.feet)}
                 onChangeText={(value) => update('heightCm', feetAndInchesToCm(Number(digits(value)) || 0, displayedHeight.inches))}
               />
             </FormField>
             <FormField label="Height (in)">
               <TextField
-                keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                keyboardType="number-pad"
                 value={String(displayedHeight.inches)}
                 onChangeText={(value) => update('heightCm', feetAndInchesToCm(displayedHeight.feet, Number(digits(value)) || 0))}
               />
@@ -215,7 +218,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
             <FieldRow>
               <FormField label={`Target (${profile.weightUnit})`} hint="optional">
                 <TextField
-                  keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                  keyboardType="decimal-pad"
                   placeholder="—"
                   value={displayedTarget === undefined ? '' : String(displayedTarget)}
                   onChangeText={(value) => {
@@ -226,7 +229,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
               </FormField>
               <FormField label="Weeks" hint="optional">
                 <TextField
-                  keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                  keyboardType="number-pad"
                   placeholder="—"
                   value={profile.goalWeeks === undefined ? '' : String(profile.goalWeeks)}
                   onChangeText={(value) => {
@@ -286,7 +289,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         {ownCalories ? (
           <FormField label="Calories a day" hint={`recommended ${recommended.toLocaleString()}`}>
             <TextField
-              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+              keyboardType="number-pad"
               value={calorieText}
               accessibilityLabel="Your daily calorie goal"
               onChangeText={(value) => {
@@ -321,7 +324,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         <FieldRow>
           <FormField label="Training days a week">
             <TextField
-              keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+              keyboardType="number-pad"
               value={String(profile.trainingDaysPerWeek)}
               onChangeText={(value) => update('trainingDaysPerWeek', Math.max(0, Math.min(7, Number(digits(value)) || 0)))}
             />

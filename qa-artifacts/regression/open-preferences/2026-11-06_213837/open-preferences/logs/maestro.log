@@ -1,0 +1,29 @@
+21:38:48.209 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+21:38:48.210 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+21:38:48.211 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+21:38:48.211 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+21:38:48.211 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Launch app "com.getvitto.app" RUNNING
+21:38:48.612 [ INFO] maestro.Maestro.launchApp$lambda$6: Launching app com.getvitto.app
+21:38:48.612 [ INFO] maestro.Maestro.launchApp$lambda$6: Stopping com.getvitto.app app during launch
+21:38:49.925 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Launch app "com.getvitto.app" COMPLETED
+21:38:49.927 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Open pet stats" is visible RUNNING
+21:38:53.011 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Open pet stats" is visible COMPLETED
+21:38:53.013 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on point (92%,93%) RUNNING
+21:38:53.024 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (369, 812) using hierarchy based logic for wait
+21:38:53.187 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:38:53.187 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:38:57.380 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:38:57.380 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on point (92%,93%) COMPLETED
+21:38:57.381 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "Open account menu" RUNNING
+21:38:57.497 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={accessibilityText=Open account menu, title=, value=, text=, hintText=, resource-id=, bounds=[342,66][386,110], enabled=true, focused=false, selected=false, checked=false}, children=[], clickable=null, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=342, y=66, width=44, height=44))
+21:39:01.085 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+21:39:01.089 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Try tapping at (364, 88) using hierarchy based logic for wait
+21:39:01.090 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to byte array
+21:39:01.090 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:39:05.115 [ INFO] maestro.Maestro.screenshotBasedTap-ogj28Uc: Something have changed in the UI judging by view hierarchy. Proceed.
+21:39:05.117 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "Open account menu" COMPLETED
+21:39:05.117 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on "(?i)settings" RUNNING
+21:39:22.283 [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: Element not found: Text matching regex: (?i)settings
+21:39:22.462 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+21:39:22.463 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+21:39:22.697 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on "(?i)settings" FAILED

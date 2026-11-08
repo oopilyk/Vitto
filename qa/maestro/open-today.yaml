@@ -1,0 +1,20 @@
+# Regression flow. Uses accessibility labels where the app has them.
+# From the pet room: open Today, check the Food/Gym cards and both trend links, come back.
+appId: com.getvitto.app
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil: { visible: "Open pet stats", timeout: 30000 }
+- tapOn: { point: "92%,93%", optional: true }   # dismiss dev LogBox toast (dev builds only)
+- tapOn: "Open today's detail.*"
+- assertVisible: "Today"
+- scrollUntilVisible: { element: "Trends & averages", direction: DOWN }
+- tapOn: { text: "Trends & averages", index: 0 }
+- assertVisible: "Food trends"
+- tapOn: { text: ".*Today", index: 0 }
+- scrollUntilVisible: { element: "Lift progress", direction: DOWN }
+- tapOn: "Lift progress"
+- assertVisible: "Lift progress"
+- tapOn: { text: ".*(Profile|Today)", index: 0 }   # back label; should read Today (see UIR-7)
+- tapOn: "Back to your pet"
+- assertVisible: "Open pet stats"

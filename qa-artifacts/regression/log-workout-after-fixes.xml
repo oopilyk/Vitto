@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" device="iPhone 17 Pro - iOS 26.5 - 5062CC77-7050-48D5-A616-19FBDCDFCE11" tests="1" failures="0" time="47.603" timestamp="2026-11-07T22:45:11">
+    <testcase id="log-workout" name="log-workout" classname="log-workout" file="log-workout.yaml" time="47.587" timestamp="2026-11-07T22:45:11" status="SUCCESS"/>
+  </testsuite>
+</testsuites>

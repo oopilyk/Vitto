@@ -1,0 +1,32 @@
+# Regression flow. Uses accessibility labels where the app has them.
+# Kitchen -> Log meal -> add the first Recent item -> confirm on Today. Needs at least one past meal.
+appId: com.getvitto.app
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil: { visible: "Open pet stats", timeout: 30000 }
+- tapOn: { point: "92%,93%", optional: true }   # dismiss dev LogBox toast (dev builds only)
+- tapOn: "Go to the kitchen"
+- tapOn: "Log meal"
+- tapOn: "Search"
+# A fresh install has no history, so Recent is empty: log one meal through
+# search first (needs the network for the food database).
+- runFlow:
+    when:
+      notVisible: "(?i)recent"
+    commands:
+      - tapOn: "Search foods"
+      - inputText: "banana"
+      - tapOn: "Find"
+      - tapOn: { text: "Bananas, raw", index: 0 }
+      - tapOn: "Add to care log"
+      - tapOn: { point: "50%,69%", optional: true }
+      - tapOn: { point: "50%,69%", optional: true }
+      - tapOn: "Log meal"
+      - tapOn: "Search"
+- assertVisible: "(?i)recent"
+- tapOn: { text: "Log .* again", index: 0 }
+- tapOn: "Add to care log"
+- tapOn: { point: "50%,69%", optional: true }   # achievement modal "Tap to continue"
+- tapOn: "Open today's detail.*"
+- scrollUntilVisible: { element: "(?i)logged today.*", direction: DOWN }

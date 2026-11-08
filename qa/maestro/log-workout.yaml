@@ -1,0 +1,23 @@
+# Regression flow. Uses accessibility labels where the app has them.
+# Gym -> Log workout -> Bench Press, 1 set, tick it (rest timer), Skip, Finish.
+appId: com.getvitto.app
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil: { visible: "Open pet stats", timeout: 30000 }
+- tapOn: { point: "92%,93%", optional: true }   # dismiss dev LogBox toast (dev builds only)
+- tapOn: "Go to the gym"
+- tapOn: "Log workout"
+- tapOn: "Add exercise"
+- tapOn: "Add Bench Press"
+- hideKeyboard
+- tapOn: "Done.*"
+- assertVisible: "Bench Press"
+- tapOn: "Set 1 of Bench Press done"
+- assertVisible: { id: "rest-timer" }
+- tapOn: "15 seconds more rest"
+- tapOn: "15 seconds less rest"
+- tapOn: "Skip rest"
+- tapOn: "Finish workout"
+- tapOn: { point: "50%,69%", optional: true }   # achievement modal
+- assertVisible: "Log workout"

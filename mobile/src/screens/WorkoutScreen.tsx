@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import {
   type WeightUnit,
@@ -22,9 +22,10 @@ import {
   updateSet,
 } from '@vitto/core';
 import { KM_PER_MILE } from '@vitto/core';
-import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, TextButton, KEYBOARD_DONE_ID, haptic } from '../components/ui';
+import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, TextButton, haptic, DoneTextInput } from '../components/ui';
 import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
 import { startRest, stopRest } from '../services/restTimer';
+import { clearWorkoutDraft, loadWorkoutDraft, saveWorkoutDraft } from '../services/workoutDraft';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
@@ -133,6 +134,40 @@ export function WorkoutScreen({
   const [cardioOnly, setCardioOnly] = useState(startWithCardio);
   const [search, setSearch] = useState('');
 
+  // ---- the draft ------------------------------------------------------------
+  // The session in progress is kept on the phone as it changes and picked up
+  // again on the next open, so a killed app does not lose it (see
+  // services/workoutDraft). Nothing is written until the old draft has been
+  // read, or the empty screen would overwrite it.
+  const [draftChecked, setDraftChecked] = useState(startWithCardio);
+  useEffect(() => {
+    if (startWithCardio) return undefined;
+    let cancelled = false;
+    void loadWorkoutDraft().then((draft) => {
+      if (cancelled) return;
+      if (draft) {
+        setName(draft.name);
+        setExercises(draft.exercises);
+        setNotes(draft.notes);
+        setDuration(draft.duration);
+        setDistance(draft.distance);
+        setStartedAt(draft.startedAt);
+        setActiveTemplateId(draft.activeTemplateId);
+        setTicked(new Set(draft.ticked));
+        setRestLength(draft.restLength);
+        if (draft.rest && draft.rest.endsAt > Date.now()) {
+          setRest(draft.rest);
+          void startRest(draft.rest.endsAt, draft.rest.startedAt, draft.rest.label);
+        }
+        setRoutineMessage('Picked up where you left off.');
+      }
+      setDraftChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [startWithCardio]);
+
   const routineMode = mode === 'routine';
 
   const addExercise = (exerciseName: string, muscle: string, bodyweight: boolean) => {
@@ -166,6 +201,58 @@ export function WorkoutScreen({
     setExercises((current) =>
       current.map((item) => (item.id === exerciseId ? updateSet(item, setId, patch) : item)),
     );
+
+  useEffect(() => {
+    if (!draftChecked || mode !== 'log') return undefined;
+    if (exercises.length === 0) {
+      void clearWorkoutDraft();
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      void saveWorkoutDraft({
+        name,
+        exercises,
+        notes,
+        duration,
+        distance,
+        startedAt,
+        activeTemplateId,
+        ticked: [...ticked],
+        rest,
+        restLength,
+        savedAt: Date.now(),
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [draftChecked, mode, name, exercises, notes, duration, distance, startedAt, activeTemplateId, ticked, rest, restLength]);
+
+  /**
+   * The × with a session under way asks first: keep it for later (the draft
+   * stays and reopens), or throw it away. With nothing entered it just closes.
+   */
+  const requestClose = () => {
+    if (mode !== 'log' || exercises.length === 0) {
+      onClose();
+      return;
+    }
+    // react-native-web has no buttons on Alert; there the draft is simply kept.
+    if (Platform.OS === 'web') {
+      onClose();
+      return;
+    }
+    Alert.alert('Leave this workout?', 'Keep it to finish later, or discard it.', [
+      { text: 'Keep for later', onPress: onClose },
+      {
+        text: 'Discard workout',
+        style: 'destructive',
+        onPress: () => {
+          void clearWorkoutDraft();
+          onClose();
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   // ---- ticking and resting -------------------------------------------------
 
@@ -354,6 +441,7 @@ export function WorkoutScreen({
           // The routine keeps last week's numbers; nothing about the workout is lost.
         }
       }
+      await clearWorkoutDraft();
       onClose();
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save workout.'));
@@ -420,7 +508,7 @@ export function WorkoutScreen({
   };
 
   return (
-    <SheetPage onBackPress={onClose}>
+    <SheetPage onBackPress={requestClose}>
       <KeyboardAvoidingView
         style={styles.sheet}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -442,7 +530,7 @@ export function WorkoutScreen({
           {routineMode ? (
             <TextButton label="Cancel" onPress={leaveRoutineMode} tone="coral" />
           ) : (
-            <CloseButton onPress={onClose} />
+            <CloseButton onPress={requestClose} />
           )}
         </View>
 
@@ -571,11 +659,11 @@ export function WorkoutScreen({
                   <View style={styles.cardioFields}>
                     <View style={styles.cardioRow}>
                       <Text style={styles.cardioLabel}>Time</Text>
-                      <TextInput
+                      <DoneTextInput
                         style={[layout.input, styles.cardioInput]}
                         value={duration}
                         onChangeText={setDuration}
-                        keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                        keyboardType="number-pad"
                         placeholder="0"
                         placeholderTextColor={colors.faint}
                         accessibilityLabel="Minutes"
@@ -586,11 +674,11 @@ export function WorkoutScreen({
                       <Text style={styles.cardioLabel}>
                         Distance <Text style={styles.cardioOptional}>(optional)</Text>
                       </Text>
-                      <TextInput
+                      <DoneTextInput
                         style={[layout.input, styles.cardioInput]}
                         value={distance}
                         onChangeText={setDistance}
-                        keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                        keyboardType="decimal-pad"
                         placeholder="0.0"
                         placeholderTextColor={colors.faint}
                         accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}, optional`}
@@ -630,9 +718,9 @@ export function WorkoutScreen({
                           </Text>
                         </Pressable>
                       ) : null}
-                      <TextInput
+                      <DoneTextInput
                         style={[layout.input, styles.setInput, exercise.bodyweight && styles.setInputOff]}
-                        keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                        keyboardType="number-pad"
                         selectTextOnFocus
                         editable={!exercise.bodyweight}
                         value={exercise.bodyweight ? '' : String(set.weight ?? '')}
@@ -641,9 +729,9 @@ export function WorkoutScreen({
                         accessibilityLabel={`Set ${index + 1} weight`}
                         onChangeText={(value) => patchSet(exercise.id, set.id, { weight: Number(value) || 0 })}
                       />
-                      <TextInput
+                      <DoneTextInput
                         style={[layout.input, styles.setInput]}
-                        keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+                        keyboardType="number-pad"
                         selectTextOnFocus
                         value={String(set.reps)}
                         placeholder="reps"
@@ -794,7 +882,7 @@ export function WorkoutScreen({
               </View>
               <CloseButton
                 label={cardioOnly ? 'Close' : 'Close the exercise list'}
-                onPress={() => (cardioOnly ? onClose() : setPicking(false))}
+                onPress={() => (cardioOnly ? requestClose() : setPicking(false))}
               />
             </View>
             <View style={styles.pickerBody}>

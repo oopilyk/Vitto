@@ -1,0 +1,16 @@
+# Regression flow. Uses accessibility labels where the app has them.
+# Pet room -> account menu -> Settings -> Your preferences -> back.
+appId: com.getvitto.app
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil: { visible: "Open pet stats", timeout: 30000 }
+- tapOn: { point: "92%,93%", optional: true }   # dismiss dev LogBox toast (dev builds only)
+- tapOn: "Open account menu"
+- tapOn: "(?i).*settings.*"
+- assertVisible: "Settings"
+- tapOn: "Your preferences.*"
+- assertVisible: "Your preferences"
+- assertVisible: "About you"
+- tapOn: { text: ".*Settings", index: 0 }
+- assertVisible: "Vitto Plus.*"

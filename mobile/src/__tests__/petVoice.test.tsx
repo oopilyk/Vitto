@@ -1,6 +1,6 @@
 import { phonemize, parseLexicon, soundOut } from '../voice/g2p';
 import { normalizeForSpeech, numberToWords } from '../voice/normalize';
-import { chunkPhonemes, encodeWav, styleFor } from '../voice/synth';
+import { chunkPhonemes, encodeWav, SAMPLE_RATE, styleFor, trimSilence } from '../voice/synth';
 import { tokenize } from '../voice/tokens';
 import { isPetVoice, PET_VOICES } from '@vitto/core';
 import { playbackRateFor, voiceOf, VOICE_STYLES } from '../services/petVoice';
@@ -9,6 +9,15 @@ import { playbackRateFor, voiceOf, VOICE_STYLES } from '../services/petVoice';
 const lexicon = parseLexicon(['hi\thˈI', 'lift\tlˈɪft', 'run\tɹˈʌn', 'gym\tʤˈɪm', 'bro\tbɹˈO', 'nice\tnˈIs', 'set\tsˈɛt', 'apple\tˈæpᵊl', 'pounds\tpˈWndz'].join('\n'));
 
 describe('pet voice: text to speech', () => {
+  it('cuts the long silence Kokoro leaves after a sentence, keeping a short fade', () => {
+    const speech = new Float32Array(SAMPLE_RATE).fill(0.3);
+    const piece = new Float32Array(SAMPLE_RATE * 2);
+    piece.set(speech, SAMPLE_RATE / 4); // 0.25 s before, 0.75 s after
+    const trimmed = trimSilence(piece);
+    expect(trimmed.length).toBe(SAMPLE_RATE + Math.round(0.02 * SAMPLE_RATE) + Math.round(0.05 * SAMPLE_RATE));
+    expect(trimSilence(new Float32Array(100)).length).toBe(100);
+  });
+
   it('says numbers, units and sets the way a person would', () => {
     expect(numberToWords(2205)).toBe('two thousand two hundred five');
     expect(normalizeForSpeech('225x8')).toBe('two hundred twenty-five for eight');

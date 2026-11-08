@@ -7,13 +7,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
+  View, Alert, Keyboard, KeyboardAvoidingView, Linking, Platform } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, calorieEstimate, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
-import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, TextButton, KEYBOARD_DONE_ID } from '../components/ui';
+import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, TextButton, DoneTextInput } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
@@ -265,8 +265,25 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           ? { label: busy === 'saving' ? 'Saving...' : 'Add to care log', summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
           : null;
 
+  /**
+   * The × with a meal ready to log asks before throwing it away: foods on the
+   * plate, a read photo, a scanned product or a picked recent meal. An empty
+   * sheet just closes. (react-native-web's Alert has no buttons: it closes.)
+   */
+  const unsaved = plate.length > 0 || again !== null || analysis !== null || selected !== null;
+  const requestClose = () => {
+    if (!unsaved || busy === 'saving' || Platform.OS === 'web') {
+      onClose();
+      return;
+    }
+    Alert.alert('Discard this meal?', "It hasn't been added to your log yet.", [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: onClose },
+    ]);
+  };
+
   return (
-    <SheetPage onBackPress={onClose}>
+    <SheetPage onBackPress={requestClose}>
       <KeyboardAvoidingView
         style={styles.sheet}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -276,7 +293,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             <Kicker>Nourishment check</Kicker>
             <Text style={styles.title}>What's on your plate?</Text>
           </View>
-          <CloseButton onPress={onClose} />
+          <CloseButton onPress={requestClose} />
         </View>
 
         <View style={styles.tabs}>
@@ -472,11 +489,23 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           {mode === 'scan' ? (
             <>
               {!permission?.granted ? (
-                <View style={styles.dropzone}>
+                <View style={[styles.dropzone, styles.permission]} testID="camera-permission">
                   <Text style={styles.dropTitle}>Camera access needed</Text>
-                  <Text style={styles.dropHint}>To scan a barcode, allow the camera.</Text>
-                  <PressableScale style={styles.pickButton} onPress={() => void requestPermission()}>
-                    <Text style={styles.pickLabel}>Allow camera</Text>
+                  <Text style={styles.dropHint}>
+                    {permission && !permission.canAskAgain
+                      ? 'Camera access is off for Vitto. Turn it on in Settings to scan barcodes.'
+                      : 'To scan a barcode, allow the camera.'}
+                  </Text>
+                  {/* Once someone has said no, iOS will not ask again: the only
+                      way back is the app's page in Settings. */}
+                  <PressableScale
+                    accessibilityRole="button"
+                    style={styles.permissionButton}
+                    onPress={() => void (permission && !permission.canAskAgain ? Linking.openSettings() : requestPermission())}
+                  >
+                    <Text style={styles.permissionLabel}>
+                      {permission && !permission.canAskAgain ? 'Open Settings' : 'Allow camera'}
+                    </Text>
                   </PressableScale>
                 </View>
               ) : (
@@ -617,9 +646,9 @@ function ServingsRow({
   return (
     <View style={styles.servingsRow}>
       <Text style={styles.servingsLabel}>Servings{food ? ` · ${food.servingDescription}` : ''}</Text>
-      <TextInput
+      <DoneTextInput
         style={[layout.input, styles.servingsInput]}
-        keyboardType="decimal-pad" inputAccessoryViewID={KEYBOARD_DONE_ID}
+        keyboardType="decimal-pad"
         value={servings}
         onChangeText={onChange}
         accessibilityLabel="Servings"
@@ -724,7 +753,21 @@ const styles = themedStyles(() => ({
     gap: 8,
   },
   dropTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
-  dropHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint },
+  // The barcode tab's ask: room for a sentence that may wrap, and a button of
+  // its own (pickButton stretches with flex: 1, which in this column made it a
+  // tall narrow box).
+  permission: { height: undefined, minHeight: 190, paddingVertical: 24, paddingHorizontal: 20 },
+  permissionButton: {
+    marginTop: 8,
+    minHeight: 44,
+    paddingHorizontal: 22,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.coral,
+  },
+  permissionLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.onCoral },
+  dropHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, textAlign: 'center' },
   pickRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   pickButton: {
     flex: 1,

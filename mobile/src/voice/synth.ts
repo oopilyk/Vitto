@@ -78,11 +78,31 @@ export const styleFor = (voice: Float32Array, phonemeCount: number): Float32Arra
   return voice.slice(row * STYLE_SIZE, (row + 1) * STYLE_SIZE);
 };
 
+/** Quieter than this counts as silence. */
+const SILENCE = 0.015;
+/** Kept either side of the speech, so a word's start and fade are not clipped. */
+const LEAD_PAD = Math.round(0.02 * SAMPLE_RATE);
+const TAIL_PAD = Math.round(0.05 * SAMPLE_RATE);
+
+/**
+ * The piece without the silence Kokoro pads it with. After a "." or "?" that
+ * is up to half a second, and each sentence is its own clip, so the pet
+ * paused far too long between sentences.
+ */
+export const trimSilence = (samples: Float32Array): Float32Array => {
+  let start = 0;
+  while (start < samples.length && Math.abs(samples[start]) < SILENCE) start += 1;
+  if (start === samples.length) return samples;
+  let end = samples.length - 1;
+  while (end > start && Math.abs(samples[end]) < SILENCE) end -= 1;
+  return samples.slice(Math.max(start - LEAD_PAD, 0), Math.min(end + 1 + TAIL_PAD, samples.length));
+};
+
 /** Each piece of the line, as samples, one after another. */
 export async function* synthesize(phonemes: string, voice: Float32Array, run: RunKokoro, speed = 1): AsyncGenerator<Float32Array> {
   for (const chunk of chunkPhonemes(phonemes)) {
     const ids = tokenize(chunk);
-    yield await run(ids, styleFor(voice, ids.length - 2), speed);
+    yield trimSilence(await run(ids, styleFor(voice, ids.length - 2), speed));
   }
 }
 

@@ -32,7 +32,7 @@ import { findScreenTimeForDate, mapManualScreenTime } from './src/services/scree
 import { hasUsageAccess, isScreenTimeModuleAvailable, openUsageAccessSettings } from './modules/screen-time';
 import { isSupabaseConfigured } from './src/services/supabaseClient';
 import { playCelebrationSound, playMealSound, playMunchSound } from './src/services/mealFeedback';
-import { PrimaryButton, TextButton, KeyboardDoneBar } from './src/components/ui';
+import { PrimaryButton, TextButton } from './src/components/ui';
 import { usePetInteraction } from './src/petWorld/usePetInteraction';
 import { AuthScreen, HAS_SIGNED_IN_KEY } from './src/screens/AuthScreen';
 import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft, type OnboardingProgress } from './src/services/onboardingDraft';
@@ -135,7 +135,7 @@ type RootStackParamList = {
   // and backs out the same way every other screen off the dashboard does.
   Profile: undefined;
   // The body profile form -- about you, goal, training -- pushed from Profile's top bar.
-  Settings: undefined;
+  Settings: { from?: 'Pet' } | undefined;
   // A drill-down off the dashboard, so it pushes rather than presenting as a modal.
   PetStats: undefined;
   // The pet as one shareable image. Pushed from PetStats' top bar.
@@ -2466,7 +2466,6 @@ function VittoApp() {
       <View style={layout.screen}>
           <StatusBar barStyle={statusBarStyle} />
           <AuthScreen />
-          <KeyboardDoneBar />
       </View>
     );
   }
@@ -2496,7 +2495,6 @@ function VittoApp() {
     return (
       <View style={layout.screen}>
         <StatusBar barStyle={statusBarStyle} />
-        <KeyboardDoneBar />
         <OnboardingScreen
           resume={onboardingResume}
           onProgress={(progress) => {
@@ -2662,7 +2660,7 @@ function VittoApp() {
               onLogRun={() => navigation.navigate('Workout', { cardio: true })}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenProfile={() => navigation.navigate('Profile')}
-              onOpenSettings={() => navigation.navigate('Settings')}
+              onOpenSettings={() => navigation.navigate('Settings', { from: 'Pet' })}
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
               todayProgress={todayProgress}
@@ -2742,7 +2740,7 @@ function VittoApp() {
               appleHealthStatus={Platform.OS === 'ios' ? (isAppleHealthConnected ? 'connected' : 'disconnected') : undefined}
               onOpenAppleHealth={() => navigation.navigate('AppleHealth')}
               onOpenHistory={() => navigation.navigate('ActivityHistory')}
-              onOpenLiftProgress={() => navigation.navigate('LiftProgress', { from: 'Today' })}
+              onOpenLiftProgress={() => navigation.navigate('LiftProgress')}
             />
           )}
         </RootStack.Screen>
@@ -2832,9 +2830,10 @@ function VittoApp() {
           {({ navigation }) => <ActivityHistoryScreen events={events} system={measurementSystemOf(profile)} onClose={() => navigation.goBack()} />}
         </RootStack.Screen>
         <RootStack.Screen name="Settings">
-          {({ navigation }) => (
+          {({ navigation, route }) => (
             <SettingsScreen
               profile={profile}
+              backLabel={route.params?.from === 'Pet' ? 'Pet' : 'Profile'}
               onClose={() => navigation.goBack()}
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}
@@ -3126,7 +3125,7 @@ function VittoApp() {
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenFoodTrends={() => navigation.navigate('FoodTrends')}
               onOpenStepTrends={() => navigation.navigate('StepTrends')}
-              onOpenLiftProgress={() => navigation.navigate('LiftProgress')}
+              onOpenLiftProgress={() => navigation.navigate('LiftProgress', { from: 'Today' })}
               onOpenWordPuzzle={() => navigation.navigate('WordPuzzle')}
               onOpenProfile={() => navigation.navigate('Profile')}
               onClose={() => navigation.goBack()}
@@ -3202,10 +3201,10 @@ function VittoApp() {
                 lastSets={lastSets}
                 onSaveTemplate={saveWorkoutTemplate}
                 onDeleteTemplate={deleteWorkoutTemplate}
-                onFinish={async (metadata) => {
-                  await completeWorkout(metadata);
-                  navigation.goBack();
-                }}
+                // No navigation here: the screen closes itself (`onClose`) once
+                // the workout and its routine are saved. Going back here as
+                // well closed it twice, and the second went back past it.
+                onFinish={completeWorkout}
                 onClose={() => navigation.goBack()}
               />
             )}
@@ -3288,7 +3287,6 @@ function VittoApp() {
         </View>
       ) : null}
       {/* The Done bar over iOS's number pads, for every screen's number fields. */}
-      <KeyboardDoneBar />
     </NavigationContainer>
   );
 }

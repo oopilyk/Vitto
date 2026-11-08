@@ -1,3 +1,4 @@
+import { MINIMUM_AGE } from './ageGate';
 export type GoalPace = 'gentle' | 'steady' | 'focused';
 export type TrainingStyle = 'strength' | 'cardio' | 'mixed';
 export type FocusArea = 'nutrition' | 'training' | 'movement' | 'mind';
@@ -202,6 +203,28 @@ export interface MacroTargets {
   /** 14 g per 1,000 kcal, the usual dietary guideline. The only sub-macro with a target. */
   fiberGrams: number;
 }
+
+/**
+ * What a body can plausibly be, wherever it is typed (onboarding, Your
+ * preferences). Everything downstream (calorie and protein targets, hunger,
+ * bodyweight lifts) takes these at face value, so an age of 999 or a weight
+ * of 0 silently rewrote the day's targets. Ages follow the app's own minimum.
+ */
+export const BODY_LIMITS = {
+  age: { min: MINIMUM_AGE, max: 100 },
+  heightCm: { min: 90, max: 230 },
+  weightKg: { min: 30, max: 300 },
+} as const;
+
+/** Why these body numbers can't be right, or null. */
+export const bodyProblem = (profile: Pick<BodyProfile, 'age' | 'heightCm' | 'weightKg'>): string | null => {
+  const outside = (value: number, range: { min: number; max: number }) =>
+    !Number.isFinite(value) || value < range.min || value > range.max;
+  if (outside(profile.age, BODY_LIMITS.age)) return `Enter an age between ${BODY_LIMITS.age.min} and ${BODY_LIMITS.age.max}.`;
+  if (outside(profile.heightCm, BODY_LIMITS.heightCm)) return 'That height doesn’t look right.';
+  if (outside(profile.weightKg, BODY_LIMITS.weightKg)) return 'That weight doesn’t look right.';
+  return null;
+};
 
 export const parseNumberInput = (value: string) => Number(value.replace(/^0+(?=\d)/, '')) || 0;
 

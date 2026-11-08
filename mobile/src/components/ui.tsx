@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type ReactNode } from 'react';
+import { Fragment, forwardRef, useId, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
   type PressableProps,
+  type TextInputProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -26,18 +27,20 @@ export const haptic = (kind: 'select' | 'press') => {
   void felt?.catch(() => undefined);
 };
 
-/** Number fields point their `inputAccessoryViewID` here, for the Done bar above iOS's keypad. */
-export const KEYBOARD_DONE_ID = 'vitto-keyboard-done';
-
 /**
  * A Done bar above the keyboard, for iOS's number pads, which have no return
- * key and so no way to put them away. Mounted once at the app's root; any
- * field with `inputAccessoryViewID={KEYBOARD_DONE_ID}` shows it.
+ * key and so no way to put them away. Used through `DoneTextInput`.
+ *
+ * One bar per field, beside it. React Native's New Architecture attaches an
+ * InputAccessoryView to a single field: the first one with its id that is on
+ * screen when the bar itself appears, and never looks again. A shared bar
+ * mounted once at the root (how this started) therefore reached no field that
+ * opened later or in a sheet, which on a phone was every one of them.
  */
-export function KeyboardDoneBar() {
+export function KeyboardDoneBar({ nativeID }: { nativeID: string }) {
   if (Platform.OS !== 'ios') return null;
   return (
-    <InputAccessoryView nativeID={KEYBOARD_DONE_ID}>
+    <InputAccessoryView nativeID={nativeID}>
       <View style={styles.doneBar}>
         <Pressable
           accessibilityRole="button"
@@ -52,6 +55,26 @@ export function KeyboardDoneBar() {
     </InputAccessoryView>
   );
 }
+
+/** Number, decimal and phone pads: the iOS keyboards with no return key to close them. */
+export const keypadWithoutReturn = (keyboardType: TextInputProps['keyboardType']): boolean =>
+  typeof keyboardType === 'string' && keyboardType.endsWith('-pad');
+
+/**
+ * A TextInput with its own Done bar on iOS: what every number field uses,
+ * since a number pad has no key to close it. The bar is absolutely
+ * positioned, so it takes no room beside the field.
+ */
+export const DoneTextInput = forwardRef<TextInput, TextInputProps>(function DoneTextInput(props, ref) {
+  const id = `vitto-done-${useId()}`;
+  if (Platform.OS !== 'ios') return <TextInput ref={ref} {...props} />;
+  return (
+    <>
+      <TextInput ref={ref} {...props} inputAccessoryViewID={id} />
+      <KeyboardDoneBar nativeID={id} />
+    </>
+  );
+});
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -236,10 +259,9 @@ export function NumberField({
 }) {
   return (
     <Field label={label} hint={hint}>
-      <TextInput
+      <DoneTextInput
         style={layout.input}
         keyboardType="number-pad"
-        inputAccessoryViewID={KEYBOARD_DONE_ID}
         value={value === undefined ? '' : String(value)}
         placeholder={placeholder}
         placeholderTextColor={colors.faint}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FOCUS_AREAS, MAX_BIO_LENGTH, PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, convertHeightToFeetAndInches, convertWeightValue, feetAndInchesToCm, measurementSystemForLocale, measurementSystemOf, normalizeBio, planForGoal, type BodyProfile, unitsFor, weightGoalProgress, withMeasurementSystem, withSurveyDefaults, recommendedCalories, customCalorieGoal, CALORIE_GOAL_RANGE, deficitCapFor, isMinor, maintenanceCalories } from './macroTargets';
+import { bodyProblem, FOCUS_AREAS, MAX_BIO_LENGTH, PROFILE_SURVEY_DEFAULTS, calculateMacroTargets, convertHeightToFeetAndInches, convertWeightValue, feetAndInchesToCm, measurementSystemForLocale, measurementSystemOf, normalizeBio, planForGoal, type BodyProfile, unitsFor, weightGoalProgress, withMeasurementSystem, withSurveyDefaults, recommendedCalories, customCalorieGoal, CALORIE_GOAL_RANGE, deficitCapFor, isMinor, maintenanceCalories } from './macroTargets';
 
 const baseProfile: BodyProfile = {
   age: 30,
@@ -352,3 +352,15 @@ describe('safe limits on a calorie target', () => {
   });
 });
 
+
+describe('bodyProblem', () => {
+  const body = { age: 30, heightCm: 175, weightKg: 75 };
+  it('accepts a plausible body', () => expect(bodyProblem(body)).toBeNull());
+  it('rejects an impossible age, height or weight', () => {
+    expect(bodyProblem({ ...body, age: 999 })).toMatch(/age between 13 and 100/);
+    expect(bodyProblem({ ...body, age: 12 })).toMatch(/age/);
+    expect(bodyProblem({ ...body, heightCm: 20 })).toMatch(/height/);
+    expect(bodyProblem({ ...body, weightKg: 0 })).toMatch(/weight/);
+    expect(bodyProblem({ ...body, weightKg: Number.NaN })).toMatch(/weight/);
+  });
+});

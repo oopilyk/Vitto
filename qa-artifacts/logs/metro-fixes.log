@@ -1,0 +1,38 @@
+env: load .env.local
+env: export EXPO_PUBLIC_EMAIL_CONFIRMED_URL EXPO_PUBLIC_PRIVACY_URL EXPO_PUBLIC_TERMS_URL
+Starting project at /Users/kli/dev/vitto/mobile
+Expo Autolinking module resolution enabled
+Starting Metro Bundler
+
+Waiting on http://localhost:8082
+
+An update for expo is available: 57.0.19 → ~57.0.32
+11 other packages may need updating. Run npx expo install --check for details.
+Logs for your project will appear below.
+iOS Bundled 2181ms mobile/index.ts (1976 modules)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 96ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 42ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 50ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 54ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 47ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 50ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 86ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]
+iOS Bundled 50ms mobile/index.ts (1 module)
+ ERROR  [expo-notifications] Error reading persisted server registration info:  [Error: FunctionCallException: Calling the 'getRegistrationInfoAsync' function has failed (at ExpoModulesCore/AsyncFunctionDefinition.swift:123)
+→ Caused by: ERR_NOTIFICATIONS_KEYCHAIN_ACCESS: undefined reason (at ExpoNotifications/ServerRegistrationModule.swift:161)]

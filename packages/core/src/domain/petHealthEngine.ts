@@ -245,6 +245,37 @@ const MIND_FULL = 100;
 const CARDIO_STRENGTH_GAIN = 1;
 /** Days of silence after which the pet remarks on the owner coming back. */
 const RETURN_AFTER_DAYS = 3;
+/**
+ * Meal XP: a flat 10 for the first few real meals of the day, then nothing.
+ * Without a cap, re-logging a glass of water from Recent levelled the pet up
+ * (and paid coins) as fast as a thumb could tap. A drink under the floor is
+ * still logged and still counts towards the day's food; it just earns no XP.
+ */
+const MEAL_XP = 10;
+export const MEALS_WITH_XP_PER_DAY = 5;
+const MEAL_XP_MIN_CALORIES = 50;
+
+/** A meal worth XP: one whose calories are unknown, or at least the floor. */
+const earnsMealXp = (meal: MealMetadata): boolean => {
+  const calories = meal.analysis?.macros?.calories;
+  return typeof calories !== 'number' || calories >= MEAL_XP_MIN_CALORIES;
+};
+
+const sameLocalDay = (a: string, b: string): boolean => new Date(a).toDateString() === new Date(b).toDateString();
+
+export const mealXp = (event: HealthEvent, history: readonly HealthEvent[] = []): number => {
+  if (!earnsMealXp(event.metadata as MealMetadata)) return 0;
+  const earlier = history.filter(
+    (other) =>
+      other.type === 'MEAL' &&
+      other.id !== event.id &&
+      sameLocalDay(other.occurredAt, event.occurredAt) &&
+      Date.parse(other.occurredAt) <= Date.parse(event.occurredAt) &&
+      earnsMealXp(other.metadata as MealMetadata),
+  ).length;
+  return earlier < MEALS_WITH_XP_PER_DAY ? MEAL_XP : 0;
+};
+
 /** Workout XP: a floor for showing up, then two a set, a little for reps and breadth, capped. */
 const WORKOUT_XP_BASE = 8;
 const WORKOUT_XP_CAP = 40;
@@ -471,7 +502,7 @@ export class PetHealthEngine {
           health: MEAL_HEALTH[quality],
           happiness: meal.treats ? 4 : 2,
           charge: context.recovering ? Math.max(mealCharge, SLEEPY_ENERGY_THRESHOLD + RECOVERY_MARGIN - chargeOf(pet)) : mealCharge,
-          xp: 10,
+          xp: mealXp(event, context.history),
         };
         // Food effects ride on top: a spicy plate is a little energising, a feast
         // a little sleepy. Small by design — flavour, not a second nutrition engine.

@@ -11,7 +11,7 @@ import {
   reminderError,
 } from '@vitto/core';
 import { FieldRow, FormField, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
-import { ChoiceRow, TextButton, KEYBOARD_DONE_ID } from '../components/ui';
+import { ChoiceRow, TextButton } from '../components/ui';
 import { colors, fonts, text, themedStyles } from '../theme';
 
 export interface RemindersProps {
@@ -101,10 +101,10 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
         </FormField>
         <FieldRow>
           <FormField label="Hour" hint="0-23">
-            <TextField keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID} placeholder="8" value={hour} onChangeText={(value) => setHour(digits(value))} />
+            <TextField keyboardType="number-pad" placeholder="8" value={hour} onChangeText={(value) => setHour(digits(value))} />
           </FormField>
           <FormField label="Minute">
-            <TextField keyboardType="number-pad" inputAccessoryViewID={KEYBOARD_DONE_ID} placeholder="00" value={minute} onChangeText={(value) => setMinute(digits(value))} />
+            <TextField keyboardType="number-pad" placeholder="00" value={minute} onChangeText={(value) => setMinute(digits(value))} />
           </FormField>
         </FieldRow>
         {/* No days chosen means every day -- see `isEveryDay`. */}

@@ -10,6 +10,8 @@ import { colors, themedStyles } from '../theme';
 interface Props {
   profile: BodyProfile;
   onClose: () => void;
+  /** Names where the back link goes: Profile, or the pet when opened from its account menu. */
+  backLabel?: string;
   /** The pet's look; the Animals row shows only once it is wired up. */
   breed?: PetBreed;
   onBreedChange?: (breed: PetBreed) => void;
@@ -94,6 +96,7 @@ const GOAL_LABEL: Record<BodyProfile['goal'], string> = {
 export function SettingsScreen({
   profile,
   onClose,
+  backLabel = 'Profile',
   breed,
   onBreedChange,
   coins = 0,
@@ -129,7 +132,7 @@ export function SettingsScreen({
     : 'A Plus feature';
 
   return (
-    <SettingsPage title="Settings" backLabel="Profile" onBack={onClose}>
+    <SettingsPage title="Settings" backLabel={backLabel} onBack={onClose}>
       {onOpenPlus ? (
         <NavGroup>
           <NavRow

@@ -1,0 +1,41 @@
+# Regression flow. Wipes the app's data (clearState): run last.
+# Fresh install -> through onboarding to the pet room. Requires a clean install (clearState).
+# Labels taken from `maestro hierarchy` on 2026-11-06. NOT run end to end as a single flow (see bug-hunter findings).
+appId: com.getvitto.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil: { visible: "Get started", timeout: 30000 }
+- tapOn: { point: "92%,93%", optional: true }   # dismiss dev LogBox toast (dev builds only)
+- tapOn: "Get started"
+- tapOn: "Choose the Otter"
+- tapOn: { point: "50%,93%" }       # "Choose the otter" button (its text matches the tile's label case-insensitively)
+- tapOn: "Let’s go!"
+- tapOn: "Their name"
+- inputText: "Miso"
+- tapOn: "Next"
+- tapOn: "Skip"                     # your name
+- tapOn: "Food.*"
+- tapOn: "Workouts.*"
+- tapOn: "Next"
+- tapOn: "Next"
+- tapOn: "25-34"
+- tapOn: "Male"
+- tapOn: "5 feet"
+- tapOn: "10 inches"
+- tapOn: "Weight in lb"
+- inputText: "160"
+- tapOn: "Next"
+- tapOn: "Stay where I am"
+- tapOn: "On my feet some.*"
+- tapOn: "4 days"
+- tapOn: "Weightlifting"
+- tapOn: "Next"
+- tapOn: "10,000 steps.*"
+- tapOn: "Let’s do it!"
+- tapOn: "Maybe later"
+- tapOn: "7 days.*"
+- tapOn: "Commit to this goal!"
+- tapOn: "Start today"
+- tapOn: "Maybe later"              # skip first-run tour
+- assertVisible: "Open pet stats"
