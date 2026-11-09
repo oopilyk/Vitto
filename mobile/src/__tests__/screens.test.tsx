@@ -510,7 +510,7 @@ describe('screens render', () => {
 
     // Exercises come from the picker: open it, then tap one.
     const openPicker = tree.root
-      .findAllByProps({ accessibilityLabel: 'Add exercise' })
+      .findAllByProps({ accessibilityLabel: 'Pick exercises' })
       .find((node: any) => typeof node.props.onPress === 'function');
     act(() => openPicker!.props.onPress());
     const add = tree.root
@@ -597,7 +597,7 @@ describe('screens render', () => {
     const press = (label: string) =>
       tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
 
-    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Pick exercises')!.props.onPress());
     act(() => press('Add Running')!.props.onPress());
     const done = tree.root
       .findAll((n: any) => typeof n.props.onPress === 'function')
@@ -666,7 +666,7 @@ describe('screens render', () => {
     });
     const press = (label: string) =>
       tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
-    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Pick exercises')!.props.onPress());
     act(() => press('Add Burpees')!.props.onPress());
     const done = tree.root
       .findAll((n: any) => typeof n.props.onPress === 'function')
@@ -815,7 +815,7 @@ describe('screens render', () => {
     // Visible before the user has ever made one — that is the point of it
     // living in the strip rather than being a link at the bottom of the screen.
     const tile = tree.root
-      .findAllByProps({ accessibilityLabel: 'Make a new routine' })
+      .findAllByProps({ accessibilityLabel: 'Create a routine' })
       .find((node: any) => typeof node.props.onPress === 'function');
     expect(tile).toBeTruthy();
 
@@ -854,7 +854,7 @@ describe('screens render', () => {
         .findAllByProps({ accessibilityLabel: label })
         .find((node: any) => typeof node.props.onPress === 'function');
 
-    act(() => press('Make a new routine')!.props.onPress());
+    act(() => press('Create a routine')!.props.onPress());
 
     const nameField = tree.root
       .findAllByType(WInput)
@@ -862,7 +862,7 @@ describe('screens render', () => {
     expect(nameField).toBeTruthy();
     act(() => nameField!.props.onChangeText('Push'));
 
-    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Add exercises')!.props.onPress());
     act(() => press('Add Bench Press')!.props.onPress());
     act(() => press('Add Shoulder Press')!.props.onPress());
     const done = tree.root
@@ -916,8 +916,8 @@ describe('screens render', () => {
     const cardsNamed = (name: string) =>
       tree.root.findAllByType(WText).filter((t: any) => t.props.children === name).length;
 
-    act(() => press('Make a new routine')!.props.onPress());
-    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Create a routine')!.props.onPress());
+    act(() => press('Add exercises')!.props.onPress());
     act(() => press('Add Bench Press')!.props.onPress());
     act(() => press('Add Shoulder Press')!.props.onPress());
 
@@ -963,8 +963,8 @@ describe('screens render', () => {
         .findAllByProps({ accessibilityLabel: label })
         .find((node: any) => typeof node.props.onPress === 'function');
 
-    act(() => press('Make a new routine')!.props.onPress());
-    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Create a routine')!.props.onPress());
+    act(() => press('Add exercises')!.props.onPress());
     act(() => press('Add Bench Press')!.props.onPress());
     const doneBtn = tree.root
       .findAll((node: any) => typeof node.props.onPress === 'function')
@@ -1789,7 +1789,7 @@ describe('profile screen', () => {
     const press = (label: string) =>
       workout.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
 
-    act(() => press('Add exercise')!.props.onPress());
+    act(() => press('Pick exercises')!.props.onPress());
     act(() => press('Add Bench Press')!.props.onPress());
     const done = workout.root
       .findAll((n: any) => typeof n.props.onPress === 'function')

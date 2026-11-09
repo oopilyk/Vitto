@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { describePortion, fatsecretFoodToResult, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from './foodDatabase';
+import { describePortion, portionAmount, fatsecretFoodToResult, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from './foodDatabase';
 import { configureCore } from './config';
 
 const mockFetchOnce = (body: unknown): void => {
@@ -483,7 +483,7 @@ describe('searchFoodsByName — through our own server', () => {
     const results = await searchFoodsByName('banana');
     expect(results[0]).toMatchObject({
       id: 'fatsecret-35755', name: 'Banana', servingDescription: '1 medium (118 g)', basisGrams: 118, isPer100g: false,
-      macros: { calories: 105, proteinGrams: 1, carbsGrams: 27, sugarGrams: 14.43, sodiumMg: 1 }, source: 'fatsecret',
+      macros: { calories: 105, proteinGrams: 1.3, carbsGrams: 27, sugarGrams: 14.43, sodiumMg: 1 }, source: 'fatsecret',
     });
     expect(results[1]?.name).toContain('Chicken breast');
     expect(results[1]?.source).toBeUndefined();
@@ -596,5 +596,22 @@ describe('toPlateAnalysis — several foods as one meal', () => {
   it('is exactly toMealAnalysis for one food, and refuses an empty plate', () => {
     expect(toPlateAnalysis([{ food: chicken, servings: 1.5 }])).toEqual(toMealAnalysis(chicken, 1.5));
     expect(() => toPlateAnalysis([])).toThrow();
+  });
+});
+
+describe('QA follow-ups: drinks, rounding, portions', () => {
+  const banana = { id: 'b', name: 'Bananas, raw', servingDescription: 'per 100 g', isPer100g: true, macros: { calories: 89, proteinGrams: 1.1, carbsGrams: 22.8, fatGrams: 0.33, fiberGrams: 2.6 } };
+  const water = { id: 'w', name: 'Beverages, water, tap, drinking', servingDescription: 'per 100 g', isPer100g: true, macros: { calories: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0, fiberGrams: 0 } };
+
+  it('keeps grams to a tenth, so two bananas are 0.7 g fat and 5.2 g fiber, not 0 and 6', () => {
+    expect(toMealAnalysis(banana, 2).macros).toMatchObject({ fatGrams: 0.7, fiberGrams: 5.2 });
+  });
+
+  it('grades a glass of water neutrally, not as junk', () => {
+    expect(toMealAnalysis(water, 2.5).grade).toBe('C');
+  });
+
+  it('says how much was eaten, not what the label is per', () => {
+    expect(portionAmount(banana, 3.5)).toBe('350 g');
   });
 });

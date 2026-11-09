@@ -2,8 +2,10 @@ import { Fragment, forwardRef, useId, useRef, useState, type ReactNode } from 'r
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   InputAccessoryView,
   Keyboard,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -76,17 +78,90 @@ export const DoneTextInput = forwardRef<TextInput, TextInputProps>(function Done
   );
 });
 
+/** What a typed number reads as: blank is no number, and a comma is a decimal point. */
+export const parseTypedNumber = (text: string): number | undefined => {
+  if (text === '') return undefined;
+  const parsed = Number(text.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+/**
+ * A number field's text, kept as typed. Turning each keystroke straight into
+ * a number and back drops a trailing "." (22. is 22), so 22.5 could never be
+ * typed. The text stands while it still reads as the value; anything else
+ * (a draft restored, a unit switch, a value the caller clamped) shows the
+ * value instead.
+ */
+export function useNumberText(
+  value: number | undefined,
+  onValue: (value: number | undefined) => void,
+  decimal = false,
+) {
+  const [text, setText] = useState(value === undefined ? '' : String(value));
+  // A cleared field stays clear while it is being retyped, even where blank is stored as 0.
+  const stands = parseTypedNumber(text) === value || (text === '' && !value);
+  const shown = stands ? text : value === undefined ? '' : String(value);
+  return {
+    value: shown,
+    onChangeText: (next: string) => {
+      const cleaned = decimal
+        ? next.replace(/[^0-9.,]/g, '').replace(/[.,](?=.*[.,])/g, '')
+        : next.replace(/[^0-9]/g, '');
+      setText(cleaned);
+      onValue(parseTypedNumber(cleaned));
+    },
+  };
+}
+
+/** A `DoneTextInput` for a number, typed with `useNumberText`. */
+export function NumberInput({
+  value,
+  onValue,
+  decimal = false,
+  ...props
+}: Omit<TextInputProps, 'value' | 'onChangeText' | 'keyboardType'> & {
+  value: number | undefined;
+  onValue: (value: number | undefined) => void;
+  decimal?: boolean;
+}) {
+  const typed = useNumberText(value, onValue, decimal);
+  return <DoneTextInput {...props} {...typed} keyboardType={decimal ? 'decimal-pad' : 'number-pad'} />;
+}
+
+/**
+ * KeyboardAvoidingView for a screen shown as a sheet. React Native works out
+ * how much the keyboard covers from where the view sits in its parent, and a
+ * sheet starts some way down the screen, so the stock view came up short by
+ * that much: the keyboard still covered Finish and the workout's Notes.
+ *
+ * The sheet's bottom is the screen's bottom, so how far down it starts is the
+ * screen's height less its own. (Measuring its position on screen does not
+ * work: inside the navigator's sheet that reads 0.)
+ */
+export function SheetKeyboardAvoidingView({ style, children }: { style?: StyleProp<ViewStyle>; children: ReactNode }) {
+  const [offset, setOffset] = useState(0);
+  if (Platform.OS !== 'ios') return <View style={style}>{children}</View>;
+  return (
+    <KeyboardAvoidingView
+      style={style}
+      behavior="padding"
+      keyboardVerticalOffset={offset}
+      onLayout={(event) => {
+        const next = Math.max(0, Dimensions.get('screen').height - event.nativeEvent.layout.height);
+        if (Math.abs(next - offset) > 1) setOffset(next);
+      }}
+    >
+      {children}
+    </KeyboardAvoidingView>
+  );
+}
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /** How a pressed control gives: quick down, a soft spring back up. */
 const PRESS_IN = { toValue: 1, speed: 50, bounciness: 0, useNativeDriver: Platform.OS !== 'web' } as const;
 const PRESS_OUT = { toValue: 0, speed: 20, bounciness: 6, useNativeDriver: Platform.OS !== 'web' } as const;
 
-/**
- * A Pressable that sinks a little under the finger and springs back on release,
- * the way iOS controls give. `scaleTo` is how far it goes (0.97 for a button,
- * nearer 1 for a wide card). With Reduce Motion it only dims.
- */
 /**
  * The one way out of a logging sheet: a small round button with a cross, top
  * right, as on iOS's own sheets. The cross is drawn, not typed: a "×" glyph
@@ -112,6 +187,11 @@ export function CloseButton({ onPress, label = 'Close' }: { onPress: () => void;
   );
 }
 
+/**
+ * A Pressable that sinks a little under the finger and springs back on release,
+ * the way iOS controls give. `scaleTo` is how far it goes (0.97 for a button,
+ * nearer 1 for a wide card). With Reduce Motion it only dims.
+ */
 export function PressableScale({
   style,
   scaleTo = 0.97,
@@ -259,16 +339,12 @@ export function NumberField({
 }) {
   return (
     <Field label={label} hint={hint}>
-      <DoneTextInput
+      <NumberInput
         style={layout.input}
-        keyboardType="number-pad"
-        value={value === undefined ? '' : String(value)}
+        value={value}
+        onValue={onChange}
         placeholder={placeholder}
         placeholderTextColor={colors.faint}
-        onChangeText={(next) => {
-          const digits = next.replace(/[^0-9.]/g, '');
-          onChange(digits === '' ? undefined : Number(digits));
-        }}
       />
     </Field>
   );

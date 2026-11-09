@@ -10,6 +10,7 @@ import {
   type BodyProfile,
   type HealthEvent,
   type MuscleGroup,
+  otherLifts,
 } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -105,6 +106,7 @@ function Body({ view, ranks, label }: { view: BodyView; ranks: Record<MuscleGrou
  */
 export function StrengthMap({ profile, events }: Props) {
   const scores = useMemo(() => liftScores(events, profile), [events, profile]);
+  const others = useMemo(() => otherLifts(events), [events]);
   const ranks = useMemo(() => muscleRanks(scores), [scores]);
   const female = profile.sex === 'female';
   const unit = profile.weightUnit;
@@ -188,6 +190,20 @@ export function StrengthMap({ profile, events }: Props) {
             </View>
           );
         })}
+        {/* Everything else lifted more than once: not ranked (no published
+            standards for it), but there, so the six above are not the whole story. */}
+        {others.length > 0 ? <Text style={styles.othersTitle}>Other lifts</Text> : null}
+        {others.map((other) => (
+          <View key={other.exercise} style={styles.lift} testID={`other-lift-${other.exercise}`}>
+            <View style={[styles.liftBar, { backgroundColor: colors.border }]} />
+            <View style={styles.liftText}>
+              <Text style={styles.liftName}>{other.exercise}</Text>
+              <Text style={styles.liftMeta}>
+                {`${show(other.best.oneRepMaxKg)} ${unit} est. max · ${other.sessions} sessions`}
+              </Text>
+            </View>
+          </View>
+        ))}
       </View>
       ) : null}
 
@@ -240,6 +256,7 @@ const styles = themedStyles(() => ({
     paddingVertical: 3,
     overflow: 'hidden',
   },
+  othersTitle: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint, marginTop: 8 },
   foot: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, lineHeight: 17 },
   nextUp: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkSoft, textAlign: 'center' },
   nextUpLift: { fontWeight: '700', color: colors.ink },

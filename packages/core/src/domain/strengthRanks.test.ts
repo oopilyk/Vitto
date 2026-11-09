@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { HealthEvent } from './health';
-import { STRENGTH_TIERS, estimatedOneRepMax, liftHistory, liftScores, muscleRanks, tierThresholdsKg } from './strengthRanks';
+import { STRENGTH_TIERS, liftHistory, liftScores, muscleRanks, tierThresholdsKg } from './strengthRanks';
+import { estimatedOneRepMax } from './oneRepMax';
 
 const LB = 0.45359237;
 const workout = (sets: { name: string; weight: number; reps: number; unit?: 'kg' | 'lb'; completed?: boolean }[]): HealthEvent =>

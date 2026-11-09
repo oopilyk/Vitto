@@ -8,6 +8,8 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type TextStyle,
 } from 'react-native';
 import {
   type TrophyId,
@@ -36,6 +38,7 @@ import {
   getMealsForDay,
   calorieEstimate,
   type companion,
+  clampStepGoal,
 } from '@vitto/core';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
@@ -427,7 +430,7 @@ export function TodayScreen({
                       />
                     </View>
                     <Text style={[styles.macroValue, { color: c.ink }]}>
-                      {value}
+                      {Math.round(value)}
                       <Text style={[styles.macroTarget, { color: c.soft }]}> / {target}g</Text>
                     </Text>
                   </View>
@@ -527,13 +530,10 @@ export function TodayScreen({
             ) : null}
             <View style={styles.goalEdit}>
               <Text style={[styles.goalEditLabel, { color: c.soft }]}>Daily goal</Text>
-              <DoneTextInput
+              <StepGoalField
                 style={[styles.goalInput, { color: c.ink, borderColor: c.hairline }]}
-                keyboardType="number-pad"
-                value={String(stepGoal)}
-                onChangeText={(value) =>
-                  onStepGoalChange(Number(value.replace(/[^0-9]/g, '')) || 1000)
-                }
+                goal={stepGoal}
+                onChange={onStepGoalChange}
               />
             </View>
           </Pillar>
@@ -770,6 +770,34 @@ interface Palette {
   track: string;
 }
 
+/**
+ * The daily step goal, typed freely and kept on Done or on leaving the field.
+ * Saving each keystroke snapped a cleared field straight to 1,000, so the next
+ * digits landed after it (100000 typed became 1,010,000,000).
+ */
+function StepGoalField({ goal, onChange, style }: { goal: number; onChange: (goal: number) => void; style: StyleProp<TextStyle> }) {
+  const [text, setText] = useState<string | null>(null);
+  const commit = () => {
+    if (text === null) return;
+    const typed = Number(text);
+    const next = text === '' || !Number.isFinite(typed) ? goal : clampStepGoal(typed);
+    setText(null);
+    if (next !== goal) onChange(next);
+  };
+  return (
+    <DoneTextInput
+      style={style}
+      keyboardType="number-pad"
+      accessibilityLabel="Daily step goal"
+      value={text ?? String(goal)}
+      selectTextOnFocus
+      onChangeText={(value) => setText(value.replace(/[^0-9]/g, ''))}
+      onBlur={commit}
+      onSubmitEditing={commit}
+    />
+  );
+}
+
 function ProgressBar({ percent, track }: { percent: number; track: string }) {
   return (
     <View style={[styles.progressTrack, { backgroundColor: track }]}>
@@ -950,7 +978,7 @@ function WaterTracker({
         <WaterStep sign="+" label="Add a cup of water" onPress={() => tap(WATER_CUP_ML)} />
       </View>
       <Text style={[styles.waterHint, { color: c.soft }]}>
-        1 cup = {system === 'imperial' ? '8.5 fl oz' : '250 mL'}
+        1 cup = {formatWater(WATER_CUP_ML, system)}
       </Text>
     </View>
   );

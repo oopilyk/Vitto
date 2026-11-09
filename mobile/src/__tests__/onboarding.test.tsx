@@ -109,7 +109,6 @@ const meetPet = (tree: renderer.ReactTestRenderer) => {
   press(tree, 'Get started');
   tapLabel(tree, 'Choose the Shiba');
   press(tree, 'Choose the shiba');
-  press(tree, 'Let’s go!'); // meet them
   type(tree, "Your companion's name", 'Miso');
   press(tree, 'Next'); // name
   press(tree, 'Skip'); // your name
@@ -133,12 +132,9 @@ describe('onboarding', () => {
     tapLabel(tree, 'Choose the Shiba');
     mockHaptics.notificationAsync.mockClear();
     press(tree, 'Choose the shiba');
-    // The one they chose, celebrating, with the big buzz.
-    expect(has(tree, 'You chose the shiba!')).toBe(true);
-    expect(tree.root.findAll((n) => n.props.testID === 'meet-pet').length).toBeGreaterThan(0);
-    expect(mockHaptics.notificationAsync).toHaveBeenCalled();
-    press(tree, 'Let’s go!');
+    // Straight to naming the one they chose, with the big buzz.
     expect(has(tree, 'What do you want to call me?')).toBe(true);
+    expect(mockHaptics.notificationAsync).toHaveBeenCalled();
     // The name starts empty, not as the app's placeholder name.
     expect(byLabel(tree, "Your companion's name")!.props.value).toBe('');
     expect(button(tree, 'Next')!.props.disabled).toBe(true);
@@ -151,13 +147,13 @@ describe('onboarding', () => {
     expect(has(tree, 'What should keep') && has(tree, 'healthy?')).toBe(true);
     expect(button(tree, 'Next')!.props.disabled).toBe(true);
     chooseCareAreas(tree);
-    expect(has(tree, 'Let’s learn a bit about you!')).toBe(true);
+    // No intro page: the first question about them is next.
+    expect(has(tree, 'How old are you?')).toBe(true);
   });
 
   it('asks one question a screen, moving on with a haptic tick as soon as one is tapped', () => {
     const { tree, updates } = mount();
     meetPet(tree);
-    press(tree, 'Next'); // about you intro
     expect(has(tree, 'How old are you?')).toBe(true);
     // The pet you chose stays on screen through the questions.
     expect(byLabel(tree, 'Say hi to Miso')).toBeTruthy();
@@ -181,7 +177,6 @@ describe('onboarding', () => {
   it('skips the target weight for someone holding steady, and asks it, unfilled, for everyone else', () => {
     const toGoal = (tree: renderer.ReactTestRenderer) => {
       meetPet(tree);
-      press(tree, 'Next');
       press(tree, '25-34');
       press(tree, 'Male');
       tapLabel(tree, '5 feet');
@@ -239,7 +234,7 @@ describe('onboarding', () => {
     expect(tiers).toEqual(['plus']);
     // Bought: on with onboarding. (In the app the new tier also opens the
     // personality step; here canCustomise is fixed, so it is the next one.)
-    expect(has(tree, 'How many days in a row will you take care of')).toBe(true);
+    expect(has(tree, 'Day 1')).toBe(true);
   });
 
   it('lets them pass on the offer', () => {
@@ -250,7 +245,7 @@ describe('onboarding', () => {
     press(tree, 'Next');
     press(tree, 'Next');
     press(tree, 'Not now');
-    expect(has(tree, 'How many days in a row will you take care of')).toBe(true);
+    expect(has(tree, 'Day 1')).toBe(true);
   });
 
   it('keeps personalities to Plus: no personality step on the free tier', () => {
@@ -258,10 +253,10 @@ describe('onboarding', () => {
     meetPet(tree);
     press(tree, 'Let’s do it!');
     expect(has(tree, 'Their personality')).toBe(false);
-    expect(has(tree, 'How many days in a row will you take care of')).toBe(true);
+    expect(has(tree, 'Day 1')).toBe(true);
   });
 
-  it('asks for notifications when it can, then a streak to commit to, then day one', async () => {
+  it('asks for notifications when it can, then day one', async () => {
     const enable = jest.fn(() => Promise.resolve(true));
     const adopt = jest.fn();
     const { tree } = mount({ ...baseProfile, targetWeightKg: 75, motivations: ['pet'] }, { canCustomise: false, onEnableNotifications: enable, onAdopt: adopt });
@@ -272,9 +267,6 @@ describe('onboarding', () => {
       button(tree, 'Turn on notifications')!.props.onPress();
     });
     expect(enable).toHaveBeenCalled();
-    expect(button(tree, 'Commit to this goal!')!.props.disabled).toBe(true);
-    press(tree, '7 days');
-    press(tree, 'Commit to this goal!');
     expect(has(tree, 'Day 1')).toBe(true);
     await act(async () => {
       await button(tree, 'Start today')!.props.onPress();
@@ -310,14 +302,12 @@ describe('onboarding', () => {
     check();
     press(tree, 'Choose the shiba');
     check();
-    press(tree, 'Let’s go!');
     press(tree, 'Shuffle');
     press(tree, 'Next');
     press(tree, 'Skip');
     check();
     chooseCareAreas(tree);
     check();
-    press(tree, 'Next');
     for (const tap of ['18-24', 'Male']) {
       check();
       press(tree, tap);
@@ -349,7 +339,6 @@ describe('onboarding', () => {
     press(tree, 'Get started');
     tapLabel(tree, 'Choose the Shiba');
     press(tree, 'Choose the shiba');
-    press(tree, 'Let’s go!');
     press(tree, 'Shuffle');
     press(tree, 'Next');
     press(tree, 'Skip');
@@ -370,13 +359,13 @@ describe('onboarding', () => {
     // Then what should keep the pet healthy, before anything about you.
     expect(has(tree, 'What should keep') && has(tree, 'healthy?')).toBe(true);
     chooseCareAreas(tree);
-    expect(has(tree, 'Let’s learn a bit about you!')).toBe(true);
+    expect(has(tree, 'How old are you?')).toBe(true);
   });
 
   it('does not ask for a username someone already has', () => {
     const { tree } = mount({ ...baseProfile, username: 'kyle' }, { onClaimUsername: async () => {} });
     meetPet(tree);
-    expect(has(tree, 'Let’s learn a bit about you!')).toBe(true);
+    expect(has(tree, 'How old are you?')).toBe(true);
   });
 
   it('the join-a-partner affordance only appears when onRedeemInvite is passed', () => {
@@ -466,7 +455,7 @@ describe('onboarding, Apple Health', () => {
     const without = mount(baseProfile, { resume, onEnableNotifications: async () => false });
     press(without.tree, 'Maybe later');
     expect(has(without.tree, 'Connect Apple Health')).toBe(false);
-    expect(has(without.tree, 'How many days in a row')).toBe(true);
+    expect(has(without.tree, 'Day 1')).toBe(true);
     act(() => without.tree.unmount());
   });
 });
@@ -530,6 +519,15 @@ describe('onboarding and the iPhone keyboard', () => {
     expect(screenPadding()).toBe(55);
 
     spy.mockRestore();
+    act(() => tree.unmount());
+  });
+});
+
+describe('retired onboarding pages', () => {
+  it('resume on the page that now follows them', () => {
+    const resume = { stepId: 'commit', answeredAtStart: true, offerPlus: false, hadUsername: true } as never;
+    const { tree } = mount(baseProfile, { resume });
+    expect(has(tree, 'Day 1')).toBe(true);
     act(() => tree.unmount());
   });
 });

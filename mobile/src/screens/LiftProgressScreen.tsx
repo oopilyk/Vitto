@@ -8,7 +8,9 @@ import {
   STANDARD_LIFT_LABEL,
   STRENGTH_TIERS,
   convertWeightValue,
+  exerciseHistory,
   liftHistory,
+  otherLifts,
   tierThresholdsKg,
 } from '@vitto/core';
 import { ChipGroup, SettingsPage } from '../components/settingsKit';
@@ -27,6 +29,7 @@ interface Props {
 }
 
 const LIFTS = Object.keys(STANDARD_LIFT_LABEL) as StandardLift[];
+const isStandard = (choice: string): choice is StandardLift => (LIFTS as string[]).includes(choice);
 const CHART_HEIGHT = 220;
 const PAD = { top: 16, right: 12, bottom: 28, left: 40 };
 /** Sessions listed under the chart before the rest are left to the graph. */
@@ -48,18 +51,26 @@ const niceStep = (span: number) => {
  * are, so a heavy triple counts as much as a true single.
  */
 export function LiftProgressScreen({ profile, events, onClose, locked = false, onOpenPlus, backLabel = 'Profile' }: Props) {
+  // The six ranked lifts, then anything else lifted in two or more workouts
+  // (a cable fly, a leg extension), charted the same way but without a rank.
+  const others = useMemo(() => otherLifts(events).map((other) => other.exercise), [events]);
   const histories = useMemo(
     () =>
-      Object.fromEntries(LIFTS.map((lift) => [lift, liftHistory(events, lift)])) as Record<StandardLift, ReturnType<typeof liftHistory>>,
-    [events],
+      Object.fromEntries([
+        ...LIFTS.map((option) => [option, liftHistory(events, option)]),
+        ...others.map((name) => [name, exerciseHistory(events, name)]),
+      ]) as Record<string, ReturnType<typeof liftHistory>>,
+    [events, others],
   );
-  const [lift, setLift] = useState<StandardLift>(() => LIFTS.find((option) => histories[option].length > 0) ?? 'bench');
+  const [lift, setLift] = useState<string>(() => LIFTS.find((option) => histories[option]!.length > 0) ?? 'bench');
+  const ranked = isStandard(lift);
+  const label = ranked ? STANDARD_LIFT_LABEL[lift] : lift;
   const [width, setWidth] = useState(0);
 
   const unit = profile.weightUnit;
   const show = (kg: number) => Math.round(convertWeightValue(kg, 'kg', unit));
-  const points = histories[lift];
-  const thresholds = tierThresholdsKg(lift, profile);
+  const points = histories[lift] ?? [];
+  const thresholds = ranked ? tierThresholdsKg(lift, profile) : [];
   const best = points.reduce<number | null>((top, point) => (top === null || point.oneRepMaxKg > top ? point.oneRepMaxKg : top), null);
   const tier =
     best === null ? null : thresholds.reduce<number | null>((found, threshold, index) => (best >= threshold ? index : found), null);
@@ -98,7 +109,10 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
       <View style={styles.picker}>
         <ChipGroup
           scroll
-          options={LIFTS.map((option) => ({ value: option, label: STANDARD_LIFT_LABEL[option] }))}
+          options={[
+            ...LIFTS.map((option) => ({ value: option as string, label: STANDARD_LIFT_LABEL[option] })),
+            ...others.map((name) => ({ value: name, label: name })),
+          ]}
           value={lift}
           onChange={setLift}
         />
@@ -106,7 +120,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
 
       {points.length === 0 ? (
         <View style={styles.empty} testID="lift-progress-empty">
-          <Text style={styles.emptyTitle}>{`No ${STANDARD_LIFT_LABEL[lift].toLowerCase()} logged yet`}</Text>
+          <Text style={styles.emptyTitle}>{`No ${label.toLowerCase()} logged yet`}</Text>
           <Text style={styles.emptyBody}>Log a workout with it and your first point lands here.</Text>
         </View>
       ) : (
@@ -127,9 +141,13 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
               )}
             </View>
             <View style={styles.summaryRight}>
-              <Text style={[styles.tierPill, { color: lineColor, borderColor: lineColor }]}>
-                {tier === null ? 'Unranked' : STRENGTH_TIERS[tier]}
-              </Text>
+              {ranked ? (
+                <Text style={[styles.tierPill, { color: lineColor, borderColor: lineColor }]}>
+                  {tier === null ? 'Unranked' : STRENGTH_TIERS[tier]}
+                </Text>
+              ) : (
+                <Text style={styles.best}>{`${points.length} sessions`}</Text>
+              )}
               <Text style={styles.best}>{`best ${show(best!)} ${unit}`}</Text>
             </View>
           </View>
@@ -155,7 +173,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
               <View
                 style={styles.chart}
                 onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
-                accessibilityLabel={`${STANDARD_LIFT_LABEL[lift]} estimated max over ${points.length} sessions`}
+                accessibilityLabel={`${label} estimated max over ${points.length} sessions`}
                 testID="lift-progress-chart"
               >
                 {width > 0 ? (
@@ -240,7 +258,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
                   </Svg>
                 ) : null}
               </View>
-              {nextKg !== null ? (
+              {!ranked ? null : nextKg !== null ? (
                 <Text style={styles.toNext}>
                   {`${Math.max(1, show(nextKg) - show(best!))} ${unit} more to `}
                   <Text style={{ color: TIER_COLOR[nextTier], fontWeight: '700' }}>{STRENGTH_TIERS[nextTier]}</Text>

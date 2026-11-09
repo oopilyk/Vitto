@@ -28,5 +28,8 @@ describe('hydration', () => {
     expect(formatWater(750, 'metric')).toBe('750 mL');
     expect(formatWater(1250, 'metric')).toBe('1.25 L');
     expect(formatWater(1000, 'imperial')).toBe('34 fl oz');
+    // Three 250 mL cups: 25.5, as the 8.5 fl oz cup label adds up to, not 25.
+    expect(formatWater(750, 'imperial')).toBe('25.5 fl oz');
+    expect(formatWater(250, 'imperial')).toBe('8.5 fl oz');
   });
 });

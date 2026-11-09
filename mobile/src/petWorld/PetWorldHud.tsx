@@ -12,6 +12,7 @@ import {
   daysWithPet,
   assessCondition,
   hasEvolved,
+  initialOf,
 } from '@vitto/core';
 import { FitText } from '../components/FitText';
 import { fonts, world, themedStyles } from '../theme';
@@ -263,7 +264,7 @@ export function PetWorldHud({
             hitSlop={8}
             style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.disc, (pressed || menuOpen) && retroPressed]}
           >
-            <Text style={[styles.discInitial, night && retro.labelNight]}>{(accountInitial ?? pet.name.charAt(0)).toUpperCase()}</Text>
+            <Text style={[styles.discInitial, night && retro.labelNight]}>{initialOf(accountInitial ?? pet.name)}</Text>
           </Pressable>
 
           {menuOpen ? (
@@ -609,6 +610,8 @@ const styles = themedStyles(() => ({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 12,
+    // 44 pt a row, as iOS asks of anything tapped; at 12 + text it was 38.
+    minHeight: 44,
   },
   menuItemDivider: { borderTopWidth: 1, borderTopColor: 'rgba(67,55,44,0.18)' },
   menuItemDividerNight: { borderTopColor: 'rgba(239,229,208,0.16)' },

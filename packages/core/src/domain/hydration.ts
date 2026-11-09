@@ -59,7 +59,9 @@ export const waterReachesGoal = (history: readonly HealthEvent[], event: HealthE
 
 /** "1.25 L" or "42 fl oz". Under a litre, metric reads in mL. */
 export const formatWater = (ml: number, system: MeasurementSystem): string => {
-  if (system === 'imperial') return `${Math.round(ml / ML_PER_FL_OZ)} fl oz`;
+  // To the half ounce, as the cup is labelled (8.5 fl oz): to the whole one,
+  // three cups read 25 where the label adds up to 25.5.
+  if (system === 'imperial') return `${Math.round((ml / ML_PER_FL_OZ) * 2) / 2} fl oz`;
   if (ml < 1000) return `${Math.round(ml)} mL`;
   return `${Math.round(ml / 10) / 100} L`;
 };

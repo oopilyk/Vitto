@@ -56,20 +56,20 @@ export function RestTimer({ rest, onAdjust, onSkip, onDone }: Props) {
     <View style={styles.wrap} testID="rest-timer" accessibilityLiveRegion="polite">
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.label} numberOfLines={1}>
+          <Text style={styles.label} numberOfLines={2}>
             Rest · {rest.label}
           </Text>
           <Text style={styles.clock} accessibilityLabel={`${formatRest(left)} of rest left`}>
             {formatRest(left)}
           </Text>
         </View>
-        <PressableScale accessibilityRole="button" accessibilityLabel="15 seconds less rest" onPress={() => onAdjust(-REST_STEP_MS)} style={styles.step}>
+        <PressableScale accessibilityRole="button" accessibilityLabel="15 seconds less rest" onPress={() => onAdjust(-REST_STEP_MS)} hitSlop={4} style={styles.step}>
           <Text style={styles.stepLabel}>−15</Text>
         </PressableScale>
-        <PressableScale accessibilityRole="button" accessibilityLabel="15 seconds more rest" onPress={() => onAdjust(REST_STEP_MS)} style={styles.step}>
+        <PressableScale accessibilityRole="button" accessibilityLabel="15 seconds more rest" onPress={() => onAdjust(REST_STEP_MS)} hitSlop={4} style={styles.step}>
           <Text style={styles.stepLabel}>+15</Text>
         </PressableScale>
-        <PressableScale accessibilityRole="button" accessibilityLabel="Skip rest" onPress={onSkip} style={[styles.step, styles.skip]}>
+        <PressableScale accessibilityRole="button" accessibilityLabel="Skip rest" onPress={onSkip} hitSlop={4} style={[styles.step, styles.skip]}>
           <Text style={[styles.stepLabel, styles.skipLabel]}>Skip</Text>
         </PressableScale>
       </View>

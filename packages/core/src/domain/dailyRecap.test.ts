@@ -300,6 +300,18 @@ describe('buildDailyRecap', () => {
     expect(recap.activity).toContainEqual({ id: 'food', label: 'Logged 2 meals' });
   });
 
+  it('counts a glass of water, read as 0 kcal on purpose, as exact rather than incomplete', () => {
+    const nutrients = { protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false };
+    const water = (confidence: number) =>
+      makeEvent<MealMetadata>('MEAL', onDay('09:00'), {
+        ...nutrients,
+        analysis: { grade: 'C', summary: 'Water', confidence, detectedFoods: ['water'], macros: { calories: 0, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 }, nutrients },
+      });
+    expect(buildDailyRecap({ events: [water(1)], profile, pet, stepGoal: 10000, day }).food.someMealsUnanalyzed).toBe(false);
+    // A failed photo comes back with nothing and no confidence: still flagged.
+    expect(buildDailyRecap({ events: [water(0)], profile, pet, stepGoal: 10000, day }).food.someMealsUnanalyzed).toBe(true);
+  });
+
   it('keys mind sessions on puzzleDate when set, so a late-night puzzle still counts for its day', () => {
     const events: HealthEvent[] = [
       makeEvent<BrainTrainingMetadata>('BRAIN_TRAINING', localAt(11, 0, 30), {

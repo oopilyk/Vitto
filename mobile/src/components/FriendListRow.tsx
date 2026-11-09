@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
-import { type FriendOverview, deriveSocialPetStatus } from '@vitto/core';
+import { type FriendOverview, deriveSocialPetStatus, initialOf } from '@vitto/core';
 import { PetSpriteAvatar } from './PetSpriteAvatar';
 import { type FriendsPalette, healthToneColor } from '../friendsTheme';
 import { colors, fonts, themedStyles } from '../theme';
@@ -50,7 +50,7 @@ export function FriendListRow({ friend, palette, onPress }: Props) {
         size={AVATAR_SIZE}
         // Upper-cased: handles are stored lower case, and a lone lowercase
         // letter in an avatar disc reads as a typo rather than an initial.
-        placeholderInitial={rowName(friend).replace('@', '').charAt(0).toUpperCase()}
+        placeholderInitial={initialOf(rowName(friend).replace('@', ''))}
         backgroundColor={palette.avatarPlaceholderBg}
       />
       <View style={styles.body}>

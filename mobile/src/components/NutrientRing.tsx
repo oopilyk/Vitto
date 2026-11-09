@@ -67,10 +67,13 @@ export function NutrientRing({
           <Text
             style={[styles.value, { fontSize: ringValueSize(shown, size) }, tone && { color: tone.ink }, emphasis && { color: colors.danger }]}
             numberOfLines={1}
+            // Sized to the ring's hole, which does not grow with the text
+            // setting: scaled up as well, "1,920" was cut to "1,9…".
+            maxFontSizeMultiplier={1}
           >
             {shown}
           </Text>
-          <Text style={[styles.unit, tone && { color: tone.soft }]}>{unit}</Text>
+          <Text style={[styles.unit, tone && { color: tone.soft }]} maxFontSizeMultiplier={1.2}>{unit}</Text>
         </View>
       </View>
       <Text style={[styles.label, tone && { color: tone.soft }]}>{label}</Text>

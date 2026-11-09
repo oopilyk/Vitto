@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native';
-import type { PetState } from '@vitto/core';
+import { type PetState, initialOf } from '@vitto/core';
 import { sheetForPet, portraitFrame } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
 import { colors, fonts, themedStyles } from '../theme';
@@ -30,7 +30,7 @@ export function PetSpriteAvatar({ pet, size = DEFAULT_SIZE, placeholderInitial, 
     return (
       <View style={[styles.circle, circle, styles.center]}>
         <Text style={[styles.initial, { fontFamily: fonts.ui, fontSize: size * 0.42 }]}>
-          {(placeholderInitial ?? '?').toUpperCase()}
+          {initialOf(placeholderInitial)}
         </Text>
       </View>
     );

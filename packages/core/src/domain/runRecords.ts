@@ -1,5 +1,6 @@
 import type { HealthEvent, WorkoutMetadata } from './health';
 import type { MeasurementSystem } from './macroTargets';
+import { plausibleDistance } from './workoutLimits';
 
 /**
  * Run records: the fastest mile (or kilometre) and the longest run, read off
@@ -46,6 +47,8 @@ export const runRecords = (events: readonly HealthEvent[], system: MeasurementSy
     if (event.type !== 'WORKOUT') continue;
     const metadata = event.metadata as WorkoutMetadata;
     if (!isRun(metadata)) continue;
+    const moving = metadata.exercises?.find((exercise) => exercise.distance)?.name;
+    if (!plausibleDistance(moving, metadata.distanceKm as number, metadata.durationMinutes)) continue;
     // Pace divides by the exact distance; only the shown figure is rounded.
     const exact = (metadata.distanceKm as number) * perKm;
     const distance = Math.round(exact * 100) / 100;

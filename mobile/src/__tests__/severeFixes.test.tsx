@@ -32,7 +32,7 @@ describe('workout draft', () => {
 
   it('survives the screen going away, and picks up where it was', async () => {
     const first = await open();
-    act(() => press(first, 'Add exercise').props.onPress());
+    act(() => press(first, 'Pick exercises').props.onPress());
     act(() => press(first, 'Add Bench Press').props.onPress());
     act(() => press(first, 'Set 1 of Bench Press done').props.onPress());
     await flush();
@@ -53,7 +53,7 @@ describe('workout draft', () => {
     expect(onClose).toHaveBeenCalledTimes(1); // nothing entered: just closes
     expect(alert).not.toHaveBeenCalled();
 
-    act(() => press(tree, 'Add exercise').props.onPress());
+    act(() => press(tree, 'Pick exercises').props.onPress());
     act(() => press(tree, 'Add Bench Press').props.onPress());
     await flush();
     act(() => press(tree, 'Close the exercise list').props.onPress());

@@ -4,6 +4,9 @@ const PROTEIN_KCAL_PER_GRAM = 4;
 const CARB_KCAL_PER_GRAM = 4;
 const FAT_KCAL_PER_GRAM = 9;
 
+/** Under this many kcal a food is a drink with nothing in it (labels round 4 kcal down to 0). */
+export const ZERO_CALORIE_LIMIT = 5;
+
 export const nonNegative = (value: number | undefined): number =>
   typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
 

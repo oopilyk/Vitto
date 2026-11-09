@@ -49,10 +49,12 @@ export function BreedPicker({ value, onChange, size = 84, locked, lockedNote, cu
             accessibilityLabel={`Choose the ${sheet.label}`}
             disabled={isLocked}
             onPress={() => onChange(sheet.name)}
-            style={[styles.option, selected && styles.optionOn, isLocked && styles.optionLocked]}
+            style={[styles.option, selected && styles.optionOn]}
             testID={`breed-${sheet.name}`}
           >
-            <View style={{ width: size, height: size }}>
+            {/* Only the picture fades when locked: faded too, the name and its
+                note fell to about 1.5:1 against the card and could not be read. */}
+            <View style={[{ width: size, height: size }, isLocked && styles.optionLocked]}>
               {ready ? null : (
                 <View style={[styles.placeholder, { width: size, height: size, borderRadius: size / 2 }]} />
               )}
@@ -106,6 +108,6 @@ const styles = themedStyles(() => ({
   labelOn: { color: colors.coralDeep },
   // Greyed right down: the animal is still recognisable, but plainly not on offer.
   optionLocked: { opacity: 0.38 },
-  note: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 2 },
+  note: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 2 },
   noteOwned: { color: colors.mintDeep },
 }));

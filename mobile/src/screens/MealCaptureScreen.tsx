@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -7,13 +7,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View, Alert, Keyboard, KeyboardAvoidingView, Linking, Platform } from 'react-native';
+  View, Alert, Keyboard, Linking, Platform } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, calorieEstimate, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, calorieEstimate, foodSuggestions, portionAmount, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
-import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, TextButton, DoneTextInput } from '../components/ui';
+import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput } from '../components/ui';
+import Svg, { Path } from 'react-native-svg';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
@@ -33,6 +34,8 @@ interface Props {
   onOpenPlus?: () => void;
   /** Meals to log again in one tap (repeatableMeals), newest first. */
   repeatable?: readonly RepeatableMeal[];
+  /** Foods this person has logged, newest first, suggested first as a search is typed. */
+  knownFoods?: readonly string[];
 }
 
 type Mode = 'photo' | 'search' | 'scan';
@@ -47,7 +50,7 @@ type Mode = 'photo' | 'search' | 'scan';
 export const closeUpLens = (lenses: readonly string[]): string | undefined =>
   lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
 
-export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [] }: Props) {
+export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], knownFoods = [] }: Props) {
   const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
@@ -161,25 +164,62 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     }
   };
 
-  const runSearch = async () => {
+  /**
+   * Searches `term` (what is typed, by default). `live` is the search made on
+   * a pause in typing: it leaves the keyboard up and keeps quiet when nothing
+   * matches yet, since the word is likely not finished.
+   */
+  const runSearch = async (term: string = query, live = false) => {
     // Searching is done typing: the results go where the keyboard was.
-    Keyboard.dismiss();
+    if (!live) Keyboard.dismiss();
+    const trimmed = term.trim();
     // A search already in flight is not re-fired: the food APIs are rate limited
     // per IP, so an impatient second tap spends quota that the first request is
     // already waiting on.
-    if (!query.trim() || busy) return;
+    if (!trimmed || busy) return;
+    searched.current = trimmed.toLowerCase();
     setAgain(null);
-    setBusy('searching');
     setError(null);
+    // Each term goes to the server once a visit (60 searches an hour per account).
+    const cached = searchCache.current.get(trimmed.toLowerCase());
+    if (cached) {
+      setResults(cached);
+      if (cached.length === 0 && !live) setError('No foods matched that search.');
+      return;
+    }
+    setBusy('searching');
     try {
-      const found = await searchFoodsByName(query);
-      setResults(found);
-      if (found.length === 0) setError('No foods matched that search.');
+      const found = await searchFoodsByName(trimmed);
+      const list = Array.isArray(found) ? found : [];
+      searchCache.current.set(trimmed.toLowerCase(), list);
+      setResults(list);
+      if (list.length === 0 && !live) setError('No foods matched that search.');
     } catch (cause) {
-      setError(errorMessage(cause, 'Food search failed.'));
+      if (!live) setError(errorMessage(cause, 'Food search failed.'));
     } finally {
       setBusy(null);
     }
+  };
+
+  // Autocomplete: names to finish the word at once (theirs, then common foods),
+  // and a real search when typing pauses, so Find is rarely needed.
+  const searched = useRef('');
+  const searchCache = useRef(new Map<string, FoodSearchResult[]>());
+  const suggestions = useMemo(
+    () => (mode === 'search' && query.trim().toLowerCase() !== searched.current ? foodSuggestions(query, knownFoods) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mode, query, knownFoods, results],
+  );
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (mode !== 'search' || trimmed.length < LIVE_SEARCH_MIN || busy || trimmed.toLowerCase() === searched.current) return undefined;
+    const timer = setTimeout(() => void runSearch(trimmed, true), LIVE_SEARCH_PAUSE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, query, busy]);
+  const pickSuggestion = (name: string) => {
+    setQuery(name);
+    void runSearch(name);
   };
 
   const onBarcode = async ({ data }: { data: string }) => {
@@ -284,12 +324,10 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
   return (
     <SheetPage onBackPress={requestClose}>
-      <KeyboardAvoidingView
-        style={styles.sheet}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <SheetKeyboardAvoidingView style={styles.sheet}>
         <View style={styles.header}>
-          <View>
+          {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
+          <View style={{ flex: 1 }}>
             <Kicker>Nourishment check</Kicker>
             <Text style={styles.title}>What's on your plate?</Text>
           </View>
@@ -420,7 +458,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   returnKeyType="search"
                   onSubmitEditing={() => void runSearch()}
                 />
-                <PressableScale style={styles.searchButton} onPress={() => void runSearch()}>
+                <PressableScale style={styles.searchButton} onPress={() => void runSearch()} accessibilityRole="button" accessibilityLabel="Find">
                   {busy === 'searching' ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
@@ -428,6 +466,22 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   )}
                 </PressableScale>
               </View>
+
+              {suggestions.length > 0 ? (
+                <View style={styles.suggestions} testID="food-suggestions">
+                  {suggestions.map((name) => (
+                    <Pressable
+                      key={name}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Search ${name}`}
+                      onPress={() => pickSuggestion(name)}
+                      style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
+                    >
+                      <Text style={styles.suggestionLabel} numberOfLines={1}>{name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
 
               {plate.length > 0 ? (
                 <View style={styles.plate} testID="plate">
@@ -437,13 +491,14 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                       <View style={styles.plateText}>
                         <Text style={styles.plateName} numberOfLines={1}>{food.name}</Text>
                         <Text style={styles.resultMeta} numberOfLines={1}>
-                          {Math.round(food.macros.calories * count)} kcal · {food.servingDescription}
+                          {Math.round(food.macros.calories * count).toLocaleString()} kcal · {portionAmount(food, count)}
                         </Text>
                       </View>
                       <Stepper
                         value={count}
                         label={food.name}
-                        onChange={(next) => (next > 0 ? setPlateServings(food.id, next) : togglePlate(food))}
+                        onChange={(next) => setPlateServings(food.id, next)}
+                        onRemove={() => togglePlate(food)}
                       />
                     </View>
                   ))}
@@ -553,7 +608,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             <PrimaryButton label={footer.label} busy={footer.busy} disabled={footer.disabled} onPress={footer.onPress} />
           </View>
         ) : null}
-      </KeyboardAvoidingView>
+      </SheetKeyboardAvoidingView>
     </SheetPage>
   );
 }
@@ -608,7 +663,8 @@ function RecentMeals({
               <Stepper
                 value={again!.servings}
                 label={meal.name}
-                onChange={(next) => onChange(next > 0 ? { meal, servings: next } : null)}
+                onChange={(next) => onChange({ meal, servings: next })}
+                onRemove={() => onChange(null)}
               />
             ) : null}
           </View>
@@ -618,16 +674,49 @@ function RecentMeals({
   );
 }
 
-/** Servings of one food on the plate, in halves; below a half takes it off. */
-function Stepper({ value, label, onChange }: { value: number; label: string; onChange: (next: number) => void }) {
+const MIN_SERVINGS = 0.5;
+/** Live search waits for this many letters and this long a pause in typing. */
+const LIVE_SEARCH_MIN = 3;
+const LIVE_SEARCH_PAUSE_MS = 700;
+
+/**
+ * Servings of one food, in halves, from a half up. Taking it off is its own
+ * button, set apart: when − at a half removed the food, the list closed up
+ * under the finger and the next tap landed on a different one.
+ */
+function Stepper({
+  value,
+  label,
+  onChange,
+  onRemove,
+}: {
+  value: number;
+  label: string;
+  onChange: (next: number) => void;
+  onRemove: () => void;
+}) {
+  const atLeast = value <= MIN_SERVINGS;
   return (
     <View style={styles.stepper}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Less ${label}`} hitSlop={6} onPress={() => onChange(value - 0.5)} style={styles.stepButton}>
-        <Text style={styles.stepMark}>{value <= 0.5 ? '×' : '−'}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Less ${label}`}
+        accessibilityState={{ disabled: atLeast }}
+        disabled={atLeast}
+        hitSlop={7}
+        onPress={() => onChange(Math.max(MIN_SERVINGS, value - 0.5))}
+        style={[styles.stepButton, atLeast && styles.stepButtonOff]}
+      >
+        <Text style={styles.stepMark}>−</Text>
       </Pressable>
       <Text style={styles.stepValue}>{`${value}×`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`More ${label}`} hitSlop={6} onPress={() => onChange(value + 0.5)} style={styles.stepButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`More ${label}`} hitSlop={7} onPress={() => onChange(value + 0.5)} style={styles.stepButton}>
         <Text style={styles.stepMark}>+</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${label}`} hitSlop={7} onPress={onRemove} style={styles.stepRemove}>
+        <Svg width={10} height={10} viewBox="0 0 12 12">
+          <Path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" stroke={colors.muted} strokeWidth={2} strokeLinecap="round" />
+        </Svg>
       </Pressable>
     </View>
   );
@@ -718,6 +807,7 @@ const styles = themedStyles(() => ({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 22,
   },
   title: { ...text.title, marginTop: 8 },
@@ -819,7 +909,12 @@ const styles = themedStyles(() => ({
   macroValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
   macroUnit: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
   actions: { marginTop: 24, gap: 16, alignItems: 'stretch' },
-  searchRow: { flexDirection: 'row', gap: 10 },
+  suggestions: { marginTop: -4, marginBottom: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' },
+  suggestion: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  suggestionPressed: { backgroundColor: colors.selectedFill },
+  suggestionLabel: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
+  // Room under the field: the first result sat 1 pt below it.
+  searchRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   searchInput: { flex: 1 },
   searchButton: {
     backgroundColor: colors.coral,
@@ -836,17 +931,19 @@ const styles = themedStyles(() => ({
   tick: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   tickOn: { backgroundColor: colors.coral, borderColor: colors.coral },
   tickMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: '#fff', lineHeight: 15 },
-  plate: { marginTop: 14, marginBottom: 6, padding: 12, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardSoft },
+  plate: { marginTop: 4, marginBottom: 6, padding: 12, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardSoft },
   plateTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.ink },
   plateRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   plateText: { flex: 1 },
   plateName: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepButton: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  stepButtonOff: { opacity: 0.35 },
+  stepRemove: { width: 30, height: 30, marginLeft: 6, alignItems: 'center', justifyContent: 'center' },
   stepMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.inkSoft, lineHeight: 15 },
   stepValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink, minWidth: 34, textAlign: 'center' },
-  recent: { marginTop: 18, gap: 2 },
-  recentTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 },
+  recent: { marginTop: 8, gap: 2 },
+  recentTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, paddingHorizontal: 6 },
   recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 6, borderBottomWidth: 1, borderBottomColor: colors.divider },
   recentMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 6 },
   recentPlus: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral, lineHeight: 20 },

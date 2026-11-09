@@ -1,5 +1,5 @@
 import type { MealAnalysis } from './domain/health';
-import { withEstimatedCalories } from './domain/macros';
+import { ZERO_CALORIE_LIMIT, withEstimatedCalories } from './domain/macros';
 import { getFdcApiKey, getSupabase } from './config';
 
 export interface FoodMacros {
@@ -134,14 +134,21 @@ const per100gMacrosFromFdc = (food: FdcFood): FoodMacros => ({
   }),
 });
 
+/**
+ * Grams to the tenth. Whole grams per food lost too much once foods were
+ * scaled and added: a banana's 0.33 g of fat was 0, so two of them were 0 g,
+ * and 2.6 g of fiber was 3, so two were 6. Totals are rounded where shown.
+ */
+const tenth = (value: number): number => Math.round(value * 10) / 10;
+
 const scaleMacros = (macros: FoodMacros, factor: number): FoodMacros => ({
   calories: Math.round(macros.calories * factor),
-  proteinGrams: Math.round(macros.proteinGrams * factor),
-  carbsGrams: Math.round(macros.carbsGrams * factor),
-  fatGrams: Math.round(macros.fatGrams * factor),
-  fiberGrams: Math.round(macros.fiberGrams * factor),
+  proteinGrams: tenth(macros.proteinGrams * factor),
+  carbsGrams: tenth(macros.carbsGrams * factor),
+  fatGrams: tenth(macros.fatGrams * factor),
+  fiberGrams: tenth(macros.fiberGrams * factor),
   ...optionalSubMacros({
-    sugarGrams: macros.sugarGrams === undefined ? undefined : Math.round(macros.sugarGrams * factor),
+    sugarGrams: macros.sugarGrams === undefined ? undefined : tenth(macros.sugarGrams * factor),
     saturatedFatGrams: macros.saturatedFatGrams === undefined ? undefined : Math.round(macros.saturatedFatGrams * factor * 10) / 10,
     sodiumMg: macros.sodiumMg === undefined ? undefined : Math.round(macros.sodiumMg * factor),
   }),
@@ -250,10 +257,10 @@ export const fatsecretFoodToResult = (food: FatSecretFood): FoodSearchResult | n
     isPer100g: grams === 100 && /^100\s?g$/i.test(label),
     macros: {
       calories: Math.round(toNumber(serving.calories) ?? 0),
-      proteinGrams: Math.round(toNumber(serving.protein) ?? 0),
-      carbsGrams: Math.round(toNumber(serving.carbohydrate) ?? 0),
-      fatGrams: Math.round(toNumber(serving.fat) ?? 0),
-      fiberGrams: Math.round(toNumber(serving.fiber) ?? 0),
+      proteinGrams: tenth(toNumber(serving.protein) ?? 0),
+      carbsGrams: tenth(toNumber(serving.carbohydrate) ?? 0),
+      fatGrams: tenth(toNumber(serving.fat) ?? 0),
+      fiberGrams: tenth(toNumber(serving.fiber) ?? 0),
       ...optionalSubMacros({
         sugarGrams: toNumber(serving.sugar),
         saturatedFatGrams: toNumber(serving.saturated_fat),
@@ -430,10 +437,10 @@ const offMacros = (
   basis: '_100g' | '_serving',
 ): FoodMacros => ({
   calories: Math.round(offEnergyKcal(nutriments, basis) ?? offEnergyKcal(nutriments, '') ?? 0),
-  proteinGrams: Math.round(toNumber(nutriments[`proteins${basis}`]) ?? 0),
-  carbsGrams: Math.round(toNumber(nutriments[`carbohydrates${basis}`]) ?? 0),
-  fatGrams: Math.round(toNumber(nutriments[`fat${basis}`]) ?? 0),
-  fiberGrams: Math.round(toNumber(nutriments[`fiber${basis}`]) ?? 0),
+  proteinGrams: tenth(toNumber(nutriments[`proteins${basis}`]) ?? 0),
+  carbsGrams: tenth(toNumber(nutriments[`carbohydrates${basis}`]) ?? 0),
+  fatGrams: tenth(toNumber(nutriments[`fat${basis}`]) ?? 0),
+  fiberGrams: tenth(toNumber(nutriments[`fiber${basis}`]) ?? 0),
   ...optionalSubMacros({
     sugarGrams: toNumber(nutriments[`sugars${basis}`]),
     saturatedFatGrams: toNumber(nutriments[`saturated-fat${basis}`]),
@@ -598,16 +605,20 @@ const FIBER_GRAMS_THRESHOLD = 3;
  * Butter") still says which product it was; the amount says what the numbers
  * under it are for.
  */
-export const describePortion = (food: FoodSearchResult, servings: number): string => {
-  const brand = food.brand?.split(',')[0]?.trim();
-  const named = brand && !food.name.toLowerCase().includes(brand.toLowerCase()) ? `${brand} ${food.name}` : food.name;
+/** How much of a food, as eaten: "350 g" for a per-100 g food, "2 × 1 bar (55 g)" for a serving. */
+export const portionAmount = (food: FoodSearchResult, servings: number): string => {
   const count = Math.round(servings * 100) / 100;
-  const amount = food.isPer100g
+  return food.isPer100g
     ? `${Math.round(servings * REFERENCE_GRAMS)} g`
     : count === 1
       ? food.servingDescription
       : `${count} × ${food.servingDescription}`;
-  return `${named} · ${amount}`;
+};
+
+export const describePortion = (food: FoodSearchResult, servings: number): string => {
+  const brand = food.brand?.split(',')[0]?.trim();
+  const named = brand && !food.name.toLowerCase().includes(brand.toLowerCase()) ? `${brand} ${food.name}` : food.name;
+  return `${named} · ${portionAmount(food, servings)}`;
 };
 
 export const toMealAnalysis = (food: FoodSearchResult, servings: number): MealAnalysis => {
@@ -641,12 +652,12 @@ export const toPlateAnalysis = (items: readonly PlateItem[]): MealAnalysis => {
     plate.every((item) => item.macros[key] !== undefined) ? total(key) : undefined;
   const macros: FoodMacros = {
     calories: total('calories'),
-    proteinGrams: total('proteinGrams'),
-    carbsGrams: total('carbsGrams'),
-    fatGrams: total('fatGrams'),
-    fiberGrams: total('fiberGrams'),
+    proteinGrams: tenth(total('proteinGrams')),
+    carbsGrams: tenth(total('carbsGrams')),
+    fatGrams: tenth(total('fatGrams')),
+    fiberGrams: tenth(total('fiberGrams')),
     ...optionalSubMacros({
-      sugarGrams: totalIfAll('sugarGrams'),
+      sugarGrams: ((value) => (value === undefined ? undefined : tenth(value)))(totalIfAll('sugarGrams')),
       saturatedFatGrams: ((value) => (value === undefined ? undefined : Math.round(value * 10) / 10))(totalIfAll('saturatedFatGrams')),
       sodiumMg: totalIfAll('sodiumMg'),
     }),
@@ -690,8 +701,12 @@ const gradePlate = (plate: readonly PlateItem[], scaled: FoodMacros, foodDescrip
     nutrients.fiber,
   ].filter(Boolean).length;
 
-  const grade: MealAnalysis['grade'] =
-    positiveCount >= 3 ? 'A' : positiveCount === 2 ? 'B' : positiveCount === 1 ? 'C' : 'D';
+  // Water, black coffee, plain tea: nothing to eat, so nothing to mark down.
+  // Graded D they cost health and carried the Junk effect, for a glass of water.
+  const nothingToEat = scaled.calories < ZERO_CALORIE_LIMIT && !nutrients.treats;
+  const grade: MealAnalysis['grade'] = nothingToEat
+    ? 'C'
+    : positiveCount >= 3 ? 'A' : positiveCount === 2 ? 'B' : positiveCount === 1 ? 'C' : 'D';
 
   return withEstimatedCalories({
     grade,

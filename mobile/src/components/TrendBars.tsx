@@ -4,6 +4,17 @@ import { haptic } from './ui';
 import { colors, fonts, themedStyles } from '../theme';
 
 const CHART_HEIGHT = 150;
+/** A day with anything in it shows at least this tall, so a small day still reads. */
+const MIN_BAR = 4;
+const DENSE_LABEL_WIDTH = 44;
+/** Centred under its bar, except at either end, where it lines up with the chart's edge instead of overhanging it. */
+const denseLabelAt = (index: number, count: number) => {
+  const centre = ((index + 0.5) / count) * 100;
+  if (index === count - 1) return { right: 0, textAlign: 'right' as const };
+  if (index < 2) return { left: 0, textAlign: 'left' as const };
+  return { left: `${centre}%` as const, marginLeft: -DENSE_LABEL_WIDTH / 2 };
+};
+const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 const DAY_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export interface TrendBar {
@@ -28,10 +39,12 @@ export function TrendBars({
   format: (value: number) => string;
   unit: string;
 }) {
-  const [picked, setPicked] = useState<number | null>(null);
+  // Picked by day, not by position: switching 7 → 30 days kept the 5th bar
+  // picked, which was another day entirely (and often an empty one).
+  const [picked, setPicked] = useState<string | null>(null);
   const top = Math.max(1, goal ?? 0, ...bars.map((bar) => bar.value)) * 1.08;
   const dense = bars.length > 10;
-  const shown = picked === null ? null : bars[picked];
+  const shown = bars.find((bar) => dayKey(bar.date) === picked) ?? null;
   return (
     <View>
       <Text style={styles.readout} accessibilityLiveRegion="polite">
@@ -45,8 +58,9 @@ export function TrendBars({
             <Text style={styles.goalLabel}>goal</Text>
           </View>
         ) : null}
-        {bars.map((bar, index) => {
+        {bars.map((bar) => {
           const met = goal !== undefined && bar.value >= goal * 0.9;
+          const on = dayKey(bar.date) === picked;
           return (
             <Pressable
               key={bar.date.toISOString()}
@@ -54,34 +68,48 @@ export function TrendBars({
               accessibilityLabel={`${bar.date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}: ${format(bar.value)} ${unit}`}
               onPress={() => {
                 haptic('select');
-                setPicked(picked === index ? null : index);
+                setPicked(on ? null : dayKey(bar.date));
               }}
               style={styles.column}
             >
               <View
                 style={[
                   styles.bar,
-                  { height: Math.max(bar.value > 0 ? 3 : 0, (bar.value / top) * CHART_HEIGHT), borderRadius: dense ? 2 : 5 },
+                  { height: Math.max(bar.value > 0 ? MIN_BAR : 0, (bar.value / top) * CHART_HEIGHT), borderRadius: dense ? 2 : 5 },
                   met ? styles.barMet : styles.barSoft,
                   bar.isToday && styles.barToday,
-                  picked === index && styles.barPicked,
+                  on && styles.barPicked,
                 ]}
               />
             </Pressable>
           );
         })}
       </View>
-      <View style={styles.labels}>
-        {bars.map((bar, index) => (
-          <Text key={bar.date.toISOString()} style={[styles.label, bar.isToday && styles.labelToday]} numberOfLines={1}>
-            {dense
-              ? index % 7 === (bars.length - 1) % 7
-                ? `${bar.date.getMonth() + 1}/${bar.date.getDate()}`
-                : ''
-              : DAY_LETTER[bar.date.getDay()]}
-          </Text>
-        ))}
-      </View>
+      {dense ? (
+        // A date every seven days, centred on its bar and free to be wider
+        // than it: squeezed into one bar's column, "10/14" showed as "1..".
+        <View style={styles.denseLabels}>
+          {bars.map((bar, index) =>
+            index % 7 === (bars.length - 1) % 7 ? (
+              <Text
+                key={bar.date.toISOString()}
+                style={[styles.denseLabel, denseLabelAt(index, bars.length), bar.isToday && styles.labelToday]}
+                numberOfLines={1}
+              >
+                {`${bar.date.getMonth() + 1}/${bar.date.getDate()}`}
+              </Text>
+            ) : null,
+          )}
+        </View>
+      ) : (
+        <View style={styles.labels}>
+          {bars.map((bar) => (
+            <Text key={bar.date.toISOString()} style={[styles.label, bar.isToday && styles.labelToday]} numberOfLines={1}>
+              {DAY_LETTER[bar.date.getDay()]}
+            </Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -107,7 +135,8 @@ const styles = themedStyles(() => ({
   column: { flex: 1, height: CHART_HEIGHT, justifyContent: 'flex-end' },
   bar: { width: '100%' },
   barMet: { backgroundColor: colors.coral },
-  barSoft: { backgroundColor: colors.coralWash },
+  // The wash alone all but vanished on a dark card.
+  barSoft: { backgroundColor: colors.coral, opacity: 0.4 },
   barToday: { opacity: 0.55 },
   barPicked: { backgroundColor: colors.coralDeep, opacity: 1 },
   goal: {
@@ -122,6 +151,15 @@ const styles = themedStyles(() => ({
   goalLabel: { position: 'absolute', right: 0, top: -16, fontFamily: fonts.ui, fontSize: 11, color: colors.muted },
   labels: { flexDirection: 'row', gap: 3, marginTop: 6 },
   label: { flex: 1, textAlign: 'center', fontFamily: fonts.ui, fontSize: 11, color: colors.faint, overflow: 'visible' },
+  denseLabels: { height: 16, marginTop: 6 },
+  denseLabel: {
+    position: 'absolute',
+    width: DENSE_LABEL_WIDTH,
+    textAlign: 'center',
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.faint,
+  },
   labelToday: { color: colors.ink, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: {

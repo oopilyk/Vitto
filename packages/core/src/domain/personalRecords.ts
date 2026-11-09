@@ -1,6 +1,7 @@
 import type { HealthEvent, WeightUnit, WorkoutMetadata } from './health';
 import { convertWeightValue } from './macroTargets';
-import { estimatedOneRepMax } from './strengthRanks';
+import { estimatedOneRepMax } from './oneRepMax';
+import { plausibleSet } from './workoutLimits';
 
 /**
  * Personal records: the heaviest set ever ticked on each of the big lifts.
@@ -64,7 +65,7 @@ export const personalRecords = (
     for (const exercise of exercises ?? []) {
       if (!best.has(exercise.name)) continue;
       for (const set of exercise.sets) {
-        if (!set.completed || !set.weight || set.weight <= 0) continue;
+        if (!set.completed || !set.weight || set.weight <= 0 || !plausibleSet(set)) continue;
         const weight = Math.round(convertWeightValue(set.weight, set.unit ?? 'kg', unit) * 10) / 10;
         const candidate = { weight, reps: Math.max(0, set.reps), occurredAt: event.occurredAt };
         if (beats(candidate, best.get(exercise.name) ?? null)) best.set(exercise.name, candidate);

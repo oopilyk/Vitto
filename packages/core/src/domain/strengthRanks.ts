@@ -1,6 +1,8 @@
 import type { HealthEvent, WorkoutMetadata } from './health';
 import type { BodyProfile } from './macroTargets';
 import { convertWeightValue } from './macroTargets';
+import { estimatedOneRepMax } from './oneRepMax';
+import { plausibleSet } from './workoutLimits';
 
 /**
  * Strength ranks: how strong each lift is for the person lifting it, as a rank
@@ -74,12 +76,6 @@ const LIFT_SOURCES: Record<StandardLift, Record<string, number>> = {
   curl: { 'EZ Bar Curl': 1, 'Bicep Curl': 1.8, 'Hammer Curl': 1.7, 'Preacher Curl': 1.2, 'Cable Curl': 1.1 },
 };
 
-/** Sets with more reps than this say little about a one-rep max. */
-const MAX_REPS_FOR_ESTIMATE = 10;
-
-/** Epley's estimate of a one-rep max from a set. */
-export const estimatedOneRepMax = (weight: number, reps: number): number =>
-  reps <= 1 ? weight : weight * (1 + Math.min(reps, MAX_REPS_FOR_ESTIMATE) / 30);
 
 export interface LiftScore {
   lift: StandardLift;
@@ -110,7 +106,7 @@ export const liftScores = (events: readonly HealthEvent[], profile: Pick<BodyPro
         const factor = LIFT_SOURCES[lift][exercise.name];
         if (!factor) continue;
         for (const set of exercise.sets) {
-          if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0) continue;
+          if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0 || !plausibleSet(set)) continue;
           const unit = set.unit ?? 'kg';
           const kg = estimatedOneRepMax(convertWeightValue(set.weight, unit, 'kg'), set.reps) * factor;
           if (kg > (best.get(lift)?.kg ?? 0)) {
@@ -165,7 +161,7 @@ export const liftHistory = (events: readonly HealthEvent[], lift: StandardLift):
       const factor = LIFT_SOURCES[lift][exercise.name];
       if (!factor) continue;
       for (const set of exercise.sets) {
-        if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0) continue;
+        if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0 || !plausibleSet(set)) continue;
         const unit = set.unit ?? 'kg';
         const kg = estimatedOneRepMax(convertWeightValue(set.weight, unit, 'kg'), set.reps) * factor;
         if (!best || kg > best.oneRepMaxKg) {
@@ -222,4 +218,67 @@ export const muscleRanks = (scores: readonly LiftScore[]): Record<MuscleGroup, n
     out[group] = tiers.length ? Math.floor(tiers.reduce((sum, tier) => sum + tier, 0) / tiers.length) : null;
   }
   return out;
+};
+
+/** Exercises that are a standard lift as written (not a variation scaled to one). */
+const STANDARD_AS_WRITTEN: ReadonlySet<string> = new Set(
+  Object.values(LIFT_SOURCES).flatMap((sources) => Object.entries(sources).filter(([, factor]) => factor === 1).map(([name]) => name)),
+);
+
+/**
+ * One exercise's estimated one-rep max over time, as itself (no conversion to
+ * a barbell lift): one point per workout, its best set, oldest first.
+ */
+export const exerciseHistory = (events: readonly HealthEvent[], exerciseName: string): LiftPoint[] => {
+  const points: LiftPoint[] = [];
+  for (const event of events) {
+    if (event.type !== 'WORKOUT') continue;
+    let best: LiftPoint | null = null;
+    for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
+      if (exercise.name !== exerciseName) continue;
+      for (const set of exercise.sets) {
+        if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0 || !plausibleSet(set)) continue;
+        const unit = set.unit ?? 'kg';
+        const kg = estimatedOneRepMax(convertWeightValue(set.weight, unit, 'kg'), set.reps);
+        if (!best || kg > best.oneRepMaxKg) {
+          best = { occurredAt: event.occurredAt, oneRepMaxKg: kg, from: { exercise: exercise.name, weight: set.weight, unit, reps: set.reps } };
+        }
+      }
+    }
+    if (best) points.push({ ...best, oneRepMaxKg: Math.round(best.oneRepMaxKg * 10) / 10 });
+  }
+  return points.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+};
+
+export interface OtherLift {
+  exercise: string;
+  /** Workouts it was lifted in, with weight. */
+  sessions: number;
+  /** Its best estimated one-rep max, in kg, and the set it came from. */
+  best: LiftPoint;
+}
+
+/**
+ * Everything else lifted more than once: any weighted exercise that is not one
+ * of the six ranked lifts as written, trained in at least `minSessions`
+ * workouts, most often trained first. No rank (there are no published
+ * standards for a cable fly), but its progress is worth seeing all the same.
+ */
+export const otherLifts = (events: readonly HealthEvent[], minSessions = 2): OtherLift[] => {
+  const names = new Set<string>();
+  for (const event of events) {
+    if (event.type !== 'WORKOUT') continue;
+    for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
+      if (!exercise.bodyweight && !exercise.distance && !STANDARD_AS_WRITTEN.has(exercise.name)) names.add(exercise.name);
+    }
+  }
+  return [...names]
+    .map((exercise) => ({ exercise, points: exerciseHistory(events, exercise) }))
+    .filter(({ points }) => points.length >= minSessions)
+    .map(({ exercise, points }) => ({
+      exercise,
+      sessions: points.length,
+      best: points.reduce((top, point) => (point.oneRepMaxKg > top.oneRepMaxKg ? point : top)),
+    }))
+    .sort((a, b) => b.sessions - a.sessions || a.exercise.localeCompare(b.exercise));
 };

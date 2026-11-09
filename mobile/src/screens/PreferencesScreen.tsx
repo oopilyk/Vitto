@@ -24,6 +24,7 @@ import {
   SettingsSection,
   TextField,
 } from '../components/settingsKit';
+import { useNumberText } from '../components/ui';
 import { colors, themedStyles, fonts } from '../theme';
 
 interface Props {
@@ -68,6 +69,12 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
       : round(convertWeightValue(profile.targetWeightKg, 'kg', 'lb'))
     : undefined;
   const displayedHeight = convertHeightToFeetAndInches(profile.heightCm);
+  const weightText = useNumberText(displayedWeight, (value) => update('weightKg', toKg(value ?? 0)), true);
+  const targetText = useNumberText(
+    displayedTarget,
+    (value) => update('targetWeightKg', value === undefined ? undefined : toKg(value)),
+    true,
+  );
   const digits = (value: string, decimals = false) => value.replace(decimals ? /[^0-9.]/g : /[^0-9]/g, '');
   const plan = planForGoal(profile);
   const recommended = recommendedCalories(profile);
@@ -131,8 +138,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           <FormField label={`Weight (${profile.weightUnit})`}>
             <TextField
               keyboardType="decimal-pad"
-              value={String(displayedWeight)}
-              onChangeText={(value) => update('weightKg', toKg(Number(digits(value, true)) || 0))}
+              {...weightText}
             />
           </FormField>
         </FieldRow>
@@ -220,11 +226,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
                 <TextField
                   keyboardType="decimal-pad"
                   placeholder="—"
-                  value={displayedTarget === undefined ? '' : String(displayedTarget)}
-                  onChangeText={(value) => {
-                    const next = digits(value, true);
-                    update('targetWeightKg', next === '' ? undefined : toKg(Number(next)));
-                  }}
+                  {...targetText}
                 />
               </FormField>
               <FormField label="Weeks" hint="optional">

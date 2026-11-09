@@ -44,12 +44,14 @@ export function MindTodayPanel({ pet, today, night }: MindTodayPanelProps) {
   const zero = isZeroDay(today);
   return (
     <View style={[styles.panel, surface.panel, night && surface.panelNight]}>
-      <PetAvatar pet={pet} {...IDLE_ACTIVITY} size={PET_SIZE} hideStatusCaption />
+      {/* The stage is 320 tall and sage by default, which stretched the
+          panel to 355 pt with the pet in a narrow strip: a square of its own. */}
+      <PetAvatar pet={pet} {...IDLE_ACTIVITY} size={PET_SIZE} hideStatusCaption stageStyle={styles.petStage} />
       <View style={styles.body}>
         <Text style={[surface.kicker, night && surface.kickerNight]}>MIND TODAY</Text>
         {zero ? (
           <Text style={[surface.caption, night && surface.captionNight, styles.zeroLine]} numberOfLines={2}>
-            no games yet today — {pet.name} is ready whenever you are.
+            No games yet today. {pet.name} is ready whenever you are.
           </Text>
         ) : (
           <View style={styles.figures}>
@@ -71,6 +73,7 @@ const styles = themedStyles(() => ({
     paddingVertical: 14,
     gap: 14,
   },
+  petStage: { width: PET_SIZE, height: PET_SIZE, backgroundColor: 'transparent', overflow: 'visible' },
   body: { flex: 1, minHeight: 48, justifyContent: 'center' },
   zeroLine: { marginTop: 6, lineHeight: 15 },
   figures: {

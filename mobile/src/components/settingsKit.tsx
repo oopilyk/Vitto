@@ -243,7 +243,7 @@ export function NavRow({
       <View style={kit.rowText}>
         <Text style={[kit.navTitle, danger && kit.navTitleDanger]}>{title}</Text>
         {value ? (
-          <Text style={kit.navValue} numberOfLines={1}>
+          <Text style={kit.navValue} numberOfLines={2}>
             {value}
           </Text>
         ) : null}

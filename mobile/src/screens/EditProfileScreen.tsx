@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { type BodyProfile, MAX_BIO_LENGTH, normalizeBio } from '@vitto/core';
+import { type BodyProfile, MAX_BIO_LENGTH, initialOf, normalizeBio } from '@vitto/core';
 import { FormField, SaveBar, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -36,6 +36,9 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
     setError(null);
     try {
       await onSave({ ...profile, bio: normalizeBio(profile.bio ?? '') });
+      // Back to Profile, where the change shows: staying put, the page looked
+      // as if Save had done nothing.
+      onClose();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save your profile.');
     } finally {
@@ -43,7 +46,7 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
     }
   };
 
-  const avatarLetter = (profile.username || profile.displayName?.trim() || '?').slice(0, 1).toUpperCase();
+  const avatarLetter = initialOf(profile.username || profile.displayName);
 
   return (
     <SettingsPage
@@ -71,7 +74,15 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
       </View>
 
       <SettingsSection title="About you" description="Friends see your username and your bio. Your name is just for you." first>
-        <FormField label="Name" hint="only you see this">
+        {/* The count once it matters, so the limit is not a silent stop. */}
+        <FormField
+          label="Name"
+          hint={
+            (profile.displayName ?? '').length >= DISPLAY_NAME_MAX_LENGTH - 10
+              ? `${(profile.displayName ?? '').length} / ${DISPLAY_NAME_MAX_LENGTH}`
+              : 'only you see this'
+          }
+        >
           <TextField
             value={profile.displayName ?? ''}
             onChangeText={(value) => update('displayName', value)}

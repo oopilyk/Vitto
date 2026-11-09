@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View, KeyboardAvoidingView, Platform } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, TextInput, View, Platform } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import {
   type WeightUnit,
@@ -21,8 +21,8 @@ import {
   templateFromSession,
   updateSet,
 } from '@vitto/core';
-import { KM_PER_MILE } from '@vitto/core';
-import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, TextButton, haptic, DoneTextInput } from '../components/ui';
+import { KM_PER_MILE, checkWorkout } from '@vitto/core';
+import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput } from '../components/ui';
 import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
 import { startRest, stopRest } from '../services/restTimer';
 import { clearWorkoutDraft, loadWorkoutDraft, saveWorkoutDraft } from '../services/workoutDraft';
@@ -169,6 +169,11 @@ export function WorkoutScreen({
   }, [startWithCardio]);
 
   const routineMode = mode === 'routine';
+
+  // Notes sit at the foot of the session, so the keyboard opens over them:
+  // once it has made room, bring the end of the page up to meet it.
+  const bodyRef = useRef<ScrollView>(null);
+  const revealEnd = () => setTimeout(() => bodyRef.current?.scrollToEnd({ animated: true }), 300);
 
   const addExercise = (exerciseName: string, muscle: string, bodyweight: boolean) => {
     // Once each: more of the same exercise is more sets on its card.
@@ -409,7 +414,7 @@ export function WorkoutScreen({
     goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0) ? 'Add the time' : `${stats.durationMinutes} min`,
   ].join(' · ');
 
-  const finish = async () => {
+  const finish = async (confirmed = false) => {
     if (!exercises.length) {
       setError('Add an exercise first.');
       return;
@@ -418,6 +423,20 @@ export function WorkoutScreen({
     // the walk as a single minute.
     if (goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0)) {
       setError('Add how many minutes it took.');
+      return;
+    }
+    // A typo is refused or questioned here, before it becomes a record.
+    const check = checkWorkout({ exercises, durationMinutes: stats.durationMinutes, distanceKm });
+    if (check?.level === 'refuse') {
+      setError(check.message);
+      return;
+    }
+    if (check && !confirmed && !(Platform.OS === 'web' && globalThis.confirm?.(check.message))) {
+      if (Platform.OS === 'web') return;
+      Alert.alert(check.message, 'Check the numbers before this goes in your log.', [
+        { text: 'Fix it', style: 'cancel' },
+        { text: 'Log it', onPress: () => void finish(true) },
+      ]);
       return;
     }
     setSaving(true);
@@ -450,12 +469,24 @@ export function WorkoutScreen({
     }
   };
 
-  const matches = exerciseLibrary.filter(([exerciseName, muscle, kind]) => {
-    if (cardioOnly && kind !== 'distance') return false;
-    const query = search.trim().toLowerCase();
-    if (!query) return true;
-    return exerciseName.toLowerCase().includes(query) || muscle.toLowerCase().includes(query);
-  });
+  const query = search.trim().toLowerCase();
+  // Best match first: a name that starts with the search, then a word in it
+  // that does, then the rest. "run" put Crunches above Running.
+  const rank = (exerciseName: string) => {
+    const lower = exerciseName.toLowerCase();
+    if (lower.startsWith(query)) return 0;
+    if (lower.split(/[\s-]+/).some((word) => word.startsWith(query))) return 1;
+    return 2;
+  };
+  const matches = exerciseLibrary
+    .filter(([exerciseName, muscle, kind]) => {
+      if (cardioOnly && kind !== 'distance') return false;
+      if (!query) return true;
+      return exerciseName.toLowerCase().includes(query) || muscle.toLowerCase().includes(query);
+    })
+    .map((entry, index) => ({ entry, index, rank: query ? rank(entry[0]) : 0 }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map(({ entry }) => entry);
 
   /** Whether this exercise is already in the session — shown on its picker row. */
   const isAdded = (exerciseName: string) => exercises.some((exercise) => exercise.name === exerciseName);
@@ -509,10 +540,7 @@ export function WorkoutScreen({
 
   return (
     <SheetPage onBackPress={requestClose}>
-      <KeyboardAvoidingView
-        style={styles.sheet}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <SheetKeyboardAvoidingView style={styles.sheet}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <Kicker>{routineMode ? 'Vitto / routine' : 'Vitto / training'}</Kicker>
@@ -534,7 +562,12 @@ export function WorkoutScreen({
           )}
         </View>
 
-        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+        <ScrollView
+          ref={bodyRef}
+          contentContainerStyle={styles.body}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
           {routineMode ? (
             <>
               <Text style={styles.sectionLabel}>ROUTINE NAME</Text>
@@ -563,7 +596,9 @@ export function WorkoutScreen({
 
               <PressableScale
                 accessibilityRole="button"
-                accessibilityLabel="Add exercise"
+                // Each label is the words on the button, so Voice Control's
+                // "tap Pick exercises" finds it.
+                accessibilityLabel="Pick exercises"
                 onPress={openPicker}
                 style={({ pressed }) => [styles.startCard, pressed && styles.pressed]}
               >
@@ -596,7 +631,7 @@ export function WorkoutScreen({
                       means logging a session first. */}
                   <PressableScale
                     accessibilityRole="button"
-                    accessibilityLabel="Make a new routine"
+                    accessibilityLabel="Create a routine"
                     onPress={startNewRoutine}
                     style={({ pressed }) => [styles.newRoutine, pressed && styles.pressed]}
                   >
@@ -615,7 +650,7 @@ export function WorkoutScreen({
           {routineMode && empty ? (
             <PressableScale
               accessibilityRole="button"
-              accessibilityLabel="Add exercise"
+              accessibilityLabel="Add exercises"
               onPress={openPicker}
               style={({ pressed }) => [styles.startCard, styles.routineStart, pressed && styles.pressed]}
             >
@@ -718,26 +753,36 @@ export function WorkoutScreen({
                           </Text>
                         </Pressable>
                       ) : null}
-                      <DoneTextInput
-                        style={[layout.input, styles.setInput, exercise.bodyweight && styles.setInputOff]}
-                        keyboardType="number-pad"
-                        selectTextOnFocus
-                        editable={!exercise.bodyweight}
-                        value={exercise.bodyweight ? '' : String(set.weight ?? '')}
-                        placeholder={exercise.bodyweight ? 'BW' : weightUnit}
-                        placeholderTextColor={colors.faint}
-                        accessibilityLabel={`Set ${index + 1} weight`}
-                        onChangeText={(value) => patchSet(exercise.id, set.id, { weight: Number(value) || 0 })}
-                      />
-                      <DoneTextInput
+                      {/* Decimal: 22.5 lb and 2.5 kg plates are ordinary. */}
+                      {exercise.bodyweight ? (
+                        <DoneTextInput
+                          style={[layout.input, styles.setInput, styles.setInputOff]}
+                          editable={false}
+                          value=""
+                          placeholder="BW"
+                          placeholderTextColor={colors.faint}
+                          accessibilityLabel={`Set ${index + 1} weight`}
+                        />
+                      ) : (
+                        <NumberInput
+                          decimal
+                          style={[layout.input, styles.setInput]}
+                          selectTextOnFocus
+                          value={set.weight}
+                          placeholder={weightUnit}
+                          placeholderTextColor={colors.faint}
+                          accessibilityLabel={`Set ${index + 1} weight`}
+                          onValue={(value) => patchSet(exercise.id, set.id, { weight: value })}
+                        />
+                      )}
+                      <NumberInput
                         style={[layout.input, styles.setInput]}
-                        keyboardType="number-pad"
                         selectTextOnFocus
-                        value={String(set.reps)}
+                        value={set.reps}
                         placeholder="reps"
                         placeholderTextColor={colors.faint}
                         accessibilityLabel={`Set ${index + 1} reps`}
-                        onChangeText={(value) => patchSet(exercise.id, set.id, { reps: Number(value) || 0 })}
+                        onValue={(value) => patchSet(exercise.id, set.id, { reps: value ?? 0 })}
                       />
                       {/* The tick is for the rest timer and your own place in
                           the session; the set counts either way. One you did not
@@ -747,7 +792,7 @@ export function WorkoutScreen({
                           accessibilityRole="checkbox"
                           accessibilityState={{ checked: ticked.has(set.id) }}
                           accessibilityLabel={`Set ${index + 1} of ${exercise.name} done`}
-                          hitSlop={4}
+                          hitSlop={7}
                           onPress={() => toggleTick(exercise, set.id)}
                           style={[styles.tickSlot, styles.tick, ticked.has(set.id) && styles.tickOn]}
                           testID={`tick-${exercise.name}-${index + 1}`}
@@ -759,7 +804,7 @@ export function WorkoutScreen({
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={`Remove set ${index + 1} of ${exercise.name}`}
-                          hitSlop={6}
+                          hitSlop={8}
                           onPress={() =>
                             setExercises((current) =>
                               current.map((item) =>
@@ -798,7 +843,7 @@ export function WorkoutScreen({
           {!empty ? (
             <PressableScale
               accessibilityRole="button"
-              accessibilityLabel="Add exercise"
+              accessibilityLabel="Add another exercise"
               onPress={openPicker}
               style={({ pressed }) => [styles.addExercise, pressed && styles.pressed]}
             >
@@ -828,6 +873,7 @@ export function WorkoutScreen({
                 placeholder="How did it feel?"
                 placeholderTextColor={colors.faint}
                 multiline
+                onFocus={revealEnd}
               />
 
               {/* An ad-hoc session you decide afterwards is worth keeping. */}
@@ -940,7 +986,7 @@ export function WorkoutScreen({
             </View>
           </View>
         ) : null}
-      </KeyboardAvoidingView>
+      </SheetKeyboardAvoidingView>
     </SheetPage>
   );
 }

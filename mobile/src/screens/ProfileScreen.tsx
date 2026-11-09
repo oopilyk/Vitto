@@ -18,6 +18,7 @@ import {
   overallStanding,
   personalRecords,
   runRecords,
+  initialOf,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { Kicker, PressableScale } from '../components/ui';
@@ -83,16 +84,19 @@ function Card({
   onLayout,
   onOpen,
   openLabel,
+  openText = 'More',
 }: {
   title: string;
   hint?: string;
   children: ReactNode;
   /** Where the card sits in the scroll content -- so a deep link can scroll to it. */
   onLayout?: (event: LayoutChangeEvent) => void;
-  /** Opens the card's detail page, from an arrow at its top right. */
+  /** Opens the card's detail page, from a "Progress ›" link at its top right. */
   onOpen?: () => void;
-  /** Screen-reader name for that arrow. */
+  /** Screen-reader name for that link. */
   openLabel?: string;
+  /** What the link says. */
+  openText?: string;
 }) {
   return (
     <View style={styles.card} onLayout={onLayout}>
@@ -106,7 +110,9 @@ function Card({
             hitSlop={10}
             style={({ pressed }) => [styles.cardOpen, pressed && styles.headerButtonPressed]}
           >
-            <Text style={styles.cardOpenMark}>↗</Text>
+            {/* Words and a chevron, as every other way into a page: iOS drew
+                the ↗ arrow as a blue emoji tile. */}
+            <Text style={styles.cardOpenMark}>{openText} ›</Text>
           </Pressable>
         ) : null}
       </View>
@@ -197,7 +203,7 @@ export function ProfileScreen({
   const visibleAchievements = showAchievements ? ACHIEVEMENTS : ACHIEVEMENTS.slice(0, ACHIEVEMENTS_PREVIEW);
 
   const name = profile.displayName?.trim();
-  const avatarLetter = (name || profile.username || '?').slice(0, 1).toUpperCase();
+  const avatarLetter = initialOf(name || profile.username);
   const screenTimeToday = findScreenTimeForDate(events, today);
   const screenTimeValue = [
     profile.screenTimeBudgetMinutes ? `Budget ${formatMinutes(profile.screenTimeBudgetMinutes)}` : 'No budget',
@@ -296,6 +302,7 @@ export function ProfileScreen({
           title="Personal records"
           onOpen={onOpenLiftProgress}
           openLabel="See lift progress"
+          openText="Progress"
           hint={
             onBoard === 0
               ? 'Your best on each big lift and on the road, read from the workouts you log'
@@ -305,7 +312,7 @@ export function ProfileScreen({
           <View style={styles.records} accessibilityLabel="Personal records">
             {board.map(({ label, value, unit, meta, note }) => (
               <View key={label} style={[styles.record, value === null && styles.recordEmpty]}>
-                <Text style={styles.recordLift}>{label}</Text>
+                <Text style={styles.recordLift} numberOfLines={2}>{label}</Text>
                 <Text style={[styles.recordValue, value === null && styles.recordValueEmpty]}>
                   {value ?? '—'}
                   {value !== null && unit ? <Text style={styles.recordUnit}> {unit}</Text> : null}
@@ -482,17 +489,8 @@ const styles = themedStyles(() => ({
     padding: 18,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  cardOpen: {
-    width: 32,
-    height: 32,
-    marginVertical: -6,
-    marginRight: -6,
-    borderRadius: 16,
-    backgroundColor: colors.cardSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardOpenMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.coral },
+  cardOpen: { marginVertical: -6, paddingVertical: 6 },
+  cardOpenMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.coral },
   cardHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 6, lineHeight: 18 },
   cardBody: { marginTop: 4 },
   records: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
@@ -507,7 +505,8 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.paper,
   },
   recordEmpty: { borderStyle: 'dashed' },
-  recordLift: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint },
+  // Two lines' room whether or not the name wraps, so the figures in a row line up.
+  recordLift: { fontFamily: fonts.ui, fontSize: 11, lineHeight: 14, minHeight: 28, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint },
   recordValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink, marginTop: 6 },
   recordValueEmpty: { color: colors.faint },
   recordUnit: { fontFamily: fonts.ui, fontSize: 12, fontWeight: '400', color: colors.faint },

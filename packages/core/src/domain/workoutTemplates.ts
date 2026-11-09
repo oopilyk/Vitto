@@ -1,5 +1,6 @@
 import { newId } from './ids';
 import type { HealthEvent, WorkoutExercise, WorkoutMetadata, WorkoutSet } from './health';
+import { plausibleSet } from './workoutLimits';
 
 /**
  * Saved routines — "Push", "Pull", "Legs" — so logging a workout you do every
@@ -137,7 +138,7 @@ export const lastSetsByExercise = (events: readonly HealthEvent[]): Map<string, 
   for (const event of newestFirst) {
     for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
       if (last.has(exercise.name)) continue;
-      const done = exercise.sets.filter((set) => set.completed && set.reps > 0);
+      const done = exercise.sets.filter((set) => set.completed && set.reps > 0 && plausibleSet(set));
       if (done.length > 0) last.set(exercise.name, done);
     }
   }

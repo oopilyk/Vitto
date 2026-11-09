@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Platform, Pressable, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Platform, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { companion as ai } from '@vitto/core';
 import {
   billingService,
@@ -11,7 +11,7 @@ import {
   type PlusStatus,
 } from '../services/billingService';
 import { cancelTrialReminder, scheduleTrialReminder } from '../services/pushService';
-import { PrimaryButton, TextButton } from './ui';
+import { CloseButton, PrimaryButton, TextButton } from './ui';
 import { colors, fonts, text, themedStyles } from '../theme';
 
 interface Props {
@@ -186,16 +186,16 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
   const plans = [...sellable].sort((a, b) => (a.value === 'yearly' ? -1 : b.value === 'yearly' ? 1 : 0));
 
   return (
-    <View style={styles.wrap} testID="plus-paywall">
+    // The bar stays put above the scroll: inside it, the close button rode up
+    // under the status bar and onto the clock, where taps missed it.
+    <View style={styles.page} testID="plus-paywall">
       <View style={styles.bar}>
         {skippable ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Skip" onPress={onClose} hitSlop={10} style={styles.skip}>
             <Text style={styles.skipLabel}>Skip</Text>
           </Pressable>
         ) : (
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={10} style={styles.close}>
-            <Text style={styles.closeMark}>×</Text>
-          </Pressable>
+          <CloseButton onPress={onClose} />
         )}
         {status?.enabled && !isPlus ? (
           <Pressable accessibilityRole="button" onPress={() => void run(billingService.restore)} hitSlop={10} disabled={busy}>
@@ -204,6 +204,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
         ) : null}
       </View>
 
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.wrap}>
       <View style={styles.hero}>
         <Image source={APP_ICON} style={styles.icon} accessibilityIgnoresInvertColors />
         <Text style={styles.title}>Vitto Plus</Text>
@@ -222,7 +223,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
           <View key={row.feature} style={styles.tableRow}>
             <View style={[styles.featureCol, index > 0 && styles.rowRule]}>
               <Text style={styles.feature}>{row.feature}</Text>
-              <Text style={styles.featureDetail} numberOfLines={1}>{row.detail}</Text>
+              <Text style={styles.featureDetail}>{row.detail}</Text>
             </View>
             <View style={[styles.freeCol, styles.valueCell, index > 0 && styles.rowRule]}>
               <Text style={styles.freeValue}>{row.free}</Text>
@@ -372,24 +373,28 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
           <Text style={styles.continueFreeLabel}>Continue with Free</Text>
         </Pressable>
       ) : null}
+      </ScrollView>
     </View>
   );
 }
 
+/** Bottom padding that clears the iPhone home indicator. */
+export const PAYWALL_BOTTOM_INSET = Platform.OS === 'ios' ? 24 : 12;
+
 const APP_ICON = require('../../assets/icon.png');
 
 const styles = themedStyles(() => ({
-  wrap: { gap: 14 },
-  bar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  close: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.hairline,
+  page: { flex: 1 },
+  bar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 62,
+    paddingBottom: 10,
   },
-  closeMark: { fontFamily: fonts.ui, fontSize: 22, lineHeight: 24, color: colors.muted },
+  scroll: { flex: 1 },
+  wrap: { gap: 14, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 + PAYWALL_BOTTOM_INSET },
   skip: {
     paddingHorizontal: 16,
     paddingVertical: 7,
@@ -556,6 +561,3 @@ const styles = themedStyles(() => ({
   },
   continueFreeLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.inkSoft },
 }));
-
-/** Bottom padding that clears the iPhone home indicator. */
-export const PAYWALL_BOTTOM_INSET = Platform.OS === 'ios' ? 24 : 12;

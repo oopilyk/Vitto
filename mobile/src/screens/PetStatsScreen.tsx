@@ -52,6 +52,8 @@ interface Props {
   onShare?: () => void;
   /** Wears another form: the base look, or any evolution already earned. */
   onChooseForm?: (form: PetForm) => void;
+  /** Today's word puzzle has guesses in it but is not finished. */
+  wordPuzzleStarted?: boolean;
 }
 
 const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 24 : 12;
@@ -232,7 +234,7 @@ const describeMood = (pet: PetState): string => {
   return `Fed and lively, not quite at 65 vitality and happiness together yet.`;
 };
 
-export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: Props) {
+export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wordPuzzleStarted = false }: Props) {
   const now = new Date();
   const sheet = sheetForPet(pet);
   const streaks = calculateQualifyingStreaks(events, now);
@@ -286,7 +288,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
             accessibilityRole="button"
             accessibilityLabel={`Share ${pet.name}`}
             onPress={onShare}
-            hitSlop={8}
+            hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
             style={({ pressed }) => [styles.back, styles.shareButton, pressed && styles.sharePressed]}
           >
             <Text style={styles.shareLabel}>Share</Text>
@@ -371,7 +373,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm }: 
           </View>
           <View style={styles.moodRow}>
             <Text style={styles.moodValue}>
-              Today's word puzzle: {todaysWordPuzzle ? todaysWordPuzzle.metadata.score : 'not played yet'}
+              Today's word puzzle: {todaysWordPuzzle ? todaysWordPuzzle.metadata.score : wordPuzzleStarted ? 'in progress' : 'not played yet'}
             </Text>
             <Text style={styles.moodHint}>
               {todaysWordPuzzle

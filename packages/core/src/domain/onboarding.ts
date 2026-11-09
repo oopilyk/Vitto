@@ -153,6 +153,10 @@ export const petPersonalityOptionsFor = (age: number): Choice<PetPersonality>[] 
   PET_PERSONALITY_OPTIONS.filter((option) => age >= MATURE_PERSONALITY_AGE || !MATURE_PERSONALITIES.includes(option.value));
 
 export const STEP_GOAL_PRESETS = [5000, 7500, 10000, 12500] as const;
+/** A daily step goal worth chasing: under 1,000 is met by getting up, over 100,000 by no one. */
+export const STEP_GOAL_RANGE = { min: 1000, max: 100000 } as const;
+export const clampStepGoal = (goal: number): number =>
+  Math.round(Math.min(STEP_GOAL_RANGE.max, Math.max(STEP_GOAL_RANGE.min, goal)));
 
 const WEIGHT_MATCH_KG = 0.5;
 

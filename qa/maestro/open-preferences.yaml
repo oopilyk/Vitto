@@ -5,7 +5,13 @@ appId: com.getvitto.app
 - launchApp:
     stopApp: true
 - extendedWaitUntil: { visible: "Open pet stats", timeout: 30000 }
-- tapOn: { point: "92%,93%", optional: true }   # dismiss dev LogBox toast (dev builds only)
+- waitForAnimationToEnd:
+    timeout: 4000
+- runFlow:                          # dev toasts sit over the bottom bar; dismiss only when shown
+    when:
+      visible: ".*(expo-notifications|Open debugger to view warnings).*"
+    commands:
+      - tapOn: { point: "92%,93%" }
 - tapOn: "Open account menu"
 - tapOn: "(?i).*settings.*"
 - assertVisible: "Settings"

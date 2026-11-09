@@ -58,7 +58,7 @@ describe('Previous column', () => {
   it('starts a picked exercise on what was done last time', () => {
     const last: WorkoutSet[] = [{ id: 'x', reps: 5, weight: 100, unit: 'kg', completed: true }];
     const tree = render({ templates: [], lastSets: new Map([['Squat', last]]) });
-    act(() => find(tree, label('Add exercise')).props.onPress());
+    act(() => find(tree, label('Pick exercises')).props.onPress());
     act(() => find(tree, label('Add Squat')).props.onPress());
     act(() => find(tree, (node) => node.findAllByType(Text).some((t: any) => t.props.children === 'Done · 1 in this workout')).props.onPress());
     expect(tree.root.findAll((node) => node.props.accessibilityLabel === 'Use last time for set 1: 100 × 5').length).toBeGreaterThan(0);

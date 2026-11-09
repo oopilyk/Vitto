@@ -47,7 +47,42 @@ These were fixed at your request and are not counted above:
 | VQA-007 no Done bar | `DoneTextInput`: every number field brings its own bar; Settings and onboarding wrappers add it for number pads | Tests; bar seen above the keypad on the simulator, Done closes it |
 | VQA-008 back labels | Lift progress says "‹ Today" from Today; Settings says "‹ Pet" from the account menu | Regression `open-today` passes |
 
-Still open from the top of the list: decimal weights (part of VQA-007), the keyboard covering Notes (EC-5), and VQA-009 onwards.
+### Fixed after the report, second pass (2026-11-08)
+Verified by tests and typecheck, then on the iPhone 17 Pro simulator (2026-11-08, local mode): the four regression flows pass, and these were checked by screenshot: decimal pad with Done typing 22.5 lb; Notes and Finish above the keyboard; workout draft restored; food search suggestions and live results; Profile "Progress ›" link and aligned record tiles; 30-day chart dates; compact Mind card; paywall × pinned after scrolling.
+
+Found on the simulator and fixed: `SheetKeyboardAvoidingView` first measured the sheet's position, which reads 0 inside the navigator's sheet, so Finish stayed half covered; it now takes the offset as screen height less sheet height. The lift-limits change had added a strengthRanks ↔ workoutLimits import cycle (a dev warning toast on every launch); `estimatedOneRepMax` now lives in `oneRepMax.ts`. The regression flows' blind tap for the dev toast is now conditional (without a toast it hit the Study room button).
+
+| Issue | Fix |
+|---|---|
+| VQA-007 decimal weights | `NumberInput` / `useNumberText` keep the typed text, so "22." stays and 22.5 can be entered. Decimal pad for set weights, Preferences weight and target, onboarding weight and goal |
+| EC-5 keyboard over Notes | `SheetKeyboardAvoidingView` measures where the sheet sits on screen (the stock view came up short by the sheet's offset). Notes scroll into view on focus |
+| Draft after logout | Logging out clears the workout draft |
+| VQA-009 absurd lifts and runs | `checkWorkout` (core): refuses past human limits (e1RM > 600 kg, > 1,000 reps, > 24 h, impossible speed), asks above elite levels. PRs, ranks, run records and next session's prefill skip implausible entries already logged |
+| VQA-010 step goal | Typed freely, saved on Done or blur, clamped to 1,000–100,000 |
+| VQA-011 goal direction | Onboarding refuses a goal weight on the wrong side of current for "Lose fat" or "Build size" instead of relabelling the goal |
+| VQA-012 plate stepper | − stops at ½; a separate × removes the food |
+| VQA-013 0-kcal foods | Under 5 kcal (and not a treat) grades C, so no health cost and no Junk effect; a confident 0 kcal is not "incomplete" |
+| VQA-015 Mind card | Pet gets an 84 pt square stage instead of the 320 pt default; sentence-case line |
+| VQA-016 large text | Ring number capped at 1× (it is sized to the ring); paywall details, Settings values and rest label wrap; meal title wraps beside × |
+| VQA-017 touch targets | Larger hit areas on set ✓, remove-set, rest buttons, Stats Share; account menu rows 44 pt |
+| VQA-018 30-day chart | Dates every 7 days as free labels; selection follows the date across ranges; stronger small bars |
+| VQA-019 paywall × | Bar pinned above the scroll |
+| VQA-026 stale error | Cleared on edit; "Pick a month to go on." hint |
+| VQA-028 per 100 g | Plate rows say the amount ("350 g") |
+| VQA-029 macro rounding | Grams kept to a tenth per food; totals rounded where shown |
+| VQA-030 water rounding | Fl oz to the half; cup label uses the same formatter |
+| VQA-024 chip tap | Month chips take the first tap with the keypad up |
+| VQA-033 emoji initial | `initialOf` takes a whole code point |
+| VQA-035 name limit | "n / 40" near the limit; Save returns to Profile |
+| VQA-038 puzzle status | Stats says "in progress" once a guess is made |
+| VQA-039 exercise search | Name-prefix matches first |
+| VQA-041 locked contrast | Only the sprite fades |
+| VQA-044 PR tiles | Lift names get two lines' room |
+| VQA-045 Voice Control | Labels match the visible text (flows and tests updated) |
+| VQA-046 search spacing | Gap under the field; Recent title aligned |
+| VQA-020 onboarding length | Cut three pages that asked nothing: "You chose the …!", "Let's learn a bit about you!" and the streak promise (never saved). A saved onboarding on one of them resumes on the page after |
+
+Left open: decisions for the owner (VQA-014 theme rule, VQA-021 offline living room, VQA-022 copy, VQA-025 multi-select hint, VQA-031 measured duration, VQA-032 where a run counts, VQA-037 where the puzzle returns, VQA-040 USDA names, VQA-043 shared header). Not fixed: VQA-023 chip peek and VQA-042 Outdoors status bar (each needs a visual check), VQA-036 (water XP kept, can't be farmed), and VQA-027 / VQA-047 (unclear or likely testing artifacts).
 
 ## Bug reports
 

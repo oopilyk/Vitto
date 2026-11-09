@@ -5,10 +5,20 @@ appId: com.getvitto.app
 - launchApp:
     stopApp: true
 - extendedWaitUntil: { visible: "Open pet stats", timeout: 30000 }
-- tapOn: { point: "92%,93%", optional: true }   # dismiss dev LogBox toast (dev builds only)
+# The simulator's dev toast (expo-notifications keychain warning) arrives a
+# moment after launch, over the room buttons. Dismiss it only when it is there:
+# without it, 92%,93% is the Study room button.
+- waitForAnimationToEnd:
+    timeout: 4000
+- runFlow:
+    when:
+      visible: ".*(expo-notifications|Open debugger to view warnings).*"
+    commands:
+      - tapOn: { point: "92%,93%" }
 - tapOn: "Go to the gym"
+- waitForAnimationToEnd
 - tapOn: "Log workout"
-- tapOn: "Add exercise"
+- tapOn: "Pick exercises"
 - tapOn: "Add Bench Press"
 - hideKeyboard
 - tapOn: "Done.*"

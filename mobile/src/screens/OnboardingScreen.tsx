@@ -194,13 +194,6 @@ const TRAINING_DAY_OPTIONS = [
 
 const STEP_LABEL: Record<number, string> = { 5000: 'Easing in', 7500: 'Steady', 10000: 'The classic', 12500: 'Ambitious' };
 
-const COMMIT_OPTIONS = [
-  { days: 3, note: 'Baby steps' },
-  { days: 7, note: 'Strong start' },
-  { days: 14, note: 'Clearly committed' },
-  { days: 30, note: 'Unstoppable streak' },
-];
-
 const NAME_IDEAS = [
   'Miso',
   'Mochi',
@@ -241,12 +234,10 @@ const formatMonth = (iso: string | undefined) =>
 type StepId =
   | 'welcome'
   | 'choosePet'
-  | 'meetPet'
   | 'namePet'
   | 'yourName'
   | 'username'
   | 'careAreas'
-  | 'aboutIntro'
   | 'age'
   | 'sex'
   | 'body'
@@ -264,15 +255,12 @@ type StepId =
   | 'personality'
   | 'notifications'
   | 'health'
-  | 'commit'
   | 'dayOne';
 
 const FULL_SEQUENCE: StepId[] = [
   'welcome',
   // Meet the pet first: attachment before questions.
   'choosePet',
-  // The moment they become yours: a little party before anything else.
-  'meetPet',
   'namePet',
   'yourName',
   // The handle friends find you by: unique, so the server has the last word.
@@ -280,8 +268,10 @@ const FULL_SEQUENCE: StepId[] = [
   // What the pet runs on: chosen before the questions, so someone who doesn't
   // track food knows from the start it won't be held against their pet.
   'careAreas',
-  // Then, gently, about you. One question a screen.
-  'aboutIntro',
+  // Then, gently, about you. One question a screen. (No "let's learn about
+  // you" page first, nor a "you chose the dog!" one before naming, nor a
+  // streak promise at the end that was never kept anywhere: three taps of
+  // Next that asked nothing, cut after testers counted 20 steps.)
   'age',
   'sex',
   'body',
@@ -303,9 +293,27 @@ const FULL_SEQUENCE: StepId[] = [
   // After reminders: the other thing iOS asks permission for, while the person
   // is already saying yes to the phone.
   'health',
-  'commit',
   'dayOne',
 ];
+
+/**
+ * Where a saved onboarding picks up. Pages since retired send it to the page
+ * that now follows them, rather than back to the start.
+ */
+const resumeAt = (saved: string, ageKnown: boolean): StepId => {
+  switch (saved) {
+    case 'motivation':
+      return 'plan';
+    case 'meetPet':
+      return 'namePet';
+    case 'aboutIntro':
+      return ageKnown ? 'sex' : 'age';
+    case 'commit':
+      return 'dayOne';
+    default:
+      return saved as StepId;
+  }
+};
 
 /** The questions about you; skipped on a resume once they are answered (they persist per answer). */
 /** Everything onboardingDraft keeps of this screen; see `resume` / `onProgress`. */
@@ -318,7 +326,6 @@ interface SavedProgress extends OnboardingProgress {
   trainingTypes: TrainingType[];
   body: { feet: string; inches: string; cm: string; weight: string };
   goalText: string;
-  commitDays: number | null;
   careAreas: CareArea[];
   handle: string;
   answeredAtStart: boolean;
@@ -327,7 +334,6 @@ interface SavedProgress extends OnboardingProgress {
 }
 
 const QUESTION_STEPS = new Set<StepId>([
-  'aboutIntro',
   'age',
   'sex',
   'body',
@@ -468,14 +474,13 @@ export function OnboardingScreen({
 
   // A draft left on a page that has since been removed picks up at the next one.
   const [stepId, setStepId] = useState<StepId>(
-    (saved?.stepId as string) === 'motivation' ? 'plan' : (saved?.stepId ?? 'welcome'),
+    resumeAt((saved?.stepId as string | undefined) ?? 'welcome', knownAge !== undefined),
   );
   const [stepError, setStepError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [joining, setJoining] = useState(false);
-  const [commitDays, setCommitDays] = useState<number | null>(saved?.commitDays ?? null);
   const [celebrating, setCelebrating] = useState(false);
   const [notificationsBusy, setNotificationsBusy] = useState(false);
   /** A trial bought on the offer page, whose reminder waits for notifications to be on. */
@@ -562,9 +567,9 @@ export function OnboardingScreen({
     });
   }, [stepId, enter]);
 
-  // Meeting your pet gets the big buzz, the moment the page opens.
+  // Meeting your pet gets the big buzz, the moment its naming page opens.
   useEffect(() => {
-    if (stepId === 'meetPet') cheer();
+    if (stepId === 'namePet') cheer();
   }, [stepId]);
 
   const celebrateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -636,7 +641,11 @@ export function OnboardingScreen({
   };
 
   const digits = (value: string) => value.replace(/[^0-9]/g, '');
+  /** Weights take a decimal point (72.5 kg), one of them, with a comma read as one. */
+  const decimal = (value: string) => value.replace(',', '.').replace(/[^0-9.]/g, '').replace(/\.(?=.*\.)/g, '');
   const updateBody = (next: typeof body) => {
+    // A complaint about the old number goes once the number changes.
+    setStepError(null);
     setBody(next);
     if (metric) {
       if (next.cm) onUpdate('heightCm', Number(next.cm));
@@ -655,6 +664,17 @@ export function OnboardingScreen({
     }
     if (stepId === 'target' && goalNumber !== undefined && (goalNumber < bounds.min || goalNumber > bounds.max))
       return `Pick a goal between ${bounds.min} and ${bounds.max} ${profile.weightUnit}.`;
+    // The goal's direction has to match the choice before it. It used to be
+    // quietly read off the number instead, so 300 lb for someone at 160 who
+    // chose "Lose fat" was relabelled "Build muscle" without a word.
+    if (stepId === 'target' && goalNumber !== undefined && goalChoice !== 'maintain' && goalChoice !== null) {
+      const heading = deriveEnergyGoal(profile.weightKg, fromDisplayWeight(goalNumber));
+      if (heading !== goalChoice) {
+        return goalChoice === 'lose'
+          ? `To lose fat, pick a goal under ${displayedWeight} ${profile.weightUnit}, or go back and change your goal.`
+          : `To build size, pick a goal over ${displayedWeight} ${profile.weightUnit}, or go back and change your goal.`;
+      }
+    }
     if (stepId === 'careAreas' && careAreas.length === 0) return 'Pick at least one.';
     // They can go back and lower their age after choosing an age-gated one.
     if (stepId === 'personality' && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
@@ -742,12 +762,12 @@ export function OnboardingScreen({
   useEffect(() => {
     if (!onProgress) return;
     const progress: SavedProgress = {
-      stepId, picked, goalChoice, ageChoice, sexChoice, trainingTypes, body, goalText, commitDays, careAreas, handle,
+      stepId, picked, goalChoice, ageChoice, sexChoice, trainingTypes, body, goalText, careAreas, handle,
       answeredAtStart, offerPlus, hadUsername,
     };
     onProgress(progress);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepId, picked, goalChoice, ageChoice, sexChoice, trainingTypes, body, goalText, commitDays, careAreas, handle]);
+  }, [stepId, picked, goalChoice, ageChoice, sexChoice, trainingTypes, body, goalText, careAreas, handle]);
   const toggleCareArea = (value: CareArea) => {
     tick();
     const next = careAreas.includes(value)
@@ -880,8 +900,6 @@ export function OnboardingScreen({
         return { label: 'Get started' };
       case 'choosePet':
         return picked.choosePet ? { label: `Choose the ${animal}` } : { label: 'Choose your companion', disabled: true };
-      case 'meetPet':
-        return { label: 'Let’s go!' };
       case 'namePet':
         return { label: 'Next', disabled: !named };
       case 'yourName':
@@ -898,8 +916,6 @@ export function OnboardingScreen({
         return { label: 'Next', disabled: !picked.personality };
       case 'plan':
         return { label: 'Let’s do it!' };
-      case 'commit':
-        return { label: 'Commit to this goal!', disabled: commitDays === null };
       case 'dayOne':
         return { label: 'Start today' };
       default:
@@ -1050,14 +1066,6 @@ export function OnboardingScreen({
             </View>
           ) : null}
 
-          {stepId === 'meetPet' ? (
-            <View style={[styles.fill, styles.centred]} testID="meet-pet">
-              {pet(petRoom(230, 150), undefined, true)}
-              <Text style={styles.title}>{`You chose the ${animal}!`}</Text>
-              <Text style={styles.sub}>They’re so happy to meet you, and they’ll be with you for every workout, meal and step.</Text>
-            </View>
-          ) : null}
-
           {stepId === 'namePet' ? (
             <View style={[styles.fill, styles.centred]}>
               {pet(petRoom(160, 96 + 80 + 72), 'Hi! Thanks for choosing me. What do you want to call me?')}
@@ -1125,14 +1133,6 @@ export function OnboardingScreen({
               <Text style={styles.hint}>
                 {handle && usernameError(handle) ? usernameError(handle) : 'Letters, numbers and underscores. Friends see this, not your name.'}
               </Text>
-            </View>
-          ) : null}
-
-          {stepId === 'aboutIntro' ? (
-            <View style={[styles.fill, styles.centred]}>
-              {pet(petRoom(180, 130))}
-              <Text style={styles.title}>Let’s learn a bit about you!</Text>
-              <Text style={styles.sub}>{`${PetName} is curious about how they can grow with you.`}</Text>
             </View>
           ) : null}
 
@@ -1290,9 +1290,9 @@ export function OnboardingScreen({
                       type in rather than a button like the choices around it. */}
                   <Text style={styles.heightLabel}>{`Weight (${profile.weightUnit})`}</Text>
                   <FInput
-                    keyboardType="number-pad"
+                    keyboardType="decimal-pad"
                     value={body.weight}
-                    onChangeText={(value) => updateBody({ ...body, weight: digits(value) })}
+                    onChangeText={(value) => updateBody({ ...body, weight: decimal(value) })}
                     placeholder={profile.weightUnit === 'lb' ? 'Type it here, e.g. 160' : 'Type it here, e.g. 72'}
                     accessibilityLabel={`Weight in ${profile.weightUnit}`}
                   />
@@ -1342,20 +1342,30 @@ export function OnboardingScreen({
                 },
                 <>
                   <FInput
-                    keyboardType="number-pad"
+                    keyboardType="decimal-pad"
                     value={goalText}
                     onChangeText={(value) => {
-                      const next = digits(value);
+                      const next = decimal(value);
+                      setStepError(null);
                       setGoalText(next);
                       setGoalWeight(next === '' ? undefined : Number(next));
                     }}
                     placeholder={`Goal weight (${profile.weightUnit})`}
                     accessibilityLabel={`Goal weight in ${profile.weightUnit}`}
                   />
-                  <Text style={styles.fieldLabel}>By when?</Text>
+                  <Text style={styles.fieldLabel}>
+                    By when?
+                    {/* Next waits for a month too; say so once the weight is in. */}
+                    {goalNumber !== undefined && !(picked.target && profile.goalTargetDate) ? (
+                      <Text style={styles.fieldHint}>  Pick a month to go on.</Text>
+                    ) : null}
+                  </Text>
                   {/* The one sideways list: fifteen months in a row, swiped, never the page. */}
                   <ScrollView
                     horizontal
+                    // Its own, as the page's does not reach a nested list: the
+                    // first tap on a month with the number pad up only closed it.
+                    keyboardShouldPersistTaps="handled"
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.chips}
                     style={styles.chipStrip}
@@ -1767,38 +1777,16 @@ export function OnboardingScreen({
             </View>
           ) : null}
 
-          {stepId === 'commit' ? (
-            <View style={styles.fill}>
-              <Text style={[styles.title, short && styles.titleShort]}>{`How many days in a row will you take care of ${petName}?`}</Text>
-              {pet(petRoom(110, 100 + 70 + listNeeds(COMMIT_OPTIONS.length)), commitDays ? 'You got this!' : undefined)}
-              <View style={styles.choices}>
-                {COMMIT_OPTIONS.map((option) => (
-                  <FChoice
-                    key={option.days}
-                    label={`${option.days} days`}
-                    note={option.note}
-                    selected={commitDays === option.days}
-                    onPress={() => {
-                      tick();
-                      setCommitDays(option.days);
-                    }}
-                  />
-                ))}
-              </View>
-            </View>
-          ) : null}
-
           {stepId === 'dayOne' ? (
             <View style={[styles.fill, styles.centred]}>
               <Text style={styles.dayKicker}>Day 1</Text>
               <Text style={styles.title}>{`Happy ${new Date().toLocaleDateString([], { weekday: 'long' })}!`}</Text>
-              {pet(petRoom(190, 80 + 230 + (commitDays ? 40 : 0)))}
+              {pet(petRoom(190, 80 + 230))}
               <View style={styles.dayCard}>
                 <Text style={styles.dayCardKicker}>A gentle reminder</Text>
                 <Text style={styles.dayCardTitle}>Good things take time.</Text>
                 <Text style={styles.dayCardBody}>{survival.detail}</Text>
               </View>
-              {commitDays ? <Text style={styles.hint}>{`Your goal: ${commitDays} days in a row with ${petName}.`}</Text> : null}
             </View>
           ) : null}
         </Animated.View>
@@ -2080,6 +2068,7 @@ const styles = themedStyles(() => {
     sub: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 22, color: F.sub, textAlign: 'center', marginTop: 4 },
     hint: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, textAlign: 'center', marginTop: 10 },
     fieldLabel: { fontFamily: FONT.medium, fontSize: 16, lineHeight: 21, color: F.text, marginTop: 4 },
+    fieldHint: { fontFamily: FONT.regular, fontSize: 14, color: F.sub },
     link: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, color: F.sub },
     linkLarge: { fontFamily: FONT.medium, fontSize: 17, lineHeight: 22, color: F.sub },
     linkRow: { alignItems: 'center', paddingVertical: 10 },

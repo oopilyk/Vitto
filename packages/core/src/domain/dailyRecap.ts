@@ -13,6 +13,7 @@ import {
 } from './nutritionSummary';
 import { toDateKey } from './streaks';
 import { WATER_GOAL_ML, formatWater, waterMlForDay } from './hydration';
+import { ZERO_CALORIE_LIMIT } from './macros';
 
 /**
  * ONE derivation of the daily recap, from the real event log. Every number the
@@ -245,10 +246,14 @@ export function buildDailyRecap({
   const consumed = sumMealMacros(meals);
   const targets = calculateMacroTargets(profile);
   const someMealsUnanalyzed = meals.some((event) => {
-    const macros = (event.metadata as MealMetadata).analysis?.macros;
-    return (
-      !macros || (macros.proteinGrams === 0 && macros.carbsGrams === 0 && macros.fatGrams === 0)
-    );
+    const analysis = (event.metadata as MealMetadata).analysis;
+    const macros = analysis?.macros;
+    if (!macros) return true;
+    // No macros at all is a failed analysis, unless there was nothing to have
+    // them: a glass of water read as zero on purpose is exact, not missing.
+    const noMacros = macros.proteinGrams === 0 && macros.carbsGrams === 0 && macros.fatGrams === 0;
+    const knownZero = macros.calories < ZERO_CALORIE_LIMIT && (analysis?.confidence ?? 0) > 0;
+    return noMacros && !knownZero;
   });
   const food: FoodRecap = {
     mealCount: meals.length,
