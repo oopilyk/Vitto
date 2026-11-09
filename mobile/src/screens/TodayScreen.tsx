@@ -39,12 +39,18 @@ import {
   calorieEstimate,
   type companion,
   clampStepGoal,
+  convertWeightValue,
+  weighIns,
+  MEAL_SLOTS,
+  MEAL_SLOT_LABEL,
+  mealSlotOf,
 } from '@vitto/core';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
 import { NutrientRing } from '../components/NutrientRing';
-import { ChoiceRow, PressableScale, TextButton, DoneTextInput } from '../components/ui';
+import { ChoiceRow, PressableScale, TextButton, DoneTextInput, Mark } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
+import { askEditOrDelete } from './ActivityHistoryScreen';
 import { surface } from '../components/surfaceStyle';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { colors, fonts, getColorScheme, layout, world, themedStyles } from '../theme';
@@ -79,6 +85,13 @@ interface Props {
   onOpenFoodTrends?: () => void;
   onOpenStepTrends?: () => void;
   onOpenLiftProgress?: () => void;
+  /** Body weight over time; the row says the trend and how long since the last weigh-in. */
+  onOpenWeight?: () => void;
+  /** The last seven days against the seven before (WeeklyRecapScreen). */
+  onOpenWeek?: () => void;
+  /** A logged meal tapped: change it, or take it back. */
+  onEditLog?: (event: HealthEvent) => void;
+  onDeleteLog?: (event: HealthEvent) => void;
   /** Insights ("Miso noticed") are Plus. Locked, a found insight shows as a teaser that opens Plus. Defaults to unlocked. */
   insightsUnlocked?: boolean;
   onOpenPlus?: () => void;
@@ -189,6 +202,10 @@ export function TodayScreen({
   onOpenFoodTrends,
   onOpenStepTrends,
   onOpenLiftProgress,
+  onOpenWeight,
+  onOpenWeek,
+  onEditLog,
+  onDeleteLog,
   insightsUnlocked = true,
   onOpenPlus,
   onClose,
@@ -256,6 +273,14 @@ export function TodayScreen({
     () => buildDailyRecap({ events, profile, pet, stepGoal, day: today }),
     [events, profile, pet, stepGoal, todayKey],
   );
+  const weightLine = useMemo(() => {
+    const latest = weighIns(events).at(-1);
+    if (!latest) return null;
+    const unit = profile.weightUnit;
+    const days = Math.floor((Date.now() - Date.parse(latest.at)) / 86_400_000);
+    const when = days === 0 ? 'weighed today' : days === 1 ? 'weighed yesterday' : `${days} days since your last weigh-in`;
+    return `${Math.round(convertWeightValue(latest.trendKg, 'kg', unit) * 10) / 10} ${unit} trend · ${when}`;
+  }, [events, profile.weightUnit]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
   const topInsight = useMemo(() => calculateInsights(events, today)[0] ?? null, [events, todayKey]);
   const screenTimeToday = findScreenTimeForDate(events, today);
@@ -460,21 +485,50 @@ export function TodayScreen({
                     {`${food.mealCount} meal${food.mealCount > 1 ? 's' : ''}  ${foodLogOpen ? '▾' : '▸'}`}
                   </Text>
                 </Pressable>
-                {foodLogOpen && getMealsForDay(events, today)
-                  .slice()
-                  .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt))
-                  .map((meal) => {
-                    const analysis = meal.metadata.analysis;
-                    const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
+                {/* By meal of the day, each a tap from Edit or Delete. */}
+                {foodLogOpen &&
+                  MEAL_SLOTS.map((slot) => {
+                    const meals = getMealsForDay(events, today)
+                      .filter((meal) => mealSlotOf(meal) === slot)
+                      .sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
+                    if (meals.length === 0) return null;
+                    const kcal = meals.reduce((sum, meal) => sum + calorieEstimate(meal.metadata.analysis?.macros), 0);
                     return (
-                      <View key={meal.id} style={styles.foodLogRow}>
-                        <Text style={[styles.foodLogTime, { color: c.soft }]}>
-                          {new Date(meal.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                        </Text>
-                        <Text style={[styles.foodLogName, { color: c.ink }]} numberOfLines={2}>{name}</Text>
-                        <Text style={[styles.foodLogKcal, { color: c.ink }]}>
-                          {analysis ? `${calorieEstimate(analysis.macros).toLocaleString()} kcal` : '—'}
-                        </Text>
+                      <View key={slot}>
+                        <View style={styles.foodSlotHead}>
+                          <Text style={[styles.foodSlotTitle, { color: c.soft }]}>{MEAL_SLOT_LABEL[slot].toUpperCase()}</Text>
+                          <Text style={[styles.foodSlotTitle, { color: c.soft }]}>{`${kcal.toLocaleString()} kcal`}</Text>
+                        </View>
+                        {meals.map((meal) => {
+                          const analysis = meal.metadata.analysis;
+                          const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
+                          const row = (
+                            <>
+                              <Text style={[styles.foodLogTime, { color: c.soft }]}>
+                                {new Date(meal.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                              </Text>
+                              <Text style={[styles.foodLogName, { color: c.ink }]} numberOfLines={2}>{name}</Text>
+                              <Text style={[styles.foodLogKcal, { color: c.ink }]}>
+                                {analysis ? `${calorieEstimate(analysis.macros).toLocaleString()} kcal` : '—'}
+                              </Text>
+                            </>
+                          );
+                          return onEditLog || onDeleteLog ? (
+                            <Pressable
+                              key={meal.id}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${name}, edit or delete`}
+                              onPress={() => askEditOrDelete(meal, { onEdit: onEditLog, onDelete: onDeleteLog })}
+                              style={({ pressed }) => [styles.foodLogRow, pressed && { opacity: 0.6 }]}
+                            >
+                              {row}
+                            </Pressable>
+                          ) : (
+                            <View key={meal.id} style={styles.foodLogRow}>
+                              {row}
+                            </View>
+                          );
+                        })}
                       </View>
                     );
                   })}
@@ -604,6 +658,40 @@ export function TodayScreen({
           />
         ) : null}
 
+        {onOpenWeek ? (
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel="Your week"
+            onPress={onOpenWeek}
+            scaleTo={0.98}
+            style={[surface.panelQuiet, night && surface.panelQuietNight, styles.weightRow]}
+            testID="today-week"
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.activityTitle, { color: c.ink }]}>Your week</Text>
+              <Text style={[styles.activityEmpty, { color: c.soft }]}>Training, food, steps and XP over the last seven days.</Text>
+            </View>
+            <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text>
+          </PressableScale>
+        ) : null}
+
+        {onOpenWeight ? (
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={weightLine ? `Weight, ${weightLine}` : 'Weight, log your first weigh-in'}
+            onPress={onOpenWeight}
+            scaleTo={0.98}
+            style={[surface.panelQuiet, night && surface.panelQuietNight, styles.weightRow]}
+            testID="today-weight"
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.activityTitle, { color: c.ink }]}>Weight</Text>
+              <Text style={[styles.activityEmpty, { color: c.soft }]}>{weightLine ?? 'Log a weigh-in to start your trend.'}</Text>
+            </View>
+            <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text>
+          </PressableScale>
+        ) : null}
+
         {/* --- Today's activity: aggregated, meaningful only --- */}
         <View style={[surface.panelQuiet, night && surface.panelQuietNight, styles.activity]}>
           <Text style={[styles.activityTitle, { color: c.ink }]}>Today's activity</Text>
@@ -614,7 +702,7 @@ export function TodayScreen({
           ) : (
             recap.activity.map((item) => (
               <View key={item.id} style={styles.activityRow}>
-                <Text style={[styles.activityCheck, { color: world.positive }]}>✓</Text>
+                <Mark kind="check" size={11} weight={2.2} color={world.positive} />
                 <Text style={[styles.activityLabel, { color: c.ink }]}>{item.label}</Text>
               </View>
             ))
@@ -862,7 +950,7 @@ function Pillar({
         <View style={{ flex: 1 }}>
           <View style={styles.pillarKickerRow}>
             <Text style={[styles.pillarKicker, { color: c.soft }]}>{kicker}</Text>
-            {done ? <Text style={[styles.pillarDone, { color: world.positive }]}>✓</Text> : null}
+            {done ? <Mark kind="check" size={11} weight={2.2} color={world.positive} /> : null}
           </View>
           <Text style={[styles.pillarHeadline, { color: c.ink }]}>{headline}</Text>
         </View>
@@ -1036,7 +1124,7 @@ function WaterStep({
         disabled && { opacity: 0.35 },
       ]}
     >
-      {({ pressed }) => <Text style={[styles.waterStepText, pressed && { color: '#fff' }]}>{sign}</Text>}
+      {({ pressed }) => <Mark kind={sign === '+' ? 'plus' : 'minus'} size={12} weight={2.2} color={pressed ? '#fff' : WATER_BLUE} />}
     </Pressable>
   );
 }
@@ -1147,6 +1235,9 @@ const styles = themedStyles(() => ({
     letterSpacing: 0,
   },
   pillarDetail: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18 },
+  foodSlotHead: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 2 },
+  foodSlotTitle: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.6 },
+  weightRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   more: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -5,6 +5,10 @@ import {
   type FriendRequestStatus,
   type PetState,
   type RecentActivitySignal,
+  type FriendReaction,
+  type ReactionKind,
+  REACTION_KINDS,
+  REACTION_LIMIT_MESSAGE,
   errorMessage,
   isValidUsername,
   newId,
@@ -357,6 +361,53 @@ export class FriendsService {
    * username-onboarding prompt: whether the signed-in user has already chosen a
    * username, without pulling in the rest of their (owner-only) profile fields.
    */
+  /**
+   * Sends a friend a reaction. The server checks the friendship and holds it
+   * to 10 a day per friend; past that the insert is refused (RLS), which is
+   * said as REACTION_LIMIT_MESSAGE rather than as a database error.
+   */
+  async sendReaction(toUserId: string, kind: ReactionKind): Promise<void> {
+    const client = requireSupabase();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user) throw new Error('Sign in to send a reaction.');
+    const { error } = await client.from('friend_reactions').insert({ from_user: user.id, to_user: toUserId, kind });
+    if (error) {
+      // 42501: row-level security said no, which for a friend is the daily limit.
+      throw new Error(error.code === '42501' ? REACTION_LIMIT_MESSAGE : errorMessage(error, 'Could not send that.'));
+    }
+  }
+
+  /** Reactions sent to you in the last week, newest first. */
+  async loadReceivedReactions(): Promise<FriendReaction[]> {
+    const client = requireSupabase();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user) return [];
+    const { data, error } = await client
+      .from('friend_reactions')
+      .select('id, from_user, kind, created_at, seen_at')
+      .eq('to_user', user.id)
+      .gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw new Error(errorMessage(error, 'Could not load reactions.'));
+    return (data as { id: string; from_user: string; kind: ReactionKind; created_at: string; seen_at: string | null }[])
+      .filter((row) => (REACTION_KINDS as readonly string[]).includes(row.kind))
+      .map((row) => ({ id: row.id, fromUserId: row.from_user, kind: row.kind, createdAt: row.created_at, seenAt: row.seen_at }));
+  }
+
+  async markReactionsSeen(ids: readonly string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await requireSupabase()
+      .from('friend_reactions')
+      .update({ seen_at: new Date().toISOString() })
+      .in('id', [...ids]);
+    if (error) throw new Error(errorMessage(error, 'Could not update reactions.'));
+  }
+
   async getMyUsername(): Promise<string | null> {
     const client = requireSupabase();
     const {

@@ -69,3 +69,24 @@ describe('otherLifts', () => {
     expect(exerciseHistory(log, 'Cable Fly')).toHaveLength(2);
   });
 });
+
+describe('liftingUnit', () => {
+  it('follows the newest weighted set, not the profile', async () => {
+    const { liftingUnit } = await import('./workoutTemplates');
+    expect(liftingUnit([workout('1', [lift('Bench Press', 100, 5, 'kg')]), workout('2', [lift('Bench Press', 205, 8, 'lb')])], 'kg')).toBe('lb');
+    expect(liftingUnit([], 'kg')).toBe('kg');
+  });
+});
+
+describe('mid-workout records', () => {
+  it('calls a heavier set or a better estimated max a record, but not on the first session', async () => {
+    const { exerciseBest, setRecord, exerciseSessions } = await import('./workoutTemplates');
+    const log = [workout('1', [lift('Bench Press', 185, 5)]), workout('2', [lift('Bench Press', 195, 3)])];
+    const best = exerciseBest(log, 'Bench Press');
+    expect(setRecord({ weight: 200, reps: 1, unit: 'lb' }, best)).toBe('weight');
+    expect(setRecord({ weight: 185, reps: 8, unit: 'lb' }, best)).toBe('oneRepMax');
+    expect(setRecord({ weight: 135, reps: 5, unit: 'lb' }, best)).toBeNull();
+    expect(setRecord({ weight: 135, reps: 5, unit: 'lb' }, exerciseBest([], 'Bench Press'))).toBeNull();
+    expect(exerciseSessions(log, 'Bench Press').map((session) => session.id)).toEqual(['2', '1']);
+  });
+});

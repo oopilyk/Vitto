@@ -275,6 +275,8 @@ enum Palette {
   static let food = Color(red: 0.96, green: 0.62, blue: 0.36)
   static let energy = Color(red: 0.55, green: 0.72, blue: 0.96)
   static let joy = Color(red: 0.98, green: 0.80, blue: 0.40)
+  /// Today's water tracker blue (TodayScreen's WATER_BLUE, #5b9bc4).
+  static let water = Color(red: 0.357, green: 0.608, blue: 0.769)
   static let rest = Color(red: 0.95, green: 0.55, blue: 0.45)
 
   static func tint(_ mood: String) -> Color {

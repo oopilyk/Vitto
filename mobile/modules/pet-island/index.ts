@@ -38,6 +38,7 @@ interface PetIslandNativeModule {
   sync(state: IslandState): Promise<void>;
   end(): Promise<void>;
   setWidget?(json: string | null): Promise<void>;
+  takePendingWater?(): Promise<string | null>;
 }
 
 const native: PetIslandNativeModule | null =
@@ -82,5 +83,16 @@ export const setWidgetSnapshot = async (json: string | null): Promise<void> => {
     await native.setWidget(json);
   } catch (error) {
     console.warn('[widget] update failed', error);
+  }
+};
+
+/** The widget's queued water taps, as JSON, emptied as it is read (see drainWidgetWater). */
+export const takePendingWater = async (): Promise<string | null> => {
+  if (!native?.takePendingWater) return null;
+  try {
+    return await native.takePendingWater();
+  } catch (error) {
+    console.warn('[widget] reading water taps failed', error);
+    return null;
   }
 };

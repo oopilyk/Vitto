@@ -18,7 +18,7 @@ struct PetWidget: Widget {
       PetWidgetView(entry: entry)
     }
     .configurationDisplayName("Your pet")
-    .description("How your pet is doing, and today's food and steps.")
+    .description("How your pet is doing, today's food, steps and water, and a cup of water in one tap.")
     .supportedFamilies([.systemSmall, .systemMedium])
   }
 }
@@ -40,6 +40,12 @@ struct WidgetSnapshot: Codable {
   var proteinTarget: Double
   var steps: Double
   var stepGoal: Double
+  /// Water today and its goal, in mL, and the size of the + button's cup.
+  /// Optional: snapshots from before the button lack them.
+  var waterMl: Double?
+  var waterGoalMl: Double?
+  var cupMl: Double?
+  var imperial: Bool?
 }
 
 enum WidgetStore {
@@ -106,16 +112,23 @@ struct PetWidgetView: View {
           HStack(spacing: 14) {
             PetFace(snapshot: snapshot, at: entry.date, sprite: 64)
               .frame(maxWidth: 110)
-            VStack(alignment: .leading, spacing: 9) {
+            VStack(alignment: .leading, spacing: 6) {
               Meter(label: "Calories", value: today.calories, target: snapshot.calorieTarget, unit: "kcal", tint: Palette.food)
               Meter(label: "Protein", value: today.protein, target: snapshot.proteinTarget, unit: "g", tint: Palette.joy)
               Meter(label: "Steps", value: today.steps, target: snapshot.stepGoal, unit: "", tint: Palette.energy)
+              HStack(alignment: .bottom, spacing: 8) {
+                Meter(label: "Water", value: today.water, target: today.waterGoal, unit: today.waterUnit, tint: Palette.water)
+                WaterButton(size: 26)
+              }
             }
           }
         } else {
-          VStack(spacing: 8) {
-            PetFace(snapshot: snapshot, at: entry.date, sprite: 54)
-            Meter(label: "Calories", value: today.calories, target: snapshot.calorieTarget, unit: "kcal", tint: Palette.food, compact: true)
+          ZStack(alignment: .topTrailing) {
+            VStack(spacing: 8) {
+              PetFace(snapshot: snapshot, at: entry.date, sprite: 54)
+              Meter(label: "Calories", value: today.calories, target: snapshot.calorieTarget, unit: "kcal", tint: Palette.food, compact: true)
+            }
+            WaterButton(size: 26)
           }
         }
       } else {
@@ -140,12 +153,20 @@ struct DayNumbers {
   let calories: Double
   let protein: Double
   let steps: Double
+  /// In the person's own unit: mL, or fl oz.
+  let water: Double
+  let waterGoal: Double
+  let waterUnit: String
 
   init(snapshot: WidgetSnapshot, at date: Date) {
     let current = date.timeIntervalSince1970 < snapshot.dayEndsAt
     calories = current ? snapshot.calories : 0
     protein = current ? snapshot.proteinGrams : 0
     steps = current ? snapshot.steps : 0
+    let perUnit = (snapshot.imperial ?? false) ? 29.5735 : 1
+    water = current ? (snapshot.waterMl ?? 0) / perUnit : 0
+    waterGoal = (snapshot.waterGoalMl ?? 2000) / perUnit
+    waterUnit = (snapshot.imperial ?? false) ? "fl oz" : "mL"
   }
 }
 
@@ -183,6 +204,28 @@ struct PetFace: View {
         .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(Palette.tint(mood))
         .lineLimit(1)
+    }
+  }
+}
+
+/// A cup of water in one tap (LogWaterIntent). iOS 17 and later: before it,
+/// widgets cannot run anything, and there is no button.
+struct WaterButton: View {
+  let size: CGFloat
+
+  var body: some View {
+    if #available(iOS 17.0, *) {
+      Button(intent: LogWaterIntent()) {
+        ZStack {
+          Circle().fill(Palette.water.opacity(0.18))
+          Image(systemName: "drop.fill")
+            .font(.system(size: size * 0.42, weight: .semibold))
+            .foregroundStyle(Palette.water)
+        }
+        .frame(width: size, height: size)
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Log a cup of water")
     }
   }
 }

@@ -13,7 +13,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, loggedFoodNames, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, loggedFoodNames, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -47,10 +47,14 @@ import {
   requestReminderPermission,
   syncScheduledReminders,
 } from './src/services/reminders';
-import { forgetThisDevice, installNotificationHandler, onNotificationTap, registerForPush, setPushEnabled as setDevicePush } from './src/services/pushService';
+import { cancelWeeklyRecap, forgetThisDevice, installNotificationHandler, scheduleWeeklyRecap, onNotificationTap, registerForPush, setPushEnabled as setDevicePush } from './src/services/pushService';
 import { canShowIsland, clearPetIsland, islandSignature, syncPetIsland } from './src/services/petIsland';
-import { buildWidgetSnapshot, clearPetWidget, syncPetWidget } from './src/services/petWidget';
+import { buildWidgetSnapshot, clearPetWidget, drainWidgetWater, syncPetWidget } from './src/services/petWidget';
 import { clearWorkoutDraft } from './src/services/workoutDraft';
+import { UndoToast, type UndoOffer } from './src/components/UndoToast';
+import { logName } from './src/screens/ActivityHistoryScreen';
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { ShareCardScreen } from './src/screens/ShareCardScreen';
@@ -74,6 +78,9 @@ import { ScreenTimeScreen } from './src/screens/ScreenTimeScreen';
 import { RemindersScreen } from './src/screens/RemindersScreen';
 import { AppleHealthScreen } from './src/screens/AppleHealthScreen';
 import { ActivityHistoryScreen } from './src/screens/ActivityHistoryScreen';
+import { EditMealScreen } from './src/screens/EditMealScreen';
+import { WeightScreen } from './src/screens/WeightScreen';
+import { WeeklyRecapScreen } from './src/screens/WeeklyRecapScreen';
 import { LiftProgressScreen } from './src/screens/LiftProgressScreen';
 import { FoodTrendsScreen } from './src/screens/FoodTrendsScreen';
 import { StepTrendsScreen } from './src/screens/StepTrendsScreen';
@@ -183,7 +190,10 @@ type RootStackParamList = {
   PetVoice: undefined;
   MealCapture: undefined;
   /** `cardio` opens it on the runs-and-rides list (Outdoors' "Log a run"). */
-  Workout: { cardio?: boolean } | undefined;
+  Workout: { cardio?: boolean; editId?: string } | undefined;
+  EditMeal: { id: string };
+  Weight: { editId?: string } | undefined;
+  WeeklyRecap: undefined;
   MindGym: undefined;
   WordPuzzle: undefined;
   // A mind game with its own full-screen play area (the pet stands in the middle
@@ -450,13 +460,23 @@ function VittoApp() {
   const [petLoadFailed, setPetLoadFailed] = useState(false);
   // Bumped by the retry button to re-run the loading effect.
   const [reloadToken, setReloadToken] = useState(0);
-  const [events, setEvents] = useState<HealthEvent[]>([]);
+  // Everything logged, removed entries included (see removedEvents): the engine
+  // reads this, so the meal-XP cap still counts a meal that was taken back.
+  // Screens get `events`, the live ones only.
+  const [eventLog, setEvents] = useState<HealthEvent[]>([]);
+  const events = useMemo(() => liveEvents(eventLog), [eventLog]);
+  // For Undo, which runs seconds later than the render that offered it.
+  const eventLogRef = useRef(eventLog);
+  eventLogRef.current = eventLog;
+  const [undoOffer, setUndoOffer] = useState<UndoOffer | null>(null);
   /** Each exercise's sets from last time, for the workout screen's Previous column. */
   const lastSets = useMemo(() => lastSetsByExercise(events), [events]);
   /** Meals to log again in a tap, at the top of the meal sheet. */
   const mealsToRepeat = useMemo(() => repeatableMeals(events), [events]);
   const knownFoods = useMemo(() => loggedFoodNames(events), [events]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
+  // The unit they lift in, which can differ from their profile's (see liftingUnit).
+  const liftUnit = useMemo(() => liftingUnit(events, profile.weightUnit), [events, profile.weightUnit]);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
   const [toast, setToast] = useState<CareToast | null>(null);
   /**
@@ -556,6 +576,10 @@ function VittoApp() {
   // changes, and once notifications are allowed.
   const affirmingPetId = pet?.id;
   const affirmingPetName = pet?.name;
+  // The Sunday recap, named for the pet; only scheduled where notifications are on.
+  useEffect(() => {
+    if (pet?.name) void scheduleWeeklyRecap(pet.name);
+  }, [pet?.name]);
   useEffect(() => {
     if (affirmationsEnabled === null || !affirmingPetId || !affirmingPetName) return;
     void syncAffirmations({ enabled: affirmationsEnabled, petId: affirmingPetId, petName: affirmingPetName });
@@ -1227,7 +1251,7 @@ function VittoApp() {
       // eats one meal and walks one set of steps, so the moment is a fact about
       // them, not about a pet — and the shared pet never becomes a second chore.
       const fanOut = await withTimeout(
-        commitCareMomentForAll({ pets, event, events, profile, engine, remote }),
+        commitCareMomentForAll({ pets, event, events: eventLog, profile, engine, remote }),
         SAVE_TIMEOUT_MESSAGE,
       );
       // The reaction shown is the on-screen pet's; the others are fed quietly.
@@ -1739,16 +1763,121 @@ function VittoApp() {
     }
   };
 
+  /**
+   * Writes a changed log over the old one, everywhere it is kept. Used for an
+   * edit, for taking a log back and for Undo; none of them touch the pet.
+   */
+  const writeEvent = async (next: HealthEvent) => {
+    if (isSupabaseConfigured && session) await withTimeout(remoteRepository.replaceEvent(next), SAVE_TIMEOUT_MESSAGE);
+    await repository.replaceEvent(next);
+    setEvents((current) => current.map((candidate) => (candidate.id === next.id ? next : candidate)));
+  };
+
+  const offerUndo = (message: string, undo: () => Promise<void>) =>
+    setUndoOffer({ message, undo: () => undo().catch((cause) => setError(errorMessage(cause, 'Could not undo that.'))), key: newId() });
+
+  /** Takes a log back, with a few seconds to change their mind. */
+  const removeEvent = async (event: HealthEvent) => {
+    const removed = markRemoved(event);
+    try {
+      await writeEvent(removed);
+      offerUndo(`${capitalize(logName(event))} deleted`, () => writeEvent(restoreRemoved(removed)));
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not delete that.'));
+    }
+  };
+
+  /** A log as it was meant to be: same id, time unless changed, XP it earned. */
+  const editEvent = async (event: HealthEvent, metadata: Record<string, unknown>, occurredAt = event.occurredAt) => {
+    const before = event;
+    const after: HealthEvent = {
+      ...event,
+      occurredAt,
+      metadata: { ...(event.metadata as Record<string, unknown>), ...metadata, xpAwarded: (event.metadata as { xpAwarded?: number }).xpAwarded ?? 0 },
+    };
+    await writeEvent(after);
+    offerUndo(`${capitalize(logName(event))} updated`, () => writeEvent(before));
+  };
+
+  /**
+   * A weigh-in: saved straight to the log, not through the pet engine (it is
+   * body data, not care). The profile's weight follows the newest one, so the
+   * calorie targets do too.
+   */
+  const logWeight = async (kg: number) => {
+    const event = makeEvent<WeightMetadata>(userId, 'BODY_WEIGHT', { kg: Math.round(kg * 100) / 100 });
+    if (isSupabaseConfigured && session) await withTimeout(remoteRepository.saveEvent(event), SAVE_TIMEOUT_MESSAGE);
+    await repository.saveEvent(event);
+    setEvents((current) => [event, ...current]);
+    const before = profile.weightKg;
+    updateProfile('weightKg', event.metadata.kg);
+    offerUndo('Weigh-in logged', async () => {
+      await writeEvent(markRemoved(event));
+      updateProfile('weightKg', before);
+    });
+  };
+
+  const editWeight = async (event: HealthEvent, kg: number) => {
+    await editEvent(event, { kg: Math.round(kg * 100) / 100 });
+    const newest = weighIns(eventLogRef.current).at(-1);
+    if (newest?.id === event.id) updateProfile('weightKg', Math.round(kg * 100) / 100);
+  };
+
+  /**
+   * "Copy yesterday's breakfast": each of those meals again, now, in the slot,
+   * as logs of their own. The pet reacts once, to the last. One Undo takes
+   * them all back.
+   */
+  const copyMeals = async (meals: readonly HealthEvent<MealMetadata>[], slot: MealSlot) => {
+    const copies = meals.map((meal) => {
+      const { externalId: _external, imageUrl: _image, ...metadata } = meal.metadata as MealMetadata & { xpAwarded?: number; removedAt?: string };
+      const { xpAwarded: _xp, removedAt: _removed, ...clean } = metadata as typeof metadata & { xpAwarded?: number; removedAt?: string };
+      return makeEvent<MealMetadata>(userId, 'MEAL', { ...clean, loggedVia: 'manual', slot });
+    });
+    playMealSound();
+    for (const [index, copy] of copies.entries()) {
+      // eslint-disable-next-line no-await-in-loop -- in order: each meal's XP depends on the ones before it
+      await recordEvent(copy, { quiet: index < copies.length - 1 });
+    }
+    offerUndo(`${MEAL_SLOT_LABEL[slot]} copied`, async () => {
+      for (const copy of copies) {
+        const logged = eventLogRef.current.find((candidate) => candidate.id === copy.id);
+        // eslint-disable-next-line no-await-in-loop
+        if (logged) await writeEvent(markRemoved(logged));
+      }
+    });
+  };
+
+  /** Opens a log on the screen that changes it. */
+  const openEdit = (event: HealthEvent) => {
+    if (!navigationRef.isReady()) return;
+    if (event.type === 'MEAL') navigationRef.navigate('EditMeal', { id: event.id });
+    else if (event.type === 'WORKOUT') navigationRef.navigate('Workout', { editId: event.id });
+    else if (event.type === 'BODY_WEIGHT') navigationRef.navigate('Weight', { editId: event.id });
+  };
+
+  /** After a meal or workout is logged, the same few seconds to take it back. */
+  const offerUndoLogged = (id: string, what: string) => {
+    offerUndo(`${what} logged`, async () => {
+      const logged = eventLogRef.current.find((candidate) => candidate.id === id);
+      if (logged) await writeEvent(markRemoved(logged));
+    });
+  };
+
   const completeMeal = async (metadata: MealMetadata) => {
     playMealSound();
-    await recordEvent(makeEvent<MealMetadata>(userId, 'MEAL', metadata));
+    const event = makeEvent<MealMetadata>(userId, 'MEAL', metadata);
+    await recordEvent(event);
+    offerUndoLogged(event.id, 'Meal');
   };
 
   // No "working out" scene first: it has no pose of its own and borrowed the
   // run, so a finished workout read as the pet running off. `recordEvent`
   // cheers it like every other log.
   const completeWorkout = async (metadata: WorkoutMetadata) => {
-    await recordEvent(makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata));
+    const event = makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata);
+    await recordEvent(event);
+    offerUndoLogged(event.id, 'Workout');
   };
 
   /**
@@ -1756,8 +1885,11 @@ function VittoApp() {
    * taken back. Silent, except for the drink that reaches the day's goal: that
    * one the pet reacts to, in its own voice.
    */
-  const logWater = async (ml: number) => {
-    const event = makeEvent<HydrationMetadata>(userId, 'HYDRATION', { ml: Math.round(ml) });
+  const logWater = async (ml: number, at?: Date) => {
+    const event = {
+      ...makeEvent<HydrationMetadata>(userId, 'HYDRATION', { ml: Math.round(ml) }),
+      ...(at ? { occurredAt: at.toISOString() } : {}),
+    };
     await recordEvent(event, { quiet: !waterReachesGoal(events, event) });
   };
 
@@ -2201,6 +2333,7 @@ function VittoApp() {
     // Before the session goes: this phone should stop hearing from, or showing,
     // a pet it no longer has. Neither blocks the sign-out.
     void forgetThisDevice();
+    void cancelWeeklyRecap();
     void clearPetIsland();
     void clearPetWidget();
     // A half-logged workout is theirs, not the next person's to pick up.
@@ -2426,6 +2559,24 @@ function VittoApp() {
     });
     return () => foreground.remove();
   }, [sendWidget]);
+  // Cups added from the widget's + while the app was closed: logged now, at
+  // the times they were tapped, once the pet is loaded to drink them.
+  const logWaterRef = useRef(logWater);
+  logWaterRef.current = logWater;
+  const takeWidgetWater = useCallback(async () => {
+    for (const cup of await drainWidgetWater()) {
+      // eslint-disable-next-line no-await-in-loop -- in order, like the taps
+      await logWaterRef.current(cup.ml, cup.at).catch(() => undefined);
+    }
+  }, []);
+  useEffect(() => {
+    if (!dataReady || !pet) return undefined;
+    void takeWidgetWater();
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void takeWidgetWater();
+    });
+    return () => foreground.remove();
+  }, [dataReady, pet?.id, takeWidgetWater]); // eslint-disable-line react-hooks/exhaustive-deps
   // No pet here (signed out, or none adopted yet): nothing for the Island to
   // show, so any activity still up is ended. One could outlive its pet: a
   // session that expired rather than signing out never ran logOut's clear, and
@@ -2442,6 +2593,10 @@ function VittoApp() {
   // than dropping the person on the dashboard to go looking for it.
   useEffect(() => {
     return onNotificationTap((data) => {
+      if (data.screen === 'weekly' && navigationRef.isReady()) {
+        navigationRef.navigate('WeeklyRecap');
+        return;
+      }
       if (data.screen !== 'companion' || !navigationRef.isReady()) return;
       setUnreadCompanion(0);
       setCompanionSaid(null);
@@ -2744,6 +2899,7 @@ function VittoApp() {
               appleHealthStatus={Platform.OS === 'ios' ? (isAppleHealthConnected ? 'connected' : 'disconnected') : undefined}
               onOpenAppleHealth={() => navigation.navigate('AppleHealth')}
               onOpenHistory={() => navigation.navigate('ActivityHistory')}
+              onOpenWeight={() => navigation.navigate('Weight')}
               onOpenLiftProgress={() => navigation.navigate('LiftProgress')}
             />
           )}
@@ -2831,7 +2987,15 @@ function VittoApp() {
           )}
         </RootStack.Screen>
         <RootStack.Screen name="ActivityHistory">
-          {({ navigation }) => <ActivityHistoryScreen events={events} system={measurementSystemOf(profile)} onClose={() => navigation.goBack()} />}
+          {({ navigation }) => (
+            <ActivityHistoryScreen
+              events={events}
+              system={measurementSystemOf(profile)}
+              onClose={() => navigation.goBack()}
+              onEdit={openEdit}
+              onDelete={(event) => void removeEvent(event)}
+            />
+          )}
         </RootStack.Screen>
         <RootStack.Screen name="Settings">
           {({ navigation, route }) => (
@@ -3134,6 +3298,10 @@ function VittoApp() {
               onOpenFoodTrends={() => navigation.navigate('FoodTrends')}
               onOpenStepTrends={() => navigation.navigate('StepTrends')}
               onOpenLiftProgress={() => navigation.navigate('LiftProgress', { from: 'Today' })}
+              onOpenWeight={() => navigation.navigate('Weight')}
+              onOpenWeek={() => navigation.navigate('WeeklyRecap')}
+              onEditLog={openEdit}
+              onDeleteLog={(event) => void removeEvent(event)}
               onOpenWordPuzzle={() => navigation.navigate('WordPuzzle')}
               onOpenProfile={() => navigation.navigate('Profile')}
               onClose={() => navigation.goBack()}
@@ -3169,6 +3337,37 @@ function VittoApp() {
             quick ones; a workout or game in progress closes from its own
             button, so a stray swipe cannot throw it away. */}
         <RootStack.Group screenOptions={{ presentation: 'modal' }}>
+          <RootStack.Screen name="WeeklyRecap">
+            {({ navigation }) => (
+              <WeeklyRecapScreen pet={livePet} events={events} profile={profile} stepGoal={stepGoal} onClose={() => navigation.goBack()} />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen name="Weight">
+            {({ navigation, route }) => (
+              <WeightScreen
+                events={events}
+                unit={profile.weightUnit}
+                goalKg={profile.goal !== 'maintain' ? profile.targetWeightKg : undefined}
+                editId={route.params?.editId}
+                onLog={logWeight}
+                onEdit={editWeight}
+                onDelete={(event) => void removeEvent(event)}
+                onClose={() => navigation.goBack()}
+              />
+            )}
+          </RootStack.Screen>
+          <RootStack.Screen name="EditMeal">
+            {({ navigation, route }) => {
+              const meal = events.find((event) => event.id === route.params.id);
+              return meal ? (
+                <EditMealScreen
+                  meal={meal as HealthEvent<MealMetadata>}
+                  onSave={(metadata) => editEvent(meal, metadata as Record<string, unknown>)}
+                  onClose={() => navigation.goBack()}
+                />
+              ) : null;
+            }}
+          </RootStack.Screen>
           <RootStack.Screen name="MealCapture">
             {({ navigation }) => (
               <MealCaptureScreen
@@ -3179,6 +3378,8 @@ function VittoApp() {
                 canScanPhotos={canCustomise}
                 repeatable={mealsToRepeat}
                 knownFoods={knownFoods}
+                copyableFor={(slot) => copyableSlot(events, slot)}
+                onCopy={copyMeals}
                 onOpenPlus={() => {
                   navigation.goBack();
                   navigation.navigate('Plus');
@@ -3203,19 +3404,33 @@ function VittoApp() {
           </RootStack.Screen>
           <RootStack.Screen name="Workout" options={{ gestureEnabled: false }}>
             {({ navigation, route }) => (
-              <WorkoutScreen
-                startWithCardio={route.params?.cardio === true}
-                weightUnit={profile.weightUnit}
-                templates={workoutTemplates}
-                lastSets={lastSets}
-                onSaveTemplate={saveWorkoutTemplate}
-                onDeleteTemplate={deleteWorkoutTemplate}
-                // No navigation here: the screen closes itself (`onClose`) once
-                // the workout and its routine are saved. Going back here as
-                // well closed it twice, and the second went back past it.
-                onFinish={completeWorkout}
-                onClose={() => navigation.goBack()}
-              />
+              (() => {
+                const edited = route.params?.editId ? events.find((event) => event.id === route.params?.editId) : undefined;
+                return edited ? (
+                  <WorkoutScreen
+                    weightUnit={liftUnit}
+                    editing={edited.metadata as WorkoutMetadata}
+                    onSaveEdit={(metadata) => editEvent(edited, metadata as unknown as Record<string, unknown>)}
+                    onFinish={completeWorkout}
+                    onClose={() => navigation.goBack()}
+                  />
+                ) : (
+                  <WorkoutScreen
+                    startWithCardio={route.params?.cardio === true}
+                    weightUnit={liftUnit}
+                    templates={workoutTemplates}
+                    lastSets={lastSets}
+                    history={events}
+                    onSaveTemplate={saveWorkoutTemplate}
+                    onDeleteTemplate={deleteWorkoutTemplate}
+                    // No navigation here: the screen closes itself (`onClose`) once
+                    // the workout and its routine are saved. Going back here as
+                    // well closed it twice, and the second went back past it.
+                    onFinish={completeWorkout}
+                    onClose={() => navigation.goBack()}
+                  />
+                );
+              })()
             )}
           </RootStack.Screen>
           <RootStack.Screen name="MindGym" options={{ gestureEnabled: false }}>
@@ -3296,6 +3511,7 @@ function VittoApp() {
         </View>
       ) : null}
       {/* The Done bar over iOS's number pads, for every screen's number fields. */}
+      <UndoToast offer={undoOffer} onDone={() => setUndoOffer(null)} />
     </NavigationContainer>
   );
 }

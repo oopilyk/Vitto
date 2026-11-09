@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HEALTH_EVENT_TYPES } from './health';
+import { CARE_EVENT_TYPES } from './health';
 
 const MIGRATIONS = join(dirname(fileURLToPath(import.meta.url)), '../../../../supabase/migrations');
 
@@ -37,7 +37,7 @@ const careLogTypesInLatestMigration = (): string[] => {
 };
 
 describe('pet_care_log.type check constraint', () => {
-  it('allows exactly HEALTH_EVENT_TYPES, in the same order', () => {
-    expect(careLogTypesInLatestMigration()).toEqual([...HEALTH_EVENT_TYPES]);
+  it('allows exactly CARE_EVENT_TYPES, in the same order', () => {
+    expect(careLogTypesInLatestMigration()).toEqual([...CARE_EVENT_TYPES]);
   });
 });

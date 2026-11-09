@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import type { BodyProfile, HealthEvent } from '@vitto/core';
-import { FieldRow, FormField, SaveBar, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
+import { FieldRow, FormField, SaveBar, SavedBar, SettingsPage, SettingsSection, TextField, useSavedNote } from '../components/settingsKit';
 import { TextButton } from '../components/ui';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { formatMinutes, joinMinutes } from '../services/minutes';
@@ -45,6 +45,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
   const [budgetFields, setBudgetFields] = useState(() => budgetText(profile.screenTimeBudgetMinutes));
   const [budget, setBudget] = useState(profile.screenTimeBudgetMinutes);
   const [saving, setSaving] = useState(false);
+  const savedNote = useSavedNote();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [today, setToday] = useState({ hours: '', minutes: '' });
   const [logging, setLogging] = useState(false);
@@ -69,6 +70,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
     setSaveError(null);
     try {
       await onSave({ ...profile, screenTimeBudgetMinutes: budget });
+      savedNote.show();
     } catch (cause) {
       setSaveError(cause instanceof Error ? cause.message : 'Could not save your budget.');
     } finally {
@@ -103,7 +105,9 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
       lead="Stay under a budget you set and your pet's mind sharpens. Going over never costs anything."
       backLabel="Profile"
       onBack={onClose}
-      footer={dirty ? <SaveBar saving={saving} error={saveError} onSave={() => void save()} onDiscard={discard} /> : null}
+      // Up while saving and after a failure too: App applies the change before
+      // the write lands, so `dirty` alone hid the bar and any error with it.
+      footer={dirty || saving || saveError ? <SaveBar saving={saving} error={saveError} onSave={() => void save()} onDiscard={discard} /> : savedNote.saved ? <SavedBar label="Budget saved" /> : null}
     >
       <SettingsSection
         title="Daily budget"

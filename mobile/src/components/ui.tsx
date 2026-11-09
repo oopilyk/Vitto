@@ -162,6 +162,38 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const PRESS_IN = { toValue: 1, speed: 50, bounciness: 0, useNativeDriver: Platform.OS !== 'web' } as const;
 const PRESS_OUT = { toValue: 0, speed: 20, bounciness: 6, useNativeDriver: Platform.OS !== 'web' } as const;
 
+const MARK_PATH = {
+  plus: 'M6 1.5 V10.5 M1.5 6 H10.5',
+  minus: 'M1.5 6 H10.5',
+  cross: 'M2 2 L10 10 M10 2 L2 10',
+  check: 'M2 6.4 L4.9 9.2 L10 3',
+} as const;
+export type MarkKind = keyof typeof MARK_PATH;
+
+/**
+ * A plus, minus, tick or cross, drawn rather than typed. A typed "+" or "✓"
+ * sits on the font's baseline, not in the middle of its line, so in a circle
+ * it always landed low or to one side; drawn, it is centred by construction.
+ * Every mark inside a button or a circle is one of these.
+ */
+export function Mark({
+  kind,
+  size = 12,
+  color = colors.inkSoft,
+  weight = 2,
+}: {
+  kind: MarkKind;
+  size?: number;
+  color?: string;
+  weight?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 12 12" accessible={false}>
+      <Path d={MARK_PATH[kind]} stroke={color} strokeWidth={(weight * 12) / size} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </Svg>
+  );
+}
+
 /**
  * The one way out of a logging sheet: a small round button with a cross, top
  * right, as on iOS's own sheets. The cross is drawn, not typed: a "×" glyph
@@ -180,9 +212,7 @@ export function CloseButton({ onPress, label = 'Close' }: { onPress: () => void;
       style={styles.close}
       testID="sheet-close"
     >
-      <Svg width={12} height={12} viewBox="0 0 12 12">
-        <Path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" stroke={colors.muted} strokeWidth={2} strokeLinecap="round" />
-      </Svg>
+      <Mark kind="cross" size={12} color={colors.muted} />
     </PressableScale>
   );
 }

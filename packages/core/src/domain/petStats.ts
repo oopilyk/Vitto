@@ -1,7 +1,7 @@
 import { DECAY_PER_DAY } from './decay';
 import { HUNGRY_NUTRITION_THRESHOLD } from './hunger';
 import { SLEEPY_ENERGY_THRESHOLD, SLUGGISH_VITALITY_THRESHOLD } from './petHealthEngine';
-import type { HealthEvent, HealthEventType } from './health';
+import type { CareEventType, HealthEvent } from './health';
 import { chargeOf, clamp, type PetState } from './pet';
 
 /**
@@ -133,7 +133,7 @@ export const statValue = (pet: PetState, key: PetStatKey): number => clamp(key =
 export const daysWithPet = (pet: PetState, asOf: Date = new Date()): number =>
   Math.max(1, Math.floor((asOf.getTime() - new Date(pet.adoptedAt).getTime()) / ONE_DAY_MS) + 1);
 
-const emptyCareCounts = (): Record<HealthEventType, number> => ({
+const emptyCareCounts = (): Record<CareEventType, number> => ({
   STEP_ACTIVITY: 0,
   WORKOUT: 0,
   MEAL: 0,
@@ -152,7 +152,7 @@ export const careCountsByType = (
   events: HealthEvent[],
   days: number,
   asOf: Date = new Date(),
-): Record<HealthEventType, number> => {
+): Record<CareEventType, number> => {
   const counts = emptyCareCounts();
   if (days <= 0) return counts;
 
@@ -167,7 +167,8 @@ export const careCountsByType = (
   for (const event of events) {
     const at = new Date(event.occurredAt).getTime();
     if (Number.isNaN(at) || at < from || at >= until) continue;
-    counts[event.type] += 1;
+    // A weigh-in is not care for the pet.
+    if (event.type in counts) counts[event.type as CareEventType] += 1;
   }
   return counts;
 };

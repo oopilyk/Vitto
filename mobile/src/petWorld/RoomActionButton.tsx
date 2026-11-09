@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Mark } from '../components/ui';
 import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors, fonts, themedStyles } from '../theme';
@@ -61,7 +62,7 @@ export function RoomActionButton({ label, onPress }: { label: string; onPress: (
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         >
           <View style={styles.badge}>
-            <Text style={styles.plus}>+</Text>
+            <Mark kind="plus" size={12} weight={2.4} color={colors.coral} />
           </View>
           <Text style={styles.label}>{label}</Text>
         </Pressable>

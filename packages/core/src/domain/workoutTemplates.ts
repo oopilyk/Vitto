@@ -1,6 +1,8 @@
 import { newId } from './ids';
-import type { HealthEvent, WorkoutExercise, WorkoutMetadata, WorkoutSet } from './health';
+import type { HealthEvent, WeightUnit, WorkoutExercise, WorkoutMetadata, WorkoutSet } from './health';
 import { plausibleSet } from './workoutLimits';
+import { estimatedOneRepMax } from './oneRepMax';
+import { convertWeightValue } from './macroTargets';
 
 /**
  * Saved routines — "Push", "Pull", "Legs" — so logging a workout you do every
@@ -152,3 +154,79 @@ export const lastSetsByExercise = (events: readonly HealthEvent[]): Map<string, 
  */
 export const exerciseFromHistory = (exercise: WorkoutExercise, lastSets: readonly WorkoutSet[] | undefined): WorkoutExercise =>
   lastSets && lastSets.length > 0 && !exercise.distance ? { ...exercise, sets: lastSets.map(rememberSet) } : exercise;
+
+/**
+ * The unit someone lifts in: the one on their most recent weighted set, else
+ * their profile's. A set keeps the unit it was typed in, so someone whose
+ * profile says kg but who has always loaded the bar in pounds saw their own
+ * 205 lb bench come back as "118 kg" on Lift progress.
+ */
+export const liftingUnit = (events: readonly HealthEvent[], fallback: WeightUnit): WeightUnit => {
+  let newest: { at: string; unit: WeightUnit } | null = null;
+  for (const event of events) {
+    if (event.type !== 'WORKOUT') continue;
+    if (newest && event.occurredAt <= newest.at) continue;
+    const set = ((event.metadata as WorkoutMetadata).exercises ?? [])
+      .flatMap((exercise) => exercise.sets)
+      .find((candidate) => candidate.unit && candidate.weight && candidate.weight > 0);
+    if (set?.unit) newest = { at: event.occurredAt, unit: set.unit };
+  }
+  return newest?.unit ?? fallback;
+};
+
+/** An exercise's bests before today's session, in kg: heaviest weight and best estimated one-rep max. */
+export interface ExerciseBest {
+  weightKg: number;
+  oneRepMaxKg: number;
+}
+
+export const exerciseBest = (events: readonly HealthEvent[], exerciseName: string): ExerciseBest | null => {
+  let weightKg = 0;
+  let oneRepMaxKg = 0;
+  for (const event of events) {
+    if (event.type !== 'WORKOUT') continue;
+    for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
+      if (exercise.name !== exerciseName) continue;
+      for (const set of exercise.sets) {
+        if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0 || !plausibleSet(set)) continue;
+        const kg = convertWeightValue(set.weight, set.unit ?? 'kg', 'kg');
+        weightKg = Math.max(weightKg, kg);
+        oneRepMaxKg = Math.max(oneRepMaxKg, estimatedOneRepMax(kg, set.reps));
+      }
+    }
+  }
+  return weightKg > 0 ? { weightKg, oneRepMaxKg } : null;
+};
+
+/**
+ * What a set just done beat, if anything: the heaviest weight ever lifted on
+ * it, or failing that the best estimated one-rep max. Nothing the first time
+ * an exercise is done (every set would be a record), and nothing for a set
+ * that cannot be real.
+ */
+export const setRecord = (set: Pick<WorkoutSet, 'weight' | 'reps' | 'unit'>, best: ExerciseBest | null): 'weight' | 'oneRepMax' | null => {
+  if (!best || !set.weight || set.weight <= 0 || set.reps <= 0 || !plausibleSet(set)) return null;
+  const kg = convertWeightValue(set.weight, set.unit ?? 'kg', 'kg');
+  if (kg > best.weightKg + 0.01) return 'weight';
+  if (estimatedOneRepMax(kg, set.reps) > best.oneRepMaxKg + 0.01) return 'oneRepMax';
+  return null;
+};
+
+export interface ExerciseSession {
+  id: string;
+  at: string;
+  sets: WorkoutSet[];
+}
+
+/** The last `limit` sessions of one exercise, newest first, done sets only. */
+export const exerciseSessions = (events: readonly HealthEvent[], exerciseName: string, limit = 10): ExerciseSession[] =>
+  events
+    .filter((event) => event.type === 'WORKOUT')
+    .flatMap((event) =>
+      ((event.metadata as WorkoutMetadata).exercises ?? [])
+        .filter((exercise) => exercise.name === exerciseName)
+        .map((exercise) => ({ id: event.id, at: event.occurredAt, sets: exercise.sets.filter((set) => set.completed && set.reps > 0) })),
+    )
+    .filter((session) => session.sets.length > 0)
+    .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, limit);

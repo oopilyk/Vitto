@@ -19,7 +19,16 @@ const pressText = (tree: renderer.ReactTestRenderer, label: string) =>
   tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && node.findAllByType(Text).some((t: any) => t.props.children === label))[0]!;
 const field = (tree: renderer.ReactTestRenderer, label: string) =>
   tree.root.findAll((node: any) => node.type === TextInput && node.props.accessibilityLabel === label)[0]!;
-const texts = (tree: renderer.ReactTestRenderer) => JSON.stringify(tree.root.findAllByType(Text).map((t) => t.props.children));
+/** Every string drawn, nested Text included. */
+const texts = (tree: renderer.ReactTestRenderer) => {
+  const out: string[] = [];
+  const walk = (child: unknown): void => {
+    if (typeof child === 'string' || typeof child === 'number') out.push(String(child));
+    else if (Array.isArray(child)) child.forEach(walk);
+  };
+  tree.root.findAllByType(Text).forEach((t) => walk(t.props.children));
+  return out.join(' | ');
+};
 
 beforeEach(async () => {
   await AsyncStorage.clear();

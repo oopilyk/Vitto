@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useState, type ReactNode } from "react";
-import {  measurementSystemForLocale, unitsFor,type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateMacroTargets, calculateStreaks, createPet, errorMessage, estimateCaloriesBurned, getEventsForDay, getMealsForDay, getSession, isUsernameAvailable, mindScoreLabel, normalizeUsername, onAuthStateChange, usernameError, signInWithEmail, signOut, signUpWithEmail, sumMealMacros, withSurveyDefaults } from '@vitto/core';
+import { useMemo, Fragment, useEffect, useState, type ReactNode } from "react";
+import {  isCareMoment, liveEvents, measurementSystemForLocale, unitsFor,type BodyProfile, type BrainTrainingMetadata, FOCUS_AREAS, type FocusArea, type HealthEvent, type MealAnalysis, type MealMetadata, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type PetReaction, type PetState, SupabaseRepository, type WorkoutMetadata, applyDelta, applyTimeDecay, calculateMacroTargets, calculateStreaks, createPet, errorMessage, estimateCaloriesBurned, getEventsForDay, getMealsForDay, getSession, isUsernameAvailable, mindScoreLabel, normalizeUsername, onAuthStateChange, usernameError, signInWithEmail, signOut, signUpWithEmail, sumMealMacros, withSurveyDefaults } from '@vitto/core';
 import { MockHealthDataProvider } from "./services/healthDataProvider";
 import { LocalRepository } from "./services/localRepository";
 import { MealCapture } from "./components/MealCapture";
@@ -70,7 +70,9 @@ function App() {
   // time as `livePet`; storing the projection would re-apply the same elapsed
   // window on every pass (`lastEventAt` does not move) and persist the loss.
   const [pet, setPet] = useState<PetState | null>(() => repository.loadPet());
-  const [events, setEvents] = useState(() => repository.loadEvents());
+  // The web app shows care moments only: not logs taken back in the app, nor weigh-ins.
+  const [eventLog, setEvents] = useState(() => repository.loadEvents());
+  const events = useMemo(() => liveEvents(eventLog).filter(isCareMoment), [eventLog]);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
   const [name, setName] = useState("Miso");
   const [profile, setProfile] = useState<BodyProfile>({

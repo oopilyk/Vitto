@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Mark } from '../components/ui';
 import { Pressable, Text, View } from 'react-native';
 import { companion as ai, errorMessage } from '@vitto/core';
 import { DangerButton, DangerZone, SettingsPage, kit } from '../components/settingsKit';
 import { companionService, type CompanionMemory } from '../services/companionService';
-import { text } from '../theme';
+import { colors, text } from '../theme';
 
 interface Props {
   petId: string;
@@ -113,7 +114,7 @@ export function CompanionMemoriesScreen({ petId, petName, confirm, onClose }: Pr
                   <Text style={kit.rowLabel}>{memory.content}</Text>
                   <Text style={kit.rowDetail}>{CATEGORY_LABEL[memory.category] ?? 'Something you said'}</Text>
                 </View>
-                <Text style={kit.navChevron}>×</Text>
+                <Mark kind="cross" size={11} color={colors.faint} />
               </Pressable>
             ))}
           </View>

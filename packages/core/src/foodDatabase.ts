@@ -718,3 +718,66 @@ const gradePlate = (plate: readonly PlateItem[], scaled: FoodMacros, foodDescrip
     nutrients,
   });
 };
+
+/** Grams in one serving of a food, when known: 100 for a per-100 g food, or the "(55 g)" on its serving. */
+export const servingGrams = (food: FoodSearchResult): number | undefined => {
+  if (food.isPer100g) return REFERENCE_GRAMS;
+  const match = /([\d.]+)\s*g\b/i.exec(food.servingDescription);
+  const grams = match ? Number(match[1]) : NaN;
+  return Number.isFinite(grams) && grams > 0 ? grams : undefined;
+};
+
+export type PortionUnit = 'serving' | 'g' | 'oz';
+const GRAMS_PER_OZ = 28.3495;
+
+/** Servings from an amount typed in a unit: 350 g of a per-100 g food is 3.5. Null when the unit cannot be used. */
+export const servingsFrom = (food: FoodSearchResult, amount: number, unit: PortionUnit): number | null => {
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (unit === 'serving') return amount;
+  const grams = servingGrams(food);
+  if (!grams) return null;
+  return (unit === 'g' ? amount : amount * GRAMS_PER_OZ) / grams;
+};
+
+/** The amount, in a unit, that `servings` comes to: the reverse of `servingsFrom`, rounded for a field. */
+export const amountIn = (food: FoodSearchResult, servings: number, unit: PortionUnit): number => {
+  if (unit === 'serving') return Math.round(servings * 100) / 100;
+  const grams = (servingGrams(food) ?? 0) * servings;
+  return unit === 'g' ? Math.round(grams) : Math.round((grams / GRAMS_PER_OZ) * 10) / 10;
+};
+
+/**
+ * A meal logged as numbers alone ("Quick add: 650 kcal, 40 g protein"), for
+ * a restaurant plate no database has. Graded C, the neutral grade: with no
+ * idea what was on it, it is neither praised nor marked down.
+ */
+export const quickAddAnalysis = ({
+  name,
+  calories,
+  proteinGrams = 0,
+  carbsGrams = 0,
+  fatGrams = 0,
+}: {
+  name?: string;
+  calories: number;
+  proteinGrams?: number;
+  carbsGrams?: number;
+  fatGrams?: number;
+}): MealAnalysis => {
+  const label = name?.trim() || 'Quick add';
+  return {
+    grade: 'C',
+    foodDescription: label,
+    summary: label,
+    confidence: 1,
+    detectedFoods: [label],
+    macros: {
+      calories: Math.round(calories),
+      proteinGrams: Math.round(proteinGrams * 10) / 10,
+      carbsGrams: Math.round(carbsGrams * 10) / 10,
+      fatGrams: Math.round(fatGrams * 10) / 10,
+      fiberGrams: 0,
+    },
+    nutrients: { protein: proteinGrams >= PROTEIN_GRAMS_THRESHOLD, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false },
+  };
+};

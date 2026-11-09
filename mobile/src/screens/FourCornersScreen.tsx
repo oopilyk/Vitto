@@ -16,7 +16,7 @@ import {
   triviaQuestions,
 } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
-import { ErrorText, PrimaryButton } from '../components/ui';
+import { ErrorText, PrimaryButton, Mark } from '../components/ui';
 import { CornerTile, type CornerTileState } from '../fourCorners/CornerTile';
 import { FourCornersResults } from '../fourCorners/FourCornersResults';
 import {
@@ -396,7 +396,7 @@ function Header({
         hitSlop={10}
         style={({ pressed }) => [styles.close, pressed && surfacePressed]}
       >
-        <Text style={styles.closeMark}>✕</Text>
+        <Mark kind="cross" size={12} color={world.nightText} />
       </Pressable>
     </View>
   );

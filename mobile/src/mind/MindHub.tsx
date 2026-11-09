@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Mark } from '../components/ui';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   type HealthEvent,
@@ -90,7 +91,7 @@ export function MindHub({ pet, events, routes, onStartStage, onClose }: Props) {
           hitSlop={10}
           style={({ pressed }) => [styles.close, pressed && surfacePressed]}
         >
-          <Text style={styles.closeMark}>✕</Text>
+          <Mark kind="cross" size={12} color={world.nightText} />
         </Pressable>
       </View>
 

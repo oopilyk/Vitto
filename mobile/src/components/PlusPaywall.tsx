@@ -11,7 +11,7 @@ import {
   type PlusStatus,
 } from '../services/billingService';
 import { cancelTrialReminder, scheduleTrialReminder } from '../services/pushService';
-import { CloseButton, PrimaryButton, TextButton } from './ui';
+import { CloseButton, PrimaryButton, TextButton, Mark } from './ui';
 import { colors, fonts, text, themedStyles } from '../theme';
 
 interface Props {
@@ -283,7 +283,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
                   <View style={styles.planTop}>
                     <Text style={[styles.planLabel, selected && styles.planLabelOn]}>{option.label}</Text>
                     <View style={[styles.radio, selected && styles.radioOn]}>
-                      {selected ? <Text style={styles.radioTick}>✓</Text> : null}
+                      {selected ? <Mark kind="check" size={10} weight={2.2} color="#fff" /> : null}
                     </View>
                   </View>
                   <Text style={styles.planPrice}>{option.price}</Text>

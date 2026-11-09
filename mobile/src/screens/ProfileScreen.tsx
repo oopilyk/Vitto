@@ -17,6 +17,9 @@ import {
   ordinal,
   overallStanding,
   personalRecords,
+  liftingUnit,
+  isCareMoment,
+  weighIns,
   runRecords,
   initialOf,
 } from '@vitto/core';
@@ -60,6 +63,8 @@ interface Props {
   appleHealthStatus?: 'disconnected' | 'connected';
   onOpenAppleHealth?: () => void;
   onOpenHistory?: () => void;
+  /** Body weight over time (WeightScreen). */
+  onOpenWeight?: () => void;
   /** Opens the graph of each lift's estimated max over time. */
   onOpenLiftProgress?: () => void;
 }
@@ -154,27 +159,30 @@ export function ProfileScreen({
   appleHealthStatus,
   onOpenAppleHealth,
   onOpenHistory,
+  onOpenWeight,
   onOpenLiftProgress,
 }: Props) {
   const today = new Date();
   const streaks = calculateQualifyingStreaks(events, today);
   const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const runs = runRecords(events, measurementSystemOf(profile));
+  // Records in the unit they lift in, which can differ from their profile's (see liftingUnit).
+  const liftUnit = liftingUnit(events, profile.weightUnit);
   // Each lift is also placed against people of the same sex, bodyweight and age,
   // from its best estimated one-rep max: the tile shows the set as lifted, but
   // 225 x 8 ranks as the stronger lift it is, not as a 225 single.
-  // `liftStanding` works in kilograms, so a pounds profile converts back first.
-  const lifts = personalRecords(events, profile.weightUnit, BIG_LIFTS).map(({ exercise, record, estimatedMax }) => ({
+  // `liftStanding` works in kilograms, so pounds convert back first.
+  const lifts = personalRecords(events, liftUnit, BIG_LIFTS).map(({ exercise, record, estimatedMax }) => ({
     exercise,
     record,
-    standing: estimatedMax ? liftStanding(exercise, convertWeightValue(estimatedMax, profile.weightUnit, 'kg'), profile) : null,
+    standing: estimatedMax ? liftStanding(exercise, convertWeightValue(estimatedMax, liftUnit, 'kg'), profile) : null,
   }));
   const overall = overallStanding(lifts.map((lift) => lift.standing));
   const board: { label: string; value: string | null; unit?: string; meta: string; note?: string }[] = [
     ...lifts.map(({ exercise, record, standing }) => ({
       label: exercise,
       value: record ? String(record.weight) : null,
-      unit: profile.weightUnit,
+      unit: liftUnit,
       meta: record ? `× ${record.reps} · ${shortDate(record.occurredAt)}` : 'not yet lifted',
       ...(standing ? { note: `${ordinal(standing.percentile)} · ${standing.label}` } : {}),
     })),
@@ -398,10 +406,21 @@ export function ProfileScreen({
                 testID="open-apple-health"
               />
             ) : null}
+            {onOpenWeight ? (
+              <NavRow
+                title="Weight"
+                value={(() => {
+                  const latest = weighIns(events).at(-1);
+                  return latest ? `${Math.round(convertWeightValue(latest.trendKg, 'kg', profile.weightUnit) * 10) / 10} ${profile.weightUnit}` : 'Start a trend';
+                })()}
+                onPress={onOpenWeight}
+                testID="open-weight"
+              />
+            ) : null}
             {onOpenHistory ? (
               <NavRow
                 title="Activity history"
-                value={events.length === 0 ? 'Nothing yet' : `${events.length} care moments`}
+                value={events.length === 0 ? 'Nothing yet' : `${events.filter(isCareMoment).length} care moments`}
                 onPress={onOpenHistory}
                 testID="open-history"
               />

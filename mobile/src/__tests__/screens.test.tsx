@@ -29,6 +29,8 @@ jest.mock('expo-haptics', () => ({
 jest.mock('../services/friendsService', () => ({
   friendsService: {
     loadFriendsOverview: jest.fn(),
+    loadReceivedReactions: jest.fn(() => Promise.resolve([])),
+    markReactionsSeen: jest.fn(() => Promise.resolve()),
     loadMyFriendRequests: jest.fn(),
     getMyUsername: jest.fn(),
     setMyUsername: jest.fn(),
@@ -1739,7 +1741,7 @@ describe('profile screen', () => {
     tree.unmount();
   });
 
-  it('puts the heaviest ticked set on each big lift on the board, in the profile\'s unit', () => {
+  it('puts the heaviest ticked set on each big lift on the board, in the unit it was lifted in', () => {
     const { Text } = require('react-native');
     const bench = {
       id: 'w1', userId: 'u', type: 'WORKOUT', source: 'manual', occurredAt: '2026-09-08T10:00:00Z',
@@ -1763,11 +1765,12 @@ describe('profile screen', () => {
     });
     const texts = tree.root.findAllByType(Text).map((t: any) => t.props.children);
     const flat = texts.flat(2).map(String);
-    // 80 kg, the heaviest ticked set, shown as 176.4 lb because the profile is in pounds.
-    expect(flat).toContain('176.4');
+    // 80 kg, the heaviest ticked set, shown as lifted: the sets are in kg,
+    // whatever the profile says (see liftingUnit).
+    expect(flat).toContain('80');
     expect(flat.some((t) => t.includes('× 5'))).toBe(true);
     // The unticked 100 kg row is a plan, not a lift.
-    expect(flat).not.toContain('220.5');
+    expect(flat).not.toContain('100');
     // Lifts never logged still get a tile, so the board is the list of goals.
     expect(flat.filter((t) => t === 'not yet lifted')).toHaveLength(3);
     expect(flat.filter((t) => t === 'no runs yet')).toHaveLength(2);

@@ -3,7 +3,7 @@
  * labels, the `pet_care_log.type` CHECK in the migration) can be checked for
  * completeness in tests rather than drifting silently when a type is added.
  */
-export const HEALTH_EVENT_TYPES = [
+export const CARE_EVENT_TYPES = [
   'STEP_ACTIVITY',
   'WORKOUT',
   'MEAL',
@@ -13,6 +13,15 @@ export const HEALTH_EVENT_TYPES = [
   'HYDRATION',
   'MANUAL_ACTIVITY',
 ] as const;
+
+export type CareEventType = (typeof CARE_EVENT_TYPES)[number];
+
+/**
+ * Every kind of log: the care moments, and a weigh-in. A weigh-in is private
+ * body data, not care for the pet: it never goes through the pet engine, a
+ * care partner's log or a friend's view (see weightLog).
+ */
+export const HEALTH_EVENT_TYPES = [...CARE_EVENT_TYPES, 'BODY_WEIGHT'] as const;
 
 export type HealthEventType = (typeof HEALTH_EVENT_TYPES)[number];
 
@@ -258,6 +267,8 @@ export interface MealMetadata {
   loggedVia?: 'ai' | 'barcode' | 'manual' | 'healthkit';
   /** Dedup key for entries imported from an external source (e.g. a HealthKit sample UUID). */
   externalId?: string;
+  /** Breakfast, lunch, dinner or a snack (see mealSlots); read off the time when absent. */
+  slot?: 'breakfast' | 'lunch' | 'dinner' | 'snack';
 }
 
 export interface MealAnalysis {

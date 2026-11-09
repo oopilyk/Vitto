@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Platform, Pressable, Text, View } from 'react-native';
 import {
+  isCareMoment,
   BRAIN_GAME_LABEL,
   formatWater,
   waterMlOf,
@@ -55,6 +56,12 @@ export const describeEvent = (event: HealthEvent, system: MeasurementSystem = 'm
     const verdict = screen.withinBudget === undefined ? '' : screen.withinBudget ? ' · under budget' : ' · over budget';
     return `Screen time · ${formatMinutes(screen.minutes)}${verdict}`;
   }
+  if (event.type === 'BODY_WEIGHT') {
+    const kg = (event.metadata as { kg?: number } | undefined)?.kg;
+    if (typeof kg !== 'number') return 'Weigh-in';
+    const lb = system === 'imperial';
+    return `Weigh-in · ${Math.round((lb ? kg * 2.20462 : kg) * 10) / 10} ${lb ? 'lb' : 'kg'}`;
+  }
   return 'Activity';
 };
 
@@ -101,16 +108,65 @@ const dayHeading = (iso: string, now = new Date()): string => {
   return day.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 };
 
+/**
+ * What a log can be changed into from here. Steps are Apple Health's count
+ * and would come straight back on the next sync; water has its own − on Today.
+ */
+const EDITABLE = new Set<HealthEvent['type']>(['MEAL', 'WORKOUT', 'BODY_WEIGHT']);
+const FIXED = new Set<HealthEvent['type']>(['STEP_ACTIVITY', 'HYDRATION']);
+
+/** The name of one kind of log, as a sheet's title says it. */
+export const logName = (event: HealthEvent): string =>
+  event.type === 'MEAL' ? 'meal' : event.type === 'WORKOUT' ? 'workout' : event.type === 'BODY_WEIGHT' ? 'weigh-in' : 'entry';
+
+/**
+ * Edit or Delete for one log, as iOS's own action sheet. Shared by every list
+ * a log is shown in, so a log is changed the same way wherever it is tapped.
+ */
+export const askEditOrDelete = (
+  event: HealthEvent,
+  { onEdit, onDelete }: { onEdit?: (event: HealthEvent) => void; onDelete?: (event: HealthEvent) => void },
+) => {
+  const edit = onEdit && EDITABLE.has(event.type) ? () => onEdit(event) : undefined;
+  const remove = onDelete ? () => onDelete(event) : undefined;
+  const title = `This ${logName(event)}`;
+  if (Platform.OS === 'ios') {
+    const options = [...(edit ? ['Edit'] : []), ...(remove ? ['Delete'] : []), 'Cancel'];
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title, options, cancelButtonIndex: options.length - 1, destructiveButtonIndex: remove ? options.indexOf('Delete') : undefined },
+      (index) => {
+        if (options[index] === 'Edit') edit?.();
+        if (options[index] === 'Delete') remove?.();
+      },
+    );
+    return;
+  }
+  Alert.alert(title, undefined, [
+    ...(edit ? [{ text: 'Edit', onPress: edit }] : []),
+    ...(remove ? [{ text: 'Delete', style: 'destructive' as const, onPress: remove }] : []),
+    { text: 'Cancel', style: 'cancel' as const },
+  ]);
+};
+
+/** Whether a log can be edited or deleted from a list. */
+export const changeable = (event: HealthEvent) => !FIXED.has(event.type);
+
 /** Everything logged, newest first, under a heading per day (from Profile). */
 export function ActivityHistoryScreen({
   events,
   system = 'metric',
   onClose,
+  onEdit,
+  onDelete,
 }: {
   events: HealthEvent[];
   /** For water amounts, in the person's own units. */
   system?: MeasurementSystem;
   onClose: () => void;
+  /** Opens a meal, workout or weigh-in to change it. */
+  onEdit?: (event: HealthEvent) => void;
+  /** Takes a log back (with Undo, which App offers). */
+  onDelete?: (event: HealthEvent) => void;
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE);
   const shown = events.slice(0, limit);
@@ -124,7 +180,7 @@ export function ActivityHistoryScreen({
   return (
     <SettingsPage
       title="Activity history"
-      lead={events.length ? `${events.length} care moments, newest first.` : undefined}
+      lead={events.length ? `${events.filter(isCareMoment).length} care moments, newest first.` : undefined}
       backLabel="Profile"
       onBack={onClose}
     >
@@ -135,12 +191,14 @@ export function ActivityHistoryScreen({
           <View style={styles.list}>
             {historyRows(day.events).map(({ key, events: group }) => {
               const event = group[0]!;
-              return event.type === 'MEAL' ? (
-                <View key={key} style={styles.mealRow}>
-                  <MealDiaryRow event={event as HealthEvent<MealMetadata>} />
-                </View>
-              ) : (
-                <View key={key} style={styles.row}>
+              const tappable = Boolean(onDelete || onEdit) && changeable(event);
+              const row =
+                event.type === 'MEAL' ? (
+                  <View style={styles.mealRow}>
+                    <MealDiaryRow event={event as HealthEvent<MealMetadata>} />
+                  </View>
+                ) : (
+                <View style={styles.row}>
                   <View style={styles.dot} />
                   <View style={styles.rowText}>
                     <Text style={styles.rowName}>{describeRow(group, system)}</Text>
@@ -149,6 +207,20 @@ export function ActivityHistoryScreen({
                     </Text>
                   </View>
                 </View>
+              );
+              return tappable ? (
+                <Pressable
+                  key={key}
+                  accessibilityRole="button"
+                  accessibilityHint="Edit or delete"
+                  onLongPress={() => askEditOrDelete(event, { onEdit, onDelete })}
+                  onPress={() => askEditOrDelete(event, { onEdit, onDelete })}
+                  style={({ pressed }) => pressed && styles.rowPressed}
+                >
+                  {row}
+                </Pressable>
+              ) : (
+                <View key={key}>{row}</View>
               );
             })}
           </View>
@@ -169,6 +241,7 @@ const styles = themedStyles(() => ({
   dayHeading: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.faint, marginLeft: 4 },
   list: { borderRadius: 12, borderWidth: 1, borderColor: colors.hairline, backgroundColor: colors.card, paddingHorizontal: 16 },
   mealRow: {},
+  rowPressed: { opacity: 0.6 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

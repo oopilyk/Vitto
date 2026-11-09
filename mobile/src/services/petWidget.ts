@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { buildDailyRecap, type BodyProfile, type HealthEvent, type PetState } from '@vitto/core';
+import { WATER_CUP_ML, buildDailyRecap, measurementSystemOf, type BodyProfile, type HealthEvent, type PetState } from '@vitto/core';
+import { takePendingWater } from '../../modules/pet-island';
 import { setWidgetSnapshot } from '../../modules/pet-island';
 import { buildIslandState } from './petIsland';
 
@@ -28,6 +29,12 @@ export interface WidgetSnapshot {
   proteinTarget: number;
   steps: number;
   stepGoal: number;
+  /** Water today and the day's aim, in mL; a cup is `cupMl`. The widget's + adds one (LogWaterIntent). */
+  waterMl: number;
+  waterGoalMl: number;
+  cupMl: number;
+  /** fl oz rather than mL on the widget. */
+  imperial: boolean;
 }
 
 const seconds = (ms: number) => Math.round(ms / 1000);
@@ -54,6 +61,10 @@ export const buildWidgetSnapshot = (
     proteinTarget: Math.round(recap.food.targets.proteinGrams),
     steps: recap.outdoors.steps,
     stepGoal: recap.outdoors.goal,
+    waterMl: Math.max(0, Math.round(recap.food.waterMl)),
+    waterGoalMl: recap.food.waterGoalMl,
+    cupMl: WATER_CUP_ML,
+    imperial: measurementSystemOf(input.profile) === 'imperial',
   };
 };
 
@@ -80,4 +91,23 @@ export const clearPetWidget = async (): Promise<void> => {
   if (Platform.OS !== 'ios') return;
   lastWritten = null;
   await setWidgetSnapshot(null);
+};
+
+/**
+ * Cups added from the widget's + while the app was closed, each with when it
+ * was tapped. Taken once: the list is emptied as it is read, so each cup is
+ * logged one time.
+ */
+export const drainWidgetWater = async (): Promise<{ ml: number; at: Date }[]> => {
+  if (Platform.OS !== 'ios') return [];
+  const raw = await takePendingWater();
+  if (!raw) return [];
+  try {
+    const list = JSON.parse(raw) as { ml: number; at: number }[];
+    return list
+      .filter((item) => Number.isFinite(item.ml) && item.ml > 0 && Number.isFinite(item.at))
+      .map((item) => ({ ml: item.ml, at: new Date(item.at * 1000) }));
+  } catch {
+    return [];
+  }
 };

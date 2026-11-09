@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Mark } from './ui';
 import { Image, Pressable, Text, View, type ImageSourcePropType } from 'react-native';
 import {
   MUSCLE_GROUP_LABEL,
@@ -11,6 +12,7 @@ import {
   type HealthEvent,
   type MuscleGroup,
   otherLifts,
+  liftingUnit,
 } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -109,7 +111,8 @@ export function StrengthMap({ profile, events }: Props) {
   const others = useMemo(() => otherLifts(events), [events]);
   const ranks = useMemo(() => muscleRanks(scores), [scores]);
   const female = profile.sex === 'female';
-  const unit = profile.weightUnit;
+  // The unit they lift in, which can differ from their profile's (see liftingUnit).
+  const unit = useMemo(() => liftingUnit(events, profile.weightUnit), [events, profile.weightUnit]);
   const show = (kg: number) => Math.round(convertWeightValue(kg, 'kg', unit));
   const ranked = (Object.entries(ranks) as [MuscleGroup, number | null][]).filter(([, tier]) => tier !== null);
   const strongest = ranked.sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0];
@@ -160,7 +163,7 @@ export function StrengthMap({ profile, events }: Props) {
 
       <Pressable accessibilityRole="button" onPress={() => setShowLifts((open) => !open)} style={styles.toggle} testID="toggle-lifts">
         <Text style={styles.toggleLabel}>{showLifts ? 'Hide lifts' : 'Show lifts'}</Text>
-        <Text style={styles.toggleMark}>{showLifts ? '−' : '+'}</Text>
+        <Mark kind={showLifts ? 'minus' : 'plus'} size={11} color={colors.muted} />
       </Pressable>
 
       {showLifts ? (

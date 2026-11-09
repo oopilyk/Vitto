@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { JEOPARDY_PICKS_PER_ROUND, type JeopardyGame } from '@vitto/core';
-import { PrimaryButton } from '../components/ui';
+import { PrimaryButton, Mark } from '../components/ui';
 import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
 import { surface, surfacePressed } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
@@ -79,7 +79,7 @@ export function JeopardyHeader({ night, progress, onClose, closeDisabled }: Head
         hitSlop={10}
         style={({ pressed }) => [styles.close, pressed && surfacePressed]}
       >
-        <Text style={styles.closeMark}>✕</Text>
+        <Mark kind="cross" size={12} color={world.nightText} />
       </Pressable>
     </View>
   );

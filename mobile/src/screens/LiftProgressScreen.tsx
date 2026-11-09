@@ -10,6 +10,7 @@ import {
   convertWeightValue,
   exerciseHistory,
   liftHistory,
+  liftingUnit,
   otherLifts,
   tierThresholdsKg,
 } from '@vitto/core';
@@ -67,7 +68,8 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
   const label = ranked ? STANDARD_LIFT_LABEL[lift] : lift;
   const [width, setWidth] = useState(0);
 
-  const unit = profile.weightUnit;
+  // The unit they lift in, which can differ from their profile's (see liftingUnit).
+  const unit = useMemo(() => liftingUnit(events, profile.weightUnit), [events, profile.weightUnit]);
   const show = (kg: number) => Math.round(convertWeightValue(kg, 'kg', unit));
   const points = histories[lift] ?? [];
   const thresholds = ranked ? tierThresholdsKg(lift, profile) : [];

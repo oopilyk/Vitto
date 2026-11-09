@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HEALTH_EVENT_TYPES, type HealthEvent } from './health';
+import { CARE_EVENT_TYPES, type HealthEvent } from './health';
 import { CARE_LOG_LABEL, INVITE_CODE_ALPHABET, INVITE_CODE_LENGTH, INVITE_TTL_MS, PARTNER_FALLBACK_NAME, activeMembers, canJoinAnotherPet, careLogLabel, formatInviteCode, generateInviteCode, inviteErrorMessage, inviteExpiresAt, isInviteOpen, isOwnPet, isSharedPet, memberDisplayName, memberRole, mergeCareDiary, normalizeInviteCode, partnerActivityMessage, partnerEntriesSince, type CareLogEntry, type PetInvite, type PetMember } from './carePartners';
 
 const ME = 'user-me';
@@ -124,13 +124,13 @@ describe('members', () => {
 });
 
 describe('care log labels', () => {
-  it('has a label for every health event type', () => {
-    for (const type of HEALTH_EVENT_TYPES) {
+  it('has a label for every care event type', () => {
+    for (const type of CARE_EVENT_TYPES) {
       expect(typeof CARE_LOG_LABEL[type]).toBe('string');
       expect(CARE_LOG_LABEL[type].length).toBeGreaterThan(0);
       expect(careLogLabel(type)).toBe(CARE_LOG_LABEL[type]);
     }
-    expect(Object.keys(CARE_LOG_LABEL).sort()).toEqual([...HEALTH_EVENT_TYPES].sort());
+    expect(Object.keys(CARE_LOG_LABEL).sort()).toEqual([...CARE_EVENT_TYPES].sort());
   });
 });
 

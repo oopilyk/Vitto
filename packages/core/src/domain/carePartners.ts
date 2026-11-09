@@ -1,5 +1,5 @@
 import { errorMessage } from '../errorMessage';
-import type { HealthEvent, HealthEventType } from './health';
+import type { CareEventType, HealthEvent, HealthEventType } from './health';
 
 /**
  * Care partners: two people raising one pet.
@@ -160,7 +160,7 @@ export const memberDisplayName = (members: PetMember[], userId: string): string 
  * The only thing a partner ever sees about a care moment. Kept upbeat and
  * type-level on purpose: "Shared a meal", never what the meal was.
  */
-export const CARE_LOG_LABEL: Record<HealthEventType, string> = {
+export const CARE_LOG_LABEL: Record<CareEventType, string> = {
   WORKOUT: 'Trained together',
   STEP_ACTIVITY: 'Went exploring',
   MEAL: 'Shared a meal',
@@ -172,10 +172,10 @@ export const CARE_LOG_LABEL: Record<HealthEventType, string> = {
 };
 
 export const careLogLabel = (type: HealthEventType): string =>
-  CARE_LOG_LABEL[type] ?? CARE_LOG_LABEL.MANUAL_ACTIVITY;
+  CARE_LOG_LABEL[type as CareEventType] ?? CARE_LOG_LABEL.MANUAL_ACTIVITY;
 
 /** Past-tense verb phrases for the "while you were away" sentence; the labels above are not all verbs. */
-const CARE_LOG_VERB: Record<HealthEventType, string> = {
+const CARE_LOG_VERB: Record<CareEventType, string> = {
   WORKOUT: 'trained together',
   STEP_ACTIVITY: 'went exploring',
   MEAL: 'shared a meal',
@@ -262,7 +262,7 @@ export const partnerActivityMessage = (
   if (entries.length === 0) return null;
   if (entries.length === 1) {
     const [entry] = entries;
-    return `${memberDisplayName(members, entry.userId)} ${CARE_LOG_VERB[entry.type] ?? CARE_LOG_VERB.MANUAL_ACTIVITY} with ${petName} while you were away.`;
+    return `${memberDisplayName(members, entry.userId)} ${CARE_LOG_VERB[entry.type as CareEventType] ?? CARE_LOG_VERB.MANUAL_ACTIVITY} with ${petName} while you were away.`;
   }
   const names: string[] = [];
   for (const entry of entries) {

@@ -16,11 +16,14 @@ import {
   otherPartyId,
   partitionFriendRequests,
   relationToUser,
+  REACTION_RECEIVED,
+  type FriendReaction,
 } from '@vitto/core';
+import { formatLastActive } from '../components/FriendPetCard';
 import { friendsService, MIN_SEARCH_LENGTH } from '../services/friendsService';
 import { CarePartnerCard, type CarePartnerProps } from '../components/CarePartnerCard';
 import { FriendListRow } from '../components/FriendListRow';
-import { ErrorText, Field, PrimaryButton } from '../components/ui';
+import { ErrorText, Field, PrimaryButton, Mark } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { friendsPalette } from '../friendsTheme';
 import { colors, fonts, layout, themedStyles } from '../theme';
@@ -68,6 +71,8 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [friends, setFriends] = useState<FriendOverview[]>([]);
+  /** Reactions friends sent this week; the new ones are marked seen once shown. */
+  const [reactions, setReactions] = useState<FriendReaction[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [profiles, setProfiles] = useState<Record<string, FriendProfileSummary>>({});
 
@@ -106,6 +111,15 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
       ]);
       setFriends(loadedFriends);
       setRequests(loadedRequests);
+      // Best effort: before the reactions migration is deployed the table is
+      // missing, and Friends still loads.
+      void friendsService
+        .loadReceivedReactions()
+        .then((loaded) => {
+          setReactions(loaded);
+          void friendsService.markReactionsSeen(loaded.filter((item) => !item.seenAt).map((item) => item.id)).catch(() => undefined);
+        })
+        .catch(() => setReactions([]));
       setUsername(myUsername);
       setUsernameLoaded(true);
 
@@ -218,7 +232,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
           hitSlop={8}
           style={styles.addButton}
         >
-          <Text style={styles.addMark}>{showAdd ? '×' : '+'}</Text>
+          <Mark kind={showAdd ? 'cross' : 'plus'} size={16} weight={2.2} color={colors.coral} />
         </Pressable>
       </View>
 
@@ -237,6 +251,24 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
           keyboardDismissMode="interactive"
         >
           {carePartner ? <CarePartnerCard carePartner={carePartner} openJoin={openJoin} palette={palette} /> : null}
+
+          {reactions.length > 0 && !loadError ? (
+            <View style={[styles.card, { backgroundColor: palette.rowBg, borderColor: palette.divider }]} testID="received-reactions">
+              <Text style={[styles.cardTitle, { color: palette.secondaryText }]}>Cheers for you</Text>
+              {reactions.slice(0, 8).map((item) => {
+                const from = friends.find((friend) => friend.friendId === item.fromUserId);
+                return (
+                  <View key={item.id} style={styles.reactionRow}>
+                    {!item.seenAt ? <View style={styles.reactionNew} accessibilityLabel="New" /> : null}
+                    <Text style={[styles.reactionText, { color: palette.primaryText }]}>
+                      {`${from ? handleFor(from.profile) : 'A friend'} ${REACTION_RECEIVED[item.kind]}`}
+                      <Text style={{ color: palette.secondaryText }}>{`  ·  ${formatLastActive(item.createdAt)}`}</Text>
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
 
           {loadError ? (
             <View style={[styles.card, { backgroundColor: palette.rowBg, borderColor: palette.divider }]}>
@@ -459,6 +491,9 @@ const styles = themedStyles(() => ({
   addButton: { minWidth: 64, alignItems: 'flex-end' },
   addMark: { fontFamily: fonts.ui, fontSize: 28, color: colors.coral, lineHeight: 28 },
   body: { padding: 16, gap: 18 },
+  reactionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  reactionNew: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral },
+  reactionText: { flex: 1, fontFamily: fonts.ui, fontSize: 15, lineHeight: 21 },
   card: { borderWidth: 1, borderRadius: 12, padding: 18, gap: 10 },
   cardTitle: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
   gate: { gap: 4 },

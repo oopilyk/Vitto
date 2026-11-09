@@ -615,3 +615,17 @@ describe('QA follow-ups: drinks, rounding, portions', () => {
     expect(portionAmount(banana, 3.5)).toBe('350 g');
   });
 });
+
+describe('portion units', () => {
+  const bar = { id: '1', name: 'Bar', servingDescription: '1 bar (55 g)', isPer100g: false, macros: { calories: 210, proteinGrams: 20, carbsGrams: 18, fatGrams: 8, fiberGrams: 2 } };
+  const rice = { id: '2', name: 'Rice', servingDescription: 'per 100 g', isPer100g: true, macros: { calories: 130, proteinGrams: 2.7, carbsGrams: 28, fatGrams: 0.3, fiberGrams: 0.4 } };
+  it('turns grams and ounces into servings, both ways', async () => {
+    const { servingsFrom, amountIn, servingGrams } = await import('./foodDatabase');
+    expect(servingGrams(bar)).toBe(55);
+    expect(servingsFrom(rice, 350, 'g')).toBeCloseTo(3.5);
+    expect(servingsFrom(bar, 110, 'g')).toBeCloseTo(2);
+    expect(servingsFrom(rice, 1, 'oz')).toBeCloseTo(0.2835, 3);
+    expect(amountIn(rice, 3.5, 'g')).toBe(350);
+    expect(servingsFrom({ ...bar, servingDescription: '1 cup' }, 100, 'g')).toBeNull();
+  });
+});

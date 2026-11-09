@@ -11,10 +11,9 @@ import {
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, calorieEstimate, foodSuggestions, portionAmount, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, calorieEstimate, foodSuggestions, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOTS, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, portionAmount, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
-import { CloseButton, ErrorText, Kicker, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput } from '../components/ui';
-import Svg, { Path } from 'react-native-svg';
+import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput, Mark } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
@@ -36,6 +35,10 @@ interface Props {
   repeatable?: readonly RepeatableMeal[];
   /** Foods this person has logged, newest first, suggested first as a search is typed. */
   knownFoods?: readonly string[];
+  /** Yesterday's meals in a slot, for "Copy yesterday's breakfast" (copyableSlot); empty hides it. */
+  copyableFor?: (slot: MealSlot) => readonly HealthEvent<MealMetadata>[];
+  /** Logs those meals again, now, in the slot. */
+  onCopy?: (meals: readonly HealthEvent<MealMetadata>[], slot: MealSlot) => Promise<void>;
 }
 
 type Mode = 'photo' | 'search' | 'scan';
@@ -50,7 +53,9 @@ type Mode = 'photo' | 'search' | 'scan';
 export const closeUpLens = (lenses: readonly string[]): string | undefined =>
   lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
 
-export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], knownFoods = [] }: Props) {
+export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], knownFoods = [], copyableFor, onCopy }: Props) {
+  // Which meal of the day this is: read off the clock, changed with a tap.
+  const [slot, setSlot] = useState<MealSlot>(() => slotForTime(new Date()));
   const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
@@ -248,7 +253,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     setBusy('saving');
     setError(null);
     try {
-      await onComplete({ ...next.nutrients, analysis: next, loggedVia });
+      await onComplete({ ...next.nutrients, analysis: next, loggedVia, slot });
       onFeedStart(loggedVia === 'ai' ? (image?.uri ?? null) : null, next.grade);
       onClose();
     } catch (cause) {
@@ -257,6 +262,50 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       setBusy(null);
     }
   };
+
+  /** Quick add: a meal as numbers alone, for food no database has. Null while closed. */
+  const [quick, setQuick] = useState<{ name: string; calories?: number; proteinGrams?: number; carbsGrams?: number; fatGrams?: number } | null>(null);
+
+  /** The plate food whose amount field is open. */
+  const [amountFor, setAmountFor] = useState<string | null>(null);
+
+  // "Copy yesterday's breakfast": the whole slot again in one tap, while today's
+  // is still empty (copyableSlot).
+  const toCopy = copyableFor?.(slot) ?? [];
+  const copy = async () => {
+    if (!onCopy || toCopy.length === 0) return;
+    setBusy('saving');
+    setError(null);
+    try {
+      await onCopy(toCopy, slot);
+      onClose();
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not copy that meal.'));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const copyRow =
+    onCopy && toCopy.length > 0 ? (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Copy yesterday's ${MEAL_SLOT_LABEL[slot].toLowerCase()}`}
+        disabled={busy !== null}
+        onPress={() => void copy()}
+        style={({ pressed }) => [styles.copy, pressed && styles.copyPressed]}
+        testID="copy-slot"
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={styles.copyTitle}>{`Copy yesterday's ${MEAL_SLOT_LABEL[slot].toLowerCase()}`}</Text>
+          <Text style={styles.copyMeta} numberOfLines={1}>
+            {`${toCopy.map((meal) => meal.metadata.analysis?.foodDescription || meal.metadata.analysis?.detectedFoods.join(', ') || 'Meal').join(' · ')} · ${toCopy
+              .reduce((sum, meal) => sum + calorieEstimate(meal.metadata.analysis?.macros), 0)
+              .toLocaleString()} kcal`}
+          </Text>
+        </View>
+        <Mark kind="plus" size={12} color={colors.coral} />
+      </Pressable>
+    ) : null;
 
   const onPlate = (food: FoodSearchResult) => plate.some((item) => item.food.id === food.id);
   const togglePlate = (food: FoodSearchResult) => {
@@ -277,8 +326,19 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
   // The one thing to do next, pinned under the page so it is never a scroll
   // away: log the meal, or (photo) say it is being read or offer a retry.
+  const quickAnalysis =
+    quick && quick.calories !== undefined && quick.calories > 0 && quick.calories <= 10000
+      ? quickAddAnalysis({ ...quick, calories: quick.calories })
+      : null;
   const footer: { label: string; summary?: string; busy?: boolean; disabled?: boolean; onPress: () => void } | null =
-    againAnalysis
+    mode === 'search' && quickAnalysis
+      ? {
+          label: busy === 'saving' ? 'Saving...' : 'Add to care log',
+          summary: summaryOf(quickAnalysis),
+          busy: busy === 'saving',
+          onPress: () => void saveAnalysis(quickAnalysis, 'manual'),
+        }
+      : againAnalysis
       ? {
           label: busy === 'saving' ? 'Saving...' : 'Add to care log',
           summary: summaryOf(againAnalysis),
@@ -310,7 +370,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
    * plate, a read photo, a scanned product or a picked recent meal. An empty
    * sheet just closes. (react-native-web's Alert has no buttons: it closes.)
    */
-  const unsaved = plate.length > 0 || again !== null || analysis !== null || selected !== null;
+  const unsaved = plate.length > 0 || again !== null || analysis !== null || selected !== null || quickAnalysis !== null;
   const requestClose = () => {
     if (!unsaved || busy === 'saving' || Platform.OS === 'web') {
       onClose();
@@ -349,6 +409,22 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               <Text style={[styles.tabLabel, mode === option && styles.tabLabelOn]}>
                 {option === 'photo' ? (canScanPhotos ? 'Photo' : 'Photo · Plus') : option === 'search' ? 'Search' : 'Scan barcode'}
               </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.slots} accessibilityRole="radiogroup" accessibilityLabel="Which meal">
+          {MEAL_SLOTS.map((option) => (
+            <Pressable
+              key={option}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: slot === option }}
+              accessibilityLabel={MEAL_SLOT_LABEL[option]}
+              hitSlop={{ top: 8, bottom: 8 }}
+              onPress={() => setSlot(option)}
+              style={[styles.slot, slot === option && styles.slotOn]}
+            >
+              <Text style={[styles.slotLabel, slot === option && styles.slotLabelOn]}>{MEAL_SLOT_LABEL[option]}</Text>
             </Pressable>
           ))}
         </View>
@@ -404,6 +480,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 </PressableScale>
               </View>
 
+              {!image && !analysis ? copyRow : null}
               {!image && !analysis ? <RecentMeals meals={repeatable} again={again} onChange={setAgain} /> : null}
 
               {analysis ? <AnalysisCard analysis={analysis} /> : null}
@@ -467,7 +544,50 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 </PressableScale>
               </View>
 
-              {suggestions.length > 0 ? (
+              {quick ? (
+                <View style={styles.quick} testID="quick-add">
+                  <View style={styles.quickHead}>
+                    <Text style={styles.quickTitle}>Quick add</Text>
+                    <TextButton label="Cancel" onPress={() => setQuick(null)} />
+                  </View>
+                  <TextInput
+                    style={layout.input}
+                    value={quick.name}
+                    onChangeText={(name) => setQuick({ ...quick, name })}
+                    placeholder="What was it? (optional)"
+                    placeholderTextColor={colors.faint}
+                    maxLength={60}
+                    accessibilityLabel="Quick add name"
+                  />
+                  <View style={styles.quickRow}>
+                    {([
+                      ['calories', 'kcal'],
+                      ['proteinGrams', 'protein g'],
+                      ['carbsGrams', 'carbs g'],
+                      ['fatGrams', 'fat g'],
+                    ] as const).map(([key, label]) => (
+                      <View key={key} style={styles.quickField}>
+                        <NumberInput
+                          decimal={key !== 'calories'}
+                          style={[layout.input, styles.quickInput]}
+                          value={quick[key]}
+                          onValue={(value) => setQuick({ ...quick, [key]: value })}
+                          placeholder="0"
+                          placeholderTextColor={colors.faint}
+                          accessibilityLabel={`Quick add ${label}`}
+                        />
+                        <Text style={styles.quickLabel}>{label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.quickOpen}>
+                  <TextButton label="Quick add calories" onPress={() => setQuick({ name: query.trim() })} />
+                </View>
+              )}
+
+              {!quick && suggestions.length > 0 ? (
                 <View style={styles.suggestions} testID="food-suggestions">
                   {suggestions.map((name) => (
                     <Pressable
@@ -487,26 +607,41 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 <View style={styles.plate} testID="plate">
                   <Text style={styles.plateTitle}>Your plate</Text>
                   {plate.map(({ food, servings: count }) => (
-                    <View key={food.id} style={styles.plateRow}>
-                      <View style={styles.plateText}>
-                        <Text style={styles.plateName} numberOfLines={1}>{food.name}</Text>
-                        <Text style={styles.resultMeta} numberOfLines={1}>
-                          {Math.round(food.macros.calories * count).toLocaleString()} kcal · {portionAmount(food, count)}
-                        </Text>
+                    <View key={food.id}>
+                      <View style={styles.plateRow}>
+                        {/* The amount opens a field for it in grams, ounces or servings. */}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${food.name}, ${portionAmount(food, count)}. Change the amount`}
+                          onPress={() => setAmountFor(amountFor === food.id ? null : food.id)}
+                          style={styles.plateText}
+                        >
+                          <Text style={styles.plateName} numberOfLines={1}>{food.name}</Text>
+                          <Text style={styles.resultMeta} numberOfLines={1}>
+                            {Math.round(food.macros.calories * count).toLocaleString()} kcal ·{' '}
+                            <Text style={styles.amountLink}>{portionAmount(food, count)}</Text>
+                          </Text>
+                        </Pressable>
+                        <Stepper
+                          value={count}
+                          label={food.name}
+                          onChange={(next) => setPlateServings(food.id, next)}
+                          onRemove={() => togglePlate(food)}
+                        />
                       </View>
-                      <Stepper
-                        value={count}
-                        label={food.name}
-                        onChange={(next) => setPlateServings(food.id, next)}
-                        onRemove={() => togglePlate(food)}
-                      />
+                      {amountFor === food.id ? (
+                        <AmountEditor food={food} servings={count} onChange={(next) => setPlateServings(food.id, next)} />
+                      ) : null}
                     </View>
                   ))}
                 </View>
               ) : null}
 
               {results.length === 0 && plate.length === 0 ? (
-                <RecentMeals meals={repeatable} again={again} onChange={setAgain} />
+                <>
+                  {copyRow}
+                  <RecentMeals meals={repeatable} again={again} onChange={setAgain} />
+                </>
               ) : null}
 
               {/* Tap to put a food on the plate, tap again to take it off; as
@@ -529,7 +664,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                       </Text>
                     </View>
                     <View style={[styles.tick, on && styles.tickOn]}>
-                      {on ? <Text style={styles.tickMark}>✓</Text> : null}
+                      {on ? <Mark kind="check" size={12} weight={2.2} color="#fff" /> : null}
                     </View>
                   </Pressable>
                 );
@@ -655,7 +790,7 @@ function RecentMeals({
               </View>
               {on ? null : (
                 <View style={styles.tick}>
-                  <Text style={styles.recentPlus}>+</Text>
+                  <Mark kind="plus" size={12} color={colors.coral} />
                 </View>
               )}
             </Pressable>
@@ -675,6 +810,46 @@ function RecentMeals({
 }
 
 const MIN_SERVINGS = 0.5;
+
+/**
+ * How much of a food, typed: grams or ounces when its serving's weight is
+ * known, or servings. Halves on the stepper were the only way, so 180 g of
+ * chicken had to be guessed as "2×".
+ */
+function AmountEditor({ food, servings, onChange }: { food: FoodSearchResult; servings: number; onChange: (servings: number) => void }) {
+  const weighed = servingGrams(food) !== undefined;
+  const [unit, setUnit] = useState<PortionUnit>(weighed ? 'g' : 'serving');
+  const units: PortionUnit[] = weighed ? ['g', 'oz', 'serving'] : ['serving'];
+  return (
+    <View style={styles.amountEditor} testID="amount-editor">
+      <NumberInput
+        decimal
+        autoFocus
+        style={[layout.input, styles.amountInput]}
+        value={amountIn(food, servings, unit)}
+        onValue={(value) => {
+          const next = value === undefined ? null : servingsFrom(food, value, unit);
+          if (next !== null && next > 0) onChange(Math.round(next * 100) / 100);
+        }}
+        accessibilityLabel={`Amount of ${food.name} in ${unit === 'serving' ? 'servings' : unit}`}
+      />
+      <View style={styles.amountUnits}>
+        {units.map((option) => (
+          <Pressable
+            key={option}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: unit === option }}
+            onPress={() => setUnit(option)}
+            hitSlop={{ top: 6, bottom: 6 }}
+            style={[styles.slot, unit === option && styles.slotOn]}
+          >
+            <Text style={[styles.slotLabel, unit === option && styles.slotLabelOn]}>{option === 'serving' ? 'servings' : option}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
 /** Live search waits for this many letters and this long a pause in typing. */
 const LIVE_SEARCH_MIN = 3;
 const LIVE_SEARCH_PAUSE_MS = 700;
@@ -707,16 +882,14 @@ function Stepper({
         onPress={() => onChange(Math.max(MIN_SERVINGS, value - 0.5))}
         style={[styles.stepButton, atLeast && styles.stepButtonOff]}
       >
-        <Text style={styles.stepMark}>−</Text>
+        <Mark kind="minus" size={10} color={colors.inkSoft} />
       </Pressable>
       <Text style={styles.stepValue}>{`${value}×`}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel={`More ${label}`} hitSlop={7} onPress={() => onChange(value + 0.5)} style={styles.stepButton}>
-        <Text style={styles.stepMark}>+</Text>
+        <Mark kind="plus" size={10} color={colors.inkSoft} />
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${label}`} hitSlop={7} onPress={onRemove} style={styles.stepRemove}>
-        <Svg width={10} height={10} viewBox="0 0 12 12">
-          <Path d="M1.5 1.5 L10.5 10.5 M10.5 1.5 L1.5 10.5" stroke={colors.muted} strokeWidth={2} strokeLinecap="round" />
-        </Svg>
+        <Mark kind="cross" size={10} color={colors.muted} />
       </Pressable>
     </View>
   );
@@ -913,6 +1086,27 @@ const styles = themedStyles(() => ({
   suggestion: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.divider },
   suggestionPressed: { backgroundColor: colors.selectedFill },
   suggestionLabel: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
+  quick: { marginBottom: 8, padding: 14, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  quickHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  quickTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  quickRow: { flexDirection: 'row', gap: 8 },
+  quickField: { flex: 1, alignItems: 'center', gap: 4 },
+  quickInput: { alignSelf: 'stretch', textAlign: 'center' },
+  quickLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.muted },
+  quickOpen: { alignItems: 'flex-start', marginBottom: 4 },
+  amountLink: { color: colors.coral, fontWeight: '600' },
+  amountEditor: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  amountInput: { width: 90 },
+  amountUnits: { flex: 1, flexDirection: 'row', gap: 6 },
+  copy: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  copyPressed: { backgroundColor: colors.selectedFill },
+  copyTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  copyMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 2 },
+  slots: { flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingTop: 12 },
+  slot: { flex: 1, minHeight: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: colors.border },
+  slotOn: { backgroundColor: colors.coral, borderColor: colors.coral },
+  slotLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft },
+  slotLabelOn: { color: colors.onCoral, fontWeight: '600' },
   // Room under the field: the first result sat 1 pt below it.
   searchRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   searchInput: { flex: 1 },

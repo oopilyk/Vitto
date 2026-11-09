@@ -20,6 +20,8 @@ import {
   SegmentedControl,
   SelectionTiles,
   SaveBar,
+  SavedBar,
+  useSavedNote,
   SettingsPage,
   SettingsSection,
   TextField,
@@ -47,6 +49,7 @@ const DISPLAY_NAME_MAX_LENGTH = 40;
 export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) {
   const [profile, setProfile] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const savedNote = useSavedNote();
   const [error, setError] = useState<string | null>(null);
 
   // Drives the save bar: it only appears once something actually differs.
@@ -98,6 +101,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
     setError(null);
     try {
       await onSave(profile);
+      savedNote.show();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save your settings.');
     } finally {
@@ -105,10 +109,12 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
     }
   };
 
-  const saveBar = dirty ? <SaveBar saving={saving} error={error} onSave={() => void save()} onDiscard={() => {
+  // Up while saving and after a failure too: App applies the change before
+  // the write lands, so `dirty` alone hid the bar and any error with it.
+  const saveBar = dirty || saving || error ? <SaveBar saving={saving} error={error} onSave={() => void save()} onDiscard={() => {
           setProfile(initial);
           setCalorieText(initial.calorieGoal ? String(initial.calorieGoal) : '');
-        }} /> : null;
+        }} /> : savedNote.saved ? <SavedBar label="Preferences saved" /> : null;
 
   return (
     <SettingsPage

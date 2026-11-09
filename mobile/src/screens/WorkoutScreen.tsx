@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as Haptics from 'expo-haptics';
 import { Alert, Pressable, ScrollView, Text, TextInput, View, Platform } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import {
@@ -21,9 +22,10 @@ import {
   templateFromSession,
   updateSet,
 } from '@vitto/core';
-import { KM_PER_MILE, checkWorkout } from '@vitto/core';
-import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput } from '../components/ui';
+import { KM_PER_MILE, checkWorkout, exerciseBest, exerciseSessions, setRecord, type HealthEvent } from '@vitto/core';
+import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput, Mark } from '../components/ui';
 import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
+import { TIER_COLOR } from '../components/StrengthMap';
 import { startRest, stopRest } from '../services/restTimer';
 import { clearWorkoutDraft, loadWorkoutDraft, saveWorkoutDraft } from '../services/workoutDraft';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
@@ -56,6 +58,18 @@ interface Props {
    * as "Previous", the way a routine already does.
    */
   lastSets?: ReadonlyMap<string, WorkoutSet[]>;
+  /**
+   * A logged workout opened to fix it: the screen starts on its exercises and
+   * Finish becomes Save changes (`onSaveEdit`), with no draft, routine or PR
+   * along the way. Its XP and place in the day stay as they were.
+   */
+  editing?: WorkoutMetadata;
+  onSaveEdit?: (metadata: WorkoutMetadata) => Promise<void>;
+  /**
+   * Past workouts, for a record the moment a set beats it (exerciseBest) and
+   * each exercise's history a tap on its name away (exerciseSessions).
+   */
+  history?: readonly HealthEvent[];
 }
 
 /** "60 × 8", or "8" for bodyweight: what a set's Previous cell reads. */
@@ -63,6 +77,11 @@ export const previousLabel = (previous: WorkoutSet['previous'], bodyweight?: boo
   if (!previous) return '—';
   return bodyweight || !previous.weight ? String(previous.reps) : `${previous.weight} × ${previous.reps}`;
 };
+
+/** How long a new record's banner stays up. */
+const RECORD_BANNER_MS = 3500;
+/** A record's colour: the Gold strength rank's (StrengthMap). */
+const RECORD_GOLD = TIER_COLOR[2]!;
 
 /** The unnamed session. Saving a routine still called this asks for a real name. */
 const DEFAULT_SESSION_NAME = 'Strength session';
@@ -91,15 +110,20 @@ export function WorkoutScreen({
   onDeleteTemplate,
   startWithCardio = false,
   lastSets,
+  editing,
+  onSaveEdit,
+  history = [],
 }: Props) {
   const [mode, setMode] = useState<Mode>('log');
-  const [name, setName] = useState(DEFAULT_SESSION_NAME);
+  const [name, setName] = useState(editing?.name ?? DEFAULT_SESSION_NAME);
   /** A run's own minutes, typed on its card. Everything else is timed (see sessionMinutes). */
-  const [duration, setDuration] = useState('');
+  const [duration, setDuration] = useState(editing?.workoutType === 'cardio' ? String(editing.durationMinutes ?? '') : '');
   /** Distance for a cardio session, typed in the lifter's own unit (mi for lb, km for kg). */
-  const [distance, setDistance] = useState('');
-  const [notes, setNotes] = useState('');
-  const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
+  const [distance, setDistance] = useState(
+    editing?.distanceKm ? String(Math.round((editing.distanceKm / (weightUnit === 'lb' ? KM_PER_MILE : 1)) * 100) / 100) : '',
+  );
+  const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [exercises, setExercises] = useState<WorkoutExercise[]>(editing?.exercises ?? []);
   /** When the first exercise went in: the session's clock, for timing it without asking. */
   const [startedAt, setStartedAt] = useState<number | null>(null);
   useEffect(() => {
@@ -139,9 +163,10 @@ export function WorkoutScreen({
   // again on the next open, so a killed app does not lose it (see
   // services/workoutDraft). Nothing is written until the old draft has been
   // read, or the empty screen would overwrite it.
-  const [draftChecked, setDraftChecked] = useState(startWithCardio);
+  // An edit is not a session in progress: no draft read, none written.
+  const [draftChecked, setDraftChecked] = useState(startWithCardio || Boolean(editing));
   useEffect(() => {
-    if (startWithCardio) return undefined;
+    if (startWithCardio || editing) return undefined;
     let cancelled = false;
     void loadWorkoutDraft().then((draft) => {
       if (cancelled) return;
@@ -208,7 +233,7 @@ export function WorkoutScreen({
     );
 
   useEffect(() => {
-    if (!draftChecked || mode !== 'log') return undefined;
+    if (!draftChecked || mode !== 'log' || editing) return undefined;
     if (exercises.length === 0) {
       void clearWorkoutDraft();
       return undefined;
@@ -236,6 +261,20 @@ export function WorkoutScreen({
    * stays and reopens), or throw it away. With nothing entered it just closes.
    */
   const requestClose = () => {
+    // Editing: the logged workout stays as it was unless Save changes is used.
+    if (editing) {
+      const changed =
+        JSON.stringify(exercises) !== JSON.stringify(editing.exercises ?? []) || name !== (editing.name ?? DEFAULT_SESSION_NAME) || notes !== (editing.notes ?? '');
+      if (!changed || Platform.OS === 'web') {
+        onClose();
+        return;
+      }
+      Alert.alert('Discard your changes?', 'The workout stays as it was logged.', [
+        { text: 'Discard', style: 'destructive', onPress: onClose },
+        { text: 'Keep editing', style: 'cancel' },
+      ]);
+      return;
+    }
     if (mode !== 'log' || exercises.length === 0) {
       onClose();
       return;
@@ -274,6 +313,54 @@ export function WorkoutScreen({
   };
 
   /** Ticks a set off and starts the rest after it; a second tap unticks it. */
+  // Records set today: the sets that earned one, and the moment's banner.
+  const [recordSets, setRecordSets] = useState<ReadonlySet<string>>(() => new Set());
+  const [recordBanner, setRecordBanner] = useState<{ text: string; key: string } | null>(null);
+  useEffect(() => {
+    if (!recordBanner) return undefined;
+    const timer = setTimeout(() => setRecordBanner(null), RECORD_BANNER_MS);
+    return () => clearTimeout(timer);
+  }, [recordBanner]);
+  /** The exercise whose past sessions are open over the page. */
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const sessionsOf = useMemo(() => {
+    const cache = new Map<string, ReturnType<typeof exerciseSessions>>();
+    return (name: string) => {
+      if (!cache.has(name)) cache.set(name, exerciseSessions(history as HealthEvent[], name));
+      return cache.get(name)!;
+    };
+  }, [history]);
+  const pastSessions = (name: string) => !editing && sessionsOf(name).length > 0;
+
+  /**
+   * A ticked set that beats everything before it (the logged history and the
+   * sets already ticked today) is a record, said there and then, as the
+   * lifting apps do: a buzz, a banner, a trophy on the row.
+   */
+  const checkRecord = (exercise: WorkoutExercise, setId: string) => {
+    if (editing) return;
+    const set = exercise.sets.find((candidate) => candidate.id === setId);
+    if (!set) return;
+    const earlierToday = exercise.sets.filter((candidate) => candidate.id !== setId && ticked.has(candidate.id));
+    const today = exerciseBest(
+      [{ id: 'today', userId: '', type: 'WORKOUT', source: 'manual', occurredAt: '', metadata: { workoutType: 'strength', durationMinutes: 0, exercises: [{ ...exercise, sets: earlierToday.map((candidate) => ({ ...candidate, completed: true })) }] } }],
+      exercise.name,
+    );
+    const before = exerciseBest(history as HealthEvent[], exercise.name);
+    const best = before && today
+      ? { weightKg: Math.max(before.weightKg, today.weightKg), oneRepMaxKg: Math.max(before.oneRepMaxKg, today.oneRepMaxKg) }
+      : before;
+    const record = setRecord({ ...set, unit: set.unit ?? weightUnit }, best);
+    if (!record) return;
+    if (Platform.OS !== 'web') void Haptics.notificationAsync?.(Haptics.NotificationFeedbackType.Success)?.catch(() => undefined);
+    setRecordSets((current) => new Set(current).add(setId));
+    const unit = set.unit ?? weightUnit;
+    setRecordBanner({
+      key: setId,
+      text: record === 'weight' ? `New heaviest ${exercise.name}: ${set.weight} ${unit}` : `New best ${exercise.name}: ${set.weight} ${unit} × ${set.reps}`,
+    });
+  };
+
   const toggleTick = (exercise: WorkoutExercise, setId: string) => {
     const on = !ticked.has(setId);
     setTicked((current) => {
@@ -283,7 +370,16 @@ export function WorkoutScreen({
       return next;
     });
     haptic('press');
-    if (on) beginRest(restLength, exercise.name);
+    if (on) {
+      beginRest(restLength, exercise.name);
+      checkRecord(exercise, setId);
+    } else if (recordSets.has(setId)) {
+      setRecordSets((current) => {
+        const next = new Set(current);
+        next.delete(setId);
+        return next;
+      });
+    }
   };
 
   const adjustRest = (delta: number) => {
@@ -442,6 +538,23 @@ export function WorkoutScreen({
     setSaving(true);
     setError(null);
     try {
+      if (editing && onSaveEdit) {
+        // A lifting session's clock ran when it was logged; opening it again
+        // later must not re-time it from now. A run keeps its typed minutes.
+        const minutes = goesSomewhere ? stats.durationMinutes : editing.durationMinutes;
+        await onSaveEdit({
+          ...editing,
+          workoutType: cardio ? 'cardio' : 'strength',
+          durationMinutes: minutes,
+          ...(distanceKm !== undefined ? { distanceKm } : {}),
+          name,
+          exercises,
+          notes,
+          stats: { ...stats, durationMinutes: minutes },
+        });
+        onClose();
+        return;
+      }
       await onFinish({
         workoutType: cardio ? 'cardio' : 'strength',
         durationMinutes: stats.durationMinutes,
@@ -525,7 +638,7 @@ export function WorkoutScreen({
             }}
             style={styles.routineDelete}
           >
-            <Text style={styles.routineDeleteMark}>×</Text>
+            <Mark kind="cross" size={11} color={colors.danger} />
           </Pressable>
         ) : null}
       </View>
@@ -549,9 +662,11 @@ export function WorkoutScreen({
                 ? editingTemplateId
                   ? routineName || 'Edit routine'
                   : routineName || 'New routine'
-                : empty
-                  ? 'Log a workout'
-                  : name || 'Workout'}
+                : editing
+                  ? 'Edit workout'
+                  : empty
+                    ? 'Log a workout'
+                    : name || 'Workout'}
             </Text>
           </View>
           {/* Cancel leaves the routine editor, not the sheet, so it stays a word. */}
@@ -561,6 +676,13 @@ export function WorkoutScreen({
             <CloseButton onPress={requestClose} />
           )}
         </View>
+
+        {recordBanner ? (
+          <View style={styles.recordBanner} pointerEvents="none" accessibilityLiveRegion="assertive" testID="record-banner">
+            <Text style={styles.recordKicker}>PERSONAL RECORD</Text>
+            <Text style={styles.recordText}>{recordBanner.text}</Text>
+          </View>
+        ) : null}
 
         <ScrollView
           ref={bodyRef}
@@ -666,10 +788,20 @@ export function WorkoutScreen({
             <View key={exercise.id} style={styles.exercise}>
               <View style={styles.exerciseHead}>
                 <Text style={styles.exerciseNumber}>{position + 1}</Text>
-                <View style={{ flex: 1 }}>
+                {/* The name opens its past sessions, once there are any. */}
+                <Pressable
+                  accessibilityRole={pastSessions(exercise.name) ? 'button' : undefined}
+                  accessibilityHint={pastSessions(exercise.name) ? 'Shows past sessions' : undefined}
+                  disabled={!pastSessions(exercise.name)}
+                  onPress={() => setHistoryFor(exercise.name)}
+                  style={({ pressed }) => [{ flex: 1 }, pressed && styles.pressed]}
+                >
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  <Text style={styles.exerciseMuscle}>{exercise.muscleGroup}</Text>
-                </View>
+                  <Text style={styles.exerciseMuscle}>
+                    {exercise.muscleGroup}
+                    {pastSessions(exercise.name) ? <Text style={styles.exerciseHistoryLink}>{'  ·  History ›'}</Text> : null}
+                  </Text>
+                </Pressable>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Remove ${exercise.name}`}
@@ -677,7 +809,7 @@ export function WorkoutScreen({
                   onPress={() => removeExercise(exercise.id)}
                   style={({ pressed }) => [styles.exerciseRemove, pressed && styles.pressed]}
                 >
-                  <Text style={styles.exerciseRemoveMark}>×</Text>
+                  <Mark kind="cross" size={11} color={colors.muted} />
                 </Pressable>
               </View>
               {exercise.distance ? (
@@ -794,10 +926,10 @@ export function WorkoutScreen({
                           accessibilityLabel={`Set ${index + 1} of ${exercise.name} done`}
                           hitSlop={7}
                           onPress={() => toggleTick(exercise, set.id)}
-                          style={[styles.tickSlot, styles.tick, ticked.has(set.id) && styles.tickOn]}
+                          style={[styles.tickSlot, styles.tick, ticked.has(set.id) && styles.tickOn, recordSets.has(set.id) && styles.tickRecord]}
                           testID={`tick-${exercise.name}-${index + 1}`}
                         >
-                          {ticked.has(set.id) ? <Text style={styles.tickMark}>✓</Text> : null}
+                          {ticked.has(set.id) ? <Mark kind="check" size={13} weight={2.2} color="#fff" /> : null}
                         </Pressable>
                       )}
                       {exercise.sets.length > 1 ? (
@@ -816,7 +948,7 @@ export function WorkoutScreen({
                           }
                           style={styles.setRemoveSlot}
                         >
-                          <Text style={styles.setRemoveMark}>−</Text>
+                          <Mark kind="minus" size={12} color={colors.faint} />
                         </Pressable>
                       ) : (
                         <View style={styles.setRemoveSlot} />
@@ -907,7 +1039,7 @@ export function WorkoutScreen({
               {rest ? <RestTimer rest={rest} onAdjust={adjustRest} onSkip={endRest} onDone={endRest} /> : null}
               <Text style={styles.stats}>{empty ? 'Add an exercise to finish' : summary}</Text>
               <PrimaryButton
-                label={saving ? 'Saving...' : 'Finish workout'}
+                label={saving ? 'Saving...' : editing ? 'Save changes' : 'Finish workout'}
                 busy={saving}
                 disabled={empty}
                 onPress={() => void finish()}
@@ -919,6 +1051,30 @@ export function WorkoutScreen({
         {/* The picker. An in-sheet overlay rather than a nested Modal: nested
             modals behave differently on iOS, Android and react-native-web, and
             this only has to cover the sheet it already lives in. */}
+        {historyFor ? (
+          <View style={styles.picker} testID="exercise-history">
+            <View style={styles.pickerHead}>
+              <View style={{ flex: 1 }}>
+                <Kicker>Vitto / history</Kicker>
+                <Text style={styles.title}>{historyFor}</Text>
+              </View>
+              <CloseButton onPress={() => setHistoryFor(null)} label="Close history" />
+            </View>
+            <ScrollView contentContainerStyle={styles.historyBody}>
+              {sessionsOf(historyFor).map((session) => (
+                <View key={`${session.id}-${session.at}`} style={styles.historySession}>
+                  <Text style={styles.historyDate}>
+                    {new Date(session.at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </Text>
+                  <Text style={styles.historySets}>
+                    {session.sets.map((set) => (set.weight ? `${set.weight} ${set.unit ?? weightUnit} × ${set.reps}` : `${set.reps} reps`)).join('   ·   ')}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
         {picking ? (
           <View style={styles.picker}>
             <View style={styles.pickerHead}>
@@ -968,9 +1124,9 @@ export function WorkoutScreen({
                           exercise goes in once (repeats are sets on its card), so a
                           tick marks what is in, and tapping it again takes it out. */}
                       {added ? (
-                        <Text style={styles.libraryAdded}>✓</Text>
+                        <Mark kind="check" size={13} color={colors.mintDeep} />
                       ) : (
-                        <Text style={styles.libraryPlus}>+</Text>
+                        <Mark kind="plus" size={13} color={colors.coral} />
                       )}
                     </Pressable>
                   );
@@ -1187,6 +1343,30 @@ const styles = themedStyles(() => ({
   pressed: { opacity: 0.75 },
 
   // Picker overlay
+  exerciseHistoryLink: { fontWeight: '600', color: colors.coral },
+  tickRecord: { backgroundColor: RECORD_GOLD, borderColor: RECORD_GOLD },
+  recordBanner: {
+    position: 'absolute',
+    top: 92,
+    left: 22,
+    right: 22,
+    zIndex: 5,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    backgroundColor: colors.ink,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  recordKicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.8, fontWeight: '700', color: RECORD_GOLD },
+  recordText: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '600', color: colors.paper, marginTop: 2 },
+  historyBody: { paddingHorizontal: 22, paddingBottom: 40, gap: 10 },
+  historySession: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  historyDate: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  historySets: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 4, lineHeight: 19 },
   picker: {
     position: 'absolute',
     left: 0,

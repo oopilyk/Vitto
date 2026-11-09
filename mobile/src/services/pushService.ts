@@ -220,3 +220,35 @@ export const cancelTrialReminder = async (): Promise<void> => {
   if (Platform.OS === 'web') return;
   await Notifications.cancelScheduledNotificationAsync(TRIAL_REMINDER_ID).catch(() => {});
 };
+
+const WEEKLY_RECAP_ID = 'vitto.weeklyRecap';
+
+/**
+ * Sunday at 7pm, every week: "Your week with Miso". Opens the weekly recap.
+ * Only when notifications are already allowed: this never asks on its own.
+ * Rescheduled on each launch, so a renamed pet's name is current.
+ */
+export const scheduleWeeklyRecap = async (petName: string): Promise<void> => {
+  if (Platform.OS === 'web') return;
+  try {
+    if (!(await Notifications.getPermissionsAsync()).granted) return;
+    await Notifications.cancelScheduledNotificationAsync(WEEKLY_RECAP_ID).catch(() => {});
+    await Notifications.scheduleNotificationAsync({
+      identifier: WEEKLY_RECAP_ID,
+      content: {
+        title: `Your week with ${petName}`,
+        body: 'Workouts, food, steps and how much you both grew. Take a look.',
+        data: { screen: 'weekly' },
+      },
+      // weekday: 1 is Sunday.
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 19, minute: 0 },
+    });
+  } catch {
+    // Best effort: the recap is on Today either way.
+  }
+};
+
+export const cancelWeeklyRecap = async (): Promise<void> => {
+  if (Platform.OS === 'web') return;
+  await Notifications.cancelScheduledNotificationAsync(WEEKLY_RECAP_ID).catch(() => {});
+};

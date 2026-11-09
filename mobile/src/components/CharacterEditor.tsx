@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import { Mark } from './ui';
 import { Keyboard, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -127,7 +128,9 @@ export function CharacterEditor({
       </Pressable>
       {justSaved ? (
         <View style={styles.savedBanner} testID="character-saved">
-          <Text style={styles.savedBannerMark}>✓</Text>
+          <View style={styles.savedBannerMark}>
+            <Mark kind="check" size={14} weight={2.4} color={colors.mintDeep} />
+          </View>
           <View style={styles.savedBannerText}>
             <Text style={styles.savedBannerBody}>{`${pet.name} talks like this from their next message.`}</Text>
           </View>
@@ -284,18 +287,7 @@ const styles = themedStyles(() => ({
     borderRadius: 12,
     backgroundColor: colors.mintDeep,
   },
-  savedBannerMark: { fontFamily: fonts.ui, fontWeight: '600',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#ffffff',
-    color: colors.mintDeep,
-    fontSize: 20,
-    
-    textAlign: 'center',
-    lineHeight: 33,
-    overflow: 'hidden',
-  },
+  savedBannerMark: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
   savedBannerText: { flex: 1 },
   savedBannerBody: { fontFamily: fonts.ui, fontSize: 13, color: '#e6f2e8', lineHeight: 18, marginTop: 1 },
   failed: { gap: 2, padding: 10, borderRadius: 12, backgroundColor: colors.coralWash },

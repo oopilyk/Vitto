@@ -12,7 +12,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { layout, text, themedStyles } from '../theme';
-import { DoneTextInput, PressableScale, PrimaryButton, TextButton, haptic, keypadWithoutReturn } from './ui';
+import { DoneTextInput, PressableScale, PrimaryButton, TextButton, haptic, keypadWithoutReturn, Mark } from './ui';
 import { colors, fonts } from '../theme';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
@@ -276,6 +276,43 @@ export function FieldRow({ children }: { children: ReactNode }) {
   );
 }
 
+/** How long "Saved" stays up before the bar goes. */
+export const SAVED_NOTE_MS = 2200;
+
+/**
+ * After a save that stays on the page: `show()` once it has really gone
+ * through, and `saved` is true for a moment, for a `SavedBar` where the Save
+ * bar was. The Save bar simply vanishing read as nothing having happened.
+ */
+export function useSavedNote() {
+  const [saved, setSaved] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+  return {
+    saved,
+    show: () => {
+      haptic('press');
+      setSaved(true);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setSaved(false), SAVED_NOTE_MS);
+    },
+  };
+}
+
+/** "Saved", where the Save bar was. */
+export function SavedBar({ label = 'Saved' }: { label?: string }) {
+  return (
+    <View style={[kit.saveBar, { paddingBottom: HOME_INDICATOR_INSET }]} accessibilityLiveRegion="polite" testID="saved-bar">
+      <View style={[kit.saveInner, kit.savedRow]}>
+        <Mark kind="check" size={14} weight={2.4} color={colors.mintDeep} />
+        <Text style={kit.savedLabel}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
 /** A text input with a clear focus state that does not change its size. */
 export function TextField(props: TextInputProps) {
   const [focused, setFocused] = useState(false);
@@ -440,9 +477,11 @@ export function SelectionList<T extends string>({
                 {option.detail ? <Text style={kit.rowDetail}>{option.detail}</Text> : null}
               </View>
               {multiple ? (
-                <View style={[kit.checkbox, on && kit.markOn]}>{on ? <Text style={kit.markTick}>✓</Text> : null}</View>
+                <View style={[kit.checkbox, on && kit.markOn]}>{on ? <Mark kind="check" size={11} weight={2.2} color={colors.onCoral} /> : null}</View>
               ) : (
-                <Text style={[kit.check, !on && kit.checkOff]}>✓</Text>
+                <View style={[kit.check, !on && kit.checkOff]}>
+                  <Mark kind="check" size={14} weight={2.2} color={colors.coral} />
+                </View>
               )}
             </Pressable>
             {expanded && on ? (
@@ -482,7 +521,7 @@ export function SelectionTiles<T extends string>({
             }}
             style={[kit.tile, on && kit.tileOn]}
           >
-            <View style={[kit.checkbox, kit.tileCheck, on && kit.markOn]}>{on ? <Text style={kit.markTick}>✓</Text> : null}</View>
+            <View style={[kit.checkbox, kit.tileCheck, on && kit.markOn]}>{on ? <Mark kind="check" size={11} weight={2.2} color={colors.onCoral} /> : null}</View>
             <Text style={[kit.tileLabel, on && kit.rowLabelOn]}>{option.label}</Text>
           </PressableScale>
         );
@@ -639,7 +678,7 @@ export const kit = themedStyles(() => ({
   rowLabelOn: { fontWeight: '600' },
   rowDetail: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, lineHeight: 18, marginTop: 2 },
   rowExpanded: { backgroundColor: colors.cardSoft, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 16, gap: 14 },
-  check: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '700', color: colors.coral, width: 20, textAlign: 'center' },
+  check: { width: 20, alignItems: 'center', justifyContent: 'center' },
   checkOff: { opacity: 0 },
   radio: {
     width: 22,
@@ -736,6 +775,8 @@ export const kit = themedStyles(() => ({
   saveRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   pinnedInner: { gap: 8 },
   saveError: { ...text.error, marginBottom: 10 },
+  savedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 48 },
+  savedLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.mintDeep },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chipsScroll: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 24 },

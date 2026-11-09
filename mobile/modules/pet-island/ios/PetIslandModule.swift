@@ -111,6 +111,17 @@ public class PetIslandModule: Module {
       WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// The water the widget's + logged while the app was closed (LogWaterIntent
+    /// in the widget target), as JSON `[{ "ml": 250, "at": <epoch s> }]`, and
+    /// empties the queue so each cup is logged once.
+    AsyncFunction("takePendingWater") { () -> String? in
+      guard let id = Bundle.main.bundleIdentifier,
+            let suite = UserDefaults(suiteName: "group.\(id)") else { return nil }
+      let pending = suite.string(forKey: "vitto.pendingWater")
+      suite.removeObject(forKey: "vitto.pendingWater")
+      return pending
+    }
+
     /// Takes the pet off the Island: sign-out, or the setting switched off.
     AsyncFunction("end") { () async in
       for activity in Activity<PetActivityAttributes>.activities {

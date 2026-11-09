@@ -9,7 +9,12 @@ import {
   daysWithPet,
   deriveSocialPetStatus,
   errorMessage,
+  REACTION_KINDS,
+  REACTION_LABEL,
+  REACTION_SENT,
+  type ReactionKind,
 } from '@vitto/core';
+import { haptic } from '../components/ui';
 import { friendsService } from '../services/friendsService';
 import { displayName, formatLastActive } from '../components/FriendPetCard';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
@@ -60,6 +65,22 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   const [error, setError] = useState<string | null>(null);
 
   const currentFriendId: string | undefined = friendUserIds[index];
+  const [sending, setSending] = useState<ReactionKind | null>(null);
+  const [reactionNote, setReactionNote] = useState<string | null>(null);
+  useEffect(() => setReactionNote(null), [currentFriendId]);
+  const react = async (kind: ReactionKind) => {
+    if (!currentFriendId) return;
+    setSending(kind);
+    try {
+      await friendsService.sendReaction(currentFriendId, kind);
+      haptic('press');
+      setReactionNote(profile ? `${REACTION_SENT[kind]} to ${displayName(profile)}` : REACTION_SENT[kind]);
+    } catch (cause) {
+      setReactionNote(errorMessage(cause, 'Could not send that.'));
+    } finally {
+      setSending(null);
+    }
+  };
   // Same day/night palette as the friends list, so moving list -> detail is not
   // a jarring theme flip; the room itself switches art on the same clock.
   const night = isNightTime();
@@ -236,6 +257,7 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
       night={night}
       onClose={onClose}
       pager={{ index, total: friendUserIds.length, canGoPrev, canGoNext, goPrev, goNext }}
+      reaction={{ sending, note: reactionNote, send: (kind) => void react(kind) }}
     />
   );
 }
@@ -254,10 +276,13 @@ interface VisitProps {
     goPrev: () => void;
     goNext: () => void;
   };
+  /** Sending a reaction to this friend (see friendsService.sendReaction). */
+  reaction: { sending: ReactionKind | null; note: string | null; send: (kind: ReactionKind) => void };
 }
 
 /** The friend's room, with a visitor's HUD over it. Split out so the stage and its chrome are one unit. */
-function Visit({ pet, profile, status, night, onClose, pager }: VisitProps) {
+function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitProps) {
+  const { sending, note: reactionNote, send: react } = reaction;
   // Built once per visit rather than per render: each dressing is a tree of
   // backdrop elements, and the stage crossfades between them by identity.
   const environments = useMemo(() => visitEnvironments(), []);
@@ -377,11 +402,39 @@ function Visit({ pet, profile, status, night, onClose, pager }: VisitProps) {
           </View>
         }
       />
+      {/* Reactions: a quick word to the friend whose place this is. */}
+      <View style={styles.reactions} pointerEvents="box-none" testID="friend-reactions">
+        {reactionNote ? (
+          <Text style={[retro.kicker, night && retro.kickerNight, styles.reactionNote]} accessibilityLiveRegion="polite">
+            {reactionNote}
+          </Text>
+        ) : null}
+        <View style={styles.reactionRow}>
+          {REACTION_KINDS.map((kind) => (
+            <Pressable
+              key={kind}
+              accessibilityRole="button"
+              accessibilityLabel={`${REACTION_LABEL[kind]}, to ${displayName(profile)}`}
+              disabled={sending !== null}
+              onPress={() => react(kind)}
+              style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.reaction, pressed && retroPressed, sending === kind && styles.reactionSending]}
+            >
+              <Text style={[styles.reactionLabel, night && retro.labelNight]} numberOfLines={1}>{REACTION_LABEL[kind]}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = themedStyles(() => ({
+  reactions: { position: 'absolute', left: 12, right: 12, bottom: 36, alignItems: 'center', gap: 8 },
+  reactionRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  reaction: { minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  reactionSending: { opacity: 0.6 },
+  reactionLabel: { fontFamily: fonts.ui, fontSize: 14, fontWeight: '600', color: world.ink },
+  reactionNote: { textAlign: 'center' },
   center: { alignItems: 'center', justifyContent: 'center' },
   topbar: {
     flexDirection: 'row',

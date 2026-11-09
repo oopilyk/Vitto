@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Mark } from '../components/ui';
 import { Animated, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { fonts, world, themedStyles } from '../theme';
 import { RETRO_BORDER_WIDTH, retro } from './retroStyle';
@@ -116,7 +117,7 @@ export function PetSpeechBubble({
           hitSlop={12}
           style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.close, pressed && styles.closePressed]}
         >
-          <Text style={[styles.closeMark, night && retro.labelNight]}>×</Text>
+          <Mark kind="cross" size={9} weight={2} color={night ? world.nightText : world.ink} />
         </Pressable>
       </View>
       {/* The tail: a square turned on its corner, tucked under the panel's edge. */}
