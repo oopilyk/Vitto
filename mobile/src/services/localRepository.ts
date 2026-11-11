@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
- type WorkoutTemplate,  type CareLogEntry,
+ type WorkoutTemplate, parseSchedule, type TrainingSchedule,  type CareLogEntry,
   type Reminder,
   type HealthEvent,
   type PetInvite,
@@ -34,6 +34,7 @@ const islandKey = 'vitto.island';
 const seenAchievementsKey = 'vitto.achievements.seen';
 /** Saved workout routines ("Push", "Pull", "Legs") — personal setup, kept on-device like reminders. */
 const workoutTemplatesKey = 'vitto.workout.templates';
+const trainingScheduleKey = 'vitto.workout.schedule';
 const MAX_STORED_EVENTS = 2000;
 const CARE_PARTNERS_OFFLINE_MESSAGE = 'Care partners need an online account.';
 
@@ -126,7 +127,7 @@ export class LocalRepository {
   }
 
   async clear(): Promise<void> {
-    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, legacyGymKey, remindersKey, seenAchievementsKey, workoutTemplatesKey, islandKey, 'vitto.profile']);
+    await AsyncStorage.multiRemove([petKey, eventKey, wordPuzzleKey, legacyGymKey, remindersKey, seenAchievementsKey, workoutTemplatesKey, trainingScheduleKey, islandKey, 'vitto.profile']);
   }
 
   /** Whether the pet shows in the Dynamic Island. Null until chosen, which reads as on. */
@@ -207,6 +208,16 @@ export class LocalRepository {
 
   async saveWorkoutTemplates(templates: readonly WorkoutTemplate[]): Promise<void> {
     await AsyncStorage.setItem(workoutTemplatesKey, JSON.stringify(templates));
+  }
+
+  async loadTrainingSchedule(): Promise<TrainingSchedule | null> {
+    const value = await AsyncStorage.getItem(trainingScheduleKey);
+    return value ? parseSchedule(JSON.parse(value)) : null;
+  }
+
+  async saveTrainingSchedule(schedule: TrainingSchedule | null): Promise<void> {
+    if (schedule) await AsyncStorage.setItem(trainingScheduleKey, JSON.stringify(schedule));
+    else await AsyncStorage.removeItem(trainingScheduleKey);
   }
 
   // --- Care partners -------------------------------------------------------

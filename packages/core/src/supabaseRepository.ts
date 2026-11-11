@@ -1,6 +1,7 @@
 import type { PersonalityDials } from './companion/types';
 import type { HealthEvent } from './domain/health';
 import type { WorkoutTemplate } from './domain/workoutTemplates';
+import { parseSchedule, type TrainingSchedule } from './domain/trainingSchedule';
 import { chargeOf, isPetVoice, type EvolvedBuild, type PetBreed, type PetState } from './domain/pet';
 import { sanitizeMeals } from './domain/hunger';
 import { withSurveyDefaults, type BodyProfile, type FocusArea } from './domain/macroTargets';
@@ -340,6 +341,34 @@ export class SupabaseRepository {
       .from('workout_templates')
       .upsert({ user_id: user.id, templates, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error && missingTable(error)) return;
+    if (error) throw error;
+  }
+
+  /**
+   * The account's training rotation: null when there is none, undefined when
+   * the account has no say (no routines row yet, or the column is not there),
+   * so the phone's copy stands.
+   */
+  async loadTrainingSchedule(): Promise<TrainingSchedule | null | undefined> {
+    const client = requireClient();
+    const { data, error } = await client.from('workout_templates').select('schedule').maybeSingle();
+    if (error && (missingTable(error) || missingColumn(error))) return undefined;
+    if (error) throw error;
+    if (!data) return undefined;
+    return parseSchedule(data.schedule);
+  }
+
+  /**
+   * Saves the rotation onto the routines row. An update, never an insert: a
+   * rotation is made of routines, so the row already exists, and creating it
+   * here would give an account an empty routine list that wins over a phone's.
+   */
+  async saveTrainingSchedule(schedule: TrainingSchedule | null): Promise<void> {
+    const client = requireClient();
+    const { data: { user } } = await client.auth.getUser();
+    if (!user) throw new Error('Sign in before saving a rotation.');
+    const { error } = await client.from('workout_templates').update({ schedule }).eq('user_id', user.id);
+    if (error && (missingTable(error) || missingColumn(error))) return;
     if (error) throw error;
   }
 

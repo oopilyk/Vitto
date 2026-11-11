@@ -89,7 +89,9 @@ interface Props {
   onLogWater?: (ml: number) => Promise<void>;
   /** Optional: the mind pillar hides the action until the navigation is wired. */
   onOpenWordPuzzle?: () => void;
-  /** "Full history →" — Profile lists the user's own events. */
+  /** "Full history →": the full activity history. */
+  onOpenHistory?: () => void;
+  /** Profile, for the history link when there is no history screen. */
   onOpenProfile: () => void;
   /** The Food, Outdoors and Gym cards' "more" rows. Each absent hides its row. */
   onOpenFoodTrends?: () => void;
@@ -218,6 +220,7 @@ export function TodayScreen({
   onLogWater,
   onOpenWordPuzzle,
   onOpenProfile,
+  onOpenHistory,
   onOpenFoodTrends,
   onOpenStepTrends,
   onOpenLiftProgress,
@@ -769,7 +772,7 @@ export function TodayScreen({
           {todayLogs.some(({ events: group }) => changeable(group[0]!)) && (onEditLog || onDeleteLog) ? (
             <Text style={[styles.activityHint, { color: c.soft }]}>Tap a log to change or remove it.</Text>
           ) : null}
-          <Pressable onPress={onOpenProfile} hitSlop={6}>
+          <Pressable onPress={onOpenHistory ?? onOpenProfile} hitSlop={6} accessibilityRole="link">
             <Text style={[styles.activityMore, { color: world.accent }]}>Full history →</Text>
           </Pressable>
         </View>

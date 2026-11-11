@@ -13,7 +13,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, dayGoals,CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, loggedFoodNames, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, setDevFreezeGrant, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, dayGoals,CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, loggedFoodNames, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, setDevFreezeGrant, scheduleDayOn, reconcileSchedule, type TrainingSchedule, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -377,6 +377,10 @@ function VittoApp() {
   const [unlockQueue, setUnlockQueue] = useState<AchievementId[]>([]);
   /** Saved workout routines — device-local, like reminders. */
   const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
+  // The routines in order, looped, with rest days: what today is for (trainingSchedule.ts).
+  const [trainingSchedule, setTrainingSchedule] = useState<TrainingSchedule | null>(null);
+  /** Both loaded, so the rotation can be squared with the routines without overwriting either. */
+  const [routinesReady, setRoutinesReady] = useState(false);
 
   /**
    * Which account the "already announced" list belongs to. Signed out is its own
@@ -1013,11 +1017,21 @@ function VittoApp() {
     if (!authReady) return;
     let cancelled = false;
     void (async () => {
+      setRoutinesReady(false);
       const onPhone = await repository.loadWorkoutTemplates().catch(() => [] as WorkoutTemplate[]);
+      const scheduleOnPhone = await repository.loadTrainingSchedule().catch(() => null);
       if (!(isSupabaseConfigured && session)) {
-        if (!cancelled) setWorkoutTemplates(onPhone);
+        if (cancelled) return;
+        setTrainingSchedule(scheduleOnPhone);
+        setWorkoutTemplates(onPhone);
+        setRoutinesReady(true);
         return;
       }
+      // The account's rotation wins when it has a say; undefined leaves the phone's.
+      const scheduleInAccount = await remoteRepository.loadTrainingSchedule().catch(() => undefined);
+      if (cancelled) return;
+      setTrainingSchedule(scheduleInAccount === undefined ? scheduleOnPhone : scheduleInAccount);
+      if (scheduleInAccount !== undefined) void repository.saveTrainingSchedule(scheduleInAccount).catch(() => undefined);
       let inAccount: WorkoutTemplate[] | null | undefined;
       try {
         inAccount = await remoteRepository.loadWorkoutTemplates();
@@ -1034,6 +1048,7 @@ function VittoApp() {
         setWorkoutTemplates(inAccount);
         void repository.saveWorkoutTemplates(inAccount).catch(() => undefined);
       }
+      setRoutinesReady(true);
     })();
     return () => {
       cancelled = true;
@@ -2407,6 +2422,7 @@ function VittoApp() {
         forceFreezes(null);
         setUnlockQueue([]);
         setWorkoutTemplates([]);
+        setTrainingSchedule(null);
         // `seenAchievements` and the unlock queue are reset by the scope effect
         // above, which re-runs as the session drops back to 'local'.
         await repository.clear();
@@ -2438,8 +2454,9 @@ function VittoApp() {
   const { todayProgress, todayGoals } = useMemo(() => {
     if (!pet) return { todayProgress: undefined, todayGoals: undefined };
     const recap = buildDailyRecap({ events, profile, pet, stepGoal, day: now });
-    return { todayProgress: recap.dailyProgress, todayGoals: dayGoals(recap, { events, profile, pet, day: now }) };
-  }, [events, profile, pet, stepGoal, now]);
+    const rotation = scheduleDayOn(trainingSchedule, workoutTemplates, now);
+    return { todayProgress: recap.dailyProgress, todayGoals: dayGoals(recap, { events, profile, pet, day: now, rotation }) };
+  }, [events, profile, pet, stepGoal, now, trainingSchedule, workoutTemplates]);
 
   // Everything earned, badges and trophies, in display order. Above the early
   // returns for the same reason `trophiesNow` is.
@@ -2504,6 +2521,26 @@ function VittoApp() {
     const next = upsertTemplate(workoutTemplates, template);
     await storeWorkoutTemplates(next);
   };
+
+  /** Kept on the phone, and with the account when signed in, like the routines. */
+  const storeTrainingSchedule = async (next: TrainingSchedule | null) => {
+    setTrainingSchedule(next);
+    await repository.saveTrainingSchedule(next);
+    if (!(isSupabaseConfigured && session)) return;
+    try {
+      await remoteRepository.saveTrainingSchedule(next);
+    } catch {
+      setError("Saved on this phone, but couldn't back your rotation up to your account. Check your connection.");
+    }
+  };
+
+  // The routine list is the rotation: a routine made or deleted joins or leaves it.
+  useEffect(() => {
+    if (!routinesReady) return;
+    const { schedule: next, changed } = reconcileSchedule(trainingSchedule, workoutTemplates);
+    if (changed) void storeTrainingSchedule(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routinesReady, trainingSchedule, workoutTemplates]);
 
   const deleteWorkoutTemplate = async (id: string) => {
     const next = removeTemplate(workoutTemplates, id);
@@ -2592,8 +2629,8 @@ function VittoApp() {
   // The pet on the Home Screen widget, with today's food and steps. Rewritten
   // when the pet or the day's log changes and on foreground; unchanged
   // snapshots are dropped in syncPetWidget, so this can run freely.
-  const widgetInput = useRef({ events, profile, stepGoal });
-  widgetInput.current = { events, profile, stepGoal };
+  const widgetInput = useRef({ events, profile, stepGoal, schedule: trainingSchedule, templates: workoutTemplates });
+  widgetInput.current = { events, profile, stepGoal, schedule: trainingSchedule, templates: workoutTemplates };
   const sendWidget = useCallback(() => {
     const current = islandPet.current;
     if (!current) return;
@@ -2604,7 +2641,7 @@ function VittoApp() {
     if (!dataReady || !island) return;
     const timer = setTimeout(sendWidget, 800);
     return () => clearTimeout(timer);
-  }, [dataReady, island, events, profile, stepGoal, sendWidget]);
+  }, [dataReady, island, events, profile, stepGoal, trainingSchedule, workoutTemplates, sendWidget]);
   useEffect(() => {
     const foreground = AppState.addEventListener('change', (state) => {
       if (state === 'active') sendWidget();
@@ -3357,6 +3394,7 @@ function VittoApp() {
               onDeleteLog={(event) => void removeEvent(event)}
               onOpenWordPuzzle={() => navigation.navigate('WordPuzzle')}
               onOpenProfile={() => navigation.navigate('Profile')}
+              onOpenHistory={() => navigation.navigate('ActivityHistory')}
               onClose={() => navigation.goBack()}
               careDiary={careDiary}
               onRefresh={isOnline && shared ? () => refreshShared() : undefined}
@@ -3478,6 +3516,8 @@ function VittoApp() {
                     history={events}
                     onSaveTemplate={saveWorkoutTemplate}
                     onDeleteTemplate={deleteWorkoutTemplate}
+                    schedule={trainingSchedule}
+                    onSaveSchedule={storeTrainingSchedule}
                     // No navigation here: the screen closes itself (`onClose`) once
                     // the workout and its routine are saved. Going back here as
                     // well closed it twice, and the second went back past it.

@@ -10,6 +10,7 @@ export * from './domain/oneRepMax';
 export * from './domain/trophies';
 export * from './domain/achievements';
 export * from './domain/workoutTemplates';
+export * from './domain/trainingSchedule';
 export * from './domain/repeatableMeals';
 export * from './domain/trends';
 export * from './domain/foodEffects';

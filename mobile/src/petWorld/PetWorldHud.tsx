@@ -24,7 +24,7 @@ import { FROZEN_COLOR } from '../components/ActivityCalendar';
 import { LevelRing } from './LevelRing';
 import { canListen, PetMicButton } from './PetMicButton';
 import { chromeScaleFor, topInsetFor } from './chromeScale';
-import { retro, retroPressed } from './retroStyle';
+import { RETRO_BORDER_WIDTH, retro, retroPressed } from './retroStyle';
 import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
 
 /** The product owner's own friends glyph, tinted per day/night at render time. */
@@ -111,6 +111,35 @@ interface PetWorldHudProps {
 
 /** Padding inside the readout panel, either side. */
 const READOUT_PAD = 14;
+const META_FONT = 10;
+const META_SPACING = 0.8;
+const META_GAP = 12;
+const CHIP_FONT = 9;
+const CHIP_LINE = 12;
+const CHIP_SPACING = 0.8;
+const CHIP_PAD = 6;
+const CHIP_GAP = 8;
+/** Below this a row stops shrinking and wraps instead: still readable, never clipped. */
+const MIN_ROW_SCALE = 0.72;
+
+/**
+ * A mono label's width: every letter is 0.6em, an emoji about 1.25em. A
+ * slight overestimate, which only ever shrinks a row a touch early.
+ */
+const monoWidth = (text: string, fontSize: number, letterSpacing: number): number =>
+  [...text.replace(/\uFE0E|\uFE0F/g, '')].reduce(
+    // A symbol or emoji (🔥, ❄︎, ✓) comes from a fallback font, wider than a letter.
+    (width, char) => width + ((char.codePointAt(0) ?? 0) >= 0x2000 ? 1.25 : 0.6) * fontSize + letterSpacing,
+    0,
+  );
+
+/** How far a row of `widths` must shrink to fit in `room` on one line. */
+const rowScale = (widths: number[], gap: number, room: number): number => {
+  const natural = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, widths.length - 1);
+  if (natural <= room || room <= 0) return 1;
+  return Math.max(MIN_ROW_SCALE, room / natural);
+};
+
 /** One chip's height: its line plus its padding. */
 const CHIP_HEIGHT = 12 + 2 * 2;
 /** Chip row ceiling: exactly two rows of chips and the gap between, whatever the screen width. */
@@ -178,6 +207,9 @@ export function PetWorldHud({
   // wrap then falls between tokens rather than inside a separator.
   const dayToken = `DAY ${daysWithPet(pet, today)}`;
   const formToken = evolved ? formLabel.toUpperCase() : null;
+  const bondToken = bond.stage !== 'neutral' ? bond.stage.toUpperCase() : null;
+  const flameToken = streaks.currentStreak > 0 ? `🔥 ${streaks.currentStreak}` : null;
+  const freezeToken = streaks.currentStreak > 0 && streaks.freezes > 0 ? `❄︎ ${streaks.freezes}` : null;
   const dayLabel = formToken ? `${dayToken} · ${formToken}` : dayToken;
 
   const showSwitcher = pets && pets.length > 1 && onSelectPet;
@@ -215,6 +247,25 @@ export function PetWorldHud({
   // notched phone.
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const chromeScale = chromeScaleFor(screenWidth, screenHeight);
+
+  // The meta line and the chips each stay on one row, whatever the numbers:
+  // too wide, and the row shrinks as a whole (every token the same size),
+  // rather than wrapping one chip onto a row of its own or clipping the streak.
+  const [readoutWidth, setReadoutWidth] = useState(screenWidth - 2 * GUTTER);
+  const readoutRoom = readoutWidth - 2 * (READOUT_PAD + RETRO_BORDER_WIDTH);
+  const metaScale = rowScale(
+    [dayToken, formToken, bondToken, flameToken, freezeToken].filter((token): token is string => token !== null).map((token) => monoWidth(token, META_FONT, META_SPACING)),
+    META_GAP,
+    readoutRoom,
+  );
+  const chipScale = rowScale(
+    (todayGoals ?? []).map((goal) => monoWidth(goal.done ? `✓ ${goal.label}` : goal.label, CHIP_FONT, CHIP_SPACING) + 2 * CHIP_PAD),
+    CHIP_GAP,
+    readoutRoom,
+  );
+  const metaSized = metaScale < 1 ? { fontSize: META_FONT * metaScale, letterSpacing: META_SPACING * metaScale } : null;
+  const chipSized =
+    chipScale < 1 ? { fontSize: CHIP_FONT * chipScale, lineHeight: CHIP_LINE * chipScale, letterSpacing: CHIP_SPACING * chipScale } : null;
   const zoom = hudZoom(screenWidth, screenHeight, chromeScale);
   const topInset = topInsetFor(screenWidth, screenHeight);
 
@@ -301,6 +352,7 @@ export function PetWorldHud({
       <View
         style={[retro.panel, night && retro.panelNight, styles.readout]}
         pointerEvents="none"
+        onLayout={(event) => setReadoutWidth(event.nativeEvent.layout.width)}
       >
         {/* Two lines at most, whatever the pet says: the readout has a fixed
             ceiling so the rows under it never move far. A longer line shrinks
@@ -309,37 +361,40 @@ export function PetWorldHud({
           {feeling}
         </FitText>
         {/* Day and evolution (with the bond and streak), on one line. */}
-        <View style={styles.metaRow} accessibilityLabel={metaLabel}>
-          <Text style={[styles.meta, night && retro.captionNight]}>{dayToken}</Text>
-          {formToken ? <Text style={[styles.meta, night && retro.captionNight]}>{formToken}</Text> : null}
+        <View style={[styles.metaRow, { columnGap: META_GAP * metaScale }]} accessibilityLabel={metaLabel}>
+          <Text style={[styles.meta, metaSized, night && retro.captionNight]}>{dayToken}</Text>
+          {formToken ? <Text style={[styles.meta, metaSized, night && retro.captionNight]}>{formToken}</Text> : null}
           {/* The relationship, only when it has something to say; cooling reads in coral. */}
-          {bond.stage !== 'neutral' ? (
+          {bondToken ? (
             <Text
-              style={[styles.meta, night && retro.captionNight, (bond.stage === 'sulking' || bond.stage === 'wary') && styles.metaBondCool]}
+              style={[styles.meta, metaSized, night && retro.captionNight, (bond.stage === 'sulking' || bond.stage === 'wary') && styles.metaBondCool]}
               accessibilityLabel={`${pet.name} is ${bond.stage} toward you`}
             >
-              {bond.stage.toUpperCase()}
+              {bondToken}
             </Text>
           ) : null}
-          {streaks.currentStreak > 0 ? (
-            <Text style={[styles.meta, styles.metaFlame, night && styles.metaFlameNight, streakAtRisk && styles.metaFlameAtRisk]}>
-              {`🔥 ${streaks.currentStreak}`}
+          {flameToken ? (
+            <Text style={[styles.meta, metaSized, styles.metaFlame, night && styles.metaFlameNight, streakAtRisk && styles.metaFlameAtRisk]}>
+              {flameToken}
             </Text>
           ) : null}
-          {streaks.currentStreak > 0 && streaks.freezes > 0 ? (
-            <Text style={[styles.meta, styles.metaFreeze]} testID="streak-freezes">
-              {`❄︎ ${streaks.freezes}`}
+          {freezeToken ? (
+            <Text style={[styles.meta, metaSized, styles.metaFreeze]} testID="streak-freezes">
+              {freezeToken}
             </Text>
           ) : null}
         </View>
         {/* Under it, what is left of today: calories, workout, steps. A done
             one keeps its place with a tick, so the row doesn't jump about. */}
         {todayGoals && todayGoals.length > 0 ? (
-          <View style={styles.chipRow} accessibilityLabel={`Today: ${todayGoals.map((goal) => (goal.done ? `${goal.label} done` : goal.label)).join(', ')}`}>
+          <View
+            style={[styles.chipRow, { columnGap: CHIP_GAP * chipScale }]}
+            accessibilityLabel={`Today: ${todayGoals.map((goal) => (goal.done ? `${goal.label} done` : goal.label)).join(', ')}`}
+          >
             {todayGoals.map((goal) => (
               <Text
                 key={goal.id}
-                style={[styles.metaTag, night && styles.metaTagNight, goal.done && styles.metaTagDone, goal.done && night && styles.metaTagDoneNight]}
+                style={[styles.metaTag, chipSized, night && styles.metaTagNight, goal.done && styles.metaTagDone, goal.done && night && styles.metaTagDoneNight]}
               >
                 {goal.done ? `✓ ${goal.label}` : goal.label}
               </Text>
@@ -517,8 +572,8 @@ const styles = themedStyles(() => ({
   },
   metaRow: {
     flexDirection: 'row',
-    flexWrap: 'nowrap',
-    overflow: 'hidden',
+    // Only past MIN_ROW_SCALE; until then the row shrinks to stay on one line.
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     columnGap: 12,
@@ -527,9 +582,9 @@ const styles = themedStyles(() => ({
   },
   meta: {
     fontFamily: fonts.systemMono,
-    fontSize: 10,
+    fontSize: META_FONT,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: META_SPACING,
     color: world.inkSoft,
     textAlign: 'center',
     textTransform: 'uppercase',
@@ -566,15 +621,15 @@ const styles = themedStyles(() => ({
   // its own chip so a narrow screen wraps between them, not inside a separator.
   metaTag: {
     fontFamily: fonts.systemMono,
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: CHIP_FONT,
+    lineHeight: CHIP_LINE,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: CHIP_SPACING,
     textTransform: 'uppercase',
     color: '#7a5f16',
     backgroundColor: 'rgba(214,183,96,0.35)',
     borderRadius: 5,
-    paddingHorizontal: 6,
+    paddingHorizontal: CHIP_PAD,
     paddingVertical: 2,
     overflow: 'hidden',
   },

@@ -68,12 +68,23 @@ const LIFT_SOURCES: Record<StandardLift, Record<string, number>> = {
     'Dumbbell Bench Press': 2.4,
     'Incline Dumbbell Press': 2.6,
     'Machine Chest Press': 0.85,
+    'Decline Bench Press': 0.9,
+    'Smith Machine Bench Press': 0.9,
   },
-  squat: { Squat: 1, 'Front Squat': 1.2, 'Leg Press': 0.4 },
-  deadlift: { Deadlift: 1, 'Sumo Deadlift': 1, 'Romanian Deadlift': 1.3 },
-  ohp: { 'Shoulder Press': 1, 'Dumbbell Shoulder Press': 2.3, 'Arnold Press': 2.4 },
-  row: { 'Barbell Row': 1, 'T-Bar Row': 1, 'Seated Cable Row': 0.9, 'Dumbbell Row': 1.6, 'Lat Pulldown': 0.85 },
-  curl: { 'EZ Bar Curl': 1, 'Bicep Curl': 1.8, 'Hammer Curl': 1.7, 'Preacher Curl': 1.2, 'Cable Curl': 1.1 },
+  squat: { Squat: 1, 'Front Squat': 1.2, 'Leg Press': 0.4, 'Hack Squat': 0.7, 'Smith Machine Squat': 0.85 },
+  deadlift: { Deadlift: 1, 'Sumo Deadlift': 1, 'Romanian Deadlift': 1.3, 'Trap Bar Deadlift': 0.9, 'Stiff-Leg Deadlift': 1.3 },
+  ohp: { 'Shoulder Press': 1, 'Dumbbell Shoulder Press': 2.3, 'Arnold Press': 2.4, 'Machine Shoulder Press': 0.85, 'Push Press': 0.8 },
+  row: { 'Barbell Row': 1, 'T-Bar Row': 1, 'Seated Cable Row': 0.9, 'Dumbbell Row': 1.6, 'Lat Pulldown': 0.85, 'Pendlay Row': 1, 'Seal Row': 1.1 },
+  curl: {
+    'EZ Bar Curl': 1,
+    'Bicep Curl': 1.8,
+    'Hammer Curl': 1.7,
+    'Preacher Curl': 1.2,
+    'Cable Curl': 1.1,
+    'Bayesian Curl': 1.15,
+    'Spider Curl': 1.25,
+    'Concentration Curl': 1.9,
+  },
 };
 
 
@@ -232,11 +243,14 @@ export const muscleRanks = (
  * the map: the lifts' own numbers stay what was actually pressed.
  */
 const ISOLATION_SOURCES: Partial<Record<MuscleGroup, { lift: StandardLift; sources: Record<string, number> }>> = {
-  shoulders: { lift: 'ohp', sources: { 'Lateral Raise': 4, 'Front Raise': 3.5 } },
-  triceps: { lift: 'bench', sources: { 'Tricep Pushdown': 1.8, 'Skull Crushers': 2.2, 'Overhead Tricep Extension': 2 } },
-  hamstrings: { lift: 'deadlift', sources: { 'Leg Curl': 1.8 } },
+  shoulders: { lift: 'ohp', sources: { 'Lateral Raise': 4, 'Front Raise': 3.5, 'Cable Lateral Raise': 5 } },
+  triceps: {
+    lift: 'bench',
+    sources: { 'Tricep Pushdown': 1.8, 'Rope Pushdown': 2, 'Skull Crushers': 2.2, 'Overhead Tricep Extension': 2, 'Overhead Cable Extension': 2 },
+  },
+  hamstrings: { lift: 'deadlift', sources: { 'Leg Curl': 1.8, 'Seated Leg Curl': 1.8, 'Lying Leg Curl': 2 } },
   quads: { lift: 'squat', sources: { 'Leg Extension': 1.2 } },
-  glutes: { lift: 'squat', sources: { 'Hip Thrust': 0.6 } },
+  glutes: { lift: 'squat', sources: { 'Hip Thrust': 0.6, 'Glute Bridge': 0.5 } },
 };
 
 /** Each muscle's rank from its isolation lifts alone (see ISOLATION_SOURCES), for muscleRanks. */
@@ -292,6 +306,29 @@ const TRAINS: Record<string, readonly MuscleGroup[]> = {
   Shrugs: ['upperBack'],
   'Close-Grip Bench Press': ['triceps', 'chest'],
   Dips: ['chest', 'triceps'],
+  'Dumbbell Pullover': ['chest', 'upperBack'],
+  'Rack Pull': ['lowerBack', 'upperBack', 'glutes'],
+  'Back Extension': ['lowerBack', 'glutes'],
+  'Trap Bar Deadlift': ['quads', 'glutes', 'hamstrings', 'lowerBack'],
+  'Stiff-Leg Deadlift': ['hamstrings', 'glutes', 'lowerBack'],
+  'Good Morning': ['hamstrings', 'glutes', 'lowerBack'],
+  'Seated Leg Curl': ['hamstrings'],
+  'Lying Leg Curl': ['hamstrings'],
+  'Nordic Curl': ['hamstrings'],
+  'Glute Bridge': ['glutes'],
+  'Hip Abduction': ['glutes'],
+  'Cable Glute Kickback': ['glutes'],
+  'Kettlebell Swing': ['glutes', 'hamstrings'],
+  'Hack Squat': ['quads', 'glutes'],
+  'Pendulum Squat': ['quads', 'glutes'],
+  'Sissy Squat': ['quads'],
+  'Hip Adduction': [],
+  'Seated Calf Raise': [],
+  'Reverse Pec Deck': ['shoulders', 'upperBack'],
+  'Cable Rear Delt Fly': ['shoulders', 'upperBack'],
+  'Landmine Press': ['shoulders', 'chest'],
+  'Push Press': ['shoulders', 'triceps'],
+  'JM Press': ['triceps', 'chest'],
 };
 
 /**
@@ -374,3 +411,10 @@ export const otherLifts = (events: readonly HealthEvent[], minSessions = 2): Oth
     }))
     .sort((a, b) => b.sessions - a.sessions || a.exercise.localeCompare(b.exercise));
 };
+
+/** Every exercise name the ranks and the map refer to, for the test that each one is in the library. */
+export const mappedExerciseNames = (): string[] => [
+  ...Object.values(LIFT_SOURCES).flatMap((sources) => Object.keys(sources)),
+  ...Object.values(ISOLATION_SOURCES).flatMap((source) => Object.keys(source?.sources ?? {})),
+  ...Object.keys(TRAINS),
+];

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Haptics from 'expo-haptics';
 import { Alert, Pressable, ScrollView, Text, TextInput, View, Platform } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
@@ -17,6 +17,17 @@ import {
   exerciseFromHistory,
   exerciseLibrary,
   MAX_TEMPLATE_NAME,
+  addRestDay,
+  moveScheduleDay,
+  reconcileSchedule,
+  removeRestDay,
+  restartSchedule,
+  resolvedDays,
+  scheduleDayId,
+  scheduleDayOn,
+  stepToday,
+  type ScheduleDay,
+  type TrainingSchedule,
   sessionFromTemplate,
   templateError,
   templateFromSession,
@@ -24,6 +35,7 @@ import {
 } from '@vitto/core';
 import { KM_PER_MILE, checkWorkout, exerciseBest, exerciseSessions, setRecord, type HealthEvent } from '@vitto/core';
 import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput, Mark } from '../components/ui';
+import { DragList } from '../components/DragList';
 import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
 import { TIER_COLOR } from '../components/StrengthMap';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
@@ -48,6 +60,9 @@ interface Props {
   templates?: readonly WorkoutTemplate[];
   onSaveTemplate?: (template: WorkoutTemplate) => Promise<void> | void;
   onDeleteTemplate?: (id: string) => Promise<void> | void;
+  /** The training rotation; with it, the screen opens on what today is for. */
+  schedule?: TrainingSchedule | null;
+  onSaveSchedule?: (schedule: TrainingSchedule | null) => Promise<void> | void;
   /**
    * Open straight on the runs-and-rides list (the Outdoors room's "Log a
    * run"): only the activities logged by distance, and one tap picks it.
@@ -114,6 +129,8 @@ export function WorkoutScreen({
   editing,
   onSaveEdit,
   history = [],
+  schedule = null,
+  onSaveSchedule,
 }: Props) {
   const [mode, setMode] = useState<Mode>('log');
   const [name, setName] = useState(editing?.name ?? DEFAULT_SESSION_NAME);
@@ -148,6 +165,8 @@ export function WorkoutScreen({
   /** The routine this session was started from, so finishing can update it. */
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [managingRoutines, setManagingRoutines] = useState(false);
+  /** A rotation day being dragged: the page holds still under the finger. */
+  const [draggingDay, setDraggingDay] = useState(false);
   const [routineMessage, setRoutineMessage] = useState<string | null>(null);
   /** In routine mode: which routine is being edited, or null for a new one. */
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
@@ -296,6 +315,37 @@ export function WorkoutScreen({
           onClose();
         },
       },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  /**
+   * Back to "What are you training today?" from a session, to pick a
+   * different routine. Clears the session; asks first when that would lose
+   * something (a ticked set, or exercises picked by hand rather than a
+   * routine loaded as it was).
+   */
+  const backToStart = () => {
+    const reset = () => {
+      void stopRest();
+      setRest(null);
+      setTicked(new Set());
+      setExercises([]);
+      setActiveTemplateId(null);
+      setName(DEFAULT_SESSION_NAME);
+      setNotes('');
+      setDuration('');
+      setDistance('');
+      setError(null);
+      setRoutineMessage(null);
+      void clearWorkoutDraft();
+    };
+    if ((ticked.size === 0 && activeTemplateId) || Platform.OS === 'web') {
+      reset();
+      return;
+    }
+    Alert.alert('Start over?', 'This clears the workout so you can pick another.', [
+      { text: 'Start over', style: 'destructive', onPress: reset },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
@@ -608,8 +658,62 @@ export function WorkoutScreen({
 
   const empty = exercises.length === 0;
 
-  /** One routine as a full-width row: its name, what is in it, and what a tap does. */
-  const routineRow = (template: WorkoutTemplate) => {
+  // The routine list is the rotation: every routine in it, in order, with any
+  // rest days, looping one day per calendar day (trainingSchedule.ts). Squared
+  // with the routines here too, so a routine just made shows before the saved
+  // rotation catches up.
+  const rotationSchedule = onSaveSchedule ? reconcileSchedule(schedule, templates).schedule : null;
+  const rotation = scheduleDayOn(rotationSchedule, templates);
+  const rotationDays: ScheduleDay[] = rotationSchedule
+    ? resolvedDays(rotationSchedule, templates)
+    : templates.map((template) => ({ kind: 'routine', templateId: template.id }));
+  const saveRotation = (next: TrainingSchedule) => {
+    haptic('select');
+    void onSaveSchedule?.(next);
+  };
+
+  /** In Edit, beside each day: remove, and the grip to drag it by. */
+  const dayControls = (handle: ReactNode, label: string, onRemove: (() => void) | null) =>
+    managingRoutines ? (
+      <>
+        {onRemove ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${label}`} hitSlop={8} onPress={onRemove} style={styles.routineDelete}>
+            <Mark kind="cross" size={11} color={colors.danger} />
+          </Pressable>
+        ) : null}
+        {handle}
+      </>
+    ) : null;
+
+  /** Which day of the rotation a row is, over its name; today's in coral. */
+  const dayLabel = (index: number) =>
+    rotationSchedule ? (
+      <Text style={[styles.dayLabel, rotation?.index === index && styles.dayLabelToday]}>
+        {rotation?.index === index ? `DAY ${index + 1} · TODAY` : `DAY ${index + 1}`}
+      </Text>
+    ) : null;
+
+  /** One day of the rotation as a full-width row: a routine (what is in it, what a tap does), or a rest day. */
+  const dayRow = (day: ScheduleDay, index: number, handle: ReactNode, lifted = false) => {
+    const isToday = rotationSchedule !== null && rotation?.index === index;
+    if (day.kind === 'rest') {
+      return (
+        <View key={scheduleDayId(day)} style={styles.routineRowWrap}>
+          <View
+            style={[styles.routineRow, styles.restRow, isToday && styles.routineRowToday, lifted && styles.rowLifted]}
+            testID={`rest-day-${index}`}
+          >
+            <View style={{ flex: 1 }}>
+              {dayLabel(index)}
+              <Text style={[styles.routineName, styles.restName]}>Rest day</Text>
+            </View>
+          </View>
+          {dayControls(handle, `rest day ${index + 1}`, () => rotationSchedule && saveRotation(removeRestDay(rotationSchedule, templates, scheduleDayId(day))))}
+        </View>
+      );
+    }
+    const template = templates.find((candidate) => candidate.id === day.templateId);
+    if (!template) return null;
     const preview = template.exercises.slice(0, 3).map((exercise) => exercise.name).join(', ');
     const more = template.exercises.length - 3;
     return (
@@ -618,10 +722,11 @@ export function WorkoutScreen({
           accessibilityRole="button"
           accessibilityLabel={managingRoutines ? `Edit routine ${template.name}` : `Load routine ${template.name}`}
           onPress={() => (managingRoutines ? startEditingRoutine(template) : loadRoutine(template))}
-          style={({ pressed }) => [styles.routineRow, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.routineRow, isToday && styles.routineRowToday, lifted && styles.rowLifted, pressed && styles.pressed]}
         >
           <View style={{ flex: 1 }}>
-            <Text style={styles.routineName}>{template.name}</Text>
+            {dayLabel(index)}
+            <Text style={styles.routineName} numberOfLines={1}>{template.name}</Text>
             <Text style={styles.routinePreview} numberOfLines={1}>
               {preview}
               {more > 0 ? ` +${more} more` : ''}
@@ -629,22 +734,38 @@ export function WorkoutScreen({
           </View>
           <Text style={styles.routineGo}>{managingRoutines ? 'Edit' : 'Start'}</Text>
         </PressableScale>
-        {managingRoutines && onDeleteTemplate ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Delete routine ${template.name}`}
-            hitSlop={8}
-            onPress={() => {
-              void onDeleteTemplate(template.id);
-              if (activeTemplateId === template.id) setActiveTemplateId(null);
-            }}
-            style={styles.routineDelete}
-          >
-            <Mark kind="cross" size={11} color={colors.danger} />
-          </Pressable>
-        ) : null}
+        {dayControls(
+          handle,
+          `routine ${template.name}`,
+          onDeleteTemplate
+            ? () => {
+                void onDeleteTemplate(template.id);
+                if (activeTemplateId === template.id) setActiveTemplateId(null);
+              }
+            : null,
+        )}
       </View>
     );
+  };
+
+  /**
+   * "Create a routine", or, with a rotation to put it in, a rest day: the card
+   * opens on the two choices in place. Not a native action sheet: one cut off
+   * by a reload can leave iOS holding a sheet nobody sees, and every later one
+   * then fails to show, so the card seemed dead.
+   */
+  const [choosingDay, setChoosingDay] = useState(false);
+  const createDay = () => {
+    if (!rotationSchedule) {
+      startNewRoutine();
+      return;
+    }
+    haptic('select');
+    setChoosingDay((open) => {
+      // The card is the last thing on the page: bring the choices into view.
+      if (!open) setTimeout(() => bodyRef.current?.scrollToEnd({ animated: true }), 50);
+      return !open;
+    });
   };
 
   const openPicker = () => {
@@ -658,7 +779,21 @@ export function WorkoutScreen({
       <SheetKeyboardAvoidingView style={styles.sheet}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Kicker>{routineMode ? 'Vitto / routine' : 'Vitto / training'}</Kicker>
+            {/* With a session under way, the way back to picking one. */}
+            {!routineMode && !editing && exercises.length > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Back to all workouts"
+                onPress={backToStart}
+                hitSlop={8}
+                style={styles.backToStart}
+                testID="workout-back"
+              >
+                <Text style={styles.backToStartLabel}>‹ Back</Text>
+              </Pressable>
+            ) : (
+              <Kicker>{routineMode ? 'Vitto / routine' : 'Vitto / training'}</Kicker>
+            )}
             <Text style={styles.title}>
               {routineMode
                 ? editingTemplateId
@@ -688,6 +823,7 @@ export function WorkoutScreen({
 
         <ScrollView
           ref={bodyRef}
+          scrollEnabled={!draggingDay}
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -718,6 +854,50 @@ export function WorkoutScreen({
             <>
               <Text style={styles.lead}>What are you training today?</Text>
 
+              {/* Their rotation's answer, first: today's routine, or a rest day. */}
+              {rotation ? (
+                <View style={styles.todayCard} testID="rotation-today">
+                  <Text style={styles.todayKicker}>{`TODAY · DAY ${rotation.index + 1} OF ${rotation.length}`}</Text>
+                  {rotation.template ? (
+                    <PressableScale
+                      accessibilityRole="button"
+                      accessibilityLabel={`Start ${rotation.template.name}, today's routine`}
+                      onPress={() => loadRoutine(rotation.template!)}
+                      style={({ pressed }) => [styles.todayMain, pressed && styles.pressed]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.todayName} numberOfLines={1}>{rotation.template.name}</Text>
+                        <Text style={styles.routinePreview} numberOfLines={1}>
+                          {rotation.template.exercises.map((exercise) => exercise.name).join(', ')}
+                        </Text>
+                      </View>
+                      <Text style={styles.routineGo}>Start</Text>
+                    </PressableScale>
+                  ) : (
+                    <View style={styles.todayMain}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.todayName}>Rest day</Text>
+                        <Text style={styles.routinePreview}>Nothing due today. You can still train below.</Text>
+                      </View>
+                    </View>
+                  )}
+                  {/* Out of step after time away: nudge today, or start the loop over. */}
+                  {rotationSchedule ? (
+                    <View style={styles.todayLinks}>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Previous day" hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, -1))}>
+                        <Text style={styles.todayLink}>‹ Previous</Text>
+                      </Pressable>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Restart from day 1" hitSlop={6} onPress={() => saveRotation(restartSchedule(rotationSchedule, templates))}>
+                        <Text style={styles.todayLink}>Restart from day 1</Text>
+                      </Pressable>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Next day" hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, 1))}>
+                        <Text style={styles.todayLink}>Next ›</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
               <PressableScale
                 accessibilityRole="button"
                 // Each label is the words on the button, so Voice Control's
@@ -738,7 +918,7 @@ export function WorkoutScreen({
                   {templates.length > 0 ? (
                     <>
                       <View style={styles.routinesHead}>
-                        <Text style={styles.sectionLabel}>OR START A ROUTINE</Text>
+                        <Text style={styles.sectionLabel}>{rotationSchedule ? 'YOUR ROTATION' : 'OR START A ROUTINE'}</Text>
                         {onDeleteTemplate ? (
                           <TextButton
                             label={managingRoutines ? 'Done' : 'Edit'}
@@ -747,7 +927,20 @@ export function WorkoutScreen({
                           />
                         ) : null}
                       </View>
-                      <View style={styles.routineList}>{templates.map(routineRow)}</View>
+                      <DragList
+                        items={rotationDays}
+                        keyOf={scheduleDayId}
+                        labelOf={(day) =>
+                          day.kind === 'rest' ? 'rest day' : (templates.find((template) => template.id === day.templateId)?.name ?? 'routine')
+                        }
+                        renderItem={dayRow}
+                        enabled={managingRoutines && rotationSchedule !== null}
+                        onDragging={setDraggingDay}
+                        onMove={(from, to) => {
+                          const moved = rotationDays[from];
+                          if (rotationSchedule && moved) saveRotation(moveScheduleDay(rotationSchedule, templates, scheduleDayId(moved), to));
+                        }}
+                      />
                     </>
                   ) : null}
 
@@ -756,15 +949,44 @@ export function WorkoutScreen({
                   <PressableScale
                     accessibilityRole="button"
                     accessibilityLabel="Create a routine"
-                    onPress={startNewRoutine}
+                    onPress={createDay}
                     style={({ pressed }) => [styles.newRoutine, pressed && styles.pressed]}
                   >
-                    <Text style={styles.newRoutineTitle}>+ Create a routine</Text>
-                    <Text style={styles.newRoutineHint}>
-                      {templates.length === 0
-                        ? 'Same workout every week? Set it up once, then start it in one tap.'
-                        : 'Save another day of your split.'}
-                    </Text>
+                    <Text style={styles.newRoutineTitle}>{choosingDay ? 'Add to your rotation' : '+ Create a routine'}</Text>
+                    {choosingDay && rotationSchedule ? (
+                      <View style={styles.newChoices}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="New routine"
+                          onPress={() => {
+                            setChoosingDay(false);
+                            startNewRoutine();
+                          }}
+                          style={({ pressed }) => [styles.newChoice, styles.newChoiceMain, pressed && styles.pressed]}
+                          testID="add-routine"
+                        >
+                          <Text style={[styles.newChoiceText, styles.newChoiceMainText]}>New routine</Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Rest day"
+                          onPress={() => {
+                            setChoosingDay(false);
+                            saveRotation(addRestDay(rotationSchedule, templates));
+                          }}
+                          style={({ pressed }) => [styles.newChoice, pressed && styles.pressed]}
+                          testID="add-rest-day"
+                        >
+                          <Text style={styles.newChoiceText}>Rest day</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Text style={styles.newRoutineHint}>
+                        {templates.length === 0
+                          ? 'Same workout every week? Set it up once, then start it in one tap.'
+                          : 'Another day of your split, or a rest day.'}
+                      </Text>
+                    )}
                   </PressableScale>
                 </View>
               ) : null}
@@ -1025,7 +1247,9 @@ export function WorkoutScreen({
           <ErrorText>{error}</ErrorText>
         </ScrollView>
 
-        {/* Pinned, so the way out is always in the same place. */}
+        {/* Pinned, so the way out is always in the same place. Not before
+            there is anything to finish: a button that cannot do anything yet. */}
+        {routineMode || !empty || editing || rest ? (
         <View style={styles.footer}>
           {routineMode ? (
             <>
@@ -1049,6 +1273,7 @@ export function WorkoutScreen({
             </>
           )}
         </View>
+        ) : null}
 
         {/* The picker. An in-sheet overlay rather than a nested Modal: nested
             modals behave differently on iOS, Android and react-native-web, and
@@ -1186,6 +1411,59 @@ const styles = themedStyles(() => ({
 
   // Routines
   routines: { marginTop: 26 },
+  backToStart: { alignSelf: 'flex-start' },
+  backToStartLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.coralDeep },
+  // Spaced like the Pick exercises card under it (startCard's marginTop).
+  todayCard: {
+    marginTop: 14,
+    paddingTop: 12,
+    paddingBottom: 6,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.coral,
+    backgroundColor: colors.card,
+  },
+  todayKicker: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 11, letterSpacing: 0.6, color: colors.coralDeep },
+  todayMain: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  todayName: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 20, color: colors.ink },
+  todayLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  todayLink: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 14, color: colors.coralDeep },
+  routineRowToday: { borderColor: colors.coral, borderWidth: 2, paddingHorizontal: 15, paddingVertical: 13 },
+  restRow: { borderStyle: 'dashed', backgroundColor: 'transparent' },
+  newChoices: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  newChoice: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  newChoiceMain: { backgroundColor: colors.coral, borderColor: colors.coral },
+  newChoiceText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  newChoiceMainText: { color: colors.onCoral },
+  // Being dragged: the card itself lifts, so the shadow follows its rounded
+  // corners, and a rest day gets a fill so the rows under it do not show through.
+  rowLifted: {
+    backgroundColor: colors.card,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  restName: { fontWeight: '500', color: colors.muted },
+  dayLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 11, letterSpacing: 0.5, color: colors.faint, marginBottom: 2 },
+  dayLabelToday: { color: colors.coralDeep },
   routinesHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   routineList: { gap: 8 },
   routineRowWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },

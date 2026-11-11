@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { WATER_CUP_ML, buildDailyRecap, dayGoals, estimateCaloriesBurned, getEventsForDay, measurementSystemOf, type BodyProfile, type HealthEvent, type PetState } from '@vitto/core';
+import { WATER_CUP_ML, buildDailyRecap, dayGoals, estimateCaloriesBurned, getEventsForDay, measurementSystemOf, scheduleDayOn, type TrainingSchedule, type WorkoutTemplate, type BodyProfile, type HealthEvent, type PetState } from '@vitto/core';
 import { takePendingWater } from '../../modules/pet-island';
 import { setWidgetSnapshot } from '../../modules/pet-island';
 import { buildIslandState } from './petIsland';
@@ -37,14 +37,22 @@ export interface WidgetSnapshot {
   imperial: boolean;
   /** Burned today, which adds to what is left to eat (as on Today's Food card). */
   caloriesBurned: number;
-  /** The main screen's "kcal left / Workout due / steps left" chips, for the Lock Screen widget. */
+  /** The main screen's "kcal left / Day 2 · Push / steps left" chips, for the Lock Screen widget. */
   goals: { label: string; done: boolean }[];
 }
 
 const seconds = (ms: number) => Math.round(ms / 1000);
 
 export const buildWidgetSnapshot = (
-  input: { pet: PetState; events: HealthEvent[]; profile: BodyProfile; stepGoal: number },
+  input: {
+    pet: PetState;
+    events: HealthEvent[];
+    profile: BodyProfile;
+    stepGoal: number;
+    /** The training rotation, so the widget's workout chip matches the main screen's. */
+    schedule?: TrainingSchedule | null;
+    templates?: readonly WorkoutTemplate[];
+  },
   now: Date = new Date(),
 ): WidgetSnapshot => {
   const island = buildIslandState(input.pet, now.getTime(), input.pet.careAreas);
@@ -70,7 +78,7 @@ export const buildWidgetSnapshot = (
     cupMl: WATER_CUP_ML,
     imperial: measurementSystemOf(input.profile) === 'imperial',
     caloriesBurned: Math.round(estimateCaloriesBurned(getEventsForDay(input.events, now))),
-    goals: dayGoals(recap, { ...input, day: now }).map(({ label, done }) => ({ label, done })),
+    goals: dayGoals(recap, { ...input, day: now, rotation: scheduleDayOn(input.schedule, input.templates ?? [], now) }).map(({ label, done }) => ({ label, done })),
   };
 };
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { HealthEvent } from './health';
-import { STRENGTH_TIERS, liftHistory, liftScores, muscleRanks, tierThresholdsKg } from './strengthRanks';
+import { STRENGTH_TIERS, liftHistory, liftScores, mappedExerciseNames, muscleRanks, tierThresholdsKg } from './strengthRanks';
+import { exerciseLibrary } from './workout';
 import { estimatedOneRepMax } from './oneRepMax';
 
 const LB = 0.45359237;
@@ -105,5 +106,12 @@ describe('lift history', () => {
     const thresholds = tierThresholdsKg('bench', man180);
     expect(thresholds).toHaveLength(STRENGTH_TIERS.length);
     expect(thresholds[STRENGTH_TIERS.length - 1]).toBeCloseTo(1.75 * 180 * LB, 0);
+  });
+});
+
+describe('exercise names', () => {
+  it('every exercise the ranks and the muscle map name is one the picker offers (a typo would never count)', () => {
+    const library = new Set(exerciseLibrary.map(([name]) => name as string));
+    expect(mappedExerciseNames().filter((name) => !library.has(name))).toEqual([]);
   });
 });

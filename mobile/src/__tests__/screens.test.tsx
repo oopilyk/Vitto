@@ -1,3 +1,4 @@
+import { StyleSheet, Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
@@ -1133,6 +1134,39 @@ describe('screens render', () => {
     expect(rendered).toContain('1,240 kcal left');
     expect(rendered).toContain('✓ Workout');
     expect(rendered).toContain('5,163 steps left');
+    tree.unmount();
+  });
+
+  it("shrinks today's chips as one row, all the same size, when big numbers would not fit", () => {
+    const labels = ['12,345 kcal left', 'Day 12 · Upper Body Hy…', '19,999 steps left'];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={pet}
+          events={[]}
+          reaction={null}
+          todayGoals={labels.map((label, index) => ({ id: (['calories', 'workout', 'steps'] as const)[index]!, label, done: false }))}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onLogRun={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    // A narrow phone: the readout card is 290pt wide.
+    const readout = tree.root.find((node) => typeof node.props.onLayout === 'function' && node.props.pointerEvents === 'none');
+    act(() => readout.props.onLayout({ nativeEvent: { layout: { width: 290, height: 80, x: 0, y: 0 } } }));
+    const sizes = labels.map((label) => {
+      const chip = tree.root.find((node) => node.type === Text && node.props.children === label);
+      return (StyleSheet.flatten(chip.props.style) as { fontSize: number }).fontSize;
+    });
+    expect(sizes[0]).toBeLessThan(9);
+    expect(new Set(sizes).size).toBe(1);
     tree.unmount();
   });
 
@@ -3988,6 +4022,80 @@ describe('friend pet screen', () => {
 
     expect(JSON.stringify(tree.toJSON())).toContain('No friends to browse');
     expect(friendsService.loadFriendPet).not.toHaveBeenCalled();
+    tree.unmount();
+  });
+});
+
+describe('training rotation on the workout screen', () => {
+  const routine = (id: string) => ({ id, name: id, exercises: [], updatedAt: '2026-11-01T00:00:00Z' });
+  const day = (offset: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+  const render = (schedule: any, saved: any[]) => {
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen
+          weightUnit="lb"
+          templates={[routine('Legs'), routine('Push')]}
+          onSaveTemplate={() => {}}
+          onDeleteTemplate={() => {}}
+          schedule={schedule}
+          onSaveSchedule={(next: any) => { saved.push(next); }}
+          onFinish={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+    return tree;
+  };
+  const texts = (tree: renderer.ReactTestRenderer) => tree.root.findAllByType(Text).map((node) => [node.props.children].flat().join(''));
+  const press = (tree: renderer.ReactTestRenderer, label: string) =>
+    act(() => tree.root.findAll((node) => node.props.accessibilityLabel === label && typeof node.props.onPress === 'function')[0]!.props.onPress());
+
+  it('lists the routines as the rotation, today marked, with no button that cannot do anything', () => {
+    const saved: any[] = [];
+    // Started yesterday: today is day 2, the rest day.
+    const tree = render({ days: [{ kind: 'routine', templateId: 'Push' }, { kind: 'rest', id: 'r' }, { kind: 'routine', templateId: 'Legs' }], startedOn: day(-1) }, saved);
+    const shown = texts(tree);
+    expect(shown).toContain('TODAY · DAY 2 OF 3');
+    expect(shown).toEqual(expect.arrayContaining(['YOUR ROTATION', 'DAY 1', 'DAY 2 · TODAY', 'Rest day', 'DAY 3']));
+    expect(shown).not.toContain('Finish workout');
+    press(tree, 'Restart from day 1');
+    expect(saved.at(-1).startedOn).toBe(day(0));
+    press(tree, 'Next day');
+    expect(saved.at(-1).startedOn).toBe(day(-2));
+    tree.unmount();
+  });
+
+  it('Create a routine opens on its choices in place: a new routine, or a rest day', () => {
+    const saved: any[] = [];
+    const tree = render({ days: [{ kind: 'routine', templateId: 'Push' }, { kind: 'routine', templateId: 'Legs' }], startedOn: day(0) }, saved);
+    press(tree, 'Create a routine');
+    expect(texts(tree)).toEqual(expect.arrayContaining(['Add to your rotation', 'New routine', 'Rest day']));
+    press(tree, 'Rest day');
+    expect(saved.at(-1).days.map((d: any) => d.kind)).toEqual(['routine', 'routine', 'rest']);
+    // The choices close again; New routine opens the routine builder.
+    expect(texts(tree)).toContain('+ Create a routine');
+    press(tree, 'Create a routine');
+    press(tree, 'New routine');
+    expect(texts(tree)).toContain('ROUTINE NAME');
+    tree.unmount();
+  });
+
+  it('reorders by its grip in Edit, keeping today on the same day', () => {
+    const saved: any[] = [];
+    const tree = render({ days: [{ kind: 'routine', templateId: 'Push' }, { kind: 'routine', templateId: 'Legs' }], startedOn: day(0) }, saved);
+    act(() => tree.root.findAll((node) => node.props.label === 'Edit' && typeof node.props.onPress === 'function')[0]!.props.onPress());
+    // VoiceOver's Move up on Legs' grip: the same move a drag makes.
+    const grip = tree.root.findAll((node) => node.props.accessibilityLabel === 'Reorder Legs' && typeof node.props.onAccessibilityAction === 'function')[0]!;
+    act(() => grip.props.onAccessibilityAction({ nativeEvent: { actionName: 'decrement' } }));
+    expect(saved.at(-1).days.map((d: any) => d.templateId)).toEqual(['Legs', 'Push']);
+    // Push was today, and still is: now day 2.
+    expect(saved.at(-1).startedOn).toBe(day(-1));
     tree.unmount();
   });
 });

@@ -13,35 +13,59 @@ export const exerciseLibrary = [
   ['Bench Press', 'chest'], ['Incline Bench Press', 'chest'], ['Dumbbell Bench Press', 'chest'],
   ['Incline Dumbbell Press', 'chest'], ['Machine Chest Press', 'chest'], ['Chest Fly', 'chest'],
   ['Cable Crossover', 'chest'], ['Push Ups', 'chest', 'bodyweight'], ['Dips', 'chest', 'bodyweight'],
+  ['Decline Bench Press', 'chest'], ['Smith Machine Bench Press', 'chest'], ['Incline Machine Press', 'chest'],
+  ['Pec Deck', 'chest'], ['Incline Cable Fly', 'chest'], ['Low-to-High Cable Fly', 'chest'], ['Dumbbell Pullover', 'chest'],
   // Back
   ['Barbell Row', 'back'], ['Dumbbell Row', 'back'], ['Seated Cable Row', 'back'], ['T-Bar Row', 'back'],
   ['Lat Pulldown', 'back'], ['Straight-Arm Pulldown', 'back'], ['Deadlift', 'back'], ['Face Pull', 'back'],
   ['Pull Ups', 'back', 'bodyweight'], ['Chin Ups', 'back', 'bodyweight'],
+  ['Pendlay Row', 'back'], ['Chest-Supported Row', 'back'], ['Seal Row', 'back'], ['Meadows Row', 'back'],
+  ['Machine Row', 'back'], ['Single-Arm Cable Row', 'back'], ['Close-Grip Lat Pulldown', 'back'],
+  ['Single-Arm Lat Pulldown', 'back'], ['Rack Pull', 'back'], ['Back Extension', 'back'], ['Inverted Row', 'back', 'bodyweight'],
   // Legs
   ['Squat', 'legs'], ['Front Squat', 'legs'], ['Goblet Squat', 'legs'], ['Leg Press', 'legs'],
   ['Romanian Deadlift', 'legs'], ['Sumo Deadlift', 'legs'], ['Hip Thrust', 'legs'], ['Bulgarian Split Squat', 'legs'],
   ['Leg Extension', 'legs'], ['Leg Curl', 'legs'], ['Calf Raise', 'legs'], ['Lunges', 'legs', 'bodyweight'],
+  ['Hack Squat', 'legs'], ['Smith Machine Squat', 'legs'], ['Pendulum Squat', 'legs'], ['Trap Bar Deadlift', 'legs'],
+  ['Stiff-Leg Deadlift', 'legs'], ['Good Morning', 'legs'], ['Walking Lunges', 'legs'], ['Reverse Lunges', 'legs'],
+  ['Split Squat', 'legs'], ['Step Ups', 'legs'], ['Seated Leg Curl', 'legs'], ['Lying Leg Curl', 'legs'],
+  ['Glute Bridge', 'legs'], ['Hip Abduction', 'legs'], ['Hip Adduction', 'legs'], ['Cable Glute Kickback', 'legs'],
+  ['Seated Calf Raise', 'legs'], ['Kettlebell Swing', 'legs'], ['Sissy Squat', 'legs', 'bodyweight'],
+  ['Nordic Curl', 'legs', 'bodyweight'],
   // Shoulders
   ['Shoulder Press', 'shoulders'], ['Dumbbell Shoulder Press', 'shoulders'], ['Arnold Press', 'shoulders'],
   ['Lateral Raise', 'shoulders'], ['Front Raise', 'shoulders'], ['Rear Delt Fly', 'shoulders'],
   ['Upright Row', 'shoulders'], ['Shrugs', 'shoulders'],
+  ['Machine Shoulder Press', 'shoulders'], ['Push Press', 'shoulders'], ['Landmine Press', 'shoulders'],
+  ['Cable Lateral Raise', 'shoulders'], ['Machine Lateral Raise', 'shoulders'], ['Reverse Pec Deck', 'shoulders'],
+  ['Cable Rear Delt Fly', 'shoulders'],
   // Biceps
   ['Bicep Curl', 'biceps'], ['Hammer Curl', 'biceps'], ['EZ Bar Curl', 'biceps'], ['Preacher Curl', 'biceps'],
   ['Incline Dumbbell Curl', 'biceps'], ['Cable Curl', 'biceps'],
+  ['Bayesian Curl', 'biceps'], ['Spider Curl', 'biceps'], ['Concentration Curl', 'biceps'], ['Reverse Curl', 'biceps'],
+  ['Drag Curl', 'biceps'], ['Zottman Curl', 'biceps'], ['Machine Preacher Curl', 'biceps'], ['Rope Hammer Curl', 'biceps'],
   // Triceps
   ['Tricep Pushdown', 'triceps'], ['Skull Crushers', 'triceps'], ['Overhead Tricep Extension', 'triceps'],
   ['Close-Grip Bench Press', 'triceps'], ['Tricep Kickback', 'triceps'],
+  ['Rope Pushdown', 'triceps'], ['Overhead Cable Extension', 'triceps'], ['Single-Arm Pushdown', 'triceps'],
+  ['JM Press', 'triceps'], ['Machine Dips', 'triceps'], ['Bench Dips', 'triceps', 'bodyweight'],
+  ['Diamond Push Ups', 'triceps', 'bodyweight'],
   // Core
   ['Plank', 'core', 'bodyweight'], ['Crunches', 'core', 'bodyweight'], ['Hanging Leg Raise', 'core', 'bodyweight'],
   ['Russian Twist', 'core', 'bodyweight'], ['Ab Wheel Rollout', 'core', 'bodyweight'], ['Dead Bug', 'core', 'bodyweight'],
   ['Mountain Climbers', 'core', 'bodyweight'], ['Cable Crunch', 'core'],
+  ['Sit Ups', 'core', 'bodyweight'], ['Bicycle Crunch', 'core', 'bodyweight'], ['Leg Raises', 'core', 'bodyweight'],
+  ['Side Plank', 'core', 'bodyweight'], ['Hollow Hold', 'core', 'bodyweight'], ['Pallof Press', 'core'],
+  ['Cable Woodchopper', 'core'], ["Farmer's Carry", 'core'],
   // Cardio, split by how it is actually counted. The ones marked `distance` go
   // somewhere and are logged as ground covered plus time; the rest are reps like
   // any other bodyweight movement, and keep their sets.
   ['Running', 'cardio', 'distance'], ['Walking', 'cardio', 'distance'], ['Cycling', 'cardio', 'distance'],
   ['Rowing', 'cardio', 'distance'], ['Elliptical', 'cardio', 'distance'], ['Stair Climber', 'cardio', 'distance'],
   ['Swimming', 'cardio', 'distance'],
-  ['Jump Rope', 'cardio', 'bodyweight'], ['Burpees', 'cardio', 'bodyweight'],
+  ['Hiking', 'cardio', 'distance'],
+  ['Jump Rope', 'cardio', 'bodyweight'], ['Burpees', 'cardio', 'bodyweight'], ['Box Jumps', 'cardio', 'bodyweight'],
+  ['Battle Ropes', 'cardio', 'bodyweight'],
 ] as const;
 
 /**

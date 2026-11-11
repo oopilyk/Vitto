@@ -4,10 +4,12 @@ import type { HealthEvent } from './health';
 import type { BodyProfile } from './macroTargets';
 import { estimateCaloriesBurned, getEventsForDay } from './nutritionSummary';
 import type { PetState } from './pet';
+import type { ScheduleToday } from './trainingSchedule';
 
 /**
  * What is left of today, as the short tokens under the pet's line on the main
- * screen: calories left, whether a workout is still due, steps left. Each
+ * screen: calories left, the workout (or, with a training rotation, which day of it
+ * today is), steps left. Each
  * becomes a tick once it is done, and an area the person doesn't track is left
  * out (Settings > What affects your pet).
  *
@@ -21,7 +23,12 @@ export interface DayGoal {
   done: boolean;
 }
 
-const WEEK_MS = 7 * 86_400_000;
+/** A routine name short enough for a chip: "Upper Body Hypertrophy" is "Upper Body Hy…". */
+const MAX_CHIP_NAME = 14;
+const shortName = (name: string): string => {
+  const trimmed = name.trim();
+  return trimmed.length <= MAX_CHIP_NAME ? trimmed : `${trimmed.slice(0, MAX_CHIP_NAME - 1).trimEnd()}…`;
+};
 
 /**
  * The day's calories count as done within a tenth of the target of it, or past
@@ -32,7 +39,19 @@ export const caloriesMet = (target: number, consumed: number, burned: number): b
 
 export const dayGoals = (
   recap: DailyRecap,
-  { events, profile, pet, day = new Date() }: { events: readonly HealthEvent[]; profile: BodyProfile; pet: PetState; day?: Date },
+  {
+    events,
+    pet,
+    day = new Date(),
+    rotation,
+  }: {
+    events: readonly HealthEvent[];
+    profile: BodyProfile;
+    pet: PetState;
+    day?: Date;
+    /** Today in their training rotation (scheduleDayOn), which decides the workout chip when they have one. */
+    rotation?: ScheduleToday | null;
+  },
 ): DayGoal[] => {
   const goals: DayGoal[] = [];
 
@@ -49,19 +68,13 @@ export const dayGoals = (
   }
 
   if (tracksArea(pet.careAreas, 'training')) {
-    if (recap.gym.done) {
-      goals.push({ id: 'workout', label: 'Workout', done: true });
+    if (rotation) {
+      // Where they are in their rotation: "Day 2 · Push", ticked once trained;
+      // a rest day is done by resting.
+      const what = rotation.day.kind === 'rest' ? 'Rest' : shortName(rotation.template?.name ?? 'Workout');
+      goals.push({ id: 'workout', label: `Day ${rotation.index + 1} · ${what}`, done: rotation.day.kind === 'rest' || recap.gym.done });
     } else {
-      // The week's target already met: today is a rest day, nothing is due.
-      // Days trained, not workouts: a lift and a walk on one day is one day.
-      const since = day.getTime() - WEEK_MS;
-      const thisWeek = new Set(
-        events
-          .filter((event) => event.type === 'WORKOUT' && Date.parse(event.occurredAt) > since)
-          .map((event) => new Date(event.occurredAt).toDateString()),
-      ).size;
-      const target = Math.max(1, Math.round(profile.trainingDaysPerWeek));
-      goals.push(thisWeek >= target ? { id: 'workout', label: 'Rest day', done: true } : { id: 'workout', label: 'Workout due', done: false });
+      goals.push({ id: 'workout', label: 'Workout', done: recap.gym.done });
     }
   }
 
