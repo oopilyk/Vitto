@@ -1,6 +1,0 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<testsuites>
-  <testsuite name="Test Suite" device="iPhone 17 Pro - iOS 26.5 - 5062CC77-7050-48D5-A616-19FBDCDFCE11" tests="1" failures="0" time="25.879" timestamp="2026-11-06T21:42:59">
-    <testcase id="open-preferences" name="open-preferences" classname="open-preferences" file="open-preferences.yaml" time="25.87" timestamp="2026-11-06T21:42:59" status="SUCCESS"/>
-  </testsuite>
-</testsuites>

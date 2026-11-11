@@ -1,6 +1,0 @@
-<?xml version='1.0' encoding='UTF-8'?>
-<testsuites>
-  <testsuite name="Test Suite" device="iPhone 17 Pro - iOS 26.5 - 5062CC77-7050-48D5-A616-19FBDCDFCE11" tests="1" failures="0" time="77.348" timestamp="2026-11-07T22:46:24">
-    <testcase id="log-meal-recent" name="log-meal-recent" classname="log-meal-recent" file="log-meal-recent.yaml" time="77.334" timestamp="2026-11-07T22:46:24" status="SUCCESS"/>
-  </testsuite>
-</testsuites>
