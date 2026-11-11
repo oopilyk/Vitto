@@ -76,7 +76,7 @@ describe('strength ranks', () => {
 describe('lift history', () => {
   const at = (iso: string, event: HealthEvent) => ({ ...event, occurredAt: iso }) as HealthEvent;
 
-  it('gives one point per workout, its best set, oldest first, with variations converted', () => {
+  it('gives one point per workout, its best set, oldest first, from the lift itself only', () => {
     const events = [
       at('2026-09-20T12:00:00Z', workout([{ name: 'Bench Press', weight: 185, reps: 5 }])),
       at('2026-09-10T12:00:00Z', workout([
@@ -85,19 +85,18 @@ describe('lift history', () => {
       ])),
       // Not a bench: ignored.
       at('2026-09-15T12:00:00Z', workout([{ name: 'Squat', weight: 225, reps: 5 }])),
-      // One hand's dumbbell converts to the barbell lift.
-      at('2026-09-25T12:00:00Z', workout([{ name: 'Dumbbell Bench Press', weight: 70, reps: 8 }])),
+      // A variation is its own line, not a point on the bench's.
+      at('2026-09-25T12:00:00Z', workout([{ name: 'Incline Dumbbell Press', weight: 70, reps: 8 }])),
     ];
     const points = liftHistory(events, 'bench');
-    expect(points.map((p) => p.occurredAt.slice(0, 10))).toEqual(['2026-09-10', '2026-09-20', '2026-09-25']);
+    expect(points.map((p) => p.occurredAt.slice(0, 10))).toEqual(['2026-09-10', '2026-09-20']);
     // 165x3 (~181.5 lb) edges out 155x5 (~180.8 lb).
     expect(points[0]!.from).toMatchObject({ weight: 165, reps: 3 });
     expect(points[1]!.oneRepMaxKg).toBeCloseTo(estimatedOneRepMax(185 * LB, 5), 0);
-    expect(points[2]!.oneRepMaxKg).toBeCloseTo(estimatedOneRepMax(70 * LB, 8) * 2.4, 0);
   });
 
-  it('agrees with liftScores on the best', () => {
-    const events = [workout([{ name: 'Squat', weight: 225, reps: 5 }]), workout([{ name: 'Front Squat', weight: 185, reps: 3 }])];
+  it('agrees with liftScores on the best when only the lift itself is logged', () => {
+    const events = [workout([{ name: 'Squat', weight: 225, reps: 5 }]), workout([{ name: 'Squat', weight: 205, reps: 8 }])];
     const best = Math.max(...liftHistory(events, 'squat').map((p) => p.oneRepMaxKg));
     expect(best).toBeCloseTo(score(events, 'squat').oneRepMaxKg!, 0);
   });

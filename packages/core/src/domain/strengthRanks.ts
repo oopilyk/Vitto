@@ -159,9 +159,12 @@ export interface LiftPoint {
 
 /**
  * A lift's estimated one-rep max over time: one point per workout that
- * trained it (its best set), oldest first. Uses the same estimate and the
- * same variation conversions as `liftScores`, so the graph and the rank
- * always agree.
+ * trained it (its best set), oldest first, from the lift as written only
+ * (the bench press, not an incline dumbbell press converted to one). A
+ * variation's session plotted on the bench's line read as the bench going up
+ * or down when it had not been done at all; variations have their own line
+ * (otherLifts). They still count toward the rank on the muscle map
+ * (`liftScores`).
  */
 export const liftHistory = (events: readonly HealthEvent[], lift: StandardLift): LiftPoint[] => {
   const points: LiftPoint[] = [];
@@ -169,12 +172,11 @@ export const liftHistory = (events: readonly HealthEvent[], lift: StandardLift):
     if (event.type !== 'WORKOUT') continue;
     let best: LiftPoint | null = null;
     for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
-      const factor = LIFT_SOURCES[lift][exercise.name];
-      if (!factor) continue;
+      if (LIFT_SOURCES[lift][exercise.name] !== 1) continue;
       for (const set of exercise.sets) {
         if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0 || !plausibleSet(set)) continue;
         const unit = set.unit ?? 'kg';
-        const kg = estimatedOneRepMax(convertWeightValue(set.weight, unit, 'kg'), set.reps) * factor;
+        const kg = estimatedOneRepMax(convertWeightValue(set.weight, unit, 'kg'), set.reps);
         if (!best || kg > best.oneRepMaxKg) {
           best = { occurredAt: event.occurredAt, oneRepMaxKg: kg, from: { exercise: exercise.name, weight: set.weight, unit, reps: set.reps } };
         }

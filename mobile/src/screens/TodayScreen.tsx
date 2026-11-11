@@ -1029,9 +1029,10 @@ function Pillar({
           <View style={styles.pillarKickerRow}>
             <Text style={[styles.pillarKicker, { color: c.soft }]}>{kicker}</Text>
             {done ? (
-              <View style={[styles.doneBadge, { borderColor: world.positive }]} accessibilityLabel="Done for today">
-                <Mark kind="check" size={10} weight={2.4} color={world.positive} />
-                <Text style={[styles.doneBadgeText, { color: world.positive }]}>Done</Text>
+              // Sits on the capitals' line: a tick's weight is at its bottom, so
+              // centred on the text it reads low, and it is lifted a point.
+              <View accessible accessibilityLabel="Done for today" testID="pillar-done" style={styles.pillarDoneMark}>
+                <Mark kind="check" size={12} weight={2.4} color={world.positive} />
               </View>
             ) : null}
           </View>
@@ -1307,11 +1308,10 @@ const styles = themedStyles(() => ({
 
   pillar: { padding: 16, gap: 8 },
   pillarHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  pillarKickerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  pillarKickerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  pillarDoneMark: { transform: [{ translateY: -1 }] },
   pillarKicker: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0, },
   pillarDone: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, },
-  doneBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
-  doneBadgeText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 11 },
   pillarHeadline: {
     fontFamily: fonts.ui, fontWeight: '600',
     fontSize: 17,
