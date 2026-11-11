@@ -65,9 +65,16 @@ export const weeklyRecap = (
     })
     .map(({ exercise }) => exercise);
 
-  // The trends count whole days before today; a week ending tomorrow at midnight includes today.
-  const food = foodTrends(events, profile, 7, end);
-  const steps = stepTrends(events, stepGoal, 7, end);
+  // Food and steps over the seven whole days before today, by the same rules
+  // as Food and Step trends. Today is not over: counted, it dragged the
+  // averages down every time the recap was opened before dinner. (The trends'
+  // own 7-day window leaves today out of 7, so it holds only six whole days.)
+  const food = foodTrends(events, profile, 30, today);
+  const foodWeek = food.days.filter((day) => !day.isToday).slice(-7);
+  const logged = foodWeek.filter((day) => day.meals > 0);
+  const targets = food.targets;
+  const stepWeek = stepTrends(events, stepGoal, 30, today).days.filter((day) => !day.isToday).slice(-7);
+  const stepped = stepWeek.filter((day) => day.steps > 0);
 
   let waterDays = 0;
   for (let day = 0; day < 7; day += 1) {
@@ -85,12 +92,12 @@ export const weeklyRecap = (
     workouts: workouts.length,
     workoutMinutes: workouts.reduce((sum, event) => sum + ((event.metadata as WorkoutMetadata).durationMinutes ?? 0), 0),
     records,
-    mealDays: food.loggedDays,
-    averageCalories: food.average?.calories ?? null,
-    calorieDays: food.daysOnTarget,
-    proteinDays: food.proteinDays,
-    averageSteps: steps.average,
-    stepGoalDays: steps.goalDays,
+    mealDays: logged.length,
+    averageCalories: logged.length ? Math.round(logged.reduce((sum, day) => sum + day.calories, 0) / logged.length) : null,
+    calorieDays: logged.filter((day) => targets.calories > 0 && Math.abs(day.calories / targets.calories - 1) <= 0.1).length,
+    proteinDays: logged.filter((day) => targets.proteinGrams > 0 && day.proteinGrams >= targets.proteinGrams * 0.9).length,
+    averageSteps: stepped.length ? Math.round(stepped.reduce((sum, day) => sum + day.steps, 0) / stepped.length) : null,
+    stepGoalDays: stepWeek.filter((day) => day.steps >= stepGoal).length,
     waterDays,
     mindSessions: week.filter((event) => event.type === 'BRAIN_TRAINING').length,
     xp: xpOf(week),

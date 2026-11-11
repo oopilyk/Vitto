@@ -42,7 +42,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const PLAN_DAYS = { monthly: 30, yearly: 365 } as const;
 type Plan = keyof typeof PLAN_DAYS;
 /** The free trial, offered on the yearly plan only. */
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 7;
 
 const mockEnabled = () => Deno.env.get('MOCK_PAYMENTS') === 'true';
 

@@ -60,7 +60,7 @@ export function WeeklyRecapScreen({ pet, events, profile, stepGoal, onClose, bac
         ) : null}
       </SettingsSection>
 
-      <SettingsSection title="Food">
+      <SettingsSection title="Food" description="The seven full days before today.">
         <StatGrid>
           <StatTile value={`${recap.mealDays}/7`} label="days logged" />
           <StatTile value={recap.averageCalories === null ? '—' : recap.averageCalories.toLocaleString()} label="kcal a day" note="on days you logged" />
@@ -69,7 +69,7 @@ export function WeeklyRecapScreen({ pet, events, profile, stepGoal, onClose, bac
         </StatGrid>
       </SettingsSection>
 
-      <SettingsSection title="Everyday">
+      <SettingsSection title="Everyday" description="Steps over the seven full days before today.">
         <StatGrid>
           <StatTile value={recap.averageSteps === null ? '—' : recap.averageSteps.toLocaleString()} label="steps a day" note={`goal hit ${recap.stepGoalDays} of 7 days`} />
           <StatTile value={`${recap.waterDays}/7`} label="days water goal" />

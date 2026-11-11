@@ -55,6 +55,8 @@ import {
   isMinor,
   BODY_LIMITS,
   bodyProblem,
+  hasBlockedTerm,
+  BLOCKED_NAME_MESSAGE,
 } from '@vitto/core';
 import { companion as ai } from '@vitto/core';
 import { FitText } from '../components/FitText';
@@ -657,6 +659,9 @@ export function OnboardingScreen({
   const bodyComplete = Boolean((metric ? body.cm : body.feet) && body.weight);
 
   const validate = (): string | null => {
+    // The pet's name is shown to friends, and their own to a care partner.
+    if (stepId === 'namePet' && hasBlockedTerm(name)) return BLOCKED_NAME_MESSAGE;
+    if (stepId === 'yourName' && hasBlockedTerm(profile.displayName ?? '')) return BLOCKED_NAME_MESSAGE;
     if (stepId === 'body') {
       // Age is asked on its own step; only height and weight are checked here.
       const problem = bodyProblem({ ...profile, age: BODY_LIMITS.age.min });

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { type BodyProfile, MAX_BIO_LENGTH, initialOf, normalizeBio } from '@vitto/core';
+import { type BodyProfile, BLOCKED_BIO_MESSAGE, BLOCKED_NAME_MESSAGE, MAX_BIO_LENGTH, hasBlockedTerm, initialOf, normalizeBio } from '@vitto/core';
 import { FormField, SaveBar, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -32,6 +32,15 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
   };
 
   const save = async () => {
+    // Friends see the bio, and a care partner the name: no slurs or explicit terms.
+    if (hasBlockedTerm(profile.bio ?? '')) {
+      setError(BLOCKED_BIO_MESSAGE);
+      return;
+    }
+    if (hasBlockedTerm(profile.displayName ?? '')) {
+      setError(BLOCKED_NAME_MESSAGE);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {

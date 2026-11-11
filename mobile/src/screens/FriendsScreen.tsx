@@ -18,8 +18,10 @@ import {
   relationToUser,
   REACTION_RECEIVED,
   type FriendReaction,
+  type BlockedUser,
 } from '@vitto/core';
 import { formatLastActive } from '../components/FriendPetCard';
+import { askReportOrBlock } from '../components/safetyActions';
 import { friendsService, MIN_SEARCH_LENGTH } from '../services/friendsService';
 import { CarePartnerCard, type CarePartnerProps } from '../components/CarePartnerCard';
 import { FriendListRow } from '../components/FriendListRow';
@@ -73,6 +75,8 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
   const [friends, setFriends] = useState<FriendOverview[]>([]);
   /** Reactions friends sent this week; the new ones are marked seen once shown. */
   const [reactions, setReactions] = useState<FriendReaction[]>([]);
+  /** People this user has blocked, to undo it from here. */
+  const [blocked, setBlocked] = useState<BlockedUser[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [profiles, setProfiles] = useState<Record<string, FriendProfileSummary>>({});
 
@@ -120,6 +124,8 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
           void friendsService.markReactionsSeen(loaded.filter((item) => !item.seenAt).map((item) => item.id)).catch(() => undefined);
         })
         .catch(() => setReactions([]));
+      // Best effort too, for the same reason.
+      void friendsService.loadBlockedUsers().then(setBlocked).catch(() => setBlocked([]));
       setUsername(myUsername);
       setUsernameLoaded(true);
 
@@ -403,6 +409,15 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                           >
                             <Text style={[styles.link, styles.decline]}>Decline</Text>
                           </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Report or block ${name}`}
+                            disabled={pendingActionId === request.id}
+                            onPress={() => askReportOrBlock({ userId: otherId, name, onBlocked: () => void refresh() })}
+                            hitSlop={8}
+                          >
+                            <Text style={[styles.link, { color: palette.secondaryText }]}>Report</Text>
+                          </Pressable>
                         </View>
                       </View>
                     );
@@ -432,10 +447,38 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                       friend={friend}
                       palette={palette}
                       onPress={() => onOpenFriendPet(friend.friendId, acceptedIds)}
+                      onLongPress={() =>
+                        askReportOrBlock({ userId: friend.friendId, name: handleFor(friend.profile), onBlocked: () => void refresh() })
+                      }
                     />
                   ))
                 )}
               </View>
+
+              {blocked.length > 0 ? (
+                <View style={styles.section} testID="blocked-users">
+                  <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>Blocked</Text>
+                  {blocked.map((person) => {
+                    const label = person.username ? `@${person.username}` : 'Someone';
+                    return (
+                      <View key={person.userId} style={[styles.banner, { backgroundColor: palette.rowBg, borderColor: palette.divider }]}>
+                        <Text style={[styles.bannerText, { color: palette.primaryText }]} numberOfLines={1}>
+                          {label}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Unblock ${label}`}
+                          disabled={pendingActionId === person.userId}
+                          onPress={() => void runAction(person.userId, () => friendsService.unblockUser(person.userId))}
+                          hitSlop={8}
+                        >
+                          <Text style={[styles.link, styles.accept]}>Unblock</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
 
               {outgoing.length > 0 ? (
                 <View style={styles.section}>

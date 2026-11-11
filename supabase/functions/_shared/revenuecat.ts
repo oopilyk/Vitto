@@ -13,14 +13,18 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
  *
  * Secrets (supabase secrets set ...):
  *   REVENUECAT_SECRET_KEY    a RevenueCat secret API key (sk_...), v1 subscribers read
- *   REVENUECAT_ENTITLEMENT   the entitlement identifier, default "plus"
+ *   REVENUECAT_ENTITLEMENT   the entitlement identifier, default "vitto_plus"
+ *                            (what the RevenueCat project calls it)
  */
 
 const API = 'https://api.revenuecat.com/v1/subscribers/';
 
 export const storeConfigured = () => Boolean(Deno.env.get('REVENUECAT_SECRET_KEY'));
 
-const ENTITLEMENT = () => Deno.env.get('REVENUECAT_ENTITLEMENT') || 'plus';
+// The RevenueCat project's entitlement is `vitto_plus`. The default was
+// `plus`, which no purchase carries: a paid subscription would have read as
+// free unless the secret above happened to be set.
+const ENTITLEMENT = () => Deno.env.get('REVENUECAT_ENTITLEMENT') || 'vitto_plus';
 
 /** Supabase user ids are UUIDs; RevenueCat's own anonymous ids ($RCAnonymousID:...) are not ours to write. */
 export const isUserId = (id: unknown): id is string =>

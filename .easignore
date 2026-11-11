@@ -35,6 +35,10 @@ yarn-error.*
 /mobile/android
 
 # --- build-only extras ---
+# Test evidence and flows: nothing in a build reads them.
+/qa-artifacts/
+/qa/
+/QA_REPORT.md
 # The original GIFs and videos the pet clips and sheets are cut from. Only the
 # scripts in mobile/scripts read them; the app ships what those scripts write.
 /mobile/assets/source/

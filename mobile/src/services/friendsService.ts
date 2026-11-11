@@ -6,6 +6,8 @@ import {
   type PetState,
   type RecentActivitySignal,
   type FriendReaction,
+  type BlockedUser,
+  type ReportReason,
   type ReactionKind,
   REACTION_KINDS,
   REACTION_LIMIT_MESSAGE,
@@ -406,6 +408,60 @@ export class FriendsService {
       .update({ seen_at: new Date().toISOString() })
       .in('id', [...ids]);
     if (error) throw new Error(errorMessage(error, 'Could not update reactions.'));
+  }
+
+  /**
+   * Blocks someone. The server ends any friendship or request between the
+   * two, and from then on refuses requests (and so reactions) either way and
+   * leaves each out of the other's search. They are not told.
+   */
+  async blockUser(userId: string): Promise<void> {
+    const client = requireSupabase();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user) throw new Error('Sign in to block someone.');
+    const { error } = await client.from('user_blocks').upsert({ blocker_id: user.id, blocked_id: userId }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
+    if (error) throw new Error(errorMessage(error, 'Could not block them.'));
+  }
+
+  async unblockUser(userId: string): Promise<void> {
+    const client = requireSupabase();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user) return;
+    const { error } = await client.from('user_blocks').delete().eq('blocker_id', user.id).eq('blocked_id', userId);
+    if (error) throw new Error(errorMessage(error, 'Could not unblock them.'));
+  }
+
+  /** Who you have blocked, newest first. */
+  async loadBlockedUsers(): Promise<BlockedUser[]> {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('user_blocks')
+      .select('blocked_id, blocked_username, created_at')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(errorMessage(error, 'Could not load blocked people.'));
+    return ((data ?? []) as { blocked_id: string; blocked_username: string | null; created_at: string }[]).map((row) => ({
+      userId: row.blocked_id,
+      username: row.blocked_username,
+      blockedAt: row.created_at,
+    }));
+  }
+
+  /** Files a report. The server records what their profile said at that moment. */
+  async reportUser(userId: string, reason: ReportReason, details?: string): Promise<void> {
+    const client = requireSupabase();
+    const {
+      data: { user },
+    } = await client.auth.getUser();
+    if (!user) throw new Error('Sign in to report someone.');
+    const trimmed = details?.trim().slice(0, 500);
+    const { error } = await client
+      .from('user_reports')
+      .insert({ reporter_id: user.id, reported_id: userId, reason, ...(trimmed ? { details: trimmed } : {}) });
+    if (error) throw new Error(errorMessage(error, 'Could not send that report.'));
   }
 
   async getMyUsername(): Promise<string | null> {

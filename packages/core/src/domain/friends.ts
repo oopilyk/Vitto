@@ -9,6 +9,7 @@
  */
 
 import type { PetState } from './pet';
+import { BLOCKED_USERNAME_MESSAGE, hasBlockedTerm } from './contentFilter';
 import type { RecentActivitySignal } from './socialPetStatus';
 
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined';
@@ -94,5 +95,7 @@ export const usernameError = (value: string): string | null => {
   if (!isValidUsername(normalized)) {
     return 'Usernames can use lowercase letters, digits and underscores only.';
   }
+  // Other people see it: no slurs or explicit terms (contentFilter).
+  if (hasBlockedTerm(normalized)) return BLOCKED_USERNAME_MESSAGE;
   return null;
 };

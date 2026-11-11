@@ -39,7 +39,7 @@ const open = async (props: { onTierChange?: jest.Mock; onPurchased?: jest.Mock }
 describe('Vitto Plus paywall (test mode)', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('leads with Yearly and a 14-day trial, with the timeline and the price under the button', async () => {
+  it('leads with Yearly and a 7-day trial, with the timeline and the price under the button', async () => {
     billingService.status.mockResolvedValue({ enabled: true, tier: 'free', expiresAt: null });
     const tree = await open();
     const all = strings(tree);
@@ -53,7 +53,7 @@ describe('Vitto Plus paywall (test mode)', () => {
     expect(byTestId(tree, 'trial-toggle')[0]!.props.value).toBe(true);
     expect(byTestId(tree, 'trial-timeline').length).toBeGreaterThan(0);
     expect(all).toContain('A reminder, if you allow it');
-    expect(byTestId(tree, 'plus-terms')[0]!.props.children).toBe('Free for 14 days, then $59.99 / year. Cancel anytime.');
+    expect(byTestId(tree, 'plus-terms')[0]!.props.children).toBe('Free for 7 days, then $59.99 / year. Cancel anytime.');
     expect(pressable(tree, 'Start Free Trial')).toBeDefined();
     expect(pressable(tree, 'Restore')).toBeDefined();
     tree.unmount();
@@ -67,7 +67,7 @@ describe('Vitto Plus paywall (test mode)', () => {
     const tree = await open({ onTierChange, onPurchased });
     await act(async () => pressable(tree, 'Start Free Trial')!.props.onPress());
     expect(billingService.purchase).toHaveBeenCalledWith('yearly', true);
-    expect(push.scheduleTrialReminder).toHaveBeenCalledWith(12, 14);
+    expect(push.scheduleTrialReminder).toHaveBeenCalledWith(5, 7);
     expect(onTierChange).toHaveBeenCalledWith('plus');
     expect(onPurchased).toHaveBeenCalled();
     tree.unmount();

@@ -40,14 +40,14 @@ RevenueCat ──webhook──► revenuecat-webhook ─────────
 
 1. Enrol in the Apple Developer Program ($99/yr). The free Personal Team
    can't sell in-app purchases.
-2. In App Store Connect, create the app with bundle ID `com.vitto.app`.
+2. In App Store Connect, create the app with bundle ID `com.getvitto.app`.
 3. Sign the Paid Applications Agreement, and add your tax and banking details
    (Business → Agreements). Products won't load until this is done.
 4. Create a subscription group called "Vitto Plus" with two auto-renewable
    subscriptions:
-   - `vitto_plus_monthly`: 1 month, $9.99
-   - `vitto_plus_yearly`: 1 year, $59.99, with an introductory offer of
-     **Free, 2 weeks**
+   - `com.getvitto.app.plus.monthly`: 1 month, $9.99
+   - `com.getvitto.app.plus.yearly`: 1 year, $59.99, with an introductory
+     offer of **Free, 1 week**
 5. Create an In-App Purchase key (Users and Access → Integrations →
    In-App Purchase) and download the `.p8` file. RevenueCat needs it.
 6. Host a privacy policy, which App Review requires. Optionally host your own
@@ -55,13 +55,14 @@ RevenueCat ──webhook──► revenuecat-webhook ─────────
 
 ### 2. RevenueCat
 
-1. Create a project, then add an App Store app with bundle ID `com.vitto.app`.
+1. Create a project, then add an App Store app with bundle ID `com.getvitto.app`.
    Upload the `.p8` key from step 1.5.
-2. Create an entitlement named `plus`, and attach both products to it.
+2. Create an entitlement named `vitto_plus`, and attach both products to it.
+   (The server reads that name; `REVENUECAT_ENTITLEMENT` overrides it.)
 3. Create an offering called `default` and mark it **current**. Give it two
    packages:
-   - **Monthly** → `vitto_plus_monthly`
-   - **Annual** → `vitto_plus_yearly`
+   - **Monthly** → `com.getvitto.app.plus.monthly`
+   - **Annual** → `com.getvitto.app.plus.yearly`
 4. From API keys, copy two keys:
    - the **public iOS key** (`appl_...`)
    - a **secret key** (`sk_...`)
@@ -104,7 +105,7 @@ cd mobile && npx expo prebuild -p ios && npx expo run:ios --device
    Sandbox), then sign into it on the iPhone (Settings → App Store →
    Sandbox Account).
 2. Buy Yearly. Check four things:
-   - The 14-day trial shows.
+   - The 7-day trial shows.
    - Apple's sheet appears.
    - Plus unlocks.
    - The user's row in `companion_entitlements` says `plus`, with an expiry.

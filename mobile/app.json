@@ -8,9 +8,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
+      "requireFullScreen": true,
       "bundleIdentifier": "com.getvitto.app",
       "appleTeamId": "97N7H43FHH",
       "infoPlist": {
+        "UISupportedInterfaceOrientations~ipad": ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationPortraitUpsideDown"],
         "NSCameraUsageDescription": "Vitto uses the camera to photograph meals and scan barcodes.",
         "NSPhotoLibraryUsageDescription": "Vitto reads meal photos you choose so it can grade the plate.",
         "NSSupportsLiveActivities": true,

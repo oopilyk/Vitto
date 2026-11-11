@@ -30,6 +30,10 @@ jest.mock('../services/friendsService', () => ({
   friendsService: {
     loadFriendsOverview: jest.fn(),
     loadReceivedReactions: jest.fn(() => Promise.resolve([])),
+    loadBlockedUsers: jest.fn(() => Promise.resolve([])),
+    blockUser: jest.fn(() => Promise.resolve()),
+    unblockUser: jest.fn(() => Promise.resolve()),
+    reportUser: jest.fn(() => Promise.resolve()),
     markReactionsSeen: jest.fn(() => Promise.resolve()),
     loadMyFriendRequests: jest.fn(),
     getMyUsername: jest.fn(),

@@ -13,6 +13,8 @@ import {
   recommendedCalories,
   withMeasurementSystem,
   bodyProblem,
+  hasBlockedTerm,
+  BLOCKED_NAME_MESSAGE,
 } from '@vitto/core';
 import {
   FieldRow,
@@ -92,7 +94,8 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
   const save = async () => {
     // Nothing that can't be a real body gets saved: the day's targets are
     // built from these numbers (an age of 999 cut the calorie target to 1,200).
-    const problem = calorieGoalProblem ?? bodyProblem(profile);
+    const problem =
+      calorieGoalProblem ?? bodyProblem(profile) ?? (hasBlockedTerm(profile.displayName ?? '') ? BLOCKED_NAME_MESSAGE : null);
     if (problem) {
       setError(problem);
       return;

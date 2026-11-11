@@ -15,6 +15,7 @@ import {
   type ReactionKind,
 } from '@vitto/core';
 import { haptic } from '../components/ui';
+import { askReportOrBlock } from '../components/safetyActions';
 import { friendsService } from '../services/friendsService';
 import { displayName, formatLastActive } from '../components/FriendPetCard';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
@@ -423,6 +424,15 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
             </Pressable>
           ))}
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Report or block ${displayName(profile)}`}
+          hitSlop={10}
+          onPress={() => askReportOrBlock({ userId: profile.id, name: displayName(profile), onBlocked: onClose })}
+          testID="report-or-block"
+        >
+          <Text style={[retro.kicker, night && retro.kickerNight, styles.reportLink]}>Report or block</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -435,6 +445,7 @@ const styles = themedStyles(() => ({
   reactionSending: { opacity: 0.6 },
   reactionLabel: { fontFamily: fonts.ui, fontSize: 14, fontWeight: '600', color: world.ink },
   reactionNote: { textAlign: 'center' },
+  reportLink: { textAlign: 'center', opacity: 0.8, paddingVertical: 4 },
   center: { alignItems: 'center', justifyContent: 'center' },
   topbar: {
     flexDirection: 'row',

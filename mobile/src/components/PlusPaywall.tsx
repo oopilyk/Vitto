@@ -102,11 +102,12 @@ const formatDate = (iso: string) =>
  * The Vitto Plus paywall, laid out the way paywalls that convert are:
  *
  *   * what you get, as a short checked list;
- *   * a free-trial toggle, on by default, because two-week trials convert far
- *     better than short ones;
+ *   * a free-trial toggle, on by default: a week of Plus is long enough to
+ *     feel photo meals, the pet's voice and more chat;
  *   * Yearly preselected with its saving and its monthly price, beside a
  *     Monthly plan that makes the saving concrete;
- *   * a trial timeline -- today, the reminder on day 12, the charge on day 14 --
+ *   * a trial timeline -- today, the reminder two days before the end, then
+ *     the charge (day 5 and day 7 for the week-long trial) --
  *     because knowing they will be reminded is what makes people start one;
  *   * the price and "cancel anytime" right under the button, and Restore, as
  *     the App Store requires.

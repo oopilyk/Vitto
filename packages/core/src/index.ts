@@ -29,6 +29,8 @@ export * from './domain/mealSlots';
 export * from './domain/weightLog';
 export * from './domain/weeklyRecap';
 export * from './domain/reactions';
+export * from './domain/contentFilter';
+export * from './domain/safety';
 export * from './domain/strengthStandards';
 export * from './domain/petVoice';
 export * from './domain/bond';

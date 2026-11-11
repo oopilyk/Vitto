@@ -8,6 +8,8 @@ interface Props {
   friend: FriendOverview;
   palette: FriendsPalette;
   onPress: () => void;
+  /** Long press: report or block them (askReportOrBlock). */
+  onLongPress?: () => void;
 }
 
 const AVATAR_SIZE = 48;
@@ -27,7 +29,7 @@ const rowName = (friend: FriendOverview): string => {
  * status subline ("Thriving · At the gym"), the health half coloured by tone.
  * The whole row is the tap target -- it opens that friend's pet detail.
  */
-export function FriendListRow({ friend, palette, onPress }: Props) {
+export function FriendListRow({ friend, palette, onPress, onLongPress }: Props) {
   // `deriveSocialPetStatus` treats an empty signal list as "quiet lately", so a
   // pet with no recent activity still gets a sensible place/health read.
   const status = friend.pet
@@ -38,7 +40,11 @@ export function FriendListRow({ friend, palette, onPress }: Props) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Open ${rowName(friend)}'s pet`}
+      accessibilityHint={onLongPress ? 'Touch and hold to report or block' : undefined}
+      accessibilityActions={onLongPress ? [{ name: 'longpress', label: 'Report or block' }] : undefined}
+      onAccessibilityAction={(event) => event.nativeEvent.actionName === 'longpress' && onLongPress?.()}
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.row,
         { backgroundColor: palette.rowBg, borderColor: palette.divider },

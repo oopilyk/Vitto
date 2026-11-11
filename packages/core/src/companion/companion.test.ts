@@ -543,6 +543,26 @@ describe('answering questions about the app', () => {
     expect(STABLE_SYSTEM_PROMPT).not.toContain('a coach');
   });
 
+  it('answers general food and fitness facts, but never prescribes, and keeps the risky ones closed', () => {
+    // Allowed: general, well-established facts, said as general knowledge.
+    expect(STABLE_SYSTEM_PROMPT).toContain('General food and fitness questions are fair game too');
+    expect(STABLE_SYSTEM_PROMPT).toContain('never as an instruction for them');
+    // Health-dependent answers go to a professional.
+    expect(STABLE_SYSTEM_PROMPT).toMatch(/an eating disorder\), say it depends and that a doctor or dietitian is the one to ask/);
+    // Closed even as general facts: the numbers that push restriction, for users as young as 13.
+    for (const closed of ['how fast to lose weight', 'how big a calorie deficit to run', 'fasting', 'cutting out foods', 'supplements']) {
+      expect(STABLE_SYSTEM_PROMPT).toContain(closed);
+    }
+    // Still a pet, not a professional: no medical advice, diagnosis, diets or targets of its own.
+    expect(STABLE_SYSTEM_PROMPT).toContain('Do not give medical, injury or medication advice, and do not diagnose anything');
+    expect(STABLE_SYSTEM_PROMPT).toContain('Do not put them on a diet or tell them what or how much they should eat');
+    expect(STABLE_SYSTEM_PROMPT).toContain('do not set calorie or weight targets of your own');
+    // The eating-disorder and crisis protections are untouched.
+    expect(STABLE_SYSTEM_PROMPT).toContain('never encourage eating less, skipping meals, or exercising to "earn" or "burn off" food');
+    expect(STABLE_SYSTEM_PROMPT).toContain('never suggest eating less or working anything off');
+    expect(STABLE_SYSTEM_PROMPT).toContain('drop the bit completely');
+  });
+
   it('answers a direct question with the real number, but never volunteers one', () => {
     expect(STABLE_SYSTEM_PROMPT).toContain('when they ASK');
     expect(STABLE_SYSTEM_PROMPT).toContain('Never volunteer them');

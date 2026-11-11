@@ -37,9 +37,9 @@ export interface PlusStatus {
 }
 
 /** The free trial, on the yearly plan only (the billing function agrees). */
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = 7;
 /** When the reminder that the trial is ending goes out. */
-export const TRIAL_REMINDER_DAY = 12;
+export const TRIAL_REMINDER_DAY = 5;
 
 export interface PlusPlanOption {
   value: PlusPlan;

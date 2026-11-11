@@ -22,4 +22,16 @@ describe('weeklyRecap', () => {
     expect(recap.records).toEqual(['Bench Press']);
     expect(recap.previous).toEqual({ workouts: 1, xp: 20 });
   });
+
+  it('counts food over the seven whole days before today, leaving the unfinished day out', () => {
+    const nutrients = { protein: true, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false };
+    const meal = (day: number, calories: number): HealthEvent => ({
+      id: `m${day}`, userId: 'u', type: 'MEAL', source: 'manual', occurredAt: at(day, 12),
+      metadata: { ...nutrients, analysis: { grade: 'B', summary: 'Meal', confidence: 1, detectedFoods: [], macros: { calories, proteinGrams: 150, carbsGrams: 0, fatGrams: 0 }, nutrients } } as never,
+    });
+    const week = [2, 3, 4, 5, 6, 7, 8].map((day) => meal(day, 2400));
+    const recap = weeklyRecap([...week, meal(9, 300)], profile, 10000, new Date(2026, 10, 9, 13));
+    expect(recap.mealDays).toBe(7);
+    expect(recap.averageCalories).toBe(2400);
+  });
 });
