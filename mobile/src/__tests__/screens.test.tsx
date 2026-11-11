@@ -430,46 +430,50 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('switches between your pet and the joint pet from the top of the screen', () => {
+  it('switches between your pet and the joint pet by tapping the name plate, marked with a corner triangle', () => {
     const selected: string[] = [];
-    let tree!: renderer.ReactTestRenderer;
-    act(() => {
-      tree = renderer.create(
-        <DashboardScreen
-          pet={pet}
-          events={[]}
-          reaction={null}
-          pets={[
-            { id: 'p', name: 'Miso', own: true },
-            { id: 'q', name: 'Blue', own: false },
-          ]}
-          activePetId="p"
-          onSelectPet={(id: string) => selected.push(id)}
-          onLogMeal={() => {}}
-          onLogWorkout={() => {}}
-          onLogRun={() => {}}
-          onTrainMind={() => {}}
-          onOpenProfile={() => {}}
-          onOpenStats={() => {}}
-          onOpenToday={() => {}}
-          interaction={idleInteraction}
-        />,
-      );
-    });
-    const rendered = JSON.stringify(tree.toJSON());
-    // Only the shared pet is marked; yours is the default.
-    expect(rendered).toContain('JOINT');
-    expect(rendered).toContain('Blue');
+    const render = (activePetId: string) => {
+      let tree!: renderer.ReactTestRenderer;
+      act(() => {
+        tree = renderer.create(
+          <DashboardScreen
+            pet={pet}
+            events={[]}
+            reaction={null}
+            pets={[
+              { id: 'p', name: 'Miso', own: true },
+              { id: 'q', name: 'Blue', own: false },
+            ]}
+            activePetId={activePetId}
+            onSelectPet={(id: string) => selected.push(id)}
+            onLogMeal={() => {}}
+            onLogWorkout={() => {}}
+            onLogRun={() => {}}
+            onTrainMind={() => {}}
+            onOpenProfile={() => {}}
+            onOpenStats={() => {}}
+            onOpenToday={() => {}}
+            interaction={idleInteraction}
+          />,
+        );
+      });
+      return tree;
+    };
+    const plateOf = (tree: renderer.ReactTestRenderer) =>
+      tree.root.findAll((node: any) => node.props.testID === 'pet-plate' && typeof node.props.onPress === 'function')[0]!;
 
-    const byLabel = (label: string) =>
-      tree.root
-        .findAllByProps({ accessibilityLabel: label })
-        .find((node: any) => typeof node.props.onPress === 'function');
-    // The joint tab switches; the active tab is inert, like the room hotbar.
-    act(() => byLabel('Show Blue, your joint pet')!.props.onPress());
+    const own = render('p');
+    expect(plateOf(own).props.accessibilityLabel).toBe('Show Blue, your joint pet');
+    act(() => plateOf(own).props.onPress());
     expect(selected).toEqual(['q']);
-    expect(byLabel('Show Miso, your own pet')!.props.disabled).toBe(true);
-    tree.unmount();
+    // Your own pet is the default: only the joint one is marked.
+    expect(JSON.stringify(own.toJSON())).not.toContain('JOINT');
+    own.unmount();
+
+    const joint = render('q');
+    expect(JSON.stringify(joint.toJSON())).toContain('LIVING ROOM · JOINT');
+    expect(plateOf(joint).props.accessibilityLabel).toBe('Show Miso, your own pet');
+    joint.unmount();
   });
 
   it('shows no pet switcher on the world screen for a solo pet — joining lives in Profile', () => {
@@ -1134,6 +1138,35 @@ describe('screens render', () => {
     expect(rendered).toContain('1,240 kcal left');
     expect(rendered).toContain('✓ Workout');
     expect(rendered).toContain('5,163 steps left');
+    tree.unmount();
+  });
+
+  it('shows the coin balance across from TODAY, and opens the shop from it', () => {
+    const opened: string[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <DashboardScreen
+          pet={{ ...pet, coins: 1240 }}
+          events={[]}
+          reaction={null}
+          onOpenShop={() => opened.push('shop')}
+          onLogMeal={() => {}}
+          onLogWorkout={() => {}}
+          onLogRun={() => {}}
+          onTrainMind={() => {}}
+          onOpenProfile={() => {}}
+          onOpenStats={() => {}}
+          onOpenToday={() => {}}
+          interaction={idleInteraction}
+        />,
+      );
+    });
+    const balance = tree.root.findAll((node) => node.props.testID === 'coin-balance' && typeof node.props.onPress === 'function')[0]!;
+    expect(balance.props.accessibilityLabel).toBe('1240 coins, open the shop');
+    expect(JSON.stringify(tree.toJSON())).toContain('1,240');
+    act(() => balance.props.onPress());
+    expect(opened).toEqual(['shop']);
     tree.unmount();
   });
 
@@ -3074,7 +3107,7 @@ describe('care partners', () => {
 
     const behindLevelUp = render({
       achievementUnlock: unlock,
-      celebration: { kind: 'levelUp', petId: pet.id, level: 2 },
+      celebration: { kind: 'levelUp', petId: pet.id, level: 2, coins: 50 },
     });
     expect(JSON.stringify(behindLevelUp.toJSON())).not.toContain('First bite');
     behindLevelUp.unmount();

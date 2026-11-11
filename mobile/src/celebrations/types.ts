@@ -19,6 +19,8 @@ export type CelebrationEvent =
       /** The level just reached. Captured at detection time so a forward-projected
        *  (decayed) render of the pet can never change the number shown. */
       level: number;
+      /** Coins the level-ups paid (LEVEL_UP_COINS each), shown under the number. */
+      coins: number;
     }
   | {
       kind: 'streak';

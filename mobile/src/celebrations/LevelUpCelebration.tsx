@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import type { PetState } from '@vitto/core';
+import { CoinMark } from '../components/CoinMark';
 import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
@@ -38,6 +39,8 @@ interface Props {
   /** The level just reached — a number, so a decayed projection of the pet
    *  can't change what's announced. */
   level: number;
+  /** Coins the level-up paid, shown under the number. None: no reward line. */
+  coins?: number;
   night?: boolean;
   onComplete: () => void;
 }
@@ -61,7 +64,7 @@ function useReducedMotion(): boolean | null {
   return reduced;
 }
 
-export function LevelUpCelebration({ pet, level, night, onComplete }: Props) {
+export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }: Props) {
   const reduceMotion = useReducedMotion();
   const { width, height } = useWindowDimensions();
 
@@ -73,6 +76,7 @@ export function LevelUpCelebration({ pet, level, night, onComplete }: Props) {
   const petIn = useRef(new Animated.Value(0)).current;
   const numberIn = useRef(new Animated.Value(0)).current;
   const textIn = useRef(new Animated.Value(0)).current;
+  const rewardIn = useRef(new Animated.Value(0)).current;
   const continueIn = useRef(new Animated.Value(0)).current;
   const flash = useRef(new Animated.Value(0)).current;
 
@@ -134,7 +138,18 @@ export function LevelUpCelebration({ pet, level, night, onComplete }: Props) {
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }).start();
-      AccessibilityInfo.announceForAccessibility(`Level ${level}. ${pet.name} is growing.`);
+      AccessibilityInfo.announceForAccessibility(
+        coins > 0 ? `Level ${level}. ${pet.name} is growing. You earned ${coins} coins.` : `Level ${level}. ${pet.name} is growing.`,
+      );
+    });
+
+    // The reward lands a beat after the number, so it reads as its own moment.
+    at(1550, () => {
+      if (rm) {
+        Animated.timing(rewardIn, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      } else {
+        Animated.spring(rewardIn, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }).start();
+      }
     });
 
     at(2500, () => {
@@ -146,7 +161,7 @@ export function LevelUpCelebration({ pet, level, night, onComplete }: Props) {
       timers.current.forEach(clearTimeout);
       timers.current = [];
     };
-  }, [reduceMotion, level, pet.name, veil, petIn, numberIn, textIn, continueIn, flash]);
+  }, [reduceMotion, level, coins, pet.name, veil, petIn, numberIn, textIn, rewardIn, continueIn, flash]);
 
   // From the announcement on, show the real level — which may still be climbing
   // if a Health backfill is looping care moments through `recordEvent`. Before
@@ -267,6 +282,23 @@ export function LevelUpCelebration({ pet, level, night, onComplete }: Props) {
         >
           {pet.name} is growing!
         </Animated.Text>
+
+        {coins > 0 ? (
+          <Animated.View
+            style={[
+              styles.reward,
+              {
+                opacity: rewardIn,
+                transform: [{ scale: rewardIn.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.6, 1.08, 1] }) }],
+              },
+            ]}
+            accessibilityLabel={`You earned ${coins} coins`}
+            testID="level-up-coins"
+          >
+            <CoinMark size={22} />
+            <Text style={styles.rewardLabel}>{`+${coins} COINS`}</Text>
+          </Animated.View>
+        ) : null}
       </View>
 
       <Animated.View
@@ -389,6 +421,21 @@ const styles = themedStyles(() => ({
     marginTop: 8,
     textAlign: 'center',
   },
+  // The coins the level paid: a gold-rimmed chip under "is growing!".
+  reward: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingLeft: 10,
+    paddingRight: 14,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#e2b13c',
+    backgroundColor: 'rgba(226,177,60,0.14)',
+  },
+  rewardLabel: { fontFamily: fonts.pixel, fontSize: 18, letterSpacing: 0.5, color: '#f6dc8a' },
   continueWrap: {
     position: 'absolute',
     left: 24,

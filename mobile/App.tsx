@@ -36,7 +36,7 @@ import { PrimaryButton, TextButton } from './src/components/ui';
 import { usePetInteraction } from './src/petWorld/usePetInteraction';
 import { AuthScreen, HAS_SIGNED_IN_KEY } from './src/screens/AuthScreen';
 import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft, type OnboardingProgress } from './src/services/onboardingDraft';
-import { TourProvider, tourSteps } from './src/tour/FirstRunTour';
+import { TourProvider, petSwitchTip, tourSteps } from './src/tour/FirstRunTour';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { detectLevelUp } from './src/celebrations/detectLevelUp';
@@ -790,6 +790,31 @@ function VittoApp() {
     void AsyncStorage.setItem(tourKey, '1').catch(() => undefined);
   };
 
+  /**
+   * The first time there are two pets (a care partner's joint pet joined, or
+   * one adopted together), one tip after the tour: tap the name at the top to
+   * switch. Remembered per account on this phone, like the tour.
+   */
+  const switchTipKey = `vitto.petSwitchTipDone.${userId}`;
+  const [switchTipPending, setSwitchTipPending] = useState(false);
+  const hasTwoPets = pets.length > 1;
+  useEffect(() => {
+    if (!hasTwoPets) return;
+    let cancelled = false;
+    void AsyncStorage.getItem(switchTipKey)
+      .then((value) => {
+        if (!cancelled) setSwitchTipPending(value !== '1');
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [hasTwoPets, switchTipKey]);
+  const finishSwitchTip = () => {
+    setSwitchTipPending(false);
+    void AsyncStorage.setItem(switchTipKey, '1').catch(() => undefined);
+  };
+
   // Adopted: the draft has done its job.
   useEffect(() => {
     if (pet) void clearOnboardingDraft(userId);
@@ -1331,7 +1356,9 @@ function VittoApp() {
       const levelUp = detectLevelUp(pet, nextPet);
       if (levelUp) {
         setCelebration((current) =>
-          current?.kind === 'levelUp' ? { ...current, level: Math.max(current.level, levelUp.level) } : levelUp,
+          current?.kind === 'levelUp'
+            ? { ...current, level: Math.max(current.level, levelUp.level), coins: current.coins + levelUp.coins }
+            : levelUp,
         );
       }
 
@@ -2901,6 +2928,7 @@ function VittoApp() {
               petSaid={companionSaid}
               awaitingPetLine={awaitingPetLine}
               onOpenChat={isOnline ? () => navigation.navigate('Companion') : undefined}
+              onOpenShop={() => navigation.navigate('ChooseCompanion')}
               onTalkToPet={isOnline ? (text) => void talkToPet(text) : undefined}
               talkingToPet={talkingToPet}
               onLogMeal={() => navigation.navigate('MealCapture')}
@@ -2967,7 +2995,16 @@ function VittoApp() {
                       // on it to choose, and its back button returns here.
                       onPage: (page) => (page === 'personality' ? navigation.navigate('Personality', { fromTour: true }) : navigation.popTo('Dashboard')),
                     }
-                  : null
+                  : tourPending === false && switchTipPending && hasTwoPets
+                    ? {
+                        steps: petSwitchTip(
+                          livePet.name,
+                          pets.find((candidate) => candidate.id !== livePet.id)?.name ?? 'your other pet',
+                        ),
+                        onDone: finishSwitchTip,
+                        intro: false,
+                      }
+                    : null
               }
             />
           )}

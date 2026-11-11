@@ -15,7 +15,7 @@ import { fonts, themedStyles, world } from '../theme';
  * than guessing coordinates that would drift between phones.
  */
 
-export type TourTargetId = 'kitchen' | 'gym' | 'outside' | 'study' | 'today' | 'chat' | 'level' | 'account' | 'personality';
+export type TourTargetId = 'kitchen' | 'gym' | 'outside' | 'study' | 'today' | 'chat' | 'level' | 'account' | 'personality' | 'petSwitch';
 
 /** A page off the main screen that a step is shown on; the host opens it (see FirstRunTour's onPage). */
 export type TourPage = 'personality';
@@ -125,6 +125,18 @@ export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
     : []),
 ];
 
+/**
+ * The one-step tip shown the first time there are two pets (a joint pet joined
+ * or adopted): the name plate at the top is the switch between them.
+ */
+export const petSwitchTip = (current: string, other: string): TourStep[] => [
+  {
+    target: 'petSwitch',
+    title: 'Two pets now!',
+    body: `Tap the name up here to switch between ${current} and ${other}. The little triangle in its corner means there's another pet to see.`,
+  },
+];
+
 interface Rect {
   x: number;
   y: number;
@@ -138,10 +150,13 @@ export function FirstRunTour({
   onDone,
   speaker,
   onPage,
+  intro: offerFirst = true,
 }: {
   steps: TourStep[];
   onDone: () => void;
   speaker?: string;
+  /** Open on the welcome card first (the full tour); false goes straight to the first step (a one-off tip). */
+  intro?: boolean;
   /**
    * Opens the page a step is shown on, or (null) goes back to the main screen
    * for a step after one. Finishing on a page leaves them there, to use it.
@@ -152,7 +167,7 @@ export function FirstRunTour({
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   // -1 is the welcome card, before the first step: the tour is offered, not sprung.
-  const [index, setIndex] = useState(-1);
+  const [index, setIndex] = useState(offerFirst ? -1 : 0);
   const [rect, setRect] = useState<Rect | null>(null);
   const [cardHeight, setCardHeight] = useState<number | null>(null);
   const intro = index < 0;

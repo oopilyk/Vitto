@@ -166,3 +166,13 @@ describe('first-run tour', () => {
     tree.unmount();
   });
 });
+
+describe('pet switch tip', () => {
+  it('is one step, pointing at the name plate, naming both pets', () => {
+    const { petSwitchTip } = require('../tour/FirstRunTour');
+    const steps = petSwitchTip('Blue', 'Nugget');
+    expect(steps).toHaveLength(1);
+    expect(steps[0].target).toBe('petSwitch');
+    expect(steps[0].body).toContain('switch between Blue and Nugget');
+  });
+});

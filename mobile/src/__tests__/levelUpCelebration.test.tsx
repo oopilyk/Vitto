@@ -19,11 +19,12 @@ describe('detectLevelUp', () => {
       kind: 'levelUp',
       petId: pet.id,
       level: 5,
+      coins: 50,
     });
   });
 
-  it('reports the final level reached on a multi-level jump', () => {
-    expect(detectLevelUp({ ...pet, level: 2 }, { level: 5 })?.level).toBe(5);
+  it('reports the final level reached on a multi-level jump, with every level paid', () => {
+    expect(detectLevelUp({ ...pet, level: 2 }, { level: 5 })).toMatchObject({ level: 5, coins: 150 });
   });
 });
 

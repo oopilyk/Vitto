@@ -48,6 +48,8 @@ interface Props {
   awaitingPetLine?: boolean;
   /** Opens the conversation with the pet. Absent offline, where there is no companion. */
   onOpenChat?: () => void;
+  /** The companion shop, from the coin balance on the HUD. */
+  onOpenShop?: () => void;
   /** Talks to the pet out loud; the reply arrives as `petSaid`. Absent hides the mic. */
   onTalkToPet?: (text: string) => void;
   /** A spoken message's reply is on its way. */
@@ -111,7 +113,7 @@ interface Props {
   achievementUnlock?: { id: AchievementId; trainingDaysPerWeek: number } | null;
   onAchievementUnlockComplete?: () => void;
   /** The first-run tour, while it is still to be seen (see FirstRunTour). */
-  tour?: { steps: TourStep[]; onDone: () => void; onPage?: (page: TourPage | null) => void } | null;
+  tour?: { steps: TourStep[]; onDone: () => void; onPage?: (page: TourPage | null) => void; intro?: boolean } | null;
 }
 
 /** How long the bubble waits for the pet's own remark before saying the stock line. */
@@ -126,6 +128,7 @@ export function DashboardScreen({
   petSaid,
   awaitingPetLine = false,
   onOpenChat,
+  onOpenShop,
   onTalkToPet,
   talkingToPet,
   onLogMeal,
@@ -270,6 +273,7 @@ export function DashboardScreen({
           careToast={careToast}
           unreadMessages={unreadMessages}
           onOpenChat={onOpenChat}
+          onOpenShop={onOpenShop}
           onTalk={onTalkToPet}
           talking={talkingToPet}
           environment={environment}
@@ -300,6 +304,7 @@ export function DashboardScreen({
         <LevelUpCelebration
           pet={pet}
           level={celebration.level}
+          coins={celebration.coins}
           night={night}
           onComplete={() => onCelebrationComplete?.()}
         />
@@ -314,7 +319,7 @@ export function DashboardScreen({
         />
       ) : tour ? (
         // After any celebration, never on top of one.
-        <FirstRunTour steps={tour.steps} onDone={tour.onDone} onPage={tour.onPage} speaker={pet.name} />
+        <FirstRunTour steps={tour.steps} onDone={tour.onDone} onPage={tour.onPage} speaker={pet.name} intro={tour.intro} />
       ) : null}
     </View>
     </TourProvider>

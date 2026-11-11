@@ -67,12 +67,12 @@ describe('DashboardScreen level-up celebration', () => {
 
   it('takes over the screen when a level-up celebration is handed in', async () => {
     jest.useFakeTimers();
-    const tree = render({ kind: 'levelUp', petId: pet.id, level: 6 });
+    const tree = render({ kind: 'levelUp', petId: pet.id, level: 6, coins: 50 });
     await act(async () => {
       await Promise.resolve();
       jest.advanceTimersByTime(3000);
     });
-    expect(strings(tree)).toEqual(expect.arrayContaining(['LEVEL UP!', 'Miso is growing!']));
+    expect(strings(tree)).toEqual(expect.arrayContaining(['LEVEL UP!', 'Miso is growing!', '+50 COINS']));
     tree.unmount();
     jest.useRealTimers();
   });

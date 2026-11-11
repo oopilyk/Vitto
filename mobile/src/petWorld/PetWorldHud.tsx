@@ -11,6 +11,7 @@ import {
   calculateStreakStatus,
   daysWithPet,
   assessCondition,
+  coinsOf,
   hasEvolved,
   initialOf,
 } from '@vitto/core';
@@ -21,6 +22,7 @@ import { useReportHudEdge } from './RoomActionSlot';
 import { useTourTarget } from '../tour/FirstRunTour';
 import { navBarHeight } from './EnvironmentActionRow';
 import { FROZEN_COLOR } from '../components/ActivityCalendar';
+import { CoinMark } from '../components/CoinMark';
 import { LevelRing } from './LevelRing';
 import { canListen, PetMicButton } from './PetMicButton';
 import { chromeScaleFor, topInsetFor } from './chromeScale';
@@ -40,8 +42,10 @@ const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
  *                 Friends).
  *   2. status   — the pet's own line, full width, with its day, streak and
  *                 bond, and what is left of today as a row of tokens beneath.
- *   3. tools    — the pet switcher (only with two pets) on the left, Today and
- *                 Chat on the right, all one height.
+ *   3. tools    — the coin balance on the left, Today and Chat on the right.
+ *
+ * With two pets the name plate in row 1 is the switch between them, marked by a
+ * small triangle in its corner.
  *
  * The pet's condition is expressed as the pet's own line, not a badge; adding a
  * second joint pet lives in Profile's care-partner card, not here; and the full
@@ -87,13 +91,15 @@ interface PetWorldHudProps {
   unreadMessages?: number;
   /** Opens the conversation. Absent offline, which also hides the button. */
   onOpenChat?: () => void;
+  /** Where coins are spent (the companion shop). Absent: the balance shows, but is not a button. */
+  onOpenShop?: () => void;
   /** Says something to the pet out loud (see PetMicButton). Absent hides the mic. */
   onTalk?: (text: string) => void;
   /** A spoken message's reply is on its way. */
   talking?: boolean;
-  /** `own` marks the adopted pet; the other one is the joint pet. Only shown as
-   *  a switcher, and only when there really are two — adding one lives in
-   *  Profile's care-partner card, not on the world screen. */
+  /** `own` marks the adopted pet; the other one is the joint pet. With two, the
+   *  name plate switches between them — adding one lives in Profile's
+   *  care-partner card, not on the world screen. */
   pets?: { id: string; name: string; own?: boolean }[];
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
@@ -172,6 +178,7 @@ export function PetWorldHud({
   onOpenFriends,
   unreadMessages = 0,
   onOpenChat,
+  onOpenShop,
   onTalk,
   talking = false,
   pets,
@@ -187,6 +194,7 @@ export function PetWorldHud({
   // "banked" when it's actually one missed day away from resetting.
   const streakAtRisk = streaks.currentStreak > 0 && !streaks.todayQualifies;
   const condition = assessCondition(pet);
+  const coins = coinsOf(pet);
 
   // How it feels: an ailment if something is wrong, the mood line otherwise.
   // What it says about the thing just logged is said once, in its own voice,
@@ -213,6 +221,10 @@ export function PetWorldHud({
   const dayLabel = formToken ? `${dayToken} · ${formToken}` : dayToken;
 
   const showSwitcher = pets && pets.length > 1 && onSelectPet;
+  // With two pets the name plate is the switch: a tap shows the next one.
+  const activeIndex = showSwitcher ? Math.max(0, pets!.findIndex((candidate) => candidate.id === (activePetId ?? pets![0].id))) : 0;
+  const nextPet = showSwitcher ? pets![(activeIndex + 1) % pets!.length] : null;
+  const showingJoint = showSwitcher ? !pets![activeIndex]!.own : false;
 
   // The account menu. Closed on any choice and on a tap anywhere else.
   const [menuOpen, setMenuOpen] = useState(false);
@@ -221,6 +233,7 @@ export function PetWorldHud({
   const todayTourRef = useTourTarget('today');
   const chatTourRef = useTourTarget('chat');
   const levelTourRef = useTourTarget('level');
+  const petSwitchTourRef = useTourTarget('petSwitch');
   const choose = (open: () => void) => () => {
     setMenuOpen(false);
     open();
@@ -287,15 +300,27 @@ export function PetWorldHud({
           <LevelRing level={pet.level} xpPct={pet.xp} onPress={onOpenStats} night={night} size={RING} />
         </View>
 
-        {/* Inert: a tap anywhere here reaches the pet behind it. */}
-        <View style={[retro.panel, night && retro.panelNight, styles.plate]} pointerEvents="none">
+        {/* With two pets the whole plate switches between them, and a small
+            triangle in its corner says so. With one it is inert: a tap anywhere
+            here reaches the pet behind it. */}
+        <Pressable
+          ref={petSwitchTourRef}
+          disabled={!nextPet}
+          pointerEvents={nextPet ? 'auto' : 'none'}
+          accessibilityRole={nextPet ? 'button' : undefined}
+          accessibilityLabel={nextPet ? `Show ${nextPet.name}, your ${nextPet.own ? 'own' : 'joint'} pet` : undefined}
+          onPress={() => nextPet && onSelectPet!(nextPet.id)}
+          style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.plate, pressed && retroPressed]}
+          testID="pet-plate"
+        >
           <Text style={[retro.kicker, night && retro.kickerNight, styles.roomKicker]} numberOfLines={1}>
-            {ENVIRONMENT_LABEL[environment].toUpperCase()}
+            {showingJoint ? `${ENVIRONMENT_LABEL[environment].toUpperCase()} · JOINT` : ENVIRONMENT_LABEL[environment].toUpperCase()}
           </Text>
           <Text style={[styles.name, night && retro.labelNight]} numberOfLines={1}>
             {pet.name.toUpperCase()}
           </Text>
-        </View>
+          {nextPet ? <View style={[styles.switchCorner, night && styles.switchCornerNight]} pointerEvents="none" /> : null}
+        </Pressable>
 
         <View style={styles.accountSlot} pointerEvents="box-none">
           <Pressable
@@ -406,32 +431,24 @@ export function PetWorldHud({
 
       {/* Row 3, tools: which pet (only with two), then chat. */}
       <View ref={hudEdge.ref} onLayout={hudEdge.onLayout} style={styles.toolRow} pointerEvents="box-none">
-        {showSwitcher ? (
-          <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.switcher]}>
-            {pets!.map((candidate) => {
-              const selected = candidate.id === (activePetId ?? pets![0].id);
-              return (
-                <Pressable
-                  key={candidate.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected, disabled: selected }}
-                  accessibilityLabel={`Show ${candidate.name}, your ${candidate.own ? 'own' : 'joint'} pet`}
-                  disabled={selected}
-                  onPress={() => onSelectPet!(candidate.id)}
-                  style={[styles.petTab, selected && styles.petTabOn]}
-                >
-                  <Text style={[styles.petTabName, night && retro.labelNight, selected && styles.petTabTextOn]} numberOfLines={1}>
-                    {candidate.name}
-                    {/* Only the shared one is marked: yours is the default. */}
-                    {candidate.own ? null : <Text style={styles.petTabJoint}>{'  JOINT'}</Text>}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          <View />
-        )}
+        {/* Left, across from TODAY: the coin balance, the way into the shop
+            where coins are spent. */}
+        <View style={styles.leftTools} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole={onOpenShop ? 'button' : 'text'}
+            accessibilityLabel={`${coins} ${coins === 1 ? 'coin' : 'coins'}${onOpenShop ? ', open the shop' : ''}`}
+            disabled={!onOpenShop}
+            onPress={onOpenShop}
+            hitSlop={6}
+            style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, styles.coinPill, pressed && retroPressed]}
+            testID="coin-balance"
+          >
+            <CoinMark size={18} />
+            <Text style={[retro.label, styles.coinLabel, night && retro.labelNight]} numberOfLines={1}>
+              {coins.toLocaleString('en-US')}
+            </Text>
+          </Pressable>
+        </View>
 
         {/* TODAY, the thing opened most, as a disc like the level's: the day's
             progress runs round it. CHAT sits under it. */}
@@ -505,7 +522,7 @@ const hudZoom = (width: number, height: number, scale: number): ViewStyle | null
 /** The level ring and the account disc frame the top bar; the plate sits between. */
 const RING = 64;
 const DISC = 44;
-/** Today, chat and the pet switcher share one height. */
+/** Chat and the coin balance share one height. */
 const TOOL = 36;
 const GUTTER = 16;
 /** The mic: a size up from the pills, being the one held down. */
@@ -534,6 +551,21 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
   },
   roomKicker: { fontSize: 10, marginBottom: 1 },
+  // A small triangle tucked into the plate's lower-right corner: "there is more here".
+  // Drawn with borders: the bottom edge is the triangle, and the transparent
+  // left edge cuts its diagonal.
+  switchCorner: {
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 11,
+    borderBottomWidth: 11,
+    borderLeftColor: 'transparent',
+    borderBottomColor: world.accent,
+  },
+  switchCornerNight: { borderBottomColor: world.nightAccent },
   name: {
     fontFamily: fonts.systemMono,
     fontSize: 18,
@@ -679,6 +711,10 @@ const styles = themedStyles(() => ({
     paddingHorizontal: GUTTER,
     marginTop: 12,
   },
+  // Level with the middle of TODAY's disc, not its top edge.
+  leftTools: { alignItems: 'flex-start', gap: 10, flexShrink: 1, marginTop: (RING - TOOL) / 2 },
+  coinPill: { flexDirection: 'row', gap: 7, paddingLeft: 9, paddingRight: 13 },
+  coinLabel: { fontSize: 13, letterSpacing: 0.6, fontVariant: ['tabular-nums'] },
   // TODAY's disc with CHAT under it, in a column at the right.
   tools: { alignItems: 'center', gap: 10 },
   pill: {
@@ -691,12 +727,4 @@ const styles = themedStyles(() => ({
   pillLabel: { fontSize: 11, letterSpacing: 1.3 },
   mic: { position: 'absolute', right: GUTTER },
 
-  // Two pets, one control: a segmented switch, the selected half filled.
-  switcher: { flexDirection: 'row', height: TOOL, padding: 3, borderRadius: TOOL / 2, flexShrink: 1 },
-  // Capped, and long names end in "…", so the switch never grows over the room.
-  petTab: { paddingHorizontal: 12, borderRadius: (TOOL - 6) / 2, justifyContent: 'center', maxWidth: 96 },
-  petTabOn: { backgroundColor: world.accentWash },
-  petTabJoint: { fontSize: 8, letterSpacing: 1, opacity: 0.75 },
-  petTabName: { fontFamily: fonts.systemMono, fontSize: 12, fontWeight: '700', color: world.inkSoft },
-  petTabTextOn: { color: world.accentDeep },
 }));

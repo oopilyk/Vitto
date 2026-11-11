@@ -80,7 +80,7 @@ export function ChooseCompanionScreen({ breed, owned, coins, cost, onChoose, onC
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.back}>
           <Text style={styles.backMark}>‹</Text>
-          <Text style={styles.backLabel}>Settings</Text>
+          <Text style={styles.backLabel}>Back</Text>
         </Pressable>
         <Text style={styles.topTitle}>Your companion</Text>
         {/* The balance stays in sight while the animals scroll. */}

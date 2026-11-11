@@ -1,4 +1,4 @@
-import type { PetState } from '@vitto/core';
+import { coinsEarned, type PetState } from '@vitto/core';
 import type { CelebrationEvent } from './types';
 
 /**
@@ -21,5 +21,5 @@ export function detectLevelUp(
   after: Pick<PetState, 'level'>,
 ): Extract<CelebrationEvent, { kind: 'levelUp' }> | null {
   if (after.level <= before.level) return null;
-  return { kind: 'levelUp', petId: before.id, level: after.level };
+  return { kind: 'levelUp', petId: before.id, level: after.level, coins: coinsEarned(after.level - before.level) };
 }
