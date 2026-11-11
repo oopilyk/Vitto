@@ -210,14 +210,106 @@ export const MUSCLE_LIFTS: Record<MuscleGroup, readonly StandardLift[]> = {
  * strong lift cannot carry a group), over the lifts that have been logged.
  * Null when none of its lifts has a rank yet.
  */
-export const muscleRanks = (scores: readonly LiftScore[]): Record<MuscleGroup, number | null> => {
+export const muscleRanks = (
+  scores: readonly LiftScore[],
+  isolation: Partial<Record<MuscleGroup, number>> = {},
+): Record<MuscleGroup, number | null> => {
   const byLift = new Map(scores.map((score) => [score.lift, score.tier]));
   const out = {} as Record<MuscleGroup, number | null>;
   for (const group of Object.keys(MUSCLE_LIFTS) as MuscleGroup[]) {
     const tiers = MUSCLE_LIFTS[group].map((lift) => byLift.get(lift)).filter((tier): tier is number => typeof tier === 'number');
-    out[group] = tiers.length ? Math.floor(tiers.reduce((sum, tier) => sum + tier, 0) / tiers.length) : null;
+    out[group] = tiers.length ? Math.floor(tiers.reduce((sum, tier) => sum + tier, 0) / tiers.length) : (isolation[group] ?? null);
   }
   return out;
+};
+
+/**
+ * Isolation lifts that can rank a muscle on their own: each estimates the
+ * muscle's standard lift (a lateral raise, the overhead press it would go with)
+ * and is graded against that lift's standards. The factors are deliberately
+ * low, since machines and cables vary, so a raise never out-ranks a real press.
+ * Used only when none of the muscle's standard lifts has a rank, and only for
+ * the map: the lifts' own numbers stay what was actually pressed.
+ */
+const ISOLATION_SOURCES: Partial<Record<MuscleGroup, { lift: StandardLift; sources: Record<string, number> }>> = {
+  shoulders: { lift: 'ohp', sources: { 'Lateral Raise': 4, 'Front Raise': 3.5 } },
+  triceps: { lift: 'bench', sources: { 'Tricep Pushdown': 1.8, 'Skull Crushers': 2.2, 'Overhead Tricep Extension': 2 } },
+  hamstrings: { lift: 'deadlift', sources: { 'Leg Curl': 1.8 } },
+  quads: { lift: 'squat', sources: { 'Leg Extension': 1.2 } },
+  glutes: { lift: 'squat', sources: { 'Hip Thrust': 0.6 } },
+};
+
+/** Each muscle's rank from its isolation lifts alone (see ISOLATION_SOURCES), for muscleRanks. */
+export const isolationRanks = (
+  events: readonly HealthEvent[],
+  profile: Pick<BodyProfile, 'sex' | 'weightKg'>,
+): Partial<Record<MuscleGroup, number>> => {
+  const out: Partial<Record<MuscleGroup, number>> = {};
+  const bodyweight = Math.max(30, profile.weightKg);
+  for (const [group, { lift, sources }] of Object.entries(ISOLATION_SOURCES) as [MuscleGroup, { lift: StandardLift; sources: Record<string, number> }][]) {
+    let bestKg = 0;
+    for (const event of events) {
+      if (event.type !== 'WORKOUT') continue;
+      for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
+        const factor = sources[exercise.name];
+        if (!factor) continue;
+        for (const set of exercise.sets) {
+          if (!set.completed || !set.weight || set.weight <= 0 || set.reps <= 0 || !plausibleSet(set)) continue;
+          bestKg = Math.max(bestKg, estimatedOneRepMax(convertWeightValue(set.weight, set.unit ?? 'kg', 'kg'), set.reps) * factor);
+        }
+      }
+    }
+    let tier: number | null = null;
+    standardsFor(lift, profile.sex).forEach((threshold, index) => {
+      if (bestKg / bodyweight >= threshold) tier = index;
+    });
+    if (tier !== null) out[group] = tier;
+  }
+  return out;
+};
+
+/** Where a library group's exercises land on the map, unless the exercise is listed in TRAINS below. */
+const GROUP_TRAINS: Record<string, readonly MuscleGroup[]> = {
+  chest: ['chest'],
+  back: ['upperBack'],
+  shoulders: ['shoulders'],
+  biceps: ['biceps'],
+  triceps: ['triceps'],
+  legs: ['quads', 'glutes', 'hamstrings'],
+};
+
+/** The exercises that train something other than their group's default. */
+const TRAINS: Record<string, readonly MuscleGroup[]> = {
+  Deadlift: ['lowerBack', 'glutes', 'hamstrings'],
+  'Romanian Deadlift': ['hamstrings', 'glutes', 'lowerBack'],
+  'Sumo Deadlift': ['glutes', 'hamstrings', 'quads'],
+  'Hip Thrust': ['glutes'],
+  'Leg Curl': ['hamstrings'],
+  'Leg Extension': ['quads'],
+  'Calf Raise': [],
+  'Face Pull': ['shoulders', 'upperBack'],
+  'Rear Delt Fly': ['shoulders', 'upperBack'],
+  Shrugs: ['upperBack'],
+  'Close-Grip Bench Press': ['triceps', 'chest'],
+  Dips: ['chest', 'triceps'],
+};
+
+/**
+ * Every muscle group a logged exercise has worked, ranked or not. A lateral
+ * raise or a chest fly has no strength standard to rank against, but the
+ * shoulders and chest were trained all the same, and the map says so (in a
+ * plain "trained" tint) rather than leaving them grey as if never worked.
+ */
+export const trainedMuscles = (events: readonly HealthEvent[]): Set<MuscleGroup> => {
+  const trained = new Set<MuscleGroup>();
+  for (const event of events) {
+    if (event.type !== 'WORKOUT') continue;
+    for (const exercise of (event.metadata as WorkoutMetadata).exercises ?? []) {
+      if (!exercise.sets?.some((set) => set.reps > 0)) continue;
+      for (const group of TRAINS[exercise.name] ?? GROUP_TRAINS[exercise.muscleGroup] ?? []) trained.add(group);
+    }
+  }
+  return trained;
 };
 
 /** Exercises that are a standard lift as written (not a variation scaled to one). */

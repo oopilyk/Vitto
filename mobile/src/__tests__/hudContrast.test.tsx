@@ -54,16 +54,3 @@ describe('HUD readout contrast', () => {
   });
 });
 
-describe('HUD effect chips', () => {
-  const { capEffectChips, MAX_EFFECT_CHIPS } = require('../petWorld/PetWorldHud');
-
-  it('shows at most five, folding the rest into +N', () => {
-    expect(capEffectChips(['PROTEIN', 'GREENS'])).toEqual({ shown: ['PROTEIN', 'GREENS'], hidden: 0 });
-    const five = ['A', 'B', 'C', 'D', 'E'];
-    expect(capEffectChips(five)).toEqual({ shown: five, hidden: 0 });
-    const seven = capEffectChips([...five, 'F', 'G']);
-    // Four chips and the "+3": still five slots.
-    expect(seven).toEqual({ shown: ['A', 'B', 'C', 'D'], hidden: 3 });
-    expect(seven.shown.length + 1).toBe(MAX_EFFECT_CHIPS);
-  });
-});

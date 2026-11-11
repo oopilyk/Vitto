@@ -31,6 +31,8 @@ interface Props {
 
 const LIFTS = Object.keys(STANDARD_LIFT_LABEL) as StandardLift[];
 const isStandard = (choice: string): choice is StandardLift => (LIFTS as string[]).includes(choice);
+/** The lifts everyone knows, which lead the tabs whatever was logged. */
+const BIG_LIFTS: string[] = ['bench', 'squat', 'deadlift', 'ohp'];
 const CHART_HEIGHT = 220;
 const PAD = { top: 16, right: 12, bottom: 28, left: 40 };
 /** Sessions listed under the chart before the rest are left to the graph. */
@@ -63,7 +65,17 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
       ]) as Record<string, ReturnType<typeof liftHistory>>,
     [events, others],
   );
-  const [lift, setLift] = useState<string>(() => LIFTS.find((option) => histories[option]!.length > 0) ?? 'bench');
+  // The tabs: the big four first, always in the same order, then every other
+  // lift (Row and Curl among them) by how often it is done, most first.
+  const order = useMemo(() => {
+    const rest = [...LIFTS.filter((option) => !BIG_LIFTS.includes(option)), ...others].filter(
+      (option) => histories[option]!.length > 0,
+    );
+    rest.sort((a, b) => histories[b]!.length - histories[a]!.length);
+    const unlogged = LIFTS.filter((option) => !BIG_LIFTS.includes(option) && histories[option]!.length === 0);
+    return [...BIG_LIFTS, ...rest, ...unlogged];
+  }, [histories, others]);
+  const [lift, setLift] = useState<string>(() => order.find((option) => histories[option]!.length > 0) ?? 'bench');
   const ranked = isStandard(lift);
   const label = ranked ? STANDARD_LIFT_LABEL[lift] : lift;
   const [width, setWidth] = useState(0);
@@ -111,10 +123,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
       <View style={styles.picker}>
         <ChipGroup
           scroll
-          options={[
-            ...LIFTS.map((option) => ({ value: option as string, label: STANDARD_LIFT_LABEL[option] })),
-            ...others.map((name) => ({ value: name, label: name })),
-          ]}
+          options={order.map((option) => ({ value: option, label: isStandard(option) ? STANDARD_LIFT_LABEL[option] : option }))}
           value={lift}
           onChange={setLift}
         />

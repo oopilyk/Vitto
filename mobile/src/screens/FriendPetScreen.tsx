@@ -440,8 +440,9 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
 
 const styles = themedStyles(() => ({
   reactions: { position: 'absolute', left: 12, right: 12, bottom: 36, alignItems: 'center', gap: 8 },
-  reactionRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
-  reaction: { minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  // A 2×2 grid of equal buttons, so none is left alone on a row.
+  reactionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', maxWidth: 340 },
+  reaction: { flexBasis: '45%', flexGrow: 1, minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   reactionSending: { opacity: 0.6 },
   reactionLabel: { fontFamily: fonts.ui, fontSize: 14, fontWeight: '600', color: world.ink },
   reactionNote: { textAlign: 'center' },

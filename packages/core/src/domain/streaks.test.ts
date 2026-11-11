@@ -5,6 +5,7 @@ import {
   calculateStreaks,
   createsNewStreakDay,
   isQualifyingStreakEvent,
+  setDevFreezeGrant,
 } from './streaks';
 import type { BrainTrainingMetadata, HealthEvent, HealthEventType, SleepMetadata } from './health';
 
@@ -228,5 +229,52 @@ describe('streaks across a clock change', () => {
   it('keeps the longest run going through the 25-hour day', () => {
     const events = ['2026-10-31T09:00:00', '2026-11-01T09:00:00', '2026-11-02T09:00:00', '2026-11-03T09:00:00'].map(makeEvent);
     expect(calculateStreaks(events, new Date(2026, 10, 3)).longestStreak).toBe(4);
+  });
+});
+
+describe('streak freezes', () => {
+  // Noon local time, so no time zone puts a day on the wrong side of midnight.
+  const on = (day: number) => makeEvent(new Date(2026, 9, day, 12).toISOString());
+  const days = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => on(from + i));
+
+  it('earns a freeze every 7 days in a row, up to 2', () => {
+    expect(calculateQualifyingStreaks(days(1, 6), new Date(2026, 9, 6, 20)).freezes).toBe(0);
+    expect(calculateQualifyingStreaks(days(1, 7), new Date(2026, 9, 7, 20)).freezes).toBe(1);
+    expect(calculateQualifyingStreaks(days(1, 21), new Date(2026, 9, 21, 20)).freezes).toBe(2);
+  });
+
+  it('spends a freeze on a missed day, keeping the streak without counting the day', () => {
+    const summary = calculateQualifyingStreaks([...days(1, 7), ...days(9, 10)], new Date(2026, 9, 10, 20));
+    expect(summary.currentStreak).toBe(9);
+    expect(summary.freezes).toBe(0);
+    expect([...summary.frozenDateKeys]).toEqual(['2026-10-08']);
+  });
+
+  it('breaks the streak when a day is missed with no freeze left', () => {
+    const summary = calculateQualifyingStreaks([...days(1, 7), ...days(10, 11)], new Date(2026, 9, 11, 20));
+    expect(summary.currentStreak).toBe(2);
+    expect(summary.longestStreak).toBe(7);
+  });
+
+  it('does not spend a freeze on today, which is still open', () => {
+    const summary = calculateQualifyingStreaks(days(1, 7), new Date(2026, 9, 8, 9));
+    expect(summary.currentStreak).toBe(7);
+    expect(summary.freezes).toBe(1);
+    expect(summary.frozenDateKeys.size).toBe(0);
+  });
+});
+
+describe('dev freeze grant', () => {
+  const on = (day: number) => makeEvent(new Date(2026, 9, day, 12).toISOString());
+  afterAll(() => setDevFreezeGrant(null));
+
+  it('adds freezes from its day, which a later missed day then spends', () => {
+    setDevFreezeGrant({ count: 2, from: new Date(2026, 9, 1) });
+    const summary = calculateQualifyingStreaks([on(1), on(2), on(4)], new Date(2026, 9, 4, 20));
+    expect(summary.currentStreak).toBe(3);
+    expect(summary.freezes).toBe(1);
+    expect([...summary.frozenDateKeys]).toEqual(['2026-10-03']);
+    setDevFreezeGrant(null);
+    expect(calculateQualifyingStreaks([on(1), on(2), on(4)], new Date(2026, 9, 4, 20)).currentStreak).toBe(1);
   });
 });

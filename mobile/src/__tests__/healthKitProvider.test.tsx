@@ -42,4 +42,19 @@ describe('HealthKitProvider: steps keep syncing', () => {
     expect(mockRequest).toHaveBeenCalledTimes(1);
     expect(event.metadata.steps).toBe(6400);
   });
+
+  it("reads each past day whole, midnight to midnight, as that day's final count", async () => {
+    mockStatus.mockResolvedValue(2);
+    const provider = new HealthKitProvider();
+    await provider.restoreAuthorization();
+    const days = await provider.getPastDaysSteps('user-1', 3);
+    expect(days).toHaveLength(3);
+    expect(days.every((day) => day.metadata.steps === 6400 && day.source === 'healthkit')).toBe(true);
+    const now = new Date();
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    expect(days[0]!.occurredAt).toBe(yesterday.toISOString());
+    const stepQuery = mockStats.mock.calls.find((call) => call[0] === 'HKQuantityTypeIdentifierStepCount')!;
+    const { startDate, endDate } = (stepQuery[2] as { filter: { date: { startDate: Date; endDate: Date } } }).filter.date;
+    expect(endDate.getTime() - startDate.getTime()).toBeGreaterThanOrEqual(23 * 3_600_000);
+  });
 });

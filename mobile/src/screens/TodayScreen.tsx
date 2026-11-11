@@ -21,6 +21,7 @@ import {
   type ForcedPetForm,
   type ForcedPetStatus,
   type HealthEvent,
+  type MealMetadata,
   type PetState,
   buildDailyRecap,
   calculateInsights,
@@ -44,17 +45,26 @@ import {
   MEAL_SLOTS,
   MEAL_SLOT_LABEL,
   mealSlotOf,
+  caloriesMet,
 } from '@vitto/core';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
 import { NutrientRing } from '../components/NutrientRing';
 import { ChoiceRow, PressableScale, TextButton, DoneTextInput, Mark } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
-import { askEditOrDelete } from './ActivityHistoryScreen';
+import { askEditOrDelete, changeable, describeRow, historyRows } from './ActivityHistoryScreen';
 import { surface } from '../components/surfaceStyle';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { colors, fonts, getColorScheme, layout, world, themedStyles } from '../theme';
 import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
+
+/** "Dinner · 330 kcal · Spicy tuna nigiri…": the slot and calories first, so truncation only cuts the name. */
+const mealLogName = (event: HealthEvent): string => {
+  const meal = event as HealthEvent<MealMetadata>;
+  const analysis = meal.metadata.analysis;
+  const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
+  return `${MEAL_SLOT_LABEL[mealSlotOf(meal)]} · ${Math.round(calorieEstimate(analysis?.macros))} kcal · ${name}`;
+};
 
 /**
  * Today: a daily game recap, not an event log and not a nutrition dashboard. It
@@ -124,6 +134,9 @@ interface Props {
   onSyncSteps?: () => Promise<string>;
   forcedTrophies?: ForcedTrophies | null;
   onForceTrophies?: (state: ForcedTrophies | null) => void;
+  /** Dev: streak freezes granted for testing, or null for only the earned ones. */
+  forcedFreezes?: number | null;
+  onForceFreezes?: (count: number | null) => void;
   /** Forgets which achievement unlocks have been shown, so every earned one pops again. */
   onReplayAchievements?: () => void;
   /** DEV: the companion's prompt, memories and triggers. Needs an account. */
@@ -141,6 +154,12 @@ export type ForcedTrophies = 'none' | TrophyId | 'all';
 type DevTrophyChoice = 'live' | ForcedTrophies;
 type DevAilmentChoice = ForcedPetStatus | 'live';
 type DevFormChoice = ForcedPetForm | 'live';
+
+const DEV_FREEZE_OPTIONS: { value: string; label: string; detail?: string }[] = [
+  { value: 'live', label: 'Live', detail: 'earned only' },
+  { value: '1', label: '+1' },
+  { value: '2', label: '+2' },
+];
 
 const DEV_TROPHY_OPTIONS: { value: DevTrophyChoice; label: string; detail?: string }[] = [
   { value: 'live', label: 'Live', detail: 'earned from history' },
@@ -220,6 +239,8 @@ export function TodayScreen({
   onConnectHealth,
   onSyncSteps,
   forcedTrophies,
+  forcedFreezes,
+  onForceFreezes,
   onForceTrophies,
   onReplayAchievements,
   onOpenCompanionDebug,
@@ -283,6 +304,14 @@ export function TodayScreen({
   }, [events, profile.weightUnit]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
   const topInsight = useMemo(() => calculateInsights(events, today)[0] ?? null, [events, todayKey]);
+  // Today's own logs, newest first, each one tappable to change or take back.
+  // Steps aren't among them: every sync logs the count so far, so the day's
+  // steps are one line of their own, the recap's total.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
+  const todayLogs = useMemo(() => {
+    const day = getEventsForDay(events, today).sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
+    return historyRows(day.filter((event) => event.type !== 'STEP_ACTIVITY'));
+  }, [events, todayKey]);
   const screenTimeToday = findScreenTimeForDate(events, today);
   const wordPuzzleToday = findWordPuzzleEventForDate(events, todayKey);
 
@@ -386,7 +415,7 @@ export function TodayScreen({
             night={night}
             kicker="FOOD"
             more={onOpenFoodTrends ? { label: 'Trends & averages', onPress: onOpenFoodTrends } : undefined}
-            done={food.caloriePercent >= 90 && food.caloriePercent <= 110}
+            done={food.mealCount > 0 && caloriesMet(food.targets.calories, food.consumed.calories, burned)}
             xp={recap.xpByPillar.food}
             headline={
               food.mealCount > 0
@@ -668,7 +697,7 @@ export function TodayScreen({
             testID="today-week"
           >
             <View style={{ flex: 1 }}>
-              <Text style={[styles.activityTitle, { color: c.ink }]}>Your week</Text>
+              <Text style={[styles.weightRowTitle, { color: c.ink }]}>Your week</Text>
               <Text style={[styles.activityEmpty, { color: c.soft }]}>Training, food, steps and XP over the last seven days.</Text>
             </View>
             <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text>
@@ -685,7 +714,7 @@ export function TodayScreen({
             testID="today-weight"
           >
             <View style={{ flex: 1 }}>
-              <Text style={[styles.activityTitle, { color: c.ink }]}>Weight</Text>
+              <Text style={[styles.weightRowTitle, { color: c.ink }]}>Weight</Text>
               <Text style={[styles.activityEmpty, { color: c.soft }]}>{weightLine ?? 'Log a weigh-in to start your trend.'}</Text>
             </View>
             <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text>
@@ -695,18 +724,51 @@ export function TodayScreen({
         {/* --- Today's activity: aggregated, meaningful only --- */}
         <View style={[surface.panelQuiet, night && surface.panelQuietNight, styles.activity]}>
           <Text style={[styles.activityTitle, { color: c.ink }]}>Today's activity</Text>
-          {recap.activity.length === 0 ? (
+          {recap.outdoors.steps > 0 ? (
+            <View style={styles.activityRow}>
+              <Mark kind="check" size={11} weight={2.2} color={world.positive} />
+              <Text style={[styles.activityLabel, { color: c.ink }]}>{`Walked ${recap.outdoors.steps.toLocaleString()} steps`}</Text>
+            </View>
+          ) : null}
+          {todayLogs.length === 0 && recap.outdoors.steps === 0 ? (
             <Text style={[styles.activityEmpty, { color: c.soft }]}>
               Nothing yet today. Every workout, walk, meal and puzzle counts.
             </Text>
           ) : (
-            recap.activity.map((item) => (
-              <View key={item.id} style={styles.activityRow}>
-                <Mark kind="check" size={11} weight={2.2} color={world.positive} />
-                <Text style={[styles.activityLabel, { color: c.ink }]}>{item.label}</Text>
-              </View>
-            ))
+            todayLogs.map(({ key, events: group }) => {
+              const event = group[0]!;
+              const tappable = Boolean(onEditLog || onDeleteLog) && changeable(event);
+              const row = (
+                <View style={styles.activityRow}>
+                  <Mark kind="check" size={11} weight={2.2} color={world.positive} />
+                  <Text style={[styles.activityLabel, { color: c.ink }]} numberOfLines={1}>
+                    {event.type === 'MEAL' ? mealLogName(event) : describeRow(group, measurementSystemOf(profile))}
+                  </Text>
+                  <Text style={[styles.activityTime, { color: c.soft }]}>
+                    {new Date(event.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                  </Text>
+                  {tappable ? <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text> : null}
+                </View>
+              );
+              return tappable ? (
+                <Pressable
+                  key={key}
+                  accessibilityRole="button"
+                  accessibilityHint="Edit or delete"
+                  onPress={() => askEditOrDelete(event, { onEdit: onEditLog, onDelete: onDeleteLog })}
+                  style={({ pressed }) => pressed && { opacity: 0.6 }}
+                  testID="today-log"
+                >
+                  {row}
+                </Pressable>
+              ) : (
+                <View key={key}>{row}</View>
+              );
+            })
           )}
+          {todayLogs.some(({ events: group }) => changeable(group[0]!)) && (onEditLog || onDeleteLog) ? (
+            <Text style={[styles.activityHint, { color: c.soft }]}>Tap a log to change or remove it.</Text>
+          ) : null}
           <Pressable onPress={onOpenProfile} hitSlop={6}>
             <Text style={[styles.activityMore, { color: world.accent }]}>Full history →</Text>
           </Pressable>
@@ -821,6 +883,19 @@ export function TodayScreen({
                 <TextButton label="Replay achievement unlocks" onPress={onReplayAchievements} />
               </View>
             ) : null}
+          </DevPanel>
+        ) : null}
+        {onForceFreezes ? (
+          <DevPanel
+            c={c}
+            title="Dev · streak freezes"
+            hint="Adds freezes as if earned a week ago, so a day missed this week shows one used. Nothing here is saved."
+          >
+            <ChoiceRow
+              options={DEV_FREEZE_OPTIONS}
+              value={forcedFreezes ? String(forcedFreezes) : 'live'}
+              onChange={(next) => onForceFreezes(next === 'live' ? null : Number(next))}
+            />
           </DevPanel>
         ) : null}
         {onSeedTestData ? (
@@ -950,7 +1025,12 @@ function Pillar({
         <View style={{ flex: 1 }}>
           <View style={styles.pillarKickerRow}>
             <Text style={[styles.pillarKicker, { color: c.soft }]}>{kicker}</Text>
-            {done ? <Mark kind="check" size={11} weight={2.2} color={world.positive} /> : null}
+            {done ? (
+              <View style={[styles.doneBadge, { borderColor: world.positive }]} accessibilityLabel="Done for today">
+                <Mark kind="check" size={10} weight={2.4} color={world.positive} />
+                <Text style={[styles.doneBadgeText, { color: world.positive }]}>Done</Text>
+              </View>
+            ) : null}
           </View>
           <Text style={[styles.pillarHeadline, { color: c.ink }]}>{headline}</Text>
         </View>
@@ -1227,6 +1307,8 @@ const styles = themedStyles(() => ({
   pillarKickerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pillarKicker: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0, },
   pillarDone: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, },
+  doneBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  doneBadgeText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 11 },
   pillarHeadline: {
     fontFamily: fonts.ui, fontWeight: '600',
     fontSize: 17,
@@ -1237,7 +1319,14 @@ const styles = themedStyles(() => ({
   pillarDetail: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18 },
   foodSlotHead: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 2 },
   foodSlotTitle: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.6 },
-  weightRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  weightRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  weightRowTitle: {
+    fontFamily: fonts.ui, fontWeight: '600',
+    fontSize: 12,
+    letterSpacing: 0.6,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
   more: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1326,6 +1415,8 @@ const styles = themedStyles(() => ({
   activityRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   activityCheck: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, },
   activityLabel: { fontFamily: fonts.ui, fontSize: 13, flex: 1 },
+  activityTime: { fontFamily: fonts.ui, fontSize: 12 },
+  activityHint: { fontFamily: fonts.ui, fontSize: 12, marginTop: 8 },
   activityMore: { fontFamily: fonts.ui, fontSize: 12, marginTop: 10 },
 
   softPanel: { padding: 16, gap: 6 },

@@ -394,9 +394,10 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
           <View style={styles.facts}>
             <Fact label="day streak" value={String(streaks.currentStreak)} />
             <Fact label="longest run" value={String(streaks.longestStreak)} />
+            <Fact label="streak freezes" value={String(streaks.freezes)} />
             <Fact label="care moments" value={String(events.filter(isCareMoment).length)} />
           </View>
-          <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} />
+          <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} frozenDateKeys={streaks.frozenDateKeys} />
         </Card>
 
         <Card title="Care breakdown" hint="What you have logged recently.">

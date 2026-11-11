@@ -46,6 +46,37 @@ struct WidgetSnapshot: Codable {
   var waterGoalMl: Double?
   var cupMl: Double?
   var imperial: Bool?
+  /// The main screen's chips ("2,528 kcal left", "Workout due"), for the
+  /// Lock Screen widget. Optional: older snapshots lack them.
+  var goals: [WidgetGoal]?
+  /// Burned today; adds to what is left to eat. Optional, like goals.
+  var caloriesBurned: Double?
+}
+
+struct WidgetGoal: Codable {
+  var label: String
+  var done: Bool
+}
+
+extension WidgetSnapshot {
+  /// Past the coming need's moment, the pet is that by now.
+  func currentMood(at date: Date) -> String {
+    if let when = nextNeedAt, let need = nextNeed, date.timeIntervalSince1970 >= when { return need }
+    return mood
+  }
+
+  func moodWord(at date: Date) -> String {
+    switch currentMood(at: date) {
+    case "bright": return "happy"
+    case "content": return "fine"
+    case let other: return other
+    }
+  }
+
+  /// Today's chips, or none once the day they were worked out for is over.
+  func goals(at date: Date) -> [WidgetGoal] {
+    date.timeIntervalSince1970 < dayEndsAt ? (goals ?? []) : []
+  }
 }
 
 enum WidgetStore {
@@ -175,22 +206,8 @@ struct PetFace: View {
   let at: Date
   let sprite: CGFloat
 
-  /// Past the coming need's moment, the pet is that by now.
-  private var need: String? {
-    guard let when = snapshot.nextNeedAt, let need = snapshot.nextNeed,
-          at.timeIntervalSince1970 >= when else { return nil }
-    return need
-  }
-
-  private var mood: String { need ?? snapshot.mood }
-
-  private var word: String {
-    switch mood {
-    case "bright": return "happy"
-    case "content": return "fine"
-    default: return mood
-    }
-  }
+  private var mood: String { snapshot.currentMood(at: at) }
+  private var word: String { snapshot.moodWord(at: at) }
 
   var body: some View {
     VStack(spacing: 4) {

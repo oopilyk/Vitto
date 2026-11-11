@@ -16,6 +16,7 @@ struct PetIslandBundle: WidgetBundle {
   var body: some Widget {
     PetActivity()
     PetWidget()
+    PetLockWidget()
   }
 }
 

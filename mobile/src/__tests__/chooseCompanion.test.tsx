@@ -66,6 +66,27 @@ describe('ChooseCompanionScreen', () => {
     tree.unmount();
   });
 
+  it('stays open after a purchase and says so once the pet is the new animal', () => {
+    let closed = 0;
+    let tree!: renderer.ReactTestRenderer;
+    const screen = (breed: PetBreed, coins: number) => (
+      <ChooseCompanionScreen breed={breed} coins={coins} cost={500} onChoose={() => {}} onClose={() => (closed += 1)} />
+    );
+    act(() => {
+      tree = renderer.create(screen('bichon', 620));
+    });
+    act(() => tile(tree, 'shiba').props.onPress());
+    act(() => button(tree, 'Switch · 500 coins')!.props.onPress());
+    // Nothing claimed until the parent has actually switched it.
+    expect(tree.root.findAll((n) => n.props.testID === 'breed-switched')).toHaveLength(0);
+    act(() => tree.update(screen('shiba', 120)));
+    expect(texts(tree).some((t) => t.startsWith('You got the Shiba!'))).toBe(true);
+    // The balance stays in the bar, now the new one.
+    expect(tree.root.findAll((n) => n.props.accessibilityLabel === '120 coins').length).toBeGreaterThan(0);
+    expect(closed).toBe(0);
+    tree.unmount();
+  });
+
   it('switches on the tap when switching is free', () => {
     const chosen: string[] = [];
     const tree = render(0, 0, chosen);

@@ -9,6 +9,8 @@ import {
   type TrophyId,
   BIG_LIFTS,
   calculateQualifyingStreaks,
+  FREEZE_EVERY_DAYS,
+  MAX_FREEZES,
   convertWeightValue,
   formatPace,
   getActiveDateKeys,
@@ -301,9 +303,14 @@ export function ProfileScreen({
             <Text style={styles.calendarStreak}>
               {streaks.currentStreak === 1 ? '1 day in a row' : `${streaks.currentStreak} days in a row`}
             </Text>
-            <Text style={styles.calendarLongest}>{`longest ${streaks.longestStreak}`}</Text>
+            <Text style={styles.calendarLongest}>
+              {`longest ${streaks.longestStreak}` + (streaks.freezes > 0 ? ` · ❄︎ ${streaks.freezes} ${streaks.freezes === 1 ? 'freeze' : 'freezes'}` : '')}
+            </Text>
           </View>
-          <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} />
+          <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} frozenDateKeys={streaks.frozenDateKeys} />
+          <Text style={styles.calendarLongest}>
+            {`Every ${FREEZE_EVERY_DAYS} days in a row earns a streak freeze (hold up to ${MAX_FREEZES}). A missed day uses one instead of ending your streak.`}
+          </Text>
         </Card>
 
         <Card

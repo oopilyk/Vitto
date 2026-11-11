@@ -116,7 +116,8 @@ describe('the character editor keeps notes and explains the choice', () => {
     expect(saved).toHaveLength(1);
     // The app hands back the saved pet; once it matches, the save shows as done.
     act(() => tree.update(<CharacterEditor pet={{ name: 'Miso', personality: 'savage', dials: (saved[0] as { dials: never }).dials }} age={30} onSave={onSave} />));
-    expect(tree.root.findAll((n) => n.props.testID === 'character-saved').length).toBeGreaterThan(0);
+    const saveButton = tree.root.findAll((n) => n.props.testID === 'save-character')[0]!;
+    expect(saveButton.findAllByType(Text).some((t) => t.props.children === '✓ Saved')).toBe(true);
     const current = tree.root.findAll((n) => n.props.testID === 'current-character')[0]!;
     expect(current.findAllByType(Text).some((t) => t.props.children === 'Miso is Savage')).toBe(true);
     expect(current.findAllByType(Text).some((t) => t.props.children === '✓ Live now')).toBe(true);
@@ -133,7 +134,8 @@ describe('the character editor keeps notes and explains the choice', () => {
       tree.root.findAll((n) => n.props.testID === 'save-character' && typeof n.props.onPress === 'function')[0]!.props.onPress();
     });
     expect(tree.root.findAll((n) => n.props.testID === 'character-save-failed').length).toBeGreaterThan(0);
-    expect(tree.root.findAll((n) => n.props.testID === 'character-saved')).toHaveLength(0);
+    const saveButton = tree.root.findAll((n) => n.props.testID === 'save-character')[0]!;
+    expect(saveButton.findAllByType(Text).some((t) => t.props.children === '✓ Saved')).toBe(false);
     tree.unmount();
   });
 });

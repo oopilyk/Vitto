@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { WATER_CUP_ML, buildDailyRecap, measurementSystemOf, type BodyProfile, type HealthEvent, type PetState } from '@vitto/core';
+import { WATER_CUP_ML, buildDailyRecap, dayGoals, estimateCaloriesBurned, getEventsForDay, measurementSystemOf, type BodyProfile, type HealthEvent, type PetState } from '@vitto/core';
 import { takePendingWater } from '../../modules/pet-island';
 import { setWidgetSnapshot } from '../../modules/pet-island';
 import { buildIslandState } from './petIsland';
@@ -35,6 +35,10 @@ export interface WidgetSnapshot {
   cupMl: number;
   /** fl oz rather than mL on the widget. */
   imperial: boolean;
+  /** Burned today, which adds to what is left to eat (as on Today's Food card). */
+  caloriesBurned: number;
+  /** The main screen's "kcal left / Workout due / steps left" chips, for the Lock Screen widget. */
+  goals: { label: string; done: boolean }[];
 }
 
 const seconds = (ms: number) => Math.round(ms / 1000);
@@ -65,6 +69,8 @@ export const buildWidgetSnapshot = (
     waterGoalMl: recap.food.waterGoalMl,
     cupMl: WATER_CUP_ML,
     imperial: measurementSystemOf(input.profile) === 'imperial',
+    caloriesBurned: Math.round(estimateCaloriesBurned(getEventsForDay(input.events, now))),
+    goals: dayGoals(recap, { ...input, day: now }).map(({ label, done }) => ({ label, done })),
   };
 };
 

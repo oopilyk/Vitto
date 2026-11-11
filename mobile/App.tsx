@@ -13,7 +13,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, loggedFoodNames, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, dayGoals,CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, loggedFoodNames, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, setDevFreezeGrant, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -122,6 +122,8 @@ const HEALTH_CONNECTED_KEY = 'vitto.appleHealthConnected';
 const STEP_AUTO_SYNC_MS = 5 * 60 * 1000;
 /** How long one step read may take before it is abandoned (see syncSteps). */
 const STEP_SYNC_TIMEOUT_MS = 20_000;
+/** How many days before today get their step count put right (see correctPastSteps). */
+const PAST_STEP_DAYS = 7;
 
 /** The age sign-up stored (see checkBirthYear), if it is a sane one. */
 const signUpAge = (value: unknown): number | undefined =>
@@ -348,6 +350,13 @@ function VittoApp() {
   const [forcedForm, setForcedForm] = useState<ForcedPetForm | null>(null);
   // Dev-only: put trophies on the shelf without the month of logging.
   const [forcedTrophies, setForcedTrophies] = useState<ForcedTrophies | null>(null);
+  // Dev-only: streak freezes to test with, granted as of a week ago so a day
+  // missed this week shows one spent. Never saved (see setDevFreezeGrant).
+  const [forcedFreezes, setForcedFreezes] = useState<number | null>(null);
+  const forceFreezes = useCallback((count: number | null) => {
+    setDevFreezeGrant(count ? { count, from: new Date(Date.now() - 7 * 86_400_000) } : null);
+    setForcedFreezes(count);
+  }, []);
 
   /**
    * Personal reminders ("take creatine at 8am"). Device-local: the list lives
@@ -472,7 +481,8 @@ function VittoApp() {
   /** Each exercise's sets from last time, for the workout screen's Previous column. */
   const lastSets = useMemo(() => lastSetsByExercise(events), [events]);
   /** Meals to log again in a tap, at the top of the meal sheet. */
-  const mealsToRepeat = useMemo(() => repeatableMeals(events), [events]);
+  // More than the screen lists: it leads with the meal being logged (forSlot), then trims.
+  const mealsToRepeat = useMemo(() => repeatableMeals(events, new Date(), 20), [events]);
   const knownFoods = useMemo(() => loggedFoodNames(events), [events]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   // The unit they lift in, which can differ from their profile's (see liftingUnit).
@@ -682,6 +692,8 @@ function VittoApp() {
   });
   const [isAppleHealthConnected, setIsAppleHealthConnected] = useState(false);
   const stepSyncInFlight = useRef(false);
+  /** The day the week before it was last put right from Apple Health (see correctPastSteps). */
+  const pastStepsCorrectedOn = useRef<string | null>(null);
   const [isSyncingAppleHealth, setIsSyncingAppleHealth] = useState(false);
   // Android only: whether Settings → Usage access has been granted. Re-read on
   // every return to the foreground, since granting it happens in Settings.
@@ -1825,8 +1837,7 @@ function VittoApp() {
 
   /**
    * "Copy yesterday's breakfast": each of those meals again, now, in the slot,
-   * as logs of their own. The pet reacts once, to the last. One Undo takes
-   * them all back.
+   * as logs of their own. The pet reacts once, to the last.
    */
   const copyMeals = async (meals: readonly HealthEvent<MealMetadata>[], slot: MealSlot) => {
     const copies = meals.map((meal) => {
@@ -1839,13 +1850,6 @@ function VittoApp() {
       // eslint-disable-next-line no-await-in-loop -- in order: each meal's XP depends on the ones before it
       await recordEvent(copy, { quiet: index < copies.length - 1 });
     }
-    offerUndo(`${MEAL_SLOT_LABEL[slot]} copied`, async () => {
-      for (const copy of copies) {
-        const logged = eventLogRef.current.find((candidate) => candidate.id === copy.id);
-        // eslint-disable-next-line no-await-in-loop
-        if (logged) await writeEvent(markRemoved(logged));
-      }
-    });
   };
 
   /** Opens a log on the screen that changes it. */
@@ -1856,19 +1860,12 @@ function VittoApp() {
     else if (event.type === 'BODY_WEIGHT') navigationRef.navigate('Weight', { editId: event.id });
   };
 
-  /** After a meal or workout is logged, the same few seconds to take it back. */
-  const offerUndoLogged = (id: string, what: string) => {
-    offerUndo(`${what} logged`, async () => {
-      const logged = eventLogRef.current.find((candidate) => candidate.id === id);
-      if (logged) await writeEvent(markRemoved(logged));
-    });
-  };
-
+  // A new log offers no Undo popup: it sat over the pet's reaction and the
+  // level-up. A mistake is taken back from Today's activity (tap the log).
   const completeMeal = async (metadata: MealMetadata) => {
     playMealSound();
     const event = makeEvent<MealMetadata>(userId, 'MEAL', metadata);
     await recordEvent(event);
-    offerUndoLogged(event.id, 'Meal');
   };
 
   // No "working out" scene first: it has no pose of its own and borrowed the
@@ -1877,7 +1874,6 @@ function VittoApp() {
   const completeWorkout = async (metadata: WorkoutMetadata) => {
     const event = makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata);
     await recordEvent(event);
-    offerUndoLogged(event.id, 'Workout');
   };
 
   /**
@@ -2006,6 +2002,48 @@ function VittoApp() {
    */
   type StepSyncResult = { status: 'synced'; steps: number } | { status: 'busy' } | { status: 'off' } | { status: 'failed'; message: string };
 
+  /**
+   * Puts the last week's step counts right, from Apple Health's final total for
+   * each day. Steps are only read while Vitto is open, so a day last synced at
+   * 9am had kept its 9am count in every trend, average and streak since. The
+   * day's row is corrected in place (or made, for a day never synced); no XP,
+   * since that day is over and was settled when it was lived.
+   */
+  const correctPastSteps = async () => {
+    if (!stepsProvider.getPastDaysSteps) return;
+    const days = await stepsProvider.getPastDaysSteps(userId, PAST_STEP_DAYS);
+    const known = liveEvents(eventLogRef.current);
+    for (const day of days) {
+      const steps = day.metadata.steps ?? 0;
+      const existing = known
+        .filter((candidate) => candidate.type === 'STEP_ACTIVITY' && candidate.source === 'healthkit' && isSameDay(candidate.occurredAt, new Date(day.occurredAt)) && (candidate.userId === undefined || candidate.userId === userId))
+        .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))[0];
+      if (existing) {
+        const had = (existing.metadata as StepMetadata).steps ?? 0;
+        if (steps === had) continue;
+        const corrected: HealthEvent<StepMetadata> = {
+          ...(existing as HealthEvent<StepMetadata>),
+          userId,
+          metadata: {
+            ...(existing.metadata as StepMetadata),
+            steps,
+            ...(typeof day.metadata.caloriesBurned === 'number' ? { caloriesBurned: day.metadata.caloriesBurned } : {}),
+          },
+        };
+        // eslint-disable-next-line no-await-in-loop -- a handful of days, in order
+        await writeEvent(corrected);
+      } else if (steps > 0) {
+        if (isSupabaseConfigured && session) {
+          // eslint-disable-next-line no-await-in-loop
+          await withTimeout(remoteRepository.saveEvent(day), SAVE_TIMEOUT_MESSAGE);
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await repository.saveEvent(day);
+        setEvents((current) => [day, ...current]);
+      }
+    }
+  };
+
   const syncSteps = async (): Promise<StepSyncResult> => {
     if (!isAppleHealthConnected || !pet) return { status: 'off' };
     if (stepSyncInFlight.current) return { status: 'busy' };
@@ -2095,6 +2133,17 @@ function VittoApp() {
         await recordEvent(event, { quiet: true });
         // The day's first sync can already be past the goal (an evening open).
         if (newSteps >= stepGoal) announceStepGoal(event);
+      }
+      // Once a day, the days before it too: a day whose last sync was in the
+      // morning kept its morning count for good. Best effort, never failing the sync.
+      const todayKey = toDateKey(today);
+      if (pastStepsCorrectedOn.current !== todayKey) {
+        await correctPastSteps().then(
+          () => {
+            pastStepsCorrectedOn.current = todayKey;
+          },
+          (cause) => console.warn('[steps] past days not corrected', cause),
+        );
       }
       return { status: 'synced', steps: newSteps };
     } catch (cause) {
@@ -2355,6 +2404,7 @@ function VittoApp() {
         setForcedAilment(null);
         setForcedForm(null);
         setForcedTrophies(null);
+        forceFreezes(null);
         setUnlockQueue([]);
         setWorkoutTemplates([]);
         // `seenAchievements` and the unlock queue are reset by the scope effect
@@ -2384,10 +2434,12 @@ function VittoApp() {
   // How much of today's goals are done, for the TODAY button on the main
   // screen: the same figure the Today page leads with. Above the early returns
   // for the same reason `trophiesNow` is.
-  const todayProgress = useMemo(
-    () => (pet ? buildDailyRecap({ events, profile, pet, stepGoal, day: now }).dailyProgress : undefined),
-    [events, profile, pet, stepGoal, now],
-  );
+  // With it, what is left of today for the tokens under the pet's line.
+  const { todayProgress, todayGoals } = useMemo(() => {
+    if (!pet) return { todayProgress: undefined, todayGoals: undefined };
+    const recap = buildDailyRecap({ events, profile, pet, stepGoal, day: now });
+    return { todayProgress: recap.dailyProgress, todayGoals: dayGoals(recap, { events, profile, pet, day: now }) };
+  }, [events, profile, pet, stepGoal, now]);
 
   // Everything earned, badges and trophies, in display order. Above the early
   // returns for the same reason `trophiesNow` is.
@@ -2823,6 +2875,7 @@ function VittoApp() {
               onOpenStats={() => navigation.navigate('PetStats')}
               onOpenToday={() => navigation.navigate('Today')}
               todayProgress={todayProgress}
+              todayGoals={todayGoals}
               onOpenFriends={isOnline ? () => navigation.navigate('Friends') : undefined}
               // Sleep has no manual entry: a SLEEP event is only ever created by
               // the HealthKit import. Telling an exhausted pet's owner to "get
@@ -3318,6 +3371,8 @@ function VittoApp() {
               onSyncSteps={Platform.OS === 'ios' && isAppleHealthConnected ? syncStepsNow : undefined}
               forcedTrophies={isDev ? forcedTrophies : undefined}
               onForceTrophies={isDev ? setForcedTrophies : undefined}
+              forcedFreezes={isDev ? forcedFreezes : undefined}
+              onForceFreezes={isDev ? forceFreezes : undefined}
               onReplayAchievements={isDev ? replayAchievements : undefined}
               onOpenCompanionDebug={isDev && isOnline ? () => navigation.navigate('CompanionDebug') : undefined}
               onDevCheckIn={

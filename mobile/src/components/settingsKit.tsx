@@ -1,9 +1,11 @@
 import { Children, Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  type ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -91,6 +93,32 @@ export function SettingsPage({
   children: ReactNode;
 }) {
   const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<ScrollView>(null);
+  const offset = useRef(0);
+  useEffect(() => {
+    const id = scrollY.addListener(({ value }) => {
+      offset.current = value;
+    });
+    return () => scrollY.removeListener(id);
+  }, [scrollY]);
+  // The page shrinks above the keyboard (the KeyboardAvoidingView), but a field
+  // low on a long page stayed where it was, under the keys. Once the keyboard
+  // is up, scroll the focused field to just above it.
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+    const shown = Keyboard.addListener('keyboardDidShow', () => {
+      const field = TextInput.State.currentlyFocusedInput();
+      const page = scrollRef.current;
+      if (!field || !page) return;
+      (page as unknown as View).measureInWindow((_x, pageY, _w, pageHeight) => {
+        field.measureInWindow((_fx, fieldY, _fw, fieldHeight) => {
+          const overlap = fieldY + fieldHeight + 16 - (pageY + pageHeight);
+          if (overlap > 0) page.scrollTo({ y: offset.current + overlap, animated: true });
+        });
+      });
+    });
+    return () => shown.remove();
+  }, []);
   const handedOff = scrollY.interpolate({ inputRange: TITLE_HANDOFF, outputRange: [0, 1], extrapolate: 'clamp' });
   return (
     <KeyboardAvoidingView style={layout.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -118,6 +146,7 @@ export function SettingsPage({
         <Animated.View style={[kit.barRule, { opacity: handedOff }]} />
       </View>
       <Animated.ScrollView
+        ref={scrollRef}
         contentContainerStyle={[kit.scroll, { paddingBottom: (footer ? 120 : 48) + HOME_INDICATOR_INSET }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"

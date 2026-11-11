@@ -26,6 +26,7 @@ import { KM_PER_MILE, checkWorkout, exerciseBest, exerciseSessions, setRecord, t
 import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput, Mark } from '../components/ui';
 import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
 import { TIER_COLOR } from '../components/StrengthMap';
+import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { startRest, stopRest } from '../services/restTimer';
 import { clearWorkoutDraft, loadWorkoutDraft, saveWorkoutDraft } from '../services/workoutDraft';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
@@ -154,6 +155,7 @@ export function WorkoutScreen({
 
   /** The exercise picker overlay. */
   const [picking, setPicking] = useState(startWithCardio);
+  const keyboardHeight = useKeyboardHeight();
   /** The picker as a "what did you do?" list of runs, rides and swims, until something is picked. */
   const [cardioOnly, setCardioOnly] = useState(startWithCardio);
   const [search, setSearch] = useState('');
@@ -1087,7 +1089,8 @@ export function WorkoutScreen({
                 onPress={() => (cardioOnly ? requestClose() : setPicking(false))}
               />
             </View>
-            <View style={styles.pickerBody}>
+            {/* Lifted by the keyboard's height, so Done always sits just above the keys. */}
+            <View style={[styles.pickerBody, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
               {/* A short list needs no search, and no keyboard over it. */}
               {cardioOnly ? null : (
                 <TextInput

@@ -1,7 +1,7 @@
 import { Text } from 'react-native';
 import renderer, { act } from 'react-test-renderer';
 import type { HealthEvent } from '@vitto/core';
-import { StrengthMap, TIER_COLOR } from '../components/StrengthMap';
+import { StrengthMap, TIER_COLOR, TRAINED_COLOR } from '../components/StrengthMap';
 
 const lift = (name: string, weight: number, reps: number) => ({ id: name, name, muscleGroup: 'x', sets: [{ id: `${name}-s`, reps, weight, unit: 'lb', completed: true }] });
 const events = [
@@ -18,6 +18,38 @@ const render = (sex: 'male' | 'female', log: HealthEvent[]) => {
 const texts = (tree: renderer.ReactTestRenderer) => tree.root.findAllByType(Text).map((n) => [n.props.children].flat().join(''));
 
 describe('StrengthMap', () => {
+  it('marks muscles worked by unranked lifts as trained, not grey', () => {
+    const accessory = (name: string, muscleGroup: string) => ({ ...lift(name, 25, 12), muscleGroup });
+    const log = [
+      {
+        id: 'w2', type: 'WORKOUT', source: 'manual', occurredAt: '2026-09-30T12:00:00Z',
+        metadata: { workoutType: 'strength', durationMinutes: 40, exercises: [accessory('Rear Delt Fly', 'shoulders'), accessory('Chest Fly', 'chest')] },
+      },
+    ] as unknown as HealthEvent[];
+    const tree = render('male', log);
+    const tint = (id: string) => tree.root.findAll((n) => n.props.testID === id && n.props.tintColor)[0]?.props.tintColor;
+    expect(tint('muscle-maleFront-shoulders')).toBe(TRAINED_COLOR);
+    expect(tint('muscle-maleFront-chest')).toBe(TRAINED_COLOR);
+    expect(tint('muscle-maleFront-quads')).toBeUndefined();
+    tree.unmount();
+  });
+
+  it('ranks shoulders from lateral raises and hamstrings from leg curls when no press or deadlift is logged', () => {
+    const log = [
+      {
+        id: 'w3', type: 'WORKOUT', source: 'manual', occurredAt: '2026-09-30T12:00:00Z',
+        metadata: { workoutType: 'strength', durationMinutes: 40, exercises: [lift('Lateral Raise', 25, 12), lift('Leg Curl', 100, 10)] },
+      },
+    ] as unknown as HealthEvent[];
+    const tree = render('male', log);
+    const tint = (id: string) => tree.root.findAll((n) => n.props.testID === id && n.props.tintColor)[0]?.props.tintColor;
+    expect(TIER_COLOR).toContain(tint('muscle-maleFront-shoulders'));
+    expect(TIER_COLOR).toContain(tint('muscle-maleBack-hamstrings'));
+    // A leg curl is the hamstrings, not the quads.
+    expect(tint('muscle-maleFront-quads')).toBeUndefined();
+    tree.unmount();
+  });
+
   it('lights the chest Grand Champion red for a 315 bench, and leaves untested muscles grey', () => {
     const tree = render('male', events);
     const chest = tree.root.findAll((n) => n.props.testID === 'muscle-maleFront-chest' && n.props.tintColor);

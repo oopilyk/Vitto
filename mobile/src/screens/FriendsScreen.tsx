@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -94,9 +95,9 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
   const [settingUsername, setSettingUsername] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
 
-  // The add-a-friend panel folds into this screen behind the top-right `+`,
-  // rather than being a separate route -- the product owner wants requests and
-  // adding to live on the one friends page.
+  // Adding a friend is a sheet over this page, opened from the always-visible
+  // "Add a friend" row or the top-right `+`, rather than a separate route --
+  // the product owner wants requests and adding to live on the one friends page.
   const [showAdd, setShowAdd] = useState(false);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -213,6 +214,12 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
     }
   };
 
+  /** Puts the add sheet away, with a clean search for next time. */
+  const closeAdd = () => {
+    setShowAdd(false);
+    setQuery('');
+  };
+
   const { incoming, outgoing } = partitionFriendRequests(requests, currentUserId);
   // Newest friendship first: it matches the "recent" feel of the Snapchat
   // reference, and needs no locale-aware name compare to stay stable.
@@ -231,15 +238,8 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
           <Text style={[styles.backLabel, { color: palette.secondaryText }]}>Pet</Text>
         </Pressable>
         <Text style={[styles.topTitle, { color: palette.primaryText }]}>Friends</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add a friend"
-          onPress={() => setShowAdd((open) => !open)}
-          hitSlop={8}
-          style={styles.addButton}
-        >
-          <Mark kind={showAdd ? 'cross' : 'plus'} size={16} weight={2.2} color={colors.coral} />
-        </Pressable>
+        {/* Balances the back button so the title stays centred. */}
+        <View style={styles.topbarSpacer} />
       </View>
 
       {loading ? (
@@ -256,6 +256,20 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
           automaticallyAdjustKeyboardInsets
           keyboardDismissMode="interactive"
         >
+          {/* Always the first thing on the page: adding someone is what people come here for. */}
+          {loadError ? null : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add a friend"
+              onPress={() => setShowAdd(true)}
+              style={({ pressed }) => [styles.addFriend, pressed && { opacity: 0.8 }]}
+              testID="add-friend"
+            >
+              <Mark kind="plus" size={16} weight={2.4} color="#fff" />
+              <Text style={styles.addFriendLabel}>Add a friend</Text>
+            </Pressable>
+          )}
+
           {carePartner ? <CarePartnerCard carePartner={carePartner} openJoin={openJoin} palette={palette} /> : null}
 
           {reactions.length > 0 && !loadError ? (
@@ -285,92 +299,6 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
             </View>
           ) : (
             <>
-              {showAdd ? (
-                <View style={[styles.card, { backgroundColor: palette.rowBg, borderColor: palette.divider }]}>
-                  <Text style={[styles.cardTitle, { color: palette.primaryText }]}>Add a friend</Text>
-                  {!hasUsername ? (
-                    <View style={styles.gate}>
-                      <Text style={[styles.gateText, { color: palette.secondaryText }]}>
-                        Choose a username so friends can find you. Nothing else about your profile is shown.
-                      </Text>
-                      <Field label="Username">
-                        <TextInput
-                          style={layout.input}
-                          value={usernameInput}
-                          onChangeText={setUsernameInput}
-                          placeholder="lowercase_letters_digits"
-                          placeholderTextColor={colors.faint}
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                        />
-                      </Field>
-                      <ErrorText>{usernameError}</ErrorText>
-                      <PrimaryButton
-                        label={settingUsername ? 'Saving...' : 'Save username'}
-                        busy={settingUsername}
-                        disabled={usernameInput.trim().length === 0}
-                        onPress={() => void saveUsername()}
-                      />
-                    </View>
-                  ) : (
-                    <>
-                      <TextInput
-                        style={layout.input}
-                        value={query}
-                        onChangeText={setQuery}
-                        placeholder="Search a username"
-                        placeholderTextColor={colors.faint}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      {searching ? (
-                        <View style={styles.searchStatus}>
-                          <ActivityIndicator color={colors.coral} size="small" />
-                        </View>
-                      ) : null}
-                      {searchError ? <ErrorText>{searchError}</ErrorText> : null}
-                      {!searching && searchResults && searchResults.length === 0 && !searchError ? (
-                        <Text style={[styles.empty, { color: palette.secondaryText }]}>
-                          No one found with that username.
-                        </Text>
-                      ) : null}
-                      {searchResults?.map((result) => {
-                        const relation = relationToUser(requests, currentUserId, result.id);
-                        return (
-                          <View key={result.id} style={[styles.searchRow, { borderBottomColor: palette.divider }]}>
-                            <Text style={[styles.searchName, { color: palette.primaryText }]}>
-                              {handleFor(result)}
-                            </Text>
-                            {relation === 'none' ? (
-                              <Pressable
-                                accessibilityRole="button"
-                                disabled={pendingActionId === result.id}
-                                onPress={() =>
-                                  void runAction(result.id, async () => {
-                                    await friendsService.sendFriendRequest(result.id);
-                                  })
-                                }
-                                hitSlop={8}
-                              >
-                                <Text style={styles.link}>Add</Text>
-                              </Pressable>
-                            ) : (
-                              <Text style={[styles.searchStatusText, { color: palette.secondaryText }]}>
-                                {relation === 'friends'
-                                  ? 'Friends'
-                                  : relation === 'outgoing'
-                                    ? 'Requested'
-                                    : 'Wants to be friends'}
-                              </Text>
-                            )}
-                          </View>
-                        );
-                      })}
-                    </>
-                  )}
-                </View>
-              ) : null}
-
               {incoming.length > 0 ? (
                 <View style={styles.section}>
                   <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>Requests</Text>
@@ -438,7 +366,6 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                       Add friends by username to see how their pets are doing. They see your pet the same way —
                       never what you logged.
                     </Text>
-                    {showAdd ? null : <PrimaryButton label="Add a friend" onPress={() => setShowAdd(true)} />}
                   </View>
                 ) : (
                   sortedFriends.map((friend) => (
@@ -512,6 +439,120 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
           )}
         </ScrollView>
       )}
+
+      {/* Adding a friend, as a sheet over the page: the search box takes the
+          keyboard straight away and everyone whose username matches lists
+          under it as you type. */}
+      <Modal
+        visible={showAdd}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeAdd}
+      >
+        <View style={[styles.sheet, { backgroundColor: palette.screenBg }]} testID="add-friend-sheet">
+          <View style={[styles.sheetHead, { borderBottomColor: palette.divider }]}>
+            <Text style={[styles.topTitle, { color: palette.primaryText }]}>Add a friend</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={closeAdd} hitSlop={10}>
+              <Text style={styles.backLabel}>Done</Text>
+            </Pressable>
+          </View>
+          <ScrollView
+            contentContainerStyle={styles.sheetBody}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
+            keyboardDismissMode="interactive"
+          >
+            {!hasUsername ? (
+              <View style={styles.gate}>
+                <Text style={[styles.gateText, { color: palette.secondaryText }]}>
+                  Choose a username so friends can find you. Nothing else about your profile is shown.
+                </Text>
+                <Field label="Username">
+                  <TextInput
+                    style={layout.input}
+                    value={usernameInput}
+                    onChangeText={setUsernameInput}
+                    placeholder="lowercase_letters_digits"
+                    placeholderTextColor={colors.faint}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </Field>
+                <ErrorText>{usernameError}</ErrorText>
+                <PrimaryButton
+                  label={settingUsername ? 'Saving...' : 'Save username'}
+                  busy={settingUsername}
+                  disabled={usernameInput.trim().length === 0}
+                  onPress={() => void saveUsername()}
+                />
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={layout.input}
+                  value={query}
+                  onChangeText={setQuery}
+                  placeholder="Search a username"
+                  placeholderTextColor={colors.faint}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoFocus
+                  returnKeyType="search"
+                />
+                {query.trim().length < MIN_SEARCH_LENGTH ? (
+                  <Text style={[styles.empty, { color: palette.secondaryText }]}>
+                    {`Type at least ${MIN_SEARCH_LENGTH} letters and everyone whose username matches shows here.`}
+                  </Text>
+                ) : null}
+                <ErrorText>{actionError}</ErrorText>
+                {searching ? (
+                  <View style={styles.searchStatus}>
+                    <ActivityIndicator color={colors.coral} size="small" />
+                  </View>
+                ) : null}
+                {searchError ? <ErrorText>{searchError}</ErrorText> : null}
+                {!searching && searchResults && searchResults.length === 0 && !searchError ? (
+                  <Text style={[styles.empty, { color: palette.secondaryText }]}>
+                    No one found with that username.
+                  </Text>
+                ) : null}
+                {searchResults?.map((result) => {
+                  const relation = relationToUser(requests, currentUserId, result.id);
+                  return (
+                    <View key={result.id} style={[styles.searchRow, { borderBottomColor: palette.divider }]}>
+                      <Text style={[styles.searchName, { color: palette.primaryText }]}>
+                        {handleFor(result)}
+                      </Text>
+                      {relation === 'none' ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          disabled={pendingActionId === result.id}
+                          onPress={() =>
+                            void runAction(result.id, async () => {
+                              await friendsService.sendFriendRequest(result.id);
+                            })
+                          }
+                          hitSlop={8}
+                        >
+                          <Text style={styles.link}>Add</Text>
+                        </Pressable>
+                      ) : (
+                        <Text style={[styles.searchStatusText, { color: palette.secondaryText }]}>
+                          {relation === 'friends'
+                            ? 'Friends'
+                            : relation === 'outgoing'
+                              ? 'Requested'
+                              : 'Wants to be friends'}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -531,7 +572,7 @@ const styles = themedStyles(() => ({
   backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
   backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
   topTitle: { fontFamily: fonts.ui, fontSize: 20, letterSpacing: 0 },
-  addButton: { minWidth: 64, alignItems: 'flex-end' },
+  topbarSpacer: { minWidth: 64 },
   addMark: { fontFamily: fonts.ui, fontSize: 28, color: colors.coral, lineHeight: 28 },
   body: { padding: 16, gap: 18 },
   reactionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -581,4 +622,25 @@ const styles = themedStyles(() => ({
   },
   searchName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, flexShrink: 1 },
   searchStatusText: { fontFamily: fonts.ui, fontSize: 12 },
+  addFriend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 15,
+    backgroundColor: colors.coral,
+  },
+  addFriendLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 16, color: '#fff' },
+  sheet: { flex: 1 },
+  sheetHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+  },
+  sheetBody: { padding: 16, gap: 10 },
 }));

@@ -8,6 +8,7 @@ import {
   type AchievementId,
   type TrophyId,  PET_BUILD_LABEL,
   type CareToast,
+  type DayGoal,
   type HealthEvent,
   type PetReaction,
   type PetState,
@@ -67,6 +68,8 @@ interface Props {
   onOpenToday: () => void;
   /** How much of today's goals are done, 0-100, for the TODAY button. */
   todayProgress?: number;
+  /** What is left of today (calories, workout, steps), under the pet's line. */
+  todayGoals?: DayGoal[];
   /** Opens the friends list from the account menu. Absent when signed out/offline — see `PetWorldHud`. */
   onOpenFriends?: () => void;
   /** Letter shown in the account button — the signed-in email's initial. */
@@ -134,6 +137,7 @@ export function DashboardScreen({
   onOpenStats,
   onOpenToday,
   todayProgress,
+  todayGoals,
   onOpenFriends,
   accountInitial,
   pets,
@@ -260,6 +264,7 @@ export function DashboardScreen({
         <PetWorldHud
           pet={pet}
           todayProgress={todayProgress}
+          todayGoals={todayGoals}
           canLogSleep={canLogSleep}
           events={events}
           careToast={careToast}

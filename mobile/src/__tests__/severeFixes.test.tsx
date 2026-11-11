@@ -74,7 +74,7 @@ describe('meal sheet', () => {
     macros: { calories: 300, proteinGrams: 10, carbsGrams: 50, fatGrams: 5 },
     nutrients: { protein: false, vegetables: false, fruit: false, wholeGrains: true, fiber: true, treats: false },
   };
-  const recent: RepeatableMeal[] = [{ key: 'oats', name: 'Oats', analysis, lastAt: '2026-11-06T08:00:00Z', sameTimeYesterday: false }];
+  const recent: RepeatableMeal[] = [{ key: 'oats', name: 'Oats', analysis, lastAt: '2026-11-06T08:00:00Z', sameTimeYesterday: false, slot: 'breakfast' }];
   const render = (onClose = jest.fn()) => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {

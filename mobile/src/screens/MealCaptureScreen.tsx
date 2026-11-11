@@ -11,7 +11,7 @@ import {
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, calorieEstimate, foodSuggestions, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOTS, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, portionAmount, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, foodSuggestions, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOTS, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, portionAmount, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
 import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput, Mark } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
@@ -431,6 +431,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
         <ScrollView
           ref={scroll}
+          style={styles.scrollArea}
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -481,7 +482,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               </View>
 
               {!image && !analysis ? copyRow : null}
-              {!image && !analysis ? <RecentMeals meals={repeatable} again={again} onChange={setAgain} /> : null}
+              {!image && !analysis ? <RecentMeals meals={forSlot(repeatable, slot)} again={again} onChange={setAgain} /> : null}
 
               {analysis ? <AnalysisCard analysis={analysis} /> : null}
               {/* The AI can mistake one drink for another; the person knows. */}
@@ -640,7 +641,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               {results.length === 0 && plate.length === 0 ? (
                 <>
                   {copyRow}
-                  <RecentMeals meals={repeatable} again={again} onChange={setAgain} />
+                  <RecentMeals meals={forSlot(repeatable, slot)} again={again} onChange={setAgain} />
                 </>
               ) : null}
 
@@ -1102,7 +1103,20 @@ const styles = themedStyles(() => ({
   copyPressed: { backgroundColor: colors.selectedFill },
   copyTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
   copyMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 2 },
-  slots: { flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingTop: 12 },
+  // Its own band with a rule under it, drawn over the list: what scrolls up
+  // goes under the rule, never through the middle of the pills.
+  slots: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: colors.paper,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.hairline,
+    zIndex: 1,
+  },
+  scrollArea: { flex: 1, overflow: 'hidden' },
   slot: { flex: 1, minHeight: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: colors.border },
   slotOn: { backgroundColor: colors.coral, borderColor: colors.coral },
   slotLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft },

@@ -16,6 +16,13 @@ export interface HealthDataProvider {
   restoreAuthorization(): Promise<boolean>;
   getTodaySteps(userId: string): Promise<HealthEvent<StepMetadata>>;
   /**
+   * Each of the `days` days before today, as that day's final step count (one
+   * event per day, dated the start of it). For putting right a day whose count
+   * was last synced in the morning. Optional: a provider without it leaves
+   * past days as they were.
+   */
+  getPastDaysSteps?(userId: string, days: number): Promise<HealthEvent<StepMetadata>[]>;
+  /**
    * Workouts logged in a source app (e.g. Strong) since `since`, excluding any
    * whose external id is already in `knownExternalIds`. Returned oldest-first,
    * so callers can replay them through the pet simulation in the order they

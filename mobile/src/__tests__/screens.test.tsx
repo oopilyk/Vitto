@@ -1102,27 +1102,22 @@ describe('screens render', () => {
     // The pet says the effect's line, not the stock meal copy...
     expect(rendered).toContain('That was hot!');
     expect(rendered).not.toContain('loved the variety');
-    // ...and wears the tag on the meta line, derived from the recent meal.
-    expect(rendered).toContain('SPICY');
     tree.unmount();
   });
 
-  it('drops the food tag once its time is up', () => {
-    const oldMeal = {
-      id: 'm-old', userId: 'user-1', type: 'MEAL' as const, source: 'manual' as const,
-      occurredAt: new Date(Date.now() - 5 * 60 * 60_000).toISOString(),
-      metadata: {
-        protein: false, vegetables: false, fruit: false, wholeGrains: false, fiber: false, treats: false,
-        analysis: { foodDescription: 'Hot wings', grade: 'C', summary: 'Hot wings', confidence: 1, detectedFoods: [], macros: { calories: 600, proteinGrams: 30, carbsGrams: 10, fatGrams: 30 }, nutrients: {} },
-      },
-    };
+  it("shows what is left of today under the pet's line, ticking off what is done", () => {
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
         <DashboardScreen
           pet={pet}
-          events={[oldMeal as any]}
+          events={[]}
           reaction={null}
+          todayGoals={[
+            { id: 'calories', label: '1,240 kcal left', done: false },
+            { id: 'workout', label: 'Workout', done: true },
+            { id: 'steps', label: '5,163 steps left', done: false },
+          ]}
           onLogMeal={() => {}}
           onLogWorkout={() => {}}
           onLogRun={() => {}}
@@ -1134,7 +1129,10 @@ describe('screens render', () => {
         />,
       );
     });
-    expect(JSON.stringify(tree.toJSON())).not.toContain('SPICY');
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('1,240 kcal left');
+    expect(rendered).toContain('✓ Workout');
+    expect(rendered).toContain('5,163 steps left');
     tree.unmount();
   });
 

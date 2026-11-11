@@ -15,7 +15,7 @@ const oats: MealAnalysis = {
   macros: { calories: 400, proteinGrams: 20, carbsGrams: 60, fatGrams: 8 },
   nutrients: { protein: true, vegetables: false, fruit: true, wholeGrains: true, fiber: true, treats: false },
 };
-const meals: RepeatableMeal[] = [{ key: 'overnight oats', name: 'Overnight oats', analysis: oats, lastAt: '2026-11-05T08:00:00.000Z', sameTimeYesterday: true }];
+const meals: RepeatableMeal[] = [{ key: 'overnight oats', name: 'Overnight oats', analysis: oats, lastAt: '2026-11-05T08:00:00.000Z', sameTimeYesterday: true, slot: 'breakfast' }];
 const find = (tree: renderer.ReactTestRenderer, match: (node: any) => boolean) =>
   tree.root.findAll((node) => typeof node.props.onPress === 'function' && match(node))[0]!;
 

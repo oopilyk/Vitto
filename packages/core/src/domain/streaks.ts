@@ -140,10 +140,78 @@ export const qualifyingEventsForStreak = (events: HealthEvent[]): HealthEvent[] 
  * call — never the generic `calculateStreaks` directly, which would let a
  * passive sleep sync or an idle app-open keep a streak alive.
  */
-export const calculateQualifyingStreaks = (events: HealthEvent[], today: Date = new Date()): StreakSummary =>
-  calculateStreaks(qualifyingEventsForStreak(events), today, qualifyingEventDateKey);
+export const calculateQualifyingStreaks = (events: HealthEvent[], today: Date = new Date()): QualifyingStreakSummary =>
+  withFreezes(getActiveDateKeys(qualifyingEventsForStreak(events), qualifyingEventDateKey), today);
 
-export interface StreakStatus extends StreakSummary {
+/**
+ * Streak freezes. Every FREEZE_EVERY_DAYS logged days in a row earn one, up to
+ * MAX_FREEZES held, and a missed day spends one instead of ending the streak.
+ * Earned, not bought, so they need no storage: like the streak itself they are
+ * worked out from the log, the same on every device. A frozen day bridges the
+ * streak but adds nothing to it. Today is never a missed day; it is still open.
+ */
+export const FREEZE_EVERY_DAYS = 7;
+export const MAX_FREEZES = 2;
+
+export interface QualifyingStreakSummary extends StreakSummary {
+  /** Freezes held now, ready for the next missed day. */
+  freezes: number;
+  /** The missed days a freeze covered. */
+  frozenDateKeys: Set<string>;
+}
+
+/**
+ * Dev tool: freezes handed over on `from`'s day, as if earned then, so a
+ * tester can see one spent without a week of logging first. Never saved; the
+ * app sets it only for the dev account and clears it on sign-out.
+ */
+let devFreezeGrant: { count: number; from: Date } | null = null;
+export const setDevFreezeGrant = (grant: { count: number; from: Date } | null): void => {
+  devFreezeGrant = grant;
+};
+
+const withFreezes = (activeDateKeys: Set<string>, today: Date): QualifyingStreakSummary => {
+  const grantKey = devFreezeGrant ? toDateKey(devFreezeGrant.from) : null;
+  const frozenDateKeys = new Set<string>();
+  const firstKey = Array.from(activeDateKeys).sort()[0];
+  if (!firstKey) return { currentStreak: 0, longestStreak: 0, activeDateKeys, freezes: 0, frozenDateKeys };
+
+  const [year, month, day] = firstKey.split('-').map(Number);
+  const cursor = new Date(year!, month! - 1, day!);
+  const end = startOfDay(today);
+  let run = 0;
+  let longestStreak = 0;
+  let freezes = 0;
+  let towardFreeze = 0;
+  while (cursor <= end) {
+    const key = toDateKey(cursor);
+    // On its day, or on the first day if the grant is older than the whole log.
+    if (grantKey && (key === grantKey || (key === firstKey && grantKey < firstKey))) {
+      freezes = Math.min(MAX_FREEZES, freezes + devFreezeGrant!.count);
+    }
+    if (activeDateKeys.has(key)) {
+      run += 1;
+      longestStreak = Math.max(longestStreak, run);
+      towardFreeze += 1;
+      if (towardFreeze === FREEZE_EVERY_DAYS) {
+        freezes = Math.min(MAX_FREEZES, freezes + 1);
+        towardFreeze = 0;
+      }
+    } else if (cursor < end) {
+      if (run > 0 && freezes > 0) {
+        freezes -= 1;
+        frozenDateKeys.add(key);
+      } else {
+        run = 0;
+        towardFreeze = 0;
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return { currentStreak: run, longestStreak, activeDateKeys, freezes, frozenDateKeys };
+};
+
+export interface StreakStatus extends QualifyingStreakSummary {
   /**
    * Does today (the local calendar day) already have qualifying activity?
    * `currentStreak` alone can't tell a UI this — it already counts yesterday

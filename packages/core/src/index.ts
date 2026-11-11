@@ -53,6 +53,7 @@ export * from './domain/onboarding';
 export * from './domain/nutritionSummary';
 export * from './domain/hydration';
 export * from './domain/dailyRecap';
+export * from './domain/dayGoals';
 export * from './domain/brainGames';
 export * from './domain/mathRun';
 export * from './domain/wordPuzzle';

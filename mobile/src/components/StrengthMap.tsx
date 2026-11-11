@@ -8,6 +8,8 @@ import {
   convertWeightValue,
   liftScores,
   muscleRanks,
+  trainedMuscles,
+  isolationRanks,
   type BodyProfile,
   type HealthEvent,
   type MuscleGroup,
@@ -75,21 +77,34 @@ interface Props {
   events: readonly HealthEvent[];
 }
 
-function Body({ view, ranks, label }: { view: BodyView; ranks: Record<MuscleGroup, number | null>; label: string }) {
+/** A muscle worked only by lifts with no rank (a fly, a lateral raise): trained, so not grey, but no medal colour. */
+export const TRAINED_COLOR = '#c9b79c';
+
+function Body({
+  view,
+  ranks,
+  trained,
+  label,
+}: {
+  view: BodyView;
+  ranks: Record<MuscleGroup, number | null>;
+  trained: ReadonlySet<MuscleGroup>;
+  label: string;
+}) {
   return (
     <View style={styles.bodyCol}>
       <View style={styles.body} accessibilityLabel={label}>
         <Image source={BODY[view]} style={styles.layer} resizeMode="contain" />
         {(Object.entries(MASKS[view]) as [MuscleGroup, ImageSourcePropType][]).map(([group, mask]) => {
           const tier = ranks[group];
-          if (tier === null) return null;
+          if (tier === null && !trained.has(group)) return null;
           return (
             <Image
               key={group}
               source={mask}
               style={[styles.layer, styles.mask]}
               resizeMode="contain"
-              tintColor={TIER_COLOR[tier]}
+              tintColor={tier === null ? TRAINED_COLOR : TIER_COLOR[tier]}
               testID={`muscle-${view}-${group}`}
             />
           );
@@ -109,7 +124,8 @@ function Body({ view, ranks, label }: { view: BodyView; ranks: Record<MuscleGrou
 export function StrengthMap({ profile, events }: Props) {
   const scores = useMemo(() => liftScores(events, profile), [events, profile]);
   const others = useMemo(() => otherLifts(events), [events]);
-  const ranks = useMemo(() => muscleRanks(scores), [scores]);
+  const ranks = useMemo(() => muscleRanks(scores, isolationRanks(events, profile)), [scores, events, profile]);
+  const trained = useMemo(() => trainedMuscles(events), [events]);
   const female = profile.sex === 'female';
   // The unit they lift in, which can differ from their profile's (see liftingUnit).
   const unit = useMemo(() => liftingUnit(events, profile.weightUnit), [events, profile.weightUnit]);
@@ -137,8 +153,8 @@ export function StrengthMap({ profile, events }: Props) {
       )}
 
       <View style={styles.bodies}>
-        <Body view={female ? 'femaleFront' : 'maleFront'} ranks={ranks} label="Front" />
-        <Body view={female ? 'femaleBack' : 'maleBack'} ranks={ranks} label="Back" />
+        <Body view={female ? 'femaleFront' : 'maleFront'} ranks={ranks} trained={trained} label="Front" />
+        <Body view={female ? 'femaleBack' : 'maleBack'} ranks={ranks} trained={trained} label="Back" />
       </View>
 
       <View style={styles.legend}>
@@ -212,7 +228,7 @@ export function StrengthMap({ profile, events }: Props) {
 
       {showLifts ? (
       <Text style={styles.foot}>
-        Ranked by your best estimated one-rep max against your bodyweight, using published strength standards for your sex. Grey muscles are untested, not weak.
+        Ranked by your best estimated one-rep max against your bodyweight, using published strength standards for your sex. With no press, curl or extension can stand in for it: a lateral raise ranks your shoulders, a leg curl your hamstrings. Pale muscles were trained but not yet ranked; grey ones are untested, not weak.
       </Text>
       ) : null}
     </View>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import {
   type PetInvite,
@@ -96,6 +96,16 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
   const isOwner = memberRole(carePartner.members, carePartner.selfUserId) === 'owner';
   const openInvite =
     carePartner.invite && isInviteOpen(carePartner.invite, new Date()) ? carePartner.invite : null;
+  // A card left open past the code's expiry redraws then, so the dead code goes
+  // (the server refuses it either way).
+  const [, setExpiredTick] = useState(0);
+  const expiresAt = openInvite ? Date.parse(openInvite.expiresAt) : null;
+  useEffect(() => {
+    if (expiresAt === null) return undefined;
+    // setTimeout tops out at about 24.8 days; codes live 7.
+    const timer = setTimeout(() => setExpiredTick((tick) => tick + 1), Math.max(0, expiresAt - Date.now()) + 1000);
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
   const members = activeMembers(carePartner.members);
   const partner = members.find((member) => member.userId !== carePartner.selfUserId);
   const partnerName = partner ? memberDisplayName(carePartner.members, partner.userId) : 'partner';

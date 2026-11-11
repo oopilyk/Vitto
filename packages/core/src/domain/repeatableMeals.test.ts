@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HealthEvent, MealAnalysis, MealMetadata } from './health';
-import { repeatableMeals, repeatMeal } from './repeatableMeals';
+import { forSlot, repeatableMeals, repeatMeal } from './repeatableMeals';
 
 const analysis = (name: string, calories = 400): MealAnalysis => ({
   foodDescription: name,
@@ -51,6 +51,19 @@ describe('repeatableMeals', () => {
   it('keeps to the limit', () => {
     const many = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((name, index) => meal(name, at(index, 7)));
     expect(repeatableMeals(many, now)).toHaveLength(5);
+  });
+});
+
+describe('forSlot', () => {
+  it('leads with the meals last eaten as that slot, each group in its order', () => {
+    const list = repeatableMeals(
+      [meal('Oats', at(1, 7)), meal('Chicken bowl', at(1, 19)), meal('Sushi', at(2, 20)), meal('Toast', at(3, 8))],
+      now,
+      20,
+    );
+    expect(list.find((item) => item.name === 'Sushi')?.slot).toBe('dinner');
+    expect(forSlot(list, 'dinner').map((item) => item.name).slice(0, 2)).toEqual(['Chicken bowl', 'Sushi']);
+    expect(forSlot(list, 'breakfast').slice(0, 2).every((item) => item.slot === 'breakfast')).toBe(true);
   });
 });
 

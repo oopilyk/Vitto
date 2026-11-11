@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import type { PetBreed, PetForm, PetState } from '@vitto/core';
 import { BreedPicker } from '../components/BreedPicker';
 import { EvolutionCard } from '../components/EvolutionCard';
@@ -42,14 +43,33 @@ export function ChooseCompanionScreen({ breed, owned, coins, cost, onChoose, onC
   const ownedBreeds: readonly PetBreed[] = owned ?? (breed ? [breed] : []);
   const isOwned = (option: PetBreed) => ownedBreeds.includes(option);
 
+  // The page stays open after a switch, so trying animals on is quick; what
+  // just happened is said once the pet really is the new animal (the parent
+  // saves it, and a refused buy puts the old one back).
+  const [switching, setSwitching] = useState<{ breed: PetBreed; bought: boolean } | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!switching || breed !== switching.breed) return;
+    const name = sheetByBreed(switching.breed).label;
+    setDone(switching.bought ? `You got the ${name}! ${pet?.name ?? 'Your pet'} is wearing it now.` : `${pet?.name ?? 'Your pet'} is the ${name} again.`);
+    setSwitching(null);
+    if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, [breed, switching, pet?.name]);
+
+  const choose = (next: PetBreed, bought: boolean) => {
+    setDone(null);
+    setSwitching({ breed: next, bought });
+    onChoose(next);
+  };
+
   const pick = (next: PetBreed) => {
     if (next === breed) {
       setPending(null);
       return;
     }
     if (free || isOwned(next)) {
-      onChoose(next);
-      onClose();
+      setPending(null);
+      choose(next, false);
       return;
     }
     setPending(next);
@@ -63,8 +83,17 @@ export function ChooseCompanionScreen({ breed, owned, coins, cost, onChoose, onC
           <Text style={styles.backLabel}>Settings</Text>
         </Pressable>
         <Text style={styles.topTitle}>Your companion</Text>
-        <View style={styles.back} />
+        {/* The balance stays in sight while the animals scroll. */}
+        <View style={[styles.back, styles.topCoins]} accessibilityLabel={`${coins} coins`}>
+          <Text style={styles.topCoinsValue}>{coins}</Text>
+          <Text style={styles.topCoinsLabel}>coins</Text>
+        </View>
       </View>
+      {done ? (
+        <View style={styles.done} accessibilityLiveRegion="polite" testID="breed-switched">
+          <Text style={styles.doneText}>{done}</Text>
+        </View>
+      ) : null}
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: 40 + HOME_INDICATOR_INSET }]}>
         <View style={styles.wallet} testID="coin-wallet">
@@ -109,9 +138,8 @@ export function ChooseCompanionScreen({ breed, owned, coins, cost, onChoose, onC
             <PrimaryButton
               label={`Switch · ${cost} coins`}
               onPress={() => {
-                onChoose(pending);
+                choose(pending, true);
                 setPending(null);
-                onClose();
               }}
             />
             <TextButton label="Keep them as they are" onPress={() => setPending(null)} />
@@ -155,6 +183,11 @@ const styles = themedStyles(() => ({
   walletCost: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink, marginTop: 2 },
   hint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, lineHeight: 18 },
   short: { ...text.body, color: colors.inkSoft, textAlign: 'center' },
+  topCoins: { justifyContent: 'flex-end', alignItems: 'baseline', gap: 4 },
+  topCoinsValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.yellowDeep },
+  topCoinsLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint },
+  done: { marginHorizontal: 16, marginBottom: 4, padding: 12, borderRadius: 12, backgroundColor: colors.mint },
+  doneText: { ...text.body, color: colors.mintDeep, textAlign: 'center' },
   confirm: { gap: 8, marginTop: 4 },
   confirmText: { ...text.body, color: colors.inkSoft, textAlign: 'center' },
 }));

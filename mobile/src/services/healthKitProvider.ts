@@ -161,6 +161,30 @@ export class HealthKitProvider implements HealthDataProvider {
     });
   }
 
+  async getPastDaysSteps(userId: string, days: number): Promise<HealthEvent<StepMetadata>[]> {
+    this.assertAuthorized();
+    const now = new Date();
+    // One statistics query per day, the same cumulative sum as today's (see
+    // getTodaySteps), so a corrected day reads what the Health app shows for it.
+    return Promise.all(
+      Array.from({ length: days }, async (_, index) => {
+        const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (index + 1));
+        const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - index);
+        const filter = { date: { startDate, endDate } };
+        const [steps, energy] = await Promise.all([
+          queryStatisticsForQuantity(STEP_COUNT, ['cumulativeSum'], { filter, unit: 'count' }),
+          queryStatisticsForQuantity(ACTIVE_ENERGY_BURNED, ['cumulativeSum'], { filter, unit: 'kcal' }).catch(() => null),
+        ]);
+        const calories = energy?.sumQuantity?.quantity;
+        return mapStepSample(userId, {
+          quantity: Math.round(steps.sumQuantity?.quantity ?? 0),
+          startDate,
+          ...(typeof calories === 'number' && calories > 0 ? { caloriesBurned: Math.round(calories) } : {}),
+        });
+      }),
+    );
+  }
+
   async getNewWorkouts(
     userId: string,
     since: Date,

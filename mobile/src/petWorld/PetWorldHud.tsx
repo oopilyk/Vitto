@@ -4,8 +4,8 @@ import {
   AILMENT_MESSAGE,
   bondFor,
   petVoice,
-  activeFoodEffects,
   type CareToast,
+  type DayGoal,
   type HealthEvent,
   type PetState,
   calculateStreakStatus,
@@ -20,6 +20,7 @@ import { CareToastBanner } from './CareToastBanner';
 import { useReportHudEdge } from './RoomActionSlot';
 import { useTourTarget } from '../tour/FirstRunTour';
 import { navBarHeight } from './EnvironmentActionRow';
+import { FROZEN_COLOR } from '../components/ActivityCalendar';
 import { LevelRing } from './LevelRing';
 import { canListen, PetMicButton } from './PetMicButton';
 import { chromeScaleFor, topInsetFor } from './chromeScale';
@@ -37,8 +38,8 @@ const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
  *   1. top bar  — the level ring (progression), one plate with the room over
  *                 the pet's name, and the account disc (Profile, Settings,
  *                 Friends).
- *   2. status   — the pet's own line, full width, with its day, streak, bond
- *                 and food effects as one row of tokens beneath.
+ *   2. status   — the pet's own line, full width, with its day, streak and
+ *                 bond, and what is left of today as a row of tokens beneath.
  *   3. tools    — the pet switcher (only with two pets) on the left, Today and
  *                 Chat on the right, all one height.
  *
@@ -50,6 +51,8 @@ interface PetWorldHudProps {
   pet: PetState;
   /** How much of today's goals are done, 0-100, shown on the TODAY button. */
   todayProgress?: number;
+  /** What is left of today (calories, workout, steps), as tokens under the pet's line. */
+  todayGoals?: DayGoal[];
   events: HealthEvent[];
   /**
    * Confirmation of the care moment just logged. Separate from `reaction`
@@ -108,19 +111,10 @@ interface PetWorldHudProps {
 
 /** Padding inside the readout panel, either side. */
 const READOUT_PAD = 14;
-/** The most effect chips the readout shows; past it, the last slot becomes "+N". */
-export const MAX_EFFECT_CHIPS = 5;
 /** One chip's height: its line plus its padding. */
 const CHIP_HEIGHT = 12 + 2 * 2;
 /** Chip row ceiling: exactly two rows of chips and the gap between, whatever the screen width. */
 const CHIP_ROWS_HEIGHT = 2 * CHIP_HEIGHT + 4;
-
-/** At most MAX_EFFECT_CHIPS chips: every tag when they fit, else the first few and a "+N". */
-export const capEffectChips = (tags: readonly string[]): { shown: string[]; hidden: number } => {
-  if (tags.length <= MAX_EFFECT_CHIPS) return { shown: [...tags], hidden: 0 };
-  const shown = tags.slice(0, MAX_EFFECT_CHIPS - 1);
-  return { shown, hidden: tags.length - shown.length };
-};
 
 /**
  * The pet's line when nothing is wrong and nothing just happened. Sleepy and
@@ -145,6 +139,7 @@ export function PetWorldHud({
   onOpenStats,
   onOpenToday,
   todayProgress,
+  todayGoals,
   onOpenFriends,
   unreadMessages = 0,
   onOpenChat,
@@ -178,10 +173,6 @@ export function PetWorldHud({
   const bond = bondFor(events, today, { adoptedAt: pet.adoptedAt });
   const feeling = petVoice(baseFeeling, { personality: pet.personality, ailments: condition.ailments, bond: bond.stage });
 
-  // Tags the pet is wearing right now, from recent meals — derived, so they
-  // expire on their own and survive a reload.
-  const foodTags = activeFoodEffects(events, today).map((effect) => effect.label.toUpperCase());
-
   const evolved = hasEvolved(pet);
   // Separate tokens, not one joined string: the row below lays them out, and a
   // wrap then falls between tokens rather than inside a separator.
@@ -198,7 +189,6 @@ export function PetWorldHud({
   const todayTourRef = useTourTarget('today');
   const chatTourRef = useTourTarget('chat');
   const levelTourRef = useTourTarget('level');
-  const { shown: shownTags, hidden: hiddenTags } = capEffectChips(foodTags);
   const choose = (open: () => void) => () => {
     setMenuOpen(false);
     open();
@@ -212,7 +202,9 @@ export function PetWorldHud({
   // The pet's line and its meta, as one card. Built once, laid out below.
   const metaLabel =
     streaks.currentStreak > 0
-      ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` + (streakAtRisk ? ', not yet logged today.' : '.')
+      ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` +
+        (streaks.freezes > 0 ? `, ${streaks.freezes} ${streaks.freezes === 1 ? 'freeze' : 'freezes'} saved` : '') +
+        (streakAtRisk ? ', not yet logged today.' : '.')
       : dayLabel;
 
   // The last row is where the HUD ends: rooms keep their buttons below it.
@@ -334,21 +326,24 @@ export function PetWorldHud({
               {`🔥 ${streaks.currentStreak}`}
             </Text>
           ) : null}
+          {streaks.currentStreak > 0 && streaks.freezes > 0 ? (
+            <Text style={[styles.meta, styles.metaFreeze]} testID="streak-freezes">
+              {`❄︎ ${streaks.freezes}`}
+            </Text>
+          ) : null}
         </View>
-        {/* Under it, what the pet is feeling from its food: five chips at most,
-            wrapping onto two rows at most, so the readout has a ceiling. */}
-        {shownTags.length > 0 ? (
-          <View style={styles.chipRow}>
-            {shownTags.map((tag) => (
-              <Text key={tag} style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`Effect: ${tag}`}>
-                {tag}
+        {/* Under it, what is left of today: calories, workout, steps. A done
+            one keeps its place with a tick, so the row doesn't jump about. */}
+        {todayGoals && todayGoals.length > 0 ? (
+          <View style={styles.chipRow} accessibilityLabel={`Today: ${todayGoals.map((goal) => (goal.done ? `${goal.label} done` : goal.label)).join(', ')}`}>
+            {todayGoals.map((goal) => (
+              <Text
+                key={goal.id}
+                style={[styles.metaTag, night && styles.metaTagNight, goal.done && styles.metaTagDone, goal.done && night && styles.metaTagDoneNight]}
+              >
+                {goal.done ? `✓ ${goal.label}` : goal.label}
               </Text>
             ))}
-            {hiddenTags > 0 ? (
-              <Text style={[styles.metaTag, night && styles.metaTagNight]} accessibilityLabel={`${hiddenTags} more effects`}>
-                {`+${hiddenTags}`}
-              </Text>
-            ) : null}
           </View>
         ) : null}
         {partnerName ? <Text style={[styles.metaPartner, night && styles.metaPartnerNight]}>{`Raised with ${partnerName}`}</Text> : null}
@@ -566,7 +561,8 @@ const styles = themedStyles(() => ({
   metaFlameNight: { color: world.nightAccent },
   /** Alive but not yet re-earned today — dimmed, not the same as a banked day. */
   metaFlameAtRisk: { opacity: 0.6, fontWeight: '600' },
-  // Food effect tags — warm gold, so they read as a state the pet is in. Each is
+  metaFreeze: { color: FROZEN_COLOR, fontWeight: '700' },
+  // Today's goal tokens — warm gold while still to do, green once done. Each is
   // its own chip so a narrow screen wraps between them, not inside a separator.
   metaTag: {
     fontFamily: fonts.systemMono,
@@ -583,6 +579,8 @@ const styles = themedStyles(() => ({
     overflow: 'hidden',
   },
   metaTagNight: { color: '#e4c878', backgroundColor: 'rgba(228,200,120,0.16)' },
+  metaTagDone: { color: '#3f6b2e', backgroundColor: 'rgba(120,170,90,0.28)' },
+  metaTagDoneNight: { color: '#a9d68f', backgroundColor: 'rgba(150,200,120,0.16)' },
 
   disc: {
     width: DISC,

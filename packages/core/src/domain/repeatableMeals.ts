@@ -1,4 +1,5 @@
 import type { HealthEvent, MacroNutrients, MealAnalysis, MealMetadata } from './health';
+import { type MealSlot, mealSlotOf } from './mealSlots';
 
 /**
  * Meals worth logging again in one tap: most people eat the same handful of
@@ -17,6 +18,8 @@ export interface RepeatableMeal {
   lastAt: string;
   /** Eaten yesterday at about this time of day: the likeliest thing to be eating now. */
   sameTimeYesterday: boolean;
+  /** The meal it was last logged as (breakfast, lunch…), so a list can lead with the slot being logged. */
+  slot: MealSlot;
 }
 
 export const MAX_REPEATABLE_MEALS = 5;
@@ -50,7 +53,7 @@ export const repeatableMeals = (
     const name = mealName(analysis);
     const key = name.toLowerCase();
     if (seen.has(key)) continue;
-    seen.set(key, { key, name, analysis, lastAt: event.occurredAt, sameTimeYesterday: false });
+    seen.set(key, { key, name, analysis, lastAt: event.occurredAt, sameTimeYesterday: false, slot: mealSlotOf(event) });
   }
 
   // Yesterday's meal nearest this time of day, if one was near it.
@@ -75,6 +78,13 @@ export const repeatableMeals = (
   }
   return list.slice(0, limit);
 };
+
+/**
+ * The same meals with the ones last eaten as `slot` first (each group keeps its
+ * order), so picking Dinner leads with what is usually eaten for dinner.
+ */
+export const forSlot = (meals: readonly RepeatableMeal[], slot: MealSlot, limit: number = MAX_REPEATABLE_MEALS): RepeatableMeal[] =>
+  [...meals.filter((meal) => meal.slot === slot), ...meals.filter((meal) => meal.slot !== slot)].slice(0, limit);
 
 const scale = (value: number | undefined, factor: number, places = 0): number | undefined =>
   value === undefined ? undefined : Math.round(value * factor * 10 ** places) / 10 ** places;
