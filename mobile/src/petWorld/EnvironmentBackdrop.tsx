@@ -34,12 +34,20 @@ const FALLBACK_ASPECT = 3 / 4;
 
 /**
  * The most the art is ever drawn wider than the stage — the one knob for the
- * band-vs-crop trade-off on a tall phone.
+ * band-vs-crop trade-off — by the stage's shape.
  *
- * 1 fits the width exactly and shows every pixel, but leaves ~38% of a phone
- * screen as flat colour above the art. 1.2 scales the art up and centres it:
- * 10% is lost off each side — the outer edges, where these scenes carry the
- * least — and the art's top edge rises by a fifth, cutting the band to ~26%.
+ * 1 fits the width exactly and shows every pixel, but leaves a band of flat
+ * colour above the art. Scaling up and centring trades the outer edges for a
+ * smaller band.
+ *
+ * On a tall phone (19.5:9) the band is big, so the art is drawn 1.2x: a tenth
+ * off each side, and the room fills the screen under the HUD. Drawn 1.05x
+ * there, the room sat small and low under a wide empty band.
+ *
+ * On a short phone (the 16:9 iPhone SE) there is little band to win back, and
+ * 1.2x cropped the room's furniture off its edges, so it is only 1.05x: a
+ * fortieth a side. The line between the two is the same one `topInsetFor`
+ * draws between notched and home-button screens.
  *
  * Scaling rather than simply shifting the art upward: a shift would uncover a
  * strip along the bottom, and the action row's buttons are separate images on a
@@ -47,27 +55,31 @@ const FALLBACK_ASPECT = 3 / 4;
  * them.
  */
 export const MAX_WIDTH_SCALE = 1.2;
+export const SHORT_SCREEN_MAX_WIDTH_SCALE = 1.05;
+const TALL_SCREEN_RATIO = 1.9;
 
 /**
  * How much wider than the stage to draw the art for THIS stage.
  *
- * The 1.2x overscan exists to shrink the band above 3:4 art on a 9:19.5 phone.
- * A tablet is nearly 3:4 itself, so on one the same 1.2x had nothing to fix and
- * only cost: 10% cropped off each side and a fifth of the art pushed off the
- * top. The scale is therefore only as much as it takes for the width-fitted art
- * to reach the container's height, capped at `MAX_WIDTH_SCALE` — 1.2 on every
- * phone (unchanged), 1.0 on an iPad, and something between on the squarer
- * screens in between. With no height to go on (first render, tests) it is the
- * cap, which is the phone answer.
+ * The overscan exists to shrink the band above the art on a phone. A tablet
+ * is nearly 3:4 itself, so on one the same overscan had nothing to fix and
+ * only cost: the sides cropped and the top pushed off. The scale is therefore
+ * only as much as it takes for the width-fitted art to reach the container's
+ * height, capped by the screen's shape (see `MAX_WIDTH_SCALE`) — 1.2 on a tall
+ * phone, 1.05 on an SE, 1.0 on an iPad. With no height to go on (first
+ * render, tests) it is the tall-phone answer.
  */
 export const widthScaleFor = (
   containerWidth: number,
   containerHeight: number | undefined,
   aspectRatio: number,
+  maxScale = Infinity,
 ): number => {
-  if (!containerHeight || containerHeight <= 0 || containerWidth <= 0) return MAX_WIDTH_SCALE;
+  if (!containerHeight || containerHeight <= 0 || containerWidth <= 0) return Math.max(1, Math.min(MAX_WIDTH_SCALE, maxScale));
+  const screenCap = containerHeight / containerWidth >= TALL_SCREEN_RATIO ? MAX_WIDTH_SCALE : SHORT_SCREEN_MAX_WIDTH_SCALE;
+  const cap = Math.max(1, Math.min(screenCap, maxScale));
   const fittedHeight = containerWidth / aspectRatio;
-  return Math.min(MAX_WIDTH_SCALE, Math.max(1, containerHeight / fittedHeight));
+  return Math.min(cap, Math.max(1, containerHeight / fittedHeight));
 };
 
 /**
@@ -143,9 +155,9 @@ export const backdropAspectRatio = (source: ImageSourcePropType): number => {
 export const backdropSize = (
   containerWidth: number,
   aspectRatio: number,
-  options?: { containerHeight?: number; fill?: boolean; lift?: number },
+  options?: { containerHeight?: number; fill?: boolean; lift?: number; maxScale?: number },
 ) => {
-  const fitted = containerWidth * widthScaleFor(containerWidth, options?.containerHeight, aspectRatio);
+  const fitted = containerWidth * widthScaleFor(containerWidth, options?.containerHeight, aspectRatio, options?.maxScale);
   // Width the art would need for its height to reach the container's.
   const covering = options?.fill ? (options.containerHeight ?? 0) * aspectRatio : 0;
   const width = Math.max(fitted, covering);
@@ -163,11 +175,17 @@ export const backdropSize = (
  * of an iPad's, while the room behind it scaled with the screen — so the pet
  * looked huge on one and lost on the other. These fractions are the reference
  * phone's numbers (280pt tall and 64pt off the bottom, in a 472x629 art box on
- * a 393pt-wide iPhone) written as shares of that box, so the same proportion
- * holds everywhere. The clamp only guards absurd containers.
+ * a 393pt-wide iPhone, when the art was drawn at 1.2x) written as shares of that
+ * box, so the same proportion holds everywhere. The clamp only guards absurd
+ * containers.
+ *
+ * Pinned to that 1.2x box rather than to the screen's scale: the pet is a
+ * share of the ROOM, so where the room is zoomed out (an SE) the pet shrinks
+ * with it. Tied to the scale instead, it would have grown against the room.
  */
-const PET_ART_FRACTION = 280 / (393 * MAX_WIDTH_SCALE);
-const PET_FEET_FRACTION = 64 / (393 * MAX_WIDTH_SCALE / FALLBACK_ASPECT);
+const REFERENCE_SCALE = 1.2;
+const PET_ART_FRACTION = 280 / (393 * REFERENCE_SCALE);
+const PET_FEET_FRACTION = 64 / (393 * REFERENCE_SCALE / FALLBACK_ASPECT);
 const PET_SIZE_MIN = 160;
 const PET_SIZE_MAX = 560;
 /** Never below the reference phone's padding: that is what clears the hotbar. */
@@ -201,6 +219,7 @@ export function EnvironmentBackdrop({
   fill,
   lift,
   floorColor,
+  maxScale,
   children,
 }: {
   source: ImageSourcePropType;
@@ -243,6 +262,12 @@ export function EnvironmentBackdrop({
    * through beneath them.
    */
   floorColor?: string;
+  /**
+   * Never zoom this art past this (see `MAX_WIDTH_SCALE`); 1 draws it exactly
+   * the stage's width. For a scene drawn closer up than the rest, which the
+   * usual zoom makes look too big around the pet.
+   */
+  maxScale?: number;
 }) {
   const [container, setContainer] = useState({ width: 0, height: 0 });
   const onLayout = (event: LayoutChangeEvent) => {
@@ -255,6 +280,7 @@ export function EnvironmentBackdrop({
     containerHeight: container.height,
     fill,
     lift,
+    maxScale,
   });
 
   return (

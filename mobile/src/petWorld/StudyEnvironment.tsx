@@ -2,6 +2,8 @@ import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
+import type { RoomTheme } from './roomTheme';
+import { framingOf, themedRoom } from './themeArt';
 
 /**
  * The Study: reached by tapping Study from any other scene, it opens the
@@ -36,6 +38,10 @@ interface StudyEnvironmentControlsProps {
   onTrainMind: () => void;
 }
 
+interface StudyEnvironmentProps extends StudyEnvironmentControlsProps {
+  theme?: RoomTheme;
+}
+
 /** The Study's call to action, in the same slot as the Gym's "Log workout". */
 function TrainMindButton({ onPress }: { onPress: () => void }) {
   return <RoomActionButton label="Train mind" onPress={onPress} />;
@@ -47,8 +53,16 @@ function StudyEnvironmentControls({
   return <TrainMindButton onPress={onTrainMind} />;
 }
 
-export function studyEnvironment(props: StudyEnvironmentControlsProps): EnvironmentDressing {
+export function studyEnvironment({ theme = 'classic', ...props }: StudyEnvironmentProps): EnvironmentDressing {
   const night = isNightTime();
+  if (theme !== 'classic') {
+    const room = themedRoom(theme, 'study', night);
+    return {
+      background: <EnvironmentBackdrop source={room.art} maxScale={framingOf(theme, 'study').maxScale} />,
+      backgroundColor: room.tint,
+      controls: <StudyEnvironmentControls {...props} />,
+    };
+  }
   return {
     background: (
       <EnvironmentBackdrop

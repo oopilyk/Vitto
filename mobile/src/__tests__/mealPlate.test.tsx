@@ -26,7 +26,7 @@ describe('food search builds one plate', () => {
     });
     const search = async (query: string, found: FoodSearchResult[]) => {
       mockSearch.mockResolvedValueOnce(found);
-      act(() => tree.root.findByType(TextInput).props.onChangeText(query));
+      act(() => tree.root.find((node: any) => node.type === TextInput && node.props.accessibilityLabel === 'Search foods').props.onChangeText(query));
       await act(async () => { await press(tree, withText('Find')).props.onPress(); });
     };
     const tick = (name: string) => act(() => press(tree, (node) => node.props.accessibilityRole === 'checkbox' && node.props.accessibilityLabel === name).props.onPress());

@@ -1,8 +1,10 @@
 import type { TrophyId } from '@vitto/core';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
-import { TrophyShelf } from './TrophyShelf';
+import { THEME_SHELVES, TrophyShelf } from './TrophyShelf';
 import { isNightTime } from './timeOfDay';
+import type { RoomTheme } from './roomTheme';
+import { LIVING_LIFT, themedRoom } from './themeArt';
 
 /**
  * The default/"bedroom" environment. Idle, tired and asleep are already
@@ -42,22 +44,24 @@ const NIGHT_FLOOR = '#473a6d';
 interface MainControlsProps {
   /** Earned trophies, shown on the wall shelf — see `TrophyShelf`. */
   trophies?: readonly TrophyId[];
+  theme?: RoomTheme;
 }
 
-export function mainEnvironment({ trophies = [] }: MainControlsProps): EnvironmentDressing {
+export function mainEnvironment({ trophies = [], theme = 'classic' }: MainControlsProps): EnvironmentDressing {
   const night = isNightTime();
+  const themed = theme === 'classic' ? null : themedRoom(theme, 'living', night);
   return {
     // The shelf rides inside the backdrop so its positions are art-relative.
     background: (
       <EnvironmentBackdrop
-        source={night ? MAIN_NIGHT : MAIN_DAY}
-        lift={MAIN_LIFT}
-        floorColor={night ? NIGHT_FLOOR : DAY_FLOOR}
+        source={themed?.art ?? (night ? MAIN_NIGHT : MAIN_DAY)}
+        lift={themed ? LIVING_LIFT : MAIN_LIFT}
+        floorColor={themed?.floor ?? (night ? NIGHT_FLOOR : DAY_FLOOR)}
       >
-        <TrophyShelf trophies={trophies} night={night} />
+        <TrophyShelf trophies={trophies} night={night} shelf={theme === 'classic' ? undefined : THEME_SHELVES[theme]} />
       </EnvironmentBackdrop>
     ),
-    backgroundColor: night ? NIGHT_TINT : DAY_TINT,
+    backgroundColor: themed?.tint ?? (night ? NIGHT_TINT : DAY_TINT),
     // The room bar is drawn once by the stage (see EnvironmentStage `navBar`).
     controls: null,
   };

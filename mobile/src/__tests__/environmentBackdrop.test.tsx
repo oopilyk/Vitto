@@ -1,5 +1,5 @@
 import { Image } from 'react-native';
-import { backdropAspectRatio, backdropSize, stageMetrics, widthScaleFor } from '../petWorld/EnvironmentBackdrop';
+import { MAX_WIDTH_SCALE, SHORT_SCREEN_MAX_WIDTH_SCALE, backdropAspectRatio, backdropSize, stageMetrics, widthScaleFor } from '../petWorld/EnvironmentBackdrop';
 
 /**
  * Regression: the backdrop called `Image.resolveAssetSource` unguarded. That is a
@@ -134,10 +134,14 @@ describe('backdropSize', () => {
 
 
 describe('widthScaleFor — overscan only where it helps', () => {
-  it('stays at 1.2x on a tall phone, where the overscan shrinks the band', () => {
-    expect(widthScaleFor(393, 852, 0.75)).toBe(1.2);
-    // iPhone SE: still tall enough to want the full overscan.
-    expect(widthScaleFor(375, 667, 0.75)).toBe(1.2);
+  it('stays at the full overscan on a tall phone, where it shrinks the band', () => {
+    expect(widthScaleFor(393, 852, 0.75)).toBe(MAX_WIDTH_SCALE);
+    expect(widthScaleFor(440, 956, 0.6)).toBe(MAX_WIDTH_SCALE);
+  });
+
+  it('zooms the short iPhone SE in only a little, so its room keeps its edges', () => {
+    expect(widthScaleFor(375, 667, 0.75)).toBe(SHORT_SCREEN_MAX_WIDTH_SCALE);
+    expect(widthScaleFor(375, 667, 0.6)).toBe(SHORT_SCREEN_MAX_WIDTH_SCALE);
   });
 
   it('drops to 1x on an iPad, whose screen is already the art\'s shape', () => {
@@ -145,24 +149,38 @@ describe('widthScaleFor — overscan only where it helps', () => {
   });
 
   it('lands between on a squarer screen', () => {
-    // Width-fit height 800 in a 900 container: 1.125x covers it exactly.
-    const scale = widthScaleFor(600, 900, 0.75);
-    expect(scale).toBeCloseTo(1.125, 3);
+    // Width-fit height 800 in a 820 container: 1.025x covers it exactly.
+    const scale = widthScaleFor(600, 820, 0.75);
+    expect(scale).toBeCloseTo(1.025, 3);
     expect(scale).toBeGreaterThan(1);
-    expect(scale).toBeLessThan(1.2);
+    expect(scale).toBeLessThan(SHORT_SCREEN_MAX_WIDTH_SCALE);
+  });
+
+  it('never zooms past a scene\'s own limit', () => {
+    expect(widthScaleFor(402, 874, 0.6, 1)).toBe(1);
+    expect(widthScaleFor(402, 874, 0.6, 1.1)).toBe(1.1);
+    expect(widthScaleFor(402, undefined, 0.6, 1)).toBe(1);
+    expect(Math.round(backdropSize(402, 0.6, { containerHeight: 874, maxScale: 1 }).width)).toBe(402);
   });
 
   it('is the phone answer when there is no height to go on', () => {
-    expect(widthScaleFor(393, undefined, 0.75)).toBe(1.2);
-    expect(widthScaleFor(393, 0, 0.75)).toBe(1.2);
+    expect(widthScaleFor(393, undefined, 0.75)).toBe(MAX_WIDTH_SCALE);
+    expect(widthScaleFor(393, 0, 0.75)).toBe(MAX_WIDTH_SCALE);
   });
 });
 
 describe('stageMetrics — the pet as a share of the room', () => {
   it('reproduces the reference phone exactly, so nothing moved there', () => {
-    const { petSize, petBottom } = stageMetrics(393, 852);
+    const { petSize, petBottom, artWidth } = stageMetrics(393, 852);
+    expect(Math.round(artWidth)).toBe(472);
     expect(petSize).toBe(280);
     expect(petBottom).toBe(64);
+  });
+
+  it('shrinks the pet with the room on an SE, where the room is zoomed out', () => {
+    const { petSize, artWidth } = stageMetrics(375, 667);
+    expect(Math.round(artWidth)).toBe(394);
+    expect(petSize).toBe(Math.round((280 * 393.75) / 471.6));
   });
 
   it('keeps the same pet-to-room proportion on an iPad', () => {

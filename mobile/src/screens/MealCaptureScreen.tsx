@@ -11,10 +11,12 @@ import {
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, foodSuggestions, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOTS, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, portionAmount, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOTS, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
-import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput, Mark } from '../components/ui';
+import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput, Mark } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
+import { GradeBadge, LogProgress, logHaptic } from '../components/logKit';
+import { SegmentedControl } from '../components/settingsKit';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
@@ -33,12 +35,12 @@ interface Props {
   onOpenPlus?: () => void;
   /** Meals to log again in one tap (repeatableMeals), newest first. */
   repeatable?: readonly RepeatableMeal[];
-  /** Foods this person has logged, newest first, suggested first as a search is typed. */
-  knownFoods?: readonly string[];
   /** Yesterday's meals in a slot, for "Copy yesterday's breakfast" (copyableSlot); empty hides it. */
   copyableFor?: (slot: MealSlot) => readonly HealthEvent<MealMetadata>[];
   /** Logs those meals again, now, in the slot. */
   onCopy?: (meals: readonly HealthEvent<MealMetadata>[], slot: MealSlot) => Promise<void>;
+  /** Today's food so far and its targets, for the progress bars at the top; omitted hides them. */
+  today?: { consumed: MacroTotals; targets: MacroTotals };
 }
 
 type Mode = 'photo' | 'search' | 'scan';
@@ -53,7 +55,7 @@ type Mode = 'photo' | 'search' | 'scan';
 export const closeUpLens = (lenses: readonly string[]): string | undefined =>
   lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
 
-export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], knownFoods = [], copyableFor, onCopy }: Props) {
+export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], copyableFor, onCopy, today }: Props) {
   // Which meal of the day this is: read off the clock, changed with a tap.
   const [slot, setSlot] = useState<MealSlot>(() => slotForTime(new Date()));
   const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
@@ -81,7 +83,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
    * together as one meal. Kept across searches, so "chicken", then "rice",
    * builds one plate.
    */
-  const [plate, setPlate] = useState<{ food: FoodSearchResult; servings: number }[]>([]);
+  const [plate, setPlate] = useState<{ food: FoodSearchResult; servings: number; unit: PortionUnit }[]>([]);
   /** The scanned food. */
   const [selected, setSelected] = useState<FoodSearchResult | null>(null);
   const [servings, setServings] = useState('1');
@@ -206,26 +208,24 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     }
   };
 
-  // Autocomplete: names to finish the word at once (theirs, then common foods),
-  // and a real search when typing pauses, so Find is rarely needed.
+  // Results as you type: a real search on each short pause, the last results
+  // kept on screen until the next arrive, so Find is rarely needed. (A list of
+  // names to pick from first was one step too many.)
   const searched = useRef('');
   const searchCache = useRef(new Map<string, FoodSearchResult[]>());
-  const suggestions = useMemo(
-    () => (mode === 'search' && query.trim().toLowerCase() !== searched.current ? foodSuggestions(query, knownFoods) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mode, query, knownFoods, results],
-  );
   useEffect(() => {
     const trimmed = query.trim();
+    // Clearing the field goes back to Recent.
+    if (mode === 'search' && trimmed === '' && searched.current) {
+      searched.current = '';
+      setResults([]);
+      return undefined;
+    }
     if (mode !== 'search' || trimmed.length < LIVE_SEARCH_MIN || busy || trimmed.toLowerCase() === searched.current) return undefined;
     const timer = setTimeout(() => void runSearch(trimmed, true), LIVE_SEARCH_PAUSE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, query, busy]);
-  const pickSuggestion = (name: string) => {
-    setQuery(name);
-    void runSearch(name);
-  };
 
   const onBarcode = async ({ data }: { data: string }) => {
     if (scanned || busy) return;
@@ -254,6 +254,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     setError(null);
     try {
       await onComplete({ ...next.nutrients, analysis: next, loggedVia, slot });
+      logHaptic();
       onFeedStart(loggedVia === 'ai' ? (image?.uri ?? null) : null, next.grade);
       onClose();
     } catch (cause) {
@@ -265,9 +266,6 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
   /** Quick add: a meal as numbers alone, for food no database has. Null while closed. */
   const [quick, setQuick] = useState<{ name: string; calories?: number; proteinGrams?: number; carbsGrams?: number; fatGrams?: number } | null>(null);
-
-  /** The plate food whose amount field is open. */
-  const [amountFor, setAmountFor] = useState<string | null>(null);
 
   // "Copy yesterday's breakfast": the whole slot again in one tap, while today's
   // is still empty (copyableSlot).
@@ -313,11 +311,13 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     setPlate((current) =>
       current.some((item) => item.food.id === food.id)
         ? current.filter((item) => item.food.id !== food.id)
-        : [...current, { food, servings: 1 }],
+        : [...current, { food, servings: 1, unit: defaultUnit(food) }],
     );
   };
   const setPlateServings = (id: string, next: number) =>
     setPlate((current) => current.map((item) => (item.food.id === id ? { ...item, servings: next } : item)));
+  const setPlateUnit = (id: string, unit: PortionUnit) =>
+    setPlate((current) => current.map((item) => (item.food.id === id ? { ...item, unit } : item)));
   const plateAnalysis = plate.length > 0 ? toPlateAnalysis(plate) : null;
 
   const selectedAnalysis = selected
@@ -365,6 +365,14 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           ? { label: busy === 'saving' ? 'Saving...' : 'Add to care log', summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
           : null;
 
+  // What the footer would log, so the bars at the top can show what it adds.
+  const pending =
+    (mode === 'search' ? quickAnalysis : null) ??
+    againAnalysis ??
+    (mode === 'photo' && fixText === null ? analysis : null) ??
+    (mode === 'search' ? plateAnalysis : null) ??
+    (mode === 'scan' ? selectedAnalysis : null);
+
   /**
    * The × with a meal ready to log asks before throwing it away: foods on the
    * plate, a read photo, a scanned product or a picked recent meal. An empty
@@ -388,29 +396,36 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         <View style={styles.header}>
           {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
           <View style={{ flex: 1 }}>
-            <Kicker>Nourishment check</Kicker>
             <Text style={styles.title}>What's on your plate?</Text>
           </View>
           <CloseButton onPress={requestClose} />
         </View>
 
+        {today ? (
+          <LogProgress
+            items={[
+              { label: 'Calories', value: today.consumed.calories, goal: today.targets.calories, adding: pending ? calorieEstimate(pending.macros) : 0, unit: 'kcal' },
+              { label: 'Protein', value: today.consumed.proteinGrams, goal: today.targets.proteinGrams, adding: pending?.macros.proteinGrams ?? 0, unit: 'g' },
+            ]}
+          />
+        ) : null}
+
         <View style={styles.tabs}>
-          {(['photo', 'search', 'scan'] as Mode[]).map((option) => (
-            <Pressable
-              key={option}
-              onPress={() => {
-                setMode(option);
-                reset();
-                setPlate([]);
-                setScanned(false);
-              }}
-              style={[styles.tab, mode === option && styles.tabOn]}
-            >
-              <Text style={[styles.tabLabel, mode === option && styles.tabLabelOn]}>
-                {option === 'photo' ? (canScanPhotos ? 'Photo' : 'Photo · Plus') : option === 'search' ? 'Search' : 'Scan barcode'}
-              </Text>
-            </Pressable>
-          ))}
+          <SegmentedControl
+            options={[
+              { value: 'photo' as Mode, label: canScanPhotos ? 'Photo' : 'Photo · Plus' },
+              { value: 'search' as Mode, label: 'Search' },
+              { value: 'scan' as Mode, label: 'Scan barcode' },
+            ]}
+            value={mode}
+            onChange={(option) => {
+              if (option === mode) return;
+              setMode(option);
+              reset();
+              setPlate([]);
+              setScanned(false);
+            }}
+          />
         </View>
 
         <View style={styles.slots} accessibilityRole="radiogroup" accessibilityLabel="Which meal">
@@ -453,29 +468,45 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
           {mode === 'photo' && canScanPhotos ? (
             <>
-              {/* The big box is the obvious thing to tap, so it opens the camera
-                  (testers tapped it again and again before finding the buttons). */}
+              {/* The card IS the camera button: testers tapped the big box again
+                  and again, so it opens the camera, and its pill says so. */}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={image ? 'Retake the photo' : 'Take a photo of your meal'}
                 onPress={() => void pick('camera')}
                 disabled={busy !== null}
-                style={({ pressed }) => pressed && styles.dropPressed}
+                style={({ pressed }) => pressed && styles.cameraPressed}
                 testID="photo-box"
               >
                 {image ? (
-                  <Image source={{ uri: image.uri }} style={styles.preview} />
+                  <View>
+                    <Image source={{ uri: image.uri }} style={styles.preview} />
+                    {/* Read over the photo itself, not in a line under it. */}
+                    {busy === 'analyzing' ? (
+                      <View style={styles.readingOverlay}>
+                        <ActivityIndicator color="#fff" />
+                        <Text style={styles.readingOverlayLabel}>Reading your plate...</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 ) : (
-                  <View style={styles.dropzone}>
-                    <Text style={styles.dropTitle}>Tap to take a photo</Text>
-                    <Text style={styles.dropHint}>Vitto reads the plate and grades it</Text>
+                  <View style={styles.camera}>
+                    <Text style={styles.cameraTitle}>Snap your plate</Text>
+                    <Text style={styles.cameraHint}>Vitto reads the food, counts the macros and grades it</Text>
+                    {/* A camera's own shutter button, which reads as "tap to shoot" without words. */}
+                    <View style={styles.shutter}>
+                      <View style={styles.shutterButton} />
+                    </View>
+                    <Text style={styles.shutterLabel}>Take photo</Text>
                   </View>
                 )}
               </Pressable>
               <View style={styles.pickRow}>
-                <PressableScale style={styles.pickButton} onPress={() => pick('camera')}>
-                  <Text style={styles.pickLabel}>Take photo</Text>
-                </PressableScale>
+                {image ? (
+                  <PressableScale style={styles.pickButton} onPress={() => pick('camera')}>
+                    <Text style={styles.pickLabel}>Retake</Text>
+                  </PressableScale>
+                ) : null}
                 <PressableScale style={styles.pickButton} onPress={() => pick('library')}>
                   <Text style={styles.pickLabel}>Choose from library</Text>
                 </PressableScale>
@@ -519,7 +550,6 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   </View>
                 </View>
               ) : null}
-              {busy === 'analyzing' ? <Text style={styles.reading}>Reading your plate...</Text> : null}
               <ErrorText>{error}</ErrorText>
             </>
           ) : null}
@@ -533,6 +563,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   onChangeText={setQuery}
                   placeholder="Search foods"
                   placeholderTextColor={colors.faint}
+                  accessibilityLabel="Search foods"
                   returnKeyType="search"
                   onSubmitEditing={() => void runSearch()}
                 />
@@ -588,52 +619,19 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 </View>
               )}
 
-              {!quick && suggestions.length > 0 ? (
-                <View style={styles.suggestions} testID="food-suggestions">
-                  {suggestions.map((name) => (
-                    <Pressable
-                      key={name}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Search ${name}`}
-                      onPress={() => pickSuggestion(name)}
-                      style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
-                    >
-                      <Text style={styles.suggestionLabel} numberOfLines={1}>{name}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-
               {plate.length > 0 ? (
                 <View style={styles.plate} testID="plate">
                   <Text style={styles.plateTitle}>Your plate</Text>
-                  {plate.map(({ food, servings: count }) => (
-                    <View key={food.id}>
-                      <View style={styles.plateRow}>
-                        {/* The amount opens a field for it in grams, ounces or servings. */}
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`${food.name}, ${portionAmount(food, count)}. Change the amount`}
-                          onPress={() => setAmountFor(amountFor === food.id ? null : food.id)}
-                          style={styles.plateText}
-                        >
-                          <Text style={styles.plateName} numberOfLines={1}>{food.name}</Text>
-                          <Text style={styles.resultMeta} numberOfLines={1}>
-                            {Math.round(food.macros.calories * count).toLocaleString()} kcal ·{' '}
-                            <Text style={styles.amountLink}>{portionAmount(food, count)}</Text>
-                          </Text>
-                        </Pressable>
-                        <Stepper
-                          value={count}
-                          label={food.name}
-                          onChange={(next) => setPlateServings(food.id, next)}
-                          onRemove={() => togglePlate(food)}
-                        />
-                      </View>
-                      {amountFor === food.id ? (
-                        <AmountEditor food={food} servings={count} onChange={(next) => setPlateServings(food.id, next)} />
-                      ) : null}
-                    </View>
+                  {plate.map(({ food, servings: count, unit }) => (
+                    <PlateItem
+                      key={food.id}
+                      food={food}
+                      servings={count}
+                      unit={unit}
+                      onServings={(next) => setPlateServings(food.id, next)}
+                      onUnit={(next) => setPlateUnit(food.id, next)}
+                      onRemove={() => togglePlate(food)}
+                    />
                   ))}
                 </View>
               ) : null}
@@ -659,13 +657,15 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                     onPress={() => togglePlate(food)}
                   >
                     <View style={styles.resultText}>
-                      <Text style={styles.resultName}>{food.name}</Text>
-                      <Text style={styles.resultMeta}>
-                        {food.macros.calories} kcal · {food.servingDescription}
-                      </Text>
+                      <Text style={styles.resultName} numberOfLines={2}>{food.name}</Text>
+                      <Text style={styles.resultMeta} numberOfLines={1}>{food.servingDescription}</Text>
+                    </View>
+                    <View style={styles.rowKcalBox}>
+                      <Text style={styles.rowKcal}>{food.macros.calories.toLocaleString()}</Text>
+                      <Text style={styles.rowKcalUnit}>kcal</Text>
                     </View>
                     <View style={[styles.tick, on && styles.tickOn]}>
-                      {on ? <Mark kind="check" size={12} weight={2.2} color="#fff" /> : null}
+                      {on ? <Mark kind="check" size={12} weight={2.2} color="#fff" /> : <Mark kind="plus" size={12} color={colors.coral} />}
                     </View>
                   </Pressable>
                 );
@@ -740,7 +740,12 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         </ScrollView>
         {footer ? (
           <View style={styles.footer} testID="meal-footer">
-            {footer.summary ? <Text style={styles.footerSummary} numberOfLines={1}>{footer.summary}</Text> : null}
+            {footer.summary ? (
+              <View style={styles.footerSummaryRow}>
+                {pending ? <GradeBadge grade={pending.grade} size={22} /> : null}
+                <Text style={styles.footerSummary} numberOfLines={1}>{footer.summary}</Text>
+              </View>
+            ) : null}
             <PrimaryButton label={footer.label} busy={footer.busy} disabled={footer.disabled} onPress={footer.onPress} />
           </View>
         ) : null}
@@ -782,12 +787,18 @@ function RecentMeals({
               onPress={() => onChange(on ? null : { meal, servings: 1 })}
               style={styles.recentMain}
             >
+              <GradeBadge grade={meal.analysis.grade} size={30} />
               <View style={styles.resultText}>
                 <Text style={styles.resultName} numberOfLines={1}>{meal.name}</Text>
                 <Text style={styles.resultMeta} numberOfLines={1}>
-                  {meal.sameTimeYesterday ? 'Yesterday around now · ' : ''}
-                  {calorieEstimate(repeatMeal(meal.analysis, on ? again!.servings : 1).macros).toLocaleString()} kcal · Grade {meal.analysis.grade}
+                  {meal.sameTimeYesterday ? 'Yesterday around now' : `${meal.analysis.macros.proteinGrams}g protein`}
                 </Text>
+              </View>
+              <View style={styles.rowKcalBox}>
+                <Text style={styles.rowKcal}>
+                  {calorieEstimate(repeatMeal(meal.analysis, on ? again!.servings : 1).macros).toLocaleString()}
+                </Text>
+                <Text style={styles.rowKcalUnit}>kcal</Text>
               </View>
               {on ? null : (
                 <View style={styles.tick}>
@@ -812,48 +823,114 @@ function RecentMeals({
 
 const MIN_SERVINGS = 0.5;
 
+/** Foods listed per 100 g are thought of in grams; ones with a serving ("1 slice") in servings. */
+const defaultUnit = (food: FoodSearchResult): PortionUnit => (food.isPer100g ? 'g' : 'serving');
+
+/** What − and + move by, in each unit. */
+const PORTION_STEP: Record<PortionUnit, number> = { g: 10, oz: 0.5, serving: 0.5 };
+const UNIT_LABEL: Record<PortionUnit, string> = { g: 'g', oz: 'oz', serving: 'servings' };
+
 /**
- * How much of a food, typed: grams or ounces when its serving's weight is
- * known, or servings. Halves on the stepper were the only way, so 180 g of
- * chicken had to be guessed as "2×".
+ * One food on the plate, with its amount always in reach: − and + by a step
+ * of the unit, the number itself to type, and the unit to count it in. The
+ * amount is shown in that unit ("30 g"), never as a fraction of a serving: a
+ * typed 2 g of cheese used to read "0.08 × 1 slice". Taking it off is its own
+ * button, set apart, so a − never removes it from under the finger.
  */
-function AmountEditor({ food, servings, onChange }: { food: FoodSearchResult; servings: number; onChange: (servings: number) => void }) {
+function PlateItem({
+  food,
+  servings,
+  unit,
+  onServings,
+  onUnit,
+  onRemove,
+}: {
+  food: FoodSearchResult;
+  servings: number;
+  unit: PortionUnit;
+  onServings: (servings: number) => void;
+  onUnit: (unit: PortionUnit) => void;
+  onRemove: () => void;
+}) {
   const weighed = servingGrams(food) !== undefined;
-  const [unit, setUnit] = useState<PortionUnit>(weighed ? 'g' : 'serving');
   const units: PortionUnit[] = weighed ? ['g', 'oz', 'serving'] : ['serving'];
+  const amount = amountIn(food, servings, unit);
+  const step = PORTION_STEP[unit];
+  const atLeast = amount <= step;
+  const set = (value: number) => {
+    const next = servingsFrom(food, value, unit);
+    if (next !== null && next > 0) onServings(next);
+  };
   return (
-    <View style={styles.amountEditor} testID="amount-editor">
-      <NumberInput
-        decimal
-        autoFocus
-        style={[layout.input, styles.amountInput]}
-        value={amountIn(food, servings, unit)}
-        onValue={(value) => {
-          const next = value === undefined ? null : servingsFrom(food, value, unit);
-          if (next !== null && next > 0) onChange(Math.round(next * 100) / 100);
-        }}
-        accessibilityLabel={`Amount of ${food.name} in ${unit === 'serving' ? 'servings' : unit}`}
-      />
-      <View style={styles.amountUnits}>
-        {units.map((option) => (
-          <Pressable
-            key={option}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: unit === option }}
-            onPress={() => setUnit(option)}
-            hitSlop={{ top: 6, bottom: 6 }}
-            style={[styles.slot, unit === option && styles.slotOn]}
-          >
-            <Text style={[styles.slotLabel, unit === option && styles.slotLabelOn]}>{option === 'serving' ? 'servings' : option}</Text>
-          </Pressable>
-        ))}
+    <View style={styles.plateItem} testID="plate-item">
+      <View style={styles.plateItemHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.plateName} numberOfLines={2}>{food.name}</Text>
+          {unit === 'serving' && !food.isPer100g ? (
+            <Text style={styles.resultMeta} numberOfLines={1}>{`1 serving = ${food.servingDescription}`}</Text>
+          ) : null}
+        </View>
+        <View style={styles.rowKcalBox}>
+          <Text style={styles.rowKcal}>{Math.round(food.macros.calories * servings).toLocaleString()}</Text>
+          <Text style={styles.rowKcalUnit}>kcal</Text>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${food.name}`} hitSlop={8} onPress={onRemove} style={styles.stepRemove}>
+          <Mark kind="cross" size={10} color={colors.muted} />
+        </Pressable>
+      </View>
+      <View style={styles.amountRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Less ${food.name}`}
+          accessibilityState={{ disabled: atLeast }}
+          disabled={atLeast}
+          hitSlop={6}
+          onPress={() => set(Math.max(step, Math.round((amount - step) * 10) / 10))}
+          style={[styles.stepButton, atLeast && styles.stepButtonOff]}
+        >
+          <Mark kind="minus" size={10} color={colors.inkSoft} />
+        </Pressable>
+        <NumberInput
+          decimal={unit !== 'g'}
+          style={[layout.input, styles.amountInput]}
+          value={amount}
+          onValue={(value) => {
+            if (value !== undefined) set(value);
+          }}
+          accessibilityLabel={`Amount of ${food.name} in ${UNIT_LABEL[unit]}`}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`More ${food.name}`}
+          hitSlop={6}
+          onPress={() => set(Math.round((amount + step) * 10) / 10)}
+          style={styles.stepButton}
+        >
+          <Mark kind="plus" size={10} color={colors.inkSoft} />
+        </Pressable>
+        <View style={styles.amountUnits} accessibilityRole="radiogroup" accessibilityLabel="Unit">
+          {units.map((option) => (
+            <Pressable
+              key={option}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: unit === option }}
+              accessibilityLabel={UNIT_LABEL[option]}
+              onPress={() => onUnit(option)}
+              hitSlop={{ top: 6, bottom: 6 }}
+              style={[styles.unitChip, unit === option && styles.unitChipOn]}
+            >
+              <Text style={[styles.unitLabel, unit === option && styles.unitLabelOn]}>{UNIT_LABEL[option]}</Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
     </View>
   );
 }
+
 /** Live search waits for this many letters and this long a pause in typing. */
 const LIVE_SEARCH_MIN = 3;
-const LIVE_SEARCH_PAUSE_MS = 700;
+const LIVE_SEARCH_PAUSE_MS = 350;
 
 /**
  * Servings of one food, in halves, from a half up. Taking it off is its own
@@ -927,8 +1004,8 @@ function AnalysisCard({ analysis }: { analysis: MealAnalysis }) {
   return (
     <View style={styles.analysis}>
       <View style={styles.grade}>
-        <Text style={styles.gradeLetter}>{analysis.grade}</Text>
-        <Text style={styles.gradeLabel}>PLATE GRADE</Text>
+        <GradeBadge grade={analysis.grade} size={64} />
+        <Text style={styles.gradeLabel}>Plate grade</Text>
       </View>
       <View style={styles.analysisBody}>
         <Text style={styles.analysisName}>
@@ -984,27 +1061,57 @@ const styles = themedStyles(() => ({
     gap: 12,
     paddingHorizontal: 22,
   },
-  title: { ...text.title, marginTop: 8 },
-  tabs: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 22,
-    marginTop: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.hairline,
-  },
-  tab: { paddingVertical: 11, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: 'transparent' },
-  tabOn: { borderBottomColor: colors.coral },
-  tabLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint },
-  tabLabelOn: { color: colors.ink },
+  title: { ...text.title, marginTop: 6 },
+  tabs: { paddingHorizontal: 22, marginTop: 14 },
   body: { padding: 22, paddingBottom: 24 },
-  preview: { width: '100%', height: 230, borderRadius: 12, backgroundColor: colors.sage },
+  preview: { width: '100%', height: 260, borderRadius: 18, borderCurve: 'continuous', backgroundColor: colors.sage },
+  readingOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    backgroundColor: 'rgba(28,23,20,0.62)',
+  },
+  readingOverlayLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: '#fff' },
+  // The photo tab's hero: a dark viewfinder-like card, the obvious thing to tap.
+  camera: {
+    height: 220,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    backgroundColor: '#2b2420',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 24,
+  },
+  cameraPressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
+  // The card's own button, drawn like the iPhone camera's shutter: a ring with a gap, a solid disc inside.
+  shutter: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 4,
+    borderColor: '#fff8ec',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  shutterButton: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.coral },
+  shutterLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, letterSpacing: 0.3, color: 'rgba(255,248,236,0.85)', marginTop: 8 },
+  cameraTitle: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 19, color: '#fff8ec' },
+  cameraHint: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18, color: 'rgba(255,248,236,0.7)', textAlign: 'center' },
   fixBox: { gap: 8, marginTop: 4 },
   fixLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.ink },
   fixInput: { minHeight: 64, textAlignVertical: 'top' },
   fixHint: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, color: colors.faint },
   fixActions: { gap: 6 },
-  dropPressed: { opacity: 0.7 },
   dropzone: {
     height: 190,
     borderRadius: 12,
@@ -1032,18 +1139,16 @@ const styles = themedStyles(() => ({
   },
   permissionLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.onCoral },
   dropHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, textAlign: 'center' },
-  pickRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  pickRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   pickButton: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: colors.border,
+    minHeight: 46,
     backgroundColor: colors.card,
-    borderRadius: 12,
-    paddingVertical: 13,
+    borderRadius: 23,
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
   },
-  pickLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSoft },
+  pickLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 14, color: colors.inkSoft },
   effectRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 10 },
   effectChip: {
     paddingHorizontal: 8,
@@ -1057,24 +1162,14 @@ const styles = themedStyles(() => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    marginTop: 18,
+    marginTop: 16,
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(132,160,138,0.3)',
-    backgroundColor: colors.sageSoft,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    backgroundColor: colors.card,
   },
-  grade: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: colors.coral,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-  },
-  gradeLetter: { fontFamily: fonts.ui, fontSize: 34, color: '#fff' },
-  gradeLabel: { fontFamily: fonts.ui, fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: 0 },
+  grade: { alignItems: 'center', gap: 6 },
+  gradeLabel: { fontFamily: fonts.ui, fontSize: 11, fontWeight: '600', letterSpacing: 0.3, color: colors.muted },
   analysisBody: { flex: 1 },
   analysisName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink, lineHeight: 23 },
   macroLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
@@ -1083,10 +1178,6 @@ const styles = themedStyles(() => ({
   macroValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
   macroUnit: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
   actions: { marginTop: 24, gap: 16, alignItems: 'stretch' },
-  suggestions: { marginTop: -4, marginBottom: 6, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, overflow: 'hidden' },
-  suggestion: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.divider },
-  suggestionPressed: { backgroundColor: colors.selectedFill },
-  suggestionLabel: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
   quick: { marginBottom: 8, padding: 14, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   quickHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   quickTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
@@ -1095,10 +1186,15 @@ const styles = themedStyles(() => ({
   quickInput: { alignSelf: 'stretch', textAlign: 'center' },
   quickLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.muted },
   quickOpen: { alignItems: 'flex-start', marginBottom: 4 },
-  amountLink: { color: colors.coral, fontWeight: '600' },
-  amountEditor: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  amountInput: { width: 90 },
-  amountUnits: { flex: 1, flexDirection: 'row', gap: 6 },
+  plateItem: { gap: 10, paddingVertical: 4 },
+  plateItemHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  amountInput: { width: 72, minHeight: 40, paddingVertical: 8, textAlign: 'center', fontSize: 16 },
+  amountUnits: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 2 },
+  unitChip: { minHeight: 30, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  unitChipOn: { backgroundColor: colors.selectedFill },
+  unitLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
+  unitLabelOn: { color: colors.coralDeep, fontWeight: '700' },
   copy: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   copyPressed: { backgroundColor: colors.selectedFill },
   copyTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
@@ -1107,20 +1203,21 @@ const styles = themedStyles(() => ({
   // goes under the rule, never through the middle of the pills.
   slots: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 22,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
     backgroundColor: colors.paper,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.hairline,
     zIndex: 1,
   },
   scrollArea: { flex: 1, overflow: 'hidden' },
-  slot: { flex: 1, minHeight: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 999, borderWidth: 1, borderColor: colors.border },
-  slotOn: { backgroundColor: colors.coral, borderColor: colors.coral },
-  slotLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft },
-  slotLabelOn: { color: colors.onCoral, fontWeight: '600' },
+  // Light chips under the segmented control: one choice of four, never louder than it.
+  slot: { flex: 1, minHeight: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
+  slotOn: { backgroundColor: colors.selectedFill },
+  slotLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
+  slotLabelOn: { color: colors.coralDeep, fontWeight: '700' },
   // Room under the field: the first result sat 1 pt below it.
   searchRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   searchInput: { flex: 1 },
@@ -1133,31 +1230,33 @@ const styles = themedStyles(() => ({
     minWidth: 72,
   },
   searchButtonLabel: { color: '#fff', fontFamily: fonts.ui, fontSize: 13 },
-  result: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 6, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  result: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14, borderCurve: 'continuous' },
   resultOn: { backgroundColor: colors.selectedFill },
+  // The calories stacked over their unit, right-aligned like a price.
+  rowKcalBox: { alignItems: 'flex-end', minWidth: 44 },
+  rowKcal: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 15, color: colors.ink, fontVariant: ['tabular-nums'] },
+  rowKcalUnit: { fontFamily: fonts.ui, fontSize: 11, color: colors.faint },
   resultText: { flex: 1 },
-  tick: { width: 26, height: 26, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  tick: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.coralWash, alignItems: 'center', justifyContent: 'center' },
   tickOn: { backgroundColor: colors.coral, borderColor: colors.coral },
   tickMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: '#fff', lineHeight: 15 },
-  plate: { marginTop: 4, marginBottom: 6, padding: 12, gap: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.cardSoft },
-  plateTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.ink },
-  plateRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  plateText: { flex: 1 },
-  plateName: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink },
+  plate: { marginTop: 4, marginBottom: 10, padding: 14, gap: 12, borderRadius: 18, borderCurve: 'continuous', backgroundColor: colors.card },
+  plateTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.muted },
+  plateName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stepButton: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
+  stepButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.cardSoft, alignItems: 'center', justifyContent: 'center' },
   stepButtonOff: { opacity: 0.35 },
   stepRemove: { width: 30, height: 30, marginLeft: 6, alignItems: 'center', justifyContent: 'center' },
   stepMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.inkSoft, lineHeight: 15 },
   stepValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink, minWidth: 34, textAlign: 'center' },
-  recent: { marginTop: 8, gap: 2 },
-  recentTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, paddingHorizontal: 6 },
-  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 6, borderBottomWidth: 1, borderBottomColor: colors.divider },
-  recentMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 6 },
+  recent: { marginTop: 18, gap: 2 },
+  recentTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6, paddingHorizontal: 8 },
+  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 8, borderRadius: 14, borderCurve: 'continuous' },
+  recentMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 8 },
   recentPlus: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral, lineHeight: 20 },
-  reading: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, textAlign: 'center', marginTop: 14 },
   footer: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 26, gap: 8, borderTopWidth: 1, borderTopColor: colors.hairline, backgroundColor: colors.paper },
-  footerSummary: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, textAlign: 'center' },
+  footerSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  footerSummary: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, textAlign: 'center' },
   resultName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
   resultMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },

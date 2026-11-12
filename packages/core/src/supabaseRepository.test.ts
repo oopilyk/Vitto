@@ -294,6 +294,46 @@ describe('SupabaseRepository pet collection', () => {
   });
 });
 
+describe('SupabaseRepository room themes', () => {
+  it('reads the theme and the themes bought, ignoring any it does not know', async () => {
+    responses.push({ data: [petRow({ room_theme: 'space', owned_room_themes: ['space', 'moon'] })], error: null });
+
+    const pet = await new SupabaseRepository().loadPet();
+    expect(pet?.roomTheme).toBe('space');
+    expect(pet?.ownedRoomThemes).toEqual(['space']);
+  });
+
+  it('never saves the theme, which only switch_pet_room_theme changes', async () => {
+    maybeSingle.mockResolvedValueOnce({ data: { version: 4 }, error: null });
+
+    await new SupabaseRepository().savePetIfUnchanged(
+      { ...createPet('user-1', 'Miso'), roomTheme: 'space', ownedRoomThemes: ['space'], version: 3 },
+      3,
+    );
+
+    const payload = update.mock.calls[0][0];
+    expect(payload).not.toHaveProperty('room_theme');
+    expect(payload).not.toHaveProperty('owned_room_themes');
+  });
+
+  it('switches through the server and reports a short balance', async () => {
+    rpc.mockResolvedValueOnce({
+      data: [{ room_theme: 'space', owned_room_themes: ['space'], coins: 20, version: 9 }],
+      error: null,
+    });
+    await expect(new SupabaseRepository().switchRoomTheme('pet-1', 'space')).resolves.toEqual({
+      roomTheme: 'space',
+      ownedRoomThemes: ['space'],
+      coins: 20,
+      version: 9,
+    });
+    expect(rpc).toHaveBeenCalledWith('switch_pet_room_theme', { p_pet_id: 'pet-1', p_theme: 'space' });
+
+    rpc.mockResolvedValueOnce({ data: null, error: { message: 'NOT_ENOUGH_COINS', details: '120' } });
+    await expect(new SupabaseRepository().switchRoomTheme('pet-1', 'space')).rejects.toMatchObject({ coins: 120 });
+  });
+});
+
 describe('SupabaseRepository.savePetIfUnchanged', () => {
   const pet = { ...createPet('user-1', 'Miso'), version: 3 };
 

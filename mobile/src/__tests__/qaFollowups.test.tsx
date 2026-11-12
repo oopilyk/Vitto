@@ -92,7 +92,7 @@ describe('workout limits at Finish', () => {
 });
 
 describe('plate stepper', () => {
-  it('stops at half a serving, takes a food off only with its own button, and says how much', async () => {
+  it('steps a food by its unit, stops at one step, takes it off only with its own button, and says how much', async () => {
     const banana: FoodSearchResult = {
       id: 'b', name: 'Bananas, raw', servingDescription: 'per 100 g', isPer100g: true,
       macros: { calories: 89, proteinGrams: 1.1, carbsGrams: 22.8, fatGrams: 0.3, fiberGrams: 2.6 },
@@ -108,10 +108,16 @@ describe('plate stepper', () => {
     await act(async () => { await pressText(tree, 'Find').props.onPress(); });
     act(() => tree.root.findAll((node: any) => node.props.accessibilityRole === 'checkbox' && node.props.accessibilityLabel === 'Bananas, raw')[0]!.props.onPress());
 
+    // A per-100 g food is counted in grams, 10 g a step, and shown as grams.
+    const amount = () => tree.root.find((node: any) => node.props.accessibilityLabel === 'Amount of Bananas, raw in g' && node.props.value !== undefined).props.value;
+    expect(amount()).toBe(100);
     act(() => press(tree, 'Less Bananas, raw').props.onPress());
+    expect(amount()).toBe(90);
+    expect(texts(tree)).toContain('80');
+    for (let i = 0; i < 8; i += 1) act(() => press(tree, 'Less Bananas, raw').props.onPress());
+    expect(amount()).toBe(10);
     expect(press(tree, 'Less Bananas, raw').props.disabled).toBe(true);
     expect(tree.root.findAll((node: any) => node.props.testID === 'plate').length).toBeGreaterThan(0);
-    expect(texts(tree)).toContain('50 g');
     act(() => press(tree, 'Remove Bananas, raw').props.onPress());
     expect(tree.root.findAll((node: any) => node.props.testID === 'plate')).toHaveLength(0);
     act(() => tree.unmount());
@@ -145,22 +151,23 @@ describe('Today step goal', () => {
   });
 });
 
-describe('food search autocomplete', () => {
-  it('suggests names as a search is typed, theirs first, and searches the one tapped', async () => {
+describe('food search as you type', () => {
+  it('searches what is typed after a short pause, with no list of names to pick first', async () => {
+    jest.useFakeTimers();
     mockSearch.mockReset();
     mockSearch.mockResolvedValue([]);
     let tree!: renderer.ReactTestRenderer;
     act(() => {
       tree = renderer.create(
-        <MealCaptureScreen canScanPhotos={false} knownFoods={['Sour Patch Kids']} onComplete={async () => {}} onFeedStart={() => {}} onAnalyzingChange={() => {}} onClose={() => {}} />,
+        <MealCaptureScreen canScanPhotos={false} onComplete={async () => {}} onFeedStart={() => {}} onAnalyzingChange={() => {}} onClose={() => {}} />,
       );
     });
     act(() => tree.root.findByType(TextInput).props.onChangeText('Sour'));
-    const offered = tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && String(node.props.accessibilityLabel).startsWith('Search ')).map((node: any) => node.props.accessibilityLabel);
-    expect(offered).toEqual(['Search Sour Patch Kids', 'Search Sour cream', 'Search Sourdough bread']);
-    await act(async () => { press(tree, 'Search Sour cream').props.onPress(); });
-    expect(mockSearch).toHaveBeenCalledWith('Sour cream');
-    expect(tree.root.findByType(TextInput).props.value).toBe('Sour cream');
+    expect(tree.root.findAll((node: any) => String(node.props.accessibilityLabel).startsWith('Search '))).toHaveLength(0);
+    expect(mockSearch).not.toHaveBeenCalled();
+    await act(async () => { jest.advanceTimersByTime(400); });
+    expect(mockSearch).toHaveBeenCalledWith('Sour');
     act(() => tree.unmount());
+    jest.useRealTimers();
   });
 });

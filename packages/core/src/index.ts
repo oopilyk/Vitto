@@ -16,6 +16,7 @@ export * from './domain/trends';
 export * from './domain/foodEffects';
 export * from './domain/health';
 export * from './domain/pet';
+export * from './domain/roomThemes';
 export * from './domain/friends';
 export * from './domain/friendRequests';
 export * from './domain/petHealthEngine';

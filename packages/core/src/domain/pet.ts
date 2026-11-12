@@ -2,6 +2,7 @@ import type { PersonalityDials } from '../companion/types';
 import type { FoodEffect } from './foodEffects';
 import type { FocusArea } from './macroTargets';
 import { newId } from './ids';
+import type { RoomTheme } from './roomThemes';
 
 /**
  * `sleepy` is low Energy (sleep and food); `sluggish` is low Vitality
@@ -187,6 +188,10 @@ export interface PetState {
    * with `ownedBreedsOf`, which always counts the current breed.
    */
   ownedBreeds?: PetBreed[];
+  /** The art the pet's rooms are drawn in (`roomThemeOf`); absent means classic. Only `switch_pet_room_theme` changes it. */
+  roomTheme?: RoomTheme;
+  /** Room themes bought (`ROOM_THEME_COST`), free to switch back to. Read with `ownedRoomThemesOf`. */
+  ownedRoomThemes?: RoomTheme[];
   /** Coins earned by caring for the pet, spent on changes (see coins.ts). Absent reads as 0. */
   coins?: number;
   /** Mind sessions ever played. Only counts up; the scholar evolution is read from it (`buildMindScore`). */

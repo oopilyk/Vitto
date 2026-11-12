@@ -2,6 +2,8 @@ import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
+import type { RoomTheme } from './roomTheme';
+import { THEMED_LIFT, framingOf, themedRoom } from './themeArt';
 
 /**
  * The Gym: reached by tapping Gym from any other scene, it opens the existing
@@ -27,6 +29,10 @@ interface GymEnvironmentControlsProps {
   onStartWorkout: () => void;
 }
 
+interface GymEnvironmentProps extends GymEnvironmentControlsProps {
+  theme?: RoomTheme;
+}
+
 /** The Gym's dedicated call to action, in the same slot as Kitchen's "Log meal". */
 function LogWorkoutButton({ onPress }: { onPress: () => void }) {
   return <RoomActionButton label="Log workout" onPress={onPress} />;
@@ -38,8 +44,24 @@ function GymEnvironmentControls({
   return <LogWorkoutButton onPress={onStartWorkout} />;
 }
 
-export function gymEnvironment(props: GymEnvironmentControlsProps): EnvironmentDressing {
+export function gymEnvironment({ theme = 'classic', ...props }: GymEnvironmentProps): EnvironmentDressing {
   const night = isNightTime();
+  if (theme !== 'classic') {
+    const room = themedRoom(theme, 'gym', night);
+    const framing = framingOf(theme, 'gym');
+    return {
+      background: (
+        <EnvironmentBackdrop
+          source={room.art}
+          lift={framing.lift ?? THEMED_LIFT}
+          floorColor={room.floor}
+          maxScale={framing.maxScale}
+        />
+      ),
+      backgroundColor: room.tint,
+      controls: <GymEnvironmentControls {...props} />,
+    };
+  }
   return {
     background: <EnvironmentBackdrop source={night ? GYM_NIGHT : GYM_DAY} />,
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,

@@ -14,6 +14,7 @@ import {
   type PetState,
   getPetBuild,
   hasEvolved,
+  roomThemeOf,
 } from '@vitto/core';
 import { LevelUpCelebration } from '../celebrations/LevelUpCelebration';
 import { AchievementUnlock } from '../celebrations/AchievementUnlock';
@@ -182,6 +183,7 @@ export function DashboardScreen({
   };
 
   const night = isNightTime();
+  const roomTheme = roomThemeOf(pet);
 
   // What the pet says over its head. Every log speaks: the reaction to it, in
   // this pet's own voice, goes in the bubble for free and at once. If the
@@ -293,11 +295,11 @@ export function DashboardScreen({
       }
       navBar={<EnvironmentActionRow current={environment} onNavigate={navigate} night={night} />}
       environments={{
-        main: mainEnvironment({ trophies }),
-        kitchen: kitchenEnvironment({ onChooseFood: onLogMeal }),
-        gym: gymEnvironment({ onStartWorkout: onLogWorkout }),
-        study: studyEnvironment({ onTrainMind }),
-        outside: outsideEnvironment({ onLogRun }),
+        main: mainEnvironment({ trophies, theme: roomTheme }),
+        kitchen: kitchenEnvironment({ onChooseFood: onLogMeal, theme: roomTheme }),
+        gym: gymEnvironment({ onStartWorkout: onLogWorkout, theme: roomTheme }),
+        study: studyEnvironment({ onTrainMind, theme: roomTheme }),
+        outside: outsideEnvironment({ onLogRun, theme: roomTheme }),
       }}
     />
       {celebration?.kind === 'levelUp' ? (

@@ -3,6 +3,7 @@ import type { HealthEvent } from './domain/health';
 import type { WorkoutTemplate } from './domain/workoutTemplates';
 import { parseSchedule, type TrainingSchedule } from './domain/trainingSchedule';
 import { chargeOf, isPetVoice, type EvolvedBuild, type PetBreed, type PetState } from './domain/pet';
+import { isRoomTheme, type RoomTheme } from './domain/roomThemes';
 import { sanitizeMeals } from './domain/hunger';
 import { withSurveyDefaults, type BodyProfile, type FocusArea } from './domain/macroTargets';
 import { birthYearToSave, withCurrentAge } from './domain/ageGate';
@@ -15,7 +16,7 @@ import {
 } from './domain/carePartners';
 import { requireSupabase } from './config';
 
-type PetRow = Omit<PetState, 'voice' | 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'showBase' | 'ownedBreeds' | 'coins' | 'mindSessions' | 'careAreas' | 'recentMeals' | 'charge'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null; persona: string | null; personality_dials: PersonalityDials | null; care_areas?: FocusArea[] | null; recent_meals?: unknown; charge?: number | null; evolved_build?: EvolvedBuild | null; earned_builds?: EvolvedBuild[] | null; chosen_build?: EvolvedBuild | null; show_base?: boolean | null; owned_breeds?: PetBreed[] | null; coins?: number | null; mind_sessions?: number | null; voice?: string | null };
+type PetRow = Omit<PetState, 'voice' | 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'showBase' | 'ownedBreeds' | 'roomTheme' | 'ownedRoomThemes' | 'coins' | 'mindSessions' | 'careAreas' | 'recentMeals' | 'charge'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null; persona: string | null; personality_dials: PersonalityDials | null; care_areas?: FocusArea[] | null; recent_meals?: unknown; charge?: number | null; evolved_build?: EvolvedBuild | null; earned_builds?: EvolvedBuild[] | null; chosen_build?: EvolvedBuild | null; show_base?: boolean | null; owned_breeds?: PetBreed[] | null; room_theme?: string | null; owned_room_themes?: string[] | null; coins?: number | null; mind_sessions?: number | null; voice?: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
 type PetMemberRow = { user_id: string; role: PetMember['role']; joined_at: string; left_at: string | null; display_name: string | null; username?: string | null };
 type PetInviteRow = { id: string; pet_id: string; code: string; created_at: string; expires_at: string; redeemed_at: string | null; revoked_at: string | null };
@@ -184,6 +185,7 @@ const petPayload = (pet: PetState) =>
     // a 'base' in `chosen_build`. Dropped by saveDroppingMissingColumns until it exists.
     show_base: pet.showBase ?? false,
     // No `owned_breeds` either: only switch_pet_breed adds to it.
+    // No `room_theme` or `owned_room_themes`: only switch_pet_room_theme changes them.
     // No `coins`: the server keeps them (pets_coins_and_breed), whatever is sent.
     mind_sessions: pet.mindSessions ?? 0,
     adopted_at: pet.adoptedAt,
@@ -307,7 +309,7 @@ export class SupabaseRepository {
   }
 
   private static toPetState(row: PetRow): PetState {
-    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, persona: row.persona ?? undefined, dials: row.personality_dials ?? undefined, voice: isPetVoice(row.voice) ? row.voice : undefined, careAreas: row.care_areas?.length ? row.care_areas : undefined, recentMeals: sanitizeMeals(row.recent_meals), charge: row.charge ?? undefined, evolvedBuild: row.evolved_build ?? undefined, earnedBuilds: row.earned_builds ?? undefined, chosenBuild: row.chosen_build ?? undefined, showBase: row.show_base || undefined, ownedBreeds: row.owned_breeds ?? undefined, coins: row.coins ?? 0, mindSessions: row.mind_sessions ?? 0, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
+    return { ...row, userId: row.user_id, lastEventAt: row.last_event_at ?? undefined, pushingStrength: row.pushing_strength, pullingStrength: row.pulling_strength, legStrength: row.leg_strength, mind: row.mind ?? 20, breed: row.breed ?? undefined, personality: (row.personality as PetState['personality']) ?? undefined, persona: row.persona ?? undefined, dials: row.personality_dials ?? undefined, voice: isPetVoice(row.voice) ? row.voice : undefined, careAreas: row.care_areas?.length ? row.care_areas : undefined, recentMeals: sanitizeMeals(row.recent_meals), charge: row.charge ?? undefined, evolvedBuild: row.evolved_build ?? undefined, earnedBuilds: row.earned_builds ?? undefined, chosenBuild: row.chosen_build ?? undefined, showBase: row.show_base || undefined, ownedBreeds: row.owned_breeds ?? undefined, roomTheme: isRoomTheme(row.room_theme) ? row.room_theme : undefined, ownedRoomThemes: row.owned_room_themes?.filter(isRoomTheme), coins: row.coins ?? 0, mindSessions: row.mind_sessions ?? 0, adoptedAt: resolveAdoptedAt(row.adopted_at, row.created_at), version: row.version ?? 0 };
   }
 
   /**
@@ -567,6 +569,33 @@ export class SupabaseRepository {
     const row = (Array.isArray(data) ? data[0] : data) as { breed: string; coins: number; version: number } | undefined;
     if (!row) throw new Error('Could not switch.');
     return row;
+  }
+
+  /**
+   * Puts the pet's rooms in `theme` through `switch_pet_room_theme`, which
+   * checks and spends the coins on the server, like `switchBreed`. Throws
+   * `NotEnoughCoinsError` when the pet cannot pay.
+   */
+  async switchRoomTheme(
+    petId: string,
+    theme: RoomTheme,
+  ): Promise<{ roomTheme: RoomTheme; ownedRoomThemes: RoomTheme[]; coins: number; version: number }> {
+    const client = requireClient();
+    const { data, error } = await client.rpc('switch_pet_room_theme', { p_pet_id: petId, p_theme: theme });
+    if (error) {
+      if (error.message?.includes('NOT_ENOUGH_COINS')) throw new NotEnoughCoinsError(Number(error.details) || 0);
+      throw error;
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { room_theme: string | null; owned_room_themes: string[] | null; coins: number; version: number }
+      | undefined;
+    if (!row) throw new Error('Could not change the rooms.');
+    return {
+      roomTheme: isRoomTheme(row.room_theme) ? row.room_theme : 'classic',
+      ownedRoomThemes: (row.owned_room_themes ?? []).filter(isRoomTheme),
+      coins: row.coins,
+      version: row.version,
+    };
   }
 
   /**

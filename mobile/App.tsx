@@ -13,7 +13,7 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, dayGoals,CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, loggedFoodNames, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, setDevFreezeGrant, scheduleDayOn, reconcileSchedule, type TrainingSchedule, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, dayGoals,CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, setDevFreezeGrant, scheduleDayOn, reconcileSchedule, type TrainingSchedule, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, type RoomTheme, ROOM_THEME_COST, ownedRoomThemesOf, roomThemeOf, roomThemeSwitchCost, switchRoomTheme, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
@@ -487,7 +487,6 @@ function VittoApp() {
   /** Meals to log again in a tap, at the top of the meal sheet. */
   // More than the screen lists: it leads with the meal being logged (forSlot), then trims.
   const mealsToRepeat = useMemo(() => repeatableMeals(events, new Date(), 20), [events]);
-  const knownFoods = useMemo(() => loggedFoodNames(events), [events]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
   // The unit they lift in, which can differ from their profile's (see liftingUnit).
   const liftUnit = useMemo(() => liftingUnit(events, profile.weightUnit), [events, profile.weightUnit]);
@@ -1568,6 +1567,57 @@ function VittoApp() {
   };
 
   /**
+   * Which art the pet's rooms are drawn in. Shaped like `changeBreed`: a theme
+   * the pet has not bought costs coins, one it owns is free to go back to, and
+   * with a server the switch goes through `switch_pet_room_theme`, which is
+   * what really charges.
+   */
+  const changeRoomTheme = async (next: RoomTheme) => {
+    if (!pet || next === roomThemeOf(pet)) return;
+    const freeSwitch = isDevAccount(session?.user.email);
+    const cost = roomThemeSwitchCost(pet, next, freeSwitch);
+    const nextPet = switchRoomTheme(pet, next, freeSwitch);
+    if (!nextPet) {
+      setError(`New rooms cost ${cost} coins, and ${pet.name} has ${coinsOf(pet)}.`);
+      return;
+    }
+    // Held like changeBreed's, so a foreground refresh cannot land mid-switch.
+    careMomentInFlight.current = true;
+    try {
+      if (isSupabaseConfigured && session) {
+        // Not switched until the server says so: the shop announces the move
+        // as soon as the pet's rooms change, so switching first would announce
+        // a purchase the server then refuses.
+        try {
+          const result = await remoteRepository.switchRoomTheme(pet.id, next);
+          const stored = {
+            ...pet,
+            roomTheme: result.roomTheme,
+            ownedRoomThemes: result.ownedRoomThemes,
+            coins: result.coins,
+            version: result.version,
+          };
+          setPet(stored);
+          await repository.savePet(stored);
+        } catch (cause) {
+          if (cause instanceof NotEnoughCoinsError) {
+            setPet({ ...pet, coins: cause.coins });
+            throw new Error(`New rooms cost ${ROOM_THEME_COST} coins, and ${pet.name} has ${cause.coins}.`);
+          }
+          throw cause;
+        }
+        return;
+      }
+      setPet(nextPet);
+      await repository.savePet(nextPet);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not change the rooms.'));
+    } finally {
+      releasePetWrite();
+    }
+  };
+
+  /**
    * Whose voice the pet speaks in. Saved on the pet, so a care partner hears
    * the same one; versioned with a retry, like `changeForm`. It says a line in
    * the new voice, so the choice can be heard.
@@ -2478,11 +2528,16 @@ function VittoApp() {
   // screen: the same figure the Today page leads with. Above the early returns
   // for the same reason `trophiesNow` is.
   // With it, what is left of today for the tokens under the pet's line.
-  const { todayProgress, todayGoals } = useMemo(() => {
-    if (!pet) return { todayProgress: undefined, todayGoals: undefined };
+  const { todayProgress, todayGoals, todayFood } = useMemo(() => {
+    if (!pet) return { todayProgress: undefined, todayGoals: undefined, todayFood: undefined };
     const recap = buildDailyRecap({ events, profile, pet, stepGoal, day: now });
     const rotation = scheduleDayOn(trainingSchedule, workoutTemplates, now);
-    return { todayProgress: recap.dailyProgress, todayGoals: dayGoals(recap, { events, profile, pet, day: now, rotation }) };
+    return {
+      todayProgress: recap.dailyProgress,
+      todayGoals: dayGoals(recap, { events, profile, pet, day: now, rotation }),
+      // The meal page's bars: eaten so far against the day's targets.
+      todayFood: { consumed: recap.food.consumed, targets: recap.food.targets },
+    };
   }, [events, profile, pet, stepGoal, now, trainingSchedule, workoutTemplates]);
 
   // Everything earned, badges and trophies, in display order. Above the early
@@ -3359,6 +3414,10 @@ function VittoApp() {
               coins={coinsOf(pet)}
               cost={isDev ? 0 : BREED_CHANGE_COST}
               onChoose={(next) => void changeBreed(next)}
+              roomTheme={roomThemeOf(pet)}
+              ownedRoomThemes={ownedRoomThemesOf(pet)}
+              roomThemeCost={isDev ? 0 : ROOM_THEME_COST}
+              onChooseRoomTheme={(next) => void changeRoomTheme(next)}
               onClose={() => navigation.goBack()}
               pet={livePet}
               onChooseForm={(next) => void changeForm(next)}
@@ -3507,7 +3566,7 @@ function VittoApp() {
                 // Photo macro tracking is Plus; the paywall opens once this modal is gone.
                 canScanPhotos={canCustomise}
                 repeatable={mealsToRepeat}
-                knownFoods={knownFoods}
+                today={todayFood}
                 copyableFor={(slot) => copyableSlot(events, slot)}
                 onCopy={copyMeals}
                 onOpenPlus={() => {

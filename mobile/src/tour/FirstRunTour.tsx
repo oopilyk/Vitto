@@ -233,7 +233,7 @@ export function FirstRunTour({
           clearInterval(timer);
           return current;
         }
-        return current + 1;
+        return Math.min(full.length, current + TYPE_CHARS);
       });
     }, TYPE_MS);
     return () => clearInterval(timer);
@@ -384,8 +384,13 @@ export function FirstRunTour({
 /** Space between the target and its corner brackets, and the box. */
 const MARK_PAD = 7;
 const BOX_GAP = 16;
-/** One letter of the typed-out line. */
-const TYPE_MS = 18;
+/**
+ * The typed-out line's pace: two letters a frame, about 125 a second. One
+ * letter every 18ms read slowly, and a timer cannot usefully tick faster than
+ * a frame, so the speed comes from letters per tick.
+ */
+const TYPE_MS = 16;
+const TYPE_CHARS = 2;
 /** The pointer triangle's half-width. */
 const POINTER = 9;
 const CORNER = 14;

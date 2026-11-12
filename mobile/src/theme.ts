@@ -4,31 +4,37 @@ export type ColorScheme = 'light' | 'dark';
 /** What the user picked in Settings > Appearance. `system` follows the phone. */
 export type AppearancePreference = 'system' | ColorScheme;
 
-/** The palette lifted from the web build's stylesheet, in one place. */
+/**
+ * The light palette: warm cream rather than parchment. Pages are a cream close
+ * to white, raised cards nearly white, so layers separate cleanly; text is a
+ * deep warm brown, and even the faintest grey clears 4.5:1 on the page (the
+ * parchment's faint text was 2.6:1). Coral stays the one accent, for actions
+ * and progress.
+ */
 const LIGHT = {
-  paper: '#e9dfc9',
-  card: '#f4ecdb',
-  cardSoft: '#efe5d0',
-  ink: '#43372c',
-  inkSoft: '#5f5243',
-  muted: '#7a6c5b',
-  faint: '#968977',
-  hairline: '#d4c5a6',
-  border: '#a39377',
-  coral: '#c56a4e',
-  coralDeep: '#a9553c',
-  coralWash: '#ecd3c5',
-  mint: '#dfe6cf',
+  paper: '#f7f2e8',
+  card: '#fffcf6',
+  cardSoft: '#f1ebdf',
+  ink: '#2f261d',
+  inkSoft: '#4f4336',
+  muted: '#6b5f50',
+  faint: '#776a5c',
+  hairline: '#e6dccb',
+  border: '#c4b49a',
+  coral: '#bf5f42',
+  coralDeep: '#a24c33',
+  coralWash: '#f6e0d6',
+  mint: '#e5ecd8',
   mintDeep: '#5e7f53',
-  sage: '#dde3c8',
-  sageSoft: '#e8ebd8',
-  yellow: '#f0e2b3',
+  sage: '#e6ecd6',
+  sageSoft: '#f0f3e6',
+  yellow: '#f6ebc6',
   yellowDeep: '#8a6d27',
-  lilac: '#e5dbe8',
+  lilac: '#ece4ef',
   lilacDeep: '#6b5b8f',
-  slate: '#e2dccf',
+  slate: '#ebe6dc',
   /** Pale blue-grey. The aura palette is all light tones, so `sad` needs one too. */
-  periwinkle: '#cfd2dc',
+  periwinkle: '#d9dce6',
   slateDeep: '#6a665e',
   danger: '#a8473a',
   petSkin: '#d87855',
@@ -37,29 +43,29 @@ const LIGHT = {
   /** Text and marks that sit ON coral (buttons, badges): a warm white in both schemes. */
   onCoral: '#fff8ec',
   /** The selected tint: a soft coral wash, and the edge that goes with it. */
-  selectedFill: '#f3e1d3',
-  selectedBorder: '#d9b39d',
+  selectedFill: '#f8e7dc',
+  selectedBorder: '#e2bca6',
   /** The warm tile a sprite sits on (companion rows, avatars). */
-  tile: '#e6d9bd',
+  tile: '#efe5d1',
   /** A focused text field lifts to this. */
-  inputFocus: '#fbf5e8',
+  inputFocus: '#ffffff',
   /** Progress tracks and empty bars. */
-  track: '#ddd0b4',
+  track: '#e8dfcf',
   /** The danger zone's quiet surface, its edge, and a pressed danger button. */
-  dangerWash: '#f6ebe1',
-  dangerBorder: '#e2c3b5',
-  dangerPressed: '#efd5c8',
+  dangerWash: '#fbf0ea',
+  dangerBorder: '#ecccbf',
+  dangerPressed: '#f5ddd2',
   /** Cautions that are not errors ("capped to stay safe"). */
   caution: '#93604f',
   /** Soft row dividers inside lists. */
-  divider: '#e0d3b9',
+  divider: '#ece4d6',
   /** Shadows: the pet world's hard, warm-dark drop. */
   shadow: '#2a1f16',
   /** A control raised off a track (the selected segment): lighter than what it sits on, in both schemes. */
-  raised: '#f8f1e3',
+  raised: '#ffffff',
   /** A primary button that cannot be pressed yet: a solid neutral, not a faded coral, so its label stays readable. */
-  disabledFill: '#ddd2bc',
-  onDisabled: '#76695a',
+  disabledFill: '#e6ddcc',
+  onDisabled: '#74685a',
 };
 
 export type Palette = { [K in keyof typeof LIGHT]: string };

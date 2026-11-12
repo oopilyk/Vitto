@@ -2,6 +2,8 @@ import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
+import type { RoomTheme } from './roomTheme';
+import { THEMED_LIFT, framingOf, themedRoom } from './themeArt';
 
 /**
  * The Kitchen: reached by tapping Kitchen in the living room, it opens the
@@ -38,6 +40,10 @@ interface KitchenEnvironmentControlsProps {
   onChooseFood: () => void;
 }
 
+interface KitchenEnvironmentProps extends KitchenEnvironmentControlsProps {
+  theme?: RoomTheme;
+}
+
 /** The Kitchen's dedicated call to action, floating between the name card and
  *  the pet. Coral on white reads on both the day and night kitchen art. */
 function LogMealButton({ onPress }: { onPress: () => void }) {
@@ -50,8 +56,24 @@ function KitchenEnvironmentControls({
   return <LogMealButton onPress={onChooseFood} />;
 }
 
-export function kitchenEnvironment(props: KitchenEnvironmentControlsProps): EnvironmentDressing {
+export function kitchenEnvironment({ theme = 'classic', ...props }: KitchenEnvironmentProps): EnvironmentDressing {
   const night = isNightTime();
+  if (theme !== 'classic') {
+    const room = themedRoom(theme, 'kitchen', night);
+    const framing = framingOf(theme, 'kitchen');
+    return {
+      background: (
+        <EnvironmentBackdrop
+          source={room.art}
+          lift={framing.lift ?? THEMED_LIFT}
+          floorColor={room.floor}
+          maxScale={framing.maxScale}
+        />
+      ),
+      backgroundColor: room.tint,
+      controls: <KitchenEnvironmentControls {...props} />,
+    };
+  }
   return {
     background: <EnvironmentBackdrop
         source={night ? KITCHEN_NIGHT : KITCHEN_DAY}
