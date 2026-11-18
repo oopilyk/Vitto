@@ -264,7 +264,8 @@ const styles = themedStyles(() => ({
   },
   suggestionPressed: { backgroundColor: colors.cardSoft },
   suggestionFlag: { fontFamily: fonts.ui, fontSize: 20 },
-  suggestionName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
+  // Shrinks beside the flag, so a long name ("Bosnia and Herzegovina") wraps rather than overflowing the row.
+  suggestionName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink, flexShrink: 1, minWidth: 0 },
   notice: { fontFamily: fonts.ui, fontSize: 12, color: colors.danger, marginTop: 6, minHeight: 16 },
   actions: { marginTop: 20, gap: 16 },
 }));

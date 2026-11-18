@@ -216,7 +216,7 @@ export function StrengthMap({ profile, events }: Props) {
           <View key={other.exercise} style={styles.lift} testID={`other-lift-${other.exercise}`}>
             <View style={[styles.liftBar, { backgroundColor: colors.border }]} />
             <View style={styles.liftText}>
-              <Text style={styles.liftName}>{other.exercise}</Text>
+              <Text style={styles.liftName} numberOfLines={2}>{other.exercise}</Text>
               <Text style={styles.liftMeta}>
                 {`${show(other.best.oneRepMaxKg)} ${unit} est. max · ${other.sessions} sessions`}
               </Text>
@@ -260,7 +260,7 @@ const styles = themedStyles(() => ({
     overflow: 'hidden',
   },
   liftBar: { width: 4, alignSelf: 'stretch' },
-  liftText: { flex: 1 },
+  liftText: { flex: 1, minWidth: 0 },
   liftName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
   liftMeta: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 1 },
   liftNext: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 1 },

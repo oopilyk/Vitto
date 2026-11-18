@@ -341,7 +341,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
                   {pet.name}
                 </Text>
                 <Text style={[styles.feelingText, styles.feelingMood, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
-                  {` is ${MOOD_WORD[pet.mood]}`}
+                  {`is ${MOOD_WORD[pet.mood]}`}
                 </Text>
               </View>
             </View>
@@ -523,7 +523,8 @@ const styles = themedStyles(() => ({
   feelingDot: { width: 8, height: 8, borderRadius: 12, flexShrink: 0 },
   feelingWords: { flexDirection: 'row', flexShrink: 1, minWidth: 0 },
   feelingName: { flexShrink: 1 },
-  feelingMood: { flexShrink: 0 },
+  // A leading space in its own block is dropped on the web, so the gap is a margin.
+  feelingMood: { flexShrink: 0, marginLeft: 5 },
   feelingText: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '500', letterSpacing: 0 },
   feelingWhy: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 7, lineHeight: 17 },
   shareButton: { justifyContent: 'flex-end' },

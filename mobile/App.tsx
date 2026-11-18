@@ -20,9 +20,10 @@ import { listenForAuthLinks } from './src/services/authLinks';
 import { loadAffirmationsEnabled, saveAffirmationsEnabled, syncAffirmations } from './src/services/affirmations';
 import { loadMusicEnabled, pauseMusic, playMusic, saveMusicEnabled } from './src/services/music';
 import { discardVoice, preparePreviews, previewVoice, voiceOf, isVoiceReady, loadVoiceEnabled, prepareVoice, saveVoiceEnabled, speakAsPet, stopPetVoice, VOICE_DOWNLOAD_BYTES } from './src/services/petVoice';
-import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp } from './src/services/careMoment';
+import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp, type CareMomentFanOut } from './src/services/careMoment';
+import { flushOutbox, isOfflineFailure, loadOutbox, OUTBOX_RETRY_MS, saveOutbox, type OutboxEntry } from './src/services/outbox';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
-import { saveWithRetry } from './src/services/saveWithRetry';
+import { isTimeout, saveWithRetry } from './src/services/saveWithRetry';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/healthKitProvider';
@@ -277,11 +278,21 @@ const makeEvent = <T,>(userId: string, type: HealthEvent['type'], metadata: T): 
   metadata,
 });
 
-const withTimeout = <T,>(promise: Promise<T>, message: string) =>
+const withTimeout = <T,>(promise: Promise<T>, message: string, ms = 10000) =>
   Promise.race([
     promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), 10000)),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
   ]);
+
+/**
+ * How long a log waits on the server before it is kept on the phone instead
+ * (see services/outbox). Shorter than a plain save's timeout: past this the
+ * person is looking at a spinner on bad signal, and the moment is safe to
+ * apply locally because the commit still in flight is tracked, never re-paid.
+ */
+const OFFLINE_AFTER_MS = 6000;
+/** The version a pet carries while it holds moments the server has not seen: no row ever has it. */
+const OFFLINE_PET_VERSION = -1;
 
 /** A yes/no system dialog as a promise, so a confirmed action can still reject to its caller. */
 /**
@@ -527,6 +538,14 @@ function VittoApp() {
   // `setPet`; the refresh yields while a write is pending and re-runs after it.
   const careMomentInFlight = useRef(false);
   const refreshPending = useRef(false);
+  // Logs made offline, oldest first, waiting to reach the server (services/outbox).
+  // The ref is the truth (a flush reads it as it goes); the count re-renders.
+  const outbox = useRef<OutboxEntry[]>([]);
+  const [queuedCount, setQueuedCount] = useState(0);
+  const flushing = useRef(false);
+  // A commit that timed out but may still land: a flush waits on it rather
+  // than applying the same moment to the pet a second time.
+  const inFlightCommits = useRef(new Map<string, Promise<CareMomentFanOut>>());
   // Who is signed in right now, readable after an await: a refresh that started
   // for one user must not land its results on a signed-out (or different) app.
   const sessionUserRef = useRef<string | null>(null);
@@ -940,7 +959,17 @@ function VittoApp() {
           // next care moment replay the same elapsed window a second time.
           setPets(petResult.value);
         }
-        if (eventsResult.status === 'fulfilled') setEvents(eventsResult.value);
+        // Logs made offline last time, not on the server yet: back on screen,
+        // and sent as soon as the pet has loaded (see flushQueued).
+        const queuedEntries = await loadOutbox(session.user.id);
+        if (cancelled) return;
+        outbox.current = queuedEntries;
+        setQueuedCount(queuedEntries.length);
+        if (eventsResult.status === 'fulfilled') {
+          const onServer = new Set(eventsResult.value.map((candidate) => candidate.id));
+          const waiting = queuedEntries.map((entry) => entry.event).filter((candidate) => !onServer.has(candidate.id)).reverse();
+          setEvents([...waiting, ...eventsResult.value]);
+        }
         if (profileResult.status === 'fulfilled') {
           // Reset when this account has no stored profile yet, rather than
           // leaving the PREVIOUS account's name, handle, bio and body metrics on
@@ -1163,6 +1192,9 @@ function VittoApp() {
 
   const refreshShared = async (target: PetState | null = pet) => {
     if (!isSupabaseConfigured || !session || !target) return;
+    // This pet holds logs still queued, not yet on the server's copy: a
+    // refresh now would take them back off the screen until the next sync.
+    if (target.version === OFFLINE_PET_VERSION) return;
     if (careMomentInFlight.current) {
       refreshPending.current = true;
       return;
@@ -1285,6 +1317,126 @@ function VittoApp() {
     }
   };
 
+
+  /**
+   * The partner's view of a moment: a type and a time, nothing more. Best
+   * effort, and only once there is a partner to see it — the log starts at
+   * pairing, so nobody inherits a history they were not part of. A cup taken
+   * back is a correction, not a drink, so the partner hears nothing of it.
+   */
+  const appendPartnerLog = (event: HealthEvent<unknown>) => {
+    if (!pet || !isSupabaseConfigured || !session) return;
+    const takenBack = event.type === 'HYDRATION' && waterMlOf(event as HealthEvent) < 0;
+    if (!isSharedPet(members) || takenBack) return;
+    void remoteRepository
+      .appendCareLog({ petId: pet.id, userId, type: event.type, occurredAt: event.occurredAt })
+      .catch(() => undefined);
+  };
+
+  /** Writes the queue to the device for this account, and updates the count. */
+  const storeOutbox = async (entries: OutboxEntry[]) => {
+    outbox.current = entries;
+    setQueuedCount(entries.length);
+    if (session) await saveOutbox(session.user.id, entries);
+  };
+
+  const enqueue = (entry: OutboxEntry) =>
+    storeOutbox([...outbox.current.filter((queued) => queued.event.id !== entry.event.id), entry]);
+
+  /**
+   * Sends what was logged offline, oldest first (services/outbox). Each moment
+   * is replayed against the server's own pets, never this phone's: those
+   * already carry it, and committing from them would pay the pet twice.
+   * Stops quietly while the connection is still down; tried again on a timer,
+   * on foreground and when the browser says it is back online.
+   */
+  const flushQueued = async () => {
+    if (!isSupabaseConfigured || !session || flushing.current || outbox.current.length === 0) return;
+    flushing.current = true;
+    const owner = session.user.id;
+    let serverPets: PetState[] | null = null;
+    try {
+      const outcome = await flushOutbox({
+        next: () => (sessionUserRef.current === owner ? outbox.current[0] : undefined),
+        applyToPets: async (event) => {
+          const onScreen = (fan: CareMomentFanOut) =>
+            (fan.results.find((result) => result.pet.id === petOnScreen.current) ?? fan.results[0])?.xpGranted ?? 0;
+          const pending = inFlightCommits.current.get(event.id);
+          if (pending) {
+            // Still unanswered: a timeout here stops the flush and keeps it.
+            let landed: CareMomentFanOut | null = null;
+            try {
+              landed = await withTimeout(pending, SAVE_TIMEOUT_MESSAGE);
+            } catch (cause) {
+              if (isTimeout(cause)) throw cause;
+              // It failed outright, so it never reached the pet: replay it below.
+            }
+            inFlightCommits.current.delete(event.id);
+            if (landed) {
+              serverPets = landed.pets;
+              return onScreen(landed);
+            }
+          }
+          serverPets ??= await withTimeout(remoteRepository.loadPets(), SAVE_TIMEOUT_MESSAGE);
+          // History as it stood when this was logged: what came before it,
+          // never the logs still queued behind it.
+          const queuedIds = new Set(outbox.current.map((entry) => entry.event.id));
+          const history = eventLogRef.current.filter((candidate) => !queuedIds.has(candidate.id));
+          const commit = commitCareMomentForAll({ pets: serverPets, event, events: history, profile, engine, remote: remoteRepository });
+          let fan: CareMomentFanOut;
+          try {
+            fan = await withTimeout(commit, SAVE_TIMEOUT_MESSAGE);
+          } catch (cause) {
+            // Unanswered, not refused: it may yet land, so the next try waits on it.
+            if (isTimeout(cause)) inFlightCommits.current.set(event.id, commit);
+            throw cause;
+          }
+          serverPets = fan.pets;
+          return onScreen(fan);
+        },
+        saveRow: async (event, xpAwarded) => {
+          const stored: HealthEvent = { ...event, metadata: { ...(event.metadata as Record<string, unknown>), xpAwarded } };
+          await saveWithRetry(() => withTimeout(remoteRepository.saveEvent(stored), SAVE_TIMEOUT_MESSAGE));
+          appendPartnerLog(stored);
+          return stored;
+        },
+        update: (entry) =>
+          storeOutbox(outbox.current.map((queued) => (queued.event.id === entry.event.id ? entry : queued))),
+        drop: (eventId) => storeOutbox(outbox.current.filter((queued) => queued.event.id !== eventId)),
+      });
+      if (sessionUserRef.current !== owner) return;
+      if (outcome.synced.length > 0) {
+        const byId = new Map(outcome.synced.map((stored) => [stored.id, stored]));
+        setEvents((current) => current.map((candidate) => byId.get(candidate.id) ?? candidate));
+        for (const stored of outcome.synced) void repository.replaceEvent(stored).catch(() => undefined);
+      }
+      if (outcome.failed.length > 0) {
+        const gone = new Set(outcome.failed.map((failure) => failure.event.id));
+        setEvents((current) => current.filter((candidate) => !gone.has(candidate.id)));
+        setError(
+          outcome.failed.length === 1
+            ? 'One log from while you were offline could not be saved.'
+            : `${outcome.failed.length} logs from while you were offline could not be saved.`,
+        );
+      }
+      // Only once nothing is left: until then this phone's pets carry the
+      // queued moments the server's do not have yet.
+      const settled = serverPets as PetState[] | null;
+      if (settled && outbox.current.length === 0) {
+        setPets(settled);
+        const shown = settled.find((candidate) => candidate.id === petOnScreen.current) ?? settled[0];
+        if (shown) void repository.savePet(shown).catch(() => undefined);
+      }
+    } catch {
+      // Storage or a lookup failed outside the replay: nothing is lost, the
+      // queue is still there, and the next attempt tries again.
+    } finally {
+      flushing.current = false;
+    }
+  };
+  const flushQueuedRef = useRef(flushQueued);
+  flushQueuedRef.current = flushQueued;
+
   /**
    * `quiet` saves without a word: no reaction, no toast, no cheer. For a cup of
    * water short of the goal, or one taken back, where the tracker filling or
@@ -1301,13 +1453,47 @@ function VittoApp() {
       // Fans out: one logged moment feeds every pet the user cares for. A person
       // eats one meal and walks one set of steps, so the moment is a fact about
       // them, not about a pet — and the shared pet never becomes a second chore.
-      const fanOut = await withTimeout(
-        commitCareMomentForAll({ pets, event, events: eventLog, profile, engine, remote }),
-        SAVE_TIMEOUT_MESSAGE,
-      );
+      // Offline: kept on the phone and sent later (services/outbox). Once
+      // anything is queued, later logs queue behind it at once, no waiting,
+      // and in order.
+      let fanOut: CareMomentFanOut | undefined;
+      let queued: OutboxEntry | null = null;
+      if (remote && outbox.current.length === 0) {
+        const commit = commitCareMomentForAll({ pets, event, events: eventLog, profile, engine, remote });
+        try {
+          fanOut = await withTimeout(commit, SAVE_TIMEOUT_MESSAGE, OFFLINE_AFTER_MS);
+        } catch (cause) {
+          if (!isOfflineFailure(cause)) throw cause;
+          // It may still land: remembered, so the replay never pays the pet twice.
+          if (isTimeout(cause)) inFlightCommits.current.set(event.id, commit);
+        }
+      }
+      if (!fanOut && !remote) fanOut = await commitCareMomentForAll({ pets, event, events: eventLog, profile, engine });
+      if (!fanOut) {
+        queued = { event };
+        // Offline, only the person's own pet changes on the phone. A joint pet
+        // is someone else's too, so it changes only with a connection: it gets
+        // this moment when the queue reaches the server.
+        const joint = (candidate: PetState) =>
+          !isOwnPet(candidate, userId) || (candidate.id === pet.id && isSharedPet(members));
+        const solo = pets.filter((candidate) => !joint(candidate));
+        const local = await commitCareMomentForAll({ pets: solo, event, events: eventLog, profile, engine });
+        // Marked as the phone's own copy: any other save to it (a breed, a
+        // voice, a care area) meets a version conflict, reloads the server's
+        // pet and changes that, so these offline stats reach the server only
+        // through the queue, once.
+        const changed = new Map(local.pets.map((candidate) => [candidate.id, { ...candidate, version: OFFLINE_PET_VERSION }]));
+        fanOut = {
+          results: local.results,
+          pets: pets.map((candidate) => changed.get(candidate.id) ?? candidate),
+        };
+      }
       // The reaction shown is the on-screen pet's; the others are fed quietly.
       const nextPet = fanOut.pets.find((candidate) => candidate.id === pet.id) ?? pet;
-      const nextResult = fanOut.results.find((result) => result.pet.id === pet.id) ?? fanOut.results[0];
+      // Offline with the joint pet on screen, nothing changed on it yet: no
+      // other pet's reaction stands in for its own.
+      const nextResult =
+        fanOut.results.find((result) => result.pet.id === pet.id) ?? (queued ? undefined : fanOut.results[0]);
       const nextReaction = nextResult?.reaction;
 
       // Stamp the XP this moment actually granted onto the persisted event, so
@@ -1325,23 +1511,20 @@ function VittoApp() {
         },
       };
 
-      if (remote) {
-        // The pet is already written above. Retried here, same id, so a gateway
-        // blip on this one row does not send the user back to "Save" and pay
-        // the pet a second time (see saveWithRetry).
-        await saveWithRetry(() => withTimeout(remote.saveEvent(storedEvent), SAVE_TIMEOUT_MESSAGE));
-        // The partner's view of this moment: a type and a time, nothing more.
-        // Best effort, and only once there is a partner to see it — the log
-        // starts at pairing, so nobody inherits a history they were not part of.
-        // A cup taken back is a correction, not a drink, so the partner hears
-        // nothing of it.
-        const takenBack = event.type === 'HYDRATION' && waterMlOf(event as HealthEvent) < 0;
-        if (isSharedPet(members) && !takenBack) {
-          void remote
-            .appendCareLog({ petId: pet.id, userId, type: event.type, occurredAt: event.occurredAt })
-            .catch(() => undefined);
+      // The pet is already written above. Retried here, same id, so a gateway
+      // blip on this one row does not send the user back to "Save" and pay
+      // the pet a second time (see saveWithRetry).
+      if (remote && !queued) {
+        try {
+          await saveWithRetry(() => withTimeout(remote.saveEvent(storedEvent), SAVE_TIMEOUT_MESSAGE));
+        } catch (cause) {
+          if (!isOfflineFailure(cause)) throw cause;
+          // The pet has it on the server already; only the row is left to send.
+          queued = { event: storedEvent, petsDone: true, xpAwarded: nextResult?.xpGranted ?? 0 };
         }
+        if (!queued) appendPartnerLog(storedEvent);
       }
+      if (queued) await enqueue({ ...queued, event: storedEvent });
       await repository.savePet(nextPet);
       await repository.saveEvent(storedEvent);
       setPets(fanOut.pets);
@@ -1371,7 +1554,7 @@ function VittoApp() {
       // banner/toast would only stack behind it and then flash on dismissal.
       // The pet's own remark is on its way: the bubble waits for it rather than
       // saying the stock line first and then being talked over.
-      if (remote && !quiet) setAwaitingPetLine(true);
+      if (remote && !queued && !quiet) setAwaitingPetLine(true);
       if (!levelUp) {
         if (nextReaction && !quiet) showReaction(nextReaction);
         // Every logged moment is acknowledged, reaction or not — that is the
@@ -1383,7 +1566,7 @@ function VittoApp() {
       // Every log gets a cheer, except steps: those sync in the background
       // and already have the pet go exploring.
       if (event.type !== 'STEP_ACTIVITY' && !quiet) interaction.celebrate();
-      if (remote && !quiet) {
+      if (remote && !queued && !quiet) {
         void tellCompanion(storedEvent, nextPet, detectLevelUp(pet, nextPet) !== null).finally(() => setAwaitingPetLine(false));
       }
     } catch (cause) {
@@ -1872,7 +2055,11 @@ function VittoApp() {
    * edit, for taking a log back and for Undo; none of them touch the pet.
    */
   const writeEvent = async (next: HealthEvent) => {
-    if (isSupabaseConfigured && session) await withTimeout(remoteRepository.replaceEvent(next), SAVE_TIMEOUT_MESSAGE);
+    // Still waiting to be sent: the change goes with it, rather than to a row
+    // the server does not have yet.
+    const waiting = outbox.current.find((entry) => entry.event.id === next.id);
+    if (waiting) await storeOutbox(outbox.current.map((entry) => (entry === waiting ? { ...entry, event: next } : entry)));
+    else if (isSupabaseConfigured && session) await withTimeout(remoteRepository.replaceEvent(next), SAVE_TIMEOUT_MESSAGE);
     await repository.replaceEvent(next);
     setEvents((current) => current.map((candidate) => (candidate.id === next.id ? next : candidate)));
   };
@@ -2288,6 +2475,27 @@ function VittoApp() {
       cancelled = true;
     };
   }, [dataReady, isAppleHealthConnected]);
+  // Sends logs made offline: on load, on a timer while any wait, on
+  // foreground, and when a browser comes back online.
+  useEffect(() => {
+    if (!dataReady || queuedCount === 0) return;
+    const flush = () => void flushQueuedRef.current();
+    flush();
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') flush();
+    }, OUTBOX_RETRY_MS);
+    const foreground = AppState.addEventListener('change', (state) => {
+      if (state === 'active') flush();
+    });
+    const online = typeof window !== 'undefined' && typeof window.addEventListener === 'function';
+    if (online) window.addEventListener('online', flush);
+    return () => {
+      clearInterval(timer);
+      foreground.remove();
+      if (online) window.removeEventListener('online', flush);
+    };
+  }, [dataReady, queuedCount > 0]);
+
   useEffect(() => {
     if (!dataReady || !isAppleHealthConnected || !pet?.id) return;
     const sync = () => void syncStepsRef.current();
@@ -2491,6 +2699,10 @@ function VittoApp() {
         // profile loads — and keeps them for good if it has none yet.
         setProfile(DEFAULT_PROFILE);
         setEvents([]);
+        // In memory only: the stored queue stays with its account, for its next sign-in.
+        outbox.current = [];
+        setQueuedCount(0);
+        inFlightCommits.current.clear();
         setWordPuzzleProgress(null);
         setIsAppleHealthConnected(false);
         setForcedAilment(null);

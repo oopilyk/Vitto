@@ -186,7 +186,7 @@ export function ActivityHistoryScreen({
       backLabel="Profile"
       onBack={onClose}
     >
-      {events.length === 0 ? <Text style={styles.empty}>Your care history will appear here.</Text> : null}
+      {events.length === 0 ? <Text style={styles.empty}>Nothing logged yet. Meals, workouts, walks and weigh-ins you log show up here.</Text> : null}
       {days.map((day) => (
         <View key={day.heading} style={styles.day}>
           <Text style={styles.dayHeading}>{day.heading}</Text>
@@ -203,7 +203,7 @@ export function ActivityHistoryScreen({
                 <View style={styles.row}>
                   <View style={styles.dot} />
                   <View style={styles.rowText}>
-                    <Text style={styles.rowName}>{describeRow(group, system)}</Text>
+                    <Text style={styles.rowName} numberOfLines={2}>{describeRow(group, system)}</Text>
                     <Text style={styles.rowTime}>
                       {new Date(event.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </Text>
@@ -253,7 +253,7 @@ const styles = themedStyles(() => ({
     borderBottomColor: colors.divider,
   },
   dot: { width: 8, height: 8, borderRadius: 12, backgroundColor: colors.coral },
-  rowText: { flex: 1 },
+  rowText: { flex: 1, minWidth: 0 },
   rowName: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '500', color: colors.ink },
   rowTime: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
   more: {

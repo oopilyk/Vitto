@@ -318,8 +318,9 @@ export function TextButton({
       }}
       disabled={disabled}
       hitSlop={8}
-      // iOS text buttons dim under the finger rather than move.
-      style={({ pressed }) => pressed && styles.textPressed}
+      // iOS text buttons dim under the finger rather than move. It may shrink
+      // in a row, so a label carrying a long name wraps instead of running off.
+      style={({ pressed }) => [styles.textButtonBox, pressed && styles.textPressed]}
     >
       <Text
         style={[
@@ -451,6 +452,7 @@ const styles = themedStyles(() => ({
   disabledButton: { backgroundColor: colors.disabledFill },
   disabledLabel: { color: colors.onDisabled },
   textButton: { fontFamily: fonts.ui, fontSize: 17 },
+  textButtonBox: { flexShrink: 1, minWidth: 0 },
   textPressed: { opacity: 0.4 },
   doneBar: {
     flexDirection: 'row',

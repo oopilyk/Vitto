@@ -120,7 +120,7 @@ function ShortNote({ have, need, children, testID }: { have: number; need: numbe
         <Text style={styles.shortFigure} numberOfLines={1}>
           {have}
         </Text>
-        <Text style={styles.shortOf} numberOfLines={1}>{` / ${need}`}</Text>
+        <Text style={styles.shortOf} numberOfLines={1}>{`/ ${need}`}</Text>
         <CoinMark size={14} />
       </View>
       <View style={styles.track}>
@@ -649,7 +649,8 @@ const styles = themedStyles(() => ({
   short: { gap: 8, padding: 14, borderRadius: 18, borderCurve: 'continuous', backgroundColor: colors.card },
   shortHead: { flexDirection: 'row', alignItems: 'center' },
   shortFigure: { fontFamily: fonts.ui, fontSize: 22, fontWeight: '700', color: colors.ink, fontVariant: ['tabular-nums'], flexShrink: 0 },
-  shortOf: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '600', color: colors.faint, fontVariant: ['tabular-nums'], marginRight: 6, flexShrink: 0 },
+  // A leading space in its own block is dropped on the web, so the gap is a margin.
+  shortOf: { marginLeft: 4, fontFamily: fonts.ui, fontSize: 15, fontWeight: '600', color: colors.faint, fontVariant: ['tabular-nums'], marginRight: 6, flexShrink: 0 },
   track: { height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.track },
   fill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 4, backgroundColor: colors.coral },
   shortText: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, lineHeight: 18 },

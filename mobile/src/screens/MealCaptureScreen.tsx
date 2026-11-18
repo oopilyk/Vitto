@@ -55,6 +55,10 @@ type Mode = 'photo' | 'search' | 'scan';
 export const closeUpLens = (lenses: readonly string[]): string | undefined =>
   lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
 
+/** What reading a photo says while it works, one step every READING_STEP_MS. */
+const READING_STEPS = ['Spotting the foods...', 'Sizing up portions...', 'Counting it up...'];
+const READING_STEP_MS = 1800;
+
 export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], copyableFor, onCopy, today }: Props) {
   // Which meal of the day this is, read off the clock. There is no picker: a
   // row of Breakfast / Lunch / Dinner / Snack on every log was a question
@@ -67,6 +71,17 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
   const [busy, setBusy] = useState<'analyzing' | 'fixing' | 'saving' | 'searching' | null>(null);
+  // A photo takes a few seconds to read. Saying what is happening, a step at a
+  // time, makes the wait feel like work being done rather than a stall. It
+  // stays on the last step if the reply is slow.
+  const [readingStep, setReadingStep] = useState(0);
+  useEffect(() => {
+    if (busy !== 'analyzing') return;
+    setReadingStep(0);
+    const timer = setInterval(() => setReadingStep((step) => Math.min(step + 1, READING_STEPS.length - 1)), READING_STEP_MS);
+    return () => clearInterval(timer);
+  }, [busy]);
+  const readingLabel = READING_STEPS[readingStep]!;
   /** What the person says the plate really was, while they correct the AI; null when not correcting. */
   const [fixText, setFixText] = useState<string | null>(null);
   // The fix box is the last thing on the photo page, so it opened straight
@@ -353,7 +368,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         }
       : mode === 'photo' && canScanPhotos
       ? busy === 'analyzing'
-        ? { label: 'Reading your plate...', busy: true, disabled: true, onPress: () => {} }
+        ? { label: readingLabel, busy: true, disabled: true, onPress: () => {} }
         : analysis && fixText === null
           ? { label: busy === 'saving' ? 'Saving...' : 'Log meal', summary: summaryOf(analysis), busy: busy === 'saving', onPress: () => void saveAnalysis(analysis, 'ai') }
           : image && !analysis
@@ -475,7 +490,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                     {busy === 'analyzing' ? (
                       <View style={styles.readingOverlay}>
                         <ActivityIndicator color="#fff" />
-                        <Text style={styles.readingOverlayLabel}>Reading your plate...</Text>
+                        <Text style={styles.readingOverlayLabel}>{readingLabel}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -1001,7 +1016,7 @@ function ServingsRow({
 }) {
   return (
     <View style={styles.servingsRow}>
-      <Text style={styles.servingsLabel}>Servings{food ? ` · ${food.servingDescription}` : ''}</Text>
+      <Text style={styles.servingsLabel} numberOfLines={2}>Servings{food ? ` · ${food.servingDescription}` : ''}</Text>
       <DoneTextInput
         style={[layout.input, styles.servingsInput]}
         keyboardType="decimal-pad"
@@ -1262,7 +1277,8 @@ const styles = themedStyles(() => ({
   resultMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },
   // Takes what the field leaves: a long serving ("1 cup, chopped (128 g)") pushed the field off the card.
-  servingsLabel: { flex: 1, fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
+  // A food's serving can be long ("1 cup shredded or chopped (55 g)"): it gives way to the field.
+  servingsLabel: { flex: 1, minWidth: 0, fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
   servingsInput: { width: 90 },
   scanner: { height: 280, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' },
   scanHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 12, textAlign: 'center' },

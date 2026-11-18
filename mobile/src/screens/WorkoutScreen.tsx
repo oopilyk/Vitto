@@ -110,6 +110,8 @@ const RECORD_GOLD = TIER_COLOR[2]!;
 
 /** The unnamed session. Saving a routine still called this asks for a real name. */
 const DEFAULT_SESSION_NAME = 'Strength session';
+/** As long as a meal or reminder name may be: past it, the title is a wall of text everywhere it shows. */
+const MAX_SESSION_NAME = 60;
 /** Below this width the set row's fixed columns tighten (see `narrow`). */
 const NARROW_SCREEN = 360;
 
@@ -941,7 +943,12 @@ export function WorkoutScreen({
                 <Text style={styles.backToStartLabel}>‹ Back</Text>
               </Pressable>
             ) : null}
-            <Text style={styles.title}>
+            {/* A routine's or session's own name can run long: two lines at most,
+                not a pixel-type wall pushing the whole sheet down. */}
+            <Text
+              style={styles.title}
+              numberOfLines={(routineMode ? Boolean(routineName) : !editing && !empty) ? 2 : undefined}
+            >
               {routineMode
                 ? editingTemplateId
                   ? routineName || 'Edit routine'
@@ -1196,7 +1203,7 @@ export function WorkoutScreen({
                   onPress={() => setHistoryFor(exercise.name)}
                   style={({ pressed }) => [{ flex: 1 }, pressed && styles.pressed]}
                 >
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                  <Text style={styles.exerciseName} numberOfLines={2}>{exercise.name}</Text>
                   <Text style={styles.exerciseMuscle}>
                     {exercise.muscleGroup}
                     {pastSessions(exercise.name) ? <Text style={styles.exerciseHistoryLink}>{'  ·  History ›'}</Text> : null}
@@ -1400,6 +1407,7 @@ export function WorkoutScreen({
                   style={[layout.input, styles.cardInput]}
                   value={name}
                   onChangeText={setName}
+                  maxLength={MAX_SESSION_NAME}
                   placeholder="Workout name"
                   placeholderTextColor={colors.faint}
                 />
@@ -1466,7 +1474,7 @@ export function WorkoutScreen({
           <View style={styles.picker} testID="exercise-history">
             <View style={styles.pickerHead}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.title}>{historyFor}</Text>
+                <Text style={styles.title} numberOfLines={2}>{historyFor}</Text>
               </View>
               <CloseButton onPress={() => setHistoryFor(null)} label="Close history" />
             </View>

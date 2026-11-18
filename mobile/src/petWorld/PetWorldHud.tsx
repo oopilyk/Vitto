@@ -339,9 +339,13 @@ export function PetWorldHud({
           <Text style={[retro.kicker, night && retro.kickerNight, styles.roomKicker]} numberOfLines={1}>
             {showingJoint ? `${ENVIRONMENT_LABEL[environment].toUpperCase()} · JOINT` : ENVIRONMENT_LABEL[environment].toUpperCase()}
           </Text>
-          <Text style={[styles.name, night && retro.labelNight]} numberOfLines={1}>
+          {/* The plate is ~106pt inside at 320pt, ~176pt at 390: in 18pt mono
+              that is 9 and 15 letters. A longer name shrinks first, then takes
+              a second line (still shorter than the ring beside it), rather than
+              ending in "…" on the pet's own screen. */}
+          <FitText style={[styles.name, night && retro.labelNight]} minScale={0.7}>
             {pet.name.toUpperCase()}
-          </Text>
+          </FitText>
           {nextPet ? <View style={[styles.switchCorner, night && styles.switchCornerNight]} pointerEvents="none" /> : null}
         </Pressable>
 
@@ -587,6 +591,7 @@ const styles = themedStyles(() => ({
     fontWeight: '700',
     letterSpacing: 1,
     color: world.ink,
+    textAlign: 'center',
   },
 
   /** The plaque itself; shape only — colour, border and shadow come from `retro.panel`. */

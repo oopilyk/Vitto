@@ -403,8 +403,11 @@ const styles = themedStyles(() => ({
   pipUsed: { backgroundColor: colors.coralWash },
   pipWin: { backgroundColor: colors.mintDeep },
   answer: { flexDirection: 'row', gap: 6 },
+  // Up to 44 wide, narrower when the word needs it: six 44pt tiles are 294pt,
+  // more than the card has on a 320pt phone (244).
   answerTile: {
-    width: 44,
+    flex: 1,
+    maxWidth: 44,
     height: 48,
     borderRadius: 8,
     alignItems: 'center',
