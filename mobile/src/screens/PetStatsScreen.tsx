@@ -203,10 +203,10 @@ const mindEventsForDay = (
  * down is chosen here rather than left to the renderer.
  */
 function Fact({ label, value }: { label: string; value: string }) {
-  const long = value.length > 6;
+  const size = value.length <= 4 ? null : value.length <= 6 ? styles.factValueLong : styles.factValueLonger;
   return (
     <View style={styles.fact}>
-      <FitText style={[styles.factValue, long && styles.factValueLong]}>{value}</FitText>
+      <FitText style={[styles.factValue, size]}>{value}</FitText>
       <Text style={styles.factLabel}>{label}</Text>
     </View>
   );
@@ -321,7 +321,11 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
           </View>
           <View style={styles.identityText}>
             <Kicker>{PET_BUILD_LABEL[getPetBuild(pet)].toUpperCase()}</Kicker>
-            <Text style={styles.petName}>{pet.name}</Text>
+            {/* Beside a 96pt portrait an 18-letter name at 38pt broke mid-word
+                on a 320-375pt phone: it shrinks first, onto two lines at most. */}
+            <FitText style={styles.petName} lines={2} minScale={0.5}>
+              {pet.name}
+            </FitText>
             {/* The breed is the animal. `pet.species` predates the breed picker and was
                 defaulted for every pet, which is how a bunny read as "Bunny · Cat". */}
             <Text style={styles.identityMeta}>{`${sheet.label} · Day ${daysWithPet(pet, now)} together`}</Text>
@@ -329,9 +333,17 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
                 number: it is the one thing a person opens this screen to know. */}
             <View style={[styles.feeling, FEELING_TINT()[pet.mood]]} accessibilityRole="summary">
               <View style={[styles.feelingDot, { backgroundColor: FEELING_INK()[pet.mood] }]} />
-              <Text style={[styles.feelingText, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
-                {`${pet.name} is ${MOOD_WORD[pet.mood]}`}
-              </Text>
+              {/* Two pieces, so a long name is what gives way ("Sir Wigglesw… is
+                  hungry"), never the mood: one line ended "Biscuit is doing f…"
+                  on a 375pt phone. */}
+              <View style={styles.feelingWords}>
+                <Text style={[styles.feelingText, styles.feelingName, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
+                  {pet.name}
+                </Text>
+                <Text style={[styles.feelingText, styles.feelingMood, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
+                  {` is ${MOOD_WORD[pet.mood]}`}
+                </Text>
+              </View>
             </View>
             <Text style={styles.feelingWhy}>{describeMood(pet)}</Text>
           </View>
@@ -395,7 +407,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
             <Fact label="day streak" value={String(streaks.currentStreak)} />
             <Fact label="longest run" value={String(streaks.longestStreak)} />
             <Fact label="streak freezes" value={String(streaks.freezes)} />
-            <Fact label="care moments" value={String(events.filter(isCareMoment).length)} />
+            <Fact label="logs" value={String(events.filter(isCareMoment).length)} />
           </View>
           <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} frozenDateKeys={streaks.frozenDateKeys} />
         </Card>
@@ -493,7 +505,8 @@ const styles = themedStyles(() => ({
     paddingHorizontal: 14,
   },
   factValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink },
-  factValueLong: { fontFamily: fonts.ui, fontSize: 17 },
+  factValueLong: { fontFamily: fonts.ui, fontSize: 18 },
+  factValueLonger: { fontFamily: fonts.ui, fontSize: 15 },
   factLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.faint, marginTop: 3 },
   // A pill, not a card: it hugs its words and sits under the name like a status.
   feeling: {
@@ -507,7 +520,10 @@ const styles = themedStyles(() => ({
     borderRadius: 999,
     borderWidth: 1,
   },
-  feelingDot: { width: 8, height: 8, borderRadius: 12 },
+  feelingDot: { width: 8, height: 8, borderRadius: 12, flexShrink: 0 },
+  feelingWords: { flexDirection: 'row', flexShrink: 1, minWidth: 0 },
+  feelingName: { flexShrink: 1 },
+  feelingMood: { flexShrink: 0 },
   feelingText: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '500', letterSpacing: 0 },
   feelingWhy: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 7, lineHeight: 17 },
   shareButton: { justifyContent: 'flex-end' },

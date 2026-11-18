@@ -520,7 +520,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                   const relation = relationToUser(requests, currentUserId, result.id);
                   return (
                     <View key={result.id} style={[styles.searchRow, { borderBottomColor: palette.divider }]}>
-                      <Text style={[styles.searchName, { color: palette.primaryText }]}>
+                      <Text style={[styles.searchName, { color: palette.primaryText }]} numberOfLines={1}>
                         {handleFor(result)}
                       </Text>
                       {relation === 'none' ? (
@@ -537,7 +537,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                           <Text style={styles.link}>Add</Text>
                         </Pressable>
                       ) : (
-                        <Text style={[styles.searchStatusText, { color: palette.secondaryText }]}>
+                        <Text style={[styles.searchStatusText, { color: palette.secondaryText }]} numberOfLines={1}>
                           {relation === 'friends'
                             ? 'Friends'
                             : relation === 'outgoing'
@@ -577,7 +577,8 @@ const styles = themedStyles(() => ({
   body: { padding: 16, gap: 18 },
   reactionRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   reactionNew: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.coral },
-  reactionText: { flex: 1, fontFamily: fonts.ui, fontSize: 15, lineHeight: 21 },
+  // minWidth: a long unbroken handle wraps inside the row on web, not past it.
+  reactionText: { flex: 1, minWidth: 0, fontFamily: fonts.ui, fontSize: 15, lineHeight: 21 },
   card: { borderWidth: 1, borderRadius: 12, padding: 18, gap: 10 },
   cardTitle: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
   gate: { gap: 4 },
@@ -621,7 +622,7 @@ const styles = themedStyles(() => ({
     gap: 10,
   },
   searchName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, flexShrink: 1 },
-  searchStatusText: { fontFamily: fonts.ui, fontSize: 12 },
+  searchStatusText: { fontFamily: fonts.ui, fontSize: 12, flexShrink: 0 },
   addFriend: {
     flexDirection: 'row',
     alignItems: 'center',

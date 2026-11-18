@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { FitText } from './FitText';
 import { haptic } from './ui';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -118,7 +119,8 @@ export function TrendBars({
 export function StatTile({ value, label, note }: { value: string; label: string; note?: string }) {
   return (
     <View style={styles.tile}>
-      <Text style={styles.tileValue} numberOfLines={1}>{value}</Text>
+      {/* Shrinks to fit a half-width tile on a small phone rather than ending in "…". */}
+      <FitText style={styles.tileValue}>{value}</FitText>
       <Text style={styles.tileLabel}>{label}</Text>
       {note ? <Text style={styles.tileNote}>{note}</Text> : null}
     </View>

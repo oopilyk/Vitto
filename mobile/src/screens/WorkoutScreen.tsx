@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Alert, Pressable, ScrollView, Text, TextInput, View, Platform } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput, View, Platform, useWindowDimensions } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import {
   type WeightUnit,
@@ -33,8 +33,10 @@ import {
   templateFromSession,
   updateSet,
 } from '@vitto/core';
-import { KM_PER_MILE, checkWorkout, exerciseBest, exerciseSessions, setRecord, type HealthEvent } from '@vitto/core';
-import { CloseButton, ErrorText, Kicker, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput, Mark } from '../components/ui';
+import { KM_PER_MILE, checkWorkout, convertWeightValue, exerciseBest, exerciseSessions, setRecord, type HealthEvent } from '@vitto/core';
+import { FitText } from '../components/FitText';
+import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput, Mark } from '../components/ui';
+import { LogProgress, logHaptic } from '../components/logKit';
 import { DragList } from '../components/DragList';
 import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
 import { TIER_COLOR } from '../components/StrengthMap';
@@ -86,6 +88,13 @@ interface Props {
    * each exercise's history a tap on its name away (exerciseSessions).
    */
   history?: readonly HealthEvent[];
+  /**
+   * How many days a week they said they train (the profile's
+   * trainingDaysPerWeek): the bar at the top counts the last seven days
+   * against it, the same rolling week the dumbbell trophy counts. 0 or unset
+   * leaves the bar out rather than inventing a target.
+   */
+  weeklyWorkoutGoal?: number;
 }
 
 /** "60 × 8", or "8" for bodyweight: what a set's Previous cell reads. */
@@ -101,6 +110,99 @@ const RECORD_GOLD = TIER_COLOR[2]!;
 
 /** The unnamed session. Saving a routine still called this asks for a real name. */
 const DEFAULT_SESSION_NAME = 'Strength session';
+/** Below this width the set row's fixed columns tighten (see `narrow`). */
+const NARROW_SCREEN = 360;
+
+/** A run's −/+ steps: five minutes, half a kilometre or mile. Typing is still there for anything finer. */
+const MINUTE_STEP = 5;
+const DISTANCE_STEP = 0.5;
+
+/**
+ * Distinct days with a workout in the last seven, today included, and whether
+ * today is one of them: what the bar at the top counts. Calendar days stepped
+ * with setDate, so a clock change does not shift the window by an hour.
+ */
+export const workoutDaysThisWeek = (history: readonly HealthEvent[], now = new Date()): { days: number; today: boolean } => {
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  from.setDate(from.getDate() - 6);
+  const days = new Set<string>();
+  for (const event of history) {
+    if (event.type !== 'WORKOUT') continue;
+    const at = new Date(event.occurredAt);
+    if (at >= from && at <= now) days.add(at.toDateString());
+  }
+  return { days: days.size, today: days.has(now.toDateString()) };
+};
+
+/** Two decimals at most, so 0.1 + 0.2 never reads as 0.30000000000000004. */
+const tidy = (value: number) => Math.round(value * 100) / 100;
+
+/**
+ * −, the value, + for a run's minutes or distance, always on show the way the
+ * meal page's portions are. The field is the screen's own string state, so a
+ * blank one stays blank while it is retyped; − stops at nothing rather than
+ * going below it.
+ */
+function CardioStepper({
+  value,
+  onChange,
+  step,
+  decimal,
+  noun,
+  accessibilityLabel,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  step: number;
+  decimal?: boolean;
+  /** "minutes", "miles": what the − and + say they change. */
+  noun: string;
+  accessibilityLabel: string;
+}) {
+  const current = Number(value) || 0;
+  const atZero = current <= 0;
+  return (
+    <View style={styles.stepper}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Fewer ${noun}`}
+        accessibilityState={{ disabled: atZero }}
+        disabled={atZero}
+        hitSlop={6}
+        onPress={() => {
+          haptic('select');
+          const next = tidy(Math.max(0, current - step));
+          onChange(next > 0 ? String(next) : '');
+        }}
+        style={[styles.stepButton, atZero && styles.stepButtonOff]}
+      >
+        <Mark kind="minus" size={10} color={colors.inkSoft} />
+      </Pressable>
+      <DoneTextInput
+        style={[layout.input, styles.cardioInput]}
+        value={value}
+        onChangeText={(next) => onChange(decimal ? next.replace(/[^0-9.,]/g, '').replace(',', '.') : next.replace(/[^0-9]/g, ''))}
+        keyboardType={decimal ? 'decimal-pad' : 'number-pad'}
+        placeholder={decimal ? '0.0' : '0'}
+        placeholderTextColor={colors.faint}
+        selectTextOnFocus
+        accessibilityLabel={accessibilityLabel}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`More ${noun}`}
+        hitSlop={6}
+        onPress={() => {
+          haptic('select');
+          onChange(String(tidy(current + step)));
+        }}
+        style={styles.stepButton}
+      >
+        <Mark kind="plus" size={10} color={colors.inkSoft} />
+      </Pressable>
+    </View>
+  );
+}
 
 /**
  * Two jobs on one builder.
@@ -131,6 +233,7 @@ export function WorkoutScreen({
   history = [],
   schedule = null,
   onSaveSchedule,
+  weeklyWorkoutGoal = 0,
 }: Props) {
   const [mode, setMode] = useState<Mode>('log');
   const [name, setName] = useState(editing?.name ?? DEFAULT_SESSION_NAME);
@@ -154,6 +257,9 @@ export function WorkoutScreen({
    * @vitto/core), so finishing without ticking anything loses nothing.
    */
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
+  // A phone under 360pt wide leaves the weight and reps fields too little room
+  // for "102.5" beside the fixed columns, so those columns tighten there.
+  const narrow = useWindowDimensions().width < NARROW_SCREEN;
   const [rest, setRest] = useState<Rest | null>(null);
   /** How long a rest runs, nudged by −15/+15 and kept for the next one. */
   const [restLength, setRestLength] = useState(DEFAULT_REST_MS);
@@ -526,7 +632,19 @@ export function WorkoutScreen({
 
   // ---- logging ------------------------------------------------------------
 
-  const setStats = calculateWorkoutStats(exercises, 1);
+  // Each set keeps the unit it was lifted in (one pulled from history may be in
+  // kg while the person now uses lb), so totals are added up in today's unit:
+  // summed raw, kg sets were shown as that many "lb".
+  const inShownUnit = (list: WorkoutExercise[]): WorkoutExercise[] =>
+    list.map((exercise) => ({
+      ...exercise,
+      sets: exercise.sets.map((set) =>
+        set.weight !== undefined && set.unit && set.unit !== weightUnit
+          ? { ...set, weight: convertWeightValue(set.weight, set.unit, weightUnit), unit: weightUnit }
+          : set,
+      ),
+    }));
+  const setStats = calculateWorkoutStats(inShownUnit(exercises), 1);
   const stats = {
     ...setStats,
     durationMinutes: sessionMinutes({
@@ -554,13 +672,18 @@ export function WorkoutScreen({
       ? [
           `${stats.completedSets} ${stats.completedSets === 1 ? 'set' : 'sets'}`,
           `${stats.totalReps} reps`,
-          ...(stats.totalVolume > 0 ? [`${stats.totalVolume} ${weightUnit} volume`] : []),
+          ...(stats.totalVolume > 0 ? [`${Math.round(stats.totalVolume).toLocaleString('en-US')} ${weightUnit} volume`] : []),
         ]
       : []),
     ...(goesSomewhere && Number(distance) > 0 ? [`${Number(distance)} ${distanceUnit}`] : []),
     // A walk with no time yet has no length to show; "1 min" read as logged.
     goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0) ? 'Add the time' : `${stats.durationMinutes} min`,
   ].join(' · ');
+
+  // The week so far, and the day this session would add if today has none
+  // yet: a second workout on the same day is not another training day.
+  const week = useMemo(() => workoutDaysThisWeek(history), [history]);
+  const weekAdding = !editing && !routineMode && exercises.length > 0 && !week.today ? 1 : 0;
 
   const finish = async (confirmed = false) => {
     if (!exercises.length) {
@@ -604,6 +727,7 @@ export function WorkoutScreen({
           notes,
           stats: { ...stats, durationMinutes: minutes },
         });
+        logHaptic();
         onClose();
         return;
       }
@@ -616,6 +740,8 @@ export function WorkoutScreen({
         notes,
         stats,
       });
+      // The log has landed: felt now, not after the routine write-back below.
+      logHaptic();
       // A routine remembers what you did last: today's ticked sets become next
       // time's starting point. Best effort — the workout itself is already saved.
       if (activeTemplateId && onSaveTemplate) {
@@ -732,7 +858,10 @@ export function WorkoutScreen({
               {more > 0 ? ` +${more} more` : ''}
             </Text>
           </View>
-          <Text style={styles.routineGo}>{managingRoutines ? 'Edit' : 'Start'}</Text>
+          {/* A light pill, not a coral one: today's card above holds the one loud Start. */}
+          <View style={styles.goPill}>
+            <Text style={styles.goPillLabel} numberOfLines={1}>{managingRoutines ? 'Edit' : 'Start'}</Text>
+          </View>
         </PressableScale>
         {dayControls(
           handle,
@@ -774,10 +903,30 @@ export function WorkoutScreen({
     setPicking(true);
   };
 
+  /**
+   * With today's routine on its card, Start there is the one loud button and
+   * picking by hand steps back to a quiet row; without one, picking is the way in.
+   */
+  const pickIsMain = !rotation?.template;
+
+  /**
+   * The bold figure on an exercise's card, right-aligned like the meal page's
+   * calories: its volume, or for bodyweight work its reps. Not while defining a
+   * routine (no volume readout there) or for a run, whose card is its numbers.
+   */
+  const exerciseFigure = (exercise: WorkoutExercise): { value: string; unit: string } | null => {
+    if (routineMode || exercise.distance) return null;
+    const own = calculateWorkoutStats(inShownUnit([exercise]), 1);
+    if (own.totalVolume > 0) return { value: Math.round(own.totalVolume).toLocaleString('en-US'), unit: weightUnit };
+    if (own.totalReps > 0) return { value: own.totalReps.toLocaleString('en-US'), unit: own.totalReps === 1 ? 'rep' : 'reps' };
+    return null;
+  };
+
   return (
     <SheetPage onBackPress={requestClose}>
       <SheetKeyboardAvoidingView style={styles.sheet}>
         <View style={styles.header}>
+          {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
           <View style={{ flex: 1 }}>
             {/* With a session under way, the way back to picking one. */}
             {!routineMode && !editing && exercises.length > 0 ? (
@@ -791,9 +940,7 @@ export function WorkoutScreen({
               >
                 <Text style={styles.backToStartLabel}>‹ Back</Text>
               </Pressable>
-            ) : (
-              <Kicker>{routineMode ? 'Vitto / routine' : 'Vitto / training'}</Kicker>
-            )}
+            ) : null}
             <Text style={styles.title}>
               {routineMode
                 ? editingTemplateId
@@ -802,7 +949,7 @@ export function WorkoutScreen({
                 : editing
                   ? 'Edit workout'
                   : empty
-                    ? 'Log a workout'
+                    ? 'What are you training?'
                     : name || 'Workout'}
             </Text>
           </View>
@@ -813,6 +960,23 @@ export function WorkoutScreen({
             <CloseButton onPress={requestClose} />
           )}
         </View>
+
+        {/* The week against the days they said they train, and the day this
+            session would add. Not while defining a routine or fixing an old
+            workout: neither changes the count. */}
+        {!routineMode && !editing ? (
+          <LogProgress
+            items={[
+              {
+                label: 'Last 7 days',
+                value: week.days,
+                goal: weeklyWorkoutGoal,
+                adding: weekAdding,
+                unit: weeklyWorkoutGoal === 1 ? 'workout' : 'workouts',
+              },
+            ]}
+          />
+        ) : null}
 
         {recordBanner ? (
           <View style={styles.recordBanner} pointerEvents="none" accessibilityLiveRegion="assertive" testID="record-banner">
@@ -852,8 +1016,6 @@ export function WorkoutScreen({
           {/* Nothing added yet: the whole screen is one question, how to start. */}
           {!routineMode && empty ? (
             <>
-              <Text style={styles.lead}>What are you training today?</Text>
-
               {/* Their rotation's answer, first: today's routine, or a rest day. */}
               {rotation ? (
                 <View style={styles.todayCard} testID="rotation-today">
@@ -867,11 +1029,13 @@ export function WorkoutScreen({
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.todayName} numberOfLines={1}>{rotation.template.name}</Text>
-                        <Text style={styles.routinePreview} numberOfLines={1}>
+                        <Text style={styles.routinePreview} numberOfLines={2}>
                           {rotation.template.exercises.map((exercise) => exercise.name).join(', ')}
                         </Text>
                       </View>
-                      <Text style={styles.routineGo}>Start</Text>
+                      <View style={styles.todayStart}>
+                        <Text style={styles.todayStartLabel} numberOfLines={1}>Start</Text>
+                      </View>
                     </PressableScale>
                   ) : (
                     <View style={styles.todayMain}>
@@ -884,14 +1048,14 @@ export function WorkoutScreen({
                   {/* Out of step after time away: nudge today, or start the loop over. */}
                   {rotationSchedule ? (
                     <View style={styles.todayLinks}>
-                      <Pressable accessibilityRole="button" accessibilityLabel="Previous day" hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, -1))}>
-                        <Text style={styles.todayLink}>‹ Previous</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Previous day" hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, -1))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                        <Text style={styles.chipLabel}>‹ Previous</Text>
                       </Pressable>
-                      <Pressable accessibilityRole="button" accessibilityLabel="Restart from day 1" hitSlop={6} onPress={() => saveRotation(restartSchedule(rotationSchedule, templates))}>
-                        <Text style={styles.todayLink}>Restart from day 1</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Restart from day 1" hitSlop={6} onPress={() => saveRotation(restartSchedule(rotationSchedule, templates))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                        <Text style={styles.chipLabel}>Restart from day 1</Text>
                       </Pressable>
-                      <Pressable accessibilityRole="button" accessibilityLabel="Next day" hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, 1))}>
-                        <Text style={styles.todayLink}>Next ›</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel="Next day" hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, 1))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                        <Text style={styles.chipLabel}>Next ›</Text>
                       </Pressable>
                     </View>
                   ) : null}
@@ -904,13 +1068,23 @@ export function WorkoutScreen({
                 // "tap Pick exercises" finds it.
                 accessibilityLabel="Pick exercises"
                 onPress={openPicker}
-                style={({ pressed }) => [styles.startCard, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.startCard, !pickIsMain && styles.startCardQuiet, pressed && styles.pressed]}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.startTitle}>Pick exercises</Text>
-                  <Text style={styles.startHint}>Choose from {exerciseLibrary.length} moves, then fill in your sets</Text>
+                  <Text style={[styles.startTitle, !pickIsMain && styles.startTitleQuiet]}>Pick exercises</Text>
+                  <Text style={[styles.startHint, !pickIsMain && styles.startHintQuiet]}>
+                    {pickIsMain
+                      ? `Choose from ${exerciseLibrary.length} moves, then fill in your sets`
+                      : `Something else today? Choose from ${exerciseLibrary.length} moves`}
+                  </Text>
                 </View>
-                <Text style={styles.startArrow}>→</Text>
+                {pickIsMain ? (
+                  <Text style={styles.startArrow}>→</Text>
+                ) : (
+                  <View style={styles.roundAdd}>
+                    <Mark kind="plus" size={12} color={colors.coral} />
+                  </View>
+                )}
               </PressableScale>
 
               {onSaveTemplate ? (
@@ -1008,10 +1182,12 @@ export function WorkoutScreen({
             </PressableScale>
           ) : null}
 
-          {exercises.map((exercise, position) => (
+          {exercises.map((exercise, position) => {
+            const figure = exerciseFigure(exercise);
+            return (
             <View key={exercise.id} style={styles.exercise}>
               <View style={styles.exerciseHead}>
-                <Text style={styles.exerciseNumber}>{position + 1}</Text>
+                <Text style={styles.exerciseNumber} numberOfLines={1}>{position + 1}</Text>
                 {/* The name opens its past sessions, once there are any. */}
                 <Pressable
                   accessibilityRole={pastSessions(exercise.name) ? 'button' : undefined}
@@ -1026,6 +1202,12 @@ export function WorkoutScreen({
                     {pastSessions(exercise.name) ? <Text style={styles.exerciseHistoryLink}>{'  ·  History ›'}</Text> : null}
                   </Text>
                 </Pressable>
+                {figure ? (
+                  <View style={styles.figureBox}>
+                    <Text style={styles.figure} numberOfLines={1}>{figure.value}</Text>
+                    <Text style={styles.figureUnit} numberOfLines={1}>{figure.unit}</Text>
+                  </View>
+                ) : null}
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Remove ${exercise.name}`}
@@ -1033,7 +1215,7 @@ export function WorkoutScreen({
                   onPress={() => removeExercise(exercise.id)}
                   style={({ pressed }) => [styles.exerciseRemove, pressed && styles.pressed]}
                 >
-                  <Mark kind="cross" size={11} color={colors.muted} />
+                  <Mark kind="cross" size={10} color={colors.muted} />
                 </Pressable>
               </View>
               {exercise.distance ? (
@@ -1049,41 +1231,36 @@ export function WorkoutScreen({
                   // could not tell which of the two was required.
                   <View style={styles.cardioFields}>
                     <View style={styles.cardioRow}>
-                      <Text style={styles.cardioLabel}>Time</Text>
-                      <DoneTextInput
-                        style={[layout.input, styles.cardioInput]}
-                        value={duration}
-                        onChangeText={setDuration}
-                        keyboardType="number-pad"
-                        placeholder="0"
-                        placeholderTextColor={colors.faint}
-                        accessibilityLabel="Minutes"
-                      />
-                      <Text style={styles.cardioUnit}>min</Text>
+                      <View style={styles.cardioLabelBox}>
+                        <Text style={styles.cardioLabel}>Time</Text>
+                      </View>
+                      <CardioStepper value={duration} onChange={setDuration} step={MINUTE_STEP} noun="minutes" accessibilityLabel="Minutes" />
+                      <Text style={styles.cardioUnit} numberOfLines={1}>min</Text>
                     </View>
                     <View style={styles.cardioRow}>
-                      <Text style={styles.cardioLabel}>
-                        Distance <Text style={styles.cardioOptional}>(optional)</Text>
-                      </Text>
-                      <DoneTextInput
-                        style={[layout.input, styles.cardioInput]}
+                      <View style={styles.cardioLabelBox}>
+                        {/* Beside the stepper on a 320pt phone this column is ~55pt: shrinks rather than breaking the word. */}
+                        <FitText style={styles.cardioLabel} minScale={0.75}>Distance</FitText>
+                        <Text style={styles.cardioOptional}>(optional)</Text>
+                      </View>
+                      <CardioStepper
+                        decimal
                         value={distance}
-                        onChangeText={setDistance}
-                        keyboardType="decimal-pad"
-                        placeholder="0.0"
-                        placeholderTextColor={colors.faint}
+                        onChange={setDistance}
+                        step={DISTANCE_STEP}
+                        noun={distanceUnit === 'mi' ? 'miles' : 'kilometres'}
                         accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}, optional`}
                       />
-                      <Text style={styles.cardioUnit}>{distanceUnit}</Text>
+                      <Text style={styles.cardioUnit} numberOfLines={1}>{distanceUnit}</Text>
                     </View>
                   </View>
                 )
               ) : (
                 <>
-                  <View style={styles.setHead}>
-                    <Text style={[styles.setHeadLabel, styles.setIndex]}>SET</Text>
+                  <View style={[styles.setHead, narrow && styles.setGapNarrow]}>
+                    <Text style={[styles.setHeadLabel, styles.setIndex, narrow && styles.setIndexNarrow]}>SET</Text>
                     {exercise.sets.some((set) => set.previous) ? (
-                      <Text style={[styles.setHeadLabel, styles.setPrevious]}>LAST</Text>
+                      <Text style={[styles.setHeadLabel, styles.setPrevious, narrow && styles.setPreviousNarrow]}>LAST</Text>
                     ) : null}
                     <Text style={[styles.setHeadLabel, styles.setInputHead]}>
                       {exercise.bodyweight ? 'body' : weightUnit}
@@ -1093,8 +1270,8 @@ export function WorkoutScreen({
                     <View style={styles.setRemoveSlot} />
                   </View>
                   {exercise.sets.map((set, index) => (
-                    <View key={set.id} style={[styles.setRow, ticked.has(set.id) && styles.setRowDone]}>
-                      <Text style={[styles.setIndex, styles.setIndexValue]}>{index + 1}</Text>
+                    <View key={set.id} style={[styles.setRow, narrow && styles.setGapNarrow, ticked.has(set.id) && styles.setRowDone]}>
+                      <Text style={[styles.setIndex, styles.setIndexValue, narrow && styles.setIndexNarrow]}>{index + 1}</Text>
                       {exercise.sets.some((candidate) => candidate.previous) ? (
                         <Pressable
                           accessibilityRole="button"
@@ -1102,17 +1279,18 @@ export function WorkoutScreen({
                           disabled={!set.previous}
                           hitSlop={4}
                           onPress={() => fillFromPrevious(exercise.id, set)}
-                          style={({ pressed }) => [styles.setPrevious, pressed && styles.pressed]}
+                          style={({ pressed }) => [styles.setPrevious, narrow && styles.setPreviousNarrow, pressed && styles.pressed]}
                         >
-                          <Text style={styles.setPreviousValue} numberOfLines={1}>
+                          {/* "102.5 × 12" is wider than the column: shrinks, never "102.5 × 1…". */}
+                          <FitText style={styles.setPreviousValue} minScale={0.75}>
                             {previousLabel(set.previous, exercise.bodyweight)}
-                          </Text>
+                          </FitText>
                         </Pressable>
                       ) : null}
                       {/* Decimal: 22.5 lb and 2.5 kg plates are ordinary. */}
                       {exercise.bodyweight ? (
                         <DoneTextInput
-                          style={[layout.input, styles.setInput, styles.setInputOff]}
+                          style={[layout.input, styles.setInput, narrow && styles.setInputNarrow, styles.setInputOff]}
                           editable={false}
                           value=""
                           placeholder="BW"
@@ -1122,7 +1300,7 @@ export function WorkoutScreen({
                       ) : (
                         <NumberInput
                           decimal
-                          style={[layout.input, styles.setInput]}
+                          style={[layout.input, styles.setInput, narrow && styles.setInputNarrow]}
                           selectTextOnFocus
                           value={set.weight}
                           placeholder={weightUnit}
@@ -1132,7 +1310,7 @@ export function WorkoutScreen({
                         />
                       )}
                       <NumberInput
-                        style={[layout.input, styles.setInput]}
+                        style={[layout.input, styles.setInput, narrow && styles.setInputNarrow]}
                         selectTextOnFocus
                         value={set.reps}
                         placeholder="reps"
@@ -1153,7 +1331,7 @@ export function WorkoutScreen({
                           style={[styles.tickSlot, styles.tick, ticked.has(set.id) && styles.tickOn, recordSets.has(set.id) && styles.tickRecord]}
                           testID={`tick-${exercise.name}-${index + 1}`}
                         >
-                          {ticked.has(set.id) ? <Mark kind="check" size={13} weight={2.2} color="#fff" /> : null}
+                          {ticked.has(set.id) ? <Mark kind="check" size={13} weight={2.2} color={colors.onCoral} /> : null}
                         </Pressable>
                       )}
                       {exercise.sets.length > 1 ? (
@@ -1182,11 +1360,12 @@ export function WorkoutScreen({
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Add a set to ${exercise.name}`}
-                    onPress={() =>
+                    onPress={() => {
+                      haptic('select');
                       setExercises((current) =>
                         current.map((item) => (item.id === exercise.id ? addSet(item, weightUnit) : item)),
-                      )
-                    }
+                      );
+                    }}
                     style={({ pressed }) => [styles.addSet, pressed && styles.pressed]}
                   >
                     <Text style={styles.addSetLabel}>+ Add set</Text>
@@ -1194,7 +1373,8 @@ export function WorkoutScreen({
                 </>
               )}
             </View>
-          ))}
+            );
+          })}
 
           {!empty ? (
             <PressableScale
@@ -1203,7 +1383,10 @@ export function WorkoutScreen({
               onPress={openPicker}
               style={({ pressed }) => [styles.addExercise, pressed && styles.pressed]}
             >
-              <Text style={styles.addExerciseLabel}>+ Add another exercise</Text>
+              <View style={styles.roundAdd}>
+                <Mark kind="plus" size={12} color={colors.coral} />
+              </View>
+              <Text style={styles.addExerciseLabel}>Add another exercise</Text>
             </PressableScale>
           ) : null}
 
@@ -1211,26 +1394,27 @@ export function WorkoutScreen({
           {!routineMode && !empty ? (
             <View style={styles.details}>
               <Text style={styles.sectionLabel}>DETAILS</Text>
+              <View style={styles.detailsCard}>
+                <Text style={styles.fieldLabel}>Name</Text>
+                <TextInput
+                  style={[layout.input, styles.cardInput]}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Workout name"
+                  placeholderTextColor={colors.faint}
+                />
 
-              <Text style={styles.fieldLabel}>Name</Text>
-              <TextInput
-                style={layout.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Workout name"
-                placeholderTextColor={colors.faint}
-              />
-
-              <Text style={styles.fieldLabel}>Notes (optional)</Text>
-              <TextInput
-                style={[layout.input, styles.notes]}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="How did it feel?"
-                placeholderTextColor={colors.faint}
-                multiline
-                onFocus={revealEnd}
-              />
+                <Text style={styles.fieldLabel}>Notes (optional)</Text>
+                <TextInput
+                  style={[layout.input, styles.cardInput, styles.notes]}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="How did it feel?"
+                  placeholderTextColor={colors.faint}
+                  multiline
+                  onFocus={revealEnd}
+                />
+              </View>
 
               {/* An ad-hoc session you decide afterwards is worth keeping. */}
               {onSaveTemplate ? (
@@ -1282,7 +1466,6 @@ export function WorkoutScreen({
           <View style={styles.picker} testID="exercise-history">
             <View style={styles.pickerHead}>
               <View style={{ flex: 1 }}>
-                <Kicker>Vitto / history</Kicker>
                 <Text style={styles.title}>{historyFor}</Text>
               </View>
               <CloseButton onPress={() => setHistoryFor(null)} label="Close history" />
@@ -1294,7 +1477,8 @@ export function WorkoutScreen({
                     {new Date(session.at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                   </Text>
                   <Text style={styles.historySets}>
-                    {session.sets.map((set) => (set.weight ? `${set.weight} ${set.unit ?? weightUnit} × ${set.reps}` : `${set.reps} reps`)).join('   ·   ')}
+                    {/* Non-breaking inside a set: lines break between sets, never in "60 kg × 8". */}
+                    {session.sets.map((set) => (set.weight ? `${set.weight}\u00a0${set.unit ?? weightUnit}\u00a0×\u00a0${set.reps}` : `${set.reps}\u00a0reps`)).join('   ·   ')}
                   </Text>
                 </View>
               ))}
@@ -1306,7 +1490,6 @@ export function WorkoutScreen({
           <View style={styles.picker}>
             <View style={styles.pickerHead}>
               <View style={{ flex: 1 }}>
-                <Kicker>{cardioOnly ? 'Vitto / outdoors' : 'Vitto / exercises'}</Kicker>
                 <Text style={styles.title}>{cardioOnly ? 'What did you do?' : 'Add exercise'}</Text>
               </View>
               <CloseButton
@@ -1336,10 +1519,12 @@ export function WorkoutScreen({
                       accessibilityRole="button"
                       accessibilityLabel={`${added ? 'Remove' : 'Add'} ${exerciseName}`}
                       accessibilityState={{ selected: added }}
-                      style={({ pressed }) => [styles.libraryRow, pressed && styles.pressed]}
-                      onPress={() =>
-                        added ? removeExerciseNamed(exerciseName) : addExercise(exerciseName, muscle, bodyweight === 'bodyweight')
-                      }
+                      style={({ pressed }) => [styles.libraryRow, added && styles.libraryRowOn, pressed && styles.pressed]}
+                      onPress={() => {
+                        haptic('select');
+                        if (added) removeExerciseNamed(exerciseName);
+                        else addExercise(exerciseName, muscle, bodyweight === 'bodyweight');
+                      }}
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.libraryName}>{exerciseName}</Text>
@@ -1351,11 +1536,13 @@ export function WorkoutScreen({
                       {/* Stays open after a tap so a whole day goes in at once. Each
                           exercise goes in once (repeats are sets on its card), so a
                           tick marks what is in, and tapping it again takes it out. */}
-                      {added ? (
-                        <Mark kind="check" size={13} color={colors.mintDeep} />
-                      ) : (
-                        <Mark kind="plus" size={13} color={colors.coral} />
-                      )}
+                      <View style={[styles.roundAdd, added && styles.roundAddOn]}>
+                        {added ? (
+                          <Mark kind="check" size={12} weight={2.2} color={colors.onCoral} />
+                        ) : (
+                          <Mark kind="plus" size={12} color={colors.coral} />
+                        )}
+                      </View>
                     </Pressable>
                   );
                 })}
@@ -1384,16 +1571,17 @@ const styles = themedStyles(() => ({
     paddingHorizontal: 22,
     gap: 12,
   },
-  title: { ...text.title, marginTop: 8 },
+  title: { ...text.title, marginTop: 6 },
   body: { padding: 22, paddingBottom: 40 },
   field: { marginTop: 8 },
 
-  sectionLabel: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0, color: colors.faint },
+  // One caption style for every section, the meal page's plate title.
+  sectionLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0.6, color: colors.muted },
   sectionHint: { ...text.small, marginTop: 10, lineHeight: 18 },
-  fieldLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted, marginTop: 16, marginBottom: 6 },
-  lead: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  fieldLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted, marginTop: 12, marginBottom: 6 },
 
-  // The big "start here" button
+  // The big "start here" button: coral when it is the way in, a quiet card
+  // row when today's routine holds the Start.
   startCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1401,55 +1589,67 @@ const styles = themedStyles(() => ({
     marginTop: 14,
     paddingVertical: 18,
     paddingHorizontal: 18,
-    borderRadius: 12,
+    borderRadius: 18,
+    borderCurve: 'continuous',
     backgroundColor: colors.coral,
   },
+  startCardQuiet: { paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, backgroundColor: colors.card },
   routineStart: { marginTop: 20 },
-  startTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.onCoral },
+  startTitle: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 17, color: colors.onCoral },
+  startTitleQuiet: { fontWeight: '600', color: colors.ink },
   startHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.onCoral, opacity: 0.85, marginTop: 3 },
+  startHintQuiet: { color: colors.muted, opacity: 1 },
   startArrow: { fontFamily: fonts.ui, fontSize: 22, color: colors.onCoral },
+  // The round add of every list here (and the meal page's): a coral plus on a
+  // wash, coral with a white check once it is in.
+  roundAdd: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coralWash },
+  roundAddOn: { backgroundColor: colors.coral },
 
   // Routines
   routines: { marginTop: 26 },
   backToStart: { alignSelf: 'flex-start' },
   backToStartLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.coralDeep },
-  // Spaced like the Pick exercises card under it (startCard's marginTop).
+  // Today's routine is the card the page leads with; Start on it is the one coral button.
   todayCard: {
-    marginTop: 14,
-    paddingTop: 12,
-    paddingBottom: 6,
+    marginTop: 4,
+    paddingTop: 14,
+    paddingBottom: 12,
     paddingHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.coral,
+    borderRadius: 18,
+    borderCurve: 'continuous',
     backgroundColor: colors.card,
   },
-  todayKicker: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 11, letterSpacing: 0.6, color: colors.coralDeep },
+  todayKicker: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 11, letterSpacing: 0.6, color: colors.muted },
   todayMain: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   todayName: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 20, color: colors.ink },
-  todayLinks: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: colors.hairline,
-    paddingTop: 10,
-    paddingBottom: 6,
+  todayStart: {
+    flexShrink: 0,
+    minHeight: 40,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.coral,
   },
-  todayLink: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 14, color: colors.coralDeep },
-  routineRowToday: { borderColor: colors.coral, borderWidth: 2, paddingHorizontal: 15, paddingVertical: 13 },
-  restRow: { borderStyle: 'dashed', backgroundColor: 'transparent' },
-  newChoices: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  todayStartLabel: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 15, color: colors.onCoral },
+  todayLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  // Light secondary actions: borderless chips, quieter than anything coral.
+  chip: { minHeight: 30, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: colors.cardSoft },
+  chipLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.inkSoft },
+  // Today in the list: filled, not outlined, the way a selected row is.
+  routineRowToday: { backgroundColor: colors.selectedFill },
+  restRow: { backgroundColor: colors.cardSoft },
+  newChoices: { flexDirection: 'row', gap: 8, marginTop: 12 },
   newChoice: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    justifyContent: 'center',
+    minHeight: 44,
+    borderRadius: 22,
+    backgroundColor: colors.cardSoft,
   },
-  newChoiceMain: { backgroundColor: colors.coral, borderColor: colors.coral },
-  newChoiceText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  newChoiceMain: { backgroundColor: colors.coral },
+  newChoiceText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.inkSoft },
   newChoiceMainText: { color: colors.onCoral },
   // Being dragged: the card itself lifts, so the shadow follows its rounded
   // corners, and a rest day gets a fill so the rows under it do not show through.
@@ -1465,7 +1665,6 @@ const styles = themedStyles(() => ({
   dayLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 11, letterSpacing: 0.5, color: colors.faint, marginBottom: 2 },
   dayLabelToday: { color: colors.coralDeep },
   routinesHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  routineList: { gap: 8 },
   routineRowWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   routineRow: {
     flex: 1,
@@ -1474,14 +1673,14 @@ const styles = themedStyles(() => ({
     gap: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 14,
+    borderCurve: 'continuous',
     backgroundColor: colors.card,
   },
   routineName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
-  routinePreview: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 3 },
-  routineGo: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.coralDeep },
+  routinePreview: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 3, lineHeight: 18 },
+  goPill: { flexShrink: 0, minHeight: 32, paddingHorizontal: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coralWash },
+  goPillLabel: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 14, color: colors.coralDeep },
   routineDelete: {
     width: 30,
     height: 30,
@@ -1490,17 +1689,15 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     backgroundColor: colors.dangerWash,
   },
-  routineDeleteMark: { fontFamily: fonts.ui, fontSize: 17, color: colors.danger, marginTop: -1 },
   newRoutine: {
     marginTop: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    backgroundColor: colors.card,
   },
-  newRoutineTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  newRoutineTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 16, color: colors.coralDeep },
   newRoutineHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 3, lineHeight: 18 },
   routineMessage: { fontFamily: fonts.ui, fontSize: 13, color: colors.mintDeep, marginBottom: 12 },
   routineError: { fontFamily: fonts.ui, fontSize: 13, color: colors.danger },
@@ -1509,123 +1706,148 @@ const styles = themedStyles(() => ({
   exercise: {
     marginTop: 14,
     padding: 14,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 12,
+    borderRadius: 18,
+    borderCurve: 'continuous',
     backgroundColor: colors.card,
   },
   exerciseHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  exerciseNumber: { fontFamily: fonts.ui, fontWeight: '600',
+  // Its place in the session, in a neutral tile: coral is kept for what can be pressed.
+  exerciseNumber: {
+    fontFamily: fonts.ui,
+    fontWeight: '700',
     width: 26,
+    flexShrink: 0,
     height: 26,
     borderRadius: 13,
     overflow: 'hidden',
     textAlign: 'center',
     lineHeight: 26,
     fontSize: 13,
-    
-    color: colors.coralDeep,
-    backgroundColor: colors.coralWash,
+    color: colors.muted,
+    backgroundColor: colors.cardSoft,
   },
   exerciseName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
   exerciseMuscle: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 1, textTransform: 'capitalize' },
-  exerciseRemove: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.tile,
-  },
-  exerciseRemoveMark: { fontFamily: fonts.ui, fontSize: 17, color: colors.muted, marginTop: -1 },
+  // The card's figure over its unit, right-aligned like a price.
+  figureBox: { alignItems: 'flex-end', minWidth: 44, flexShrink: 0 },
+  figure: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 17, color: colors.ink, fontVariant: ['tabular-nums'] },
+  figureUnit: { fontFamily: fonts.ui, fontSize: 11, color: colors.faint },
+  exerciseRemove: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   setHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
   setHeadLabel: {
     fontFamily: fonts.ui,
-    fontSize: 12,
+    fontWeight: '600',
+    fontSize: 11,
     letterSpacing: 0.6,
     color: colors.faint,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
   setInputHead: { flex: 1, minWidth: 0 },
-  setIndex: { width: 32, textAlign: 'center' },
-  setIndexValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.muted },
-  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, borderRadius: 10 },
-  setRowDone: { backgroundColor: colors.mint },
-  setPrevious: { width: 64, alignItems: 'center', justifyContent: 'center', textAlign: 'center' },
-  setPreviousValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, fontVariant: ['tabular-nums'] },
+  setIndex: { width: 28, flexShrink: 0, textAlign: 'center' },
+  setIndexValue: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 15, color: colors.muted, fontVariant: ['tabular-nums'] },
+  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, paddingVertical: 2, borderRadius: 12, borderCurve: 'continuous' },
+  setRowDone: { backgroundColor: colors.selectedFill },
+  setPrevious: { width: 60, flexShrink: 0, alignItems: 'center', justifyContent: 'center', textAlign: 'center' },
+  setPreviousValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, fontVariant: ['tabular-nums'], textAlign: 'center' },
   tickSlot: { width: 30, height: 30 },
-  tick: {
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.card,
-  },
-  tickOn: { backgroundColor: colors.mintDeep, borderColor: colors.mintDeep },
-  tickMark: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 15, color: '#fff', lineHeight: 18 },
+  tick: { borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coralWash },
+  tickOn: { backgroundColor: colors.coral },
+  // A filled field on the card, no outline: the numbers are the row.
   // minWidth 0 lets the field shrink; without it the row runs off the screen.
-  setInput: { fontFamily: fonts.ui, fontWeight: '600',
+  setInput: {
+    fontFamily: fonts.ui,
+    fontWeight: '700',
     flex: 1,
     minWidth: 0,
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 6,
     textAlign: 'center',
     fontSize: 17,
-    
+    fontVariant: ['tabular-nums'],
+    borderWidth: 0,
+    borderRadius: 10,
+    backgroundColor: colors.cardSoft,
   },
   setInputOff: { opacity: 0.6 },
-  setRemoveSlot: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  setRemoveMark: { fontFamily: fonts.ui, fontSize: 22, color: colors.faint, lineHeight: 24 },
+  // Under NARROW_SCREEN: each fixed column gives back a little so the two
+  // fields get about 50pt each at 320pt, room for "102.5" at 15pt.
+  setGapNarrow: { gap: 5 },
+  setIndexNarrow: { width: 20 },
+  setPreviousNarrow: { width: 50 },
+  setInputNarrow: { fontSize: 15, paddingHorizontal: 3 },
+  setRemoveSlot: { width: 24, height: 28, alignItems: 'center', justifyContent: 'center' },
   addSet: {
     marginTop: 10,
-    paddingVertical: 10,
-    borderRadius: 12,
+    minHeight: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    backgroundColor: colors.tile,
+    justifyContent: 'center',
+    backgroundColor: colors.cardSoft,
   },
-  addSetLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  addSetLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.coralDeep },
   cardioNote: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 10, lineHeight: 18 },
-  cardioFields: { gap: 8, marginTop: 12 },
-  cardioRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardioLabel: { fontFamily: fonts.ui, fontWeight: '600', flex: 1, fontSize: 17, color: colors.ink },
-  cardioOptional: { fontWeight: '400', color: colors.muted },
-  cardioInput: { fontFamily: fonts.ui, fontWeight: '600', width: 96, textAlign: 'center', fontSize: 20, },
-  cardioUnit: { fontFamily: fonts.ui, width: 30, fontSize: 15, color: colors.muted },
+  cardioFields: { gap: 12, marginTop: 14 },
+  cardioRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardioLabelBox: { flex: 1, minWidth: 0 },
+  cardioLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 16, color: colors.ink },
+  cardioOptional: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 1 },
+  cardioInput: {
+    fontFamily: fonts.ui,
+    fontWeight: '700',
+    // 64, not 72: "12.5" still fits, and on a 320pt phone "Distance" keeps room beside it.
+    width: 64,
+    minHeight: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    textAlign: 'center',
+    fontSize: 18,
+    fontVariant: ['tabular-nums'],
+    borderWidth: 0,
+    borderRadius: 10,
+    backgroundColor: colors.cardSoft,
+  },
+  cardioUnit: { fontFamily: fonts.ui, width: 28, flexShrink: 0, fontSize: 13, color: colors.muted },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  stepButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.cardSoft, alignItems: 'center', justifyContent: 'center' },
+  stepButtonOff: { opacity: 0.35 },
 
   addExercise: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginTop: 14,
     paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.coral,
-    alignItems: 'center',
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    backgroundColor: colors.card,
   },
-  addExerciseLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.coralDeep },
+  addExerciseLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 16, color: colors.coralDeep },
 
   // Details
   details: { marginTop: 28 },
+  detailsCard: { marginTop: 8, paddingHorizontal: 14, paddingTop: 2, paddingBottom: 14, borderRadius: 18, borderCurve: 'continuous', backgroundColor: colors.card },
+  cardInput: { borderWidth: 0, backgroundColor: colors.cardSoft },
   notes: { minHeight: 72, textAlignVertical: 'top' },
   sessionActions: { flexDirection: 'row', marginTop: 14 },
 
   footer: {
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 22,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 30 : 18,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.hairline,
     backgroundColor: colors.paper,
   },
-  stats: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, textAlign: 'center' },
+  stats: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, textAlign: 'center', fontVariant: ['tabular-nums'] },
   empty: { fontFamily: fonts.ui, marginTop: 14, fontSize: 13, color: colors.faint, textAlign: 'center' },
   pressed: { opacity: 0.75 },
 
-  // Picker overlay
-  exerciseHistoryLink: { fontWeight: '600', color: colors.coral },
-  tickRecord: { backgroundColor: RECORD_GOLD, borderColor: RECORD_GOLD },
+  // Records and history
+  exerciseHistoryLink: { fontWeight: '600', color: colors.coralDeep },
+  tickRecord: { backgroundColor: RECORD_GOLD },
   recordBanner: {
     position: 'absolute',
     top: 92,
@@ -1644,10 +1866,12 @@ const styles = themedStyles(() => ({
   },
   recordKicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.8, fontWeight: '700', color: RECORD_GOLD },
   recordText: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '600', color: colors.paper, marginTop: 2 },
-  historyBody: { paddingHorizontal: 22, paddingBottom: 40, gap: 10 },
-  historySession: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  historyBody: { paddingHorizontal: 22, paddingTop: 14, paddingBottom: 40, gap: 8 },
+  historySession: { paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, borderCurve: 'continuous', backgroundColor: colors.card },
   historyDate: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
-  historySets: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 4, lineHeight: 19 },
+  historySets: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 4, lineHeight: 19, fontVariant: ['tabular-nums'] },
+
+  // Picker overlay
   picker: {
     position: 'absolute',
     left: 0,
@@ -1665,24 +1889,18 @@ const styles = themedStyles(() => ({
     gap: 12,
   },
   pickerBody: { flex: 1, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 28, gap: 12 },
-  pickerList: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-  },
+  // Rows straight on the page, as the meal page's results are: no box, no rules.
+  pickerList: { flex: 1, marginHorizontal: -8 },
   libraryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    gap: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    borderCurve: 'continuous',
   },
+  libraryRowOn: { backgroundColor: colors.selectedFill },
   libraryName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
   libraryMuscle: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 2 },
-  libraryAdded: { fontFamily: fonts.ui, fontSize: 17, color: colors.mintDeep },
-  libraryPlus: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
 }));

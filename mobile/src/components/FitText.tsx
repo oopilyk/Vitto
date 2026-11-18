@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View, type StyleProp, type TextProps, type TextStyle, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, Text, View, type StyleProp, type TextProps, type TextStyle, type ViewStyle } from 'react-native';
 
 /**
  * How much to scale text down so it fits, from real measurements:
@@ -39,6 +39,9 @@ export const fitScale = ({
   return wanted >= minScale ? { scale: wanted, fits: true } : { scale: minScale, fits: false };
 };
 
+/** react-native-web never fires onTextLayout. */
+const WEB = Platform.OS === 'web';
+
 type Props = Omit<TextProps, 'children' | 'numberOfLines' | 'adjustsFontSizeToFit' | 'minimumFontScale'> & {
   children: string;
   /** The lines the text should fit on. */
@@ -62,8 +65,8 @@ type Props = Omit<TextProps, 'children' | 'numberOfLines' | 'adjustsFontSizeToFi
  *
  * It never goes below `minScale`, and starts at full size until measured. A
  * text that still does not fit at the floor wraps onto another line rather
- * than ending in "…". Web does not report text layout, so there it stays at
- * full size, as react-native-web always did.
+ * than ending in "…". Web does not report text lines, so there the hidden
+ * copy is measured by its own box instead (it sits at its natural width).
  */
 export function FitText({ children, style, lines = 1, minScale = 0.7, containerStyle, ...rest }: Props) {
   const flat = (StyleSheet.flatten(style) ?? {}) as TextStyle;
@@ -88,6 +91,10 @@ export function FitText({ children, style, lines = 1, minScale = 0.7, containerS
       : null;
   const widest = (event: { nativeEvent: { lines: { width: number }[] } }) =>
     event.nativeEvent.lines.reduce((most, line) => Math.max(most, line.width), 0);
+  const measure = (set: (width: number) => void): Partial<TextProps> =>
+    WEB
+      ? { onLayout: (event) => set(event.nativeEvent.layout.width) }
+      : { onTextLayout: (event) => set(widest(event)) };
 
   return (
     <View
@@ -101,12 +108,12 @@ export function FitText({ children, style, lines = 1, minScale = 0.7, containerS
         {children}
       </Text>
       {/* The ruler: the same text at full size on one line nothing can wrap. */}
-      <View style={styles.ruler} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Text style={style} onTextLayout={(event) => setNatural(widest(event))}>
+      <View style={[styles.ruler, WEB && styles.rulerWeb]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Text style={style} {...measure(setNatural)}>
           {children}
         </Text>
         {lines > 1 && longestWord !== children ? (
-          <Text style={style} onTextLayout={(event) => setLongest(widest(event))}>
+          <Text style={style} {...measure(setLongest)}>
             {longestWord}
           </Text>
         ) : null}
@@ -118,4 +125,6 @@ export function FitText({ children, style, lines = 1, minScale = 0.7, containerS
 const styles = StyleSheet.create({
   container: { alignSelf: 'stretch' },
   ruler: { position: 'absolute', top: 0, left: 0, width: 4000, opacity: 0 },
+  // Each copy at its own width, not stretched across the ruler, so its box is its size.
+  rulerWeb: { alignItems: 'flex-start' },
 });

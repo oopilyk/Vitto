@@ -138,9 +138,9 @@ export function CompanionDebugScreen({ pet, events, profile, stepGoal, onChangeP
                 .sort((a, b) => b[1] - a[1])
                 .map(([trait, value]) => (
                   <View key={trait} style={styles.traitRow}>
-                    <Text style={styles.traitName}>{trait}</Text>
+                    <Text style={styles.traitName} numberOfLines={1}>{trait}</Text>
                     <View style={styles.traitTrack}><View style={[styles.traitFill, { width: `${Math.round(value * 100)}%` }]} /></View>
-                    <Text style={styles.traitValue}>{value.toFixed(2)}</Text>
+                    <Text style={styles.traitValue} numberOfLines={1}>{value.toFixed(2)}</Text>
                   </View>
                 ))}
             </Section>
@@ -280,18 +280,19 @@ const styles = themedStyles(() => ({
   persona: { minHeight: 84, paddingTop: 12, textAlignVertical: "top", lineHeight: 19, marginTop: 8, marginBottom: 8 },
   buttonOff: { opacity: 0.4 },
   row: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  rowKey: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, width: 104 },
-  rowValue: { fontFamily: fonts.ui, flex: 1, fontSize: 13, lineHeight: 18, color: colors.ink },
+  rowKey: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, width: 104, flexShrink: 0 },
+  // minWidth 0: on web a long unbroken value (a nickname) otherwise widens the row past the card.
+  rowValue: { fontFamily: fonts.ui, flex: 1, minWidth: 0, fontSize: 13, lineHeight: 18, color: colors.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.hairline },
   chipOn: { borderColor: colors.coral, backgroundColor: colors.coralWash ?? 'rgba(216,93,69,0.12)' },
   chipLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSoft },
   chipLabelOn: { color: colors.coral, fontWeight: '700' },
   traitRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  traitName: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSoft, width: 86 },
+  traitName: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSoft, width: 86, flexShrink: 0 },
   traitTrack: { flex: 1, height: 5, borderRadius: 6, backgroundColor: colors.hairline, overflow: 'hidden' },
   traitFill: { height: 5, borderRadius: 6, backgroundColor: colors.coral },
-  traitValue: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, width: 34, textAlign: 'right' },
+  traitValue: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, width: 34, flexShrink: 0, textAlign: 'right' },
   mono: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 18, color: colors.inkSoft },
   monoOn: { color: colors.ink, fontWeight: '700' },
   prompt: { fontFamily: fonts.ui, fontSize: 11, lineHeight: 16, color: colors.ink, backgroundColor: colors.paper, padding: 10, borderRadius: 12 },

@@ -32,7 +32,8 @@ describe('EvolutionCard', () => {
     const all = strings(tree);
     expect(all).toContain('Runner?');
     expect(all).toContain('closest');
-    expect(all.some((line) => line.startsWith('Locked'))).toBe(true);
+    // A locked form shows only how far along it is.
+    expect(all.some((line) => /^\d+%$/.test(line))).toBe(true);
     expect(all.some((line) => line.includes('Level 6/15') && line.includes('Endurance 30/60'))).toBe(true);
     tree.unmount();
   });

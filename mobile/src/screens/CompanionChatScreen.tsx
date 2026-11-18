@@ -219,11 +219,13 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
           <Text style={styles.backArrow}>←</Text>
         </Pressable>
         <PetSpriteAvatar pet={pet} size={40} backgroundColor={colors.card} />
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.name} numberOfLines={1}>{pet.name}</Text>
           {state ? (
             <View style={styles.bondRow}>
-              <Text style={styles.level}>{LEVEL_LABEL[state.relationshipLevel]}</Text>
+              <Text style={styles.level} numberOfLines={1}>
+                {LEVEL_LABEL[state.relationshipLevel]}
+              </Text>
               <View style={styles.bondTrack} accessibilityLabel={`Progress to the next level: ${Math.round(ai.levelProgress(state.relationshipScore) * 100)} percent`}>
                 <View style={[styles.bondFill, { width: `${Math.round(ai.levelProgress(state.relationshipScore) * 100)}%` }]} />
               </View>
@@ -400,7 +402,7 @@ const styles = themedStyles(() => ({
   backArrow: { fontFamily: fonts.pixel, fontSize: 26, color: colors.coral },
   name: { fontFamily: fonts.pixel, fontSize: 25, color: colors.ink },
   bondRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
-  level: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 0.6, color: colors.muted, textTransform: 'uppercase' },
+  level: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 0.6, color: colors.muted, textTransform: 'uppercase', flexShrink: 0 },
   bondTrack: { flex: 1, maxWidth: 90, height: 4, borderRadius: 2, backgroundColor: colors.hairline, overflow: 'hidden' },
   bondFill: { height: 4, borderRadius: 2, backgroundColor: colors.coral },
   // A column, like Settings, so on a tablet the bubbles read as a thread

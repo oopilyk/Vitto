@@ -147,7 +147,7 @@ export function SettingsScreen({
       <NavGroup title="Your companion">
         {onBreedChange && onOpenChooseCompanion ? (
           <NavRow
-            title="Animals & forms"
+            title="Shop"
             value={[
               breed ? sheetByBreed(breed).label : null,
               `${ownedBreedsOf({ breed, ownedBreeds: pet?.ownedBreeds }).length} owned`,

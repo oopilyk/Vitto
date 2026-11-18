@@ -1,5 +1,6 @@
-import { ActionSheetIOS, Alert, Platform } from 'react-native';
+import { ActionSheetIOS, Platform } from 'react-native';
 import { REPORT_REASONS, REPORT_REASON_LABEL, REPORT_THANKS, type ReportReason, errorMessage } from '@vitto/core';
+import { showAlert } from '../services/dialog';
 import { friendsService } from '../services/friendsService';
 
 /**
@@ -39,7 +40,7 @@ const sheet = (title: string, options: string[], destructive: number | undefined
     );
     return;
   }
-  Alert.alert(title, undefined, [
+  showAlert(title, undefined, [
     ...options.map((text, index) => ({ text, style: index === destructive ? ('destructive' as const) : undefined, onPress: () => onPick(index) })),
     { text: 'Cancel', style: 'cancel' as const },
   ]);
@@ -53,17 +54,17 @@ const chooseReason = (name: string, onPick: (reason: ReportReason) => void) =>
 const sendReport = async (userId: string, name: string, reason: ReportReason, block: () => void) => {
   try {
     await friendsService.reportUser(userId, reason);
-    Alert.alert('Report sent', `${REPORT_THANKS} You can also block ${name} so they can't reach you.`, [
+    showAlert('Report sent', `${REPORT_THANKS} You can also block ${name} so they can't reach you.`, [
       { text: `Block ${name}`, style: 'destructive', onPress: () => setTimeout(block, NEXT_SHEET_MS) },
       { text: 'Done', style: 'cancel' },
     ]);
   } catch (cause) {
-    Alert.alert('Could not send the report', errorMessage(cause, 'Try again in a moment.'));
+    showAlert('Could not send the report', errorMessage(cause, 'Try again in a moment.'));
   }
 };
 
 const confirmBlock = (userId: string, name: string, onBlocked?: () => void) =>
-  Alert.alert(
+  showAlert(
     `Block ${name}?`,
     "You won't be friends any more, they can't send you friend requests or reactions, and you won't see each other in search. They won't be told. You can unblock them in Friends.",
     [
@@ -75,7 +76,7 @@ const confirmBlock = (userId: string, name: string, onBlocked?: () => void) =>
           void friendsService
             .blockUser(userId)
             .then(() => onBlocked?.())
-            .catch((cause) => Alert.alert('Could not block them', errorMessage(cause, 'Try again in a moment.'))),
+            .catch((cause) => showAlert('Could not block them', errorMessage(cause, 'Try again in a moment.'))),
       },
     ],
   );

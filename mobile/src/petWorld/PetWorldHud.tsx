@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Pressable, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Image, Pressable, Text, View, useWindowDimensions, type LayoutChangeEvent, type ViewStyle } from 'react-native';
 import {
   AILMENT_MESSAGE,
   bondFor,
@@ -12,7 +12,6 @@ import {
   daysWithPet,
   assessCondition,
   coinsOf,
-  hasEvolved,
   initialOf,
 } from '@vitto/core';
 import { FitText } from '../components/FitText';
@@ -40,9 +39,16 @@ const FRIENDS_ICON = require('../../assets/buttons/freinds_button.png');
  *   1. top bar  — the level ring (progression), one plate with the room over
  *                 the pet's name, and the account disc (Profile, Settings,
  *                 Friends).
- *   2. status   — the pet's own line, full width, with its day, streak and
- *                 bond, and what is left of today as a row of tokens beneath.
- *   3. tools    — the coin balance on the left, Today and Chat on the right.
+ *   2. status   — the pet's own line, full width, and ONE row under it: the
+ *                 streak, the bond when it has something to say, and what is
+ *                 left of today as tokens.
+ *   3. tools    — one row: the coin balance on the left, Chat and Today on
+ *                 the right.
+ *
+ * It used to be busier: a "DAY 9 · WARM · 🔥2" line of its own between the
+ * pet's line and the tokens, and Chat stacked under Today. A first look found
+ * a dozen things to read before the pet; the day count told nobody anything,
+ * and the rest now shares rows.
  *
  * With two pets the name plate in row 1 is the switch between them, marked by a
  * small triangle in its corner.
@@ -119,13 +125,12 @@ interface PetWorldHudProps {
 const READOUT_PAD = 14;
 const META_FONT = 10;
 const META_SPACING = 0.8;
-const META_GAP = 12;
 const CHIP_FONT = 9;
 const CHIP_LINE = 12;
 const CHIP_SPACING = 0.8;
 const CHIP_PAD = 6;
 const CHIP_GAP = 8;
-/** Below this a row stops shrinking and wraps instead: still readable, never clipped. */
+/** The font never shrinks past this; any overflow left after it is scaled out as a whole row. */
 const MIN_ROW_SCALE = 0.72;
 
 /**
@@ -146,10 +151,6 @@ const rowScale = (widths: number[], gap: number, room: number): number => {
   return Math.max(MIN_ROW_SCALE, room / natural);
 };
 
-/** One chip's height: its line plus its padding. */
-const CHIP_HEIGHT = 12 + 2 * 2;
-/** Chip row ceiling: exactly two rows of chips and the gap between, whatever the screen width. */
-const CHIP_ROWS_HEIGHT = 2 * CHIP_HEIGHT + 4;
 
 /**
  * The pet's line when nothing is wrong and nothing just happened. Sleepy and
@@ -210,15 +211,11 @@ export function PetWorldHud({
   const bond = bondFor(events, today, { adoptedAt: pet.adoptedAt });
   const feeling = petVoice(baseFeeling, { personality: pet.personality, ailments: condition.ailments, bond: bond.stage });
 
-  const evolved = hasEvolved(pet);
   // Separate tokens, not one joined string: the row below lays them out, and a
   // wrap then falls between tokens rather than inside a separator.
-  const dayToken = `DAY ${daysWithPet(pet, today)}`;
-  const formToken = evolved ? formLabel.toUpperCase() : null;
   const bondToken = bond.stage !== 'neutral' ? bond.stage.toUpperCase() : null;
   const flameToken = streaks.currentStreak > 0 ? `🔥 ${streaks.currentStreak}` : null;
   const freezeToken = streaks.currentStreak > 0 && streaks.freezes > 0 ? `❄︎ ${streaks.freezes}` : null;
-  const dayLabel = formToken ? `${dayToken} · ${formToken}` : dayToken;
 
   const showSwitcher = pets && pets.length > 1 && onSelectPet;
   // With two pets the name plate is the switch: a tap shows the next one.
@@ -247,10 +244,27 @@ export function PetWorldHud({
   // The pet's line and its meta, as one card. Built once, laid out below.
   const metaLabel =
     streaks.currentStreak > 0
-      ? `${dayLabel}. ${streaks.currentStreak} day streak, best ${streaks.longestStreak}` +
+      ? `${streaks.currentStreak} day streak, best ${streaks.longestStreak}` +
         (streaks.freezes > 0 ? `, ${streaks.freezes} ${streaks.freezes === 1 ? 'freeze' : 'freezes'} saved` : '') +
-        (streakAtRisk ? ', not yet logged today.' : '.')
-      : dayLabel;
+        (streakAtRisk ? ', not yet logged today' : '')
+      : `Day ${daysWithPet(pet, today)} with ${pet.name}`;
+
+  // Talking to the pet, with a dot when it has said something unread.
+  const chatButton = onOpenChat ? (
+    <Pressable
+      ref={chatTourRef}
+      accessibilityRole="button"
+      accessibilityLabel={unreadMessages > 0 ? `Talk to ${pet.name}, ${unreadMessages} unread` : `Talk to ${pet.name}`}
+      onPress={onOpenChat}
+      hitSlop={6}
+      style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, pressed && retroPressed]}
+    >
+      <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>CHAT</Text>
+      {unreadMessages > 0 ? (
+        <View testID="companion-unread" style={[styles.unreadDot, night && styles.unreadDotNight]} pointerEvents="none" />
+      ) : null}
+    </Pressable>
+  ) : null;
 
   // The last row is where the HUD ends: rooms keep their buttons below it.
   const hudEdge = useReportHudEdge();
@@ -266,19 +280,28 @@ export function PetWorldHud({
   // rather than wrapping one chip onto a row of its own or clipping the streak.
   const [readoutWidth, setReadoutWidth] = useState(screenWidth - 2 * GUTTER);
   const readoutRoom = readoutWidth - 2 * (READOUT_PAD + RETRO_BORDER_WIDTH);
-  const metaScale = rowScale(
-    [dayToken, formToken, bondToken, flameToken, freezeToken].filter((token): token is string => token !== null).map((token) => monoWidth(token, META_FONT, META_SPACING)),
-    META_GAP,
-    readoutRoom,
-  );
+  const leadTokens = [flameToken, freezeToken, bondToken].filter((token): token is string => token !== null);
   const chipScale = rowScale(
     (todayGoals ?? []).map((goal) => monoWidth(goal.done ? `✓ ${goal.label}` : goal.label, CHIP_FONT, CHIP_SPACING) + 2 * CHIP_PAD),
     CHIP_GAP,
     readoutRoom,
   );
-  const metaSized = metaScale < 1 ? { fontSize: META_FONT * metaScale, letterSpacing: META_SPACING * metaScale } : null;
   const chipSized =
     chipScale < 1 ? { fontSize: CHIP_FONT * chipScale, lineHeight: CHIP_LINE * chipScale, letterSpacing: CHIP_SPACING * chipScale } : null;
+  // The estimate above can still come up short (a larger text size in
+  // Settings, a font a touch wider than guessed), so the real widths settle
+  // it: if the chips as drawn still overflow, the row is scaled down as a
+  // whole. It never wraps.
+  const [chipWidths, setChipWidths] = useState<Record<string, number>>({});
+  const measureToken = (key: string) => (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    setChipWidths((widths) => (Math.abs((widths[key] ?? 0) - width) < 0.5 ? widths : { ...widths, [key]: width }));
+  };
+  const goalIds = (todayGoals ?? []).map((goal) => goal.id);
+  const drawnWidth = goalIds.every((id) => chipWidths[id] !== undefined)
+    ? goalIds.reduce((sum, id) => sum + chipWidths[id], 0) + CHIP_GAP * chipScale * Math.max(0, goalIds.length - 1)
+    : 0;
+  const rowFit = drawnWidth > readoutRoom && readoutRoom > 0 ? readoutRoom / drawnWidth : 1;
   const zoom = hudZoom(screenWidth, screenHeight, chromeScale);
   const topInset = topInsetFor(screenWidth, screenHeight);
 
@@ -385,40 +408,18 @@ export function PetWorldHud({
         <FitText style={[styles.feeling, night && retro.labelNight]} lines={2} minScale={0.85}>
           {feeling}
         </FitText>
-        {/* Day and evolution (with the bond and streak), on one line. */}
-        <View style={[styles.metaRow, { columnGap: META_GAP * metaScale }]} accessibilityLabel={metaLabel}>
-          <Text style={[styles.meta, metaSized, night && retro.captionNight]}>{dayToken}</Text>
-          {formToken ? <Text style={[styles.meta, metaSized, night && retro.captionNight]}>{formToken}</Text> : null}
-          {/* The relationship, only when it has something to say; cooling reads in coral. */}
-          {bondToken ? (
-            <Text
-              style={[styles.meta, metaSized, night && retro.captionNight, (bond.stage === 'sulking' || bond.stage === 'wary') && styles.metaBondCool]}
-              accessibilityLabel={`${pet.name} is ${bond.stage} toward you`}
-            >
-              {bondToken}
-            </Text>
-          ) : null}
-          {flameToken ? (
-            <Text style={[styles.meta, metaSized, styles.metaFlame, night && styles.metaFlameNight, streakAtRisk && styles.metaFlameAtRisk]}>
-              {flameToken}
-            </Text>
-          ) : null}
-          {freezeToken ? (
-            <Text style={[styles.meta, metaSized, styles.metaFreeze]} testID="streak-freezes">
-              {freezeToken}
-            </Text>
-          ) : null}
-        </View>
-        {/* Under it, what is left of today: calories, workout, steps. A done
-            one keeps its place with a tick, so the row doesn't jump about. */}
+        {/* What is left of today, on a row of its own. A done goal keeps its
+            place with a tick, so nothing jumps. */}
         {todayGoals && todayGoals.length > 0 ? (
           <View
-            style={[styles.chipRow, { columnGap: CHIP_GAP * chipScale }]}
+            style={[styles.chipRow, { columnGap: CHIP_GAP * chipScale }, rowFit < 1 && { transform: [{ scale: rowFit }] }]}
             accessibilityLabel={`Today: ${todayGoals.map((goal) => (goal.done ? `${goal.label} done` : goal.label)).join(', ')}`}
           >
             {todayGoals.map((goal) => (
               <Text
                 key={goal.id}
+                onLayout={measureToken(goal.id)}
+                numberOfLines={1}
                 style={[styles.metaTag, chipSized, night && styles.metaTagNight, goal.done && styles.metaTagDone, goal.done && night && styles.metaTagDoneNight]}
               >
                 {goal.done ? `✓ ${goal.label}` : goal.label}
@@ -426,7 +427,35 @@ export function PetWorldHud({
             ))}
           </View>
         ) : null}
-        {partnerName ? <Text style={[styles.metaPartner, night && styles.metaPartnerNight]}>{`Raised with ${partnerName}`}</Text> : null}
+        {/* The quiet line under it: the streak, the bond, and who else raises
+            this pet. */}
+        {leadTokens.length > 0 || partnerName ? (
+          <View style={styles.statusRow} accessibilityLabel={[metaLabel, partnerName ? `Raised with ${partnerName}` : null].filter(Boolean).join('. ')}>
+            {flameToken ? (
+              <Text numberOfLines={1} style={[styles.meta, styles.metaFlame, night && styles.metaFlameNight, streakAtRisk && styles.metaFlameAtRisk]}>
+                {flameToken}
+              </Text>
+            ) : null}
+            {freezeToken ? (
+              <Text numberOfLines={1} style={[styles.meta, styles.metaFreeze]} testID="streak-freezes">
+                {freezeToken}
+              </Text>
+            ) : null}
+            {/* The relationship, only when it has something to say; cooling reads in coral. */}
+            {bondToken ? (
+              <Text
+                numberOfLines={1}
+                style={[styles.meta, night && retro.captionNight, (bond.stage === 'sulking' || bond.stage === 'wary') && styles.metaBondCool]}
+                accessibilityLabel={`${pet.name} is ${bond.stage} toward you`}
+              >
+                {bondToken}
+              </Text>
+            ) : null}
+            {partnerName ? (
+              <Text numberOfLines={1} style={[styles.metaPartner, night && styles.metaPartnerNight]}>{`Raised with ${partnerName}`}</Text>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       {/* Row 3, tools: which pet (only with two), then chat. */}
@@ -450,9 +479,11 @@ export function PetWorldHud({
           </Pressable>
         </View>
 
-        {/* TODAY, the thing opened most, as a disc like the level's: the day's
-            progress runs round it. CHAT sits under it. */}
+        {/* CHAT, then TODAY at the edge: the thing opened most, as a disc like
+            the level's, the day's progress running round it. Side by side: CHAT
+            stacked under it made the tools as tall as the rest of the HUD. */}
         <View style={styles.tools} pointerEvents="box-none">
+          {chatButton}
           <View ref={todayTourRef} collapsable={false}>
             <LevelRing
               level={0}
@@ -465,22 +496,6 @@ export function PetWorldHud({
               accessibilityLabel={`Open today's detail, ${Math.round(todayProgress ?? 0)} percent done`}
             />
           </View>
-          {/* Talking to the pet, with a dot when it has said something unread. */}
-          {onOpenChat ? (
-            <Pressable
-              ref={chatTourRef}
-              accessibilityRole="button"
-              accessibilityLabel={unreadMessages > 0 ? `Talk to ${pet.name}, ${unreadMessages} unread` : `Talk to ${pet.name}`}
-              onPress={onOpenChat}
-              hitSlop={6}
-              style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, pressed && retroPressed]}
-            >
-              <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>CHAT</Text>
-              {unreadMessages > 0 ? (
-                <View testID="companion-unread" style={[styles.unreadDot, night && styles.unreadDotNight]} pointerEvents="none" />
-              ) : null}
-            </Pressable>
-          ) : null}
         </View>
       </View>
 
@@ -594,25 +609,17 @@ const styles = themedStyles(() => ({
   },
   chipRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     justifyContent: 'center',
     columnGap: 8,
-    rowGap: 4,
-    marginTop: 6,
-    maxHeight: CHIP_ROWS_HEIGHT,
-    overflow: 'hidden',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    // Only past MIN_ROW_SCALE; until then the row shrinks to stay on one line.
-    flexWrap: 'wrap',
-    justifyContent: 'center',
     alignItems: 'center',
-    columnGap: 12,
-    rowGap: 2,
     marginTop: 6,
   },
+
   meta: {
+    // Never squeezed by the row (web shrinks text by default, wrapping it
+    // inside itself); the row scales as a whole instead.
+    flexShrink: 0,
     fontFamily: fonts.systemMono,
     fontSize: META_FONT,
     fontWeight: '700',
@@ -621,13 +628,26 @@ const styles = themedStyles(() => ({
     textAlign: 'center',
     textTransform: 'uppercase',
   },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    columnGap: 10,
+    rowGap: 2,
+    marginTop: 6,
+  },
+  // The one user-typed token in the row: a long handle or display name takes
+  // a line of its own (the row wraps), and past that line ends in "…" rather
+  // than running off the plaque.
   metaPartner: {
+    flexShrink: 1,
+    maxWidth: '100%',
     fontFamily: fonts.systemMono,
     fontSize: 10,
     letterSpacing: 0.4,
     color: '#7d6d5e',
     textAlign: 'center',
-    marginTop: 4,
   },
   metaPartnerNight: { color: '#a99a83' },
   /** Sits on the pill's corner, outlined so it reads over the panel border. */
@@ -650,8 +670,9 @@ const styles = themedStyles(() => ({
   metaFlameAtRisk: { opacity: 0.6, fontWeight: '600' },
   metaFreeze: { color: FROZEN_COLOR, fontWeight: '700' },
   // Today's goal tokens — warm gold while still to do, green once done. Each is
-  // its own chip so a narrow screen wraps between them, not inside a separator.
+  // its own chip, so a done one can change colour without moving the rest.
   metaTag: {
+    flexShrink: 0,
     fontFamily: fonts.systemMono,
     fontSize: CHIP_FONT,
     lineHeight: CHIP_LINE,
@@ -715,8 +736,7 @@ const styles = themedStyles(() => ({
   leftTools: { alignItems: 'flex-start', gap: 10, flexShrink: 1, marginTop: (RING - TOOL) / 2 },
   coinPill: { flexDirection: 'row', gap: 7, paddingLeft: 9, paddingRight: 13 },
   coinLabel: { fontSize: 13, letterSpacing: 0.6, fontVariant: ['tabular-nums'] },
-  // TODAY's disc with CHAT under it, in a column at the right.
-  tools: { alignItems: 'center', gap: 10 },
+  tools: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pill: {
     height: TOOL,
     borderRadius: TOOL / 2,

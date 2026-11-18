@@ -73,10 +73,10 @@ export function NutrientRing({
           >
             {shown}
           </Text>
-          <Text style={[styles.unit, tone && { color: tone.soft }]} maxFontSizeMultiplier={1.2}>{unit}</Text>
+          <Text style={[styles.unit, tone && { color: tone.soft }]} maxFontSizeMultiplier={1.2} numberOfLines={1}>{unit}</Text>
         </View>
       </View>
-      <Text style={[styles.label, tone && { color: tone.soft }]}>{label}</Text>
+      <Text style={[styles.label, tone && { color: tone.soft }]} numberOfLines={1}>{label}</Text>
     </View>
   );
 }

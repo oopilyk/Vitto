@@ -127,7 +127,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
       onBack={onClose}
       footer={saveBar}
     >
-      <SettingsSection title="About you" description="Private to you. Used to tune your daily fuel targets." first>
+      <SettingsSection title="About you" description="Private to you. Used to set your daily calorie and protein targets." first>
         <FormField label="Name" hint="shown to your care partner">
           <TextField
             value={profile.displayName ?? ''}
@@ -197,7 +197,8 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
             options={[
               { value: 'male' as const, label: 'Male' },
               { value: 'female' as const, label: 'Female' },
-              { value: 'other' as const, label: 'Prefer not to say' },
+              // One line in a third of a 320pt phone: "Prefer not to say" broke in two.
+              { value: 'other' as const, label: 'Private' },
             ]}
             value={profile.sex}
             onChange={(value) => update('sex', value)}
@@ -211,7 +212,8 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
             // No weight loss under 18 (see calorieAdjustmentFor).
             ...(isMinor(profile) ? [] : [{ value: 'lose' as const, label: 'Lose fat' }]),
             { value: 'maintain' as const, label: 'Maintain' },
-            { value: 'gain' as const, label: 'Build muscle' },
+            // "Build muscle" broke in two in a third of a 320pt phone.
+            { value: 'gain' as const, label: 'Bulk up' },
           ]}
           value={isMinor(profile) && profile.goal === 'lose' ? 'maintain' : profile.goal}
           onChange={(value) => update('goal', value)}
@@ -231,17 +233,18 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         {profile.goal !== 'maintain' ? (
           <>
             <FieldRow>
-              <FormField label={`Target (${profile.weightUnit})`} hint="optional">
+              {/* "optional" as the placeholder: beside the label it wrapped in half a 320pt phone. */}
+              <FormField label={`Target (${profile.weightUnit})`}>
                 <TextField
                   keyboardType="decimal-pad"
-                  placeholder="—"
+                  placeholder="Optional"
                   {...targetText}
                 />
               </FormField>
-              <FormField label="Weeks" hint="optional">
+              <FormField label="Weeks">
                 <TextField
                   keyboardType="number-pad"
-                  placeholder="—"
+                  placeholder="Optional"
                   value={profile.goalWeeks === undefined ? '' : String(profile.goalWeeks)}
                   onChangeText={(value) => {
                     const next = digits(value);
@@ -321,19 +324,20 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
       </SettingsSection>
 
       <SettingsSection title="Your training" description="Training days lift calories; lifting raises protein.">
-        <FormField label="Everyday activity">
+        {/* Short answers, each on one line in a third of a 320pt phone. */}
+        <FormField label="Time on your feet">
           <SegmentedControl
             options={[
-              { value: 'low' as const, label: 'Mostly sitting' },
-              { value: 'moderate' as const, label: 'On my feet some' },
-              { value: 'high' as const, label: 'On my feet all day' },
+              { value: 'low' as const, label: 'Little' },
+              { value: 'moderate' as const, label: 'Some' },
+              { value: 'high' as const, label: 'All day' },
             ]}
             value={profile.activity}
             onChange={(value) => update('activity', value)}
           />
         </FormField>
         <FieldRow>
-          <FormField label="Training days a week">
+          <FormField label="Days a week">
             <TextField
               keyboardType="number-pad"
               value={String(profile.trainingDaysPerWeek)}

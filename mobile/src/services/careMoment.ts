@@ -161,7 +161,7 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
   if (wasDying) {
     nextPet = applyDelta(nextPet, REVIVAL_BONUS, event.occurredAt);
     nextReaction = {
-      message: `${pet.name} was fading — that care moment brought them back.`,
+      message: `${pet.name} was fading — that brought them back.`,
       eventLabel: 'Back from the brink',
       delta: { ...REVIVAL_BONUS },
     };

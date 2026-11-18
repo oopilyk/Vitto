@@ -203,7 +203,7 @@ export function StrengthMap({ profile, events }: Props) {
                   </Text>
                 ) : null}
               </View>
-              <Text style={[styles.tierPill, { color: tier === null ? colors.faint : color, borderColor: color }]}>
+              <Text style={[styles.tierPill, { color: tier === null ? colors.faint : color, borderColor: color }]} numberOfLines={1}>
                 {tier === null ? (score.oneRepMaxKg === null ? '—' : 'Unranked') : STRENGTH_TIERS[tier]}
               </Text>
             </View>
@@ -269,6 +269,7 @@ const styles = themedStyles(() => ({
     fontSize: 12,
     
     letterSpacing: 0,
+    flexShrink: 0,
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 8,

@@ -26,6 +26,7 @@ import {
   initialOf,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
+import { FitText } from '../components/FitText';
 import { Kicker, PressableScale } from '../components/ui';
 import { NavGroup, NavRow, SETTINGS_MAX_WIDTH } from '../components/settingsKit';
 import { StrengthMap } from '../components/StrengthMap';
@@ -119,7 +120,7 @@ function Card({
           >
             {/* Words and a chevron, as every other way into a page: iOS drew
                 the ↗ arrow as a blue emoji tile. */}
-            <Text style={styles.cardOpenMark}>{openText} ›</Text>
+            <Text style={styles.cardOpenMark} numberOfLines={1}>{openText} ›</Text>
           </Pressable>
         ) : null}
       </View>
@@ -132,8 +133,8 @@ function Card({
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statValue}>{value.toLocaleString()}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue} numberOfLines={1}>{value.toLocaleString()}</Text>
+      <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
@@ -300,10 +301,10 @@ export function ProfileScreen({
 
         <Card title="Consistency">
           <View style={styles.calendarHead}>
-            <Text style={styles.calendarStreak}>
+            <Text style={styles.calendarStreak} numberOfLines={1}>
               {streaks.currentStreak === 1 ? '1 day in a row' : `${streaks.currentStreak} days in a row`}
             </Text>
-            <Text style={styles.calendarLongest}>
+            <Text style={styles.calendarLongest} numberOfLines={1}>
               {`longest ${streaks.longestStreak}` + (streaks.freezes > 0 ? ` · ❄︎ ${streaks.freezes} ${streaks.freezes === 1 ? 'freeze' : 'freezes'}` : '')}
             </Text>
           </View>
@@ -328,12 +329,13 @@ export function ProfileScreen({
             {board.map(({ label, value, unit, meta, note }) => (
               <View key={label} style={[styles.record, value === null && styles.recordEmpty]}>
                 <Text style={styles.recordLift} numberOfLines={2}>{label}</Text>
-                <Text style={[styles.recordValue, value === null && styles.recordValueEmpty]}>
+                <Text style={[styles.recordValue, value === null && styles.recordValueEmpty]} numberOfLines={1}>
                   {value ?? '—'}
                   {value !== null && unit ? <Text style={styles.recordUnit}> {unit}</Text> : null}
                 </Text>
-                <Text style={styles.recordMeta}>{meta}</Text>
-                {note ? <Text style={styles.recordRank}>{note}</Text> : null}
+                <Text style={styles.recordMeta} numberOfLines={1}>{meta}</Text>
+                {/* "80th · Intermediate" is wider than a tile on a 320pt phone: it shrinks a touch rather than breaking at the dot. */}
+                {note ? <FitText style={styles.recordRank} minScale={0.85}>{note}</FitText> : null}
               </View>
             ))}
           </View>
@@ -374,7 +376,7 @@ export function ProfileScreen({
                   <Text style={[styles.trophyName, !earned && styles.trophyNameLocked]}>{achievement.title}</Text>
                   <Text style={styles.trophyRule}>{achievement.describe(profile)}</Text>
                 </View>
-                <Text style={[styles.trophyState, earned && styles.trophyStateEarned]}>{earned ? 'UNLOCKED' : 'LOCKED'}</Text>
+                <Text style={[styles.trophyState, earned && styles.trophyStateEarned]} numberOfLines={1}>{earned ? 'UNLOCKED' : 'LOCKED'}</Text>
               </View>
             );
           })}
@@ -427,7 +429,7 @@ export function ProfileScreen({
             {onOpenHistory ? (
               <NavRow
                 title="Activity history"
-                value={events.length === 0 ? 'Nothing yet' : `${events.filter(isCareMoment).length} care moments`}
+                value={events.length === 0 ? 'Nothing yet' : `${events.filter(isCareMoment).length} logs`}
                 onPress={onOpenHistory}
                 testID="open-history"
               />
@@ -471,7 +473,7 @@ const styles = themedStyles(() => ({
   body: { paddingHorizontal: 16, gap: 14, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
 
   header: { paddingHorizontal: 4, paddingTop: 8, paddingBottom: 6, gap: 14 },
-  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: {
     width: 80,
     height: 80,
@@ -482,7 +484,8 @@ const styles = themedStyles(() => ({
   },
   avatarInitial: { fontFamily: fonts.ui, fontSize: 34, color: colors.ink },
   stats: { flex: 1, flexDirection: 'row', justifyContent: 'space-around' },
-  stat: { alignItems: 'center', minWidth: 64 },
+  // Narrow enough that "day streak", "workouts" and "meals" sit beside the avatar on a 320pt phone.
+  stat: { alignItems: 'center', minWidth: 56 },
   statValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink },
   statLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 2 },
   who: { gap: 2 },
@@ -503,7 +506,16 @@ const styles = themedStyles(() => ({
   headerButtonPressed: { opacity: 0.7 },
   headerButtonLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
 
-  calendarHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 10, marginBottom: 4 },
+  // The longest-streak note drops under the streak on a narrow phone rather than breaking in two.
+  calendarHead: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    columnGap: 12,
+    marginTop: 10,
+    marginBottom: 4,
+  },
   calendarStreak: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
   calendarLongest: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint },
   tools: { marginTop: -8 },
@@ -515,13 +527,14 @@ const styles = themedStyles(() => ({
     padding: 18,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  cardOpen: { marginVertical: -6, paddingVertical: 6 },
-  cardOpenMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.coral },
+  cardOpen: { marginVertical: -6, paddingVertical: 6, flexShrink: 0 },
+  cardOpenMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.coral, flexShrink: 0 },
   cardHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 6, lineHeight: 18 },
   cardBody: { marginTop: 4 },
   records: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  // Two to a row: at three, "× 8 · Nov 3" and "80th · Intermediate" broke across lines on every phone.
   record: {
-    flexBasis: '30%',
+    flexBasis: '40%',
     flexGrow: 1,
     paddingVertical: 12,
     paddingHorizontal: 12,
@@ -571,6 +584,6 @@ const styles = themedStyles(() => ({
   trophyName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
   trophyNameLocked: { color: colors.muted },
   trophyRule: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 3, lineHeight: 17 },
-  trophyState: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0, color: colors.faint },
+  trophyState: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0, color: colors.faint, flexShrink: 0 },
   trophyStateEarned: { color: colors.mintDeep },
 }));

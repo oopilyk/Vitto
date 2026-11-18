@@ -118,6 +118,15 @@ describe('plate stepper', () => {
     expect(amount()).toBe(10);
     expect(press(tree, 'Less Bananas, raw').props.disabled).toBe(true);
     expect(tree.root.findAll((node: any) => node.props.testID === 'plate').length).toBeGreaterThan(0);
+
+    // The amount can be cleared and retyped: a blank field stays blank.
+    const field = () => tree.root.find((node: any) => node.type === TextInput && node.props.accessibilityLabel === 'Amount of Bananas, raw in g');
+    act(() => field().props.onChangeText(''));
+    expect(field().props.value).toBe('');
+    act(() => field().props.onChangeText('25'));
+    expect(field().props.value).toBe('25');
+    act(() => field().props.onBlur());
+    expect(field().props.value).toBe('25');
     act(() => press(tree, 'Remove Bananas, raw').props.onPress());
     expect(tree.root.findAll((node: any) => node.props.testID === 'plate')).toHaveLength(0);
     act(() => tree.unmount());
@@ -163,7 +172,7 @@ describe('food search as you type', () => {
       );
     });
     act(() => tree.root.findByType(TextInput).props.onChangeText('Sour'));
-    expect(tree.root.findAll((node: any) => String(node.props.accessibilityLabel).startsWith('Search '))).toHaveLength(0);
+    expect(tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && String(node.props.accessibilityLabel).startsWith('Search '))).toHaveLength(0);
     expect(mockSearch).not.toHaveBeenCalled();
     await act(async () => { jest.advanceTimersByTime(400); });
     expect(mockSearch).toHaveBeenCalledWith('Sour');

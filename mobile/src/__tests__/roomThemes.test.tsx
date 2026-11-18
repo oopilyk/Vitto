@@ -115,7 +115,6 @@ describe('the shop’s Rooms tab', () => {
     expect(tree.root.findAll((n) => n.props.testID === 'room-theme-space')).toHaveLength(0);
     openRooms(tree);
     expect(card(tree, 'space')).toBeDefined();
-    expect(texts(tree)).toContain('New rooms');
     expect(texts(tree)).toContain('300 coins');
     tree.unmount();
   });

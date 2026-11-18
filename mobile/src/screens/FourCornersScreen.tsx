@@ -326,7 +326,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
       <View style={styles.flashSlot} accessibilityLiveRegion="polite">
         {revealing && given ? (
           <View style={[styles.flashChip, surface.panelQuiet, night && surface.panelQuietNight]}>
-            <Text style={[styles.flash, night && styles.flashNight]}>
+            <Text style={[styles.flash, night && styles.flashNight]} numberOfLines={1}>
               {given.correct ? `CORRECT!  +${given.points} MIND` : `NOT THAT ONE  ·  +${given.points} MIND`}
             </Text>
           </View>

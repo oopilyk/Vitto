@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import type { HealthEvent, PetState } from '@vitto/core';
-import { PetShareCard } from '../components/PetShareCard';
+import { PetShareCard, SHARE_CARD_HEIGHT, SHARE_CARD_WIDTH } from '../components/PetShareCard';
 import { sharePetCard } from '../services/shareCard';
 import { Kicker } from '../components/ui';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
@@ -24,6 +24,10 @@ export function ShareCardScreen({ pet, events, onClose }: Props) {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The card is 330pt wide; a 320pt phone has 280pt inside the page's padding,
+  // so there the preview is scaled down to fit. Only the preview: the capture
+  // is of the card itself, at its real size.
+  const fit = Math.min(1, (useWindowDimensions().width - 2 * PAGE_PADDING) / SHARE_CARD_WIDTH);
 
   const share = async () => {
     setBusy(true);
@@ -46,8 +50,10 @@ export function ShareCardScreen({ pet, events, onClose }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
-        <View style={styles.stage}>
-          <PetShareCard ref={card} pet={pet} events={events} onReady={() => setReady(true)} />
+        <View style={[styles.stage, fit < 1 && { height: SHARE_CARD_HEIGHT * fit }]}>
+          <View style={fit < 1 ? { marginTop: (-SHARE_CARD_HEIGHT * (1 - fit)) / 2, transform: [{ scale: fit }] } : undefined}>
+            <PetShareCard ref={card} pet={pet} events={events} onReady={() => setReady(true)} />
+          </View>
           {!ready ? (
             <View style={styles.loading} pointerEvents="none">
               <ActivityIndicator color={colors.coral} />
@@ -69,12 +75,14 @@ export function ShareCardScreen({ pet, events, onClose }: Props) {
           onPress={() => void share()}
           style={({ pressed }) => [styles.action, busy ? styles.actionBusy : !ready && styles.actionOff, pressed && styles.pressed]}
         >
-          <Text style={[styles.actionLabel, !ready && !busy && styles.actionLabelOff]}>{busy ? 'Getting it ready…' : `Share ${pet.name}`}</Text>
+          <Text style={[styles.actionLabel, !ready && !busy && styles.actionLabelOff]} numberOfLines={1}>{busy ? 'Getting it ready…' : `Share ${pet.name}`}</Text>
         </Pressable>
       </ScrollView>
     </View>
   );
 }
+
+const PAGE_PADDING = 20;
 
 const styles = themedStyles(() => ({
   screen: { backgroundColor: colors.paper },
@@ -93,7 +101,7 @@ const styles = themedStyles(() => ({
   backLabel: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
   backText: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '500', color: colors.inkSoft },
   title: { ...text.heading },
-  body: { padding: 20, gap: 14, alignItems: 'stretch', paddingBottom: 48 },
+  body: { padding: PAGE_PADDING, gap: 14, alignItems: 'stretch', paddingBottom: 48 },
   stage: { alignItems: 'center', marginBottom: 6 },
   loading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   note: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 19, color: colors.inkSoft },

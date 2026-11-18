@@ -258,7 +258,12 @@ export const text = themedStyles(() => ({
     textTransform: 'uppercase',
   },
   display: { fontFamily: fonts.ui, fontSize: 34, fontWeight: '700', color: colors.ink },
-  title: { fontFamily: fonts.ui, fontSize: 28, fontWeight: '700', color: colors.ink },
+  /**
+   * A log or game page's title, in the pet world's pixel face: the sheets that
+   * open over the rooms used to be set entirely in the system font, and moving
+   * between the two read as switching apps. The face draws small, hence 38.
+   */
+  title: { fontFamily: fonts.pixel, fontSize: 38, lineHeight: 40, letterSpacing: 0.3, color: colors.ink },
   heading: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '600', color: colors.ink },
   body: { fontFamily: fonts.ui, fontSize: 17, color: colors.inkSoft, lineHeight: 24 },
   small: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 20 },
@@ -305,6 +310,13 @@ export const layout = themedStyles(() => ({
     backgroundColor: colors.coral,
     borderRadius: 14,
     borderCurve: 'continuous',
+    // The pet world's hard, unblurred drop (see retroStyle), softened: the main
+    // button reads as the game's own chunky button rather than a flat web one.
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.32,
+    shadowRadius: 0,
+    elevation: 3,
     minHeight: 52,
     paddingVertical: 15,
     paddingHorizontal: 20,

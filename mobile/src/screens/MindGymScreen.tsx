@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
-import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
+import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindRecapForDay, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
-import { CloseButton, ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
+import { CloseButton, ErrorText, PrimaryButton, TextButton } from '../components/ui';
+import { LogProgress, logHaptic } from '../components/logKit';
 import { MathRunGame } from '../mathRun/MathRunGame';
 import { MindHub } from '../mind/MindHub';
 import type { MindRouteHandlers } from '../mind/hub';
@@ -152,6 +153,7 @@ export function MindGymScreen({
     try {
       const { missed: _missed, summary: _summary, ...metadata } = result;
       await onFinish(metadata);
+      logHaptic();
       onClose();
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save this session.'));
@@ -189,6 +191,10 @@ export function MindGymScreen({
     [passage, answers],
   );
 
+  // Sessions already played today. One is the day's mind goal: it is what
+  // marks the mind pillar done in the daily recap, so the bar is a real goal.
+  const sessionsToday = useMemo(() => mindRecapForDay(events).sessionCount, [events]);
+
   if (stage === 'pick') {
     return (
       <SheetPage onBackPress={onClose}>
@@ -210,12 +216,18 @@ export function MindGymScreen({
           insets itself by the keyboard instead (see below). */}
       <View style={styles.sheet}>
         <View style={styles.header}>
-          <View>
-            <Kicker>Mind</Kicker>
+          {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
+          <View style={{ flex: 1 }}>
             <Text style={styles.title}>{STAGE_TITLE[stage]}</Text>
           </View>
           <CloseButton onPress={onClose} />
         </View>
+
+        {stage === 'result' ? (
+          // The day's mind goal is one session: once it is met, another adds nothing
+          // to it, so the bar shows it full rather than "1 +1 / 1".
+          <LogProgress items={[{ label: 'Mind today', value: sessionsToday, goal: 1, adding: sessionsToday < 1 ? 1 : 0, unit: 'session' }]} />
+        ) : null}
 
         <ScrollView
           ref={scroll}
@@ -248,10 +260,6 @@ export function MindGymScreen({
                 ))}
               </View>
               <Text style={styles.note}>The passage is hidden once you continue — read it properly first.</Text>
-              <View style={styles.actions}>
-                <PrimaryButton label="I've finished reading" onPress={() => setStage('quiz')} />
-                <TextButton label="Cancel" onPress={onClose} />
-              </View>
             </>
           ) : null}
 
@@ -265,8 +273,10 @@ export function MindGymScreen({
                   {question.options.map((option, optionIndex) => (
                     <Pressable
                       key={option}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: answers[question.id] === optionIndex }}
                       onPress={() => setAnswers({ ...answers, [question.id]: optionIndex })}
-                      style={[styles.option, answers[question.id] === optionIndex && styles.optionOn]}
+                      style={({ pressed }) => [styles.option, pressed && styles.optionPressed, answers[question.id] === optionIndex && styles.optionOn]}
                     >
                       <Text
                         style={[
@@ -280,27 +290,20 @@ export function MindGymScreen({
                   ))}
                 </View>
               ))}
-              <View style={styles.actions}>
-                <PrimaryButton
-                  label={allAnswered ? 'Check answers' : 'Answer every question'}
-                  disabled={!allAnswered}
-                  onPress={submitQuiz}
-                />
-                <TextButton label="Cancel" onPress={onClose} />
-              </View>
             </>
           ) : null}
 
           {stage === 'result' && result ? (
             <>
-              <View style={styles.resultCard}>
-                <View style={styles.scoreBadge}>
-                  <Text style={styles.scoreNumber}>{result.score}</Text>
-                  <Text style={styles.scoreCaption}>MIND SCORE</Text>
-                </View>
+              <View style={styles.resultCard} accessible accessibilityLabel={`Mind score ${result.score}, ${mindScoreLabel(result.score)}`}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.resultLabel}>{mindScoreLabel(result.score)}</Text>
                   <Text style={styles.resultMeta}>{resultMeta(result)}</Text>
+                </View>
+                {/* The score stacked over its unit, right-aligned like the meal page's calories. */}
+                <View style={styles.scoreBox}>
+                  <Text style={styles.scoreNumber}>{result.score}</Text>
+                  <Text style={styles.scoreCaption}>mind score</Text>
                 </View>
               </View>
 
@@ -316,6 +319,7 @@ export function MindGymScreen({
 
               {result.missed?.length ? (
                 <View style={styles.review}>
+                  <Text style={styles.reviewTitle}>Missed</Text>
                   {result.missed.map((miss) => (
                     <View key={miss.prompt} style={styles.reviewRow}>
                       <Text style={styles.reviewPrompt}>{miss.prompt}</Text>
@@ -327,18 +331,42 @@ export function MindGymScreen({
                 </View>
               ) : null}
 
-              <ErrorText>{error}</ErrorText>
-              <View style={styles.actions}>
-                <PrimaryButton
-                  label={saving ? 'Saving...' : 'Add to care log'}
-                  busy={saving}
-                  onPress={() => void save()}
-                />
-                <TextButton label="Play again" onPress={() => setStage('pick')} disabled={saving} />
-              </View>
             </>
           ) : null}
         </ScrollView>
+
+        {/* The stage's one action, pinned so it is never a scroll away. The
+            games play their own buttons inside the scroll (some sit over a
+            keyboard), so only the stages this sheet runs itself get a footer.
+            Cancel is gone from here: the × in the header already does it. */}
+        {stage === 'reading' && passage ? (
+          <View style={styles.footer}>
+            <PrimaryButton label="I've finished reading" onPress={() => setStage('quiz')} />
+          </View>
+        ) : null}
+        {stage === 'quiz' && passage ? (
+          <View style={styles.footer}>
+            {allAnswered ? null : (
+              <Text style={styles.footerSummary}>{`${Object.keys(answers).length} of ${passage.questions.length} answered`}</Text>
+            )}
+            <PrimaryButton
+              label={allAnswered ? 'Check answers' : 'Answer every question'}
+              disabled={!allAnswered}
+              onPress={submitQuiz}
+            />
+          </View>
+        ) : null}
+        {stage === 'result' && result ? (
+          <View style={styles.footer}>
+            <ErrorText>{error}</ErrorText>
+            <PrimaryButton
+              label={saving ? 'Saving...' : 'Log session'}
+              busy={saving}
+              onPress={() => void save()}
+            />
+            <TextButton label="Play again" onPress={() => setStage('pick')} disabled={saving} />
+          </View>
+        ) : null}
       </View>
     </SheetPage>
   );
@@ -350,64 +378,63 @@ const styles = themedStyles(() => ({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 22,
   },
-  title: { ...text.title, marginTop: 8 },
-  body: { padding: 22, paddingBottom: 60 },
+  title: { ...text.title, marginTop: 6 },
+  body: { padding: 22, paddingBottom: 24 },
   passage: {
     padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.hairline,
+    borderRadius: 18,
+    borderCurve: 'continuous',
     backgroundColor: colors.card,
   },
-  passageTitle: { fontFamily: fonts.ui, fontSize: 22, color: colors.ink, marginBottom: 12 },
+  passageTitle: { fontFamily: fonts.ui, fontSize: 22, fontWeight: '700', color: colors.ink, marginBottom: 12 },
   passageText: { ...text.body, marginBottom: 12 },
-  note: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 12 },
-  question: { marginBottom: 22 },
-  questionPrompt: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '500', color: colors.ink, marginBottom: 10, lineHeight: 24 },
+  note: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 12, textAlign: 'center' },
+  question: { marginBottom: 24 },
+  questionPrompt: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '600', color: colors.ink, marginBottom: 10, lineHeight: 24 },
+  // Answers are chips on the card colour; the picked one takes the selected
+  // fill, the same as a ticked food on the meal page.
   option: {
-    padding: 13,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.hairline,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
     backgroundColor: colors.card,
-    marginBottom: 7,
+    marginBottom: 6,
   },
-  optionOn: { borderColor: colors.coral, backgroundColor: colors.selectedFill },
+  optionPressed: { backgroundColor: colors.cardSoft },
+  optionOn: { backgroundColor: colors.selectedFill },
   optionLabel: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkSoft },
-  optionLabelOn: { color: colors.ink },
+  optionLabelOn: { color: colors.coralDeep, fontWeight: '700' },
   resultCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(132,160,138,0.3)',
-    backgroundColor: colors.sageSoft,
-  },
-  scoreBadge: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: colors.coral,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreNumber: { fontFamily: fonts.ui, fontSize: 28, color: '#fff' },
-  scoreCaption: { fontFamily: fonts.ui, fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: 0 },
-  resultLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
-  resultMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 6, lineHeight: 19 },
-  review: { marginTop: 16, gap: 10 },
-  reviewRow: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.divider,
+    padding: 18,
+    borderRadius: 18,
+    borderCurve: 'continuous',
     backgroundColor: colors.card,
   },
-  reviewPrompt: { fontFamily: fonts.ui, fontSize: 13, fontWeight: '500', color: colors.ink },
-  reviewDetail: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 4, lineHeight: 18 },
-  actions: { marginTop: 24, gap: 16 },
+  scoreBox: { alignItems: 'flex-end', minWidth: 64 },
+  scoreNumber: { fontFamily: fonts.ui, fontSize: 34, fontWeight: '700', color: colors.ink, fontVariant: ['tabular-nums'] },
+  scoreCaption: { fontFamily: fonts.ui, fontSize: 11, color: colors.faint },
+  resultLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  resultMeta: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 6, lineHeight: 19 },
+  review: { marginTop: 18, gap: 6 },
+  reviewTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2, paddingHorizontal: 4 },
+  reviewRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    backgroundColor: colors.card,
+  },
+  reviewPrompt: { fontFamily: fonts.ui, fontSize: 14, fontWeight: '500', color: colors.ink, lineHeight: 19 },
+  reviewDetail: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 4, lineHeight: 18 },
+  footer: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 26, gap: 8, borderTopWidth: 1, borderTopColor: colors.hairline, backgroundColor: colors.paper },
+  footerSummary: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, textAlign: 'center', fontVariant: ['tabular-nums'] },
 }));

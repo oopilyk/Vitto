@@ -14,6 +14,7 @@ import {
   type HealthEvent,
   type PetState,
 } from '@vitto/core';
+import { FitText } from './FitText';
 import { SpriteFrame } from './SpriteFrame';
 import { sheetForPet, portraitFrame } from './petSprites';
 import { isNightTime } from '../petWorld/timeOfDay';
@@ -125,7 +126,11 @@ export const PetShareCard = forwardRef<View, PetShareCardProps>(function PetShar
 
       <View style={styles.footer}>
         <View style={styles.headline}>
-          <Text style={styles.name} numberOfLines={1}>{pet.name}</Text>
+          {/* The name is the card's point: a long one shrinks before it would
+              end in "…", and past that takes a second line. */}
+          <FitText style={styles.name} containerStyle={styles.nameBox} minScale={0.6}>
+            {pet.name}
+          </FitText>
           <View style={styles.level}>
             <Text style={styles.levelLabel}>LV</Text>
             <Text style={styles.levelValue}>{pet.level}</Text>
@@ -162,7 +167,8 @@ const styles = themedStyles(() => ({
   pet: { position: 'absolute', left: 0, right: 0, bottom: 112, alignItems: 'center' },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 20, paddingBottom: 18 },
   headline: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
-  name: { flex: 1, fontFamily: fonts.pixel, fontSize: 39, color: '#fff', letterSpacing: 0.5 },
+  nameBox: { flex: 1, minWidth: 0 },
+  name: { fontFamily: fonts.pixel, fontSize: 39, color: '#fff', letterSpacing: 0.5 },
   level: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
   levelLabel: { fontFamily: fonts.pixel, fontSize: 13, letterSpacing: 1.2, color: 'rgba(255,255,255,0.65)' },
   levelValue: { fontFamily: fonts.pixelBold, fontSize: 29, color: colors.coral },

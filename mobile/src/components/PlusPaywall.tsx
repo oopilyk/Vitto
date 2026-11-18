@@ -12,6 +12,7 @@ import {
 } from '../services/billingService';
 import { cancelTrialReminder, scheduleTrialReminder } from '../services/pushService';
 import { CloseButton, PrimaryButton, TextButton, Mark } from './ui';
+import { FitText } from './FitText';
 import { colors, fonts, text, themedStyles } from '../theme';
 
 interface Props {
@@ -227,10 +228,11 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
               <Text style={styles.featureDetail}>{row.detail}</Text>
             </View>
             <View style={[styles.freeCol, styles.valueCell, index > 0 && styles.rowRule]}>
-              <Text style={styles.freeValue}>{row.free}</Text>
+              <FitText style={styles.freeValue} minScale={0.85}>{row.free}</FitText>
             </View>
             <View style={[styles.plusCol, styles.valueCell, styles.plusCell, index === COMPARISON.length - 1 && styles.plusCellLast]}>
-              <Text style={styles.plusValue}>{`✓ ${row.plus}`}</Text>
+              {/* Fitted, never broken: "✓ In character" split over two lines in a 67pt cell at 320pt. */}
+              <FitText style={styles.plusValue} minScale={0.85}>{`✓ ${row.plus}`}</FitText>
             </View>
           </View>
         ))}
@@ -278,16 +280,21 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
                 >
                   {option.badge ? (
                     <View style={styles.planBadge}>
-                      <Text style={styles.planBadgeText}>{option.badge}</Text>
+                      <Text style={styles.planBadgeText} numberOfLines={1}>
+                        {option.badge}
+                      </Text>
                     </View>
                   ) : null}
                   <View style={styles.planTop}>
-                    <Text style={[styles.planLabel, selected && styles.planLabelOn]}>{option.label}</Text>
+                    <Text style={[styles.planLabel, selected && styles.planLabelOn]} numberOfLines={1}>
+                      {option.label}
+                    </Text>
                     <View style={[styles.radio, selected && styles.radioOn]}>
                       {selected ? <Mark kind="check" size={10} weight={2.2} color="#fff" /> : null}
                     </View>
                   </View>
-                  <Text style={styles.planPrice}>{option.price}</Text>
+                  {/* A store price can run long ("US$49.99"): it shrinks rather than wrap. */}
+                  <FitText style={styles.planPrice}>{option.price}</FitText>
                   <Text style={styles.planPer}>{perWord}</Text>
                   <Text style={[styles.planNote, selected && styles.planNoteOn]}>{option.note ?? 'Billed monthly'}</Text>
                 </Pressable>
@@ -457,9 +464,10 @@ const styles = themedStyles(() => ({
   },
   tableRow: { flexDirection: 'row', alignItems: 'stretch' },
   rowRule: { borderTopWidth: 1, borderTopColor: colors.hairline },
-  featureCol: { flex: 1.9, paddingVertical: 9, paddingLeft: 14, paddingRight: 6, justifyContent: 'center' },
+  // The feature column is the one that may wrap; the value columns hold a word or two each.
+  featureCol: { flex: 1.6, paddingVertical: 9, paddingLeft: 14, paddingRight: 6, justifyContent: 'center' },
   freeCol: { flex: 0.9 },
-  plusCol: { flex: 1 },
+  plusCol: { flex: 1.2 },
   valueCell: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   plusCell: { backgroundColor: colors.mint },
   plusCellLast: { paddingBottom: 2 },
@@ -504,7 +512,7 @@ const styles = themedStyles(() => ({
   },
   planBadgeText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0, color: '#fff' },
   planTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  planLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.inkSoft },
+  planLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.inkSoft, flexShrink: 1 },
   planLabelOn: { color: colors.ink },
   radio: {
     width: 20,

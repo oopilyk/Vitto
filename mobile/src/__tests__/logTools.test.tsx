@@ -1,7 +1,7 @@
 import renderer, { act } from 'react-test-renderer';
 import { ActionSheetIOS, Text, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PROFILE_SURVEY_DEFAULTS, createPet, type BodyProfile, type HealthEvent, type MealMetadata } from '@vitto/core';
+import { PROFILE_SURVEY_DEFAULTS, createPet, type BodyProfile, type HealthEvent, type MealMetadata, slotForTime } from '@vitto/core';
 import { ActivityHistoryScreen } from '../screens/ActivityHistoryScreen';
 import { EditMealScreen } from '../screens/EditMealScreen';
 import { MealCaptureScreen } from '../screens/MealCaptureScreen';
@@ -112,22 +112,49 @@ describe('weight', () => {
     expect((onLog.mock.calls[0] as unknown[])[0]).toBeCloseTo(80, 0);
     act(() => tree.unmount());
   });
+
+  it('offers the last weigh-in to step from, never logs it unasked, and clears after a log', async () => {
+    const onLog = jest.fn(async () => {});
+    const yesterday: HealthEvent = { id: 'w1', userId: 'u', occurredAt: new Date(Date.now() - 86_400_000).toISOString(), type: 'BODY_WEIGHT', source: 'manual', metadata: { kg: 80 } };
+    const tree = await mount(<WeightScreen events={[yesterday]} unit="kg" onLog={onLog} onEdit={async () => {}} onDelete={() => {}} onClose={() => {}} />);
+    // Blank, with the last weigh-in as the placeholder: a tap on Log alone logs nothing.
+    expect(field(tree, "Today's weight in kg").props.value).toBe('');
+    expect(field(tree, "Today's weight in kg").props.placeholder).toBe('80');
+    await act(async () => pressText(tree, 'Log weigh-in').props.onPress());
+    expect(onLog).not.toHaveBeenCalled();
+    act(() => press(tree, 'Less weight').props.onPress());
+    act(() => press(tree, 'Less weight').props.onPress());
+    expect(field(tree, "Today's weight in kg").props.value).toBe('79.8');
+    expect(texts(tree)).toContain('−0.2 kg since your last weigh-in');
+    // A cleared field stays clear rather than snapping back to the number.
+    act(() => field(tree, "Today's weight in kg").props.onChangeText(''));
+    expect(field(tree, "Today's weight in kg").props.value).toBe('');
+    act(() => field(tree, "Today's weight in kg").props.onChangeText('79.5'));
+    await act(async () => pressText(tree, 'Log weigh-in').props.onPress());
+    expect((onLog.mock.calls[0] as unknown[])[0]).toBeCloseTo(79.5, 5);
+    // Logged: the field empties, so a second tap cannot log it twice.
+    expect(field(tree, "Today's weight in kg").props.value).toBe('');
+    await act(async () => pressText(tree, 'Log weigh-in').props.onPress());
+    expect(onLog).toHaveBeenCalledTimes(1);
+    act(() => tree.unmount());
+  });
 });
 
 describe('the meal sheet', () => {
   const open = (props: object = {}) =>
     mount(<MealCaptureScreen canScanPhotos={false} onComplete={async () => {}} onFeedStart={() => {}} onAnalyzingChange={() => {}} onClose={() => {}} {...props} />);
 
-  it('logs Quick add as numbers alone, in the chosen slot', async () => {
+  it('logs Quick add as numbers alone, in the slot the clock says', async () => {
     const saved: MealMetadata[] = [];
     const tree = await open({ onComplete: async (next: MealMetadata) => { saved.push(next); } });
-    act(() => press(tree, 'Snack').props.onPress());
+    // No meal picker: the slot is read off the clock.
+    expect(tree.root.findAll((node: any) => node.props.accessibilityLabel === 'Snack' && typeof node.props.onPress === 'function')).toHaveLength(0);
     act(() => pressText(tree, 'Quick add calories').props.onPress());
     act(() => field(tree, 'Quick add kcal').props.onChangeText('650'));
-    await act(async () => pressText(tree, 'Add to care log').props.onPress());
+    await act(async () => pressText(tree, 'Log meal').props.onPress());
     expect(saved[0]?.analysis?.macros.calories).toBe(650);
     expect(saved[0]?.analysis?.grade).toBe('C');
-    expect(saved[0]?.slot).toBe('snack');
+    expect(saved[0]?.slot).toBe(slotForTime(new Date()));
     act(() => tree.unmount());
   });
 
@@ -172,7 +199,8 @@ describe('records and history in a workout', () => {
   it('opens past sessions from the exercise name', async () => {
     const tree = await open();
     act(() => tree.root.findAll((node: any) => node.props.accessibilityHint === 'Shows past sessions' && typeof node.props.onPress === 'function')[0]!.props.onPress());
-    expect(texts(tree)).toContain('185 lb × 5');
+    // Non-breaking spaces inside a set, so it never wraps mid-set.
+    expect(texts(tree).replace(/\u00a0/g, ' ')).toContain('185 lb × 5');
     act(() => tree.unmount());
   });
 });

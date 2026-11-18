@@ -7,11 +7,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View, Alert, Keyboard, Linking, Platform } from 'react-native';
+  View, Alert, Keyboard, Linking, Platform, useWindowDimensions } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOTS, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
+import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
 import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput, Mark } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
@@ -56,8 +56,13 @@ export const closeUpLens = (lenses: readonly string[]): string | undefined =>
   lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
 
 export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], copyableFor, onCopy, today }: Props) {
-  // Which meal of the day this is: read off the clock, changed with a tap.
-  const [slot, setSlot] = useState<MealSlot>(() => slotForTime(new Date()));
+  // Which meal of the day this is, read off the clock. There is no picker: a
+  // row of Breakfast / Lunch / Dinner / Snack on every log was a question
+  // nobody needed to answer, and the clock is right nearly always.
+  const [slot] = useState<MealSlot>(() => slotForTime(new Date()));
+  // Below 390pt a third of the tab track is ~75-95pt of label: "Scan barcode"
+  // and "Photo · Plus" broke over two lines there, so they take their short form.
+  const compact = useWindowDimensions().width < 390;
   const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
@@ -333,14 +338,14 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   const footer: { label: string; summary?: string; busy?: boolean; disabled?: boolean; onPress: () => void } | null =
     mode === 'search' && quickAnalysis
       ? {
-          label: busy === 'saving' ? 'Saving...' : 'Add to care log',
+          label: busy === 'saving' ? 'Saving...' : 'Log meal',
           summary: summaryOf(quickAnalysis),
           busy: busy === 'saving',
           onPress: () => void saveAnalysis(quickAnalysis, 'manual'),
         }
       : againAnalysis
       ? {
-          label: busy === 'saving' ? 'Saving...' : 'Add to care log',
+          label: busy === 'saving' ? 'Saving...' : 'Log meal',
           summary: summaryOf(againAnalysis),
           busy: busy === 'saving',
           // A repeat is typed in, not read from a photo or a barcode.
@@ -350,19 +355,19 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       ? busy === 'analyzing'
         ? { label: 'Reading your plate...', busy: true, disabled: true, onPress: () => {} }
         : analysis && fixText === null
-          ? { label: busy === 'saving' ? 'Saving...' : 'Add to care log', summary: summaryOf(analysis), busy: busy === 'saving', onPress: () => void saveAnalysis(analysis, 'ai') }
+          ? { label: busy === 'saving' ? 'Saving...' : 'Log meal', summary: summaryOf(analysis), busy: busy === 'saving', onPress: () => void saveAnalysis(analysis, 'ai') }
           : image && !analysis
             ? { label: 'Try again', onPress: () => void analyze() }
             : null
       : mode === 'search' && plateAnalysis
         ? {
-            label: busy === 'saving' ? 'Saving...' : plate.length === 1 ? 'Add to care log' : `Add ${plate.length} foods`,
+            label: busy === 'saving' ? 'Saving...' : plate.length === 1 ? 'Log meal' : `Add ${plate.length} foods`,
             summary: summaryOf(plateAnalysis),
             busy: busy === 'saving',
             onPress: () => void saveAnalysis(plateAnalysis, 'manual'),
           }
         : mode === 'scan' && selectedAnalysis
-          ? { label: busy === 'saving' ? 'Saving...' : 'Add to care log', summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
+          ? { label: busy === 'saving' ? 'Saving...' : 'Log meal', summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
           : null;
 
   // What the footer would log, so the bars at the top can show what it adds.
@@ -413,9 +418,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         <View style={styles.tabs}>
           <SegmentedControl
             options={[
-              { value: 'photo' as Mode, label: canScanPhotos ? 'Photo' : 'Photo · Plus' },
+              { value: 'photo' as Mode, label: canScanPhotos || compact ? 'Photo' : 'Photo · Plus' },
               { value: 'search' as Mode, label: 'Search' },
-              { value: 'scan' as Mode, label: 'Scan barcode' },
+              { value: 'scan' as Mode, label: compact ? 'Barcode' : 'Scan barcode' },
             ]}
             value={mode}
             onChange={(option) => {
@@ -428,21 +433,6 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           />
         </View>
 
-        <View style={styles.slots} accessibilityRole="radiogroup" accessibilityLabel="Which meal">
-          {MEAL_SLOTS.map((option) => (
-            <Pressable
-              key={option}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: slot === option }}
-              accessibilityLabel={MEAL_SLOT_LABEL[option]}
-              hitSlop={{ top: 8, bottom: 8 }}
-              onPress={() => setSlot(option)}
-              style={[styles.slot, slot === option && styles.slotOn]}
-            >
-              <Text style={[styles.slotLabel, slot === option && styles.slotLabelOn]}>{MEAL_SLOT_LABEL[option]}</Text>
-            </Pressable>
-          ))}
-        </View>
 
         <ScrollView
           ref={scroll}
@@ -504,11 +494,12 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               <View style={styles.pickRow}>
                 {image ? (
                   <PressableScale style={styles.pickButton} onPress={() => pick('camera')}>
-                    <Text style={styles.pickLabel}>Retake</Text>
+                    <Text style={styles.pickLabel} numberOfLines={1}>Retake</Text>
                   </PressableScale>
                 ) : null}
                 <PressableScale style={styles.pickButton} onPress={() => pick('library')}>
-                  <Text style={styles.pickLabel}>Choose from library</Text>
+                  {/* Half the row beside Retake: the long form wrapped inside its pill below 390pt. */}
+                  <Text style={styles.pickLabel} numberOfLines={1}>{image ? 'Library' : 'Choose from library'}</Text>
                 </PressableScale>
               </View>
 
@@ -613,11 +604,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                     ))}
                   </View>
                 </View>
-              ) : (
-                <View style={styles.quickOpen}>
-                  <TextButton label="Quick add calories" onPress={() => setQuick({ name: query.trim() })} />
-                </View>
-              )}
+              ) : null}
 
               {plate.length > 0 ? (
                 <View style={styles.plate} testID="plate">
@@ -672,6 +659,15 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               })}
               {/* FatSecret's terms: its credit wherever its foods are shown. */}
               {results.some((food) => food.source === 'fatsecret') ? <FatSecretCredit /> : null}
+
+              {/* The way out for food no database has, under the list rather than
+                  between the field and the results, where it read as the next step. */}
+              {!quick ? (
+                <View style={styles.quickOpen}>
+                  <Text style={styles.quickPrompt}>Can't find it?</Text>
+                  <TextButton label="Quick add calories" onPress={() => setQuick({ name: query.trim() })} />
+                </View>
+              ) : null}
 
               <ErrorText>{error}</ErrorText>
             </>
@@ -754,9 +750,13 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   );
 }
 
-/** The footer's one line about the meal: its grade and the numbers that matter most. */
+/**
+ * The footer's one line about the meal: the numbers that matter most. Its
+ * grade is the badge beside it; spelled out too, the line ran past a 320pt
+ * phone and ended in "…".
+ */
 const summaryOf = (meal: MealAnalysis): string =>
-  `Grade ${meal.grade} · ${calorieEstimate(meal.macros)} kcal · ${meal.macros.proteinGrams}g protein`;
+  `${calorieEstimate(meal.macros).toLocaleString()} kcal · ${meal.macros.proteinGrams}g protein`;
 
 /**
  * The meals eaten lately, to log again in one tap: the likeliest first (what
@@ -855,6 +855,11 @@ function PlateItem({
   const weighed = servingGrams(food) !== undefined;
   const units: PortionUnit[] = weighed ? ['g', 'oz', 'serving'] : ['serving'];
   const amount = amountIn(food, servings, unit);
+  // What is in the field while it is being typed in, blank included: bound
+  // straight to the amount, deleting the last digit snapped it back, so "2"
+  // could never become "25". Leaving the field goes back to the amount (so a
+  // blank or 0 left behind changes nothing).
+  const [draft, setDraft] = useState<number | undefined | null>(null);
   const step = PORTION_STEP[unit];
   const atLeast = amount <= step;
   const set = (value: number) => {
@@ -885,7 +890,10 @@ function PlateItem({
           accessibilityState={{ disabled: atLeast }}
           disabled={atLeast}
           hitSlop={6}
-          onPress={() => set(Math.max(step, Math.round((amount - step) * 10) / 10))}
+          onPress={() => {
+            setDraft(null);
+            set(Math.max(step, Math.round((amount - step) * 10) / 10));
+          }}
           style={[styles.stepButton, atLeast && styles.stepButtonOff]}
         >
           <Mark kind="minus" size={10} color={colors.inkSoft} />
@@ -893,17 +901,22 @@ function PlateItem({
         <NumberInput
           decimal={unit !== 'g'}
           style={[layout.input, styles.amountInput]}
-          value={amount}
+          value={draft === null ? amount : draft}
           onValue={(value) => {
+            setDraft(value);
             if (value !== undefined) set(value);
           }}
+          onBlur={() => setDraft(null)}
           accessibilityLabel={`Amount of ${food.name} in ${UNIT_LABEL[unit]}`}
         />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`More ${food.name}`}
           hitSlop={6}
-          onPress={() => set(Math.round((amount + step) * 10) / 10)}
+          onPress={() => {
+            setDraft(null);
+            set(Math.round((amount + step) * 10) / 10);
+          }}
           style={styles.stepButton}
         >
           <Mark kind="plus" size={10} color={colors.inkSoft} />
@@ -915,11 +928,14 @@ function PlateItem({
               accessibilityRole="radio"
               accessibilityState={{ checked: unit === option }}
               accessibilityLabel={UNIT_LABEL[option]}
-              onPress={() => onUnit(option)}
+              onPress={() => {
+                setDraft(null);
+                onUnit(option);
+              }}
               hitSlop={{ top: 6, bottom: 6 }}
               style={[styles.unitChip, unit === option && styles.unitChipOn]}
             >
-              <Text style={[styles.unitLabel, unit === option && styles.unitLabelOn]}>{UNIT_LABEL[option]}</Text>
+              <Text style={[styles.unitLabel, unit === option && styles.unitLabelOn]} numberOfLines={1}>{UNIT_LABEL[option]}</Text>
             </Pressable>
           ))}
         </View>
@@ -962,7 +978,7 @@ function Stepper({
       >
         <Mark kind="minus" size={10} color={colors.inkSoft} />
       </Pressable>
-      <Text style={styles.stepValue}>{`${value}×`}</Text>
+      <Text style={styles.stepValue} numberOfLines={1}>{`${value}×`}</Text>
       <Pressable accessibilityRole="button" accessibilityLabel={`More ${label}`} hitSlop={7} onPress={() => onChange(value + 0.5)} style={styles.stepButton}>
         <Mark kind="plus" size={10} color={colors.inkSoft} />
       </Pressable>
@@ -1062,7 +1078,7 @@ const styles = themedStyles(() => ({
     paddingHorizontal: 22,
   },
   title: { ...text.title, marginTop: 6 },
-  tabs: { paddingHorizontal: 22, marginTop: 14 },
+  tabs: { paddingHorizontal: 22, marginTop: 14, paddingBottom: 4 },
   body: { padding: 22, paddingBottom: 24 },
   preview: { width: '100%', height: 260, borderRadius: 18, borderCurve: 'continuous', backgroundColor: colors.sage },
   readingOverlay: {
@@ -1185,12 +1201,15 @@ const styles = themedStyles(() => ({
   quickField: { flex: 1, alignItems: 'center', gap: 4 },
   quickInput: { alignSelf: 'stretch', textAlign: 'center' },
   quickLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.muted },
-  quickOpen: { alignItems: 'flex-start', marginBottom: 4 },
+  quickOpen: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 14 },
+  quickPrompt: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted },
   plateItem: { gap: 10, paddingVertical: 4 },
   plateItemHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  amountRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // The unit chips drop under the amount when a phone is too narrow for both
+  // (below ~390pt "servings" ran off the card's edge).
+  amountRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   amountInput: { width: 72, minHeight: 40, paddingVertical: 8, textAlign: 'center', fontSize: 16 },
-  amountUnits: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 2 },
+  amountUnits: { flexGrow: 1, flexShrink: 0, flexDirection: 'row', justifyContent: 'flex-end', gap: 2 },
   unitChip: { minHeight: 30, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
   unitChipOn: { backgroundColor: colors.selectedFill },
   unitLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
@@ -1199,25 +1218,7 @@ const styles = themedStyles(() => ({
   copyPressed: { backgroundColor: colors.selectedFill },
   copyTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
   copyMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 2 },
-  // Its own band with a rule under it, drawn over the list: what scrolls up
-  // goes under the rule, never through the middle of the pills.
-  slots: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 10,
-    backgroundColor: colors.paper,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.hairline,
-    zIndex: 1,
-  },
   scrollArea: { flex: 1, overflow: 'hidden' },
-  // Light chips under the segmented control: one choice of four, never louder than it.
-  slot: { flex: 1, minHeight: 30, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
-  slotOn: { backgroundColor: colors.selectedFill },
-  slotLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
-  slotLabelOn: { color: colors.coralDeep, fontWeight: '700' },
   // Room under the field: the first result sat 1 pt below it.
   searchRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   searchInput: { flex: 1 },
@@ -1248,7 +1249,7 @@ const styles = themedStyles(() => ({
   stepButtonOff: { opacity: 0.35 },
   stepRemove: { width: 30, height: 30, marginLeft: 6, alignItems: 'center', justifyContent: 'center' },
   stepMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.inkSoft, lineHeight: 15 },
-  stepValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink, minWidth: 34, textAlign: 'center' },
+  stepValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.ink, minWidth: 34, flexShrink: 0, textAlign: 'center' },
   recent: { marginTop: 18, gap: 2 },
   recentTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6, paddingHorizontal: 8 },
   recentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingRight: 8, borderRadius: 14, borderCurve: 'continuous' },
@@ -1256,11 +1257,12 @@ const styles = themedStyles(() => ({
   recentPlus: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral, lineHeight: 20 },
   footer: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 26, gap: 8, borderTopWidth: 1, borderTopColor: colors.hairline, backgroundColor: colors.paper },
   footerSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  footerSummary: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, textAlign: 'center' },
+  footerSummary: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, textAlign: 'center', flexShrink: 1 },
   resultName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
   resultMeta: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
   servingsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },
-  servingsLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
+  // Takes what the field leaves: a long serving ("1 cup, chopped (128 g)") pushed the field off the card.
+  servingsLabel: { flex: 1, fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
   servingsInput: { width: 90 },
   scanner: { height: 280, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' },
   scanHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 12, textAlign: 'center' },

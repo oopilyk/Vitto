@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import {
   type FriendProfileSummary,
   type PetState,
@@ -142,7 +142,9 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
         <Text style={styles.backMark}>‹</Text>
         <Text style={[styles.backLabel, { color: palette.secondaryText }]}>Friends</Text>
       </Pressable>
-      <Text style={[styles.topTitle, { color: palette.primaryText }]}>{title}</Text>
+      <Text style={[styles.topTitle, { color: palette.primaryText }]} numberOfLines={1}>
+        {title}
+      </Text>
       <View style={styles.back} />
     </View>
   );
@@ -288,6 +290,8 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
   // backdrop elements, and the stage crossfades between them by identity.
   const environments = useMemo(() => visitEnvironments(), []);
   const environment = placeToEnvironment(status.place);
+  // Two 96pt side columns leave the plate too little room under 360pt.
+  const narrow = useWindowDimensions().width < 360;
 
   // Only a live signal may pose the pet — a recent-but-stale activity must
   // never be shown as if it is happening right now.
@@ -301,6 +305,45 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
 
   const healthColor = healthToneColor(status.health.tone, friendsPalette(night));
   const dayLabel = `DAY ${daysWithPet(pet)}`;
+
+  // The plate, the pet's line and its meta. Between the two side columns on
+  // most phones; on a 320pt screen that gap is 80pt, which ellipsised the room
+  // to "LIV…", so there it goes on a row of its own under them.
+  const centre = (
+    <>
+      <View style={[retro.panel, night && retro.panelNight, styles.plate]}>
+        <Text style={[retro.kicker, night && retro.kickerNight, styles.plateKicker]} numberOfLines={1}>
+          {`Visiting ${displayName(profile)}`}
+        </Text>
+        <Text style={[styles.plateName, night && retro.labelNight]} numberOfLines={1}>
+          {pet.name.toUpperCase()}
+        </Text>
+        <Text style={[retro.kicker, night && retro.kickerNight, styles.plateRoom]} numberOfLines={1}>
+          {ENVIRONMENT_LABEL[environment].toUpperCase()}
+        </Text>
+      </View>
+      <Text style={[styles.feeling, night && styles.feelingNight]} numberOfLines={2}>
+        {status.headline}
+      </Text>
+      {/* Separate tokens, not one joined line: a wrap falls between them,
+          never inside one ("HEAL / THY"). */}
+      <View style={styles.metaRow}>
+        <Text style={[styles.meta, night && styles.metaNight]} numberOfLines={1}>
+          {dayLabel}
+        </Text>
+        <Text style={[styles.meta, night && styles.metaNight, { color: healthColor }]} numberOfLines={1}>
+          {status.health.label.toUpperCase()}
+        </Text>
+        {/* Only when nothing is live: a live signal is already the
+            pose, and "Active just now" under it would be noise. */}
+        {!status.isLive && status.lastActiveAt ? (
+          <Text style={[styles.meta, night && styles.metaNight, styles.metaSoft]} numberOfLines={1}>
+            {`Active ${formatLastActive(status.lastActiveAt)}`}
+          </Text>
+        ) : null}
+      </View>
+    </>
+  );
 
   return (
     <View style={styles.visit}>
@@ -330,35 +373,17 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                     pressed && retroPressed,
                   ]}
                 >
-                  <Text style={[retro.kicker, night && retro.kickerNight, styles.visitBackLabel]}>← Friends</Text>
+                  <Text style={[retro.kicker, night && retro.kickerNight, styles.visitBackLabel]} numberOfLines={1}>
+                    ← Friends
+                  </Text>
                 </Pressable>
               </View>
 
-              <View style={styles.hudCenter} pointerEvents="none">
-                <View style={[retro.panel, night && retro.panelNight, styles.plate]}>
-                  <Text style={[retro.kicker, night && retro.kickerNight, styles.plateKicker]} numberOfLines={1}>
-                    {`Visiting ${displayName(profile)}`}
-                  </Text>
-                  <Text style={[styles.plateName, night && retro.labelNight]} numberOfLines={1}>
-                    {pet.name.toUpperCase()}
-                  </Text>
-                  <Text style={[retro.kicker, night && retro.kickerNight, styles.plateRoom]} numberOfLines={1}>
-                    {ENVIRONMENT_LABEL[environment].toUpperCase()}
-                  </Text>
+              {narrow ? null : (
+                <View style={styles.hudCenter} pointerEvents="none">
+                  {centre}
                 </View>
-                <Text style={[styles.feeling, night && styles.feelingNight]} numberOfLines={2}>
-                  {status.headline}
-                </Text>
-                <Text style={[styles.meta, night && styles.metaNight]}>
-                  {dayLabel}
-                  <Text style={{ color: healthColor }}>{`   ·   ${status.health.label.toUpperCase()}`}</Text>
-                  {/* Only when nothing is live: a live signal is already the
-                      pose, and "Active just now" under it would be noise. */}
-                  {!status.isLive && status.lastActiveAt ? (
-                    <Text style={styles.metaSoft}>{`   ·   Active ${formatLastActive(status.lastActiveAt)}`}</Text>
-                  ) : null}
-                </Text>
-              </View>
+              )}
 
               {/* Right column: the pager as two discs, with the count between.
                   Always visible, never swipe-only, so it works with a mouse. */}
@@ -379,7 +404,7 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                 >
                   <Text style={[styles.discMark, night && retro.labelNight]}>‹</Text>
                 </Pressable>
-                <Text style={[retro.kicker, night && retro.kickerNight, styles.visitCount]}>
+                <Text style={[retro.kicker, night && retro.kickerNight, styles.visitCount]} numberOfLines={1}>
                   {pager.total > 0 ? `${pager.index + 1} / ${pager.total}` : ''}
                 </Text>
                 <Pressable
@@ -400,6 +425,11 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                 </Pressable>
               </View>
             </View>
+            {narrow ? (
+              <View style={styles.hudCenterBelow} pointerEvents="none">
+                {centre}
+              </View>
+            ) : null}
           </View>
         }
       />
@@ -461,7 +491,9 @@ const styles = themedStyles(() => ({
   back: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 64 },
   backMark: { fontFamily: fonts.ui, fontSize: 34, lineHeight: 36, marginTop: -4, color: colors.coral },
   backLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
-  topTitle: { ...text.heading, fontSize: 21 },
+  // A friend's name here can be a 40-character display name: it gives way
+  // ("…") between the two fixed sides rather than pushing them off.
+  topTitle: { ...text.heading, fontSize: 21, flexShrink: 1, minWidth: 0, textAlign: 'center' },
   pager: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -490,8 +522,11 @@ const styles = themedStyles(() => ({
   hudSide: { width: 96, alignItems: 'flex-start', gap: 10 },
   hudSideRight: { alignItems: 'flex-end' },
   hudCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
-  backButton: { paddingHorizontal: 10, paddingVertical: 6 },
-  visitBackLabel: { fontFamily: fonts.ui, fontSize: 12 },
+  hudCenterBelow: { alignItems: 'center', paddingHorizontal: 16, marginTop: 8 },
+  // "← FRIENDS" fits the 96pt column on one line: at the kicker's own 12pt and
+  // 1.4 tracking it came to ~105pt and broke in two.
+  backButton: { paddingHorizontal: 8, paddingVertical: 6 },
+  visitBackLabel: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.6, flexShrink: 0 },
   plate: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, alignItems: 'center', maxWidth: '100%' },
   plateKicker: { fontFamily: fonts.ui, fontSize: 11, marginBottom: 1 },
   plateName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 20, letterSpacing: 0, color: world.ink },
@@ -510,6 +545,7 @@ const styles = themedStyles(() => ({
     textShadowRadius: 2,
   },
   feelingNight: { color: '#f4ecda', textShadowColor: 'rgba(0,0,0,0.55)' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 12, marginTop: 5 },
   meta: {
     fontFamily: fonts.ui, fontWeight: '600',
     fontSize: 12,
@@ -517,7 +553,7 @@ const styles = themedStyles(() => ({
     letterSpacing: 0.6,
     color: '#4a3c2b',
     textAlign: 'center',
-    marginTop: 5,
+    flexShrink: 0,
     textTransform: 'uppercase',
     textShadowColor: 'rgba(247,240,224,0.5)',
     textShadowOffset: { width: 0, height: 1 },
@@ -530,6 +566,6 @@ const styles = themedStyles(() => ({
   discDisabled: { opacity: 0.35 },
   discMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: world.ink, marginTop: -2 },
   messageBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
-  messageTitle: { ...text.title, fontSize: 26, textAlign: 'center' },
+  messageTitle: { ...text.title, fontSize: 32, lineHeight: 34, textAlign: 'center' },
   messageBodyText: { ...text.body, textAlign: 'center' },
 }));

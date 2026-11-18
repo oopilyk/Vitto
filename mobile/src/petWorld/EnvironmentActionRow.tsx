@@ -33,6 +33,8 @@ interface SceneButton {
   id: EnvironmentId;
   /** A verb phrase, so a screen reader announces it as somewhere to go. */
   accessibilityLabel: string;
+  /** Under the icon: what you do there, not the room's name ("Mind", not "Study"). */
+  label: string;
   filledSource: ImageSourcePropType;
   outlineSource: ImageSourcePropType;
 }
@@ -43,11 +45,11 @@ interface SceneButton {
  * owner's layout call.
  */
 const SCENES: readonly SceneButton[] = [
-  { id: 'gym', accessibilityLabel: 'Go to the gym', filledSource: GYM_FILLED, outlineSource: GYM_OUTLINE },
-  { id: 'kitchen', accessibilityLabel: 'Go to the kitchen', filledSource: KITCHEN_FILLED, outlineSource: KITCHEN_OUTLINE },
-  { id: 'main', accessibilityLabel: 'Back to the living room', filledSource: LIVING_ROOM_FILLED, outlineSource: LIVING_ROOM_OUTLINE },
-  { id: 'outside', accessibilityLabel: 'Go outdoors', filledSource: OUTDOORS_FILLED, outlineSource: OUTDOORS_OUTLINE },
-  { id: 'study', accessibilityLabel: 'Go to the study', filledSource: STUDY_FILLED, outlineSource: STUDY_OUTLINE },
+  { id: 'gym', label: 'Gym', accessibilityLabel: 'Go to the gym', filledSource: GYM_FILLED, outlineSource: GYM_OUTLINE },
+  { id: 'kitchen', label: 'Food', accessibilityLabel: 'Go to the kitchen', filledSource: KITCHEN_FILLED, outlineSource: KITCHEN_OUTLINE },
+  { id: 'main', label: 'Home', accessibilityLabel: 'Back to the living room', filledSource: LIVING_ROOM_FILLED, outlineSource: LIVING_ROOM_OUTLINE },
+  { id: 'outside', label: 'Outside', accessibilityLabel: 'Go outdoors', filledSource: OUTDOORS_FILLED, outlineSource: OUTDOORS_OUTLINE },
+  { id: 'study', label: 'Mind', accessibilityLabel: 'Go to the study', filledSource: STUDY_FILLED, outlineSource: STUDY_OUTLINE },
 ];
 
 // Clears the home indicator on modern iPhones without pulling in a safe-area
@@ -56,7 +58,7 @@ const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
 /** Height of the icon strip itself; the home-indicator inset pads it top and
  *  bottom equally so the icons sit centred in the bar rather than up against
  *  its top edge. */
-const ICON_AREA_HEIGHT = 60;
+const ICON_AREA_HEIGHT = 62;
 /**
  * How much of the screen's bottom the bar covers, at a chrome `scale` (see
  * chromeScale), in the units of a layer zoomed by that scale -- the HUD's.
@@ -65,7 +67,7 @@ const ICON_AREA_HEIGHT = 60;
 export const navBarHeight = (scale = 1): number => ICON_AREA_HEIGHT + (HOME_INDICATOR_INSET * 2) / scale;
 
 /** Keeps the two end icons off the very screen edge while they spread out. */
-const ICON_EDGE_PADDING = 24;
+const ICON_EDGE_PADDING = 14;
 /** Translucent enough that the room reads through the bar -- the whole point.
  *  Warmed to sit in the same palette as the rest of the HUD. */
 const DAY_BAR_BG = world.barDay;
@@ -104,6 +106,7 @@ export function EnvironmentActionRow({ current, onNavigate, night }: Environment
           <TourableScene key={scene.id} id={scene.id} scale={scale}>
             <EnvironmentButton
               accessibilityLabel={scene.accessibilityLabel}
+              label={scene.label}
               filledSource={scene.filledSource}
               outlineSource={scene.outlineSource}
               isActive={scene.id === current}

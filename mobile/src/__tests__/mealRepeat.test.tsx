@@ -32,7 +32,7 @@ describe('logging a recent meal again', () => {
     act(() => find(tree, (node) => node.props.accessibilityLabel === 'Log Overnight oats again').props.onPress());
     act(() => find(tree, (node) => node.props.accessibilityLabel === 'More Overnight oats').props.onPress());
     await act(async () => {
-      await find(tree, (node) => node.findAllByType(Text).some((t: any) => t.props.children === 'Add to care log')).props.onPress();
+      await find(tree, (node) => node.findAllByType(Text).some((t: any) => t.props.children === 'Log meal')).props.onPress();
     });
     expect(saved).toHaveLength(1);
     expect(saved[0]!.analysis?.macros.calories).toBe(600);

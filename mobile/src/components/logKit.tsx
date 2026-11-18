@@ -87,11 +87,15 @@ function ProgressBar({ item }: { item: ProgressItem }) {
     >
       <View style={logKit.itemHead}>
         <Text style={logKit.itemLabel}>{item.label}</Text>
-        <Text style={logKit.itemValue}>
-          {formatted(item.value)}
-          {adding > 0 ? <Text style={logKit.itemAdding}>{` +${formatted(adding)}`}</Text> : null}
-          <Text style={logKit.itemGoal}>{` / ${formatted(item.goal)} ${item.unit}`}</Text>
-        </Text>
+        {/* Three pieces that wrap as wholes: run together as one text, a half-width
+            bar on a small phone broke "/ 2,000 kcal" between the number and its unit. */}
+        <View style={logKit.itemValueRow}>
+          <Text style={[logKit.itemValue, logKit.nowrap]} numberOfLines={1}>
+            {formatted(item.value)}
+            {adding > 0 ? <Text style={logKit.itemAdding}>{` +${formatted(adding)}`}</Text> : null}
+          </Text>
+          <Text style={[logKit.itemValue, logKit.itemGoal, logKit.nowrap]} numberOfLines={1}>{`/ ${formatted(item.goal)} ${item.unit}`}</Text>
+        </View>
       </View>
       <View style={logKit.track}>
         <Animated.View style={[logKit.preview, { width: width(preview) }]} />
@@ -123,8 +127,10 @@ const logKit = themedStyles(() => ({
   item: { flex: 1, gap: 6 },
   itemHead: { gap: 1 },
   itemLabel: { fontFamily: fonts.ui, fontSize: 11, fontWeight: '600', letterSpacing: 0.4, textTransform: 'uppercase', color: colors.muted },
+  itemValueRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 4 },
   itemValue: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '700', color: colors.ink, fontVariant: ['tabular-nums'] },
   itemAdding: { color: colors.coral },
+  nowrap: { flexShrink: 0 },
   itemGoal: { fontSize: 12, fontWeight: '400', color: colors.faint },
   track: { height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.track },
   // The coral itself at half strength: the wash tint was too close to the track to see.

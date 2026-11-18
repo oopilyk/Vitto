@@ -455,9 +455,12 @@ const styles = themedStyles(() => ({
     zIndex: 2,
   },
   particle: { fontFamily: fonts.pixelBold, fontSize: 26, },
+  // Kept off the stage's edges and centred: an 18-letter name wraps the line in two on a narrow phone.
   status: {
     position: 'absolute',
     bottom: 20,
+    maxWidth: '90%',
+    textAlign: 'center',
     fontFamily: fonts.pixel,
     fontSize: 14,
     color: '#55705d',

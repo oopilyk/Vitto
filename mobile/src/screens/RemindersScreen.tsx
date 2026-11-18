@@ -81,11 +81,16 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
             {reminders.items.map((item, index) => (
               <View key={item.id} style={[styles.row, index > 0 && styles.rowRuled]}>
                 <View style={styles.rowText}>
-                  <Text style={[styles.rowLabel, !item.enabled && styles.rowOff]}>{item.label}</Text>
-                  <Text style={styles.rowMeta}>
-                    {formatReminderTime(item.hour, item.minute)} · {describeReminderDays(item.days)}
+                  <Text style={[styles.rowLabel, !item.enabled && styles.rowOff]} numberOfLines={2}>
+                    {item.label}
+                  </Text>
+                  {/* The time on a line of its own, beside Pause and Delete on a 320pt
+                      phone "8:00 am · Every day" broke between "am" and "Every". */}
+                  <Text style={styles.rowMeta} numberOfLines={1}>
+                    {formatReminderTime(item.hour, item.minute)}
                     {item.enabled ? '' : ' · paused'}
                   </Text>
+                  <Text style={styles.rowMeta}>{describeReminderDays(item.days)}</Text>
                 </View>
                 <TextButton label={item.enabled ? 'Pause' : 'Resume'} onPress={() => reminders.onToggle(item.id)} />
                 <TextButton label="Delete" tone="coral" onPress={() => reminders.onRemove(item.id)} />

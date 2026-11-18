@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { companion } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -29,14 +29,34 @@ export function CharacterDials({
   onChange: (next: PersonalityDials) => void;
   testID?: string;
 }) {
+  // Two 82pt words either side leave the seven stops ~64pt on a 320pt phone,
+  // less than they need (98pt), so there the words go above the track.
+  const stacked = useWindowDimensions().width < 360;
   return (
     <View style={styles.wrap} testID={testID}>
       {companion.DIAL_KEYS.map((key: DialKey) => {
         const [low, high] = companion.DIAL_LABELS[key];
         const current = nearestStop(dials[key]);
+        const lowWord = (
+          <Text style={[styles.end, stacked && styles.endStacked, current < 0.5 && styles.endOn]} numberOfLines={1}>
+            {low}
+          </Text>
+        );
+        const highWord = (
+          <Text style={[styles.end, stacked && styles.endStacked, styles.endRight, current > 0.5 && styles.endOn]} numberOfLines={1}>
+            {high}
+          </Text>
+        );
         return (
-          <View key={key} style={styles.row}>
-            <Text style={[styles.end, current < 0.5 && styles.endOn]}>{low}</Text>
+          <View key={key} style={stacked ? styles.rowStacked : styles.row}>
+            {stacked ? (
+              <View style={styles.ends}>
+                {lowWord}
+                {highWord}
+              </View>
+            ) : (
+              lowWord
+            )}
             <View
               style={styles.track}
               accessibilityRole="adjustable"
@@ -55,7 +75,7 @@ export function CharacterDials({
                 />
               ))}
             </View>
-            <Text style={[styles.end, styles.endRight, current > 0.5 && styles.endOn]}>{high}</Text>
+            {stacked ? null : highWord}
           </View>
         );
       })}
@@ -68,7 +88,10 @@ const STOP = 14;
 const styles = themedStyles(() => ({
   wrap: { gap: 10, marginTop: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  end: { width: 82, fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
+  rowStacked: { gap: 2 },
+  ends: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+  end: { width: 82, flexShrink: 0, fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
+  endStacked: { width: 'auto' },
   endRight: { textAlign: 'right' },
   endOn: { color: colors.coralDeep, fontWeight: '700' },
   track: {

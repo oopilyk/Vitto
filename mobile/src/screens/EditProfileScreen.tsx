@@ -70,7 +70,7 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
         </View>
         <View style={styles.identityText}>
           {profile.username ? (
-            <Text style={styles.handle}>{`@${profile.username}`}</Text>
+            <Text style={styles.handle} numberOfLines={1}>{`@${profile.username}`}</Text>
           ) : (
             <Text style={styles.handleUnset}>No username yet</Text>
           )}

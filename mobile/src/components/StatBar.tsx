@@ -21,8 +21,8 @@ export function StatBar({ label, value, color, hint, max = 100 }: StatBarProps) 
   return (
     <View style={styles.row}>
       <View style={styles.head}>
-        <Text style={styles.label}>{label}</Text>
-        <Text style={styles.value}>
+        <Text style={styles.label} numberOfLines={1}>{label}</Text>
+        <Text style={styles.value} numberOfLines={1}>
           {Math.round(value)}
           <Text style={styles.ceiling}>/{ceiling}</Text>
         </Text>
@@ -37,9 +37,10 @@ export function StatBar({ label, value, color, hint, max = 100 }: StatBarProps) 
 
 const styles = themedStyles(() => ({
   row: { marginTop: 14 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, letterSpacing: 0 },
-  value: { fontFamily: fonts.ui, fontSize: 12, color: colors.ink },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  label: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, letterSpacing: 0, flexShrink: 1 },
+  // The figure never gives way to the label: squeezed, "80/100" broke over two lines.
+  value: { fontFamily: fonts.ui, fontSize: 12, color: colors.ink, flexShrink: 0 },
   ceiling: { color: colors.faint },
   track: {
     height: 6,

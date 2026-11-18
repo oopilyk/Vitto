@@ -17,6 +17,8 @@ const LOGGED_VIA_LABEL: Record<NonNullable<MealMetadata['loggedVia']>, string> =
   healthkit: 'Apple Health',
 };
 
+const nowrap = (words: string) => words.replace(/ /g, '\u00a0');
+
 export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {
   const [expanded, setExpanded] = useState(false);
   const analysis = event.metadata.analysis;
@@ -44,12 +46,14 @@ export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {
           <Text style={styles.name} numberOfLines={expanded ? undefined : 2}>
             {name}
           </Text>
+          {/* Non-breaking spaces inside each piece: on a narrow phone the line
+              breaks only at a "·", never inside "Apple Health" or "Grade A". */}
           <Text style={styles.meta}>
-            {time} · {LOGGED_VIA_LABEL[loggedVia]}
-            {analysis ? ` · Grade ${analysis.grade}` : ''}
+            {nowrap(time)} · {nowrap(LOGGED_VIA_LABEL[loggedVia])}
+            {analysis ? ` · ${nowrap(`Grade ${analysis.grade}`)}` : ''}
           </Text>
         </View>
-        <Text style={styles.calories}>{calories} kcal</Text>
+        <Text style={styles.calories} numberOfLines={1}>{calories} kcal</Text>
       </Pressable>
 
       {expanded && analysis ? (
@@ -62,7 +66,7 @@ export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {
               [`${analysis.macros.fatGrams}g`, 'Fat'],
             ].map(([value, label]) => (
               <View key={String(label)} style={styles.macroCell}>
-                <Text style={styles.macroValue}>{value}</Text>
+                <Text style={styles.macroValue} numberOfLines={1}>{value}</Text>
                 <Text style={styles.macroLabel}>{label}</Text>
               </View>
             ))}
@@ -94,7 +98,7 @@ const styles = themedStyles(() => ({
   info: { flex: 1 },
   name: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '500', color: colors.ink },
   meta: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
-  calories: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
+  calories: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, flexShrink: 0 },
   detail: { paddingBottom: 16 },
   macroGrid: { flexDirection: 'row', gap: 10 },
   macroCell: {

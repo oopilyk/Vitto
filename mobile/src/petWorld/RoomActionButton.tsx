@@ -64,7 +64,9 @@ export function RoomActionButton({ label, onPress }: { label: string; onPress: (
           <View style={styles.badge}>
             <Mark kind="plus" size={12} weight={2.4} color={colors.coral} />
           </View>
-          <Text style={styles.label}>{label}</Text>
+          <Text style={styles.label} numberOfLines={1}>
+            {label}
+          </Text>
         </Pressable>
       </View>
     </RoomActionSlot>
@@ -109,5 +111,5 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
   },
   plus: { fontFamily: fonts.system, fontSize: 18, lineHeight: 20, fontWeight: '800', color: colors.coral, marginTop: -1 },
-  label: { fontFamily: fonts.system, fontSize: 14, fontWeight: '700', letterSpacing: 0.2, color: '#fff' },
+  label: { fontFamily: fonts.system, fontSize: 14, fontWeight: '700', letterSpacing: 0.2, color: '#fff', flexShrink: 0 },
 }));

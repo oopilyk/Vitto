@@ -883,7 +883,12 @@ export function OnboardingScreen({
     }: { eyebrow: string; title: string; sub?: string; count: number; columns?: number; wanted?: number; extraRoom?: number },
     answers: ReactNode,
   ) => {
-    const header = 26 + (title.length > 26 ? 64 : 34) + (sub && !short ? (sub.length > 44 ? 52 : 30) : 0);
+    // Characters a line holds: 26 of the question and 44 of the sub from 375pt
+    // up, fewer on a 320pt phone, where "Your height and weight" already wraps.
+    const inside = area.width > 0 ? Math.min(MAX_WIDTH, area.width - 40) : Infinity;
+    const titleLine = Math.min(26, Math.floor(inside / ((short ? 20 : 23) * 0.55)));
+    const subLine = Math.min(44, Math.floor(inside / (16 * 0.55)));
+    const header = 26 + (title.length > titleLine ? 64 : 34) + (sub && !short ? 8 + 22 * Math.ceil(sub.length / subLine) : 0);
     const size = petRoom(wanted, header + listNeeds(count, columns) + extraRoom);
     // Centred on the page: a short list (three answers and no Next button) sat
     // at the top over a band of empty screen. A long one still shrinks to fit.
@@ -891,7 +896,10 @@ export function OnboardingScreen({
       <View style={[styles.fill, styles.questionPage]}>
         <Text style={styles.eyebrow}>{eyebrow}</Text>
         {pet(size)}
-        <Text style={[styles.question, short && styles.questionShort]}>{title}</Text>
+        {/* Two lines at most, as `header` reserves: a long pet name shrinks the question a little rather than adding a line the answers lose. */}
+        <FitText style={[styles.question, short && styles.questionShort]} lines={2} minScale={0.7}>
+          {title}
+        </FitText>
         {sub && !short ? <Text style={styles.sub}>{sub}</Text> : null}
         <View style={styles.questionChoices}>{answers}</View>
       </View>
@@ -1529,7 +1537,10 @@ export function OnboardingScreen({
                     <View key={n} style={styles.planRing} />
                   ))}
                 </View>
-                <Text style={styles.planTitle}>{you ? `${you}’s starter plan` : 'Your starter plan'}</Text>
+                {/* A 40-character name shrinks onto two lines rather than taking a third from the plan. */}
+                <FitText style={styles.planTitle} lines={2} minScale={0.7}>
+                  {you ? `${you}’s starter plan` : 'Your starter plan'}
+                </FitText>
                 <Text style={styles.planSub}>{`Try these easy goals with ${petName}!`}</Text>
                 <PlanRow text={`Eat about ${targets.calories.toLocaleString()} kcal a day`} />
                 <PlanRow text={`Get ${targets.proteinGrams}g of protein`} />
@@ -1556,7 +1567,8 @@ export function OnboardingScreen({
           {stepId === 'plusPersonality' ? (
             <View style={[styles.fill, styles.centred]}>
               <Text style={styles.plusKicker}>Vitto Plus</Text>
-              <Text style={styles.title}>{`Make ${petName} truly yours`}</Text>
+              {/* Titles with the pet's name stay on two lines (the page is laid out for that) by shrinking for a long name. */}
+              <FitText style={styles.title} lines={2} minScale={0.7}>{`Make ${petName} truly yours`}</FitText>
               <View style={styles.perkStage}>
                 <View style={[styles.voice, styles.voiceLeft]}>
                   <Text style={styles.voiceTag}>Sweet</Text>
@@ -1612,7 +1624,7 @@ export function OnboardingScreen({
           {stepId === 'plusChat' ? (
             <View style={[styles.fill, styles.centred]}>
               <Text style={styles.plusKicker}>Vitto Plus</Text>
-              <Text style={styles.title}>{`Talk with ${petName} anytime`}</Text>
+              <FitText style={styles.title} lines={2} minScale={0.7}>{`Talk with ${petName} anytime`}</FitText>
               <View style={styles.chat}>
                 <View style={[styles.chatBubble, styles.chatMine]}>
                   <Text style={[styles.chatText, styles.chatTextMine]}>Hit a new bench PR today!</Text>
@@ -1700,7 +1712,9 @@ export function OnboardingScreen({
 
           {stepId === 'personality' ? (
             <View style={styles.fill}>
-              <Text style={[styles.title, short && styles.titleShort]}>{`Choose a personality for ${petName}`}</Text>
+              <FitText style={[styles.title, short && styles.titleShort]} lines={2} minScale={0.7}>
+                {`Choose a personality for ${petName}`}
+              </FitText>
               {!short ? <Text style={styles.sub}>Their personality: how they talk to you. Fine-tune it any time in Settings.</Text> : null}
               <View style={styles.choices}>
                 <Grid columns={2}>
@@ -1748,13 +1762,14 @@ export function OnboardingScreen({
 
           {stepId === 'notifications' ? (
             <View style={[styles.fill, styles.centred]}>
-              <Text style={styles.title}>{`Get reminders from ${petName}`}</Text>
+              <FitText style={styles.title} lines={2} minScale={0.7}>{`Get reminders from ${petName}`}</FitText>
               <View style={styles.notification}>
                 <View style={styles.notificationIcon}>
                   <SpriteFrame sheet={sheetByBreed(breed)} frame={portraitFrame(sheetByBreed(breed))} size={58} />
                 </View>
                 <View style={styles.notificationText}>
-                  <Text style={styles.notificationTitle}>{`From ${PetName}`}</Text>
+                  {/* A long name shrinks a touch rather than breaking mid-word on a 320pt phone. */}
+                  <FitText style={styles.notificationTitle}>{`From ${PetName}`}</FitText>
                   <Text style={styles.notificationBody}>A quick walk would make my whole day!</Text>
                 </View>
                 <Text style={styles.notificationTime}>now</Text>
@@ -1984,7 +1999,8 @@ function FChoice({
         ) : null}
         {stats ? <FitText style={styles.choiceStats}>{stats}</FitText> : null}
       </View>
-      {/* A word or two, written to fit beside any label: no shrinking needed. */}
+      {/* A word or two, written to fit beside any label: no shrinking needed, and
+          held at its own width so the label gives way (on web it was squeezed onto two lines). */}
       {note ? <Text style={styles.choiceNote}>{note}</Text> : null}
       {/* Picked shows as the coral outline alone: a tick beside the label took
           its room and made longer labels shrink to fit. */}
@@ -2170,7 +2186,7 @@ const styles = themedStyles(() => {
     choiceDetail: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 18, color: F.sub, marginTop: 1 },
     // What a choice raises, in the accent, so it reads as a reward.
     choiceStats: { fontFamily: FONT.bold, fontSize: 12, lineHeight: 16, letterSpacing: 0.2, color: F.green, marginTop: 3 },
-    choiceNote: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, flexShrink: 1, textAlign: 'right' },
+    choiceNote: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.sub, flexShrink: 0, textAlign: 'right' },
 
     toggle: { flexDirection: 'row', gap: 10 },
     heightPick: { alignSelf: 'stretch', gap: 8 },
@@ -2347,7 +2363,7 @@ const styles = themedStyles(() => {
     healthDetail: { fontFamily: FONT.regular, fontSize: 14, lineHeight: 19, color: F.sub },
     notificationTitle: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.text },
     notificationBody: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 20, color: F.text, marginTop: 1 },
-    notificationTime: { fontFamily: FONT.regular, fontSize: 13, lineHeight: 17, color: F.sub, alignSelf: 'flex-start' },
+    notificationTime: { fontFamily: FONT.regular, fontSize: 13, lineHeight: 17, color: F.sub, alignSelf: 'flex-start', flexShrink: 0 },
 
     dayKicker: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, letterSpacing: 1.6, textTransform: 'uppercase', color: F.sub },
     dayCard: {

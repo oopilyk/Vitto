@@ -49,7 +49,8 @@ describe('ChooseCompanionScreen', () => {
     // Not owned and not affordable: still greyed out, with its price.
     expect(tile(tree, 'fox').props.disabled).toBe(true);
     const all = texts(tree);
-    expect(all).toContain('Current');
+    // The animal worn now is marked as such.
+    expect(all).toContain('Equipped');
     expect(all).toContain('Owned · free');
     expect(all).toContain('500 coins');
     act(() => tile(tree, 'shiba').props.onPress());

@@ -59,7 +59,9 @@ export function FriendPetCard({ profile, pet, status, palette = FRIENDS_LIGHT }:
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.name, { color: palette.primaryText }]}>{displayName(profile)}</Text>
+      <Text style={[styles.name, { color: palette.primaryText }]} numberOfLines={2}>
+        {displayName(profile)}
+      </Text>
       <PetAvatar
         pet={pet}
         isAnalyzingMeal={false}
@@ -75,7 +77,9 @@ export function FriendPetCard({ profile, pet, status, palette = FRIENDS_LIGHT }:
         {/* Health, not the deprecated `moodLabel`: always set (down to a plain
             "Healthy") and carries a tone to colour by. */}
         <View style={[styles.healthChip, { borderColor: healthColor }]}>
-          <Text style={[styles.healthChipLabel, { color: healthColor }]}>{status.health.label}</Text>
+          <Text style={[styles.healthChipLabel, { color: healthColor }]} numberOfLines={1}>
+            {status.health.label}
+          </Text>
         </View>
       </View>
       {/* Location is inferred from the latest LIVE activity -- "At home"
@@ -103,8 +107,9 @@ const styles = themedStyles(() => ({
     marginTop: 14,
     paddingHorizontal: 20,
   },
-  headline: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  headline: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink, flexShrink: 1 },
   healthChip: {
+    flexShrink: 0,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,

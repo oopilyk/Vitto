@@ -32,7 +32,7 @@ export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disable
               onPress={onEnter}
               style={({ pressed }) => [styles.key, styles.wideKey, pressed && styles.pressed, disabled && styles.dim]}
             >
-              <Text style={styles.actionLabel}>ENTER</Text>
+              <Text style={styles.actionLabel} numberOfLines={1}>ENTER</Text>
             </Pressable>
           ) : null}
           {row.split('').map((letter) => {
@@ -72,7 +72,7 @@ export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disable
               onPress={onBackspace}
               style={({ pressed }) => [styles.key, styles.wideKey, pressed && styles.pressed, disabled && styles.dim]}
             >
-              <Text style={styles.actionLabel}>DEL</Text>
+              <Text style={styles.actionLabel} numberOfLines={1}>DEL</Text>
             </Pressable>
           ) : null}
         </View>
@@ -97,7 +97,8 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  wideKey: { flexGrow: 1.6 },
+  // Room for "ENTER" on one line on a 320pt phone, where 1.6 left it a few points short.
+  wideKey: { flexGrow: 1.8 },
   pressed: { opacity: 0.7 },
   dim: { opacity: 0.45 },
   /**

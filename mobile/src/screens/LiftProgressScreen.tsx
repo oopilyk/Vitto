@@ -137,7 +137,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
       ) : (
         <>
           <View style={styles.summary} testID="lift-progress-summary">
-            <View>
+            <View style={styles.summaryLeft}>
               <Text style={styles.summaryLabel}>Estimated max</Text>
               <Text style={styles.summaryValue}>
                 {show(latest!.oneRepMaxKg)}
@@ -153,13 +153,13 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
             </View>
             <View style={styles.summaryRight}>
               {ranked ? (
-                <Text style={[styles.tierPill, { color: lineColor, borderColor: lineColor }]}>
+                <Text style={[styles.tierPill, { color: lineColor, borderColor: lineColor }]} numberOfLines={1}>
                   {tier === null ? 'Unranked' : STRENGTH_TIERS[tier]}
                 </Text>
               ) : (
-                <Text style={styles.best}>{`${points.length} sessions`}</Text>
+                <Text style={styles.best} numberOfLines={1}>{`${points.length} sessions`}</Text>
               )}
-              <Text style={styles.best}>{`best ${show(best!)} ${unit}`}</Text>
+              <Text style={styles.best} numberOfLines={1}>{`best ${show(best!)} ${unit}`}</Text>
             </View>
           </View>
 
@@ -291,7 +291,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
                           style={styles.sessionSet}
                         >{`${point.from.exercise} · ${point.from.weight} ${point.from.unit} × ${point.from.reps}`}</Text>
                       </View>
-                      <Text style={styles.sessionMax}>{`${show(point.oneRepMaxKg)} ${unit}`}</Text>
+                      <Text style={styles.sessionMax} numberOfLines={1}>{`${show(point.oneRepMaxKg)} ${unit}`}</Text>
                     </View>
                   ))}
               </View>
@@ -308,14 +308,17 @@ const styles = themedStyles(() => ({
   empty: { marginTop: 24, padding: 20, borderRadius: 12, backgroundColor: colors.cardSoft, gap: 4 },
   emptyTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
   emptyBody: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, lineHeight: 21 },
-  summary: { marginTop: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  summary: { marginTop: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  // Gives way to the rank and best on the right: sized to its own longest line,
+  // "Your first session. Log more…" pushed them off a small phone.
+  summaryLeft: { flexShrink: 1 },
   summaryLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.muted },
   summaryValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 41, color: colors.ink, letterSpacing: 0 },
   summaryUnit: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '400', color: colors.faint, letterSpacing: 0 },
   change: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted },
   changeUp: { color: colors.mintDeep, fontWeight: '600' },
   changeDown: { color: colors.caution, fontWeight: '600' },
-  summaryRight: { alignItems: 'flex-end', gap: 6, paddingTop: 4 },
+  summaryRight: { flexShrink: 0, alignItems: 'flex-end', gap: 6, paddingTop: 4 },
   tierPill: {
     fontFamily: fonts.ui, fontWeight: '600',
     fontSize: 12,
@@ -367,5 +370,5 @@ const styles = themedStyles(() => ({
   sessionText: { flex: 1, minWidth: 0 },
   sessionDate: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
   sessionSet: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 2 },
-  sessionMax: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
+  sessionMax: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink, flexShrink: 0 },
 }));

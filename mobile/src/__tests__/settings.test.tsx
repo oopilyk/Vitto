@@ -70,7 +70,7 @@ describe('preferences screen', () => {
     });
     expect(findButton(tree, 'Save changes')).toBeUndefined();
 
-    act(() => findButton(tree, 'Build muscle')!.props.onPress());
+    act(() => findButton(tree, 'Bulk up')!.props.onPress());
     expect(findButton(tree, 'Save changes')).toBeTruthy();
 
     await act(async () => {
@@ -127,7 +127,7 @@ describe('preferences screen', () => {
 
   it('discards edits back to the saved profile', () => {
     const tree = render();
-    act(() => findButton(tree, 'Build muscle')!.props.onPress());
+    act(() => findButton(tree, 'Bulk up')!.props.onPress());
     expect(findButton(tree, 'Discard')).toBeTruthy();
 
     act(() => findButton(tree, 'Discard')!.props.onPress());
@@ -179,7 +179,7 @@ describe('preferences screen', () => {
     const tree = render(profile, async () => {
       throw new Error('No connection.');
     });
-    act(() => findButton(tree, 'Build muscle')!.props.onPress());
+    act(() => findButton(tree, 'Bulk up')!.props.onPress());
     await act(async () => {
       await findButton(tree, 'Save changes')!.props.onPress();
     });
@@ -241,7 +241,7 @@ describe('settings menu', () => {
 
     for (const [label, page] of [
       ['Vitto Plus', 'plus'],
-      ['Animals & forms', 'animal'],
+      ['Shop', 'animal'],
       ['Personality', 'personality'],
       ['What Blue remembers', 'memories'],
       ['Notifications', 'notifications'],
@@ -278,7 +278,7 @@ describe('settings menu', () => {
 
   it('leaves out rows whose page is not wired up', () => {
     const tree = renderMenu({ onBreedChange: undefined, onOpenDeleteAccount: undefined, notificationsOn: null, onOpenMemories: undefined });
-    expect(byLabel(tree, 'Animals & forms')).toBeUndefined();
+    expect(byLabel(tree, 'Shop')).toBeUndefined();
     expect(byLabel(tree, 'Delete account')).toBeUndefined();
     expect(byLabel(tree, 'Notifications')).toBeUndefined();
     expect(byLabel(tree, 'What Blue remembers')).toBeUndefined();
@@ -477,7 +477,7 @@ describe('profile screen → settings', () => {
     expect(screen).not.toContain('About you');
     expect(screen).not.toContain('Your goal');
     expect(screen).not.toContain('Your training');
-    expect(findButton(tree, 'Build muscle')).toBeUndefined();
+    expect(findButton(tree, 'Bulk up')).toBeUndefined();
 
     act(() => byLabel(tree, 'Open settings')!.props.onPress());
     expect(opened).toBe(1);
@@ -604,7 +604,7 @@ describe('activity history page', () => {
     const rendered = json(tree);
     expect(rendered).toContain('Today');
     expect(rendered).toContain('Yesterday');
-    expect(rendered).toContain('2 care moments');
+    expect(rendered).toContain('2 logs');
     tree.unmount();
   });
 

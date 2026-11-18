@@ -116,7 +116,7 @@ describe('meal photo', () => {
     expect(previous.foodDescription).toBe('1 iced matcha latte (~470ml)');
     expect(text).toBe('strawberry matcha with almond milk');
     expect(shows(tree, 'strawberry matcha with almond milk')).toBe(true);
-    expect(byText(tree, 'Add to care log')).toBeTruthy();
+    expect(byText(tree, 'Log meal')).toBeTruthy();
     act(() => tree.unmount());
   });
 });

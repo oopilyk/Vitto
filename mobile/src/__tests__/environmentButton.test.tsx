@@ -11,6 +11,7 @@ const render = (props: Partial<Parameters<typeof EnvironmentButton>[0]> = {}) =>
     tree = renderer.create(
       <EnvironmentButton
         accessibilityLabel="Go to the gym"
+        label="Gym"
         filledSource={filledSource}
         outlineSource={outlineSource}
         isActive={false}
@@ -27,9 +28,10 @@ const images = (tree: renderer.ReactTestRenderer) => tree.root.findAllByType(Ima
 const tintOf = (image: renderer.ReactTestInstance) => StyleSheet.flatten(image.props.style).tintColor;
 
 describe('EnvironmentButton (hotbar icon)', () => {
-  it('renders no text caption', () => {
-    const tree = render();
-    expect(tree.root.findAllByType(Text)).toHaveLength(0);
+  // Icons alone did not say where they went (the lamp is home, the book the mind games).
+  it('names where it goes under the icon', () => {
+    const tree = render({ label: 'Mind' });
+    expect(tree.root.findAllByType(Text).map((t) => t.props.children)).toEqual(['Mind']);
     tree.unmount();
   });
 

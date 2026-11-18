@@ -83,7 +83,7 @@ export function FoodTrendsScreen({ events, profile, onClose }: Props) {
             {(['A', 'B', 'C', 'D'] as const).map((grade) => (
               <View key={grade} style={styles.grade}>
                 <Text style={styles.gradeLetter}>{grade}</Text>
-                <Text style={styles.gradeCount}>{trends.grades[grade]}</Text>
+                <Text style={styles.gradeCount} numberOfLines={1}>{trends.grades[grade]}</Text>
                 <View style={styles.gradeTrack}>
                   <View style={[styles.gradeFill, { width: `${(trends.grades[grade] / graded) * 100}%` }]} />
                 </View>
@@ -99,7 +99,7 @@ export function FoodTrendsScreen({ events, profile, onClose }: Props) {
             {trends.favourites.map((meal) => (
               <View key={meal.name} style={styles.listRow}>
                 <Text style={styles.listName} numberOfLines={1}>{meal.name}</Text>
-                <Text style={styles.listMeta}>
+                <Text style={styles.listMeta} numberOfLines={1}>
                   {meal.count}× · {kcal(meal.calories)} kcal
                 </Text>
               </View>
@@ -134,12 +134,12 @@ const styles = themedStyles(() => ({
   keyLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
   grades: { gap: 10 },
   grade: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  gradeLetter: { width: 18, fontFamily: fonts.ui, fontSize: 17, fontWeight: '700', color: colors.ink },
-  gradeCount: { width: 28, fontFamily: fonts.ui, fontSize: 15, color: colors.muted, fontVariant: ['tabular-nums'] },
+  gradeLetter: { width: 18, flexShrink: 0, fontFamily: fonts.ui, fontSize: 17, fontWeight: '700', color: colors.ink },
+  gradeCount: { width: 28, flexShrink: 0, fontFamily: fonts.ui, fontSize: 15, color: colors.muted, fontVariant: ['tabular-nums'] },
   gradeTrack: { flex: 1, height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.tile },
   gradeFill: { height: 8, borderRadius: 4, backgroundColor: colors.coral },
   list: { borderRadius: 14, overflow: 'hidden', backgroundColor: colors.card },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.divider },
   listName: { flex: 1, fontFamily: fonts.ui, fontSize: 17, color: colors.ink },
-  listMeta: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, fontVariant: ['tabular-nums'] },
+  listMeta: { flexShrink: 0, fontFamily: fonts.ui, fontSize: 15, color: colors.muted, fontVariant: ['tabular-nums'] },
 }));

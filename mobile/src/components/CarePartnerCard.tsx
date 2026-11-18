@@ -132,10 +132,12 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
         {members.map((member) => (
           <View key={member.userId} style={styles.seat}>
             <View style={[styles.seatDot, member.role === 'owner' ? styles.seatDotOwner : styles.seatDotPartner]} />
-            <Text style={[styles.seatName, primary]}>
+            <Text style={[styles.seatName, primary]} numberOfLines={1}>
               {member.userId === carePartner.selfUserId ? 'You' : memberDisplayName(carePartner.members, member.userId)}
             </Text>
-            <Text style={[styles.seatRole, secondary]}>{ROLE_LABEL[member.role]}</Text>
+            <Text style={[styles.seatRole, secondary]} numberOfLines={1}>
+              {ROLE_LABEL[member.role]}
+            </Text>
           </View>
         ))}
         {carePartner.isOwnPet && !shared ? (
@@ -144,13 +146,15 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
             <Text style={[styles.seatName, styles.seatNameEmpty, secondary]}>
               {openInvite ? 'Waiting for your partner' : 'Nobody yet'}
             </Text>
-            <Text style={[styles.seatRole, secondary]}>Partner</Text>
+            <Text style={[styles.seatRole, secondary]} numberOfLines={1}>
+              Partner
+            </Text>
           </View>
         ) : null}
       </View>
 
       {!carePartner.isOwnPet ? (
-        <View style={styles.footer}>
+        <View style={[styles.footer, styles.footerNamed]}>
           <TextButton
             label={`Leave ${petName}`}
             tone="coral"
@@ -200,7 +204,7 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
           ) : null}
 
           {isOwner && shared && carePartner.onRemovePartner ? (
-            <View style={styles.footer}>
+            <View style={[styles.footer, styles.footerNamed]}>
               <TextButton
                 label={`Remove ${partnerName}`}
                 tone="coral"
@@ -284,7 +288,7 @@ const styles = themedStyles(() => ({
   seatDotEmpty: { backgroundColor: 'transparent', borderWidth: 1.5, borderStyle: 'dashed' },
   seatName: { fontFamily: fonts.ui, fontWeight: '600', flex: 1, fontSize: 15, },
   seatNameEmpty: { fontWeight: '400', fontStyle: 'italic' },
-  seatRole: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
+  seatRole: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', flexShrink: 0 },
 
   option: { marginTop: 14, gap: 8 },
   optionLabel: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
@@ -316,6 +320,10 @@ const styles = themedStyles(() => ({
   code: { fontFamily: fonts.ui, fontSize: 34, letterSpacing: 0 },
 
   footer: { flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 6 },
+  // A lone button naming someone ("Remove @a-long-handle", a 40-character
+  // display name): a column, so the label wraps inside the card rather than
+  // running past its edge the way a row's unshrinking button did.
+  footerNamed: { flexDirection: 'column', alignItems: 'stretch' },
   privacy: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, marginTop: 16 },
   error: { ...text.error, fontSize: 16, marginTop: 12 },
 }));

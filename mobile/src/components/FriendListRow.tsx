@@ -64,18 +64,26 @@ export function FriendListRow({ friend, palette, onPress, onLongPress }: Props) 
           {rowName(friend)}
         </Text>
         {status ? (
-          <Text style={styles.status} numberOfLines={1}>
-            <Text style={{ color: healthToneColor(status.health.tone, palette) }}>
+          // Two pieces that wrap between, not one line that ends in "…": at
+          // 320pt "Exhausted · In the kitchen" lost the end of the room.
+          <View style={styles.statusRow}>
+            <Text style={[styles.status, styles.statusPiece, { color: healthToneColor(status.health.tone, palette) }]} numberOfLines={1}>
               {status.health.label}
             </Text>
-            <Text style={{ color: palette.secondaryText }}> · {status.placeLabel}</Text>
-          </Text>
+            <Text style={[styles.status, styles.statusPiece, { color: palette.secondaryText }]} numberOfLines={1}>
+              {`· ${status.placeLabel}`}
+            </Text>
+          </View>
         ) : (
           <Text style={[styles.status, { color: palette.secondaryText }]}>No pet yet</Text>
         )}
       </View>
       {/* The row is a door: say so. A friend with no pet has no room to visit. */}
-      {friend.pet ? <Text style={styles.visit}>Visit ›</Text> : null}
+      {friend.pet ? (
+        <Text style={styles.visit} numberOfLines={1}>
+          Visit ›
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -91,8 +99,10 @@ const styles = themedStyles(() => ({
     borderWidth: 1,
   },
   pressed: { opacity: 0.7 },
-  body: { flex: 1, gap: 3 },
+  body: { flex: 1, minWidth: 0, gap: 3 },
   name: { fontFamily: fonts.pixelBold, fontSize: 20, },
   status: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.2 },
-  visit: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.5, color: colors.coral },
+  statusRow: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 4 },
+  statusPiece: { flexShrink: 0 },
+  visit: { fontFamily: fonts.pixel, fontSize: 14, letterSpacing: 0.5, color: colors.coral, flexShrink: 0 },
 }));

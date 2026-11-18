@@ -100,6 +100,45 @@ describe('mind hub', () => {
     tree.unmount();
   });
 
+  it('reads, answers and saves a Read and recall session from the pinned buttons', async () => {
+    // Arrange
+    const saved: BrainTrainingMetadata[] = [];
+    let closed = 0;
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <MindGymScreen
+          pet={hubPet}
+          onFinish={async (metadata) => {
+            saved.push(metadata);
+          }}
+          onClose={() => {
+            closed += 1;
+          }}
+        />,
+      );
+    });
+
+    // Act — read, answer every question, check, then save.
+    press(buttonWithText(tree, 'Read and recall'));
+    press(buttonWithText(tree, "I've finished reading"));
+    expect(buttonWithText(tree, 'Answer every question')).toBeTruthy();
+    for (const option of tree.root.findAll((node: any) => node.props.accessibilityRole === 'radio' && typeof node.props.onPress === 'function')) {
+      press(option);
+    }
+    press(buttonWithText(tree, 'Check answers'));
+    expect(tree.root.findAllByProps({ testID: 'log-progress' }).length).toBeGreaterThan(0);
+    await act(async () => {
+      buttonWithText(tree, 'Log session')!.props.onPress();
+    });
+
+    // Assert
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.game).toBe('reading');
+    expect(closed).toBe(1);
+    tree.unmount();
+  });
+
   it('opens Four Corners on its own route rather than as a stage here', () => {
     // Arrange
     let opened = 0;

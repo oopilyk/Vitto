@@ -14,6 +14,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { layout, text, themedStyles } from '../theme';
+import { FitText } from './FitText';
 import { DoneTextInput, PressableScale, PrimaryButton, TextButton, haptic, keypadWithoutReturn, Mark } from './ui';
 import { colors, fonts } from '../theme';
 import { useReducedMotion } from '../hooks/useReducedMotion';
@@ -371,7 +372,9 @@ const SEGMENT_INSET = 2;
  * Two to four short, mutually exclusive options on one track (Metric |
  * Imperial), as iOS draws them: a raised thumb that springs across to the
  * option picked. Labels may wrap to two lines rather than squash, so a long one
- * like "Prefer not to say" still sits well beside "Male".
+ * like "Prefer not to say" still sits well beside "Male"; a single word too
+ * wide for its quarter ("Breakfast" on a 320pt phone) shrinks rather than
+ * breaking in the middle.
  */
 export function SegmentedControl<T extends string>({
   options,
@@ -413,7 +416,9 @@ export function SegmentedControl<T extends string>({
             }}
             style={({ pressed }) => [kit.segment, pressed && !on && kit.pressed]}
           >
-            <Text style={[kit.segmentLabel, on && kit.segmentLabelOn]}>{option.label}</Text>
+            <FitText style={[kit.segmentLabel, on && kit.segmentLabelOn]} lines={2}>
+              {option.label}
+            </FitText>
           </Pressable>
         );
       })}

@@ -105,8 +105,10 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
             </View>
             <View style={styles.detail}>
               <View style={styles.titleRow}>
-                <Text style={styles.title}>Base</Text>
-                <Text style={[styles.status, styles.statusEarned]}>
+                <Text style={styles.title} numberOfLines={1}>
+                  Base
+                </Text>
+                <Text style={[styles.status, styles.statusEarned]} numberOfLines={1}>
                   {isWorn ? 'Wearing' : switchable ? 'Tap to wear' : 'Unlocked'}
                 </Text>
               </View>
@@ -135,14 +137,21 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
               </View>
               <View style={styles.detail}>
                 <View style={styles.titleRow}>
-                  <Text style={styles.title}>{entry.earned ? PET_BUILD_LABEL[entry.build] : `${PET_BUILD_LABEL[entry.build]}?`}</Text>
-                  {entry === closest && entry.progress > 0 ? <Text style={styles.closest}>closest</Text> : null}
-                  <Text style={[styles.status, entry.earned && styles.statusEarned]}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {entry.earned ? PET_BUILD_LABEL[entry.build] : `${PET_BUILD_LABEL[entry.build]}?`}
+                  </Text>
+                  {entry === closest && entry.progress > 0 ? (
+                    <Text style={styles.closest} numberOfLines={1}>
+                      closest
+                    </Text>
+                  ) : null}
+                  {/* Just the percent while locked: the silhouette and the "?" already say locked. */}
+                  <Text style={[styles.status, entry.earned && styles.statusEarned]} numberOfLines={1}>
                     {isWorn
                       ? 'Wearing'
                       : entry.earned
                         ? switchable ? 'Tap to wear' : 'Earned'
-                        : `Locked · ${Math.round(entry.progress * 100)}%`}
+                        : `${Math.round(entry.progress * 100)}%`}
                   </Text>
                 </View>
                 <View style={styles.track}>
@@ -164,11 +173,11 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
 }
 
 const styles = themedStyles(() => ({
+  // The house card: no outline, rounder, continuous corners.
   card: {
     backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 12,
+    borderRadius: 18,
+    borderCurve: 'continuous',
     padding: 18,
   },
   hint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 6, lineHeight: 18 },
@@ -178,30 +187,31 @@ const styles = themedStyles(() => ({
     gap: 12,
     marginTop: 12,
     padding: 10,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderCurve: 'continuous',
     backgroundColor: colors.cardSoft,
-    borderWidth: 1,
-    borderColor: 'transparent',
   },
-  rowWorn: { borderColor: colors.mintDeep },
+  // The form being worn: a soft green fill rather than an outline.
+  rowWorn: { backgroundColor: colors.mint },
   silhouette: { width: SILHOUETTE, height: SILHOUETTE },
   detail: { flex: 1, gap: 6 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { ...text.heading, fontSize: 20, color: colors.ink },
+  title: { ...text.heading, fontSize: 20, color: colors.ink, flexShrink: 1 },
   closest: {
+    flexShrink: 0,
     fontFamily: fonts.ui,
     fontSize: 12,
-    color: colors.coral,
-    borderWidth: 1,
-    borderColor: colors.coral,
+    fontWeight: '600',
+    color: colors.coralDeep,
+    backgroundColor: colors.selectedFill,
     borderRadius: 6,
     paddingHorizontal: 5,
     paddingVertical: 1,
     overflow: 'hidden',
   },
-  status: { marginLeft: 'auto', fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
+  status: { marginLeft: 'auto', flexShrink: 0, fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
   statusEarned: { color: colors.mintDeep },
-  track: { height: 8, borderRadius: 12, backgroundColor: colors.hairline, overflow: 'hidden' },
+  track: { height: 8, borderRadius: 12, backgroundColor: colors.track, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 12, backgroundColor: colors.coral },
   fillEarned: { backgroundColor: colors.mintDeep },
   needs: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, lineHeight: 16 },

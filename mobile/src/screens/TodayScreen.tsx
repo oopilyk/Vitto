@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type StyleProp,
   type TextStyle,
 } from 'react-native';
@@ -49,6 +50,7 @@ import {
 } from '@vitto/core';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
+import { FitText } from '../components/FitText';
 import { NutrientRing } from '../components/NutrientRing';
 import { ChoiceRow, PressableScale, TextButton, DoneTextInput, Mark } from '../components/ui';
 import { isNightTime } from '../petWorld/timeOfDay';
@@ -277,6 +279,11 @@ export function TodayScreen({
   // as the type on them. Deciding those two separately once put the night's
   // cream type on the day's cream panels in dark mode.
   const night = isNightTime() || getColorScheme() === 'dark';
+  // Three rings across the food card: 84 each, less on a phone too narrow for
+  // three (on a 320pt screen they overlapped). Page gutters 36, card padding 32,
+  // gaps 8.
+  const { width: windowWidth } = useWindowDimensions();
+  const ringSize = Math.min(84, Math.floor((Math.min(windowWidth, SETTINGS_MAX_WIDTH) - 76) / 3));
   const c = night ? nightColors : dayColors;
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {
@@ -381,7 +388,7 @@ export function TodayScreen({
 
           <View style={[styles.glanceRow, { borderTopColor: c.hairline }]}>
             {shows('training', gym.done) ? (
-              <Glance label="GYM" value={gym.done ? '✓' : '—'} on={gym.done} c={c} />
+              <Glance label="GYM" value={gym.trainingDone ? '✓' : '—'} on={gym.trainingDone} c={c} />
             ) : null}
             {shows('movement', outdoors.steps > 0) ? (
               <Glance
@@ -430,7 +437,7 @@ export function TodayScreen({
                 ? `Log a meal and ${petName} eats well too.`
                 : food.someMealsUnanalyzed
                   ? `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} logged — one analysis was incomplete, so this total is approximate.`
-                  : `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} · ${food.caloriePercent}% of today's fuel`
+                  : `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} · ${food.caloriePercent}% of today's calories`
             }
           >
             {/* What's been eaten, burned and left, as the day's three rings. */}
@@ -440,7 +447,7 @@ export function TodayScreen({
                 percent={(food.consumed.calories / food.targets.calories) * 100}
                 label="Consumed"
                 color="#c56a4e"
-                size={84}
+                size={ringSize}
                 tone={c}
               />
               <NutrientRing
@@ -448,7 +455,7 @@ export function TodayScreen({
                 percent={(burned / food.targets.calories) * 100}
                 label="Burned"
                 color="#78a598"
-                size={84}
+                size={ringSize}
                 tone={c}
               />
               <NutrientRing
@@ -457,7 +464,7 @@ export function TodayScreen({
                 label={remaining < 0 ? 'Over' : 'Remaining'}
                 color={remaining < 0 ? '#c0503d' : '#9c8dba'}
                 emphasis={remaining < 0}
-                size={84}
+                size={ringSize}
                 tone={c}
               />
             </View>
@@ -477,7 +484,7 @@ export function TodayScreen({
                   ] as const
                 ).map(([label, value, target]) => (
                   <View key={label} style={styles.macroRow}>
-                    <Text style={[styles.macroLabel, { color: c.soft }]}>{label}</Text>
+                    <Text style={[styles.macroLabel, { color: c.soft }]} numberOfLines={1}>{label}</Text>
                     <View style={[styles.macroTrack, { backgroundColor: c.track }]}>
                       <View
                         style={[
@@ -486,7 +493,7 @@ export function TodayScreen({
                         ]}
                       />
                     </View>
-                    <Text style={[styles.macroValue, { color: c.ink }]}>
+                    <Text style={[styles.macroValue, { color: c.ink }]} numberOfLines={1}>
                       {Math.round(value)}
                       <Text style={[styles.macroTarget, { color: c.soft }]}> / {target}g</Text>
                     </Text>
@@ -536,11 +543,11 @@ export function TodayScreen({
                           const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
                           const row = (
                             <>
-                              <Text style={[styles.foodLogTime, { color: c.soft }]}>
+                              <Text style={[styles.foodLogTime, { color: c.soft }]} numberOfLines={1}>
                                 {new Date(meal.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                               </Text>
                               <Text style={[styles.foodLogName, { color: c.ink }]} numberOfLines={2}>{name}</Text>
-                              <Text style={[styles.foodLogKcal, { color: c.ink }]}>
+                              <Text style={[styles.foodLogKcal, { color: c.ink }]} numberOfLines={1}>
                                 {analysis ? `${calorieEstimate(analysis.macros).toLocaleString()} kcal` : '—'}
                               </Text>
                             </>
@@ -584,7 +591,7 @@ export function TodayScreen({
             night={night}
             kicker="OUTDOORS"
             more={onOpenStepTrends ? { label: 'Trends & averages', onPress: onOpenStepTrends } : undefined}
-            done={outdoors.goalReached}
+            done={outdoors.goalReached || outdoors.cardioDone}
             xp={outdoors.xp}
             headline={`${outdoors.steps.toLocaleString()} / ${outdoors.goal.toLocaleString()} steps`}
             actions={
@@ -631,7 +638,7 @@ export function TodayScreen({
             night={night}
             kicker="GYM"
             more={onOpenLiftProgress ? { label: 'Lift progress', onPress: onOpenLiftProgress } : undefined}
-            done={gym.done}
+            done={gym.trainingDone}
             xp={gym.xp}
             headline={
               gym.done
@@ -747,7 +754,7 @@ export function TodayScreen({
                   <Text style={[styles.activityLabel, { color: c.ink }]} numberOfLines={1}>
                     {event.type === 'MEAL' ? mealLogName(event) : describeRow(group, measurementSystemOf(profile))}
                   </Text>
-                  <Text style={[styles.activityTime, { color: c.soft }]}>
+                  <Text style={[styles.activityTime, { color: c.soft }]} numberOfLines={1}>
                     {new Date(event.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                   </Text>
                   {tappable ? <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text> : null}
@@ -1036,11 +1043,15 @@ function Pillar({
               </View>
             ) : null}
           </View>
-          <Text style={[styles.pillarHeadline, { color: c.ink }]}>{headline}</Text>
+          {/* "8,432 / 10,000 steps" beside the XP chip on a 320pt phone: shrinks a
+              little rather than leaving "steps" alone on a second line. */}
+          <FitText style={[styles.pillarHeadline, { color: c.ink }]} minScale={0.8}>
+            {headline}
+          </FitText>
         </View>
         {xp && xp > 0 ? (
           <View style={[styles.xpChip, { borderColor: world.accent }]}>
-            <Text style={[styles.xpChipText, { color: world.accentDeep }]}>+{xp} XP</Text>
+            <Text style={[styles.xpChipText, { color: world.accentDeep }]} numberOfLines={1}>+{xp} XP</Text>
           </View>
         ) : null}
       </View>
@@ -1342,7 +1353,7 @@ const styles = themedStyles(() => ({
   moreChevron: { fontFamily: fonts.ui, fontSize: 22, lineHeight: 22, marginTop: -2 },
   pillarActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginTop: 4 },
   pillarAction: { fontFamily: fonts.ui, fontSize: 12, letterSpacing: 0 },
-  xpChip: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  xpChip: { flexShrink: 0, borderWidth: 1, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
   xpChipText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0 },
   caloriesLine: { fontFamily: fonts.ui, fontSize: 12, marginTop: 2 },
   syncNote: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, marginTop: 8 },
@@ -1386,11 +1397,11 @@ const styles = themedStyles(() => ({
   foodLogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   foodLogTitle: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0 },
   foodLogRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  foodLogTime: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 18, width: 62 },
+  foodLogTime: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 18, width: 62, flexShrink: 0 },
   foodLogName: { flex: 1, fontFamily: fonts.ui, fontSize: 13, lineHeight: 16 },
-  foodLogKcal: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 16 },
+  foodLogKcal: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 16, flexShrink: 0 },
   macroRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  macroLabel: { width: 48, fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0 },
+  macroLabel: { width: 48, flexShrink: 0, fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0 },
   macroTrack: { flex: 1, minWidth: 0, height: 4, borderRadius: 6, overflow: 'hidden' },
   macroFill: { height: '100%', backgroundColor: world.accent },
   macroValue: {
@@ -1398,6 +1409,7 @@ const styles = themedStyles(() => ({
     fontSize: 12,
     
     minWidth: 72,
+    flexShrink: 0,
     textAlign: 'right',
   },
   macroTarget: { fontWeight: '400' },
@@ -1418,7 +1430,7 @@ const styles = themedStyles(() => ({
   activityRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   activityCheck: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, },
   activityLabel: { fontFamily: fonts.ui, fontSize: 13, flex: 1 },
-  activityTime: { fontFamily: fonts.ui, fontSize: 12 },
+  activityTime: { fontFamily: fonts.ui, fontSize: 12, flexShrink: 0 },
   activityHint: { fontFamily: fonts.ui, fontSize: 12, marginTop: 8 },
   activityMore: { fontFamily: fonts.ui, fontSize: 12, marginTop: 10 },
 

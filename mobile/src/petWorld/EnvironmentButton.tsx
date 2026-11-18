@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Image, type ImageSourcePropType, Pressable, View } from 'react-native';
-import { world, themedStyles } from '../theme';
+import { Animated, Image, type ImageSourcePropType, Pressable, Text, View } from 'react-native';
+import { fonts, world, themedStyles } from '../theme';
 
 /**
  * One icon on the bottom hotbar (`EnvironmentActionRow`). Warm-cream glyph art
@@ -12,8 +12,11 @@ import { world, themedStyles } from '../theme';
  *  - night           -- every icon carries the keyline so a dim glyph never
  *    vanishes against a dark bar over a dark scene.
  */
-const ICON_SIZE = 40;
-const SLOT_SIZE = 48;
+const ICON_SIZE = 34;
+// Five slots plus the bar's edge padding must fit a 320pt screen (5 x 56 + 28):
+// at 60 the last icon ran off the edge. "OUTSIDE", the widest label, is ~44pt.
+const SLOT_WIDTH = 56;
+const SLOT_HEIGHT = 56;
 
 const GLYPH = '#f2e8d4'; // warm cream
 const KEYLINE = '#f2e8d4';
@@ -30,6 +33,11 @@ export interface EnvironmentButtonProps {
   accessibilityLabel: string;
   filledSource: ImageSourcePropType;
   outlineSource: ImageSourcePropType;
+  /**
+   * The word under the icon. Icons alone did not say where they went: the
+   * lamp is home and the book is the mind games, which nobody guessed.
+   */
+  label: string;
   isActive: boolean;
   night: boolean;
   onPress: () => void;
@@ -39,6 +47,7 @@ export function EnvironmentButton({
   accessibilityLabel,
   filledSource,
   outlineSource,
+  label,
   isActive,
   night,
   onPress,
@@ -95,6 +104,9 @@ export function EnvironmentButton({
           </View>
         ) : null}
       </View>
+      <Text style={[styles.label, { opacity }, isActive && styles.labelActive]} numberOfLines={1}>
+        {label}
+      </Text>
       <Animated.View
         pointerEvents="none"
         style={[styles.pedestal, { opacity: pedestal, transform: [{ scaleX: pedestal }] }]}
@@ -104,7 +116,7 @@ export function EnvironmentButton({
 }
 
 const styles = themedStyles(() => ({
-  slot: { width: SLOT_SIZE, height: SLOT_SIZE, alignItems: 'center', justifyContent: 'center' },
+  slot: { width: SLOT_WIDTH, height: SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center', gap: 2 },
   pressed: { opacity: 0.6, transform: [{ scale: 0.9 }] },
   iconBox: { width: ICON_SIZE, height: ICON_SIZE, alignItems: 'center', justifyContent: 'center' },
   icon: { width: ICON_SIZE, height: ICON_SIZE },
@@ -117,9 +129,19 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  label: {
+    fontFamily: fonts.systemMono,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: GLYPH,
+    flexShrink: 0,
+  },
+  labelActive: { color: '#fff8ec' },
   pedestal: {
     position: 'absolute',
-    bottom: 2,
+    bottom: -3,
     width: 18,
     height: 3,
     borderRadius: 1,

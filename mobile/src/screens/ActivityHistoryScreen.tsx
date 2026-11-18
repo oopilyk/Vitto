@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionSheetIOS, Alert, Platform, Pressable, Text, View } from 'react-native';
+import { ActionSheetIOS, Platform, Pressable, Text, View } from 'react-native';
 import {
   isCareMoment,
   BRAIN_GAME_LABEL,
@@ -17,6 +17,7 @@ import {
 } from '@vitto/core';
 import { MealDiaryRow } from '../components/MealDiaryRow';
 import { SettingsPage } from '../components/settingsKit';
+import { showAlert } from '../services/dialog';
 import { formatMinutes } from '../services/minutes';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -120,8 +121,9 @@ export const logName = (event: HealthEvent): string =>
   event.type === 'MEAL' ? 'meal' : event.type === 'WORKOUT' ? 'workout' : event.type === 'BODY_WEIGHT' ? 'weigh-in' : 'entry';
 
 /**
- * Edit or Delete for one log, as iOS's own action sheet. Shared by every list
- * a log is shown in, so a log is changed the same way wherever it is tapped.
+ * Edit or Delete for one log, as iOS's own action sheet (the browser's boxes
+ * on web). Shared by every list a log is shown in, so a log is changed the
+ * same way wherever it is tapped.
  */
 export const askEditOrDelete = (
   event: HealthEvent,
@@ -141,7 +143,7 @@ export const askEditOrDelete = (
     );
     return;
   }
-  Alert.alert(title, undefined, [
+  showAlert(title, undefined, [
     ...(edit ? [{ text: 'Edit', onPress: edit }] : []),
     ...(remove ? [{ text: 'Delete', style: 'destructive' as const, onPress: remove }] : []),
     { text: 'Cancel', style: 'cancel' as const },
@@ -180,7 +182,7 @@ export function ActivityHistoryScreen({
   return (
     <SettingsPage
       title="Activity history"
-      lead={events.length ? `${events.filter(isCareMoment).length} care moments, newest first.` : undefined}
+      lead={events.length ? `${events.filter(isCareMoment).length} logs, newest first.` : undefined}
       backLabel="Profile"
       onBack={onClose}
     >

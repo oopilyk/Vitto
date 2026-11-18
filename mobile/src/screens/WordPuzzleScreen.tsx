@@ -20,6 +20,7 @@ import {
 } from '@vitto/core';
 import { WordPuzzleGrid } from '../components/WordPuzzleGrid';
 import { WordPuzzleKeyboard } from '../components/WordPuzzleKeyboard';
+import { FitText } from '../components/FitText';
 import { CloseButton, ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { type WordPuzzleProgress } from '../services/localRepository';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
@@ -263,7 +264,7 @@ export function WordPuzzleScreen({
                 <ErrorText>{error}</ErrorText>
                 <View style={styles.actions}>
                   <PrimaryButton
-                    label={saving ? 'Saving...' : 'Add to care log'}
+                    label={saving ? 'Saving...' : 'Log session'}
                     busy={saving}
                     onPress={() => void save()}
                   />
@@ -321,7 +322,10 @@ function ScoreCard({
     <View style={[layout.card, styles.scoreCard]} testID="word-score">
       <View style={styles.scoreHead}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.scoreLabel}>{solved ? `Solved in ${used} of ${maxGuesses}` : 'Not this time'}</Text>
+          {/* Beside the points on a 320pt phone: shrinks a touch rather than leaving "6" alone on a line. */}
+          <FitText style={styles.scoreLabel} minScale={0.85}>
+            {solved ? `Solved in ${used} of ${maxGuesses}` : 'Not this time'}
+          </FitText>
           <Text style={styles.scoreMeta}>
             {!solved ? 'The word was' : used <= 2 ? 'Brilliant.' : used <= 4 ? 'Nice work.' : 'Got there in the end.'}
           </Text>
@@ -391,7 +395,7 @@ const styles = themedStyles(() => ({
   scoreHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   scoreLabel: { ...text.heading, fontSize: 20, fontWeight: '700' },
   scoreMeta: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted, marginTop: 4 },
-  points: { alignItems: 'flex-end' },
+  points: { alignItems: 'flex-end', flexShrink: 0 },
   pointsValue: { fontFamily: fonts.ui, fontSize: 22, fontWeight: '700', color: colors.coralDeep, fontVariant: ['tabular-nums'] },
   pointsUnit: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
   pips: { flexDirection: 'row', gap: 6 },

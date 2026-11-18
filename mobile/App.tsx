@@ -1387,7 +1387,7 @@ function VittoApp() {
         void tellCompanion(storedEvent, nextPet, detectLevelUp(pet, nextPet) !== null).finally(() => setAwaitingPetLine(false));
       }
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not save this care moment.'));
+      setError(errorMessage(cause, 'Could not save that. Try again in a moment.'));
       throw cause;
     } finally {
       releasePetWrite();
@@ -3610,6 +3610,7 @@ function VittoApp() {
                     templates={workoutTemplates}
                     lastSets={lastSets}
                     history={events}
+                    weeklyWorkoutGoal={profile.trainingDaysPerWeek}
                     onSaveTemplate={saveWorkoutTemplate}
                     onDeleteTemplate={deleteWorkoutTemplate}
                     schedule={trainingSchedule}

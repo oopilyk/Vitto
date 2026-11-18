@@ -135,20 +135,20 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
         <View style={styles.guesses}>
           {guesses.map((feedback, index) => (
             <View key={feedback.country.code} style={[styles.guessRow, feedback.correct && styles.guessRowRight]}>
-              <Text style={styles.guessIndex}>{index + 1}</Text>
+              <Text style={styles.guessIndex} numberOfLines={1}>{index + 1}</Text>
               <Text style={styles.guessFlag}>{flagEmoji(feedback.country.code)}</Text>
               <Text style={styles.guessName} numberOfLines={1}>
                 {feedback.country.name}
               </Text>
               {feedback.correct ? (
-                <Text style={styles.guessRight}>Correct!</Text>
+                <Text style={styles.guessRight} numberOfLines={1}>Correct!</Text>
               ) : (
                 <>
-                  <Text style={styles.guessDistance}>{formatDistance(feedback.distanceKm)}</Text>
+                  <Text style={styles.guessDistance} numberOfLines={1}>{formatDistance(feedback.distanceKm)}</Text>
                   <Text style={styles.guessArrow} accessibilityLabel={`Look ${feedback.direction}`}>
                     {DIRECTION_ARROWS[feedback.direction]}
                   </Text>
-                  <Text style={styles.guessProximity}>{feedback.proximity}%</Text>
+                  <Text style={styles.guessProximity} numberOfLines={1}>{feedback.proximity}%</Text>
                 </>
               )}
             </View>
@@ -236,13 +236,13 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.card,
   },
   guessRowRight: { borderColor: colors.mintDeep, backgroundColor: colors.mint },
-  guessIndex: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, width: 12 },
-  guessFlag: { fontFamily: fonts.ui, fontSize: 20 },
-  guessName: { fontFamily: fonts.ui, flex: 1, fontSize: 15, fontWeight: '500', color: colors.ink },
-  guessDistance: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSoft },
-  guessArrow: { fontFamily: fonts.ui, fontSize: 20, color: colors.coralDeep, width: 22, textAlign: 'center' },
-  guessProximity: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, width: 36, textAlign: 'right' },
-  guessRight: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.mintDeep },
+  guessIndex: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, width: 12, flexShrink: 0 },
+  guessFlag: { fontFamily: fonts.ui, fontSize: 20, flexShrink: 0 },
+  guessName: { fontFamily: fonts.ui, flex: 1, minWidth: 0, fontSize: 15, fontWeight: '500', color: colors.ink },
+  guessDistance: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSoft, flexShrink: 0 },
+  guessArrow: { fontFamily: fonts.ui, fontSize: 20, color: colors.coralDeep, width: 22, textAlign: 'center', flexShrink: 0 },
+  guessProximity: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, width: 36, textAlign: 'right', flexShrink: 0 },
+  guessRight: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.mintDeep, flexShrink: 0 },
   entryBox: { marginBottom: 4 },
   input: { fontFamily: fonts.ui, fontSize: 17 },
   suggestions: {

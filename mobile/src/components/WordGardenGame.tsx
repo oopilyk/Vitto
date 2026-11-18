@@ -18,6 +18,7 @@ import {
 } from '@vitto/core';
 import { colors, fonts, text, themedStyles } from '../theme';
 import { PrimaryButton, TextButton } from './ui';
+import { FitText } from './FitText';
 
 interface Props {
   onFinish: (metadata: BrainTrainingMetadata, summary: string[]) => void;
@@ -118,23 +119,27 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
   return (
     <>
       <View style={styles.stageRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.stageName}>{stage.name}</Text>
-          <Text style={styles.stageHint}>
+        {/* Fitted to one line each: beside the run chip and the points this
+            column is ~96pt at 320pt, and "15 to Blossoming" broke in two. */}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <FitText style={styles.stageName} minScale={0.8}>
+            {stage.name}
+          </FitText>
+          <FitText style={styles.stageHint} minScale={0.85}>
             {next ? `${next.points - points} to ${next.stage.name}` : 'Nothing left to grow'}
-          </Text>
+          </FitText>
         </View>
         <View
           accessible
           accessibilityLabel={`Run multiplier ×${multiplier}`}
           style={[styles.runChip, multiplier > 1 && styles.runChipHot]}
         >
-          <Text style={[styles.runValue, multiplier > 1 && styles.runValueHot]}>{`×${multiplier}`}</Text>
-          <Text style={[styles.runLabel, multiplier > 1 && styles.runValueHot]}>
+          <Text style={[styles.runValue, multiplier > 1 && styles.runValueHot]} numberOfLines={1}>{`×${multiplier}`}</Text>
+          <Text style={[styles.runLabel, multiplier > 1 && styles.runValueHot]} numberOfLines={1}>
             {nextStep ? `${nextStep - streak} more for ×${multiplier + 1}` : 'max run'}
           </Text>
         </View>
-        <Text style={styles.points}>
+        <Text style={styles.points} numberOfLines={1}>
           <Text style={styles.pointsValue}>{points}</Text> pts
         </Text>
       </View>
@@ -247,6 +252,7 @@ const styles = themedStyles(() => ({
   stageName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
   stageHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 3 },
   runChip: {
+    flexShrink: 0,
     alignItems: 'center',
     paddingVertical: 5,
     paddingHorizontal: 10,
@@ -259,7 +265,7 @@ const styles = themedStyles(() => ({
   runValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.inkSoft },
   runValueHot: { color: colors.coralDeep },
   runLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.faint, marginTop: 1 },
-  points: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
+  points: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, flexShrink: 0 },
   pointsValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: colors.ink },
   track: { height: 6, borderRadius: 6, backgroundColor: colors.hairline, overflow: 'hidden', marginBottom: 14 },
   trackFill: { height: 6, borderRadius: 6, backgroundColor: colors.mintDeep },
