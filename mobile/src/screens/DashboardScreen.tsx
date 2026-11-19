@@ -1,3 +1,4 @@
+import type { WeighInPromptProps } from '../petWorld/WeighInPrompt';
 import { useEffect, useRef, useState } from 'react';
 import { useScreenFocused } from '../hooks/useScreenFocused';
 import { FirstRunTour, TourProvider, type TourPage, type TourStep } from '../tour/FirstRunTour';
@@ -91,6 +92,8 @@ interface Props {
   /** Opens the full stat sheet — the level ring on the pet is the way in. */
   onOpenStats: () => void;
   /** Opens the day's detail (nutrition, care, movement, mind). */
+  /** The day's weigh-in, asked for on Home until it is done. */
+  weighIn?: WeighInPromptProps;
   onOpenToday: () => void;
   /** How much of today's goals are done, 0-100, for the TODAY button. */
   todayProgress?: number;
@@ -163,6 +166,7 @@ export function DashboardScreen({
   onOpenProfile,
   onOpenSettings,
   onOpenStats,
+  weighIn,
   onOpenToday,
   todayProgress,
   todayGoals,
@@ -310,6 +314,7 @@ export function DashboardScreen({
           onOpenSettings={onOpenSettings}
           onOpenStats={onOpenStats}
           onOpenToday={onOpenToday}
+          weighIn={weighIn}
           onOpenFriends={onOpenFriends}
           pets={pets}
           activePetId={activePetId}

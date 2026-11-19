@@ -5,6 +5,7 @@ import {
   type HealthEvent,
   type PetState,
   convertWeightValue,
+  petJournal,
   weeklyRecap,
 } from '@vitto/core';
 import { SettingsPage, SettingsSection } from '../components/settingsKit';
@@ -38,6 +39,7 @@ const versus = (now: number, before: number, noun = '') => {
 export function WeeklyRecapScreen({ pet, events, profile, stepGoal, onClose, backLabel = 'Today' }: Props) {
   const recap = useMemo(() => weeklyRecap(events, profile, stepGoal), [events, profile, stepGoal]);
   const unit = profile.weightUnit;
+  const journal = useMemo(() => petJournal(pet, recap), [pet, recap]);
   const headline =
     recap.workouts + recap.mealDays + recap.mindSessions === 0
       ? `A quiet week. ${pet.name} is ready for the next one.`
@@ -45,6 +47,14 @@ export function WeeklyRecapScreen({ pet, events, profile, stepGoal, onClose, bac
 
   return (
     <SettingsPage title="Your week" lead={range(recap.start, recap.end)} backLabel={backLabel} onBack={onClose}>
+      {/* The pet's own account of the week leads: how it is, what it made of
+          the week, what it thinks of you. The numbers follow. */}
+      <View style={styles.journal} testID="pet-journal">
+        <Text style={styles.journalKicker}>{`${pet.name.toUpperCase()}'S JOURNAL`}</Text>
+        <Text style={styles.journalText}>{`${journal.status} ${journal.week}`}</Text>
+        <Text style={[styles.journalText, styles.journalOwner]}>{journal.owner}</Text>
+        <Text style={styles.journalSign}>{`— ${pet.name}`}</Text>
+      </View>
       <Text style={styles.headline} testID="weekly-headline">{headline}</Text>
 
       <SettingsSection title="Training" first>
@@ -93,6 +103,11 @@ export function WeeklyRecapScreen({ pet, events, profile, stepGoal, onClose, bac
 }
 
 const styles = themedStyles(() => ({
+  journal: { marginTop: 14, padding: 16, gap: 8, borderRadius: 16, borderCurve: 'continuous', backgroundColor: colors.card },
+  journalKicker: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0.6, color: colors.muted },
+  journalText: { fontFamily: fonts.ui, fontSize: 16, lineHeight: 23, color: colors.ink },
+  journalOwner: { fontWeight: '600' },
+  journalSign: { fontFamily: fonts.ui, fontSize: 14, color: colors.muted, textAlign: 'right' },
   headline: { fontFamily: fonts.ui, fontSize: 17, lineHeight: 24, color: colors.ink, marginTop: 14 },
   records: { marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: colors.card },
   recordsKicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.8, fontWeight: '700', color: colors.coral },

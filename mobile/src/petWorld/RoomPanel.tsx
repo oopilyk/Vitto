@@ -185,7 +185,23 @@ const ACTION_BAR_LIFT = 10;
  */
 export function PanelPage({ footer, children }: { footer?: ReactNode; children: ReactNode }) {
   const { task, close } = useRoomTask();
-  const footerSpace = footer ? ACTION_BAR_HEIGHT + ACTION_BAR_LIFT : 0;
+  // While the keyboard is up the page reaches the screen's bottom edge (see
+  // RoomPanel) and the pinned bar would be under the keys, or on Android
+  // riding on top of them. So it steps aside, and its space goes with it: a
+  // logger's keyboard avoidance takes its own bottom to be the screen's, and
+  // with the bar's space still held its Log button floated that far above the keys.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setTyping(true));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setTyping(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  const showFooter = Boolean(footer) && !typing;
+  const footerSpace = showFooter ? ACTION_BAR_HEIGHT + ACTION_BAR_LIFT : 0;
   return (
     <View style={styles.task}>
       {task?.keepBars ? (
@@ -195,14 +211,18 @@ export function PanelPage({ footer, children }: { footer?: ReactNode; children: 
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.content, footer ? { paddingBottom: footerSpace + 18 } : null]}
+          contentContainerStyle={[styles.content, showFooter ? { paddingBottom: footerSpace + 18 } : null]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          // A field on the room's own page (Outside's distance): iOS keeps it
+          // above the keys and scrolls to it; a drag puts the keyboard away.
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="on-drag"
         >
           {children}
         </ScrollView>
       )}
-      {footer ? (
+      {showFooter ? (
         <View pointerEvents="box-none" style={styles.footer}>
           {footer}
         </View>

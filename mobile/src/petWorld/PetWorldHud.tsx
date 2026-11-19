@@ -26,6 +26,7 @@ import { LevelRing } from './LevelRing';
 import { canListen, PetMicButton } from './PetMicButton';
 import { chromeScaleFor, topInsetFor } from './chromeScale';
 import { RETRO_BORDER_WIDTH, retro, retroPressed } from './retroStyle';
+import { WeighInPrompt, type WeighInPromptProps } from './WeighInPrompt';
 import { ENVIRONMENT_LABEL, type EnvironmentId } from './types';
 
 /** The product owner's own friends glyph, tinted per day/night at render time. */
@@ -115,6 +116,8 @@ interface PetWorldHudProps {
   activePetId?: string | null;
   onSelectPet?: (petId: string) => void;
   partnerName?: string;
+  /** The day's weigh-in on Home (see WeighInPrompt); absent hides it. */
+  weighIn?: WeighInPromptProps;
   /** Switches the chrome to a dark-panel/bright-text treatment so it stays
    * legible over the night backgrounds. */
   night?: boolean;
@@ -192,6 +195,7 @@ export function PetWorldHud({
   activePetId,
   onSelectPet,
   partnerName,
+  weighIn,
   night,
   canLogSleep,
 }: PetWorldHudProps) {
@@ -539,6 +543,11 @@ export function PetWorldHud({
         <View style={[styles.mic, { bottom: navBarHeight(chromeScale) + 14 }]} pointerEvents="box-none">
           <PetMicButton petName={pet.name} onSay={onTalk} busy={talking} night={night} size={MIC} />
         </View>
+      ) : null}
+
+      {/* Home only, bottom left across from the mic: the day's weigh-in, until it is done. */}
+      {weighIn && environment === 'main' ? (
+        <WeighInPrompt {...weighIn} bottom={navBarHeight(chromeScale) + 14} night={night} />
       ) : null}
 
       <CareToastBanner toast={careToast} night={night} />

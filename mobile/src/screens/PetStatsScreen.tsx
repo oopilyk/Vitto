@@ -529,7 +529,8 @@ const styles = themedStyles(() => ({
   feelingWhy: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 7, lineHeight: 17 },
   shareButton: { justifyContent: 'flex-end' },
   sharePressed: { opacity: 0.6 },
-  shareLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.coral },
+  // Matches the back label opposite it: the two nav-bar buttons read as a pair.
+  shareLabel: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral },
   moodRow: { marginTop: 18 },
   moodValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
   moodHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 5, lineHeight: 20 },

@@ -3447,6 +3447,16 @@ function VittoApp() {
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenSettings={() => navigation.navigate('Settings', { from: 'Pet' })}
               onOpenStats={() => navigation.navigate('PetStats')}
+              weighIn={
+                isOwnPet(livePet, userId)
+                  ? {
+                      unit: profile.weightUnit,
+                      recentKg: weighIns(events).map((entry) => ({ at: entry.at, kg: entry.kg })),
+                      onLog: logWeight,
+                      onOpenChart: () => navigation.navigate('Weight'),
+                    }
+                  : undefined
+              }
               onOpenToday={() => navigation.navigate('Today')}
               todayProgress={todayProgress}
               todayGoals={todayGoals}
