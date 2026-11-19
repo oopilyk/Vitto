@@ -48,3 +48,19 @@ export const ROOM_THEME_PREVIEWS = Object.fromEntries(
       : ROOM_ORDER.map((room) => THEME_ART[theme][room].day.art),
   ]),
 ) as Record<RoomTheme, number[]>;
+
+/** The same five rooms at night, for the shop's day/night switch. */
+export const ROOM_THEME_NIGHT_PREVIEWS = Object.fromEntries(
+  ROOM_THEMES.map((theme) => [
+    theme,
+    theme === 'classic'
+      ? [
+          require('../../assets/environments/main-night.png'),
+          require('../../assets/environments/kitchen-night.png'),
+          require('../../assets/environments/gym-night.png'),
+          require('../../assets/environments/study-night.png'),
+          require('../../assets/environments/outside-night.png'),
+        ]
+      : ROOM_ORDER.map((room) => THEME_ART[theme][room].night.art),
+  ]),
+) as Record<RoomTheme, number[]>;

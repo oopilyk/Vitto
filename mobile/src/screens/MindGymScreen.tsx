@@ -23,6 +23,8 @@ import { colors, fonts, text, themedStyles } from '../theme';
  */
 
 interface Props {
+  /** A game to go straight into (the Study panel's list), skipping the hub. */
+  initialStage?: MindStage;
   /** The pet that runs the Quick maths track. */
   pet: PetState;
   onFinish: (metadata: BrainTrainingMetadata) => Promise<void>;
@@ -79,6 +81,7 @@ export function MindGymScreen({
   onOpenFourCorners,
   onOpenPetJeopardy,
   events = [],
+  initialStage,
 }: Props) {
   const [stage, setStage] = useState<Stage>('pick');
   const [passage, setPassage] = useState<ReadingPassage | null>(null);
@@ -185,6 +188,13 @@ export function MindGymScreen({
     }
     setStage(next);
   };
+
+  // Opened on a game from the Study's panel: into it at once.
+  useEffect(() => {
+    if (initialStage) startStage(initialStage);
+    // Once, on open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const allAnswered = useMemo(
     () => passage?.questions.every((question) => question.id in answers) ?? false,

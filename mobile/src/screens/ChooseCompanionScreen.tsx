@@ -10,7 +10,8 @@ import { CloseButton, Mark, PressableScale, PrimaryButton, TextButton, haptic } 
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 import { SETTINGS_MAX_WIDTH, SegmentedControl } from '../components/settingsKit';
-import { ROOM_THEME_DETAIL, ROOM_THEME_LABEL, ROOM_THEME_PREVIEWS } from '../petWorld/roomTheme';
+import { ROOM_THEME_DETAIL, ROOM_THEME_LABEL, ROOM_THEME_NIGHT_PREVIEWS, ROOM_THEME_PREVIEWS } from '../petWorld/roomTheme';
+import { isNightTime } from '../petWorld/timeOfDay';
 
 interface Props {
   /** The animal the pet is now. */
@@ -225,10 +226,10 @@ const ANIMAL_SPRITE = 104;
  * which hit the same thing). The frame itself can take an aspect ratio, so the
  * card holds its shape before the art arrives.
  */
-function RoomHero({ theme, faded, badge }: { theme: RoomTheme; faded: boolean; badge?: ReactNode }) {
+function RoomHero({ theme, faded, night, badge }: { theme: RoomTheme; faded: boolean; night: boolean; badge?: ReactNode }) {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
-  const sources = ROOM_THEME_PREVIEWS[theme];
+  const sources = (night ? ROOM_THEME_NIGHT_PREVIEWS : ROOM_THEME_PREVIEWS)[theme];
   const height = Math.round(width * HERO_RATIO);
   return (
     <View
@@ -360,6 +361,8 @@ export function ChooseCompanionScreen({
   onChooseRoomTheme,
 }: Props) {
   const [tab, setTab] = useState<Tab>('animals');
+  // Day or night art in the room previews; starts on whatever the rooms look like right now.
+  const [lighting, setLighting] = useState<'day' | 'night'>(() => (isNightTime() ? 'night' : 'day'));
   const [pending, setPending] = useState<PetBreed | null>(null);
   const free = cost <= 0;
   const affordable = free || coins >= cost;
@@ -491,6 +494,14 @@ export function ChooseCompanionScreen({
               <Text style={styles.sectionTitle}>Rooms</Text>
               <Text style={styles.sectionCount} numberOfLines={1}>{`${new Set(themesOwned).size} of ${ROOM_THEMES.length} owned`}</Text>
             </View>
+            <SegmentedControl
+              options={[
+                { value: 'day' as const, label: 'Day' },
+                { value: 'night' as const, label: 'Night' },
+              ]}
+              value={lighting}
+              onChange={setLighting}
+            />
             {!themeAffordable && themesOwned.length < ROOM_THEMES.length ? (
               <ShortNote have={coins} need={roomThemeCost} testID="room-coins-short">
                 {`You need ${roomThemeCost - coins} more coins for new rooms. You earn 50 for every level-up.`}
@@ -517,6 +528,7 @@ export function ChooseCompanionScreen({
                   <RoomHero
                     theme={theme}
                     faded={locked}
+                    night={lighting === 'night'}
                     badge={current ? <StateTag kind="equipped" pop={landed === `room:${theme}`} /> : undefined}
                   />
                   <View style={styles.themeText}>

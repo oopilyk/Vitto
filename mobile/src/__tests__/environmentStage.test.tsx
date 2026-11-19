@@ -74,28 +74,30 @@ describe('EnvironmentStage pet tap reaction', () => {
     tree.unmount();
   });
 
-  it('carries the pet name in the tap bubble, not a permanent HUD card', () => {
+  it('shows no name on a tap: the emoji is the whole reaction', () => {
     const tree = render(() => {});
-    const named = tree.root
-      .findAllByType(Text)
-      .some((node) => node.props.children === pet.name);
-    expect(named).toBe(true);
+    act(() => petLayer(tree)!.props.onPress());
+    const named = tree.root.findAllByType(Text).some((node) => node.props.children === pet.name);
+    expect(named).toBe(false);
     tree.unmount();
   });
 
-  it('shows the name bubble only while tap emojis are in the air', () => {
-    jest.useFakeTimers();
-    const { PetNameBubble } = require('../petWorld/PetNameBubble');
-    const tree = render(() => {});
-    const shown = () => tree.root.findByType(PetNameBubble).props.visible;
-    expect(shown()).toBe(false);
-    act(() => petLayer(tree)!.props.onPress());
-    expect(shown()).toBe(true);
-    // Once the last emoji has floated off, the name goes with it.
-    act(() => { jest.advanceTimersByTime(2000); });
-    expect(shown()).toBe(false);
+  it('only takes a tap at home: in the other rooms the pet is scenery', () => {
+    const taps: number[] = [];
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <EnvironmentStage
+          environment="kitchen"
+          pet={pet}
+          activityProps={IDLE_ACTIVITY}
+          environments={environments}
+          onPetTap={() => taps.push(1)}
+        />,
+      );
+    });
+    expect(petLayer(tree)).toBeUndefined();
     tree.unmount();
-    jest.useRealTimers();
   });
 
   it('floats an emoji of how the pet feels above it only after it is tapped', () => {

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
@@ -41,6 +42,8 @@ interface KitchenEnvironmentControlsProps {
 }
 
 interface KitchenEnvironmentProps extends KitchenEnvironmentControlsProps {
+  /** The room's logging panel (see RoomPanel). Given, it replaces the room's one button. */
+  panel?: ReactNode;
   theme?: RoomTheme;
 }
 
@@ -56,7 +59,7 @@ function KitchenEnvironmentControls({
   return <LogMealButton onPress={onChooseFood} />;
 }
 
-export function kitchenEnvironment({ theme = 'classic', ...props }: KitchenEnvironmentProps): EnvironmentDressing {
+export function kitchenEnvironment({ theme = 'classic', panel, ...props }: KitchenEnvironmentProps): EnvironmentDressing {
   const night = isNightTime();
   if (theme !== 'classic') {
     const room = themedRoom(theme, 'kitchen', night);
@@ -71,7 +74,8 @@ export function kitchenEnvironment({ theme = 'classic', ...props }: KitchenEnvir
         />
       ),
       backgroundColor: room.tint,
-      controls: <KitchenEnvironmentControls {...props} />,
+      controls: panel ? null : <KitchenEnvironmentControls {...props} />,
+      panel,
     };
   }
   return {
@@ -81,6 +85,7 @@ export function kitchenEnvironment({ theme = 'classic', ...props }: KitchenEnvir
         floorColor={night ? NIGHT_FLOOR : DAY_FLOOR}
       />,
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
-    controls: <KitchenEnvironmentControls {...props} />,
+    controls: panel ? null : <KitchenEnvironmentControls {...props} />,
+      panel,
   };
 }

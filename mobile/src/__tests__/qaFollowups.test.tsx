@@ -66,10 +66,25 @@ describe('workout limits at Finish', () => {
     return tree;
   };
 
+  it('starts a picked exercise blank, and will not log it until its reps are in', async () => {
+    const onFinish = jest.fn(async () => {});
+    const tree = await open(onFinish);
+    expect(field(tree, 'Set 1 weight').props.value).toBe('');
+    expect(field(tree, 'Set 1 reps').props.value).toBe('');
+    await act(async () => pressText(tree, 'Finish workout').props.onPress());
+    expect(onFinish).not.toHaveBeenCalled();
+    expect(texts(tree)).toContain('Fill in the reps for Bench Press');
+    act(() => field(tree, 'Set 1 reps').props.onChangeText('8'));
+    await act(async () => pressText(tree, 'Finish workout').props.onPress());
+    expect(onFinish).toHaveBeenCalledTimes(1);
+    act(() => tree.unmount());
+  });
+
   it('refuses a weight no one can lift, and saves nothing', async () => {
     const onFinish = jest.fn(async () => {});
     const tree = await open(onFinish);
     act(() => field(tree, 'Set 1 weight').props.onChangeText('99999'));
+    act(() => field(tree, 'Set 1 reps').props.onChangeText('5'));
     await act(async () => pressText(tree, 'Finish workout').props.onPress());
     expect(onFinish).not.toHaveBeenCalled();
     expect(texts(tree)).toContain('past any world record');

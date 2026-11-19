@@ -28,6 +28,24 @@ import { kitchenEnvironment } from '../petWorld/KitchenEnvironment';
 import { gymEnvironment } from '../petWorld/GymEnvironment';
 import { outsideEnvironment } from '../petWorld/OutsideEnvironment';
 import { studyEnvironment } from '../petWorld/StudyEnvironment';
+import {
+  FoodPanel,
+  GymPanel,
+  MindPanel,
+  OutsidePanel,
+  type FoodPanelProps,
+  type GymPanelProps,
+  type MindPanelProps,
+  type OutsidePanelProps,
+} from '../petWorld/RoomPanels';
+
+/** What each room's logging panel needs (see RoomPanels); the events and the time of day come from here. */
+export interface RoomPanelData {
+  food: FoodPanelProps;
+  gym: GymPanelProps;
+  outside: Omit<OutsidePanelProps, 'events'>;
+  mind: Omit<MindPanelProps, 'events'>;
+}
 import { toPetAvatarActivityProps } from '../petWorld/toPetAvatarActivityProps';
 import { isNightTime } from '../petWorld/timeOfDay';
 import type { EnvironmentId } from '../petWorld/types';
@@ -62,6 +80,11 @@ interface Props {
   /** Outdoors' action: opens the workout logger on its runs-and-rides list. */
   onLogRun: () => void;
   onTrainMind: () => void;
+  /**
+   * Each room's logging, laid out in the room (RoomPanel). Absent keeps the
+   * rooms' single "Log …" buttons.
+   */
+  rooms?: RoomPanelData;
   onOpenProfile: () => void;
   /** Opens Settings from the account menu. Absent where the route is not wired up. */
   onOpenSettings?: () => void;
@@ -136,6 +159,7 @@ export function DashboardScreen({
   onLogWorkout,
   onLogRun,
   onTrainMind,
+  rooms,
   onOpenProfile,
   onOpenSettings,
   onOpenStats,
@@ -279,6 +303,7 @@ export function DashboardScreen({
           onTalk={onTalkToPet}
           talking={talkingToPet}
           environment={environment}
+          paged={Boolean(rooms) && environment !== 'main'}
           formLabel={formLabel}
           accountInitial={accountInitial}
           onOpenProfile={onOpenProfile}
@@ -296,10 +321,26 @@ export function DashboardScreen({
       navBar={<EnvironmentActionRow current={environment} onNavigate={navigate} night={night} />}
       environments={{
         main: mainEnvironment({ trophies, theme: roomTheme }),
-        kitchen: kitchenEnvironment({ onChooseFood: onLogMeal, theme: roomTheme }),
-        gym: gymEnvironment({ onStartWorkout: onLogWorkout, theme: roomTheme }),
-        study: studyEnvironment({ onTrainMind, theme: roomTheme }),
-        outside: outsideEnvironment({ onLogRun, theme: roomTheme }),
+        kitchen: kitchenEnvironment({
+          onChooseFood: onLogMeal,
+          theme: roomTheme,
+          panel: rooms ? <FoodPanel {...rooms.food} /> : undefined,
+        }),
+        gym: gymEnvironment({
+          onStartWorkout: onLogWorkout,
+          theme: roomTheme,
+          panel: rooms ? <GymPanel {...rooms.gym} /> : undefined,
+        }),
+        study: studyEnvironment({
+          onTrainMind,
+          theme: roomTheme,
+          panel: rooms ? <MindPanel {...rooms.mind} events={events} /> : undefined,
+        }),
+        outside: outsideEnvironment({
+          onLogRun,
+          theme: roomTheme,
+          panel: rooms ? <OutsidePanel {...rooms.outside} events={events} /> : undefined,
+        }),
       }}
     />
       {celebration?.kind === 'levelUp' ? (

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
@@ -20,6 +21,12 @@ import { framingOf, themedRoom } from './themeArt';
 const STUDY_DAY = require('../../assets/environments/study-day.png');
 const STUDY_NIGHT = require('../../assets/environments/study-night.png');
 
+/**
+ * In a room's window, the study looks higher up its art than the other rooms:
+ * the desk and shelves are along the top, and the usual framing cut them off.
+ */
+const STUDY_WINDOW_FOCUS = 0.6;
+
 /** The art's own top-edge tone -- see `EnvironmentBackdrop`. */
 const DAY_TINT = '#8b6f56';
 const NIGHT_TINT = '#513b42';
@@ -39,6 +46,8 @@ interface StudyEnvironmentControlsProps {
 }
 
 interface StudyEnvironmentProps extends StudyEnvironmentControlsProps {
+  /** The room's logging panel (see RoomPanel). Given, it replaces the room's one button. */
+  panel?: ReactNode;
   theme?: RoomTheme;
 }
 
@@ -53,14 +62,15 @@ function StudyEnvironmentControls({
   return <TrainMindButton onPress={onTrainMind} />;
 }
 
-export function studyEnvironment({ theme = 'classic', ...props }: StudyEnvironmentProps): EnvironmentDressing {
+export function studyEnvironment({ theme = 'classic', panel, ...props }: StudyEnvironmentProps): EnvironmentDressing {
   const night = isNightTime();
   if (theme !== 'classic') {
     const room = themedRoom(theme, 'study', night);
     return {
-      background: <EnvironmentBackdrop source={room.art} maxScale={framingOf(theme, 'study').maxScale} />,
+      background: <EnvironmentBackdrop source={room.art} maxScale={framingOf(theme, 'study').maxScale} windowFocus={STUDY_WINDOW_FOCUS} />,
       backgroundColor: room.tint,
-      controls: <StudyEnvironmentControls {...props} />,
+      controls: panel ? null : <StudyEnvironmentControls {...props} />,
+      panel,
     };
   }
   return {
@@ -69,9 +79,11 @@ export function studyEnvironment({ theme = 'classic', ...props }: StudyEnvironme
         source={night ? STUDY_NIGHT : STUDY_DAY}
         lift={STUDY_LIFT}
         floorColor={night ? NIGHT_FLOOR : DAY_FLOOR}
+        windowFocus={STUDY_WINDOW_FOCUS}
       />
     ),
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
-    controls: <StudyEnvironmentControls {...props} />,
+    controls: panel ? null : <StudyEnvironmentControls {...props} />,
+      panel,
   };
 }

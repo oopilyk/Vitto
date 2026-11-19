@@ -72,6 +72,11 @@ interface PetWorldHudProps {
   careToast?: CareToast | null;
   /** Which scene is on screen, named on the identity plate. */
   environment: EnvironmentId;
+  /**
+   * The room on screen is a page with the pet in a small window (RoomPanel):
+   * the HUD stays off that window, bar the "logged" toast.
+   */
+  paged?: boolean;
   /** "Level 4", or the evolved build name once the pet has evolved. Only shown
    * on the day line while evolved — before that it just repeats the ring. */
   formLabel: string;
@@ -168,6 +173,7 @@ export function PetWorldHud({
   events,
   careToast,
   environment,
+  paged = false,
   formLabel,
   accountInitial,
   onOpenProfile,
@@ -302,6 +308,29 @@ export function PetWorldHud({
     ? goalIds.reduce((sum, id) => sum + chipWidths[id], 0) + CHIP_GAP * chipScale * Math.max(0, goalIds.length - 1)
     : 0;
   const rowFit = drawnWidth > readoutRoom && readoutRoom > 0 ? readoutRoom / drawnWidth : 1;
+  // The Gym, Kitchen, Outside and Study are pages with the pet in a small
+  // window (see RoomPanel): no HUD over it but the day's progress, small, in
+  // the window's top-right corner (a tap opens Today), and the "logged" toast.
+  if (paged) {
+    const windowTop = topInsetFor(screenWidth, screenHeight) + 4;
+    return (
+      <View style={styles.fill} pointerEvents="box-none">
+        <View style={[styles.windowToday, { top: windowTop + WINDOW_RING_INSET, right: 16 + WINDOW_RING_INSET }]} pointerEvents="box-none">
+          <LevelRing
+            level={0}
+            kicker="TODAY"
+            value={`${Math.round(todayProgress ?? 0)}%`}
+            xpPct={todayProgress ?? 0}
+            onPress={onOpenToday}
+            night={night}
+            size={WINDOW_RING}
+            accessibilityLabel={`Open today's detail, ${Math.round(todayProgress ?? 0)} percent done`}
+          />
+        </View>
+        <CareToastBanner toast={careToast} night={night} />
+      </View>
+    );
+  }
   const zoom = hudZoom(screenWidth, screenHeight, chromeScale);
   const topInset = topInsetFor(screenWidth, screenHeight);
 
@@ -540,6 +569,9 @@ const hudZoom = (width: number, height: number, scale: number): ViewStyle | null
 
 /** The level ring and the account disc frame the top bar; the plate sits between. */
 const RING = 64;
+/** The Today ring in a room's window: smaller, it shares the window with the pet and what it says. */
+const WINDOW_RING = 54;
+const WINDOW_RING_INSET = 8;
 const DISC = 44;
 /** Chat and the coin balance share one height. */
 const TOOL = 36;
@@ -549,6 +581,7 @@ const MIC = 52;
 
 const styles = themedStyles(() => ({
   fill: { flex: 1 },
+  windowToday: { position: 'absolute' },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',

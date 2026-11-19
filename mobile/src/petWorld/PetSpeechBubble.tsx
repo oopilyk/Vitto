@@ -161,7 +161,9 @@ export const speechBubbleFit = ({ anchorY, actionReach }: { anchorY: number; act
   if (!anchorY || !actionReach) return { textMax: most, drop: 0 };
   const room = anchorY - actionReach - BUBBLE_CHROME;
   const least = MIN_LINES * LINE_HEIGHT;
-  return { textMax: Math.min(most, Math.max(least, room)), drop: Math.max(0, least - room) };
+  // Whole lines only: a part line cut through the middle read as broken text.
+  const lines = Math.floor(room / LINE_HEIGHT) * LINE_HEIGHT;
+  return { textMax: Math.min(most, Math.max(least, lines)), drop: Math.max(0, least - room) };
 };
 
 const styles = themedStyles(() => ({

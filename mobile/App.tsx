@@ -13,13 +13,14 @@ import {
 import { AppearanceContext, useAppearance, useAppearanceState } from './src/appearance';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { Session } from '@supabase/supabase-js';
-import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, dayGoals,CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, setDevFreezeGrant, scheduleDayOn, reconcileSchedule, type TrainingSchedule, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, type RoomTheme, ROOM_THEME_COST, ownedRoomThemesOf, roomThemeOf, roomThemeSwitchCost, switchRoomTheme, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
+import {  assessCondition, birthYearToSave, withCurrentAge, buildDailyRecap, dayGoals,CARE_AREAS, type CareArea, buildLifeContext, newPersonalRecords, toCompanionEvent, withMeasurementSystem, type MeasurementSystem, type WorkoutTemplate, removeTemplate, upsertTemplate, templateError, templateFromSession, isOutdoorRoutine, measurementSystemOf, waterMlOf, lastSetsByExercise, repeatableMeals, liveEvents, markRemoved, restoreRemoved, liftingUnit, weighIns, type WeightMetadata, copyableSlot, MEAL_SLOT_LABEL, type MealSlot, type BodyProfile, type PetBreed, type BrainTrainingMetadata, type CareLogEntry, type HealthEvent, type MealMetadata, type MealAnalysis, type SavedMeal, savedMealError, savedMealFrom, upsertSavedMeal, removeSavedMeal, repeatMeal, slotForTime, type HydrationMetadata, waterReachesGoal, PROFILE_SURVEY_DEFAULTS, PetHealthEngine, type ForcedPetForm, type ForcedPetStatus, type PetInvite, type PetMember, type PetPersonality, type PersonalityDials, type PetReaction, type PetState, type PetVoice, type CareToast, careToast, type Reminder, type ScreenTimeMetadata, type StepMetadata, createExercise, calculateWorkoutStats, SupabaseRepository, type WorkoutMetadata, type Weekday, type TrophyId, TROPHY_IDS, earnedTrophies, type AchievementId, earnedAchievements, newlyUnlocked, DECAY_TICK_MS, activeMembers, applyForcedAilment, canJoinAnotherPet, isOwnPet, applyForcedForm, applyTimeDecay, createPet, errorMessage, getSession, inviteErrorMessage, isDevAccount, setDevFreezeGrant, scheduleDayOn, reconcileSchedule, type TrainingSchedule, isSharedPet, memberDisplayName, mergeCareDiary, newId, normalizeReminderLabel, proposalProblem, onAuthStateChange, partnerEntriesSince, setIdGenerator, signOut, toDateKey, isSameDay, applyDelta, withSurveyDefaults, chooseForm, type PetForm, breedSwitchCost, switchBreed, ownedBreedsOf, coinsOf, BREED_CHANGE_COST, NotEnoughCoinsError, type RoomTheme, ROOM_THEME_COST, ownedRoomThemesOf, roomThemeOf, roomThemeSwitchCost, switchRoomTheme, generateSeedEvents, SEED_SOURCE, normalizeUsername, usernameError, type companion} from '@vitto/core';
 import { type WordPuzzleProgress, LocalRepository } from './src/services/localRepository';
 import { billingService } from './src/services/billingService';
 import { listenForAuthLinks } from './src/services/authLinks';
 import { loadAffirmationsEnabled, saveAffirmationsEnabled, syncAffirmations } from './src/services/affirmations';
 import { loadMusicEnabled, pauseMusic, playMusic, saveMusicEnabled } from './src/services/music';
 import { discardVoice, preparePreviews, previewVoice, voiceOf, isVoiceReady, loadVoiceEnabled, prepareVoice, saveVoiceEnabled, speakAsPet, stopPetVoice, VOICE_DOWNLOAD_BYTES } from './src/services/petVoice';
+import type { MindStage } from './src/mind/types';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp, type CareMomentFanOut } from './src/services/careMoment';
 import { flushOutbox, isOfflineFailure, loadOutbox, OUTBOX_RETRY_MS, saveOutbox, type OutboxEntry } from './src/services/outbox';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
@@ -191,13 +192,15 @@ type RootStackParamList = {
   Appearance: undefined;
   /** Which voice the pet speaks in. */
   PetVoice: undefined;
-  MealCapture: undefined;
+  /** `mode`: which way in, from the Kitchen panel's Search / Photo / Barcode. */
+  MealCapture: { mode?: 'photo' | 'search' | 'scan' } | undefined;
   /** `cardio` opens it on the runs-and-rides list (Outdoors' "Log a run"). */
-  Workout: { cardio?: boolean; editId?: string } | undefined;
+  Workout: { cardio?: boolean; editId?: string; resume?: boolean } | undefined;
   EditMeal: { id: string };
   Weight: { editId?: string } | undefined;
   WeeklyRecap: undefined;
-  MindGym: undefined;
+  /** `start`: a game to go straight into, from the Study panel. */
+  MindGym: { start?: MindStage } | undefined;
   WordPuzzle: undefined;
   // A mind game with its own full-screen play area (the pet stands in the middle
   // of it), so it is a route of its own rather than a stage inside MindGym --
@@ -388,6 +391,13 @@ function VittoApp() {
   const [unlockQueue, setUnlockQueue] = useState<AchievementId[]>([]);
   /** Saved workout routines — device-local, like reminders. */
   const [workoutTemplates, setWorkoutTemplates] = useState<WorkoutTemplate[]>([]);
+  /** Bumped when a workout's page closes, so the Gym room re-reads the session in progress. */
+  const [gymVisit, setGymVisit] = useState(0);
+  /** Meals kept to log again in one tap: the Kitchen's Meals tab. On this phone. */
+  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([]);
+  useEffect(() => {
+    void repository.loadSavedMeals().then(setSavedMeals).catch(() => undefined);
+  }, []);
   // The routines in order, looped, with rest days: what today is for (trainingSchedule.ts).
   const [trainingSchedule, setTrainingSchedule] = useState<TrainingSchedule | null>(null);
   /** Both loaded, so the rotation can be squared with the routines without overwriting either. */
@@ -2141,6 +2151,29 @@ function VittoApp() {
 
   // A new log offers no Undo popup: it sat over the pet's reaction and the
   // level-up. A mistake is taken back from Today's activity (tap the log).
+  /** Keeps a plate as a saved meal. Resolves to why it could not be, or null. */
+  const saveMeal = async (name: string, analysis: MealAnalysis): Promise<string | null> => {
+    const refused = savedMealError(name, savedMeals);
+    if (refused) return refused;
+    const next = upsertSavedMeal(savedMeals, savedMealFrom(name, analysis));
+    setSavedMeals(next);
+    await repository.saveSavedMeals(next);
+    return null;
+  };
+
+  const deleteSavedMeal = async (id: string) => {
+    const next = removeSavedMeal(savedMeals, id);
+    setSavedMeals(next);
+    await repository.saveSavedMeals(next);
+  };
+
+  /** A saved meal logged now, as one serving, as the meal sheet would log it. */
+  const logSavedMeal = async (meal: SavedMeal) => {
+    const analysis = repeatMeal(meal.analysis, 1);
+    await completeMeal({ ...analysis.nutrients, analysis, loggedVia: 'manual', slot: slotForTime(new Date()) });
+    interaction.startFeeding(null, analysis.grade);
+  };
+
   const completeMeal = async (metadata: MealMetadata) => {
     playMealSound();
     const event = makeEvent<MealMetadata>(userId, 'MEAL', metadata);
@@ -2153,6 +2186,25 @@ function VittoApp() {
   const completeWorkout = async (metadata: WorkoutMetadata) => {
     const event = makeEvent<WorkoutMetadata>(userId, 'WORKOUT', metadata);
     await recordEvent(event);
+  };
+
+  /**
+   * The Outside page's one-tap log: a walk, run or ride of so many minutes
+   * (and, if given, so far), now. Shaped exactly as the workout screen would have saved the same thing
+   * (one distance exercise, no sets, its minutes), so history, edits and the
+   * pet treat it no differently.
+   */
+  const quickCardio = async (activity: string, minutes: number, distanceKm?: number, name?: string) => {
+    const exercises = [createExercise(activity, 'cardio', false, liftUnit)];
+    await completeWorkout({
+      workoutType: 'cardio',
+      durationMinutes: minutes,
+      ...(distanceKm ? { distanceKm } : {}),
+      name: name ?? activity,
+      exercises,
+      notes: '',
+      stats: { ...calculateWorkoutStats(exercises, minutes), durationMinutes: minutes },
+    });
   };
 
   /**
@@ -2836,6 +2888,18 @@ function VittoApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routinesReady, trainingSchedule, workoutTemplates]);
 
+  /**
+   * The Outside page's quick log kept as a routine: one activity with its
+   * usual time and distance. Resolves to why it could not be saved, or null.
+   */
+  const saveOutdoorRoutine = async (name: string, activity: string, minutes: number, distanceKm?: number): Promise<string | null> => {
+    const exercises = [createExercise(activity, 'cardio', false, liftUnit)];
+    const refused = templateError(name, exercises, workoutTemplates);
+    if (refused) return refused;
+    await saveWorkoutTemplate({ ...templateFromSession(name, exercises), minutes, ...(distanceKm ? { distanceKm } : {}) });
+    return null;
+  };
+
   const deleteWorkoutTemplate = async (id: string) => {
     const next = removeTemplate(workoutTemplates, id);
     await storeWorkoutTemplates(next);
@@ -3166,6 +3230,129 @@ function VittoApp() {
     }
   };
 
+  // The meal, workout and mind-game screens, as pages (their routes below)
+  // and inside a room's panel (DashboardScreen's rooms), from one place.
+  const mealCaptureElement = ({
+    mode,
+    onClose,
+    onOpenPlus,
+    inRoom,
+  }: {
+    mode?: 'photo' | 'search' | 'scan' | 'recent';
+    onClose: () => void;
+    onOpenPlus: () => void;
+    /** In the Kitchen's page, whose pinned bar switches between photo, search and scan. */
+    inRoom?: boolean;
+  }) => (
+    <MealCaptureScreen
+      initialMode={mode}
+      inRoom={inRoom}
+      onSaveMeal={inRoom ? saveMeal : undefined}
+      // No navigation here: the screen calls `onFeedStart` and then
+      // `onClose` itself, and closing twice raced the feed animation.
+      onComplete={completeMeal}
+      // Photo macro tracking is Plus; the paywall opens once this modal is gone.
+      canScanPhotos={canCustomise}
+      repeatable={mealsToRepeat}
+      today={todayFood}
+      copyableFor={(slot) => copyableSlot(events, slot)}
+      onCopy={copyMeals}
+      onOpenPlus={onOpenPlus}
+      petContext={
+        livePet
+          ? {
+              name: livePet.name,
+              personality: livePet.personality,
+              mood: livePet.mood,
+              ailments: assessCondition(livePet).ailments,
+            }
+          : undefined
+      }
+      onFeedStart={interaction.startFeeding}
+      onAnalyzingChange={(analyzing) =>
+        analyzing ? interaction.startAnalyzing() : interaction.stopAnalyzing()
+      }
+      onClose={onClose}
+    />
+  );
+
+  const workoutElement = ({
+    cardio = false,
+    inRoom,
+    onOpenPast,
+    onOpenSession,
+    quietResume,
+    key,
+    onClose,
+  }: {
+    cardio?: boolean;
+    /** As the Gym's own page, under its window. */
+    inRoom?: boolean;
+    onOpenPast?: (event: HealthEvent) => void;
+    /** The Gym room: a workout that starts there opens on its own page. */
+    onOpenSession?: () => void;
+    quietResume?: boolean;
+    /** Remounts the room's screen, so it reads the session afresh after its page closes. */
+    key?: string;
+    onClose: () => void;
+  }) => (
+    <WorkoutScreen
+      key={key}
+      onOpenSession={onOpenSession}
+      quietResume={quietResume}
+      startWithCardio={cardio}
+      inRoom={inRoom}
+      onOpenPast={onOpenPast}
+      // Outside's logger keeps an activity as a one-tap routine.
+      onSaveOutdoorRoutine={cardio && inRoom ? saveOutdoorRoutine : undefined}
+      weightUnit={liftUnit}
+      templates={workoutTemplates}
+      lastSets={lastSets}
+      history={events}
+      weeklyWorkoutGoal={profile.trainingDaysPerWeek}
+      onSaveTemplate={saveWorkoutTemplate}
+      onDeleteTemplate={deleteWorkoutTemplate}
+      schedule={trainingSchedule}
+      onSaveSchedule={storeTrainingSchedule}
+      // No navigation here: the screen closes itself (`onClose`) once
+      // the workout and its routine are saved. Going back here as
+      // well closed it twice, and the second went back past it.
+      onFinish={completeWorkout}
+      onClose={onClose}
+    />
+  );
+
+  const mindGymElement = ({
+    stage,
+    openRoute,
+    onClose,
+  }: {
+    stage?: MindStage;
+    openRoute: (name: 'WordPuzzle' | 'FourCorners' | 'PetJeopardy') => void;
+    onClose: () => void;
+  }) => (
+    <MindGymScreen
+      initialStage={stage}
+      // The hub shows the real pet, the same renderer every game
+      // screen uses -- see `MindTodayPanel`.
+      pet={livePet}
+      events={events}
+      // The sheet closes itself the moment this resolves, so the save is
+      // not awaited: the reaction and the care toast land on the dashboard
+      // when the write does, and holding a "Saving..." spinner open on two
+      // network round trips gained nothing. A failure still shows in the
+      // app's error banner (recordEvent sets it before rethrowing), which
+      // is why it is swallowed here rather than left as an unhandled rejection.
+      onFinish={async (metadata) => {
+        void completeMindSession(metadata).catch(() => undefined);
+      }}
+      onOpenWordPuzzle={() => openRoute('WordPuzzle')}
+      onOpenFourCorners={() => openRoute('FourCorners')}
+      onOpenPetJeopardy={() => openRoute('PetJeopardy')}
+      onClose={onClose}
+    />
+  );
+
   return (
     <NavigationContainer
       key={scheme}
@@ -3202,6 +3389,61 @@ function VittoApp() {
               onLogWorkout={() => navigation.navigate('Workout')}
               onLogRun={() => navigation.navigate('Workout', { cardio: true })}
               onTrainMind={() => navigation.navigate('MindGym')}
+              rooms={(() => {
+                const mindRoutes = {
+                  wordPuzzle: () => navigation.navigate('WordPuzzle'),
+                  fourCorners: () => navigation.navigate('FourCorners'),
+                  petJeopardy: () => navigation.navigate('PetJeopardy'),
+                };
+                return {
+                  food: {
+                    today: todayFood,
+                    renderMealLogger: (mode: 'photo' | 'search' | 'scan' | 'recent', close: () => void) =>
+                      mealCaptureElement({
+                        mode,
+                        inRoom: true,
+                        onClose: close,
+                        onOpenPlus: () => {
+                          close();
+                          navigation.navigate('Plus');
+                        },
+                      }),
+                    savedMeals,
+                    recentMeals: mealsToRepeat,
+                    onSaveMeal: saveMeal,
+                    onLogSavedMeal: logSavedMeal,
+                    onDeleteSavedMeal: deleteSavedMeal,
+                  },
+                  gym: {
+                    renderWorkout: (reopen: () => void) =>
+                      workoutElement({
+                        key: `gym-${gymVisit}`,
+                        inRoom: true,
+                        onOpenPast: openEdit,
+                        onOpenSession: () => navigation.navigate('Workout', { resume: true }),
+                        onClose: reopen,
+                      }),
+                  },
+                  outside: {
+                    stepGoal,
+                    distanceUnit: liftUnit === 'lb' ? ('mi' as const) : ('km' as const),
+                    onQuickCardio: quickCardio,
+                    // Only those with a time of their own: each logs in one tap.
+                    routines: workoutTemplates.filter((template) => isOutdoorRoutine(template) && Boolean(template.minutes)),
+                    onDeleteRoutine: deleteWorkoutTemplate,
+                    renderCardio: (close: () => void) => workoutElement({ cardio: true, inRoom: true, onClose: close }),
+                    onSyncSteps:
+                      Platform.OS === 'ios' && isAppleHealthConnected
+                        ? () => void syncStepsNow().then((message) => showCareToast({ headline: message, detail: null }))
+                        : undefined,
+                    onOpenLog: openEdit,
+                  },
+                  mind: {
+                    routes: mindRoutes,
+                    openStage: (stage: MindStage) => navigation.navigate('MindGym', { start: stage }),
+                  },
+                };
+              })()}
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenSettings={() => navigation.navigate('Settings', { from: 'Pet' })}
               onOpenStats={() => navigation.navigate('PetStats')}
@@ -3770,37 +4012,15 @@ function VittoApp() {
             }}
           </RootStack.Screen>
           <RootStack.Screen name="MealCapture">
-            {({ navigation }) => (
-              <MealCaptureScreen
-                // No navigation here: the screen calls `onFeedStart` and then
-                // `onClose` itself, and closing twice raced the feed animation.
-                onComplete={completeMeal}
-                // Photo macro tracking is Plus; the paywall opens once this modal is gone.
-                canScanPhotos={canCustomise}
-                repeatable={mealsToRepeat}
-                today={todayFood}
-                copyableFor={(slot) => copyableSlot(events, slot)}
-                onCopy={copyMeals}
-                onOpenPlus={() => {
+            {({ navigation, route }) => (
+              mealCaptureElement({
+                mode: route.params?.mode,
+                onClose: () => navigation.goBack(),
+                onOpenPlus: () => {
                   navigation.goBack();
                   navigation.navigate('Plus');
-                }}
-                petContext={
-                  livePet
-                    ? {
-                        name: livePet.name,
-                        personality: livePet.personality,
-                        mood: livePet.mood,
-                        ailments: assessCondition(livePet).ailments,
-                      }
-                    : undefined
-                }
-                onFeedStart={interaction.startFeeding}
-                onAnalyzingChange={(analyzing) =>
-                  analyzing ? interaction.startAnalyzing() : interaction.stopAnalyzing()
-                }
-                onClose={() => navigation.goBack()}
-              />
+                },
+              })
             )}
           </RootStack.Screen>
           <RootStack.Screen name="Workout" options={{ gestureEnabled: false }}>
@@ -3816,50 +4036,28 @@ function VittoApp() {
                     onClose={() => navigation.goBack()}
                   />
                 ) : (
-                  <WorkoutScreen
-                    startWithCardio={route.params?.cardio === true}
-                    weightUnit={liftUnit}
-                    templates={workoutTemplates}
-                    lastSets={lastSets}
-                    history={events}
-                    weeklyWorkoutGoal={profile.trainingDaysPerWeek}
-                    onSaveTemplate={saveWorkoutTemplate}
-                    onDeleteTemplate={deleteWorkoutTemplate}
-                    schedule={trainingSchedule}
-                    onSaveSchedule={storeTrainingSchedule}
-                    // No navigation here: the screen closes itself (`onClose`) once
-                    // the workout and its routine are saved. Going back here as
-                    // well closed it twice, and the second went back past it.
-                    onFinish={completeWorkout}
-                    onClose={() => navigation.goBack()}
-                  />
+                  workoutElement({
+                    cardio: route.params?.cardio === true,
+                    quietResume: route.params?.resume === true,
+                    onClose: () => {
+                      // The Gym room reads the session afresh: finished, or kept for later.
+                      setGymVisit((visit) => visit + 1);
+                      navigation.goBack();
+                    },
+                  })
                 );
               })()
             )}
           </RootStack.Screen>
           <RootStack.Screen name="MindGym" options={{ gestureEnabled: false }}>
-            {({ navigation }) => (
-              <MindGymScreen
-                // The hub shows the real pet, the same renderer every game
-                // screen uses -- see `MindTodayPanel`.
-                pet={livePet}
-                events={events}
-                // The sheet closes itself the moment this resolves, so the save is
-                // not awaited: the reaction and the care toast land on the dashboard
-                // when the write does, and holding a "Saving..." spinner open on two
-                // network round trips gained nothing. A failure still shows in the
-                // app's error banner (recordEvent sets it before rethrowing), which
-                // is why it is swallowed here rather than left as an unhandled rejection.
-                onFinish={async (metadata) => {
-                  void completeMindSession(metadata).catch(() => undefined);
-                }}
+            {({ navigation, route }) => (
+              mindGymElement({
+                stage: route.params?.start,
                 // `replace` swaps this sheet for the puzzle rather than stacking a
                 // second modal on top of the one already presented.
-                onOpenWordPuzzle={() => navigation.replace('WordPuzzle')}
-                onOpenFourCorners={() => navigation.replace('FourCorners')}
-                onOpenPetJeopardy={() => navigation.replace('PetJeopardy')}
-                onClose={() => closeMindGame(navigation)}
-              />
+                openRoute: (name) => navigation.replace(name),
+                onClose: () => closeMindGame(navigation),
+              })
             )}
           </RootStack.Screen>
           <RootStack.Screen name="FourCorners" options={{ gestureEnabled: false }}>

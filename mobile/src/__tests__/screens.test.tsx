@@ -551,11 +551,11 @@ describe('screens render', () => {
     expect(placeholders).toContain('lb');
     expect(placeholders).not.toContain('kg');
 
-    // And the starting load is an empty barbell in the lifter's own unit.
+    // And an exercise picked by hand starts blank: nothing typed in for them.
     const weightField = tree.root
       .findAllByType(WorkoutInput)
       .find((node: any) => node.props.placeholder === 'lb');
-    expect(weightField!.props.value).toBe('45');
+    expect(weightField!.props.value).toBe('');
     tree.unmount();
   });
 
@@ -1203,7 +1203,7 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('leads the care toast with the food effect when a meal earned one', () => {
+  it('keeps the care toast to what was logged and what it gave, without the food effect', () => {
     const { CareToastBanner } = require('../petWorld/CareToastBanner');
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -1214,9 +1214,10 @@ describe('screens render', () => {
       );
     });
     const rendered = JSON.stringify(tree.toJSON());
-    expect(rendered).toContain('That was hot!');
-    expect(rendered).toContain('SPICY · COZY');
+    expect(rendered).not.toContain('That was hot!');
+    expect(rendered).not.toContain('SPICY · COZY');
     expect(rendered).toContain('Spicy ramen logged');
+    expect(rendered).toContain('+10 XP');
     tree.unmount();
   });
 
@@ -1870,6 +1871,8 @@ describe('profile screen', () => {
 
     const weightField = workout.root.findAllByType(TextInput).find((n: any) => n.props.placeholder === 'kg');
     act(() => weightField!.props.onChangeText('100'));
+    const repsField = workout.root.findAllByType(TextInput).find((n: any) => n.props.placeholder === 'reps');
+    act(() => repsField!.props.onChangeText('5'));
     // No ticking: the set is on the list, so it counts.
     const finish = workout.root
       .findAll((n: any) => typeof n.props.onPress === 'function')
@@ -4090,18 +4093,46 @@ describe('training rotation on the workout screen', () => {
   const press = (tree: renderer.ReactTestRenderer, label: string) =>
     act(() => tree.root.findAll((node) => node.props.accessibilityLabel === label && typeof node.props.onPress === 'function')[0]!.props.onPress());
 
-  it('lists the routines as the rotation, today marked, with no button that cannot do anything', () => {
+  it('lists the split, today marked, with no button that cannot do anything', () => {
     const saved: any[] = [];
     // Started yesterday: today is day 2, the rest day.
     const tree = render({ days: [{ kind: 'routine', templateId: 'Push' }, { kind: 'rest', id: 'r' }, { kind: 'routine', templateId: 'Legs' }], startedOn: day(-1) }, saved);
     const shown = texts(tree);
     expect(shown).toContain('TODAY · DAY 2 OF 3');
-    expect(shown).toEqual(expect.arrayContaining(['YOUR ROTATION', 'DAY 1', 'DAY 2 · TODAY', 'Rest day', 'DAY 3']));
+    expect(shown).toEqual(expect.arrayContaining(['YOUR SPLIT AND ROUTINES', 'DAY 1', 'DAY 2 · TODAY', 'Rest day', 'DAY 3']));
     expect(shown).not.toContain('Finish workout');
     press(tree, 'Restart from day 1');
     expect(saved.at(-1).startedOn).toBe(day(0));
     press(tree, 'Next day');
     expect(saved.at(-1).startedOn).toBe(day(-2));
+    tree.unmount();
+  });
+
+  it('in the Gym room, keeps routines out of the split until one is added to it', () => {
+    const saved: any[] = [];
+    const { WorkoutScreen } = require('../screens/WorkoutScreen');
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(
+        <WorkoutScreen
+          inRoom
+          weightUnit="lb"
+          templates={[routine('Legs'), routine('Push')]}
+          onSaveTemplate={() => {}}
+          onDeleteTemplate={() => {}}
+          schedule={null}
+          onSaveSchedule={(next: any) => { saved.push(next); }}
+          onFinish={async () => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+    // Both routines, no split yet, and nothing saved for want of one.
+    expect(texts(tree)).toEqual(expect.arrayContaining(['ROUTINES', 'Legs', 'Push', 'Set up']));
+    expect(saved).toEqual([]);
+    press(tree, 'Set up a split');
+    press(tree, 'Add Push to the split');
+    expect(saved.at(-1).days).toEqual([{ kind: 'routine', templateId: 'Push' }]);
     tree.unmount();
   });
 

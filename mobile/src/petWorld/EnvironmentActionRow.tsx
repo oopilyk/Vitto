@@ -41,14 +41,14 @@ interface SceneButton {
 
 /**
  * The five destinations, fixed left-to-right order -- never reflowed, never
- * filtered. Gym leads and the living room sits dead centre, per the product
- * owner's layout call.
+ * filtered. Outside leads, the living room sits dead centre and the Gym is to
+ * its right, per the product owner's layout call.
  */
 const SCENES: readonly SceneButton[] = [
-  { id: 'gym', label: 'Gym', accessibilityLabel: 'Go to the gym', filledSource: GYM_FILLED, outlineSource: GYM_OUTLINE },
+  { id: 'outside', label: 'Outside', accessibilityLabel: 'Go outdoors', filledSource: OUTDOORS_FILLED, outlineSource: OUTDOORS_OUTLINE },
   { id: 'kitchen', label: 'Food', accessibilityLabel: 'Go to the kitchen', filledSource: KITCHEN_FILLED, outlineSource: KITCHEN_OUTLINE },
   { id: 'main', label: 'Home', accessibilityLabel: 'Back to the living room', filledSource: LIVING_ROOM_FILLED, outlineSource: LIVING_ROOM_OUTLINE },
-  { id: 'outside', label: 'Outside', accessibilityLabel: 'Go outdoors', filledSource: OUTDOORS_FILLED, outlineSource: OUTDOORS_OUTLINE },
+  { id: 'gym', label: 'Gym', accessibilityLabel: 'Go to the gym', filledSource: GYM_FILLED, outlineSource: GYM_OUTLINE },
   { id: 'study', label: 'Mind', accessibilityLabel: 'Go to the study', filledSource: STUDY_FILLED, outlineSource: STUDY_OUTLINE },
 ];
 

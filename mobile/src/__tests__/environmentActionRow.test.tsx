@@ -5,13 +5,13 @@ import type { EnvironmentId } from '../petWorld/types';
 
 const ALL_SCENES: EnvironmentId[] = ['main', 'kitchen', 'gym', 'outside', 'study'];
 
-/** The five labels in the order the bar always renders them: gym leads, living
- *  room is centre. */
+/** The five labels in the order the bar always renders them: outside leads,
+ *  living room is centre, gym to its right. */
 const ORDERED_LABELS = [
-  'Go to the gym',
+  'Go outdoors',
   'Go to the kitchen',
   'Back to the living room',
-  'Go outdoors',
+  'Go to the gym',
   'Go to the study',
 ];
 

@@ -97,12 +97,18 @@ describe('speechBubbleFit — the speech bubble never covers the room button', (
     expect(textMax).toBeLessThan(96);
   });
 
+  it('gives its text whole lines only, never a part line', () => {
+    expect(speechBubbleFit({ anchorY: 400, actionReach: 300 }).textMax % 16).toBe(0);
+    expect(speechBubbleFit({ anchorY: 380, actionReach: 300 }).textMax % 16).toBe(0);
+  });
+
   it('drops over the pet on a short phone rather than shrinking past two lines', () => {
     const { textMax, drop } = speechBubbleFit({ anchorY: 333, actionReach: 308 });
     expect(textMax).toBe(32);
     expect(drop).toBeGreaterThan(0);
-    // Its top, × included, then sits exactly at the reach.
-    const chrome = 400 - 300 - speechBubbleFit({ anchorY: 400, actionReach: 300 }).textMax;
+    // Its top, × included, then sits exactly at the reach. (Measured where the
+    // room is a whole number of lines, 387 - 300 = 48 of text plus the chrome.)
+    const chrome = 387 - 300 - speechBubbleFit({ anchorY: 387, actionReach: 300 }).textMax;
     expect(333 + drop - textMax - chrome).toBe(308);
   });
 });

@@ -202,8 +202,10 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
     return () => web.removeEventListener?.('keydown', onKey as (e: never) => void);
   }, [canContinue, handleContinue]);
 
-  const petSize = Math.round(Math.min(width * 0.74, height * 0.4, 300));
-  const numberSize = Math.round(Math.min(width * 0.44, 176));
+  // Sized by the screen's height too, so the pet, number, coins and Continue
+  // all fit on a short phone (an SE) without touching.
+  const petSize = Math.round(Math.min(width * 0.74, height * 0.34, 300));
+  const numberSize = Math.round(Math.min(width * 0.44, height * 0.2, 176));
 
   const petTransform = rmRef.current
     ? []
@@ -386,7 +388,9 @@ const styles = themedStyles(() => ({
     paddingHorizontal: 24,
   },
   backdrop: { ...FILL, backgroundColor: BACKDROP },
-  stack: { alignItems: 'center', width: '100%' },
+  // Takes the room Continue leaves and centres in it: the two sit one after
+  // the other, so the coins can never run into the button.
+  stack: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
   kicker: {
     fontFamily: fonts.pixelBold,
     fontSize: 20,
@@ -437,11 +441,10 @@ const styles = themedStyles(() => ({
   },
   rewardLabel: { fontFamily: fonts.pixel, fontSize: 18, letterSpacing: 0.5, color: '#f6dc8a' },
   continueWrap: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 44,
+    alignSelf: 'stretch',
     alignItems: 'center',
+    paddingTop: 20,
+    paddingBottom: 44,
   },
   continueBtn: {
     minWidth: 220,

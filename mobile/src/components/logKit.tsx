@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Platform, Text, View } from 'react-native';
+import { Animated, Platform, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors, fonts, themedStyles } from '../theme';
@@ -49,11 +49,11 @@ const formatted = (value: number) => Math.round(value).toLocaleString('en-US');
  * log stretches each bar by what it would add, in a lighter tone, so the
  * effect of logging is visible before the button is pressed.
  */
-export function LogProgress({ items }: { items: ProgressItem[] }) {
+export function LogProgress({ items, style }: { items: ProgressItem[]; style?: StyleProp<ViewStyle> }) {
   const shown = items.filter((item) => item.goal > 0);
   if (shown.length === 0) return null;
   return (
-    <View style={logKit.progress} testID="log-progress">
+    <View style={[logKit.progress, style]} testID="log-progress">
       {shown.map((item) => (
         <ProgressBar key={item.label} item={item} />
       ))}

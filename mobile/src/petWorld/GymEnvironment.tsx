@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
@@ -21,6 +22,12 @@ import { THEMED_LIFT, framingOf, themedRoom } from './themeArt';
 const GYM_DAY = require('../../assets/environments/gym-day.png');
 const GYM_NIGHT = require('../../assets/environments/gym-night.png');
 
+/**
+ * In a room's window, the gym looks higher up its art than the usual framing,
+ * so the racks, bench and bike show rather than mostly floor mats.
+ */
+const GYM_WINDOW_FOCUS = 0.55;
+
 /** The art's own top-edge tone -- see `EnvironmentBackdrop`. */
 const DAY_TINT = '#8f7f6d';
 const NIGHT_TINT = '#433558';
@@ -30,6 +37,8 @@ interface GymEnvironmentControlsProps {
 }
 
 interface GymEnvironmentProps extends GymEnvironmentControlsProps {
+  /** The room's logging panel (see RoomPanel). Given, it replaces the room's one button. */
+  panel?: ReactNode;
   theme?: RoomTheme;
 }
 
@@ -44,7 +53,7 @@ function GymEnvironmentControls({
   return <LogWorkoutButton onPress={onStartWorkout} />;
 }
 
-export function gymEnvironment({ theme = 'classic', ...props }: GymEnvironmentProps): EnvironmentDressing {
+export function gymEnvironment({ theme = 'classic', panel, ...props }: GymEnvironmentProps): EnvironmentDressing {
   const night = isNightTime();
   if (theme !== 'classic') {
     const room = themedRoom(theme, 'gym', night);
@@ -56,15 +65,18 @@ export function gymEnvironment({ theme = 'classic', ...props }: GymEnvironmentPr
           lift={framing.lift ?? THEMED_LIFT}
           floorColor={room.floor}
           maxScale={framing.maxScale}
+          windowFocus={GYM_WINDOW_FOCUS}
         />
       ),
       backgroundColor: room.tint,
-      controls: <GymEnvironmentControls {...props} />,
+      controls: panel ? null : <GymEnvironmentControls {...props} />,
+      panel,
     };
   }
   return {
-    background: <EnvironmentBackdrop source={night ? GYM_NIGHT : GYM_DAY} />,
+    background: <EnvironmentBackdrop source={night ? GYM_NIGHT : GYM_DAY} windowFocus={GYM_WINDOW_FOCUS} />,
     backgroundColor: night ? NIGHT_TINT : DAY_TINT,
-    controls: <GymEnvironmentControls {...props} />,
+    controls: panel ? null : <GymEnvironmentControls {...props} />,
+      panel,
   };
 }

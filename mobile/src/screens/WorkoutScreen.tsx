@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Alert, Pressable, ScrollView, Text, TextInput, View, Platform, useWindowDimensions } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput, View, Platform, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import {
   type WeightUnit,
@@ -20,7 +20,8 @@ import {
   addRestDay,
   moveScheduleDay,
   reconcileSchedule,
-  removeRestDay,
+  removeScheduleDay,
+  addRoutineDay,
   restartSchedule,
   resolvedDays,
   scheduleDayId,
@@ -37,6 +38,7 @@ import { KM_PER_MILE, checkWorkout, convertWeightValue, exerciseBest, exerciseSe
 import { FitText } from '../components/FitText';
 import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput, Mark } from '../components/ui';
 import { LogProgress, logHaptic } from '../components/logKit';
+import { whenLabel } from '../petWorld/whenLabel';
 import { DragList } from '../components/DragList';
 import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
 import { TIER_COLOR } from '../components/StrengthMap';
@@ -47,6 +49,29 @@ import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
   onFinish: (metadata: WorkoutMetadata) => Promise<void>;
+  /**
+   * Shown as the Gym's own page, under the room's window (see RoomPanel), not
+   * as a sheet over the app: no title or × on the page you start from (there
+   * is nothing to close), the week's bar scrolls with the page, and past
+   * sessions are listed to do again.
+   */
+  inRoom?: boolean;
+  /** Opens a past workout to fix it: a tap on one of the Gym page's recent sessions. */
+  onOpenPast?: (event: HealthEvent) => void;
+  /**
+   * The Outside room's logger: keeps the activity, with the time and distance
+   * typed on its card, as a routine that then logs in one tap. Resolves to why
+   * it could not be saved, or null.
+   */
+  onSaveOutdoorRoutine?: (name: string, activity: string, minutes: number, distanceKm?: number) => Promise<string | null>;
+  /**
+   * The Gym room: a workout is its own page. Once one starts here (a routine,
+   * a repeat, exercises picked) it is kept as the session in progress and
+   * handed to that page; the room keeps the routines and a Resume card.
+   */
+  onOpenSession?: () => void;
+  /** The session page opened from the room: it picks the session up without saying so. */
+  quietResume?: boolean;
   onClose: () => void;
   /**
    * The lifter's own unit, from their profile. Labels every weight field and
@@ -236,6 +261,11 @@ export function WorkoutScreen({
   schedule = null,
   onSaveSchedule,
   weeklyWorkoutGoal = 0,
+  inRoom = false,
+  onOpenPast,
+  onSaveOutdoorRoutine,
+  onOpenSession,
+  quietResume = false,
 }: Props) {
   const [mode, setMode] = useState<Mode>('log');
   const [name, setName] = useState(editing?.name ?? DEFAULT_SESSION_NAME);
@@ -273,6 +303,8 @@ export function WorkoutScreen({
   /** The routine this session was started from, so finishing can update it. */
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [managingRoutines, setManagingRoutines] = useState(false);
+  /** The Gym page's split, being set up: which routines, in what order, with rest days. */
+  const [editingSplit, setEditingSplit] = useState(false);
   /** A rotation day being dragged: the page holds still under the finger. */
   const [draggingDay, setDraggingDay] = useState(false);
   const [routineMessage, setRoutineMessage] = useState<string | null>(null);
@@ -294,12 +326,26 @@ export function WorkoutScreen({
   // read, or the empty screen would overwrite it.
   // An edit is not a session in progress: no draft read, none written.
   const [draftChecked, setDraftChecked] = useState(startWithCardio || Boolean(editing));
+  /**
+   * Whether this screen is the session kept on the phone. The Outside room's
+   * logger is not: a walk is logged in one go, and saving it as the draft
+   * replaced a gym session left half done (and then showed up in the Gym as
+   * "picked up where you left off").
+   */
+  // The Gym room hands its sessions to their own page, which keeps the draft.
+  const handsOff = inRoom && Boolean(onOpenSession) && !startWithCardio && !editing;
+  const keepsDraft = !startWithCardio && !editing && !handsOff;
+  /** In the Gym room: the session waiting on its page, by name, if one is. */
+  const [waiting, setWaiting] = useState<string | null>(null);
   useEffect(() => {
     if (startWithCardio || editing) return undefined;
     let cancelled = false;
     void loadWorkoutDraft().then((draft) => {
       if (cancelled) return;
-      if (draft) {
+      if (draft && handsOff) {
+        // Its page has it: the room only offers to go back to it.
+        if (draft.exercises.length > 0) setWaiting(draft.name);
+      } else if (draft) {
         setName(draft.name);
         setExercises(draft.exercises);
         setNotes(draft.notes);
@@ -313,7 +359,7 @@ export function WorkoutScreen({
           setRest(draft.rest);
           void startRest(draft.rest.endsAt, draft.rest.startedAt, draft.rest.label);
         }
-        setRoutineMessage('Picked up where you left off.');
+        if (!quietResume) setRoutineMessage('Picked up where you left off.');
       }
       setDraftChecked(true);
     });
@@ -329,6 +375,17 @@ export function WorkoutScreen({
   const bodyRef = useRef<ScrollView>(null);
   const revealEnd = () => setTimeout(() => bodyRef.current?.scrollToEnd({ animated: true }), 300);
 
+  /**
+   * An exercise picked by hand while logging starts blank: the sets are there
+   * (as many as last time) with last time in the Last column, a tap away, but
+   * nothing typed in for you, so what is logged is what was lifted. A routine
+   * still starts on its numbers, and one being defined on a starting point.
+   */
+  const blankForLogging = (exercise: WorkoutExercise): WorkoutExercise =>
+    mode === 'log' && !exercise.distance
+      ? { ...exercise, sets: exercise.sets.map((set) => ({ ...set, reps: 0, weight: undefined })) }
+      : exercise;
+
   const addExercise = (exerciseName: string, muscle: string, bodyweight: boolean) => {
     // Once each: more of the same exercise is more sets on its card.
     if (exercises.some((item) => item.name === exerciseName)) return;
@@ -337,7 +394,7 @@ export function WorkoutScreen({
     if (exercises.length === 0 && name === DEFAULT_SESSION_NAME && tracksDistance(exerciseName)) setName(exerciseName);
     setExercises((current) => [
       ...current,
-      exerciseFromHistory(createExercise(exerciseName, muscle, bodyweight, weightUnit), lastSets?.get(exerciseName)),
+      blankForLogging(exerciseFromHistory(createExercise(exerciseName, muscle, bodyweight, weightUnit), lastSets?.get(exerciseName))),
     ]);
     setError(null);
     // A run is one thing: picking it is the whole choice, so straight to its
@@ -362,7 +419,7 @@ export function WorkoutScreen({
     );
 
   useEffect(() => {
-    if (!draftChecked || mode !== 'log' || editing) return undefined;
+    if (!draftChecked || mode !== 'log' || !keepsDraft) return undefined;
     if (exercises.length === 0) {
       void clearWorkoutDraft();
       return undefined;
@@ -404,7 +461,8 @@ export function WorkoutScreen({
       ]);
       return;
     }
-    if (mode !== 'log' || exercises.length === 0) {
+    // Nothing kept for later here: closing is just closing.
+    if (mode !== 'log' || exercises.length === 0 || !keepsDraft) {
       onClose();
       return;
     }
@@ -446,7 +504,7 @@ export function WorkoutScreen({
       setDistance('');
       setError(null);
       setRoutineMessage(null);
-      void clearWorkoutDraft();
+      if (keepsDraft) void clearWorkoutDraft();
     };
     if ((ticked.size === 0 && activeTemplateId) || Platform.OS === 'web') {
       reset();
@@ -457,6 +515,54 @@ export function WorkoutScreen({
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
+
+  /**
+   * Back from an activity's card to the list it was picked from (the Outside
+   * room's logger): there is no workout start page behind a walk.
+   */
+  const backToActivities = () => {
+    setExercises([]);
+    setName(DEFAULT_SESSION_NAME);
+    setDuration('');
+    setDistance('');
+    setError(null);
+    setSearch('');
+    setCardioOnly(true);
+    setPicking(true);
+  };
+  // The same when its one activity is taken off the card.
+  useEffect(() => {
+    if (inRoom && startWithCardio && exercises.length === 0 && !picking) {
+      setCardioOnly(true);
+      setPicking(true);
+    }
+  }, [inRoom, startWithCardio, exercises.length, picking]);
+
+  // The Gym room: a session that has begun here (a routine loaded, a repeat,
+  // exercises picked and the list closed) goes to its own page, kept as the
+  // session in progress so that page opens on it. The room goes back to its
+  // start, with the session's Resume card.
+  useEffect(() => {
+    if (!handsOff || mode !== 'log' || exercises.length === 0 || picking) return;
+    const handed = { name, exercises, activeTemplateId };
+    setExercises([]);
+    setName(DEFAULT_SESSION_NAME);
+    setActiveTemplateId(null);
+    setWaiting(handed.name);
+    void saveWorkoutDraft({
+      name: handed.name,
+      exercises: handed.exercises,
+      notes: '',
+      duration: '',
+      distance: '',
+      startedAt: Date.now(),
+      activeTemplateId: handed.activeTemplateId,
+      ticked: [],
+      rest: null,
+      restLength,
+      savedAt: Date.now(),
+    }).then(() => onOpenSession?.());
+  }, [handsOff, mode, exercises, picking]);
 
   // ---- ticking and resting -------------------------------------------------
 
@@ -569,8 +675,30 @@ export function WorkoutScreen({
     setRoutineMessage(null);
   };
 
+  /**
+   * A past session done again: its exercises and numbers, as a fresh session.
+   * Not a routine: nothing is written back to one.
+   */
+  const repeatSession = (past: HealthEvent<WorkoutMetadata>) => {
+    const pastName = past.metadata.name || DEFAULT_SESSION_NAME;
+    setName(pastName);
+    setExercises(sessionFromTemplate(templateFromSession(pastName, past.metadata.exercises ?? [])));
+    setActiveTemplateId(null);
+    setError(null);
+    setRoutineMessage(null);
+  };
+
+  /**
+   * Whether the routine being defined was opened from the start page (new, or
+   * one being edited) rather than made out of the session under way. Cancel
+   * then goes back to the start page: it used to leave the routine's
+   * exercises behind as a session nobody started.
+   */
+  const routineFromStart = useRef(false);
+
   /** Start defining a routine from scratch — the "make a routine" entry point. */
   const startNewRoutine = () => {
+    routineFromStart.current = true;
     setMode('routine');
     setEditingTemplateId(null);
     setRoutineName('');
@@ -581,6 +709,7 @@ export function WorkoutScreen({
   };
 
   const startEditingRoutine = (template: WorkoutTemplate) => {
+    routineFromStart.current = true;
     setMode('routine');
     setEditingTemplateId(template.id);
     setRoutineName(template.name);
@@ -592,6 +721,7 @@ export function WorkoutScreen({
 
   /** Turn the session you just built into a routine, keeping you in log mode. */
   const saveSessionAsRoutine = () => {
+    routineFromStart.current = false;
     setMode('routine');
     setEditingTemplateId(activeTemplateId);
     // A session still called "Strength session" has no name worth keeping, so
@@ -601,6 +731,8 @@ export function WorkoutScreen({
   };
 
   const leaveRoutineMode = () => {
+    if (routineFromStart.current) setExercises([]);
+    routineFromStart.current = false;
     setMode('log');
     setEditingTemplateId(null);
     setRoutineMessage(null);
@@ -646,7 +778,11 @@ export function WorkoutScreen({
           : set,
       ),
     }));
-  const setStats = calculateWorkoutStats(inShownUnit(exercises), 1);
+  // A set left blank (no reps typed) is not a set: it neither counts nor is saved.
+  const filled = exercises.map((exercise) =>
+    exercise.distance ? exercise : { ...exercise, sets: exercise.sets.filter((set) => set.reps > 0) },
+  );
+  const setStats = calculateWorkoutStats(inShownUnit(filled), 1);
   const stats = {
     ...setStats,
     durationMinutes: sessionMinutes({
@@ -692,6 +828,11 @@ export function WorkoutScreen({
       setError('Add an exercise first.');
       return;
     }
+    const unfilled = filled.find((exercise) => !exercise.distance && exercise.sets.length === 0);
+    if (unfilled && !editing) {
+      setError(`Fill in the reps for ${unfilled.name}, or take it off.`);
+      return;
+    }
     // With no sets there is no clock to fall back on: an empty time would log
     // the walk as a single minute.
     if (goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0)) {
@@ -699,7 +840,7 @@ export function WorkoutScreen({
       return;
     }
     // A typo is refused or questioned here, before it becomes a record.
-    const check = checkWorkout({ exercises, durationMinutes: stats.durationMinutes, distanceKm });
+    const check = checkWorkout({ exercises: filled, durationMinutes: stats.durationMinutes, distanceKm });
     if (check?.level === 'refuse') {
       setError(check.message);
       return;
@@ -738,7 +879,7 @@ export function WorkoutScreen({
         durationMinutes: stats.durationMinutes,
         ...(distanceKm !== undefined ? { distanceKm } : {}),
         name,
-        exercises,
+        exercises: filled,
         notes,
         stats,
       });
@@ -748,12 +889,12 @@ export function WorkoutScreen({
       // time's starting point. Best effort — the workout itself is already saved.
       if (activeTemplateId && onSaveTemplate) {
         try {
-          await onSaveTemplate(templateFromSession(name, exercises, activeTemplateId));
+          await onSaveTemplate(templateFromSession(name, filled, activeTemplateId));
         } catch {
           // The routine keeps last week's numbers; nothing about the workout is lost.
         }
       }
-      await clearWorkoutDraft();
+      if (keepsDraft) await clearWorkoutDraft();
       onClose();
     } catch (cause) {
       setError(errorMessage(cause, 'Could not save workout.'));
@@ -786,16 +927,19 @@ export function WorkoutScreen({
 
   const empty = exercises.length === 0;
 
-  // The routine list is the rotation: every routine in it, in order, with any
-  // rest days, looping one day per calendar day (trainingSchedule.ts). Squared
-  // with the routines here too, so a routine just made shows before the saved
-  // rotation catches up.
+  // The split: the routines chosen for the loop, in order, with any rest days,
+  // one day per calendar day (trainingSchedule.ts). Not every routine is in it.
+  // Squared with the routines here too, so a deleted one is gone at once.
   const rotationSchedule = onSaveSchedule ? reconcileSchedule(schedule, templates).schedule : null;
   const rotation = scheduleDayOn(rotationSchedule, templates);
-  const rotationDays: ScheduleDay[] = rotationSchedule
-    ? resolvedDays(rotationSchedule, templates)
-    : templates.map((template) => ({ kind: 'routine', templateId: template.id }));
-  const saveRotation = (next: TrainingSchedule) => {
+  const rotationDays: ScheduleDay[] = rotationSchedule ? resolvedDays(rotationSchedule, templates) : [];
+  const inSplit = (id: string) => rotationDays.some((day) => day.kind === 'routine' && day.templateId === id);
+  // The sheet lists the split, then the routines kept out of it.
+  const sheetDays: ScheduleDay[] = [
+    ...rotationDays,
+    ...templates.filter((template) => !inSplit(template.id)).map((template): ScheduleDay => ({ kind: 'routine', templateId: template.id })),
+  ];
+  const saveRotation = (next: TrainingSchedule | null) => {
     haptic('select');
     void onSaveSchedule?.(next);
   };
@@ -815,7 +959,7 @@ export function WorkoutScreen({
 
   /** Which day of the rotation a row is, over its name; today's in coral. */
   const dayLabel = (index: number) =>
-    rotationSchedule ? (
+    rotationSchedule && index < rotationDays.length ? (
       <Text style={[styles.dayLabel, rotation?.index === index && styles.dayLabelToday]}>
         {rotation?.index === index ? `DAY ${index + 1} · TODAY` : `DAY ${index + 1}`}
       </Text>
@@ -836,7 +980,7 @@ export function WorkoutScreen({
               <Text style={[styles.routineName, styles.restName]}>Rest day</Text>
             </View>
           </View>
-          {dayControls(handle, `rest day ${index + 1}`, () => rotationSchedule && saveRotation(removeRestDay(rotationSchedule, templates, scheduleDayId(day))))}
+          {dayControls(handle, `rest day ${index + 1}`, () => rotationSchedule && saveRotation(removeScheduleDay(rotationSchedule, templates, scheduleDayId(day))))}
         </View>
       );
     }
@@ -924,69 +1068,458 @@ export function WorkoutScreen({
     return null;
   };
 
-  return (
-    <SheetPage onBackPress={requestClose}>
-      <SheetKeyboardAvoidingView style={styles.sheet}>
-        <View style={styles.header}>
-          {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
+  /** The week against the days they said they train, and the day this session would add. */
+  const weekBar = (style?: StyleProp<ViewStyle>) => (
+    <LogProgress
+      style={style}
+      items={[
+        {
+          label: 'Last 7 days',
+          value: week.days,
+          goal: weeklyWorkoutGoal,
+          adding: weekAdding,
+          unit: weeklyWorkoutGoal === 1 ? 'workout' : 'workouts',
+        },
+      ]}
+    />
+  );
+
+  // The Gym page's recent sessions: the last few lifts, each a tap from doing again.
+  const recentSessions = onOpenPast
+    ? history
+        .filter(
+          (event): event is HealthEvent<WorkoutMetadata> =>
+            event.type === 'WORKOUT' && (event.metadata as WorkoutMetadata).workoutType !== 'cardio',
+        )
+        .slice(0, 3)
+    : [];
+
+  /** Naming the activity on the card to keep it as a routine: null while not. */
+  const [outdoorName, setOutdoorName] = useState<string | null>(null);
+  const [savingOutdoor, setSavingOutdoor] = useState(false);
+  const outdoorActivity = startWithCardio && exercises.length === 1 && exercises[0]!.distance ? exercises[0]! : null;
+  const canSaveOutdoor = inRoom && Boolean(onSaveOutdoorRoutine) && outdoorActivity !== null;
+  const saveOutdoor = async () => {
+    if (!onSaveOutdoorRoutine || !outdoorActivity || outdoorName === null) return;
+    const minutes = Number(duration);
+    if (!(minutes > 0)) {
+      setError('Add the time first: the routine logs it each time.');
+      return;
+    }
+    setSavingOutdoor(true);
+    try {
+      const refused = await onSaveOutdoorRoutine(outdoorName, outdoorActivity.name, Math.round(minutes), distanceKm);
+      if (refused) {
+        setError(refused);
+        return;
+      }
+      // Back to the Outside page, where the new routine is waiting with its Log.
+      onClose();
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not save that routine.'));
+    } finally {
+      setSavingOutdoor(false);
+    }
+  };
+
+  const recentBlock = recentSessions.length > 0 ? (
+    <View style={styles.routines} testID="recent-sessions">
+      <View style={styles.routinesHead}>
+        <Text style={styles.sectionLabel}>RECENT</Text>
+      </View>
+      <View style={styles.recentList}>
+        {recentSessions.map((past) => {
+          const pastName = past.metadata.name || 'Workout';
+          const minutes = past.metadata.stats?.durationMinutes ?? past.metadata.durationMinutes;
+          const canRepeat = (past.metadata.exercises ?? []).length > 0;
+          return (
+            <PressableScale
+              key={past.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${pastName}, ${whenLabel(past.occurredAt)}`}
+              onPress={() => onOpenPast?.(past)}
+              style={({ pressed }) => [styles.routineRow, pressed && styles.pressed]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.routineName} numberOfLines={1}>{pastName}</Text>
+                <Text style={styles.routinePreview} numberOfLines={1}>
+                  {`${whenLabel(past.occurredAt)} · ${minutes} min`}
+                </Text>
+              </View>
+              {canRepeat ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Do ${pastName} again`}
+                  hitSlop={8}
+                  onPress={() => repeatSession(past)}
+                  style={({ pressed }) => [styles.goPill, pressed && styles.pressed]}
+                >
+                  <Text style={styles.goPillLabel} numberOfLines={1}>Repeat</Text>
+                </Pressable>
+              ) : null}
+            </PressableScale>
+          );
+        })}
+      </View>
+    </View>
+  ) : null;
+
+  /**
+   * The Gym page's start, once there are routines: short, so the whole of it
+   * shows under the room's window without hunting.
+   *
+   * Routines and the split are two things. A routine is one day's workout
+   * (Push); the split is which routines you do, in order, with rest days
+   * (Push, Pull, Legs, Rest). So the page has today's card (from the split),
+   * the routines (each a Start), and the split as one line with its own Edit.
+   * Editing either is a mode of its own, out of the way of training.
+   */
+  const todayTemplate = rotation?.template ?? null;
+  // Outside's one-tap routines (a walk with its time) are kept there.
+  const gymRoutines = templates.filter((template) => !(template.exercises.length === 1 && template.exercises[0]!.distance && template.minutes));
+  const listed = gymRoutines.filter((template) => template.id !== todayTemplate?.id || managingRoutines);
+  const splitLine = rotationDays
+    .map((day) => (day.kind === 'rest' ? 'Rest' : (templates.find((template) => template.id === day.templateId)?.name ?? '')))
+    .join(' → ');
+  const notInSplit = gymRoutines.filter((template) => !inSplit(template.id));
+
+  /** One day of the split while editing it: its place, its name, take it out, and the grip. */
+  const splitRow = (day: ScheduleDay, index: number, handle: ReactNode, lifted = false) => {
+    const isToday = rotation?.index === index;
+    const name = day.kind === 'rest' ? 'Rest day' : (templates.find((template) => template.id === day.templateId)?.name ?? 'Routine');
+    return (
+      <View key={scheduleDayId(day)} style={styles.routineRowWrap}>
+        <View style={[styles.routineRow, styles.routineRowRoom, isToday && styles.routineRowToday, lifted && styles.rowLifted]}>
           <View style={{ flex: 1 }}>
-            {/* With a session under way, the way back to picking one. */}
-            {!routineMode && !editing && exercises.length > 0 ? (
+            <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{isToday ? `DAY ${index + 1} · TODAY` : `DAY ${index + 1}`}</Text>
+            <Text style={[styles.routineName, day.kind === 'rest' && styles.restName]} numberOfLines={1}>{name}</Text>
+          </View>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Take ${name} out of the split`}
+          hitSlop={8}
+          onPress={() => rotationSchedule && saveRotation(removeScheduleDay(rotationSchedule, templates, scheduleDayId(day)))}
+          style={styles.routineDelete}
+        >
+          <Mark kind="cross" size={11} color={colors.danger} />
+        </Pressable>
+        {handle}
+      </View>
+    );
+  };
+
+  const roomHub =
+    inRoom && !startWithCardio && onSaveTemplate && templates.length > 0 ? (
+      editingSplit ? (
+        // ---- the split, being set up
+        <>
+          <View style={[styles.roomListHead, { marginTop: 0 }]}>
+            <Text style={styles.sectionLabel}>YOUR SPLIT</Text>
+            <TextButton label="Done" onPress={() => setEditingSplit(false)} tone="coral" />
+          </View>
+          {rotationDays.length > 0 ? (
+            <DragList
+              items={rotationDays}
+              keyOf={scheduleDayId}
+              labelOf={(day) =>
+                day.kind === 'rest' ? 'rest day' : (templates.find((template) => template.id === day.templateId)?.name ?? 'routine')
+              }
+              renderItem={splitRow}
+              enabled={rotationSchedule !== null}
+              onDragging={setDraggingDay}
+              onMove={(from, to) => {
+                const moved = rotationDays[from];
+                if (rotationSchedule && moved) saveRotation(moveScheduleDay(rotationSchedule, templates, scheduleDayId(moved), to));
+              }}
+            />
+          ) : (
+            <Text style={styles.splitHint}>
+              Pick the routines you rotate through, in order. Each day the next one is today's, and a rest day is a day off.
+            </Text>
+          )}
+          <Text style={[styles.sectionLabel, { marginTop: 16, marginBottom: 6 }]}>ADD A DAY</Text>
+          <View style={styles.addDayChips}>
+            {notInSplit.map((template) => (
+              <Pressable
+                key={template.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${template.name} to the split`}
+                onPress={() => saveRotation(addRoutineDay(rotationSchedule, templates, template.id))}
+                style={({ pressed }) => [styles.addDayChip, pressed && styles.pressed]}
+              >
+                <Text style={styles.addDayChipLabel} numberOfLines={1}>{`+ ${template.name}`}</Text>
+              </Pressable>
+            ))}
+            {rotationSchedule ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Back to all workouts"
-                onPress={backToStart}
+                accessibilityLabel="Add a rest day to the split"
+                onPress={() => saveRotation(addRestDay(rotationSchedule, templates))}
+                style={({ pressed }) => [styles.addDayChip, styles.addDayChipRest, pressed && styles.pressed]}
+                testID="add-rest-day"
+              >
+                <Text style={[styles.addDayChipLabel, styles.addDayChipRestLabel]}>+ Rest day</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {notInSplit.length === 0 && !rotationSchedule ? (
+            <Text style={styles.splitHint}>Make a routine first: it is one day of the split.</Text>
+          ) : null}
+          {rotationSchedule && rotation && rotation.length > 1 ? (
+            <View style={styles.roomRestart}>
+              <TextButton label="Restart from day 1" onPress={() => saveRotation(restartSchedule(rotationSchedule, templates))} />
+            </View>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {/* ---- today, from the split */}
+          {rotation ? (
+            <View style={[styles.todayCard, styles.todayCardRoom]} testID="rotation-today">
+              <View style={styles.todayHeadRoom}>
+                <Text style={styles.todayKicker}>{`TODAY · DAY ${rotation.index + 1} OF ${rotation.length}`}</Text>
+                {rotationSchedule && rotation.length > 1 ? (
+                  <View style={styles.dayNudge}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Previous day"
+                      hitSlop={8}
+                      onPress={() => saveRotation(stepToday(rotationSchedule, templates, -1))}
+                      style={({ pressed }) => [styles.dayNudgeButton, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.dayNudgeLabel}>‹</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Next day"
+                      hitSlop={8}
+                      onPress={() => saveRotation(stepToday(rotationSchedule, templates, 1))}
+                      style={({ pressed }) => [styles.dayNudgeButton, pressed && styles.pressed]}
+                    >
+                      <Text style={styles.dayNudgeLabel}>›</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+              {todayTemplate ? (
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel={`Start ${todayTemplate.name}, today's routine`}
+                  onPress={() => loadRoutine(todayTemplate)}
+                  style={({ pressed }) => [styles.todayMain, styles.todayMainRoom, pressed && styles.pressed]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.todayName} numberOfLines={1}>{todayTemplate.name}</Text>
+                    <Text style={styles.routinePreview} numberOfLines={1}>
+                      {todayTemplate.exercises.map((exercise) => exercise.name).join(', ')}
+                    </Text>
+                  </View>
+                  <View style={styles.todayStart}>
+                    <Text style={styles.todayStartLabel} numberOfLines={1}>Start</Text>
+                  </View>
+                </PressableScale>
+              ) : (
+                <View style={[styles.todayMain, styles.todayMainRoom]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.todayName}>Rest day</Text>
+                    <Text style={styles.routinePreview} numberOfLines={1}>Nothing due. You can still train below.</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          ) : null}
+
+          {/* ---- the routines: one day's workout each */}
+          {listed.length > 0 || managingRoutines ? (
+            <>
+              <View style={[styles.roomListHead, !rotation && { marginTop: 0 }]}>
+                <Text style={styles.sectionLabel}>{managingRoutines ? 'EDIT ROUTINES' : todayTemplate ? 'OTHER ROUTINES' : 'ROUTINES'}</Text>
+                {onDeleteTemplate ? (
+                  <TextButton
+                    label={managingRoutines ? 'Done' : 'Edit'}
+                    onPress={() => setManagingRoutines((current) => !current)}
+                    tone="coral"
+                  />
+                ) : null}
+              </View>
+              <View style={styles.recentList}>
+                {listed.map((template) => (
+                  <View key={template.id} style={styles.routineRowWrap}>
+                    <PressableScale
+                      accessibilityRole="button"
+                      accessibilityLabel={managingRoutines ? `Edit routine ${template.name}` : `Load routine ${template.name}`}
+                      onPress={() => (managingRoutines ? startEditingRoutine(template) : loadRoutine(template))}
+                      style={({ pressed }) => [styles.routineRow, styles.routineRowRoom, pressed && styles.pressed]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.routineName} numberOfLines={1}>{template.name}</Text>
+                        <Text style={styles.routinePreview} numberOfLines={1}>
+                          {template.exercises.map((exercise) => exercise.name).join(', ')}
+                        </Text>
+                      </View>
+                      <View style={styles.goPill}>
+                        <Text style={styles.goPillLabel} numberOfLines={1}>{managingRoutines ? 'Edit' : 'Start'}</Text>
+                      </View>
+                    </PressableScale>
+                    {managingRoutines && onDeleteTemplate ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Delete routine ${template.name}`}
+                        hitSlop={8}
+                        onPress={() => {
+                          void onDeleteTemplate(template.id);
+                          if (activeTemplateId === template.id) setActiveTemplateId(null);
+                        }}
+                        style={styles.routineDelete}
+                      >
+                        <Mark kind="cross" size={11} color={colors.danger} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          <View style={[styles.roomButtons, { marginTop: 12 }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Pick exercises"
+              onPress={openPicker}
+              style={({ pressed }) => [styles.roomButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.roomButtonLabel} numberOfLines={1}>Pick exercises</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="New routine"
+              onPress={startNewRoutine}
+              style={({ pressed }) => [styles.roomButton, pressed && styles.pressed]}
+              testID="add-routine"
+            >
+              <Text style={styles.roomButtonLabel} numberOfLines={1}>+ New routine</Text>
+            </Pressable>
+          </View>
+
+          {/* ---- the split: one line, and its own Edit */}
+          {onSaveSchedule && !managingRoutines ? (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={rotationSchedule ? `Your split: ${splitLine}. Edit it` : 'Set up a split'}
+              onPress={() => setEditingSplit(true)}
+              style={({ pressed }) => [styles.splitRow, pressed && styles.pressed]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionLabel}>SPLIT</Text>
+                <Text style={styles.splitLine} numberOfLines={1}>
+                  {rotationSchedule ? splitLine : 'Rotate routines, like Push → Pull → Legs'}
+                </Text>
+              </View>
+              <Text style={styles.splitEdit}>{rotationSchedule ? 'Edit' : 'Set up'}</Text>
+            </PressableScale>
+          ) : null}
+
+          {managingRoutines ? null : recentBlock}
+
+          {!managingRoutines && weeklyWorkoutGoal > 0 ? (
+            <Text style={styles.roomWeek}>
+              {`${week.days} of ${weeklyWorkoutGoal} ${weeklyWorkoutGoal === 1 ? 'workout' : 'workouts'} in the last 7 days`}
+            </Text>
+          ) : null}
+        </>
+      )
+    ) : null;
+
+  return (
+    <SheetPage onBackPress={requestClose}>
+      <SheetKeyboardAvoidingView style={[styles.sheet, inRoom && styles.sheetInRoom]}>
+        {/* In the room the window above is the heading. What is left is one
+            line: a routine's name is the field you type it in, a session's
+            sits beside the way back, and the start page has none. */}
+        {inRoom ? (
+          routineMode ? (
+            <View style={styles.roomBar}>
+              <TextInput
+                style={[layout.input, styles.roomNameInput]}
+                value={routineName}
+                onChangeText={setRoutineName}
+                placeholder="Routine name (Push, Legs...)"
+                placeholderTextColor={colors.faint}
+                accessibilityLabel="Routine name"
+                maxLength={MAX_TEMPLATE_NAME}
+                autoFocus={!editingTemplateId}
+                returnKeyType="done"
+              />
+              <TextButton label="Cancel" onPress={leaveRoutineMode} tone="coral" />
+            </View>
+          ) : !empty ? (
+            <View style={styles.roomBar}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={startWithCardio ? 'Back to the activities' : 'Back to all workouts'}
+                onPress={startWithCardio ? backToActivities : backToStart}
                 hitSlop={8}
-                style={styles.backToStart}
+                style={({ pressed }) => [styles.roomBack, pressed && styles.pressed]}
                 testID="workout-back"
               >
                 <Text style={styles.backToStartLabel}>‹ Back</Text>
               </Pressable>
-            ) : null}
-            {/* A routine's or session's own name can run long: two lines at most,
-                not a pixel-type wall pushing the whole sheet down. */}
-            <Text
-              style={styles.title}
-              numberOfLines={(routineMode ? Boolean(routineName) : !editing && !empty) ? 2 : undefined}
-            >
-              {routineMode
-                ? editingTemplateId
-                  ? routineName || 'Edit routine'
-                  : routineName || 'New routine'
-                : editing
-                  ? 'Edit workout'
-                  : empty
-                    ? 'What are you training?'
-                    : name || 'Workout'}
-            </Text>
+              <Text style={styles.roomTitle} numberOfLines={1}>{name || 'Workout'}</Text>
+              {/* Outside, the logger sits over the room's page: × puts it away. */}
+              {startWithCardio ? <CloseButton onPress={requestClose} /> : null}
+            </View>
+          ) : null
+        ) : (
+          <View style={styles.header}>
+            {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
+            <View style={{ flex: 1 }}>
+              {/* With a session under way, the way back to picking one. */}
+              {!routineMode && !editing && exercises.length > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to all workouts"
+                  onPress={backToStart}
+                  hitSlop={8}
+                  style={styles.backToStart}
+                  testID="workout-back"
+                >
+                  <Text style={styles.backToStartLabel}>‹ Back</Text>
+                </Pressable>
+              ) : null}
+              {/* A routine's or session's own name can run long: two lines at most,
+                  not a pixel-type wall pushing the whole sheet down. */}
+              <Text
+                style={styles.title}
+                numberOfLines={(routineMode ? Boolean(routineName) : !editing && !empty) ? 2 : undefined}
+              >
+                {routineMode
+                  ? editingTemplateId
+                    ? routineName || 'Edit routine'
+                    : routineName || 'New routine'
+                  : editing
+                    ? 'Edit workout'
+                    : empty
+                      ? 'What are you training?'
+                      : name || 'Workout'}
+              </Text>
+            </View>
+            {/* Cancel leaves the routine editor, not the sheet, so it stays a word. */}
+            {routineMode ? (
+              <TextButton label="Cancel" onPress={leaveRoutineMode} tone="coral" />
+            ) : (
+              <CloseButton onPress={requestClose} />
+            )}
           </View>
-          {/* Cancel leaves the routine editor, not the sheet, so it stays a word. */}
-          {routineMode ? (
-            <TextButton label="Cancel" onPress={leaveRoutineMode} tone="coral" />
-          ) : (
-            <CloseButton onPress={requestClose} />
-          )}
-        </View>
+        )}
 
         {/* The week against the days they said they train, and the day this
             session would add. Not while defining a routine or fixing an old
             workout: neither changes the count. */}
-        {!routineMode && !editing ? (
-          <LogProgress
-            items={[
-              {
-                label: 'Last 7 days',
-                value: week.days,
-                goal: weeklyWorkoutGoal,
-                adding: weekAdding,
-                unit: weeklyWorkoutGoal === 1 ? 'workout' : 'workouts',
-              },
-            ]}
-          />
-        ) : null}
+        {!routineMode && !editing && !inRoom ? weekBar() : null}
 
         {recordBanner ? (
-          <View style={styles.recordBanner} pointerEvents="none" accessibilityLiveRegion="assertive" testID="record-banner">
+          <View style={[styles.recordBanner, inRoom && { top: 8 }]} pointerEvents="none" accessibilityLiveRegion="assertive" testID="record-banner">
             <Text style={styles.recordKicker}>PERSONAL RECORD</Text>
             <Text style={styles.recordText}>{recordBanner.text}</Text>
           </View>
@@ -995,11 +1528,11 @@ export function WorkoutScreen({
         <ScrollView
           ref={bodyRef}
           scrollEnabled={!draggingDay}
-          contentContainerStyle={styles.body}
+          contentContainerStyle={[styles.body, inRoom && styles.bodyInRoom, inRoom && (routineMode || !empty) && styles.bodyInRoomWorking]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
-          {routineMode ? (
+          {routineMode && !inRoom ? (
             <>
               <Text style={styles.sectionLabel}>ROUTINE NAME</Text>
               <TextInput
@@ -1020,8 +1553,26 @@ export function WorkoutScreen({
 
           {routineMessage && !routineMode ? <Text style={styles.routineMessage}>{routineMessage}</Text> : null}
 
+          {/* A workout under way on its own page: the way back to it leads. */}
+          {handsOff && waiting && !routineMode ? (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={`Resume ${waiting}`}
+              onPress={() => onOpenSession?.()}
+              style={({ pressed }) => [styles.startCard, styles.resumeCard, pressed && styles.pressed]}
+              testID="resume-workout"
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.startTitle} numberOfLines={1}>{`Resume ${waiting}`}</Text>
+                <Text style={styles.startHint}>A workout in progress</Text>
+              </View>
+              <Text style={styles.startArrow}>→</Text>
+            </PressableScale>
+          ) : null}
+
           {/* Nothing added yet: the whole screen is one question, how to start. */}
-          {!routineMode && empty ? (
+          {!routineMode && empty && roomHub ? roomHub : null}
+          {!routineMode && empty && !roomHub ? (
             <>
               {/* Their rotation's answer, first: today's routine, or a rest day. */}
               {rotation ? (
@@ -1099,7 +1650,7 @@ export function WorkoutScreen({
                   {templates.length > 0 ? (
                     <>
                       <View style={styles.routinesHead}>
-                        <Text style={styles.sectionLabel}>{rotationSchedule ? 'YOUR ROTATION' : 'OR START A ROUTINE'}</Text>
+                        <Text style={styles.sectionLabel}>{rotationSchedule ? 'YOUR SPLIT AND ROUTINES' : 'OR START A ROUTINE'}</Text>
                         {onDeleteTemplate ? (
                           <TextButton
                             label={managingRoutines ? 'Done' : 'Edit'}
@@ -1109,7 +1660,7 @@ export function WorkoutScreen({
                         ) : null}
                       </View>
                       <DragList
-                        items={rotationDays}
+                        items={sheetDays}
                         keyOf={scheduleDayId}
                         labelOf={(day) =>
                           day.kind === 'rest' ? 'rest day' : (templates.find((template) => template.id === day.templateId)?.name ?? 'routine')
@@ -1118,8 +1669,8 @@ export function WorkoutScreen({
                         enabled={managingRoutines && rotationSchedule !== null}
                         onDragging={setDraggingDay}
                         onMove={(from, to) => {
-                          const moved = rotationDays[from];
-                          if (rotationSchedule && moved) saveRotation(moveScheduleDay(rotationSchedule, templates, scheduleDayId(moved), to));
+                          const moved = sheetDays[from];
+                          if (rotationSchedule && moved && from < rotationDays.length && to < rotationDays.length) saveRotation(moveScheduleDay(rotationSchedule, templates, scheduleDayId(moved), to));
                         }}
                       />
                     </>
@@ -1171,6 +1722,8 @@ export function WorkoutScreen({
                   </PressableScale>
                 </View>
               ) : null}
+
+              {recentBlock}
             </>
           ) : null}
 
@@ -1179,7 +1732,7 @@ export function WorkoutScreen({
               accessibilityRole="button"
               accessibilityLabel="Add exercises"
               onPress={openPicker}
-              style={({ pressed }) => [styles.startCard, styles.routineStart, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.startCard, styles.routineStart, inRoom && styles.routineStartInRoom, pressed && styles.pressed]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.startTitle}>Add exercises</Text>
@@ -1273,7 +1826,12 @@ export function WorkoutScreen({
                       {exercise.bodyweight ? 'body' : weightUnit}
                     </Text>
                     <Text style={[styles.setHeadLabel, styles.setInputHead]}>reps</Text>
-                    {routineMode ? null : <View style={styles.tickSlot} />}
+                    {/* Says what the circle under it does: a tap ticks the set and starts the rest timer. */}
+                    {routineMode ? null : (
+                      <Text style={[styles.setHeadLabel, styles.tickHead]} numberOfLines={1} accessible={false}>
+                        REST
+                      </Text>
+                    )}
                     <View style={styles.setRemoveSlot} />
                   </View>
                   {exercise.sets.map((set, index) => (
@@ -1319,7 +1877,7 @@ export function WorkoutScreen({
                       <NumberInput
                         style={[layout.input, styles.setInput, narrow && styles.setInputNarrow]}
                         selectTextOnFocus
-                        value={set.reps}
+                        value={set.reps > 0 ? set.reps : undefined}
                         placeholder="reps"
                         placeholderTextColor={colors.faint}
                         accessibilityLabel={`Set ${index + 1} reps`}
@@ -1383,7 +1941,49 @@ export function WorkoutScreen({
             );
           })}
 
-          {!empty ? (
+          {/* Outside: the activity with its time and distance can be kept as a
+              routine, in place of adding more to it (a walk is one thing). */}
+          {canSaveOutdoor ? (
+            outdoorName === null ? (
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel="Save as a routine"
+                onPress={() => {
+                  setError(null);
+                  setOutdoorName('');
+                }}
+                style={({ pressed }) => [styles.addExercise, pressed && styles.pressed]}
+              >
+                <View style={styles.roundAdd}>
+                  <Mark kind="plus" size={12} color={colors.coral} />
+                </View>
+                <Text style={styles.addExerciseLabel}>Save as a routine</Text>
+              </PressableScale>
+            ) : (
+              <View style={[styles.addExercise, styles.outdoorSave]}>
+                <TextInput
+                  style={[layout.input, styles.outdoorName]}
+                  value={outdoorName}
+                  onChangeText={setOutdoorName}
+                  placeholder="Name it (Morning walk...)"
+                  placeholderTextColor={colors.faint}
+                  accessibilityLabel="Routine name"
+                  maxLength={MAX_TEMPLATE_NAME}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={() => void saveOutdoor()}
+                />
+                <View style={styles.outdoorActions}>
+                  <TextButton label="Cancel" onPress={() => setOutdoorName(null)} />
+                  <View style={{ flex: 1 }}>
+                    <PrimaryButton label={savingOutdoor ? 'Saving...' : 'Save routine'} busy={savingOutdoor} onPress={() => void saveOutdoor()} />
+                  </View>
+                </View>
+              </View>
+            )
+          ) : null}
+
+          {!empty && !(inRoom && startWithCardio) ? (
             <PressableScale
               accessibilityRole="button"
               accessibilityLabel="Add another exercise"
@@ -1424,8 +2024,11 @@ export function WorkoutScreen({
                 />
               </View>
 
-              {/* An ad-hoc session you decide afterwards is worth keeping. */}
-              {onSaveTemplate ? (
+              {/* An ad-hoc session you decide afterwards is worth keeping. Not in
+                  the Gym room: + New routine is right on its page, a routine
+                  started there updates itself on Finish, and Outside keeps its
+                  own Save as a routine on the activity's card. */}
+              {onSaveTemplate && !inRoom ? (
                 <View style={styles.sessionActions}>
                   <TextButton
                     label={activeTemplateId ? 'Update routine' : 'Save as routine'}
@@ -1442,7 +2045,7 @@ export function WorkoutScreen({
         {/* Pinned, so the way out is always in the same place. Not before
             there is anything to finish: a button that cannot do anything yet. */}
         {routineMode || !empty || editing || rest ? (
-        <View style={styles.footer}>
+        <View style={[styles.footer, inRoom && styles.footerInRoom]}>
           {routineMode ? (
             <>
               {routineMessage ? <Text style={styles.routineError}>{routineMessage}</Text> : null}
@@ -1455,13 +2058,26 @@ export function WorkoutScreen({
           ) : (
             <>
               {rest ? <RestTimer rest={rest} onAdjust={adjustRest} onSkip={endRest} onDone={endRest} /> : null}
-              <Text style={styles.stats}>{empty ? 'Add an exercise to finish' : summary}</Text>
-              <PrimaryButton
-                label={saving ? 'Saving...' : editing ? 'Save changes' : 'Finish workout'}
-                busy={saving}
-                disabled={empty}
-                onPress={() => void finish()}
-              />
+              {inRoom ? (
+                <View style={styles.footerRow}>
+                  <Text style={[styles.stats, styles.statsInRoom]} numberOfLines={2}>
+                    {empty ? 'Add an exercise to finish' : summary}
+                  </Text>
+                  <View style={styles.footerFinish}>
+                    <PrimaryButton label={saving ? 'Saving...' : 'Finish'} busy={saving} disabled={empty} onPress={() => void finish()} />
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.stats}>{empty ? 'Add an exercise to finish' : summary}</Text>
+                  <PrimaryButton
+                    label={saving ? 'Saving...' : editing ? 'Save changes' : 'Finish workout'}
+                    busy={saving}
+                    disabled={empty}
+                    onPress={() => void finish()}
+                  />
+                </>
+              )}
             </>
           )}
         </View>
@@ -1471,7 +2087,7 @@ export function WorkoutScreen({
             modals behave differently on iOS, Android and react-native-web, and
             this only has to cover the sheet it already lives in. */}
         {historyFor ? (
-          <View style={styles.picker} testID="exercise-history">
+          <View style={[styles.picker, inRoom && styles.pickerInRoom]} testID="exercise-history">
             <View style={styles.pickerHead}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.title} numberOfLines={2}>{historyFor}</Text>
@@ -1495,18 +2111,21 @@ export function WorkoutScreen({
         ) : null}
 
         {picking ? (
-          <View style={styles.picker}>
-            <View style={styles.pickerHead}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>{cardioOnly ? 'What did you do?' : 'Add exercise'}</Text>
+          <View style={[styles.picker, inRoom && styles.pickerInRoom]}>
+            {/* In the room the search field says what the list is: no title over it, Done under it. */}
+            {inRoom && !cardioOnly ? null : (
+              <View style={[styles.pickerHead, inRoom && styles.pickerHeadInRoom]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.title}>{cardioOnly ? 'What did you do?' : 'Add exercise'}</Text>
+                </View>
+                <CloseButton
+                  label={cardioOnly ? 'Close' : 'Close the exercise list'}
+                  onPress={() => (cardioOnly ? requestClose() : setPicking(false))}
+                />
               </View>
-              <CloseButton
-                label={cardioOnly ? 'Close' : 'Close the exercise list'}
-                onPress={() => (cardioOnly ? requestClose() : setPicking(false))}
-              />
-            </View>
+            )}
             {/* Lifted by the keyboard's height, so Done always sits just above the keys. */}
-            <View style={[styles.pickerBody, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
+            <View style={[styles.pickerBody, inRoom && styles.pickerBodyInRoom, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
               {/* A short list needs no search, and no keyboard over it. */}
               {cardioOnly ? null : (
                 <TextInput
@@ -1572,6 +2191,80 @@ export function WorkoutScreen({
 
 const styles = themedStyles(() => ({
   sheet: { flex: 1, backgroundColor: colors.paper, paddingTop: 20 },
+  // Under the room's window: no gap for a sheet's top edge.
+  sheetInRoom: { paddingTop: 0 },
+  // The room's one-line header.
+  roomBar: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 16, paddingTop: 4 },
+  roomBack: { height: 36, justifyContent: 'center' },
+  roomTitle: { flex: 1, fontFamily: fonts.ui, fontWeight: '700', fontSize: 18, color: colors.ink },
+  roomNameInput: { flex: 1, height: 44, fontWeight: '600' },
+  bodyInRoomWorking: { paddingTop: 0 },
+  pickerHeadInRoom: { paddingHorizontal: 16, paddingTop: 4 },
+  // The room's start page.
+  todayCardRoom: { marginTop: 0, paddingTop: 12, paddingBottom: 6 },
+  todayHeadRoom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 24 },
+  todayMainRoom: { paddingVertical: 6 },
+  todayHeadActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dayNudge: { flexDirection: 'row', gap: 6 },
+  dayNudgeButton: { width: 30, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cardSoft },
+  dayNudgeLabel: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 16, lineHeight: 18, color: colors.inkSoft },
+  roomListHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, marginBottom: 6, minHeight: 28 },
+  routineRowRoom: { paddingVertical: 10 },
+  roomButtons: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  roomButton: {
+    flex: 1,
+    minWidth: 0,
+    height: 46,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  roomButtonLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
+  roomRestart: { alignItems: 'center', marginTop: 14 },
+  splitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    backgroundColor: colors.card,
+  },
+  splitLine: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink, marginTop: 3 },
+  splitEdit: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.coralDeep },
+  splitHint: { fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.muted, marginTop: 4 },
+  addDayChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  addDayChip: {
+    minHeight: 38,
+    paddingHorizontal: 14,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.coralWash,
+  },
+  addDayChipLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 14, color: colors.coralDeep },
+  addDayChipRest: { backgroundColor: colors.cardSoft },
+  addDayChipRestLabel: { color: colors.inkSoft },
+  roomWeek: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, textAlign: 'center', marginTop: 18 },
+  routineStartInRoom: { marginTop: 8 },
+  resumeCard: { marginTop: 0, marginBottom: 12 },
+  // The room bar is right under it: no home-indicator gap, and less air.
+  footerInRoom: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 },
+  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  footerFinish: { flexShrink: 0, minWidth: 124 },
+  statsInRoom: { flex: 1, textAlign: 'left' },
+  pickerInRoom: { paddingTop: 6 },
+  pickerBodyInRoom: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 10, gap: 8 },
+  recentList: { gap: 8 },
+  // The room's page keeps the window's side margins, and starts close under it.
+  bodyInRoom: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28 },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1759,6 +2452,8 @@ const styles = themedStyles(() => ({
   setPrevious: { width: 60, flexShrink: 0, alignItems: 'center', justifyContent: 'center', textAlign: 'center' },
   setPreviousValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, fontVariant: ['tabular-nums'], textAlign: 'center' },
   tickSlot: { width: 30, height: 30 },
+  // Takes the circle's 30pt in the row (38 less the margins), the word a little wider than it rather than wrapped.
+  tickHead: { width: 38, textAlign: 'center', marginHorizontal: -4, flexShrink: 0 },
   tick: { borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coralWash },
   tickOn: { backgroundColor: colors.coral },
   // A filled field on the card, no outline: the numbers are the row.
@@ -1832,6 +2527,9 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.card,
   },
   addExerciseLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 16, color: colors.coralDeep },
+  outdoorSave: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
+  outdoorName: { fontWeight: '600' },
+  outdoorActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
 
   // Details
   details: { marginTop: 28 },

@@ -183,6 +183,7 @@ describe('records and history in a workout', () => {
   it('calls out a set that beats the log, the moment it is ticked', async () => {
     const tree = await open();
     act(() => field(tree, 'Set 1 weight').props.onChangeText('200'));
+    act(() => field(tree, 'Set 1 reps').props.onChangeText('5'));
     act(() => press(tree, 'Set 1 of Bench Press done').props.onPress());
     expect(texts(tree)).toContain('New heaviest Bench Press: 200 lb');
     act(() => tree.unmount());
@@ -191,6 +192,7 @@ describe('records and history in a workout', () => {
   it('says nothing for a set that does not', async () => {
     const tree = await open();
     act(() => field(tree, 'Set 1 weight').props.onChangeText('95'));
+    act(() => field(tree, 'Set 1 reps').props.onChangeText('5'));
     act(() => press(tree, 'Set 1 of Bench Press done').props.onPress());
     expect(tree.root.findAll((node: any) => node.props.testID === 'record-banner')).toHaveLength(0);
     act(() => tree.unmount());

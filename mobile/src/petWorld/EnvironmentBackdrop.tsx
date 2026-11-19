@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType, type LayoutChangeEvent } from 'react-native';
 import { themedStyles } from '../theme';
+import { usePanelInset } from './RoomActionSlot';
 
 /**
  * A scene's full-bleed art, sized so you can actually see the scene.
@@ -169,6 +170,31 @@ export const backdropSize = (
 };
 
 /**
+ * Art box for a room's window (a room with a page: see RoomPanel).
+ *
+ * The window is wide and short, a quarter of the screen, so the full-screen
+ * rule (fit the width, sit on the bottom edge) showed only floorboards. Here
+ * the art is drawn the window's width and slid so the window looks at the part
+ * of the room the pet stands in: the furniture and the floor in front of it,
+ * with the wall above for what the pet says.
+ */
+const WINDOW_SCALE = 1;
+/** Which part of the art the window looks at: 0 its top, 1 its bottom. A room can set its own (`windowFocus`). */
+const WINDOW_FOCUS = 0.8;
+
+export const windowBackdropSize = (
+  containerWidth: number,
+  containerHeight: number,
+  aspectRatio: number,
+  focus = WINDOW_FOCUS,
+) => {
+  // Never shorter than the window, however wide the art.
+  const width = Math.max(containerWidth * WINDOW_SCALE, containerHeight * aspectRatio);
+  const height = width / aspectRatio;
+  return { width, height, left: (containerWidth - width) / 2, bottom: -(height - containerHeight) * (1 - focus) };
+};
+
+/**
  * The pet drawn as a share of the ROOM rather than at a fixed point size.
  *
  * A fixed 280pt pet was three quarters of a small phone's width and a quarter
@@ -220,9 +246,15 @@ export function EnvironmentBackdrop({
   lift,
   floorColor,
   maxScale,
+  windowFocus,
   children,
 }: {
   source: ImageSourcePropType;
+  /**
+   * In a room's window, which part of the art it looks at, from 0 (the top) to
+   * 1 (the bottom), for art whose furniture sits higher or lower than most.
+   */
+  windowFocus?: number;
   /**
    * Overlays that belong to the ART, not the screen — a trophy on a shelf, a
    * poster on a wall. Rendered inside a box that exactly matches the art's
@@ -276,12 +308,16 @@ export function EnvironmentBackdrop({
       current.width === width && current.height === height ? current : { width, height },
     );
   };
-  const { width, height, left, bottom } = backdropSize(container.width, backdropAspectRatio(source), {
-    containerHeight: container.height,
-    fill,
-    lift,
-    maxScale,
-  });
+  // In a room's window the art is framed for the window, not for a whole screen.
+  const windowed = usePanelInset() > 0;
+  const { width, height, left, bottom } = windowed
+    ? windowBackdropSize(container.width, container.height, backdropAspectRatio(source), windowFocus)
+    : backdropSize(container.width, backdropAspectRatio(source), {
+        containerHeight: container.height,
+        fill,
+        lift,
+        maxScale,
+      });
 
   return (
     <View style={StyleSheet.absoluteFill} onLayout={onLayout}>

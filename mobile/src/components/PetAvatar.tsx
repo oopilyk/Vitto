@@ -161,6 +161,11 @@ export const animationFor = (
   return mood === 'sleepy' ? 'rest' : 'idle';
 };
 
+/** The flying plate's size, as a share of the pet's square: 76pt on the 280pt home pet. */
+const FOOD_SHARE = 0.27;
+/** Where the pet's mouth is, up its square from the bottom: where the plate ends. */
+const MOUTH_HEIGHT = 0.34;
+
 export function PetAvatar({
   pet,
   isAnalyzingMeal,
@@ -280,18 +285,28 @@ export function PetAvatar({
     }).start();
   }, [feedingImage, flight]);
 
+  // Sized and aimed by the pet, not in fixed points: in a room's small window
+  // the 76pt plate was as big as the pet's head and came down on its feet.
+  // It sits at the bottom of the pet's square at rest, so the flight is
+  // measured up from there: in from the lower left, over the head, into the
+  // mouth (about a third of the way up the square, where the sprite's is).
+  const food = Math.round(size * FOOD_SHARE);
+  const mouth = -(size * MOUTH_HEIGHT - food / 2);
   const foodStyle = {
+    width: food,
+    height: food,
+    borderRadius: food / 2,
     transform: [
       {
         translateX: flight.interpolate({
           inputRange: [0, 1],
-          outputRange: [-size * 0.85, 0],
+          outputRange: [-size * 0.7, 0],
         }) as unknown as number,
       },
       {
         translateY: flight.interpolate({
           inputRange: [0, 0.6, 1],
-          outputRange: [-size * 0.3, -size * 0.75, -size * 0.12],
+          outputRange: [-size * 0.12, -size * 0.62, mouth],
         }) as unknown as number,
       },
       {
@@ -396,11 +411,8 @@ export function PetAvatar({
           sad and sleepy poses, the cheer. */}
       </View>
 
-      {activity === 'analyzing' ? (
-        <View style={styles.thought}>
-          <Text style={styles.thoughtMark}>✣</Text>
-        </View>
-      ) : null}
+      {/* No mark over the pet while a meal is read: a ✣ in a white disc
+          read as a glitch, not as the pet being curious. The pose says it. */}
       {activity === 'workout' || activity === 'exploring' ? (
         <View style={styles.particles} pointerEvents="none">
           <Text style={[styles.particle, { color: activity === 'workout' ? colors.coral : colors.mintDeep }]}>
@@ -433,19 +445,7 @@ const styles = themedStyles(() => ({
   cell: { alignItems: 'center', justifyContent: 'center', overflow: 'visible', zIndex: 1 },
   window: { overflow: 'hidden', zIndex: 1 },
   // Centred on the pet; the flight transform carries it in from off to the side.
-  food: { position: 'absolute', width: 76, height: 76, borderRadius: 38, zIndex: 3 },
-  thought: {
-    position: 'absolute',
-    top: 26,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.cardSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  thoughtMark: { fontFamily: fonts.pixel, color: colors.yellowDeep, fontSize: 21 },
+  food: { position: 'absolute', zIndex: 3 },
   particles: {
     position: 'absolute',
     top: '26%',

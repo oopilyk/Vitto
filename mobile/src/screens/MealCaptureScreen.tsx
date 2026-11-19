@@ -11,12 +11,13 @@ import {
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
+import {  MAX_SAVED_MEAL_NAME, detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
 import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput, Mark } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { GradeBadge, LogProgress, logHaptic } from '../components/logKit';
 import { SegmentedControl } from '../components/settingsKit';
+import { cacheSearch, cachedSearch, loadRecentFoods, localSuggestions, rememberFood } from '../services/foodSuggestions';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
@@ -41,6 +42,24 @@ interface Props {
   onCopy?: (meals: readonly HealthEvent<MealMetadata>[], slot: MealSlot) => Promise<void>;
   /** Today's food so far and its targets, for the progress bars at the top; omitted hides them. */
   today?: { consumed: MacroTotals; targets: MacroTotals };
+  /**
+   * Which way in to open on: the Kitchen's page has a button for each. Defaults
+   * to the photo, or search without Plus. `recent` is search with the keyboard
+   * down, so the meals eaten lately are what shows.
+   */
+  initialMode?: 'photo' | 'search' | 'scan' | 'recent';
+  /**
+   * Opened in the Kitchen's page: its pinned bar switches between photo, search
+   * and scan, so there is no switch, title, × or progress card here, only the
+   * logging itself.
+   */
+  inRoom?: boolean;
+  /**
+   * Keeps a plate built in search as a saved meal as it is logged (its "Keep in
+   * Meals" tick), so the same plate is one tap next time from the Kitchen's
+   * Meals tab. Resolves to why it could not be kept, or null.
+   */
+  onSaveMeal?: (name: string, analysis: MealAnalysis) => Promise<string | null>;
 }
 
 type Mode = 'photo' | 'search' | 'scan';
@@ -59,7 +78,7 @@ export const closeUpLens = (lenses: readonly string[]): string | undefined =>
 const READING_STEPS = ['Spotting the foods...', 'Sizing up portions...', 'Counting it up...'];
 const READING_STEP_MS = 1800;
 
-export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], copyableFor, onCopy, today }: Props) {
+export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], copyableFor, onCopy, today, initialMode, inRoom, onSaveMeal }: Props) {
   // Which meal of the day this is, read off the clock. There is no picker: a
   // row of Breakfast / Lunch / Dinner / Snack on every log was a question
   // nobody needed to answer, and the clock is right nearly always.
@@ -67,7 +86,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   // Below 390pt a third of the tab track is ~75-95pt of label: "Scan barcode"
   // and "Photo · Plus" broke over two lines there, so they take their short form.
   const compact = useWindowDimensions().width < 390;
-  const [mode, setMode] = useState<Mode>(canScanPhotos ? 'photo' : 'search');
+  const [mode, setMode] = useState<Mode>(initialMode === 'recent' ? 'search' : (initialMode ?? (canScanPhotos ? 'photo' : 'search')));
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
   const [busy, setBusy] = useState<'analyzing' | 'fixing' | 'saving' | 'searching' | null>(null);
@@ -207,10 +226,10 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     searched.current = trimmed.toLowerCase();
     setAgain(null);
     setError(null);
-    // Each term goes to the server once a visit (60 searches an hour per account).
-    const cached = searchCache.current.get(trimmed.toLowerCase());
+    // Each term goes to the server once a session (60 searches an hour per account).
+    const cached = cachedSearch(trimmed);
     if (cached) {
-      setResults(cached);
+      setResults(withKnown(trimmed, cached));
       if (cached.length === 0 && !live) setError('No foods matched that search.');
       return;
     }
@@ -218,8 +237,10 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     try {
       const found = await searchFoodsByName(trimmed);
       const list = Array.isArray(found) ? found : [];
-      searchCache.current.set(trimmed.toLowerCase(), list);
-      setResults(list);
+      cacheSearch(trimmed, list);
+      // Typed on while it was asked: the answer is for a term no longer there.
+      if (live && latestQuery.current.trim().toLowerCase() !== trimmed.toLowerCase()) return;
+      setResults(withKnown(trimmed, list));
       if (list.length === 0 && !live) setError('No foods matched that search.');
     } catch (cause) {
       if (!live) setError(errorMessage(cause, 'Food search failed.'));
@@ -232,7 +253,19 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   // kept on screen until the next arrive, so Find is rarely needed. (A list of
   // names to pick from first was one step too many.)
   const searched = useRef('');
-  const searchCache = useRef(new Map<string, FoodSearchResult[]>());
+  const latestQuery = useRef(query);
+  latestQuery.current = query;
+  useEffect(() => {
+    void loadRecentFoods();
+  }, []);
+  // On every keystroke, before the database answers: what is already known
+  // that matches (foods put on a plate before, and every answer this session).
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (mode !== 'search' || !trimmed) return;
+    const known = cachedSearch(trimmed);
+    setResults(known ? withKnown(trimmed, known) : localSuggestions(trimmed));
+  }, [mode, query]);
   useEffect(() => {
     const trimmed = query.trim();
     // Clearing the field goes back to Recent.
@@ -246,6 +279,12 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, query, busy]);
+
+  /** The database's answer with the foods they have had before that match, leading. */
+  function withKnown(term: string, list: FoodSearchResult[]): FoodSearchResult[] {
+    const known = localSuggestions(term, 4).filter((food) => !list.some((candidate) => candidate.id === food.id));
+    return [...known, ...list];
+  }
 
   const onBarcode = async ({ data }: { data: string }) => {
     if (scanned || busy) return;
@@ -326,19 +365,43 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     ) : null;
 
   const onPlate = (food: FoodSearchResult) => plate.some((item) => item.food.id === food.id);
+  const searchInput = useRef<TextInput>(null);
   const togglePlate = (food: FoodSearchResult) => {
     setAgain(null);
+    const adding = !plate.some((item) => item.food.id === food.id);
     setPlate((current) =>
       current.some((item) => item.food.id === food.id)
         ? current.filter((item) => item.food.id !== food.id)
-        : [...current, { food, servings: 1, unit: defaultUnit(food) }],
+        : [...current, { food, servings: startingServings(food), unit: defaultUnit(food) }],
     );
+    // A plate is built one search at a time: sweet potato, then rice, then
+    // steak. So the field clears for the next food, still focused.
+    if (adding) {
+      rememberFood(food);
+      setQuery('');
+      searchInput.current?.focus();
+    }
   };
   const setPlateServings = (id: string, next: number) =>
     setPlate((current) => current.map((item) => (item.food.id === id ? { ...item, servings: next } : item)));
   const setPlateUnit = (id: string, unit: PortionUnit) =>
     setPlate((current) => current.map((item) => (item.food.id === id ? { ...item, unit } : item)));
   const plateAnalysis = plate.length > 0 ? toPlateAnalysis(plate) : null;
+  /** The plate's "Keep in Meals" tick, and its name (typed, or its foods'). */
+  const [keepPlate, setKeepPlate] = useState(false);
+  const [plateName, setPlateName] = useState('');
+  const autoPlateName = plate
+    .map(({ food }) => food.name.split(/[,(·]/)[0]!.trim())
+    .slice(0, 3)
+    .join(', ')
+    .slice(0, MAX_SAVED_MEAL_NAME);
+  /** Logs the plate, keeping it in Meals first when ticked (a refusal there never stops the log). */
+  const logPlate = async (analysisOfPlate: MealAnalysis) => {
+    if (keepPlate && onSaveMeal) {
+      await onSaveMeal(plateName.trim() || autoPlateName, analysisOfPlate).catch(() => null);
+    }
+    await saveAnalysis(analysisOfPlate, 'manual');
+  };
 
   const selectedAnalysis = selected
     ? toMealAnalysis(selected, Math.max(0.1, Number(servings) || 1))
@@ -379,7 +442,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             label: busy === 'saving' ? 'Saving...' : plate.length === 1 ? 'Log meal' : `Add ${plate.length} foods`,
             summary: summaryOf(plateAnalysis),
             busy: busy === 'saving',
-            onPress: () => void saveAnalysis(plateAnalysis, 'manual'),
+            onPress: () => void logPlate(plateAnalysis),
           }
         : mode === 'scan' && selectedAnalysis
           ? { label: busy === 'saving' ? 'Saving...' : 'Log meal', summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
@@ -412,16 +475,19 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
   return (
     <SheetPage onBackPress={requestClose}>
-      <SheetKeyboardAvoidingView style={styles.sheet}>
-        <View style={styles.header}>
-          {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
-          <View style={{ flex: 1 }}>
-            <Text style={styles.title}>What's on your plate?</Text>
+      {/* In the room the window is right above: no gap for a title that is not there. */}
+      <SheetKeyboardAvoidingView style={[styles.sheet, inRoom && { paddingTop: 0 }]}>
+        {inRoom ? null : (
+          <View style={styles.header}>
+            {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.title}>What's on your plate?</Text>
+            </View>
+            <CloseButton onPress={requestClose} />
           </View>
-          <CloseButton onPress={requestClose} />
-        </View>
+        )}
 
-        {today ? (
+        {today && !inRoom ? (
           <LogProgress
             items={[
               { label: 'Calories', value: today.consumed.calories, goal: today.targets.calories, adding: pending ? calorieEstimate(pending.macros) : 0, unit: 'kcal' },
@@ -430,29 +496,31 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           />
         ) : null}
 
-        <View style={styles.tabs}>
-          <SegmentedControl
-            options={[
-              { value: 'photo' as Mode, label: canScanPhotos || compact ? 'Photo' : 'Photo · Plus' },
-              { value: 'search' as Mode, label: 'Search' },
-              { value: 'scan' as Mode, label: compact ? 'Barcode' : 'Scan barcode' },
-            ]}
-            value={mode}
-            onChange={(option) => {
-              if (option === mode) return;
-              setMode(option);
-              reset();
-              setPlate([]);
-              setScanned(false);
-            }}
-          />
-        </View>
+        {inRoom ? null : (
+          <View style={styles.tabs}>
+            <SegmentedControl
+              options={[
+                { value: 'photo' as Mode, label: canScanPhotos || compact ? 'Photo' : 'Photo · Plus' },
+                { value: 'search' as Mode, label: 'Search' },
+                { value: 'scan' as Mode, label: compact ? 'Barcode' : 'Scan barcode' },
+              ]}
+              value={mode}
+              onChange={(option) => {
+                if (option === mode) return;
+                setMode(option);
+                reset();
+                setPlate([]);
+                setScanned(false);
+              }}
+            />
+          </View>
+        )}
 
 
         <ScrollView
           ref={scroll}
           style={styles.scrollArea}
-          contentContainerStyle={styles.body}
+          contentContainerStyle={[styles.body, inRoom && { paddingTop: 10, paddingHorizontal: 16 }]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           // As the box grows line by line, or Re-analyze's error appears under it.
@@ -473,6 +541,38 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
           {mode === 'photo' && canScanPhotos ? (
             <>
+              {/* In the Kitchen's page, once there is a photo it shrinks to a
+                  thumbnail in the corner, with Retake and Library beside it, so
+                  what was read (the macros, the notes) is what fills the page. */}
+              {inRoom && image ? (
+                <View style={styles.thumbRow} testID="photo-box">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Retake the photo"
+                    onPress={() => void pick('camera')}
+                    disabled={busy !== null}
+                    style={({ pressed }) => pressed && styles.cameraPressed}
+                  >
+                    <Image source={{ uri: image.uri }} style={styles.thumb} />
+                    {busy === 'analyzing' ? (
+                      <View style={[styles.readingOverlay, styles.thumbOverlay]}>
+                        <ActivityIndicator color="#fff" />
+                      </View>
+                    ) : null}
+                  </Pressable>
+                  <View style={styles.thumbSide}>
+                    <View style={styles.thumbButtons}>
+                      <PressableScale style={[styles.pickButton, styles.thumbButton]} onPress={() => pick('camera')}>
+                        <Text style={styles.pickLabel} numberOfLines={1}>Retake</Text>
+                      </PressableScale>
+                      <PressableScale style={[styles.pickButton, styles.thumbButton]} onPress={() => pick('library')}>
+                        <Text style={styles.pickLabel} numberOfLines={1}>Library</Text>
+                      </PressableScale>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+              <>
               {/* The card IS the camera button: testers tapped the big box again
                   and again, so it opens the camera, and its pill says so. */}
               <Pressable
@@ -517,11 +617,14 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   <Text style={styles.pickLabel} numberOfLines={1}>{image ? 'Library' : 'Choose from library'}</Text>
                 </PressableScale>
               </View>
+              </>
+              )}
 
-              {!image && !analysis ? copyRow : null}
-              {!image && !analysis ? <RecentMeals meals={forSlot(repeatable, slot)} again={again} onChange={setAgain} /> : null}
+              {/* In the Kitchen these live on the Search tab, the room's first; the photo tab is just the photo. */}
+              {!image && !analysis && !inRoom ? copyRow : null}
+              {!image && !analysis && !inRoom ? <RecentMeals meals={forSlot(repeatable, slot)} again={again} onChange={setAgain} /> : null}
 
-              {analysis ? <AnalysisCard analysis={analysis} /> : null}
+              {analysis ? <AnalysisCard analysis={analysis} compact={inRoom} /> : null}
               {/* The AI can mistake one drink for another; the person knows. */}
               {analysis && fixText === null ? (
                 <TextButton
@@ -564,14 +667,17 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             <>
               <View style={styles.searchRow}>
                 <TextInput
+                  ref={searchInput}
                   style={[layout.input, styles.searchInput]}
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Search foods"
+                  placeholder={plate.length > 0 ? 'Add another food' : 'Search foods'}
                   placeholderTextColor={colors.faint}
                   accessibilityLabel="Search foods"
                   returnKeyType="search"
                   onSubmitEditing={() => void runSearch()}
+                  // Opened from the Kitchen's Search button: straight to typing.
+                  autoFocus={initialMode === 'search'}
                 />
                 <PressableScale style={styles.searchButton} onPress={() => void runSearch()} accessibilityRole="button" accessibilityLabel="Find">
                   {busy === 'searching' ? (
@@ -621,23 +727,6 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 </View>
               ) : null}
 
-              {plate.length > 0 ? (
-                <View style={styles.plate} testID="plate">
-                  <Text style={styles.plateTitle}>Your plate</Text>
-                  {plate.map(({ food, servings: count, unit }) => (
-                    <PlateItem
-                      key={food.id}
-                      food={food}
-                      servings={count}
-                      unit={unit}
-                      onServings={(next) => setPlateServings(food.id, next)}
-                      onUnit={(next) => setPlateUnit(food.id, next)}
-                      onRemove={() => togglePlate(food)}
-                    />
-                  ))}
-                </View>
-              ) : null}
-
               {results.length === 0 && plate.length === 0 ? (
                 <>
                   {copyRow}
@@ -674,6 +763,63 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               })}
               {/* FatSecret's terms: its credit wherever its foods are shown. */}
               {results.some((food) => food.source === 'fatsecret') ? <FatSecretCredit /> : null}
+
+              {/* The plate after the results: what is being searched for stays right
+                  under the field, and the plate collects under it, food by food. */}
+              {plate.length > 0 ? (
+                <View style={styles.plate} testID="plate">
+                  <View style={styles.plateHead}>
+                    <Text style={styles.plateTitle}>Your plate</Text>
+                    {plateAnalysis ? (
+                      <Text style={styles.plateTotal}>
+                        {`${plate.length} ${plate.length === 1 ? 'food' : 'foods'} · ${calorieEstimate(plateAnalysis.macros).toLocaleString('en-US')} kcal · ${Math.round(plateAnalysis.macros.proteinGrams)}g protein`}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {plate.map(({ food, servings: count, unit }) => (
+                    <PlateItem
+                      key={food.id}
+                      food={food}
+                      servings={count}
+                      unit={unit}
+                      onServings={(next) => setPlateServings(food.id, next)}
+                      onUnit={(next) => setPlateUnit(food.id, next)}
+                      onRemove={() => togglePlate(food)}
+                    />
+                  ))}
+                  {/* The same plate every day: keep it, and it is one tap from Meals. */}
+                  {onSaveMeal ? (
+                    <View style={styles.keepBox}>
+                      <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: keepPlate }}
+                        accessibilityLabel="Keep this plate in Meals"
+                        onPress={() => setKeepPlate((on) => !on)}
+                        hitSlop={6}
+                        style={styles.keepRow}
+                      >
+                        <View style={[styles.keepTick, keepPlate && styles.keepTickOn]}>
+                          {keepPlate ? <Mark kind="check" size={11} weight={2.2} color={colors.onCoral} /> : null}
+                        </View>
+                        <Text style={styles.keepLabel}>Keep in Meals for next time</Text>
+                      </Pressable>
+                      {keepPlate ? (
+                        <TextInput
+                          style={[layout.input, styles.keepName]}
+                          value={plateName}
+                          onChangeText={setPlateName}
+                          placeholder={autoPlateName || 'Name it'}
+                          placeholderTextColor={colors.faint}
+                          accessibilityLabel="Name for this plate in Meals"
+                          maxLength={MAX_SAVED_MEAL_NAME}
+                          returnKeyType="done"
+                        />
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
 
               {/* The way out for food no database has, under the list rather than
                   between the field and the results, where it read as the next step. */}
@@ -750,8 +896,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           ) : null}
         </ScrollView>
         {footer ? (
-          <View style={styles.footer} testID="meal-footer">
-            {footer.summary ? (
+          <View style={[styles.footer, inRoom && styles.footerInRoom]} testID="meal-footer">
+            {/* In the Kitchen the plate card says what it adds up to: the button stands alone. */}
+            {footer.summary && !inRoom ? (
               <View style={styles.footerSummaryRow}>
                 {pending ? <GradeBadge grade={pending.grade} size={22} /> : null}
                 <Text style={styles.footerSummary} numberOfLines={1}>{footer.summary}</Text>
@@ -839,7 +986,18 @@ function RecentMeals({
 const MIN_SERVINGS = 0.5;
 
 /** Foods listed per 100 g are thought of in grams; ones with a serving ("1 slice") in servings. */
-const defaultUnit = (food: FoodSearchResult): PortionUnit => (food.isPer100g ? 'g' : 'serving');
+// Grams whenever the food can be weighed, so "100 g of rice" is what is typed;
+// servings only for a food with no weight to go by.
+const defaultUnit = (food: FoodSearchResult): PortionUnit => (servingGrams(food) !== undefined ? 'g' : 'serving');
+/**
+ * What a food goes on the plate as: 100 g of anything that can be weighed (a
+ * plate is weighed in round amounts: "100 g of steak", not the database's
+ * 1 oz serving of it, which came out as 28 g), else one serving.
+ */
+const startingServings = (food: FoodSearchResult): number => {
+  const grams = servingGrams(food);
+  return grams ? 100 / grams : 1;
+};
 
 /** What − and + move by, in each unit. */
 const PORTION_STEP: Record<PortionUnit, number> = { g: 10, oz: 0.5, serving: 0.5 };
@@ -960,8 +1118,8 @@ function PlateItem({
 }
 
 /** Live search waits for this many letters and this long a pause in typing. */
-const LIVE_SEARCH_MIN = 3;
-const LIVE_SEARCH_PAUSE_MS = 350;
+const LIVE_SEARCH_MIN = 2;
+const LIVE_SEARCH_PAUSE_MS = 200;
 
 /**
  * Servings of one food, in halves, from a half up. Taking it off is its own
@@ -1028,10 +1186,75 @@ function ServingsRow({
   );
 }
 
-function AnalysisCard({ analysis }: { analysis: MealAnalysis }) {
+/**
+ * The plate's name in a few words: its first foods, and how many more. The
+ * AI's description is a paragraph ("15 raw oysters on the half shell (~15g
+ * meat each), 2 small cups of..."), which is detail, not a name.
+ */
+const shortPlateName = (analysis: MealAnalysis): string => {
+  const foods = analysis.detectedFoods.filter(Boolean);
+  if (foods.length === 0) return analysis.summary?.trim() || analysis.foodDescription?.trim() || 'Meal detected';
+  const shown = foods.slice(0, 2).join(', ');
+  return foods.length > 2 ? `${shown} +${foods.length - 2} more` : shown;
+};
+
+function AnalysisCard({ analysis, compact }: { analysis: MealAnalysis; compact?: boolean }) {
   // What this plate will do, shown before it is logged — the same read the
   // toast and the pet will give afterwards, so nothing about it is a surprise.
   const effects = detectFoodEffects({ ...analysis.nutrients, analysis });
+  const [details, setDetails] = useState(false);
+  if (compact) {
+    // The Kitchen's page: everything worth knowing in a short card, so the
+    // page barely scrolls. The grade beside a short name, the four macros as
+    // tiles, the rest of the nutrition on one line, and the AI's full
+    // description a tap away.
+    const description = analysis.foodDescription?.trim();
+    const sub = describeSubMacros(analysis.macros);
+    return (
+      <View style={styles.compactCard}>
+        <View style={styles.compactHead}>
+          <GradeBadge grade={analysis.grade} size={40} />
+          <Text style={styles.compactName} numberOfLines={2}>{shortPlateName(analysis)}</Text>
+        </View>
+        <View style={styles.compactMacros}>
+          {[
+            [String(calorieEstimate(analysis.macros)), 'kcal'],
+            [`${analysis.macros.proteinGrams}g`, 'protein'],
+            [`${analysis.macros.carbsGrams}g`, 'carbs'],
+            [`${analysis.macros.fatGrams}g`, 'fat'],
+          ].map(([value, label]) => (
+            <View key={label} style={styles.compactTile}>
+              <Text style={styles.compactValue} numberOfLines={1}>{value}</Text>
+              <Text style={styles.compactUnit}>{label}</Text>
+            </View>
+          ))}
+        </View>
+        {sub ? <Text style={styles.compactSub} numberOfLines={1}>{sub}</Text> : null}
+        {effects.length > 0 ? (
+          <View style={[styles.effectRow, { marginTop: 0 }]} accessibilityLabel={`Effects: ${effects.map((e) => e.label).join(', ')}`}>
+            {effects.map((effect) => (
+              <View key={effect.id} style={styles.effectChip}>
+                <Text style={styles.effectChipLabel}>{effect.label.toUpperCase()}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {description ? (
+          <>
+            {details ? <Text style={styles.compactDetails}>{description}</Text> : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setDetails((open) => !open)}
+              hitSlop={8}
+              style={styles.compactToggle}
+            >
+              <Text style={styles.compactToggleLabel}>{details ? 'Hide details' : 'Show details'}</Text>
+            </Pressable>
+          </>
+        ) : null}
+      </View>
+    );
+  }
   return (
     <View style={styles.analysis}>
       <View style={styles.grade}>
@@ -1095,6 +1318,13 @@ const styles = themedStyles(() => ({
   title: { ...text.title, marginTop: 6 },
   tabs: { paddingHorizontal: 22, marginTop: 14, paddingBottom: 4 },
   body: { padding: 22, paddingBottom: 24 },
+  thumbRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  thumb: { width: 92, height: 92, borderRadius: 16, backgroundColor: colors.sage },
+  // Over the whole thumbnail, not the strip along a big photo's foot.
+  thumbOverlay: { top: 0, paddingVertical: 0, borderRadius: 16 },
+  thumbSide: { flex: 1, minWidth: 0, gap: 8 },
+  thumbButtons: { flexDirection: 'row', gap: 8 },
+  thumbButton: { flex: 1, marginTop: 0 },
   preview: { width: '100%', height: 260, borderRadius: 18, borderCurve: 'continuous', backgroundColor: colors.sage },
   readingOverlay: {
     position: 'absolute',
@@ -1202,6 +1432,17 @@ const styles = themedStyles(() => ({
   grade: { alignItems: 'center', gap: 6 },
   gradeLabel: { fontFamily: fonts.ui, fontSize: 11, fontWeight: '600', letterSpacing: 0.3, color: colors.muted },
   analysisBody: { flex: 1 },
+  compactCard: { marginTop: 12, padding: 14, gap: 10, borderRadius: 16, borderCurve: 'continuous', backgroundColor: colors.card },
+  compactHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  compactName: { flex: 1, fontFamily: fonts.ui, fontWeight: '700', fontSize: 17, lineHeight: 22, color: colors.ink },
+  compactMacros: { flexDirection: 'row', gap: 6 },
+  compactTile: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: 8, borderRadius: 12, backgroundColor: colors.cardSoft },
+  compactValue: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 16, color: colors.ink, fontVariant: ['tabular-nums'] },
+  compactUnit: { fontFamily: fonts.ui, fontSize: 11, color: colors.muted, marginTop: 1 },
+  compactSub: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
+  compactDetails: { fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.inkSoft },
+  compactToggle: { alignSelf: 'flex-start' },
+  compactToggleLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 14, color: colors.coralDeep },
   analysisName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink, lineHeight: 23 },
   macroLine: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8 },
   subMacros: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 4 },
@@ -1257,6 +1498,14 @@ const styles = themedStyles(() => ({
   tickOn: { backgroundColor: colors.coral, borderColor: colors.coral },
   tickMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: '#fff', lineHeight: 15 },
   plate: { marginTop: 4, marginBottom: 10, padding: 14, gap: 12, borderRadius: 18, borderCurve: 'continuous', backgroundColor: colors.card },
+  plateHead: { gap: 2 },
+  plateTotal: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 14, color: colors.ink, fontVariant: ['tabular-nums'] },
+  keepBox: { gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.hairline },
+  keepRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  keepTick: { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  keepTickOn: { backgroundColor: colors.coral, borderColor: colors.coral },
+  keepLabel: { fontFamily: fonts.ui, fontSize: 15, fontWeight: '600', color: colors.inkSoft },
+  keepName: { height: 42, paddingVertical: 0 },
   plateTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.muted },
   plateName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1271,6 +1520,8 @@ const styles = themedStyles(() => ({
   recentMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, paddingHorizontal: 8 },
   recentPlus: { fontFamily: fonts.ui, fontSize: 17, color: colors.coral, lineHeight: 20 },
   footer: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 26, gap: 8, borderTopWidth: 1, borderTopColor: colors.hairline, backgroundColor: colors.paper },
+  // The Kitchen's pinned bar is right under it: no home-indicator gap, less air.
+  footerInRoom: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
   footerSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   footerSummary: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, textAlign: 'center', flexShrink: 1 },
   resultName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },

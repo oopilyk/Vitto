@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { RoomActionButton } from './RoomActionButton';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
@@ -29,6 +30,8 @@ interface OutsideEnvironmentControlsProps {
 }
 
 interface OutsideEnvironmentProps extends OutsideEnvironmentControlsProps {
+  /** The room's logging panel (see RoomPanel). Given, it replaces the room's one button. */
+  panel?: ReactNode;
   theme?: RoomTheme;
 }
 
@@ -43,7 +46,7 @@ function OutsideEnvironmentControls({
   return <LogRunButton onPress={onLogRun} />;
 }
 
-export function outsideEnvironment({ theme = 'classic', ...props }: OutsideEnvironmentProps): EnvironmentDressing {
+export function outsideEnvironment({ theme = 'classic', panel, ...props }: OutsideEnvironmentProps): EnvironmentDressing {
   const night = isNightTime();
   // A themed outdoors (a garden dome, a reef, a plaza...) is built around a
   // centre path like the classic scene, so it fills the screen the same way.
@@ -60,6 +63,7 @@ export function outsideEnvironment({ theme = 'classic', ...props }: OutsideEnvir
       />
     ),
     backgroundColor: themed?.tint ?? (night ? NIGHT_SKY : DAY_SKY),
-    controls: <OutsideEnvironmentControls {...props} />,
+    controls: panel ? null : <OutsideEnvironmentControls {...props} />,
+      panel,
   };
 }

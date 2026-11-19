@@ -81,10 +81,26 @@ export function LevelRing({
           },
         ]}
       />
-      <Text style={[styles.kicker, { fontSize: Math.max(8, Math.round(10 * scale)) }, night && styles.levelNight]}>{kicker}</Text>
+      {/* The word's tracking shrinks with the disc too: at full spacing "TODAY"
+          ran into the ring on a small one. */}
+      <Text
+        style={[
+          styles.kicker,
+          { fontSize: Math.max(7, Math.round(10 * scale)), letterSpacing: Math.max(0.5, 1.5 * scale) },
+          night && styles.levelNight,
+        ]}
+        numberOfLines={1}
+      >
+        {kicker}
+      </Text>
       {/* A value in place of the level ("53%") sits smaller than a level number,
           and four characters ("100%") smaller again, so it stays inside the ring. */}
-      <Text style={[styles.level, { fontSize: Math.round((value === undefined ? 32 : shown.length > 3 ? 18 : 22) * scale) }, night && styles.levelNight]}>{shown}</Text>
+      <Text
+        style={[styles.level, { fontSize: Math.round((value === undefined ? 32 : shown.length > 3 ? 18 : 22) * scale) }, night && styles.levelNight]}
+        numberOfLines={1}
+      >
+        {shown}
+      </Text>
     </Pressable>
   );
 }

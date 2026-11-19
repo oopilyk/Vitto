@@ -1,3 +1,4 @@
+import { usePanelInset } from './RoomActionSlot';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Text, View } from 'react-native';
 import type { CareToast } from '@vitto/core';
@@ -48,10 +49,13 @@ export function CareToastBanner({ toast, night }: { toast?: CareToast | null; ni
     }).start();
   }, [toast, progress]);
 
+  // In a room with a logging panel, just above the panel instead of the bar.
+  const panelInset = usePanelInset();
+
   if (!shown) return null;
 
   return (
-    <View style={styles.slot} pointerEvents="none">
+    <View style={[styles.slot, panelInset > 0 && { bottom: panelInset + 10 }]} pointerEvents="none">
       <Animated.View
         // Announced rather than focusable: it is confirmation of something the
         // user just did, so a screen reader should read it without stealing the
@@ -68,14 +72,9 @@ export function CareToastBanner({ toast, night }: { toast?: CareToast | null; ni
           },
         ]}
       >
-        {/* The food effect leads: "That was hot!" is the line worth reading,
-            and the tags say what the pet is now wearing. */}
-        {shown.effect ? (
-          <>
-            <Text style={styles.effectLine}>{shown.effect.line}</Text>
-            <Text style={styles.effectTags}>{shown.effect.tags.map((tag) => tag.toUpperCase()).join(' · ')}</Text>
-          </>
-        ) : null}
+        {/* What was logged and what it gave the pet (+XP, +energy), nothing
+            more: the food effect's line ("Greasy. Not feeling great.") and
+            tags read as a verdict on the meal, and are left out. */}
         <Text style={styles.headline}>{shown.headline}</Text>
         {shown.detail ? <Text style={styles.detail}>{shown.detail}</Text> : null}
       </Animated.View>
@@ -108,15 +107,6 @@ const styles = themedStyles(() => ({
     elevation: 6,
   },
   toastNight: { backgroundColor: 'rgba(28,22,20,0.9)' },
-  effectLine: { fontSize: 17, fontWeight: '700', color: '#ffd36b', textAlign: 'center', marginBottom: 2 },
-  effectTags: {
-    fontFamily: fonts.systemMono,
-    fontSize: 10,
-    letterSpacing: 1.2,
-    color: 'rgba(255,211,107,0.85)',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
   headline: { fontSize: 14, fontWeight: '700', color: '#efe5d0', textAlign: 'center' },
   detail: {
     fontFamily: fonts.systemMono,

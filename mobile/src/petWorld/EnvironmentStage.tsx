@@ -14,8 +14,11 @@ import { assessCondition, type PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { playPokeFeedback } from '../services/mealFeedback';
-import { PetNameBubble } from './PetNameBubble';
 import { stageMetrics } from './EnvironmentBackdrop';
+import { navBarHeight } from './EnvironmentActionRow';
+import { topInsetFor, useChromeScale } from './chromeScale';
+import { RoomPanel, ROOM_WINDOW_GAP, roomWindowFrame } from './RoomPanel';
+import { colors } from '../theme';
 import { PetSpeechBubble } from './PetSpeechBubble';
 import { PetTapReaction } from './PetTapReaction';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
@@ -31,6 +34,18 @@ import { themedStyles } from '../theme';
  * are only what is used before the stage has reported its size.
  */
 const FALLBACK_STAGE = { width: 393, height: 852 };
+
+/** Between the top of a room's window and the pet's speech bubble (its × included). */
+const WINDOW_SPEECH_MARGIN = 6;
+/** Each side of the speech bubble in a room's window, clear of the Today ring. */
+const WINDOW_SPEECH_SIDE = 40;
+/**
+ * In a room's window, where the bubbles hang: just over the pet's real head,
+ * which in the sprite's square is a little over half way up. The full stage's
+ * 0.86 leaves a gap there that a window has no room for.
+ */
+const WINDOW_HEAD_FRACTION = 0.68;
+const WINDOW_SPEECH_GAP_FRACTION = 0.05;
 
 /** The name bubble floats at roughly the pet's head, so it reads as coming from the pet. */
 const NAME_BUBBLE_HEAD_FRACTION = 0.86;
@@ -59,6 +74,11 @@ export interface EnvironmentDressing {
    * pet's own tap target underneath.
    */
   controls: ReactNode;
+  /**
+   * The room's logging, in a panel along the bottom (see RoomPanel). The scene
+   * is laid out above it, so the pet stands in the room rather than behind it.
+   */
+  panel?: ReactNode;
 }
 
 interface EnvironmentStageProps {
@@ -125,14 +145,43 @@ export function EnvironmentStage({
   // art is fitted from the same width, so this is the same box the backdrop
   // draws in (see `stageMetrics`).
   const [stageSize, setStageSize] = useState(FALLBACK_STAGE);
+  // Where the stage starts on screen: the speech bubble measures itself in
+  // window coordinates, so the window's top edge has to be given in them too.
+  const stageRef = useRef<View>(null);
+  const [stageY, setStageY] = useState(0);
   const onStageLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     if (width > 0 && height > 0) {
       setStageSize((current) => (current.width === width && current.height === height ? current : { width, height }));
     }
+    stageRef.current?.measureInWindow?.((_x, y) => setStageY(Math.round(y)));
   };
-  const metrics = stageMetrics(stageSize.width, stageSize.height);
-  const nameBubbleLift = metrics.petBottom + Math.round(metrics.petSize * NAME_BUBBLE_HEAD_FRACTION);
+  // A room with a page (see RoomPanel) is an ordinary page with the room in a
+  // framed window at its top: the art and the pet inside it, the page's own
+  // background all round, the room's logging underneath.
+  const chromeScale = useChromeScale();
+  const barHeight = navBarHeight(chromeScale) * chromeScale;
+  const paged = Boolean(regions.panel);
+  const topInset = topInsetFor(stageSize.width, stageSize.height);
+  const frame = roomWindowFrame(stageSize.width, stageSize.height, topInset);
+  // Where the page starts, under the window.
+  const pageTop = frame.top + frame.height + ROOM_WINDOW_GAP;
+  // How far up from the stage's bottom the page reaches: the "logged" toast sits just above it, in the window.
+  const panelInset = paged ? stageSize.height - (frame.top + frame.height) : 0;
+  const full = stageMetrics(stageSize.width, stageSize.height);
+  // In the window the pet is sized to it, standing on the floor near its foot.
+  // The sprite's square is mostly air above the pet, so it is drawn most of
+  // the window's height and the bubbles hang at the pet's real head (see
+  // WINDOW_HEAD_FRACTION): three lines of speech fit above it, and more scroll.
+  // The full-height stage's figures (64pt clear of the room bar) would not fit.
+  const metrics = paged
+    ? { ...full, petSize: Math.round(Math.min(full.petSize, frame.height * 0.74)), petBottom: Math.round(frame.height * 0.02) }
+    : full;
+  // The bubble stops short of the window's top edge, and scrolls past it.
+  const speechCeiling = paged ? stageY + frame.top + WINDOW_SPEECH_MARGIN : 0;
+  const headFraction = paged ? WINDOW_HEAD_FRACTION : NAME_BUBBLE_HEAD_FRACTION;
+  const speechGapFraction = paged ? WINDOW_SPEECH_GAP_FRACTION : SPEECH_BUBBLE_GAP_FRACTION;
+  const nameBubbleLift = metrics.petBottom + Math.round(metrics.petSize * headFraction);
 
   // 0 = the scene being left, 1 = the one being entered. Drives the background
   // blend and a small settle-pulse on the pet, so the pet visibly "carries
@@ -210,8 +259,9 @@ export function EnvironmentStage({
     onPetTap?.();
   }, [onPetTap, poke]);
 
-  // The name bubble: up exactly as long as the tap emojis are in the air.
-  const [nameShown, setNameShown] = useState(false);
+  // The pet is only for poking at home: in the other rooms the window is
+  // scenery over the room's logging, and a tap there was always a miss.
+  const tappable = Boolean(onPetTap) && environment === 'main';
 
   const pokeScale = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 1.09] });
   const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
@@ -219,8 +269,24 @@ export function EnvironmentStage({
   return (
     // The HUD and the room's controls share one stage; this lets the controls
     // keep clear of however tall the HUD has grown (see RoomActionSlot).
-    <HudEdgeProvider petReach={metrics.petBottom + metrics.petSize}>
-    <Animated.View style={[styles.stage, { backgroundColor }]} onLayout={onStageLayout}>
+    <HudEdgeProvider petReach={metrics.petBottom + metrics.petSize} panelInset={panelInset} speechCeiling={speechCeiling}>
+    <Animated.View
+      ref={stageRef}
+      style={[styles.stage, { backgroundColor: paged ? colors.paper : backgroundColor }]}
+      onLayout={onStageLayout}
+    >
+      {/* The room bar's icons are drawn for a dark room behind them: on a page, the room's own tone backs the bar. */}
+      {paged ? (
+        <Animated.View pointerEvents="none" style={[styles.barBacking, { height: barHeight, backgroundColor }]} />
+      ) : null}
+      <Animated.View
+        pointerEvents="box-none"
+        style={
+          paged
+            ? [styles.window, { top: frame.top, left: frame.side, right: frame.side, height: frame.height, backgroundColor }]
+            : StyleSheet.absoluteFill
+        }
+      >
       <FadeSwap swapKey={environment} durationMs={transitionMs}>
         <Animated.View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {regions.background}
@@ -229,10 +295,10 @@ export function EnvironmentStage({
 
       <Pressable
         onPress={handlePetPress}
-        disabled={!onPetTap}
+        disabled={!tappable}
         style={[StyleSheet.absoluteFill, styles.petLayer]}
-        accessibilityRole={onPetTap ? 'button' : undefined}
-        accessibilityLabel={onPetTap ? `Say hi to ${pet.name}` : undefined}
+        accessibilityRole={tappable ? 'button' : undefined}
+        accessibilityLabel={tappable ? `Say hi to ${pet.name}` : undefined}
       >
         <Animated.View
           style={[
@@ -259,20 +325,12 @@ export function EnvironmentStage({
         </Animated.View>
       </Pressable>
 
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.nameLayer, { paddingBottom: nameBubbleLift }]}>
-        <PetNameBubble name={pet.name} visible={nameShown} night={night} />
-      </View>
-
+      {/* The tap emojis rise from just over the pet's head. */}
       <View
         pointerEvents="none"
-        style={[StyleSheet.absoluteFill, styles.reactionLayer, { paddingBottom: nameBubbleLift + 44 }]}
+        style={[StyleSheet.absoluteFill, styles.reactionLayer, { paddingBottom: nameBubbleLift }]}
       >
-        <PetTapReaction
-          burst={tapBurst}
-          mood={pet.mood}
-          ailment={assessCondition(pet).primary ?? null}
-          onActiveChange={setNameShown}
-        />
+        <PetTapReaction burst={tapBurst} mood={pet.mood} ailment={assessCondition(pet).primary ?? null} />
       </View>
 
       {/* `box-none`: only the bubble itself takes a tap; everywhere else still
@@ -283,7 +341,10 @@ export function EnvironmentStage({
         style={[
           StyleSheet.absoluteFill,
           styles.speechLayer,
-          { paddingBottom: nameBubbleLift + Math.round(metrics.petSize * SPEECH_BUBBLE_GAP_FRACTION) },
+          { paddingBottom: nameBubbleLift + Math.round(metrics.petSize * speechGapFraction) },
+          // In a window the Today ring has the top-right corner: the bubble, still
+          // centred over the pet, is narrowed so its × stays clear of it.
+          paged && { paddingHorizontal: WINDOW_SPEECH_SIDE },
         ]}
       >
         <PetSpeechBubble said={petSaid} petName={pet.name} onPress={onOpenChat} night={night} />
@@ -294,6 +355,20 @@ export function EnvironmentStage({
           {regions.controls}
         </Animated.View>
       </FadeSwap>
+      </Animated.View>
+
+      {regions.panel ? (
+        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.panelLayer]}>
+          <RoomPanel
+            key={environment}
+            pageTop={pageTop}
+            bottom={barHeight}
+            topInset={topInset}
+          >
+            {regions.panel}
+          </RoomPanel>
+        </View>
+      ) : null}
 
       {navBar ? (
         // Above the pet's full-screen tap layer, like the room controls, or
@@ -379,16 +454,12 @@ const styles = themedStyles(() => ({
   petLayer: { zIndex: 1 },
   controlsLayer: { zIndex: 2 },
   hudLayer: { zIndex: 3 },
-  // Above the pet, below the HUD chrome. Anchors the name bubble near the pet's
-  // head. Non-interactive, so it never steals a tap from the controls beneath.
-  // `paddingBottom` is set inline from `stageMetrics`.
-  nameLayer: {
-    zIndex: 2,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  // `paddingBottom` is set inline from `stageMetrics`.
-  // Sits a little above the name bubble; `paddingBottom` is set inline (see above).
+  // The room, framed in the page: clipped to rounded corners, with a hairline edge.
+  window: { position: 'absolute', borderRadius: 22, borderCurve: 'continuous', overflow: 'hidden' },
+  barBacking: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  // Over the HUD and the room bar: a logger opened in the page covers both.
+  panelLayer: { zIndex: 4 },
+  // Over the pet's head; `paddingBottom` is set inline from `stageMetrics`.
   reactionLayer: {
     zIndex: 3,
     alignItems: 'center',

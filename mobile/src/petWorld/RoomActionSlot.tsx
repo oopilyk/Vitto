@@ -37,6 +37,12 @@ interface HudEdge {
    * middle, measuring itself, and jumping: the dip when changing rooms.
    */
   lastSlot: { current: { y: number; height: number } | null };
+  /**
+   * How far up from the stage's bottom a room's logging panel reaches, nav
+   * bar included (see RoomPanel); 0 in a room without one. What sits at the
+   * bottom of the screen (the logged toast) rises above it.
+   */
+  panelInset: number;
 }
 
 const HudEdgeContext = createContext<HudEdge>({
@@ -48,6 +54,7 @@ const HudEdgeContext = createContext<HudEdge>({
   actionReach: 0,
   reportActionReach: () => {},
   lastSlot: { current: null },
+  panelInset: 0,
 });
 
 // Rounded so sub-pixel layout passes don't re-render the stage for nothing.
@@ -64,13 +71,31 @@ const useRoundedEdge = () => {
  * iPhone SE, an iPad) the middle of the screen is already the pet's head, and
  * the button parked there sat on it.
  */
-export function HudEdgeProvider({ children, petReach = 0 }: { children: ReactNode; petReach?: number }) {
+export function HudEdgeProvider({
+  children,
+  petReach = 0,
+  panelInset = 0,
+  speechCeiling = 0,
+}: {
+  children: ReactNode;
+  petReach?: number;
+  panelInset?: number;
+  /**
+   * The highest the pet's speech bubble may reach, in window coordinates,
+   * whatever the room's button says: a room's window's top edge, past which
+   * the bubble would be cut off. 0 for none.
+   */
+  speechCeiling?: number;
+}) {
   const [bottom, report] = useRoundedEdge();
   const [speechTop, reportSpeechTop] = useRoundedEdge();
-  const [actionReach, reportActionReach] = useRoundedEdge();
+  const [reportedReach, reportActionReach] = useRoundedEdge();
+  const actionReach = Math.max(reportedReach, speechCeiling);
   const lastSlot = useRef<{ y: number; height: number } | null>(null);
   return (
-    <HudEdgeContext.Provider value={{ bottom, report, petReach, speechTop, reportSpeechTop, actionReach, reportActionReach, lastSlot }}>
+    <HudEdgeContext.Provider
+      value={{ bottom, report, petReach, speechTop, reportSpeechTop, actionReach, reportActionReach, lastSlot, panelInset }}
+    >
       {children}
     </HudEdgeContext.Provider>
   );
@@ -83,6 +108,16 @@ export function HudEdgeProvider({ children, petReach = 0 }: { children: ReactNod
 export function useSpeechClearance() {
   const { actionReach, reportSpeechTop } = useContext(HudEdgeContext);
   return { actionReach, reportSpeechTop };
+}
+
+/** Where the HUD ends, in window coordinates; 0 until it has laid out. */
+export function useHudBottom(): number {
+  return useContext(HudEdgeContext).bottom;
+}
+
+/** How far up from the stage's bottom a room's logging panel reaches; 0 without one. */
+export function usePanelInset(): number {
+  return useContext(HudEdgeContext).panelInset;
 }
 
 /** For the HUD's last row: an onLayout that reports where the HUD ends. */
