@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Pressable,
   ScrollView,
@@ -13,13 +14,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import {  MAX_SAVED_MEAL_NAME, detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
-import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, DoneTextInput, Mark } from '../components/ui';
+import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, TextButton, DoneTextInput, Mark, useKeyboardLift } from '../components/ui';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { GradeBadge, LogProgress, logHaptic } from '../components/logKit';
 import { SegmentedControl } from '../components/settingsKit';
 import { cacheSearch, cachedSearch, loadRecentFoods, localSuggestions, rememberFood } from '../services/foodSuggestions';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
-import { RoomWindowSlot } from '../petWorld/RoomPanel';
+import { RoomWindowSlot, useRoomKeyboardGap } from '../petWorld/RoomPanel';
 
 interface Props {
   onComplete: (metadata: MealMetadata) => Promise<void>;
@@ -115,6 +116,17 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     return () => shown.remove();
   }, [fixing]);
   const [error, setError] = useState<string | null>(null);
+
+  // On iPhone nothing is laid out again for the keyboard: it slides over the
+  // page, the scroller takes iOS's own keyboard insets (which move with the
+  // keys, as the chat's do) and the Log button rides up on the keys. Shrinking
+  // the page above the keyboard instead made it trail behind them.
+  const rides = Platform.OS === 'ios';
+  const lift = useKeyboardLift(useRoomKeyboardGap());
+  const [footerHeight, setFooterHeight] = useState(0);
+  const [viewport, setViewport] = useState(0);
+  /** Where the search field sits in the page, under the room's window. */
+  const [searchTop, setSearchTop] = useState(0);
 
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodSearchResult[]>([]);
@@ -477,7 +489,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   return (
     <SheetPage onBackPress={requestClose}>
       {/* In the room the window is right above: no gap for a title that is not there. */}
-      <SheetKeyboardAvoidingView style={[styles.sheet, inRoom && { paddingTop: 0 }]}>
+      <View style={[styles.sheet, inRoom && { paddingTop: 0 }]}>
         {inRoom ? null : (
           <View style={styles.header}>
             {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
@@ -521,7 +533,16 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         <ScrollView
           ref={scroll}
           style={styles.scrollArea}
-          contentContainerStyle={[styles.body, inRoom && { paddingTop: 10, paddingHorizontal: 16 }]}
+          contentContainerStyle={[
+            styles.body,
+            inRoom && { paddingTop: 10, paddingHorizontal: 16 },
+            // The Log button lies over the page's foot: the last row clears it.
+            rides && footer ? { paddingBottom: footerHeight + 16 } : null,
+            // Tall enough that the search field can always be brought to the top.
+            rides && mode === 'search' && viewport > 0 ? { minHeight: viewport + searchTop - SEARCH_TOP_GAP } : null,
+          ]}
+          automaticallyAdjustKeyboardInsets={rides}
+          onLayout={rides ? (event) => setViewport(event.nativeEvent.layout.height) : undefined}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           // As the box grows line by line, or Re-analyze's error appears under it.
@@ -667,9 +688,12 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
           {mode === 'search' ? (
             <>
-              <View style={styles.searchRow}>
+              <View style={styles.searchRow} onLayout={rides ? (event) => setSearchTop(event.nativeEvent.layout.y) : undefined}>
                 <TextInput
                   ref={searchInput}
+                  // Typing: the field goes to the top of the page, the window
+                  // scrolled away above it, and the results have the room.
+                  onFocus={rides ? () => scroll.current?.scrollTo({ y: Math.max(0, searchTop - SEARCH_TOP_GAP), animated: true }) : undefined}
                   style={[layout.input, styles.searchInput]}
                   value={query}
                   onChangeText={setQuery}
@@ -898,7 +922,11 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           ) : null}
         </ScrollView>
         {footer ? (
-          <View style={[styles.footer, inRoom && styles.footerInRoom]} testID="meal-footer">
+          <Animated.View
+            style={[styles.footer, inRoom && styles.footerInRoom, rides && styles.footerRides, rides && { transform: [{ translateY: lift }] }]}
+            onLayout={rides ? (event) => setFooterHeight(event.nativeEvent.layout.height) : undefined}
+            testID="meal-footer"
+          >
             {/* In the Kitchen the plate card says what it adds up to: the button stands alone. */}
             {footer.summary && !inRoom ? (
               <View style={styles.footerSummaryRow}>
@@ -907,9 +935,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               </View>
             ) : null}
             <PrimaryButton label={footer.label} busy={footer.busy} disabled={footer.disabled} onPress={footer.onPress} />
-          </View>
+          </Animated.View>
         ) : null}
-      </SheetKeyboardAvoidingView>
+      </View>
     </SheetPage>
   );
 }
@@ -1118,6 +1146,9 @@ function PlateItem({
     </View>
   );
 }
+
+/** Between the top of the page and the search field once it has been brought up to type in. */
+const SEARCH_TOP_GAP = 8;
 
 /** Live search waits for this many letters and this long a pause in typing. */
 const LIVE_SEARCH_MIN = 2;
@@ -1524,6 +1555,8 @@ const styles = themedStyles(() => ({
   footer: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 26, gap: 8, borderTopWidth: 1, borderTopColor: colors.hairline, backgroundColor: colors.paper },
   // The Kitchen's pinned bar is right under it: no home-indicator gap, less air.
   footerInRoom: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
+  // Over the page's foot rather than under it, so it can ride up on the keyboard.
+  footerRides: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   footerSummaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   footerSummary: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, textAlign: 'center', flexShrink: 1 },
   resultName: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },

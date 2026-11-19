@@ -65,8 +65,13 @@ export function PetTapReaction({
   const active = floaters.length > 0;
   useEffect(() => onActiveChange?.(active), [active, onActiveChange]);
 
+  // Only a tap made while this is on screen: the room's view is rebuilt on a
+  // room change or when a logger opens, and the count it arrives with is old
+  // taps, which used to play again as if the pet had just been touched.
+  const seen = useRef(burst);
   useEffect(() => {
-    if (burst <= 0) return;
+    if (burst === seen.current) return;
+    seen.current = burst;
     // The first tap pops straight up from the head; the ones after it scatter.
     const scatter = (range: number) => (burst === 1 ? 0 : (Math.random() * 2 - 1) * range);
     const floater: Floater = {

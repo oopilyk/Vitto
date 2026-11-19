@@ -3,7 +3,6 @@ import { HudEdgeProvider } from './RoomActionSlot';
 import {
   Animated,
   Easing,
-  Pressable,
   StyleSheet,
   View,
   type LayoutChangeEvent,
@@ -279,14 +278,11 @@ export function EnvironmentStage({
         </Animated.View>
       </FadeSwap>
 
-      <Pressable
-        onPress={handlePetPress}
-        disabled={!tappable}
-        style={[StyleSheet.absoluteFill, styles.petLayer]}
-        accessibilityRole={tappable ? 'button' : undefined}
-        accessibilityLabel={tappable ? `Say hi to ${pet.name}` : undefined}
-      >
+      {/* Only the pet's own body takes a tap (PetAvatar's `onPress`): the room
+          around it does not, so a near miss on a button is not a poke. */}
+      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.petLayer]}>
         <Animated.View
+          pointerEvents="box-none"
           style={[
             styles.petStage,
             { paddingBottom: metrics.petBottom },
@@ -305,11 +301,13 @@ export function EnvironmentStage({
             hideStatusCaption
             size={metrics.petSize}
             paused={paused}
+            onPress={tappable ? handlePetPress : undefined}
+            pressLabel={`Say hi to ${pet.name}`}
           >
             {null}
           </PetAvatar>
         </Animated.View>
-      </Pressable>
+      </View>
 
       {/* The tap emojis rise from just over the pet's head. */}
       <View

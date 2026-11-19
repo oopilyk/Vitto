@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Keyboard, Platform, Pressable, ScrollView, StatusBar, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { haptic, Mark, NumberInput } from '../components/ui';
+import { haptic, Mark, NumberInput, useKeyboardFade } from '../components/ui';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors, fonts, getColorScheme, layout, text, themedStyles } from '../theme';
 
@@ -91,13 +91,19 @@ const RoomWindowContext = createContext<RoomWindowApi | null>(null);
 const RoomBarInsetContext = createContext(0);
 export const useRoomBarInset = () => useContext(RoomBarInsetContext);
 
-/** True while the keyboard is up (or on its way up). */
+/**
+ * True while the keyboard is up and the page has to make room for it. Never on
+ * iPhone: there the keyboard slides over the page and nothing is laid out
+ * again (the window stays, the bars stay and are covered), and each scroller
+ * takes iOS's own keyboard insets, which move with the keys frame by frame.
+ * Rebuilding the page as the keyboard rose made it trail behind the keys.
+ */
 function useKeyboardUp(): boolean {
   const [up, setUp] = useState(false);
   useEffect(() => {
-    const ios = Platform.OS === 'ios';
-    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setUp(true));
-    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setUp(false));
+    if (Platform.OS === 'ios') return undefined;
+    const show = Keyboard.addListener('keyboardDidShow', () => setUp(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setUp(false));
     return () => {
       show.remove();
       hide.remove();
@@ -107,11 +113,20 @@ function useKeyboardUp(): boolean {
 }
 
 /**
+ * How far a logger's bottom edge is from the screen's: the bars under it stay
+ * where they are while the keyboard is up. Something a logger keeps clear of
+ * the keys (its Log button) moves by the keyboard's height less this. 0
+ * outside a room.
+ */
+const RoomKeyboardGapContext = createContext(0);
+export const useRoomKeyboardGap = () => useContext(RoomKeyboardGapContext);
+
+/**
  * The room's window, as the first thing in a page's scrolling content: put it
  * at the top of a room page's ScrollView and the window scrolls away with the
  * rest of the page, like one long page. Outside a room it draws nothing.
- * While the keyboard is up it steps aside, so the field and what is under it
- * have the room above the keys.
+ * On Android it steps aside while the keyboard is up, so the field and what is
+ * under it have the room above the keys.
  */
 export function RoomWindowSlot({ spacing = 0 }: { spacing?: number }) {
   const room = useContext(RoomWindowContext);
@@ -226,9 +241,11 @@ export function RoomPanel({
         {/* A page with no scroller of its own showing the window: it sits fixed at the top. */}
         {window && slots === 0 && !typing ? <View style={styles.windowFixed}>{window}</View> : null}
         {task && !task.keepBars ? (
-          <View key={task.id} style={[styles.task, { paddingBottom: HOME_INDICATOR }]}>
-            {task.render(closeTask)}
-          </View>
+          <RoomKeyboardGapContext.Provider value={HOME_INDICATOR}>
+            <View key={task.id} style={[styles.task, { paddingBottom: HOME_INDICATOR }]}>
+              {task.render(closeTask)}
+            </View>
+          </RoomKeyboardGapContext.Provider>
         ) : (
           children
         )}
@@ -251,29 +268,20 @@ const ACTION_BAR_LIFT = 8;
 export function PanelPage({ footer, children }: { footer?: ReactNode; children: ReactNode }) {
   const { task, close } = useRoomTask();
   const barInset = useRoomBarInset();
-  // While the keyboard is up the page reaches the screen's bottom edge (see
-  // RoomPanel) and the pinned bar would be under the keys, or on Android
-  // riding on top of them. So it steps aside, and its space goes with it: a
-  // logger's keyboard avoidance takes its own bottom to be the screen's, and
-  // with the bar's space still held its Log button floated that far above the keys.
-  const [typing, setTyping] = useState(false);
-  useEffect(() => {
-    const ios = Platform.OS === 'ios';
-    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setTyping(true));
-    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setTyping(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
+  // On Android, while the keyboard is up the pinned bar would ride on top of
+  // the keys. So it steps aside, and its space goes with it.
+  const typing = useKeyboardUp();
+  const underKeys = useKeyboardFade();
   const showFooter = Boolean(footer) && !typing;
   const footerSpace = showFooter ? ACTION_BAR_HEIGHT + ACTION_BAR_LIFT : 0;
   return (
     <View style={styles.task}>
       {task?.keepBars ? (
-        <View key={task.id} style={[styles.task, { paddingBottom: footerSpace + barInset }]}>
-          {task.render(close)}
-        </View>
+        <RoomKeyboardGapContext.Provider value={footerSpace + barInset}>
+          <View key={task.id} style={[styles.task, { paddingBottom: footerSpace + barInset }]}>
+            {task.render(close)}
+          </View>
+        </RoomKeyboardGapContext.Provider>
       ) : (
         <ScrollView
           style={{ flex: 1 }}
@@ -290,9 +298,9 @@ export function PanelPage({ footer, children }: { footer?: ReactNode; children: 
         </ScrollView>
       )}
       {showFooter ? (
-        <View pointerEvents="box-none" style={[styles.footer, { bottom: ACTION_BAR_LIFT + barInset }]}>
+        <Animated.View pointerEvents="box-none" style={[styles.footer, { bottom: ACTION_BAR_LIFT + barInset, opacity: underKeys }]}>
           {footer}
-        </View>
+        </Animated.View>
       ) : null}
     </View>
   );

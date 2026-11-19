@@ -1,11 +1,10 @@
-import { Fragment, forwardRef, useId, useRef, useState, type ReactNode } from 'react';
+import { Fragment, forwardRef, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
+  Easing,
   InputAccessoryView,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -128,32 +127,53 @@ export function NumberInput({
   return <DoneTextInput {...props} {...typed} keyboardType={decimal ? 'decimal-pad' : 'number-pad'} />;
 }
 
+/** Near enough the curve iOS moves its keyboard on, for something riding with it. */
+const KEYBOARD_CURVE = Easing.bezier(0.17, 0.59, 0.4, 0.99);
+
 /**
- * KeyboardAvoidingView for a screen shown as a sheet. React Native works out
- * how much the keyboard covers from where the view sits in its parent, and a
- * sheet starts some way down the screen, so the stock view came up short by
- * that much: the keyboard still covered Finish and the workout's Notes.
- *
- * The sheet's bottom is the screen's bottom, so how far down it starts is the
- * screen's height less its own. (Measuring its position on screen does not
- * work: inside the navigator's sheet that reads 0.)
+ * How far up to move something pinned at a page's foot so it sits on the
+ * keyboard: a `translateY` that follows the keyboard up and back down. For a
+ * page whose layout stays put while iOS slides the keyboard over it (its
+ * scroller takes iOS's own keyboard insets); nothing is laid out again, so it
+ * moves with the keys instead of after them. `gap` is how far the thing's
+ * resting place is from the screen's bottom edge. iOS only: 0 elsewhere.
  */
-export function SheetKeyboardAvoidingView({ style, children }: { style?: StyleProp<ViewStyle>; children: ReactNode }) {
-  const [offset, setOffset] = useState(0);
-  if (Platform.OS !== 'ios') return <View style={style}>{children}</View>;
-  return (
-    <KeyboardAvoidingView
-      style={style}
-      behavior="padding"
-      keyboardVerticalOffset={offset}
-      onLayout={(event) => {
-        const next = Math.max(0, Dimensions.get('screen').height - event.nativeEvent.layout.height);
-        if (Math.abs(next - offset) > 1) setOffset(next);
-      }}
-    >
-      {children}
-    </KeyboardAvoidingView>
-  );
+export function useKeyboardLift(gap = 0): Animated.Value {
+  const lift = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+    const move = (toValue: number, duration: number) =>
+      Animated.timing(lift, { toValue, duration: duration > 0 ? duration : 250, easing: KEYBOARD_CURVE, useNativeDriver: true }).start();
+    const show = Keyboard.addListener('keyboardWillShow', (event) =>
+      move(-Math.max(0, event.endCoordinates.height - gap), event.duration),
+    );
+    const hide = Keyboard.addListener('keyboardWillHide', (event) => move(0, event.duration));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [lift, gap]);
+  return lift;
+}
+
+/**
+ * An opacity that goes to 0 while the keyboard is up, for something the
+ * keyboard slides over: the iPhone's keyboard is glass, and a coral button
+ * left under it glows through the keys. 1 throughout off iOS.
+ */
+export function useKeyboardFade(): Animated.Value {
+  const opacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+    const fade = (toValue: number) => Animated.timing(opacity, { toValue, duration: 150, useNativeDriver: true }).start();
+    const show = Keyboard.addListener('keyboardWillShow', () => fade(0));
+    const hide = Keyboard.addListener('keyboardWillHide', () => fade(1));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [opacity]);
+  return opacity;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);

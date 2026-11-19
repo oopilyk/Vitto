@@ -1521,10 +1521,10 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('stacks the action row above the full-screen pet tap layer so taps reach the buttons', () => {
-    // Regression: the pet's "say hi" Pressable covers the whole stage. If the
-    // controls layer does not sit above it, every button press lands on the pet
-    // instead (broke on web when the zIndex was set one node too deep).
+  it('stacks the action row above the pet layer so taps reach the buttons', () => {
+    // Regression: the pet's layer covers the whole stage. If the controls
+    // layer does not sit above it, a button press can land on the pet instead
+    // (broke on web when the zIndex was set one node too deep).
     const { StyleSheet } = require('react-native');
     let tree!: renderer.ReactTestRenderer;
     act(() => {
@@ -1546,21 +1546,16 @@ describe('screens render', () => {
     });
 
     const zIndexOf = (style: unknown) => (StyleSheet.flatten(style) ?? {}).zIndex ?? 0;
-    const petLayer = tree.root.findByProps({ accessibilityLabel: `Say hi to ${pet.name}` });
-    const petZ = zIndexOf(petLayer.props.style);
-
-    let node: any = tree.root
-      .findAllByProps({ accessibilityLabel: 'Go to the study' })
-      .find((n: any) => typeof n.props.onPress === 'function');
-    let controlsZ = 0;
-    while (node) {
-      const z = zIndexOf(node.props.style);
-      if (z > petZ) {
-        controlsZ = z;
-        break;
-      }
-      node = node.parent;
-    }
+    // A node's layer on the stage: the outermost ancestor that sets a zIndex.
+    const layerZ = (start: any) => {
+      let z = 0;
+      for (let node = start; node; node = node.parent) z = zIndexOf(node.props.style) || z;
+      return z;
+    };
+    const pressable = (label: string) =>
+      tree.root.findAllByProps({ accessibilityLabel: label }).find((n: any) => typeof n.props.onPress === 'function');
+    const petZ = layerZ(pressable(`Say hi to ${pet.name}`));
+    const controlsZ = layerZ(pressable('Go to the study'));
 
     expect(petZ).toBeGreaterThan(0);
     expect(controlsZ).toBeGreaterThan(petZ);

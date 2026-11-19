@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Alert, Pressable, ScrollView, Text, TextInput, View, Platform, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Animated, Pressable, ScrollView, Text, TextInput, View, Platform, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import {
   type WeightUnit,
@@ -36,7 +36,7 @@ import {
 } from '@vitto/core';
 import { KM_PER_MILE, checkWorkout, convertWeightValue, exerciseBest, exerciseSessions, setRecord, type HealthEvent } from '@vitto/core';
 import { FitText } from '../components/FitText';
-import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, SheetKeyboardAvoidingView, TextButton, haptic, DoneTextInput, Mark } from '../components/ui';
+import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, TextButton, haptic, DoneTextInput, Mark, useKeyboardFade } from '../components/ui';
 import { LogProgress, logHaptic } from '../components/logKit';
 import { whenLabel } from '../petWorld/whenLabel';
 import { DragList } from '../components/DragList';
@@ -46,7 +46,7 @@ import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { startRest, stopRest } from '../services/restTimer';
 import { clearWorkoutDraft, loadWorkoutDraft, saveWorkoutDraft } from '../services/workoutDraft';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
-import { RoomWindowSlot } from '../petWorld/RoomPanel';
+import { RoomWindowSlot, useRoomKeyboardGap } from '../petWorld/RoomPanel';
 
 interface Props {
   onFinish: (metadata: WorkoutMetadata) => Promise<void>;
@@ -316,6 +316,15 @@ export function WorkoutScreen({
   /** The exercise picker overlay. */
   const [picking, setPicking] = useState(startWithCardio);
   const keyboardHeight = useKeyboardHeight();
+  // On iPhone nothing is laid out again for the keyboard: it slides over the
+  // page (and over Finish, which nobody presses mid-number) and the scroller
+  // takes iOS's own keyboard insets, which move with the keys and keep the
+  // field being typed in above them. Lifting the footer over the keyboard
+  // instead left room for one set and a half, and trailed behind the keys.
+  const rides = Platform.OS === 'ios';
+  // How far this screen's foot is from the screen's (the room's bars, in a room).
+  const keyboardGap = useRoomKeyboardGap();
+  const underKeys = useKeyboardFade();
   /** The picker as a "what did you do?" list of runs, rides and swims, until something is picked. */
   const [cardioOnly, setCardioOnly] = useState(startWithCardio);
   const [search, setSearch] = useState('');
@@ -1434,7 +1443,7 @@ export function WorkoutScreen({
 
   return (
     <SheetPage onBackPress={requestClose}>
-      <SheetKeyboardAvoidingView style={[styles.sheet, inRoom && styles.sheetInRoom]}>
+      <View style={[styles.sheet, inRoom && styles.sheetInRoom]}>
         {/* In the room the window above is the heading. What is left is one
             line: a routine's name is the field you type it in, a session's
             sits beside the way back, and the start page has none. */}
@@ -1530,6 +1539,7 @@ export function WorkoutScreen({
           ref={bodyRef}
           scrollEnabled={!draggingDay}
           contentContainerStyle={[styles.body, inRoom && styles.bodyInRoom, inRoom && (routineMode || !empty) && styles.bodyInRoomWorking]}
+          automaticallyAdjustKeyboardInsets={rides}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
@@ -2047,7 +2057,7 @@ export function WorkoutScreen({
         {/* Pinned, so the way out is always in the same place. Not before
             there is anything to finish: a button that cannot do anything yet. */}
         {routineMode || !empty || editing || rest ? (
-        <View style={[styles.footer, inRoom && styles.footerInRoom]}>
+        <Animated.View style={[styles.footer, inRoom && styles.footerInRoom, { opacity: underKeys }]}>
           {routineMode ? (
             <>
               {routineMessage ? <Text style={styles.routineError}>{routineMessage}</Text> : null}
@@ -2082,7 +2092,7 @@ export function WorkoutScreen({
               )}
             </>
           )}
-        </View>
+        </Animated.View>
         ) : null}
 
         {/* The picker. An in-sheet overlay rather than a nested Modal: nested
@@ -2127,7 +2137,7 @@ export function WorkoutScreen({
               </View>
             )}
             {/* Lifted by the keyboard's height, so Done always sits just above the keys. */}
-            <View style={[styles.pickerBody, inRoom && styles.pickerBodyInRoom, keyboardHeight > 0 && { paddingBottom: keyboardHeight + 12 }]}>
+            <View style={[styles.pickerBody, inRoom && styles.pickerBodyInRoom, keyboardHeight > 0 && { paddingBottom: Math.max(0, keyboardHeight - keyboardGap) + 12 }]}>
               {/* A short list needs no search, and no keyboard over it. */}
               {cardioOnly ? null : (
                 <TextInput
@@ -2186,7 +2196,7 @@ export function WorkoutScreen({
             </View>
           </View>
         ) : null}
-      </SheetKeyboardAvoidingView>
+      </View>
     </SheetPage>
   );
 }

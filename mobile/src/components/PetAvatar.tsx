@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, type StyleProp, Text, View, type ViewStyle } from 'react-native';
+import { Animated, Easing, Image, Pressable, type StyleProp, Text, View, type ViewStyle } from 'react-native';
 import {
   type MealAnalysis,
   type PetAilment,
@@ -52,6 +52,12 @@ interface PetAvatarProps {
    * is not on screen (another screen covers it), so it costs nothing there.
    */
   paused?: boolean;
+  /**
+   * Makes the pet itself a button: only its body takes the tap (see
+   * `styles.touch`), so a tap on the room around it is not a tap on the pet.
+   */
+  onPress?: () => void;
+  pressLabel?: string;
 }
 
 const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
@@ -179,6 +185,8 @@ export function PetAvatar({
   hideStatusCaption,
   size: sizeOverride,
   paused = false,
+  onPress,
+  pressLabel,
 }: PetAvatarProps) {
   const activity: PetActivity = isCelebrating
     ? 'celebrating'
@@ -356,7 +364,7 @@ export function PetAvatar({
       : mixHex(AURA_BY_MOOD[pet.mood], colors.slate, decline.intensity * 0.7);
 
   return (
-    <View style={[styles.stage, stageStyle]}>
+    <View style={[styles.stage, stageStyle]} pointerEvents={onPress ? 'box-none' : undefined}>
       {children}
       {feedingImage ? (
         <Animated.Image source={{ uri: feedingImage }} style={[styles.food, foodStyle]} />
@@ -406,6 +414,9 @@ export function PetAvatar({
           />
         ) : null}
       </Animated.View>
+      {onPress ? (
+        <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={pressLabel} style={styles.touch} />
+      ) : null}
       {/* No particles over the pet (stars, rain cloud, Zzz, confetti, hearts):
           its own animation carries the mood — the dizzy clips' spiral eyes, the
           sad and sleepy poses, the cheer. */}
@@ -444,6 +455,9 @@ const styles = themedStyles(() => ({
   // Effects rise out of the top of this box, so it must not clip them.
   cell: { alignItems: 'center', justifyContent: 'center', overflow: 'visible', zIndex: 1 },
   window: { overflow: 'hidden', zIndex: 1 },
+  // The pet's body: the sprite's square is mostly air above and beside it.
+  // Over the sprite's window (zIndex 1), or the window would take the touch.
+  touch: { position: 'absolute', left: '14%', right: '14%', top: '38%', bottom: 0, zIndex: 2 },
   // Centred on the pet; the flight transform carries it in from off to the side.
   food: { position: 'absolute', zIndex: 3 },
   particles: {
