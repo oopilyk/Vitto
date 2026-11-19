@@ -3,7 +3,9 @@ import {
   addRestDay,
   moveScheduleDay,
   parseSchedule,
+  addRoutineDay,
   reconcileSchedule,
+  removeScheduleDay,
   removeRestDay,
   restartSchedule,
   scheduleDayOn,
@@ -65,13 +67,13 @@ describe('training rotation', () => {
 
   it('puts every routine in the rotation: a new one at the end, all of them oldest first when there was none', () => {
     // Routines are kept newest first; the rotation starts with the oldest.
-    const fresh = reconcileSchedule(null, [template('Legs'), template('Pull'), template('Push')], on(3));
-    expect(fresh.changed).toBe(true);
-    expect(fresh.schedule!.days.map((day) => (day.kind === 'routine' ? day.templateId : 'rest'))).toEqual(['Push', 'Pull', 'Legs']);
-    expect(today(fresh.schedule!)).toBe('Push');
-    const added = reconcileSchedule(schedule, [template('Arms'), ...templates], on(3));
-    expect(added.schedule!.days.at(-1)).toEqual({ kind: 'routine', templateId: 'Arms' });
-    expect(scheduleDayOn(added.schedule, [template('Arms'), ...templates], on(3))?.template?.name).toBe('Pull');
+    // A split is chosen, never filled in: no split stays none, a new routine stays out of it.
+    expect(reconcileSchedule(null, templates, on(3))).toEqual({ schedule: null, changed: false });
+    expect(reconcileSchedule(schedule, [template('Arms'), ...templates], on(3)).changed).toBe(false);
+    // A deleted routine's day goes, and today stays on its day.
+    const dropped = reconcileSchedule(schedule, [template('Pull'), template('Legs')], on(3));
+    expect(dropped.changed).toBe(true);
+    expect(dropped.schedule!.days.map((day) => (day.kind === 'routine' ? day.templateId : 'rest'))).toEqual(['Pull', 'rest', 'Legs']);
     expect(reconcileSchedule(schedule, templates, on(3)).changed).toBe(false);
   });
 
@@ -80,5 +82,25 @@ describe('training rotation', () => {
     expect(parsed?.days).toEqual([{ kind: 'rest', id: expect.any(String) }]);
     expect(parseSchedule({ days: [], startedOn: 'soon' })).toBeNull();
     expect(parseSchedule(null)).toBeNull();
+  });
+
+  it('adds a routine to the split once, at the end, keeping today', () => {
+    const arms = template('Arms');
+    const all = [...templates, arms];
+    const added = addRoutineDay(schedule, all, 'Arms', on(3))!;
+    expect(added.days.at(-1)).toEqual({ kind: 'routine', templateId: 'Arms' });
+    expect(scheduleDayOn(added, all, on(3))?.day).toEqual(scheduleDayOn(schedule, all, on(3))?.day);
+    expect(addRoutineDay(added, all, 'Arms', on(3))).toBe(added);
+    expect(addRoutineDay(schedule, all, 'Gone', on(3))).toBe(schedule);
+    // The first routine added starts a split, today day 1.
+    const started = addRoutineDay(null, all, 'Push', on(3))!;
+    expect(scheduleDayOn(started, all, on(3))?.template?.name).toBe('Push');
+  });
+
+  it('takes a routine out of the split without deleting it, and the last one ends the split', () => {
+    const without = removeScheduleDay(schedule, templates, 'Pull', on(3))!;
+    expect(without.days.some((day) => day.kind === 'routine' && day.templateId === 'Pull')).toBe(false);
+    const onlyPush: TrainingSchedule = { days: [{ kind: 'routine', templateId: 'Push' }, { kind: 'rest', id: 'r1' }], startedOn: '2026-11-02' };
+    expect(removeScheduleDay(onlyPush, templates, 'Push', on(3))).toBeNull();
   });
 });

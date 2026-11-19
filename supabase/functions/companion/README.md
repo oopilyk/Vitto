@@ -37,7 +37,7 @@ Until the secret is set the function still answers, from a keyless templated
 fallback, so the whole loop can be exercised first. A Claude outage degrades the
 same way rather than erroring.
 
-Models: `claude-haiku-4-5` for everything: the voice (free, Plus with a
+Models: `claude-haiku-5-5` for everything: the voice (free, Plus with a
 built-in personality, and Plus pets with a "Your own" character) and the
 background memory pass. Override with
 `COMPANION_CHAT_MODEL` / `COMPANION_CUSTOM_MODEL` / `COMPANION_FREE_CHAT_MODEL` /

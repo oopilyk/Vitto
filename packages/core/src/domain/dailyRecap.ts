@@ -42,7 +42,13 @@ const PILLAR_OF: Partial<Record<HealthEvent['type'], Pillar>> = {
 };
 
 export interface GymRecap {
+  /** Any workout today, cardio included: what the activity list reports. */
   done: boolean;
+  /**
+   * A training session today: anything but cardio. This is what ticks the
+   * Workout goal; a run or a walk is movement and counts there instead.
+   */
+  trainingDone: boolean;
   workoutCount: number;
   totalMinutes: number;
   exerciseCount: number;
@@ -51,11 +57,24 @@ export interface GymRecap {
   xp: number;
 }
 
+/**
+ * How much cardio meets the day's movement in place of the step goal. Any
+ * cardio at all did, so a one-minute session ticked it off.
+ */
+export const CARDIO_GOAL_MINUTES = 30;
+
 export interface OutdoorsRecap {
   steps: number;
   goal: number;
   percent: number;
   goalReached: boolean;
+  /**
+   * Cardio today (runs, walks, rides) adding up to CARDIO_GOAL_MINUTES: it
+   * meets the day's movement as surely as the steps do.
+   */
+  cardioDone: boolean;
+  /** Minutes of cardio logged today, all sessions together. */
+  cardioMinutes: number;
   xp: number;
   /** Calories burned today, from Apple Health when available. */
   caloriesBurned: number;
@@ -208,8 +227,15 @@ export function buildDailyRecap({
   const workouts = todays.filter(
     (event): event is HealthEvent<WorkoutMetadata> => event.type === 'WORKOUT',
   );
+  const cardio = workouts.filter((event) => event.metadata.workoutType === 'cardio');
+  // The workout screen tags a whole session cardio when any one exercise is, so
+  // lifts with a burpee finisher arrive as "cardio". The lifts still count.
+  const lifted = (event: HealthEvent<WorkoutMetadata>): boolean =>
+    event.metadata.workoutType !== 'cardio' ||
+    (event.metadata.exercises ?? []).some((exercise) => exercise.muscleGroup !== 'cardio');
   const gym: GymRecap = {
     done: workouts.length > 0,
+    trainingDone: workouts.some(lifted),
     workoutCount: workouts.length,
     totalMinutes: workouts.reduce(
       (total, event) =>
@@ -228,11 +254,17 @@ export function buildDailyRecap({
   // --- Outdoors --------------------------------------------------------
   const steps = stepsForDay(todays);
   const burned = caloriesBurnedForDay(todays);
+  const cardioMinutes = cardio.reduce(
+    (total, event) => total + (event.metadata.stats?.durationMinutes ?? event.metadata.durationMinutes ?? 0),
+    0,
+  );
   const outdoors: OutdoorsRecap = {
     steps,
     goal: stepGoal,
     percent: stepGoal > 0 ? Math.round((steps / stepGoal) * 100) : 0,
     goalReached: steps >= stepGoal && stepGoal > 0,
+    cardioDone: cardioMinutes >= CARDIO_GOAL_MINUTES,
+    cardioMinutes,
     xp: xpByPillar.outdoors,
     caloriesBurned: burned.calories,
     caloriesBurnedFromHealth: burned.fromHealth,
@@ -267,8 +299,8 @@ export function buildDailyRecap({
   };
 
   // --- Overall progress: mean of the four pillars' own daily progress --
-  const gymProgress = gym.done ? 100 : 0;
-  const outdoorsProgress = Math.min(100, outdoors.percent);
+  const gymProgress = gym.trainingDone ? 100 : 0;
+  const outdoorsProgress = outdoors.cardioDone ? 100 : Math.min(100, outdoors.percent);
   const mindProgress = mind.sessionCount > 0 ? 100 : 0;
   const foodProgress = meals.length > 0 ? Math.min(100, food.caloriePercent) : 0;
   // Only the pillars this pet's owner chose (see careAreas.ts): someone who

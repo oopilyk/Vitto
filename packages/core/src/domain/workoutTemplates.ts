@@ -20,7 +20,22 @@ export interface WorkoutTemplate {
   name: string;
   exercises: WorkoutExercise[];
   updatedAt: string;
+  /**
+   * For an outdoor routine (see `isOutdoorRoutine`): how long it usually is
+   * and how far, so "Morning walk" logs in one tap. A lifting routine has
+   * neither: its sets are its numbers.
+   */
+  minutes?: number;
+  distanceKm?: number;
 }
+
+/**
+ * A routine that is one activity logged by distance and time (a walk, a run, a
+ * ride): the kind the Outside room lists and logs in a tap. One with lifts in
+ * it, or several activities, is a session to work through, and is not.
+ */
+export const isOutdoorRoutine = (template: WorkoutTemplate): boolean =>
+  template.exercises.length === 1 && Boolean(template.exercises[0]!.distance);
 
 /** Enough for a full split with variants; past this the strip stops being a strip. */
 export const MAX_WORKOUT_TEMPLATES = 12;

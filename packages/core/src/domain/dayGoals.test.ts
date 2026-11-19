@@ -54,6 +54,33 @@ describe('dayGoals', () => {
     expect(goalsFor(yesterday).find((goal) => goal.id === 'workout')?.done).toBe(false);
   });
 
+  it('counts a run or a walk as movement, not as the workout', () => {
+    const run = event('WORKOUT', day, { workoutType: 'cardio', durationMinutes: 30, name: 'Run' });
+    const goals = goalsFor([run, event('STEP_ACTIVITY', day, { steps: 2_000 })]);
+    expect(goals.find((goal) => goal.id === 'workout')?.done).toBe(false);
+    expect(goals.find((goal) => goal.id === 'steps')).toEqual({ id: 'steps', label: 'Cardio', done: true });
+    const lift = event('WORKOUT', day, { workoutType: 'strength', durationMinutes: 40 });
+    expect(goalsFor([run, lift]).find((goal) => goal.id === 'workout')?.done).toBe(true);
+  });
+
+  it('needs 30 minutes of cardio in the day, added up across sessions, to stand in for the steps', () => {
+    const walk = (minutes: number) => event('WORKOUT', day, { workoutType: 'cardio', durationMinutes: minutes, name: 'Walk' });
+    const steps = (list: ReturnType<typeof walk>[]) => goalsFor(list).find((goal) => goal.id === 'steps');
+    expect(steps([walk(1)])?.done).toBe(false);
+    expect(steps([walk(29)])?.done).toBe(false);
+    expect(steps([walk(15), walk(15)])).toEqual({ id: 'steps', label: 'Cardio', done: true });
+  });
+
+  it('still counts lifts with a cardio finisher as the workout', () => {
+    const ex = (name: string, muscleGroup: string) => ({ id: name, name, muscleGroup, sets: [] });
+    const mixed = event('WORKOUT', day, {
+      workoutType: 'cardio',
+      durationMinutes: 45,
+      exercises: [ex('Bench Press', 'chest'), ex('Burpees', 'cardio')],
+    });
+    expect(goalsFor([mixed]).find((goal) => goal.id === 'workout')?.done).toBe(true);
+  });
+
   it('treats eating past the target as done, never as a number over', () => {
     const feast = event('MEAL', day, { analysis: { macros: { calories: 9_000, proteinGrams: 0, carbsGrams: 0, fatGrams: 0 } } });
     expect(goalsFor([feast]).find((goal) => goal.id === 'calories')).toEqual({ id: 'calories', label: 'Calories', done: true });

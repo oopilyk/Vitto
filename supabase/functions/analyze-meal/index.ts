@@ -50,7 +50,7 @@ const MEAL_MODEL = Deno.env.get('MEAL_MODEL') ?? 'claude-sonnet-5-5';
  * The model for a correction: text only, with the person's words and the
  * earlier estimate, so a small one is plenty. Override with MEAL_FIX_MODEL.
  */
-const FIX_MODEL = Deno.env.get('MEAL_FIX_MODEL') ?? 'claude-haiku-4-5';
+const FIX_MODEL = Deno.env.get('MEAL_FIX_MODEL') ?? 'claude-haiku-5-5';
 
 /**
  * Its own client rather than the companion's: a photo takes longer to read than
@@ -175,6 +175,8 @@ Deno.serve(async (request) => {
         ? {
             model: FIX_MODEL,
             max_tokens: 4096,
+            // Haiku 5.5 thinks unless told not to, billed as output and out of max_tokens.
+            thinking: { type: 'disabled' },
             system: MEAL_FIX_SYSTEM_PROMPT,
             messages: [{ role: 'user', content: mealFixUserText(correction, petContext) }],
             output_config: { format: zodOutputFormat(MealAnalysisSchema) },

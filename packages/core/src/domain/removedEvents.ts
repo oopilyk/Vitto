@@ -20,6 +20,29 @@ export const liveEvents = <T extends HealthEvent<unknown>>(events: readonly T[])
 /** Care for the pet, not a weigh-in: what "care moments" counts. */
 export const isCareMoment = (event: HealthEvent<unknown>): boolean => event.type !== 'BODY_WEIGHT';
 
+/**
+ * How many care moments the log holds. Water is saved a cup at a time, so a
+ * day's water counts once however many cups it took (and not at all on a
+ * day whose cups were all taken back); everything else counts per log.
+ */
+export const careMomentCount = (events: readonly HealthEvent<unknown>[]): number => {
+  const water = new Map<string, number>();
+  let count = 0;
+  for (const event of events) {
+    if (!isCareMoment(event)) continue;
+    if (event.type !== 'HYDRATION') {
+      count += 1;
+      continue;
+    }
+    const day = new Date(event.occurredAt);
+    const key = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+    const ml = Number((event.metadata as { ml?: unknown } | null)?.ml) || 0;
+    water.set(key, (water.get(key) ?? 0) + ml);
+  }
+  for (const ml of water.values()) if (ml > 0) count += 1;
+  return count;
+};
+
 export const markRemoved = <T extends HealthEvent<unknown>>(event: T, now: Date = new Date()): T => ({
   ...event,
   metadata: { ...(event.metadata as Record<string, unknown>), removedAt: now.toISOString() },

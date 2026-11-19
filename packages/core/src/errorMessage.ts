@@ -4,7 +4,9 @@
  * proxy carries no CORS headers, so the browser reports it as a failed fetch).
  * Browsers and React Native each have their own wording.
  */
-const NETWORK_FAILURE = /^(failed to fetch|network request failed|load failed|networkerror)/i;
+// supabase-js (postgrest-js) reports a failed fetch as "TypeError: Failed to
+// fetch", its error's name first, so a leading "SomethingError: " is allowed.
+const NETWORK_FAILURE = /^(?:\w*error:\s*)?(failed to fetch|network request failed|load failed|networkerror|fetch failed)/i;
 
 export const NETWORK_ERROR_MESSAGE = 'Could not reach the server. Check your connection and try again.';
 

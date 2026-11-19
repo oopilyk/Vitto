@@ -367,6 +367,8 @@ const extract = async (ctx: PetContext, userText: string, replyText: string, exi
     const response = await anthropic.messages.parse({
       model: EXTRACT_MODEL,
       max_tokens: 1024,
+      // Haiku 5.5 thinks unless told not to, billed as output and out of max_tokens.
+      thinking: { type: 'disabled' },
       system: renderExtractionPrompt({ petName: ctx.life.pet.name, existingMemories: existing, askForNickname }),
       messages: [{
         role: 'user',

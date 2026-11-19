@@ -1,7 +1,10 @@
-# What EAS leaves out of the project archive it uploads for a build. While this
-# file exists EAS ignores the .gitignore files, so it repeats them first.
+# What `eas build` leaves out of the upload.
+#
+# While this file exists EAS reads it INSTEAD of every .gitignore in the repo,
+# so the rules from all of them are repeated below. Keep them in step: a rule
+# dropped here means that file gets uploaded (and .env.local holds secrets).
 
-# --- from .gitignore ---
+# --- from /.gitignore -------------------------------------------------------
 node_modules/
 dist/
 .env
@@ -11,8 +14,10 @@ supabase/.temp/
 /vittoAI/
 /mobile/targets/*/Assets.xcassets/
 /mobile/targets/*/Info.plist
+/mobile/assets/music/*.wav
+/qa-artifacts/
 
-# --- from mobile/.gitignore ---
+# --- from /mobile/.gitignore ------------------------------------------------
 .expo/
 web-build/
 expo-env.d.ts
@@ -34,13 +39,17 @@ yarn-error.*
 /mobile/ios
 /mobile/android
 
-# --- build-only extras ---
-# Test evidence and flows: nothing in a build reads them.
-/qa-artifacts/
-/qa/
-/QA_REPORT.md
-# The original GIFs and videos the pet clips and sheets are cut from. Only the
-# scripts in mobile/scripts read them; the app ships what those scripts write.
+# --- from /packages/core/.gitignore -----------------------------------------
+/packages/core/scripts/.wordlist-cache/
+
+# --- not needed to build the app --------------------------------------------
+# Original art and video the shipped assets were made from; the app never loads them.
 /mobile/assets/source/
-# Model evals: run on a laptop, never in the app.
+# The web app: only its package.json is needed, for the workspace install.
+/web/*
+!/web/package.json
+# Backend, evals, QA and tooling.
+/supabase/
 /evals/
+/qa/
+/.claude/

@@ -19,7 +19,7 @@ import { chatRequest, noTools, systemFor, takesEffort } from './chatRequest.ts';
  * well, so Plus runs on the cheaper model too. See evals/companion-voice for
  * the side-by-side check against the Sonnet replies it replaced.
  */
-export const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-haiku-4-5';
+export const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-haiku-5-5';
 /**
  * Plus with a character the person wrote themselves ("Your own"). The same
  * model as the built-in characters: a stronger one held an invented voice a
@@ -27,13 +27,13 @@ export const CHAT_MODEL = Deno.env.get('COMPANION_CHAT_MODEL') ?? 'claude-haiku-
  * subscription cannot carry for someone who chats all day. Set
  * COMPANION_CUSTOM_MODEL to try another without a deploy.
  */
-export const CUSTOM_CHARACTER_MODEL = Deno.env.get('COMPANION_CUSTOM_MODEL') ?? 'claude-haiku-4-5';
+export const CUSTOM_CHARACTER_MODEL = Deno.env.get('COMPANION_CUSTOM_MODEL') ?? 'claude-haiku-5-5';
 /**
  * Free: a much cheaper model for the same prompt. Free is the tier that costs
  * money without paying any, so it is where the price per message matters most.
  */
-export const FREE_CHAT_MODEL = Deno.env.get('COMPANION_FREE_CHAT_MODEL') ?? 'claude-haiku-4-5';
-export const EXTRACT_MODEL = Deno.env.get('COMPANION_EXTRACT_MODEL') ?? 'claude-haiku-4-5';
+export const FREE_CHAT_MODEL = Deno.env.get('COMPANION_FREE_CHAT_MODEL') ?? 'claude-haiku-5-5';
+export const EXTRACT_MODEL = Deno.env.get('COMPANION_EXTRACT_MODEL') ?? 'claude-haiku-5-5';
 
 /**
  * The model a pet speaks with. `temperament` is the one the phone sent, after

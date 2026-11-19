@@ -8,6 +8,7 @@ import {
   templateError,
   templateFromSession,
   upsertTemplate,
+  isOutdoorRoutine,
 } from './workoutTemplates';
 import { MINUTES_PER_SET, addSet, createExercise, sessionMinutes } from './workout';
 import type { HealthEvent, WorkoutExercise } from './health';
@@ -200,5 +201,20 @@ describe('history', () => {
     expect(started.sets[0]).toMatchObject({ reps: 6, weight: 80, completed: true, previous: { reps: 6, weight: 80 } });
     expect(started.sets[0]!.id).not.toBe('a');
     expect(exerciseFromHistory(fresh, undefined)).toBe(fresh);
+  });
+});
+
+describe('isOutdoorRoutine', () => {
+  const walk = createExercise('Walking', 'cardio', false, 'lb');
+  const bench = createExercise('Bench Press', 'chest', false, 'lb');
+
+  it('is one activity logged by distance and time', () => {
+    expect(isOutdoorRoutine(templateFromSession('Morning walk', [walk]))).toBe(true);
+  });
+
+  it('is not a lifting routine, a lift with a run after it, or two activities', () => {
+    expect(isOutdoorRoutine(templateFromSession('Push', [bench]))).toBe(false);
+    expect(isOutdoorRoutine(templateFromSession('Push and run', [bench, walk]))).toBe(false);
+    expect(isOutdoorRoutine(templateFromSession('Brick', [walk, createExercise('Cycling', 'cardio', false, 'lb')]))).toBe(false);
   });
 });

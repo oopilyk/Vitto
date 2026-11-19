@@ -72,18 +72,21 @@ export const dayGoals = (
       // Where they are in their rotation: "Day 2 · Push", ticked once trained;
       // a rest day is done by resting.
       const what = rotation.day.kind === 'rest' ? 'Rest' : shortName(rotation.template?.name ?? 'Workout');
-      goals.push({ id: 'workout', label: `Day ${rotation.index + 1} · ${what}`, done: rotation.day.kind === 'rest' || recap.gym.done });
+      goals.push({ id: 'workout', label: `Day ${rotation.index + 1} · ${what}`, done: rotation.day.kind === 'rest' || recap.gym.trainingDone });
     } else {
-      goals.push({ id: 'workout', label: 'Workout', done: recap.gym.done });
+      goals.push({ id: 'workout', label: 'Workout', done: recap.gym.trainingDone });
     }
   }
 
   if (tracksArea(pet.careAreas, 'movement') && recap.outdoors.goal > 0) {
     const left = recap.outdoors.goal - recap.outdoors.steps;
     goals.push(
-      left > 0
-        ? { id: 'steps', label: `${left.toLocaleString('en-US')} steps left`, done: false }
-        : { id: 'steps', label: 'Steps', done: true },
+      left <= 0
+        ? { id: 'steps', label: 'Steps', done: true }
+        : // Half an hour of runs or walks logged as workouts meets the day's movement too.
+          recap.outdoors.cardioDone
+          ? { id: 'steps', label: 'Cardio', done: true }
+          : { id: 'steps', label: `${left.toLocaleString('en-US')} steps left`, done: false },
     );
   }
 

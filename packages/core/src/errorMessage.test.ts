@@ -21,7 +21,12 @@ describe('errorMessage', () => {
       expect(errorMessage(new TypeError(raw), 'x')).toBe(NETWORK_ERROR_MESSAGE);
     }
     expect(errorMessage({ message: 'Failed to fetch' }, 'x')).toBe(NETWORK_ERROR_MESSAGE);
+    // How supabase-js hands one back: the error's name first, the stack in details.
+    const supabaseOffline = { message: 'TypeError: Failed to fetch', details: 'TypeError: Failed to fetch\n    at waitOutClockSkew', hint: '', code: '' };
+    expect(isNetworkError(supabaseOffline)).toBe(true);
+    expect(errorMessage(supabaseOffline, 'x')).toBe(NETWORK_ERROR_MESSAGE);
     expect(isNetworkError(new Error('Row not found'))).toBe(false);
+    expect(isNetworkError(new Error('TypeError: Cannot read properties of undefined'))).toBe(false);
   });
 });
 

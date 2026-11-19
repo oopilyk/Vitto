@@ -2,12 +2,14 @@ import { newId } from './ids';
 import type { WorkoutTemplate } from './workoutTemplates';
 
 /**
- * A training rotation: routines and rest days in order, looped — Push, Pull,
- * Legs, Rest — so the app can say what today is for, rather than guessing a
- * rest day from how many workouts the week already has.
+ * A split: routines and rest days in order, looped — Push, Pull, Legs, Rest —
+ * so the app can say what today is for, rather than guessing a rest day from
+ * how many workouts the week already has.
  *
- * Every routine is in it: the list of routines on Log a workout IS the
- * rotation, in order, with any rest days between (see reconcileSchedule).
+ * A routine is one day's workout ("Push"); the split is which of them you do,
+ * in what order. They are not the same list: a routine joins the split only
+ * when it is added to it (addRoutineDay), and one can be kept for now and then
+ * (an arms day, a run) without ever being part of the loop.
  *
  * It runs on the calendar. Day 1 is `startedOn`, the next day is day 2, and
  * after the last day it loops. A missed day still passes, the way a split does
@@ -122,24 +124,50 @@ const withDays = (schedule: TrainingSchedule | null, templates: readonly Workout
 };
 
 /**
- * The rotation as the routine list must show it: every routine in it (a new
- * one at the end; with no rotation yet, oldest first, as they were made), a
- * deleted one gone, and rest days where they were. Null without routines.
- * `changed` says whether it differs from what was saved.
+ * The split squared with the routines there are: a day whose routine was
+ * deleted is gone, everything else as it was. A routine is never added here:
+ * the split is the person's choice (see addRoutineDay). `changed` says whether
+ * it differs from what was saved.
  */
 export const reconcileSchedule = (
   schedule: TrainingSchedule | null,
   templates: readonly WorkoutTemplate[],
   date: Date = new Date(),
 ): { schedule: TrainingSchedule | null; changed: boolean } => {
-  if (templates.length === 0) return { schedule, changed: false };
-  const kept = schedule ? resolvedDays(schedule, templates) : [];
-  const missing = [...templates]
-    .reverse()
-    .filter((template) => !kept.some((day) => day.kind === 'routine' && day.templateId === template.id))
-    .map((template): ScheduleDay => ({ kind: 'routine', templateId: template.id }));
-  if (schedule && missing.length === 0 && kept.length === schedule.days.length) return { schedule, changed: false };
-  return { schedule: withDays(schedule, templates, [...kept, ...missing].slice(0, MAX_SCHEDULE_DAYS), date), changed: true };
+  if (!schedule) return { schedule, changed: false };
+  const kept = resolvedDays(schedule, templates);
+  if (kept.length === schedule.days.length) return { schedule, changed: false };
+  // Nothing left to train: no split, rather than a loop of rest days.
+  if (!kept.some((day) => day.kind === 'routine')) return { schedule: null, changed: true };
+  return { schedule: withDays(schedule, templates, kept, date), changed: true };
+};
+
+/** A routine added as the split's last day. Already in it, or a full split: as it was. */
+export const addRoutineDay = (
+  schedule: TrainingSchedule | null,
+  templates: readonly WorkoutTemplate[],
+  templateId: string,
+  date: Date = new Date(),
+): TrainingSchedule | null => {
+  const days = schedule ? resolvedDays(schedule, templates) : [];
+  if (days.length >= MAX_SCHEDULE_DAYS || days.some((day) => day.kind === 'routine' && day.templateId === templateId)) return schedule;
+  if (!templates.some((template) => template.id === templateId)) return schedule;
+  return withDays(schedule, templates, [...days, { kind: 'routine', templateId }], date);
+};
+
+/**
+ * A day taken out of the split: a rest day, or a routine (which stays a
+ * routine, only not part of the loop). Taking the last routine out ends the split.
+ */
+export const removeScheduleDay = (
+  schedule: TrainingSchedule,
+  templates: readonly WorkoutTemplate[],
+  id: string,
+  date: Date = new Date(),
+): TrainingSchedule | null => {
+  const next = resolvedDays(schedule, templates).filter((day) => scheduleDayId(day) !== id);
+  if (!next.some((day) => day.kind === 'routine')) return null;
+  return withDays(schedule, templates, next, date);
 };
 
 /** A day moved to position `to` (dragged there), the days between closing up. */
