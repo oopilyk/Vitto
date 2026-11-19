@@ -4,7 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
 import type { RoomTheme } from './roomTheme';
-import { framingOf, themedRoom } from './themeArt';
+import { framingOf, themedRoom, windowFocusOf } from './themeArt';
 
 /**
  * The Study: reached by tapping Study from any other scene, it opens the
@@ -67,7 +67,7 @@ export function studyEnvironment({ theme = 'classic', panel, ...props }: StudyEn
   if (theme !== 'classic') {
     const room = themedRoom(theme, 'study', night);
     return {
-      background: <EnvironmentBackdrop source={room.art} maxScale={framingOf(theme, 'study').maxScale} windowFocus={STUDY_WINDOW_FOCUS} />,
+      background: <EnvironmentBackdrop source={room.art} maxScale={framingOf(theme, 'study').maxScale} windowFocus={windowFocusOf(theme, 'study')} />,
       backgroundColor: room.tint,
       controls: panel ? null : <StudyEnvironmentControls {...props} />,
       panel,

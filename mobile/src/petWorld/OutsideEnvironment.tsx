@@ -4,7 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
 import type { RoomTheme } from './roomTheme';
-import { framingOf, themedRoom } from './themeArt';
+import { framingOf, themedRoom, windowFocusOf } from './themeArt';
 
 /**
  * Outdoors: reached by tapping Outdoors from any other scene. Logging a run,
@@ -60,6 +60,7 @@ export function outsideEnvironment({ theme = 'classic', panel, ...props }: Outsi
         source={themed?.art ?? (night ? OUTSIDE_NIGHT : OUTSIDE_DAY)}
         fill={framing.fill ?? true}
         maxScale={framing.maxScale}
+        windowFocus={theme === 'classic' ? undefined : windowFocusOf(theme, 'outside')}
       />
     ),
     backgroundColor: themed?.tint ?? (night ? NIGHT_SKY : DAY_SKY),

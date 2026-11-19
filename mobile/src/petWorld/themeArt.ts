@@ -248,5 +248,31 @@ export const ROOM_FRAMING: Partial<Record<ArtTheme, Partial<Record<ThemedRoom, R
 
 export const framingOf = (theme: ArtTheme, room: ThemedRoom): RoomFraming => ROOM_FRAMING[theme]?.[room] ?? {};
 
+type LogRoom = Exclude<ThemedRoom, 'living'>;
+
+/**
+ * Which part of each themed room a log page's window looks at, from 0 (the
+ * art's top) to 1 (its bottom); see `windowBackdropSize`. The window shows
+ * about two fifths of the art's height.
+ *
+ * The themed rooms put their furniture higher up the picture than the classic
+ * art, so the classic rooms' focus showed a window full of empty rug. Each is
+ * set so the window's foot, where the pet stands, falls just in front of the
+ * rug's middle (or, outdoors, on the path), with the counters, the bench or
+ * the desk behind it and the scenery above. Day and night art share a layout.
+ */
+const WINDOW_FOCUS: Record<ArtTheme, Record<LogRoom, number>> = {
+  space: { kitchen: 0.63, gym: 0.58, study: 0.61, outside: 0.49 },
+  cloud: { kitchen: 0.56, gym: 0.53, study: 0.53, outside: 0.41 },
+  elf: { kitchen: 0.51, gym: 0.48, study: 0.51, outside: 0.41 },
+  reef: { kitchen: 0.51, gym: 0.51, study: 0.51, outside: 0.41 },
+  mountain: { kitchen: 0.54, gym: 0.53, study: 0.53, outside: 0.41 },
+  candy: { kitchen: 0.58, gym: 0.58, study: 0.58, outside: 0.41 },
+  desert: { kitchen: 0.61, gym: 0.59, study: 0.59, outside: 0.41 },
+  cyber: { kitchen: 0.64, gym: 0.61, study: 0.61, outside: 0.46 },
+};
+
+export const windowFocusOf = (theme: ArtTheme, room: LogRoom): number => WINDOW_FOCUS[theme][room];
+
 export const themedRoom = (theme: ArtTheme, room: ThemedRoom, night: boolean): Lit =>
   THEME_ART[theme][room][night ? 'night' : 'day'];

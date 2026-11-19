@@ -4,7 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
 import type { RoomTheme } from './roomTheme';
-import { THEMED_LIFT, framingOf, themedRoom } from './themeArt';
+import { THEMED_LIFT, framingOf, themedRoom, windowFocusOf } from './themeArt';
 
 /**
  * The Gym: reached by tapping Gym from any other scene, it opens the existing
@@ -65,7 +65,7 @@ export function gymEnvironment({ theme = 'classic', panel, ...props }: GymEnviro
           lift={framing.lift ?? THEMED_LIFT}
           floorColor={room.floor}
           maxScale={framing.maxScale}
-          windowFocus={GYM_WINDOW_FOCUS}
+          windowFocus={windowFocusOf(theme, 'gym')}
         />
       ),
       backgroundColor: room.tint,

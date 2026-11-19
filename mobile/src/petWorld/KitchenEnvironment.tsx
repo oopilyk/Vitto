@@ -4,7 +4,7 @@ import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
 import type { RoomTheme } from './roomTheme';
-import { THEMED_LIFT, framingOf, themedRoom } from './themeArt';
+import { THEMED_LIFT, framingOf, themedRoom, windowFocusOf } from './themeArt';
 
 /**
  * The Kitchen: reached by tapping Kitchen in the living room, it opens the
@@ -71,6 +71,7 @@ export function kitchenEnvironment({ theme = 'classic', panel, ...props }: Kitch
           lift={framing.lift ?? THEMED_LIFT}
           floorColor={room.floor}
           maxScale={framing.maxScale}
+          windowFocus={windowFocusOf(theme, 'kitchen')}
         />
       ),
       backgroundColor: room.tint,
