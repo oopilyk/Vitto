@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { Animated, Image, type ImageSourcePropType, Pressable, Text, View } from 'react-native';
-import { fonts, world, themedStyles } from '../theme';
+import { Image, type ImageSourcePropType, Pressable, Text, View } from 'react-native';
+import { fonts, themedStyles } from '../theme';
 
 /**
  * One icon on the bottom hotbar (`EnvironmentActionRow`). Warm-cream glyph art
@@ -8,15 +7,15 @@ import { fonts, world, themedStyles } from '../theme';
  *
  *  - inactive       -- the cream shape, dimmed.
  *  - active          -- the cream shape at full strength, with a crisp cream
- *    keyline and a short muted-coral "you are here" pedestal that scales in.
+ *    keyline; the bar slides a soft pill behind it.
  *  - night           -- every icon carries the keyline so a dim glyph never
  *    vanishes against a dark bar over a dark scene.
  */
-const ICON_SIZE = 34;
+const ICON_SIZE = 24;
 // Five slots plus the bar's edge padding must fit a 320pt screen (5 x 56 + 28):
 // at 60 the last icon ran off the edge. "OUTSIDE", the widest label, is ~44pt.
 const SLOT_WIDTH = 56;
-const SLOT_HEIGHT = 56;
+const SLOT_HEIGHT = 42;
 
 const GLYPH = '#f2e8d4'; // warm cream
 const KEYLINE = '#f2e8d4';
@@ -40,6 +39,8 @@ export interface EnvironmentButtonProps {
   label: string;
   isActive: boolean;
   night: boolean;
+  /** Overrides the cream glyph -- the dark ink used when the bar sits on paper. */
+  glyph?: string;
   onPress: () => void;
 }
 
@@ -50,6 +51,7 @@ export function EnvironmentButton({
   label,
   isActive,
   night,
+  glyph = GLYPH,
   onPress,
 }: EnvironmentButtonProps) {
   const opacity = night
@@ -62,15 +64,6 @@ export function EnvironmentButton({
 
   const showKeyline = night || isActive;
 
-  // The pedestal scales in on becoming active — a quick "I moved here" beat.
-  const pedestal = useRef(new Animated.Value(isActive ? 1 : 0)).current;
-  useEffect(() => {
-    Animated.timing(pedestal, {
-      toValue: isActive ? 1 : 0,
-      duration: isActive ? 160 : 110,
-      useNativeDriver: true,
-    }).start();
-  }, [isActive, pedestal]);
 
   return (
     <Pressable
@@ -91,32 +84,28 @@ export function EnvironmentButton({
       <View style={styles.iconBox}>
         <Image
           source={filledSource}
-          style={[styles.icon, { tintColor: GLYPH, opacity }]}
+          style={[styles.icon, { tintColor: glyph, opacity }]}
           resizeMode="contain"
         />
         {showKeyline ? (
           <View style={styles.outlineLayer} pointerEvents="none">
             <Image
               source={outlineSource}
-              style={[styles.icon, { tintColor: KEYLINE }]}
+              style={[styles.icon, { tintColor: glyph === GLYPH ? KEYLINE : glyph }]}
               resizeMode="contain"
             />
           </View>
         ) : null}
       </View>
-      <Text style={[styles.label, { opacity }, isActive && styles.labelActive]} numberOfLines={1}>
+      <Text style={[styles.label, { opacity }, isActive && styles.labelActive, glyph !== GLYPH && { color: glyph }]} numberOfLines={1}>
         {label}
       </Text>
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.pedestal, { opacity: pedestal, transform: [{ scaleX: pedestal }] }]}
-      />
     </Pressable>
   );
 }
 
 const styles = themedStyles(() => ({
-  slot: { width: SLOT_WIDTH, height: SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  slot: { width: SLOT_WIDTH, height: SLOT_HEIGHT, alignItems: 'center', justifyContent: 'center', gap: 1 },
   pressed: { opacity: 0.6, transform: [{ scale: 0.9 }] },
   iconBox: { width: ICON_SIZE, height: ICON_SIZE, alignItems: 'center', justifyContent: 'center' },
   icon: { width: ICON_SIZE, height: ICON_SIZE },
@@ -131,7 +120,7 @@ const styles = themedStyles(() => ({
   },
   label: {
     fontFamily: fonts.systemMono,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
@@ -139,12 +128,4 @@ const styles = themedStyles(() => ({
     flexShrink: 0,
   },
   labelActive: { color: '#fff8ec' },
-  pedestal: {
-    position: 'absolute',
-    bottom: -3,
-    width: 18,
-    height: 3,
-    borderRadius: 1,
-    backgroundColor: world.accent,
-  },
 }));

@@ -17,7 +17,7 @@ import { playPokeFeedback } from '../services/mealFeedback';
 import { stageMetrics } from './EnvironmentBackdrop';
 import { navBarHeight } from './EnvironmentActionRow';
 import { topInsetFor, useChromeScale } from './chromeScale';
-import { RoomPanel, ROOM_WINDOW_GAP, roomWindowFrame } from './RoomPanel';
+import { RoomPanel, roomWindowFrame } from './RoomPanel';
 import { colors } from '../theme';
 import { PetSpeechBubble } from './PetSpeechBubble';
 import { PetTapReaction } from './PetTapReaction';
@@ -98,6 +98,8 @@ interface EnvironmentStageProps {
    * switch, which made the buttons feel slow.
    */
   navBar?: ReactNode;
+  /** On a room page, drawn in the window's top-right corner and scrolled with it (the Today ring). */
+  windowCorner?: ReactNode;
   /**
    * Every scene's dressing, keyed by id. A record rather than one prop per
    * scene: with two it was `main`/`kitchen` and a single 0..1 blend between
@@ -130,6 +132,7 @@ export function EnvironmentStage({
   activityProps,
   hudOverlay,
   navBar,
+  windowCorner,
   environments,
   onPetTap,
   night,
@@ -162,10 +165,9 @@ export function EnvironmentStage({
   const chromeScale = useChromeScale();
   const barHeight = navBarHeight(chromeScale) * chromeScale;
   const paged = Boolean(regions.panel);
+  const [barsOverPage, setBarsOverPage] = useState(true);
   const topInset = topInsetFor(stageSize.width, stageSize.height);
   const frame = roomWindowFrame(stageSize.width, stageSize.height, topInset);
-  // Where the page starts, under the window.
-  const pageTop = frame.top + frame.height + ROOM_WINDOW_GAP;
   // How far up from the stage's bottom the page reaches: the "logged" toast sits just above it, in the window.
   const panelInset = paged ? stageSize.height - (frame.top + frame.height) : 0;
   const full = stageMetrics(stageSize.width, stageSize.height);
@@ -266,27 +268,11 @@ export function EnvironmentStage({
   const pokeScale = poke.interpolate({ inputRange: [0, 1], outputRange: [1, 1.09] });
   const pokeHop = poke.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
 
-  return (
-    // The HUD and the room's controls share one stage; this lets the controls
-    // keep clear of however tall the HUD has grown (see RoomActionSlot).
-    <HudEdgeProvider petReach={metrics.petBottom + metrics.petSize} panelInset={panelInset} speechCeiling={speechCeiling}>
-    <Animated.View
-      ref={stageRef}
-      style={[styles.stage, { backgroundColor: paged ? colors.paper : backgroundColor }]}
-      onLayout={onStageLayout}
-    >
-      {/* The room bar's icons are drawn for a dark room behind them: on a page, the room's own tone backs the bar. */}
-      {paged ? (
-        <Animated.View pointerEvents="none" style={[styles.barBacking, { height: barHeight, backgroundColor }]} />
-      ) : null}
-      <Animated.View
-        pointerEvents="box-none"
-        style={
-          paged
-            ? [styles.window, { top: frame.top, left: frame.side, right: frame.side, height: frame.height, backgroundColor }]
-            : StyleSheet.absoluteFill
-        }
-      >
+  // The room itself: art, pet, its bubbles and controls. Full-screen at home;
+  // on a room page, a framed window that is the first thing on the page and
+  // scrolls with it (see RoomWindowSlot).
+  const windowContent = (
+    <>
       <FadeSwap swapKey={environment} durationMs={transitionMs}>
         <Animated.View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {regions.background}
@@ -355,15 +341,43 @@ export function EnvironmentStage({
           {regions.controls}
         </Animated.View>
       </FadeSwap>
-      </Animated.View>
+    </>
+  );
+  const roomWindow = paged ? (
+    <Animated.View pointerEvents="box-none" style={[styles.window, { height: frame.height, backgroundColor }]}>
+      {windowContent}
+      {windowCorner ? (
+        <View pointerEvents="box-none" style={styles.windowCorner}>
+          {windowCorner}
+        </View>
+      ) : null}
+    </Animated.View>
+  ) : null;
+
+  return (
+    // The HUD and the room's controls share one stage; this lets the controls
+    // keep clear of however tall the HUD has grown (see RoomActionSlot).
+    <HudEdgeProvider petReach={metrics.petBottom + metrics.petSize} panelInset={panelInset} speechCeiling={speechCeiling}>
+    <Animated.View
+      ref={stageRef}
+      style={[styles.stage, { backgroundColor: paged ? colors.paper : backgroundColor }]}
+      onLayout={onStageLayout}
+    >
+      {paged ? null : (
+        <Animated.View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+          {windowContent}
+        </Animated.View>
+      )}
 
       {regions.panel ? (
         <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.panelLayer]}>
           <RoomPanel
             key={environment}
-            pageTop={pageTop}
+            pageTop={topInset}
+            window={roomWindow}
             bottom={barHeight}
             topInset={topInset}
+            onBarsOverPage={setBarsOverPage}
           >
             {regions.panel}
           </RoomPanel>
@@ -373,13 +387,15 @@ export function EnvironmentStage({
       {navBar ? (
         // Above the pet's full-screen tap layer, like the room controls, or
         // every tap on the bar would land on the pet instead.
-        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.controlsLayer]}>
+        // On a page the bar floats over it (Liquid Glass over the page's
+        // content), unless a logger or the keyboard has the page covering it.
+        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.controlsLayer, paged && barsOverPage && styles.navOverPage]}>
           {navBar}
         </View>
       ) : null}
 
       {hudOverlay ? (
-        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.hudLayer]}>
+        <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.hudLayer, paged && styles.hudOverPage]}>
           {hudOverlay}
         </Animated.View>
       ) : null}
@@ -454,9 +470,13 @@ const styles = themedStyles(() => ({
   petLayer: { zIndex: 1 },
   controlsLayer: { zIndex: 2 },
   hudLayer: { zIndex: 3 },
+  // On a room page the HUD is only the "logged" toast, which shows over the page.
+  hudOverPage: { zIndex: 5 },
   // The room, framed in the page: clipped to rounded corners, with a hairline edge.
-  window: { position: 'absolute', borderRadius: 22, borderCurve: 'continuous', overflow: 'hidden' },
-  barBacking: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  window: { borderRadius: 22, borderCurve: 'continuous', overflow: 'hidden' },
+  windowCorner: { position: 'absolute', top: 8, right: 8, zIndex: 6 },
+  // Over the page (4), under the HUD over a page (5), which renders after it.
+  navOverPage: { zIndex: 5 },
   // Over the HUD and the room bar: a logger opened in the page covers both.
   panelLayer: { zIndex: 4 },
   // Over the pet's head; `paddingBottom` is set inline from `stageMetrics`.

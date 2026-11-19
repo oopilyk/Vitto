@@ -313,24 +313,11 @@ export function PetWorldHud({
     : 0;
   const rowFit = drawnWidth > readoutRoom && readoutRoom > 0 ? readoutRoom / drawnWidth : 1;
   // The Gym, Kitchen, Outside and Study are pages with the pet in a small
-  // window (see RoomPanel): no HUD over it but the day's progress, small, in
-  // the window's top-right corner (a tap opens Today), and the "logged" toast.
+  // window (see RoomPanel): no HUD over it but the "logged" toast. The day's
+  // progress rides in the window's corner (WindowTodayRing), scrolling with it.
   if (paged) {
-    const windowTop = topInsetFor(screenWidth, screenHeight) + 4;
     return (
       <View style={styles.fill} pointerEvents="box-none">
-        <View style={[styles.windowToday, { top: windowTop + WINDOW_RING_INSET, right: 16 + WINDOW_RING_INSET }]} pointerEvents="box-none">
-          <LevelRing
-            level={0}
-            kicker="TODAY"
-            value={`${Math.round(todayProgress ?? 0)}%`}
-            xpPct={todayProgress ?? 0}
-            onPress={onOpenToday}
-            night={night}
-            size={WINDOW_RING}
-            accessibilityLabel={`Open today's detail, ${Math.round(todayProgress ?? 0)} percent done`}
-          />
-        </View>
         <CareToastBanner toast={careToast} night={night} />
       </View>
     );
@@ -540,14 +527,14 @@ export function PetWorldHud({
           bar, where a thumb rests: the reply comes back in the speech bubble. */}
       {/* Living room only: every other room keeps that corner for its log button. */}
       {onTalk && environment === 'main' && canListen() ? (
-        <View style={[styles.mic, { bottom: navBarHeight(chromeScale) + 14 }]} pointerEvents="box-none">
+        <View style={[styles.mic, { bottom: navBarHeight(chromeScale) + 4 }]} pointerEvents="box-none">
           <PetMicButton petName={pet.name} onSay={onTalk} busy={talking} night={night} size={MIC} />
         </View>
       ) : null}
 
       {/* Home only, bottom left across from the mic: the day's weigh-in, until it is done. */}
       {weighIn && environment === 'main' ? (
-        <WeighInPrompt {...weighIn} bottom={navBarHeight(chromeScale) + 14} night={night} />
+        <WeighInPrompt {...weighIn} bottom={navBarHeight(chromeScale) + 4} night={night} />
       ) : null}
 
       <CareToastBanner toast={careToast} night={night} />
@@ -580,7 +567,6 @@ const hudZoom = (width: number, height: number, scale: number): ViewStyle | null
 const RING = 64;
 /** The Today ring in a room's window: smaller, it shares the window with the pet and what it says. */
 const WINDOW_RING = 54;
-const WINDOW_RING_INSET = 8;
 const DISC = 44;
 /** Chat and the coin balance share one height. */
 const TOOL = 36;
@@ -590,7 +576,6 @@ const MIC = 52;
 
 const styles = themedStyles(() => ({
   fill: { flex: 1 },
-  windowToday: { position: 'absolute' },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -795,3 +780,20 @@ const styles = themedStyles(() => ({
   mic: { position: 'absolute', right: GUTTER },
 
 }));
+
+/** The day's progress, small, in a room window's top-right corner: a tap opens Today. */
+export function WindowTodayRing({ todayProgress, onOpenToday, night }: { todayProgress?: number; onOpenToday?: () => void; night?: boolean }) {
+  const pct = Math.round(todayProgress ?? 0);
+  return (
+    <LevelRing
+      level={0}
+      kicker="TODAY"
+      value={`${pct}%`}
+      xpPct={todayProgress ?? 0}
+      onPress={onOpenToday ?? (() => {})}
+      night={night}
+      size={WINDOW_RING}
+      accessibilityLabel={`Open today's detail, ${pct} percent done`}
+    />
+  );
+}

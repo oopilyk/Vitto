@@ -1,6 +1,8 @@
 import type React from 'react';
-import { type ImageSourcePropType, Platform, StyleSheet, View } from 'react-native';
-import { world, themedStyles } from '../theme';
+import { useEffect, useRef, useState } from 'react';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { Animated, type ImageSourcePropType, Platform, StyleSheet, View } from 'react-native';
+import { colors, getColorScheme, themedStyles } from '../theme';
 import { EnvironmentButton } from './EnvironmentButton';
 import { useTourTarget, type TourTargetId } from '../tour/FirstRunTour';
 import { useChromeScale } from './chromeScale';
@@ -54,25 +56,33 @@ const SCENES: readonly SceneButton[] = [
 
 // Clears the home indicator on modern iPhones without pulling in a safe-area
 // package, which drags a second copy of React into the workspace.
-const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 28 : 16;
-/** Height of the icon strip itself; the home-indicator inset pads it top and
- *  bottom equally so the icons sit centred in the bar rather than up against
- *  its top edge. */
-const ICON_AREA_HEIGHT = 62;
+const HOME_INDICATOR_INSET = Platform.OS === 'ios' ? 20 : 10;
+const TOP_PAD = 6;
+/** The floating pill's height and its gap to the screen sides. */
+const PILL_HEIGHT = 50;
+const PILL_SIDE = 14;
+/** How far the active tab's highlight sits inside the pill's edge. */
+const HIGHLIGHT_INSET = 4;
 /**
  * How much of the screen's bottom the bar covers, at a chrome `scale` (see
  * chromeScale), in the units of a layer zoomed by that scale -- the HUD's.
  * For anything that has to sit just above it.
  */
-export const navBarHeight = (scale = 1): number => ICON_AREA_HEIGHT + (HOME_INDICATOR_INSET * 2) / scale;
+export const navBarHeight = (scale = 1): number => PILL_HEIGHT + (TOP_PAD + HOME_INDICATOR_INSET) / scale;
 
-/** Keeps the two end icons off the very screen edge while they spread out. */
-const ICON_EDGE_PADDING = 14;
-/** Translucent enough that the room reads through the bar -- the whole point.
- *  Warmed to sit in the same palette as the rest of the HUD. */
-const DAY_BAR_BG = world.barDay;
-const NIGHT_BAR_BG = world.barNight;
-const TOP_HAIRLINE = world.barHairline;
+/** Real iOS 26 Liquid Glass when the device has it; a frosted tint otherwise. */
+const LIQUID_GLASS = (() => {
+  try {
+    return isLiquidGlassAvailable();
+  } catch {
+    return false;
+  }
+})();
+
+/** The see-through tint behind the icons where there is no Liquid Glass. */
+const SCENE_GLASS = 'rgba(28,22,26,0.62)';
+const SCENE_EDGE = 'rgba(242,232,212,0.16)';
+const SCENE_HIGHLIGHT = 'rgba(242,232,212,0.16)';
 
 export interface EnvironmentActionRowProps {
   /** The scene on screen -- its icon is the filled one. */
@@ -81,62 +91,99 @@ export interface EnvironmentActionRowProps {
   onNavigate: (id: EnvironmentId) => void;
   /** Swaps the bar and icon tints to their night treatment. */
   night: boolean;
+  /** On a room page the bar floats over the page, not the scene: a paper-toned
+   *  pill with dark glyphs instead of the dark glass. */
+  onPaper?: boolean;
 }
 
-export function EnvironmentActionRow({ current, onNavigate, night }: EnvironmentActionRowProps) {
+/**
+ * A floating glass pill holding the five rooms, with a softer pill sliding
+ * behind the one you are in -- the pattern iOS's own tab bars use.
+ */
+export function EnvironmentActionRow({ current, onNavigate, night, onPaper = false }: EnvironmentActionRowProps) {
   // A tablet draws the icons bigger, in a taller strip (see chromeScale).
   const scale = useChromeScale();
   const zoomed = scale !== 1;
+  const [width, setWidth] = useState(0);
+  const index = Math.max(0, SCENES.findIndex((scene) => scene.id === current));
+  const slot = width / SCENES.length;
+  const slide = useRef(new Animated.Value(index)).current;
+  useEffect(() => {
+    Animated.spring(slide, { toValue: index, useNativeDriver: true, speed: 22, bounciness: 6 }).start();
+  }, [index, slide]);
+
+  const lightPaper = onPaper && getColorScheme() === 'light';
+  const glyph = lightPaper ? colors.ink : undefined;
+  const glassTint = onPaper ? (lightPaper ? 'rgba(255,255,255,0.72)' : 'rgba(28,28,31,0.72)') : SCENE_GLASS;
+  const highlight = lightPaper ? 'rgba(23,23,26,0.08)' : SCENE_HIGHLIGHT;
+  const edge = lightPaper ? colors.border : SCENE_EDGE;
+  const height = PILL_HEIGHT * scale;
+
   // A plain opaque-to-touch View (not `box-none`): taps on the gaps between the
   // icons must be caught here, not fall through to the pet's tap layer beneath.
   return (
-    <View
-      style={[
-        styles.bar,
-        {
-          backgroundColor: night ? NIGHT_BAR_BG : DAY_BAR_BG,
-          paddingTop: HOME_INDICATOR_INSET,
-          paddingBottom: HOME_INDICATOR_INSET,
-        },
-      ]}
-    >
-      <View style={styles.hairline} />
-      <View style={[styles.icons, zoomed && { height: ICON_AREA_HEIGHT * scale, paddingHorizontal: ICON_EDGE_PADDING * scale }]}>
+    <View style={[styles.bar, { paddingTop: TOP_PAD, paddingBottom: HOME_INDICATOR_INSET, paddingHorizontal: PILL_SIDE * scale }]}>
+      <GlassView
+        glassEffectStyle="regular"
+        colorScheme={lightPaper ? 'light' : 'dark'}
+        style={[
+          styles.pill,
+          { height, borderRadius: height / 2, borderColor: edge },
+          !LIQUID_GLASS && { backgroundColor: glassTint },
+          !LIQUID_GLASS && Platform.OS === 'web' && ({ backdropFilter: 'blur(18px) saturate(160%)' } as object),
+        ]}
+        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+        testID="room-nav-pill"
+      >
+        {width > 0 ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.highlight,
+              {
+                width: slot - HIGHLIGHT_INSET * 2,
+                borderRadius: (height - HIGHLIGHT_INSET * 2) / 2,
+                backgroundColor: highlight,
+                transform: [{ translateX: Animated.add(Animated.multiply(slide, slot), HIGHLIGHT_INSET) }],
+              },
+            ]}
+          />
+        ) : null}
         {SCENES.map((scene) => (
-          <TourableScene key={scene.id} id={scene.id} scale={scale}>
-            <EnvironmentButton
-              accessibilityLabel={scene.accessibilityLabel}
-              label={scene.label}
-              filledSource={scene.filledSource}
-              outlineSource={scene.outlineSource}
-              isActive={scene.id === current}
-              night={night}
-              onPress={() => onNavigate(scene.id)}
-            />
-          </TourableScene>
+          <View key={scene.id} style={styles.slot}>
+            <TourableScene id={scene.id} scale={zoomed ? scale : 1}>
+              <EnvironmentButton
+                accessibilityLabel={scene.accessibilityLabel}
+                label={scene.label}
+                filledSource={scene.filledSource}
+                outlineSource={scene.outlineSource}
+                isActive={scene.id === current}
+                night={onPaper ? false : night}
+                glyph={glyph}
+                onPress={() => onNavigate(scene.id)}
+              />
+            </TourableScene>
+          </View>
         ))}
-      </View>
+      </GlassView>
     </View>
   );
 }
 
 const styles = themedStyles(() => ({
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  hairline: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: TOP_HAIRLINE,
-  },
-  icons: {
-    height: ICON_AREA_HEIGHT,
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: ICON_EDGE_PADDING,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
   },
+  highlight: { position: 'absolute', left: 0, top: HIGHLIGHT_INSET, bottom: HIGHLIGHT_INSET },
+  slot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 }));
 
 /** The rooms the first-run tour points at (see FirstRunTour); the others need no wrapper. */

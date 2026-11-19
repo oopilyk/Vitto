@@ -22,7 +22,7 @@ import { AchievementUnlock } from '../celebrations/AchievementUnlock';
 import type { CelebrationEvent } from '../celebrations/types';
 import { EnvironmentActionRow } from '../petWorld/EnvironmentActionRow';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
-import { PetWorldHud } from '../petWorld/PetWorldHud';
+import { PetWorldHud, WindowTodayRing } from '../petWorld/PetWorldHud';
 import { reactionLine } from '../petWorld/reactionLine';
 import { mainEnvironment } from '../petWorld/MainEnvironment';
 import { kitchenEnvironment } from '../petWorld/KitchenEnvironment';
@@ -323,7 +323,8 @@ export function DashboardScreen({
           night={night}
         />
       }
-      navBar={<EnvironmentActionRow current={environment} onNavigate={navigate} night={night} />}
+      windowCorner={<WindowTodayRing todayProgress={todayProgress} onOpenToday={onOpenToday} night={night} />}
+      navBar={<EnvironmentActionRow current={environment} onNavigate={navigate} night={night} onPaper={Boolean(rooms) && environment !== 'main'} />}
       environments={{
         main: mainEnvironment({ trophies, theme: roomTheme }),
         kitchen: kitchenEnvironment({

@@ -21,6 +21,7 @@ import { availableMindGames, featuredMindGame, isMindGamePlayed, type MindRouteH
 import type { MindGameEntry, MindStage } from '../mind/types';
 import { whenLabel } from './whenLabel';
 import { LogProgress } from '../components/logKit';
+import { WaterLog, type WaterLogProps } from '../components/WaterLog';
 import { layout } from '../theme';
 import {
   PanelActionBar,
@@ -32,9 +33,11 @@ import {
   PanelNumberField,
   PanelProgress,
   PanelPage,
+  useRoomBarInset,
   PanelRow,
   PanelSection,
   useRoomTask,
+  RoomWindowSlot,
 } from './RoomPanel';
 
 /**
@@ -61,7 +64,7 @@ import {
 /** The meal logger's ways in. `recent` is search with the keyboard down, as the Kitchen opens. */
 export type MealEntry = 'search' | 'photo' | 'scan' | 'recent';
 
-type FoodTab = 'search' | 'photo' | 'scan' | 'meals';
+type FoodTab = 'search' | 'photo' | 'scan' | 'meals' | 'water';
 
 export interface FoodPanelProps {
   /**
@@ -80,6 +83,8 @@ export interface FoodPanelProps {
    */
   recentMeals?: readonly RepeatableMeal[];
   onSaveMeal?: (name: string, analysis: RepeatableMeal['analysis']) => Promise<string | null>;
+  /** Today's water and how to add to it: shows a Water tab when given. */
+  water?: WaterLogProps;
   onLogSavedMeal?: (meal: SavedMeal) => Promise<void>;
   onDeleteSavedMeal?: (id: string) => Promise<void> | void;
 }
@@ -90,17 +95,21 @@ export interface FoodPanelProps {
  * window. The pinned bar's tabs switch to Photo, Scan or Water; logging a meal
  * (or putting the logger away) comes back to Search.
  */
-export function FoodPanel({ renderMealLogger, today, savedMeals = [], onLogSavedMeal, onDeleteSavedMeal, recentMeals, onSaveMeal }: FoodPanelProps) {
+export function FoodPanel({ renderMealLogger, today, savedMeals = [], onLogSavedMeal, onDeleteSavedMeal, recentMeals, onSaveMeal, water }: FoodPanelProps) {
   const task = useRoomTask();
   const [tab, setTab] = useState<FoodTab>('search');
   // The open tab renders from these on every pass, so it never shows a stale
   // day: the logger and the water count are the app's latest.
-  const latest = useRef({ renderMealLogger, today, savedMeals, onLogSavedMeal, onDeleteSavedMeal, recentMeals, onSaveMeal });
-  latest.current = { renderMealLogger, today, savedMeals, onLogSavedMeal, onDeleteSavedMeal, recentMeals, onSaveMeal };
+  const latest = useRef({ renderMealLogger, today, savedMeals, onLogSavedMeal, onDeleteSavedMeal, recentMeals, onSaveMeal, water });
+  latest.current = { renderMealLogger, today, savedMeals, onLogSavedMeal, onDeleteSavedMeal, recentMeals, onSaveMeal, water };
 
   const show = useCallback(
     (next: FoodTab, arriving = false) => {
       setTab(next);
+      if (next === 'water') {
+        task.open(() => <WaterTab water={latest.current.water} />, { keepBars: true });
+        return;
+      }
       if (next === 'meals') {
         task.open(() => <MealsTab {...latest.current} />, { keepBars: true });
         return;
@@ -123,6 +132,7 @@ export function FoodPanel({ renderMealLogger, today, savedMeals = [], onLogSaved
     { icon: 'photo', label: 'Photo', hint: 'Log a meal from a photo' },
     { icon: 'scan', label: 'Scan', hint: 'Scan a barcode' },
     { icon: 'meals', label: 'Meals', hint: 'Your saved meals' },
+    ...(water ? [{ icon: 'water' as const, label: 'Water', hint: 'Log water' }] : []),
   ];
   return (
     <PanelPage
@@ -143,6 +153,17 @@ export function FoodPanel({ renderMealLogger, today, savedMeals = [], onLogSaved
   );
 }
 
+/** The Kitchen's Water tab: the day's cups, big, a tap each. */
+function WaterTab({ water }: { water: FoodPanelProps['water'] }) {
+  const barInset = useRoomBarInset();
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 16 + barInset, gap: 14 }} showsVerticalScrollIndicator={false}>
+      <RoomWindowSlot />
+      {water ? <WaterLog {...water} /> : null}
+    </ScrollView>
+  );
+}
+
 /** A row of LogProgress's bars without its own card: the Water tab's card holds two. */
 const MACRO_ROW = { marginHorizontal: 0, marginTop: 0, padding: 0, backgroundColor: 'transparent' } as const;
 
@@ -160,13 +181,15 @@ function MealsTab({
 }: Pick<FoodPanelProps, 'today' | 'savedMeals' | 'onLogSavedMeal' | 'onDeleteSavedMeal' | 'recentMeals' | 'onSaveMeal'>) {
   const [editing, setEditing] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const barInset = useRoomBarInset();
   // Eaten lately and not kept yet: each a tap from being one of their meals.
   const kept = new Set(savedMeals.map((meal) => meal.name.toLowerCase()));
   const toKeep = onSaveMeal
     ? recentMeals.filter((meal) => !kept.has(normalizeSavedMealName(meal.name).toLowerCase())).slice(0, 6)
     : [];
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 16 + barInset, gap: 14 }} showsVerticalScrollIndicator={false}>
+      <RoomWindowSlot />
       {today ? (
         // Two by two: four bars in one row left each too narrow for its figures.
         <View style={[layout.card, { padding: 18, gap: 14 }]}>

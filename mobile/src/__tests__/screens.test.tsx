@@ -239,29 +239,18 @@ describe('screens render', () => {
     tree.unmount();
   });
 
-  it('fills a water cup the moment + is tapped, before the save lands, and takes it back if the save fails', async () => {
+  it('fills the water glass the moment a cup is added, before the save lands, and takes it back if the save fails', async () => {
+    const { WaterLog } = require('../components/WaterLog');
     const saves: Array<{ ml: number; settle: (ok: boolean) => void }> = [];
-    const onLogWater = (ml: number) =>
+    const onAdd = (ml: number) =>
       new Promise<void>((resolve, reject) => saves.push({ ml, settle: (ok) => (ok ? resolve() : reject(new Error('offline'))) }));
     let tree!: renderer.ReactTestRenderer;
     act(() => {
-      tree = renderer.create(
-        <TodayScreen
-          pet={pet}
-          events={[mealEvent]}
-          profile={profile}
-          stepGoal={10000}
-          onStepGoalChange={() => {}}
-          onLogWater={onLogWater}
-          onTrainMind={() => {}}
-          onOpenProfile={() => {}}
-          onClose={() => {}}
-        />,
-      );
+      tree = renderer.create(<WaterLog ml={0} goalMl={2000} system="metric" onAdd={onAdd} events={[mealEvent]} />);
     });
-    const plus = tree.root.find((node: any) => node.props.accessibilityLabel === 'Add a cup of water' && node.props.onPress);
-    // The day's total, not the "1 cup = 250 mL" hint under the cups.
-    const total = () => (JSON.stringify(tree.toJSON()).includes('"0 mL"') ? 0 : 250);
+    const plus = tree.root.find((node: any) => node.props.accessibilityLabel === 'Add 1 cup, 250 mL' && node.props.onPress);
+    // The glass's own reading of the day's total.
+    const total = () => tree.root.find((node: any) => node.props.accessibilityLabel === "Today's water" && node.props.accessibilityValue).props.accessibilityValue.now;
     expect(total()).toBe(0);
     act(() => plus.props.onPress());
     expect(total()).toBe(250);
@@ -1364,7 +1353,10 @@ describe('screens render', () => {
     const { Text: RNText } = require('react-native');
     const activityRows = tree.root
       .findAllByType(RNText)
-      .filter((node: any) => JSON.stringify(node.props.children).includes('Walked 6,840 steps'));
+      // Only a row's own strings: a nested Text's element can't go through JSON.stringify.
+      .filter((node: any) =>
+        ([] as unknown[]).concat(node.props.children).filter((part) => typeof part === 'string').join('').includes('Walked 6,840 steps'),
+      );
     expect(activityRows).toHaveLength(1);
 
     const historyLink = tree.root

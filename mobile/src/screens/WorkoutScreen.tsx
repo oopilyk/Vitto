@@ -46,6 +46,7 @@ import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { startRest, stopRest } from '../services/restTimer';
 import { clearWorkoutDraft, loadWorkoutDraft, saveWorkoutDraft } from '../services/workoutDraft';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
+import { RoomWindowSlot } from '../petWorld/RoomPanel';
 
 interface Props {
   onFinish: (metadata: WorkoutMetadata) => Promise<void>;
@@ -1532,6 +1533,7 @@ export function WorkoutScreen({
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
+          {inRoom ? <RoomWindowSlot spacing={14} /> : null}
           {routineMode && !inRoom ? (
             <>
               <Text style={styles.sectionLabel}>ROUTINE NAME</Text>

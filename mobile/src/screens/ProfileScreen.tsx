@@ -20,7 +20,7 @@ import {
   overallStanding,
   personalRecords,
   liftingUnit,
-  isCareMoment,
+  careMomentCount,
   weighIns,
   runRecords,
   initialOf,
@@ -429,7 +429,7 @@ export function ProfileScreen({
             {onOpenHistory ? (
               <NavRow
                 title="Activity history"
-                value={events.length === 0 ? 'Nothing yet' : `${events.filter(isCareMoment).length} logs`}
+                value={events.length === 0 ? 'Nothing yet' : `${careMomentCount(events)} logs`}
                 onPress={onOpenHistory}
                 testID="open-history"
               />

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import {
-  isCareMoment,
+  careMomentCount,
   type BrainTrainingMetadata,
   DECAY_PERIOD_MS,
   DECAY_PER_DAY,
@@ -407,7 +407,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
             <Fact label="day streak" value={String(streaks.currentStreak)} />
             <Fact label="longest run" value={String(streaks.longestStreak)} />
             <Fact label="streak freezes" value={String(streaks.freezes)} />
-            <Fact label="logs" value={String(events.filter(isCareMoment).length)} />
+            <Fact label="logs" value={String(careMomentCount(events))} />
           </View>
           <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} frozenDateKeys={streaks.frozenDateKeys} />
         </Card>

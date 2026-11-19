@@ -700,8 +700,10 @@ function VittoApp() {
     // Not on a voice change: that is not a new line to say.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companionSaid, voiceActive, voicePetId]);
-  // The Dynamic Island. On until switched off; the choice is kept on the device.
-  const [islandEnabled, setIslandEnabled] = useState(true);
+  // The Dynamic Island. Off until turned on in Notifications (a Live Activity
+  // also sits on the Lock Screen, which is a lot to start on someone's behalf);
+  // the choice is kept on the device.
+  const [islandEnabled, setIslandEnabled] = useState(false);
   useEffect(() => {
     void repository.loadIslandEnabled().then((stored) => { if (stored !== null) setIslandEnabled(stored); });
   }, []);
@@ -1337,7 +1339,17 @@ function VittoApp() {
   const appendPartnerLog = (event: HealthEvent<unknown>) => {
     if (!pet || !isSupabaseConfigured || !session) return;
     const takenBack = event.type === 'HYDRATION' && waterMlOf(event as HealthEvent) < 0;
-    if (!isSharedPet(members) || takenBack) return;
+    // Water is one care moment a day, not one a cup: the partner hears of the first drink only.
+    const laterCup =
+      event.type === 'HYDRATION' &&
+      events.some(
+        (past) =>
+          past.id !== event.id &&
+          past.type === 'HYDRATION' &&
+          isSameDay(past.occurredAt, new Date(event.occurredAt)) &&
+          waterMlOf(past as HealthEvent) > 0,
+      );
+    if (!isSharedPet(members) || takenBack || laterCup) return;
     void remoteRepository
       .appendCareLog({ petId: pet.id, userId, type: event.type, occurredAt: event.occurredAt })
       .catch(() => undefined);
@@ -2800,7 +2812,7 @@ function VittoApp() {
       todayProgress: recap.dailyProgress,
       todayGoals: dayGoals(recap, { events, profile, pet, day: now, rotation }),
       // The meal page's bars: eaten so far against the day's targets.
-      todayFood: { consumed: recap.food.consumed, targets: recap.food.targets },
+      todayFood: { consumed: recap.food.consumed, targets: recap.food.targets, waterMl: recap.food.waterMl, waterGoalMl: recap.food.waterGoalMl },
     };
   }, [events, profile, pet, stepGoal, now, trainingSchedule, workoutTemplates]);
 
@@ -3413,6 +3425,9 @@ function VittoApp() {
                     onSaveMeal: saveMeal,
                     onLogSavedMeal: logSavedMeal,
                     onDeleteSavedMeal: deleteSavedMeal,
+                    water: todayFood
+                      ? { ml: todayFood.waterMl, goalMl: todayFood.waterGoalMl, system: measurementSystemOf(profile), onAdd: logWater, events }
+                      : undefined,
                   },
                   gym: {
                     renderWorkout: (reopen: () => void) =>
@@ -3943,7 +3958,6 @@ function VittoApp() {
               profile={profile}
               stepGoal={stepGoal}
               onStepGoalChange={setStepGoal}
-              onLogWater={logWater}
               onTrainMind={() => navigation.navigate('MindGym')}
               onOpenFoodTrends={() => navigation.navigate('FoodTrends')}
               onOpenStepTrends={() => navigation.navigate('StepTrends')}

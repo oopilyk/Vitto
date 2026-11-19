@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActionSheetIOS, Platform, Pressable, Text, View } from 'react-native';
 import {
-  isCareMoment,
+  careMomentCount,
   BRAIN_GAME_LABEL,
   formatWater,
   waterMlOf,
@@ -182,7 +182,7 @@ export function ActivityHistoryScreen({
   return (
     <SettingsPage
       title="Activity history"
-      lead={events.length ? `${events.filter(isCareMoment).length} logs, newest first.` : undefined}
+      lead={events.length ? `${careMomentCount(events)} logs, newest first.` : undefined}
       backLabel="Profile"
       onBack={onClose}
     >

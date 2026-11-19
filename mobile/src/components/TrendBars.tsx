@@ -34,11 +34,14 @@ export function TrendBars({
   goal,
   format,
   unit,
+  color,
 }: {
   bars: readonly TrendBar[];
   goal?: number;
   format: (value: number) => string;
   unit: string;
+  /** The bars' colour, in place of coral (the water chart is blue). */
+  color?: string;
 }) {
   // Picked by day, not by position: switching 7 → 30 days kept the 5th bar
   // picked, which was another day entirely (and often an empty one).
@@ -80,6 +83,7 @@ export function TrendBars({
                   met ? styles.barMet : styles.barSoft,
                   bar.isToday && styles.barToday,
                   on && styles.barPicked,
+                  color ? { backgroundColor: color } : null,
                 ]}
               />
             </Pressable>

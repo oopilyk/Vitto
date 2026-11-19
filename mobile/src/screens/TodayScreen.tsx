@@ -48,12 +48,9 @@ import {
 import { FitText } from '../components/FitText';
 import { NutrientRing } from '../components/NutrientRing';
 import { ChoiceRow, PressableScale, TextButton, DoneTextInput, Mark } from '../components/ui';
-import { WaterTracker } from '../components/WaterTracker';
-import { isNightTime } from '../petWorld/timeOfDay';
 import { askEditOrDelete, changeable, describeRow, historyRows } from './ActivityHistoryScreen';
-import { surface } from '../components/surfaceStyle';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
-import { colors, fonts, getColorScheme, layout, world, themedStyles } from '../theme';
+import { colors, fonts, getColorScheme, layout, paletteOf, themedStyles, type ColorScheme } from '../theme';
 import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
 
 /** "Dinner · 330 kcal · Spicy tuna nigiri…": the slot and calories first, so truncation only cuts the name. */
@@ -72,8 +69,8 @@ const mealLogName = (event: HealthEvent): string => {
  *
  * Every number comes from `buildDailyRecap`, which folds the real event log
  * once: no second copy of the day's activity, no per-section recalculation of
- * calories / steps / XP. Styled in the same warm parchment / dark-brown /
- * muted-world palette and hard-edged panels as the world screen, day and night.
+ * calories / steps / XP. Styled in the app's palette (see `todayColors`),
+ * light or dark as set in Settings.
  */
 interface Props {
   /** Already projected to now by App; not decayed again here. */
@@ -83,8 +80,6 @@ interface Props {
   stepGoal: number;
   onStepGoalChange: (goal: number) => void;
   onTrainMind: () => void;
-  /** Logs a drink of water, in mL. Absent hides the tracker. */
-  onLogWater?: (ml: number) => Promise<void>;
   /** Optional: the mind pillar hides the action until the navigation is wired. */
   onOpenWordPuzzle?: () => void;
   /** "Full history →": the full activity history. */
@@ -215,7 +210,6 @@ export function TodayScreen({
   stepGoal,
   onStepGoalChange,
   onTrainMind,
-  onLogWater,
   onOpenWordPuzzle,
   onOpenProfile,
   onOpenHistory,
@@ -271,16 +265,15 @@ export function TodayScreen({
     setStepSync('syncing');
     setStepSync(await onSyncSteps().catch(() => "Couldn't reach Apple Health. Try again."));
   };
-  // Dark mode takes the night palette, whatever the hour: the panels as well
-  // as the type on them. Deciding those two separately once put the night's
-  // cream type on the day's cream panels in dark mode.
-  const night = isNightTime() || getColorScheme() === 'dark';
+  // The theme set in Settings (Appearance), not the hour: the panels and the
+  // type on them both follow it, so they can never disagree.
+  const night = getColorScheme() === 'dark';
   // Three rings across the food card: 84 each, less on a phone too narrow for
   // three (on a 320pt screen they overlapped). Page gutters 36, card padding 32,
   // gaps 8.
   const { width: windowWidth } = useWindowDimensions();
   const ringSize = Math.min(84, Math.floor((Math.min(windowWidth, SETTINGS_MAX_WIDTH) - 76) / 3));
-  const c = night ? nightColors : dayColors;
+  const c = todayColors(night);
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {
     if (!onRefresh) return;
@@ -342,7 +335,7 @@ export function TodayScreen({
           hitSlop={8}
           style={styles.back}
         >
-          <Text style={[styles.backMark, { color: world.accent }]}>‹</Text>
+          <Text style={[styles.backMark, { color: c.accent }]}>‹</Text>
           <Text style={[styles.backLabel, { color: c.soft }]}>Pet</Text>
         </Pressable>
         <Text style={[styles.topTitle, { color: c.ink }]}>Today</Text>
@@ -356,7 +349,7 @@ export function TodayScreen({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void refresh()}
-              tintColor={world.accent}
+              tintColor={c.accent}
             />
           ) : undefined
         }
@@ -375,7 +368,7 @@ export function TodayScreen({
               caption naming exactly what it shows. */}
           <ProgressBar
             percent={Math.round((levelProgress.xpIntoLevel / levelProgress.xpForLevel) * 100)}
-            track={c.track}
+            c={c}
           />
           <Text style={[styles.overMeta, { color: c.soft }]}>
             Level {levelProgress.level} · {levelProgress.xpIntoLevel}/{levelProgress.xpForLevel} to
@@ -442,7 +435,7 @@ export function TodayScreen({
                 value={food.consumed.calories}
                 percent={(food.consumed.calories / food.targets.calories) * 100}
                 label="Consumed"
-                color="#c56a4e"
+                color={c.accent}
                 size={ringSize}
                 tone={c}
               />
@@ -458,34 +451,32 @@ export function TodayScreen({
                 value={remaining}
                 percent={(Math.abs(remaining) / food.targets.calories) * 100}
                 label={remaining < 0 ? 'Over' : 'Remaining'}
-                color={remaining < 0 ? '#c0503d' : '#9c8dba'}
+                color={remaining < 0 ? c.danger : '#9c8dba'}
                 emphasis={remaining < 0}
                 size={ringSize}
                 tone={c}
               />
             </View>
-            <Text style={[styles.targetLine, { color: c.soft }]}>
-              Target {food.targets.calories.toLocaleString()} kcal · {food.targets.proteinGrams}g protein · {food.targets.carbsGrams}g carbs ·{' '}
-              {food.targets.fatGrams}g fat · {food.targets.fiberGrams ?? 0}g fiber
-            </Text>
-            {food.mealCount > 0 ? (
-              <View style={styles.macros}>
+            {/* The macro targets are on their bars below; only the calorie target needs saying. */}
+            <Text style={[styles.targetLine, { color: c.soft }]}>Target {food.targets.calories.toLocaleString()} kcal</Text>
+            {/* Always shown, empty bars included: the day's targets are worth seeing before the first meal. */}
+            <View style={styles.macros}>
                 {(
                   [
-                    ['Protein', food.consumed.proteinGrams, food.targets.proteinGrams],
-                    ['Carbs', food.consumed.carbsGrams, food.targets.carbsGrams],
-                    ['Fat', food.consumed.fatGrams, food.targets.fatGrams],
+                    ['Protein', food.consumed.proteinGrams, food.targets.proteinGrams, c.macro.protein],
+                    ['Carbs', food.consumed.carbsGrams, food.targets.carbsGrams, c.macro.carbs],
+                    ['Fat', food.consumed.fatGrams, food.targets.fatGrams, c.macro.fat],
                     // The one sub-macro with a target (14 g per 1,000 kcal).
-                    ['Fiber', food.consumed.fiberGrams ?? 0, food.targets.fiberGrams ?? 0],
+                    ['Fiber', food.consumed.fiberGrams ?? 0, food.targets.fiberGrams ?? 0, c.macro.fiber],
                   ] as const
-                ).map(([label, value, target]) => (
+                ).map(([label, value, target, tint]) => (
                   <View key={label} style={styles.macroRow}>
                     <Text style={[styles.macroLabel, { color: c.soft }]} numberOfLines={1}>{label}</Text>
                     <View style={[styles.macroTrack, { backgroundColor: c.track }]}>
                       <View
                         style={[
                           styles.macroFill,
-                          { width: `${Math.min(100, target > 0 ? (value / target) * 100 : 0)}%` },
+                          { backgroundColor: tint, width: `${Math.min(100, target > 0 ? (value / target) * 100 : 0)}%` },
                         ]}
                       />
                     </View>
@@ -500,7 +491,6 @@ export function TodayScreen({
                   <Text style={[styles.subMacros, { color: c.soft }]}>{describeSubMacros(food.consumed, { includeFiber: false })}</Text>
                 ) : null}
               </View>
-            ) : null}
             {/* What was eaten, meal by meal: the totals above say how much, this
                 says what. */}
             {food.mealCount > 0 ? (
@@ -568,17 +558,6 @@ export function TodayScreen({
                     );
                   })}
               </View>
-            ) : null}
-            {onLogWater ? (
-              <WaterTracker
-                ml={food.waterMl}
-                goalMl={food.waterGoalMl}
-                system={measurementSystemOf(profile)}
-                onAdd={onLogWater}
-                ink={c.ink}
-                soft={c.soft}
-                divider={c.hairline}
-              />
             ) : null}
           </Pillar>
         ) : null}
@@ -701,7 +680,7 @@ export function TodayScreen({
             accessibilityLabel="Your week"
             onPress={onOpenWeek}
             scaleTo={0.98}
-            style={[surface.panelQuiet, night && surface.panelQuietNight, styles.weightRow]}
+            style={[...panelOf(c, true), styles.weightRow]}
             testID="today-week"
           >
             <View style={{ flex: 1 }}>
@@ -718,7 +697,7 @@ export function TodayScreen({
             accessibilityLabel={weightLine ? `Weight, ${weightLine}` : 'Weight, log your first weigh-in'}
             onPress={onOpenWeight}
             scaleTo={0.98}
-            style={[surface.panelQuiet, night && surface.panelQuietNight, styles.weightRow]}
+            style={[...panelOf(c, true), styles.weightRow]}
             testID="today-weight"
           >
             <View style={{ flex: 1 }}>
@@ -730,11 +709,11 @@ export function TodayScreen({
         ) : null}
 
         {/* --- Today's activity: aggregated, meaningful only --- */}
-        <View style={[surface.panelQuiet, night && surface.panelQuietNight, styles.activity]}>
+        <View style={[...panelOf(c, true), styles.activity]}>
           <Text style={[styles.activityTitle, { color: c.ink }]}>Today's activity</Text>
           {recap.outdoors.steps > 0 ? (
             <View style={styles.activityRow}>
-              <Mark kind="check" size={11} weight={2.2} color={world.positive} />
+              <Mark kind="check" size={11} weight={2.2} color={c.positive} />
               <Text style={[styles.activityLabel, { color: c.ink }]}>{`Walked ${recap.outdoors.steps.toLocaleString()} steps`}</Text>
             </View>
           ) : null}
@@ -748,7 +727,7 @@ export function TodayScreen({
               const tappable = Boolean(onEditLog || onDeleteLog) && changeable(event);
               const row = (
                 <View style={styles.activityRow}>
-                  <Mark kind="check" size={11} weight={2.2} color={world.positive} />
+                  <Mark kind="check" size={11} weight={2.2} color={c.positive} />
                   <Text style={[styles.activityLabel, { color: c.ink }]} numberOfLines={1}>
                     {event.type === 'MEAL' ? mealLogName(event) : describeRow(group, measurementSystemOf(profile))}
                   </Text>
@@ -778,12 +757,12 @@ export function TodayScreen({
             <Text style={[styles.activityHint, { color: c.soft }]}>Tap a log to change or remove it.</Text>
           ) : null}
           <Pressable onPress={onOpenHistory ?? onOpenProfile} hitSlop={6} accessibilityRole="link">
-            <Text style={[styles.activityMore, { color: world.accent }]}>Full history →</Text>
+            <Text style={[styles.activityMore, { color: c.accent }]}>Full history →</Text>
           </Pressable>
         </View>
 
         {topInsight && insightsUnlocked ? (
-          <View style={[surface.panelQuiet, night && surface.panelQuietNight, styles.softPanel]}>
+          <View style={[...panelOf(c, true), styles.softPanel]}>
             <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
             <Text style={[styles.softHeadline, { color: c.ink }]}>{topInsight.headline}</Text>
             <Text style={[styles.softDetail, { color: c.soft }]}>{topInsight.detail}</Text>
@@ -794,21 +773,21 @@ export function TodayScreen({
             accessibilityRole="button"
             onPress={onOpenPlus}
             disabled={!onOpenPlus}
-            style={[surface.panelQuiet, night && surface.panelQuietNight, styles.softPanel]}
+            style={[...panelOf(c, true), styles.softPanel]}
             testID="insight-locked"
           >
             <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
             <Text
               style={[styles.softHeadline, { color: c.ink }]}
             >{`${petName} spotted a pattern in your habits`}</Text>
-            <Text style={[styles.softDetail, { color: world.accent }]}>
+            <Text style={[styles.softDetail, { color: c.accent }]}>
               See what it is with Plus →
             </Text>
           </Pressable>
         ) : null}
 
         {screenTimeToday ? (
-          <View style={[surface.panelQuiet, night && surface.panelQuietNight, styles.softPanel]}>
+          <View style={[...panelOf(c, true), styles.softPanel]}>
             <Text style={[styles.softKicker, { color: c.soft }]}>Screen time</Text>
             <Text style={[styles.softHeadline, { color: c.ink }]}>
               {formatScreenMinutes(screenTimeToday.metadata.minutes)}
@@ -939,6 +918,16 @@ interface Palette {
   soft: string;
   hairline: string;
   track: string;
+  /** A card on the page, and its hairline edge. */
+  card: string;
+  edge: string;
+  accent: string;
+  accentDeep: string;
+  positive: string;
+  danger: string;
+  /** One colour per macro bar, so the four tell apart at a glance. */
+  macro: { protein: string; carbs: string; fat: string; fiber: string };
+  night: boolean;
 }
 
 /**
@@ -969,13 +958,13 @@ function StepGoalField({ goal, onChange, style }: { goal: number; onChange: (goa
   );
 }
 
-function ProgressBar({ percent, track }: { percent: number; track: string }) {
+function ProgressBar({ percent, c }: { percent: number; c: Palette }) {
   return (
-    <View style={[styles.progressTrack, { backgroundColor: track }]}>
+    <View style={[styles.progressTrack, { backgroundColor: c.track }]}>
       <View
         style={[
           styles.progressFill,
-          { width: `${Math.min(100, Math.max(0, percent))}%`, backgroundColor: world.accent },
+          { width: `${Math.min(100, Math.max(0, percent))}%`, backgroundColor: c.accent },
         ]}
       />
     </View>
@@ -1028,7 +1017,7 @@ function Pillar({
   children?: ReactNode;
 }) {
   return (
-    <View style={[surface.panel, night && surface.panelNight, styles.pillar]}>
+    <View style={[...panelOf(c), styles.pillar]}>
       <View style={styles.pillarHead}>
         <View style={{ flex: 1 }}>
           <View style={styles.pillarKickerRow}>
@@ -1037,7 +1026,7 @@ function Pillar({
               // Sits on the capitals' line: a tick's weight is at its bottom, so
               // centred on the text it reads low, and it is lifted a point.
               <View accessible accessibilityLabel="Done for today" testID="pillar-done" style={styles.pillarDoneMark}>
-                <Mark kind="check" size={12} weight={2.4} color={world.positive} />
+                <Mark kind="check" size={12} weight={2.4} color={c.positive} />
               </View>
             ) : null}
           </View>
@@ -1048,13 +1037,13 @@ function Pillar({
           </FitText>
         </View>
         {xp && xp > 0 ? (
-          <View style={[styles.xpChip, { borderColor: world.accent }]}>
-            <Text style={[styles.xpChipText, { color: world.accentDeep }]} numberOfLines={1}>+{xp} XP</Text>
+          <View style={[styles.xpChip, { borderColor: c.accent }]}>
+            <Text style={[styles.xpChipText, { color: c.accentDeep }]} numberOfLines={1}>+{xp} XP</Text>
           </View>
         ) : null}
       </View>
       {progressPercent !== undefined ? (
-        <ProgressBar percent={progressPercent} track={c.track} />
+        <ProgressBar percent={progressPercent} c={c} />
       ) : null}
       <Text style={[styles.pillarDetail, { color: c.soft }]}>{detail}</Text>
       {children}
@@ -1062,7 +1051,7 @@ function Pillar({
         <View style={styles.pillarActions}>
           {actions.map((action) => (
             <Pressable key={action.label} onPress={action.onPress} hitSlop={8}>
-              <Text style={[styles.pillarAction, { color: world.accent }]}>{action.label}</Text>
+              <Text style={[styles.pillarAction, { color: c.accent }]}>{action.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -1105,20 +1094,35 @@ function DevPanel({
 
 // --- palette --------------------------------------------------------------
 
-const dayColors: Palette = {
-  bg: '#f4ecdb',
-  ink: world.ink,
-  soft: world.inkSoft,
-  hairline: 'rgba(67,55,44,0.18)',
-  track: '#e0d3ba',
+/** Today in the app's palette: light or dark as set in Settings (Appearance). */
+const todayColors = (night: boolean): Palette => {
+  const scheme: ColorScheme = night ? 'dark' : 'light';
+  const p = paletteOf(scheme);
+  return {
+    bg: p.paper,
+    ink: p.ink,
+    soft: p.muted,
+    hairline: p.hairline,
+    track: p.track,
+    card: p.card,
+    edge: p.hairline,
+    accent: p.coral,
+    accentDeep: p.coralDeep,
+    positive: p.mintDeep,
+    danger: p.danger,
+    macro: night
+      ? { protein: '#7aa7ec', carbs: '#e3b552', fat: '#a99be0', fiber: '#73c08f' }
+      : { protein: '#3f78c8', carbs: '#c9962a', fat: '#8b7bc4', fiber: '#4f9a6b' },
+    night,
+  };
 };
-const nightColors: Palette = {
-  bg: world.nightSurface,
-  ink: world.nightText,
-  soft: world.nightTextSoft,
-  hairline: 'rgba(239,229,208,0.14)',
-  track: 'rgba(239,229,208,0.14)',
-};
+
+/** A card on Today: lifted (`quiet` false) or sitting back on a hairline. */
+const panelOf = (c: Palette, quiet = false) => [
+  styles.panel,
+  { backgroundColor: c.card },
+  quiet ? { borderWidth: StyleSheet.hairlineWidth, borderColor: c.edge } : c.night ? styles.panelLiftNight : styles.panelLift,
+];
 
 const styles = themedStyles(() => ({
   rings: { flexDirection: 'row', justifyContent: 'space-between', gap: 4, marginTop: 12 },
@@ -1175,6 +1179,9 @@ const styles = themedStyles(() => ({
   glanceLabel: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0, marginTop: 3 },
 
   pillar: { padding: 16, gap: 8 },
+  panel: { borderRadius: 18, borderCurve: 'continuous' },
+  panelLift: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 14, elevation: 2 },
+  panelLiftNight: { shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 2 },
   pillarHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   pillarKickerRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   pillarDoneMark: { transform: [{ translateY: -1 }] },
@@ -1243,7 +1250,7 @@ const styles = themedStyles(() => ({
   macroRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   macroLabel: { width: 48, flexShrink: 0, fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0 },
   macroTrack: { flex: 1, minWidth: 0, height: 4, borderRadius: 6, overflow: 'hidden' },
-  macroFill: { height: '100%', backgroundColor: world.accent },
+  macroFill: { height: '100%' },
   macroValue: {
     fontFamily: fonts.ui, fontWeight: '600',
     fontSize: 12,

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Image, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ROOM_THEMES, type PetBreed, type PetForm, type PetState, type RoomTheme } from '@vitto/core';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { CoinMark } from '../components/CoinMark';
 import { EvolutionCard } from '../components/EvolutionCard';
 import { logHaptic } from '../components/logKit';
@@ -226,9 +227,11 @@ const ANIMAL_SPRITE = 104;
  * which hit the same thing). The frame itself can take an aspect ratio, so the
  * card holds its shape before the art arrives.
  */
-function RoomHero({ theme, faded, night, badge }: { theme: RoomTheme; faded: boolean; night: boolean; badge?: ReactNode }) {
+function RoomHero({ theme, faded, badge }: { theme: RoomTheme; faded: boolean; badge?: ReactNode }) {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
+  // Day or night art, per card; starts on whatever the rooms look like right now.
+  const [night, setNight] = useState(isNightTime);
   const sources = (night ? ROOM_THEME_NIGHT_PREVIEWS : ROOM_THEME_PREVIEWS)[theme];
   const height = Math.round(width * HERO_RATIO);
   return (
@@ -257,6 +260,21 @@ function RoomHero({ theme, faded, night, badge }: { theme: RoomTheme; faded: boo
           ))}
         </ScrollView>
       ) : null}
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={night ? `Show the ${ROOM_THEME_LABEL[theme]} rooms by day` : `Show the ${ROOM_THEME_LABEL[theme]} rooms at night`}
+        onPress={() => {
+          haptic('select');
+          setNight((current) => !current);
+        }}
+        hitSlop={6}
+        scaleTo={0.92}
+        style={styles.lightToggle}
+        testID={`room-light-${theme}`}
+      >
+        <View style={styles.dotsScrim} />
+        <LightGlyph night={night} />
+      </PressableScale>
       {badge ? (
         <View style={styles.heroBadge} pointerEvents="none">
           {badge}
@@ -269,6 +287,28 @@ function RoomHero({ theme, faded, night, badge }: { theme: RoomTheme; faded: boo
         ))}
       </View>
     </View>
+  );
+}
+
+/** The day/night toggle's glyph: a sun by day, a moon at night (what is showing). */
+function LightGlyph({ night }: { night: boolean }) {
+  const ink = colors.onCoral;
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" accessible={false}>
+      {night ? (
+        <Path d="M20 14.5 A8 8 0 1 1 9.5 4 A6.5 6.5 0 0 0 20 14.5 Z" stroke={ink} strokeWidth={2} strokeLinejoin="round" fill="none" />
+      ) : (
+        <>
+          <Circle cx={12} cy={12} r={4} stroke={ink} strokeWidth={2} fill="none" />
+          <Path
+            d="M12 2.5 V4.5 M12 19.5 V21.5 M2.5 12 H4.5 M19.5 12 H21.5 M5.3 5.3 L6.7 6.7 M17.3 17.3 L18.7 18.7 M5.3 18.7 L6.7 17.3 M17.3 6.7 L18.7 5.3"
+            stroke={ink}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        </>
+      )}
+    </Svg>
   );
 }
 
@@ -361,8 +401,6 @@ export function ChooseCompanionScreen({
   onChooseRoomTheme,
 }: Props) {
   const [tab, setTab] = useState<Tab>('animals');
-  // Day or night art in the room previews; starts on whatever the rooms look like right now.
-  const [lighting, setLighting] = useState<'day' | 'night'>(() => (isNightTime() ? 'night' : 'day'));
   const [pending, setPending] = useState<PetBreed | null>(null);
   const free = cost <= 0;
   const affordable = free || coins >= cost;
@@ -494,14 +532,6 @@ export function ChooseCompanionScreen({
               <Text style={styles.sectionTitle}>Rooms</Text>
               <Text style={styles.sectionCount} numberOfLines={1}>{`${new Set(themesOwned).size} of ${ROOM_THEMES.length} owned`}</Text>
             </View>
-            <SegmentedControl
-              options={[
-                { value: 'day' as const, label: 'Day' },
-                { value: 'night' as const, label: 'Night' },
-              ]}
-              value={lighting}
-              onChange={setLighting}
-            />
             {!themeAffordable && themesOwned.length < ROOM_THEMES.length ? (
               <ShortNote have={coins} need={roomThemeCost} testID="room-coins-short">
                 {`You need ${roomThemeCost - coins} more coins for new rooms. You earn 50 for every level-up.`}
@@ -528,7 +558,6 @@ export function ChooseCompanionScreen({
                   <RoomHero
                     theme={theme}
                     faded={locked}
-                    night={lighting === 'night'}
                     badge={current ? <StateTag kind="equipped" pop={landed === `room:${theme}`} /> : undefined}
                   />
                   <View style={styles.themeText}>
@@ -732,6 +761,18 @@ const styles = themedStyles(() => ({
   // Less faded than a locked animal: the art is what sells a theme, so it stays easy to see.
   heroFaded: { opacity: 0.55 },
   heroBadge: { position: 'absolute', top: 10, right: 10 },
+  // Top left, opposite the Equipped badge: on the same dark scrim as the dots.
+  lightToggle: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   // Dots over the art, on a dark scrim so they read on any room's colours.
   // The art is the same in both schemes, so the dots are the warm white that
   // sits on coral (`onCoral`, fixed in both), not a text colour that flips.

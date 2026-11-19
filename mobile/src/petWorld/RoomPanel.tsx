@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Keyboard, Platform, Pressable, ScrollView, StatusBar, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { haptic, Mark, NumberInput } from '../components/ui';
@@ -75,41 +75,93 @@ const RoomTaskContext = createContext<RoomTaskApi>({ open: () => {}, close: () =
  */
 export const useRoomTask = () => useContext(RoomTaskContext);
 
+interface RoomWindowApi {
+  window: ReactNode;
+  /** A slot mounting (+1) or going (-1): with none on screen the page draws the window itself. */
+  claim: (delta: number) => void;
+}
+const RoomWindowContext = createContext<RoomWindowApi | null>(null);
+
+/**
+ * How much of the page's foot the floating room bar covers right now: the page
+ * runs under the bar so its Liquid Glass has something to show through, and
+ * scrolling content pads by this so its last row clears the bar. 0 while a
+ * logger covers the bar or the keyboard is up.
+ */
+const RoomBarInsetContext = createContext(0);
+export const useRoomBarInset = () => useContext(RoomBarInsetContext);
+
+/** True while the keyboard is up (or on its way up). */
+function useKeyboardUp(): boolean {
+  const [up, setUp] = useState(false);
+  useEffect(() => {
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setUp(true));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return up;
+}
+
+/**
+ * The room's window, as the first thing in a page's scrolling content: put it
+ * at the top of a room page's ScrollView and the window scrolls away with the
+ * rest of the page, like one long page. Outside a room it draws nothing.
+ * While the keyboard is up it steps aside, so the field and what is under it
+ * have the room above the keys.
+ */
+export function RoomWindowSlot({ spacing = 0 }: { spacing?: number }) {
+  const room = useContext(RoomWindowContext);
+  const typing = useKeyboardUp();
+  const claim = room?.claim;
+  useLayoutEffect(() => {
+    if (!claim) return undefined;
+    claim(1);
+    return () => claim(-1);
+  }, [claim]);
+  if (!room || typing) return null;
+  return <View style={{ marginBottom: spacing }}>{room.window}</View>;
+}
+
 export function RoomPanel({
   pageTop,
   bottom,
   topInset,
+  window,
   children,
   testID,
+  onBarsOverPage,
 }: {
-  /** Where the page starts: just under the room's window. */
+  /** The room's window (see RoomWindowSlot): scrolls at the top of the page. */
+  window?: ReactNode;
+  /** Where the page starts: just under the status bar. */
   pageTop: number;
-  /** The nav bar's height: the page ends on top of it. */
+  /** The nav bar's height: the page runs under it and pads its content by this. */
   bottom: number;
   /** The status bar's height: as far up as a logger goes while the keyboard is up. */
   topInset: number;
   children: ReactNode;
   testID?: string;
+  /** Called with whether the room bar should float over the page (false while a logger or the keyboard covers it). */
+  onBarsOverPage?: (over: boolean) => void;
 }) {
   const reduceMotion = useReducedMotion();
   const top = useRef(new Animated.Value(pageTop)).current;
-  const offset = useRef(new Animated.Value(bottom)).current;
   const [task, setTask] = useState<Task | null>(null);
   const taskIds = useRef(0);
 
   const animate = useCallback(
-    (toTop: number, toBottom: number) => {
+    (toTop: number) => {
       if (reduceMotion) {
         top.setValue(toTop);
-        offset.setValue(toBottom);
         return;
       }
-      Animated.parallel([
-        Animated.timing(top, { toValue: toTop, duration: 220, useNativeDriver: false }),
-        Animated.timing(offset, { toValue: toBottom, duration: 220, useNativeDriver: false }),
-      ]).start();
+      Animated.timing(top, { toValue: toTop, duration: 220, useNativeDriver: false }).start();
     },
-    [top, offset, reduceMotion],
+    [top, reduceMotion],
   );
 
   // A new screen size: back to the room's page. Not on mount: a page may open
@@ -119,9 +171,8 @@ export function RoomPanel({
     if (laidOut.current.pageTop === pageTop && laidOut.current.bottom === bottom) return;
     laidOut.current = { pageTop, bottom };
     top.setValue(pageTop);
-    offset.setValue(bottom);
     setTask(null);
-  }, [top, offset, pageTop, bottom]);
+  }, [top, pageTop, bottom]);
 
   // Typing in a logger: it takes the window's space too while the keyboard is
   // up, or the keys would cover the field being typed in.
@@ -129,39 +180,51 @@ export function RoomPanel({
   // own page): it takes the window's space too while the keyboard is up, or
   // the keys would cover the field being typed in.
   // A logger that covers the room bar goes back to covering it afterwards.
-  const restBottom = task && !task.keepBars ? 0 : bottom;
   useEffect(() => {
     const ios = Platform.OS === 'ios';
-    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => animate(topInset, 0));
-    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => animate(pageTop, restBottom));
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => animate(topInset));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => animate(pageTop));
     return () => {
       show.remove();
       hide.remove();
     };
-  }, [animate, topInset, pageTop, restBottom]);
+  }, [animate, topInset, pageTop]);
 
   const closeTask = useCallback(() => {
     Keyboard.dismiss();
     setTask(null);
-    animate(pageTop, bottom);
-  }, [animate, pageTop, bottom]);
+    animate(pageTop);
+  }, [animate, pageTop]);
 
   const openTask = useCallback(
     (render: TaskRender, options?: TaskOptions) => {
       taskIds.current += 1;
       setTask({ render, keepBars: options?.keepBars, id: taskIds.current });
       // Over the room bar unless kept: a logger has its own way out, and needs the room.
-      animate(pageTop, options?.keepBars ? bottom : 0);
+      animate(pageTop);
     },
-    [animate, pageTop, bottom],
+    [animate, pageTop],
   );
   const taskApi = useMemo(() => ({ open: openTask, close: closeTask, task }), [openTask, closeTask, task]);
+  const [slots, setSlots] = useState(0);
+  const claim = useCallback((delta: number) => setSlots((count) => count + delta), []);
+  const windowApi = useMemo(() => (window ? { window, claim } : null), [window, claim]);
+  const typing = useKeyboardUp();
+  const barsOverPage = !typing && !(task && !task.keepBars);
+  const barInset = barsOverPage ? bottom : 0;
+  useEffect(() => {
+    onBarsOverPage?.(barsOverPage);
+  }, [onBarsOverPage, barsOverPage]);
 
   return (
     <RoomTaskContext.Provider value={taskApi}>
+    <RoomWindowContext.Provider value={windowApi}>
+    <RoomBarInsetContext.Provider value={barInset}>
       {/* The clock sits on the page's own background here, not on a dark room. */}
       <StatusBar barStyle={getColorScheme() === 'dark' ? 'light-content' : 'dark-content'} />
-      <Animated.View testID={testID} style={[styles.page, { top, bottom: offset }]}>
+      <Animated.View testID={testID} style={[styles.page, { top, bottom: 0 }]}>
+        {/* A page with no scroller of its own showing the window: it sits fixed at the top. */}
+        {window && slots === 0 && !typing ? <View style={styles.windowFixed}>{window}</View> : null}
         {task && !task.keepBars ? (
           <View key={task.id} style={[styles.task, { paddingBottom: HOME_INDICATOR }]}>
             {task.render(closeTask)}
@@ -170,13 +233,15 @@ export function RoomPanel({
           children
         )}
       </Animated.View>
+    </RoomBarInsetContext.Provider>
+    </RoomWindowContext.Provider>
     </RoomTaskContext.Provider>
   );
 }
 
 /** The pinned bar's height, and how far it floats off the room bar. */
-const ACTION_BAR_HEIGHT = 64;
-const ACTION_BAR_LIFT = 10;
+const ACTION_BAR_HEIGHT = 50;
+const ACTION_BAR_LIFT = 8;
 
 /**
  * What a room's page holds: its sections, scrolling, and optionally a `footer`
@@ -185,6 +250,7 @@ const ACTION_BAR_LIFT = 10;
  */
 export function PanelPage({ footer, children }: { footer?: ReactNode; children: ReactNode }) {
   const { task, close } = useRoomTask();
+  const barInset = useRoomBarInset();
   // While the keyboard is up the page reaches the screen's bottom edge (see
   // RoomPanel) and the pinned bar would be under the keys, or on Android
   // riding on top of them. So it steps aside, and its space goes with it: a
@@ -205,13 +271,13 @@ export function PanelPage({ footer, children }: { footer?: ReactNode; children: 
   return (
     <View style={styles.task}>
       {task?.keepBars ? (
-        <View key={task.id} style={[styles.task, { paddingBottom: footerSpace }]}>
+        <View key={task.id} style={[styles.task, { paddingBottom: footerSpace + barInset }]}>
           {task.render(close)}
         </View>
       ) : (
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.content, showFooter ? { paddingBottom: footerSpace + 18 } : null]}
+          contentContainerStyle={[styles.content, { paddingBottom: (showFooter ? footerSpace + 18 : 28) + barInset }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           // A field on the room's own page (Outside's distance): iOS keeps it
@@ -219,11 +285,12 @@ export function PanelPage({ footer, children }: { footer?: ReactNode; children: 
           automaticallyAdjustKeyboardInsets
           keyboardDismissMode="on-drag"
         >
+          <RoomWindowSlot />
           {children}
         </ScrollView>
       )}
       {showFooter ? (
-        <View pointerEvents="box-none" style={styles.footer}>
+        <View pointerEvents="box-none" style={[styles.footer, { bottom: ACTION_BAR_LIFT + barInset }]}>
           {footer}
         </View>
       ) : null}
@@ -240,6 +307,8 @@ const ACTION_ICON = {
   scan: { circle: null, path: 'M4.5 6 V18 M8 6 V18 M10.5 6 V18 M14 6 V18 M17 6 V18 M19.5 6 V18' },
   // A bowl, steaming: a meal kept for next time.
   meals: { circle: null, path: 'M4 12.5 H20 A8 7 0 0 1 4 12.5 Z M9.5 9 C9 7.8 10.5 7 10 5.5 M14 9 C13.5 7.8 15 7 14.5 5.5' },
+  // A drop of water.
+  water: { circle: null, path: 'M12 3.5 C9 7.5 6 10.8 6 14.2 A6 6 0 0 0 18 14.2 C18 10.8 15 7.5 12 3.5 Z' },
 } as const;
 export type PanelActionIcon = keyof typeof ACTION_ICON;
 
@@ -273,7 +342,7 @@ export function PanelActionBar({
             }}
             style={({ pressed }) => [styles.action, on && styles.actionOn, pressed && styles.pressed]}
           >
-            <Svg width={24} height={24} viewBox="0 0 24 24" accessible={false}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" accessible={false}>
               <Path d={icon.path} stroke={tint} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
               {icon.circle ? <Circle {...icon.circle} stroke={tint} strokeWidth={2} fill="none" /> : null}
             </Svg>
@@ -579,25 +648,29 @@ const styles = themedStyles(() => ({
     overflow: 'hidden',
   },
   task: { flex: 1 },
+  windowFixed: { marginHorizontal: 16, marginBottom: ROOM_WINDOW_GAP },
   content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28, gap: 14 },
   footer: { position: 'absolute', left: 12, right: 12, bottom: ACTION_BAR_LIFT },
   actionBar: {
     height: ACTION_BAR_HEIGHT,
-    borderRadius: 20,
+    borderRadius: 25,
     borderCurve: 'continuous',
     flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#2a1f16',
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    // Raised off the page (lighter than the cards under it, in both schemes)
+    // with a coral edge and a deeper shadow, so it reads as floating controls,
+    // not one more card in the list.
+    backgroundColor: colors.raised,
+    borderWidth: 1.5,
+    borderColor: colors.coral,
+    shadowColor: '#000',
+    shadowOpacity: 0.32,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
   },
-  action: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 3, margin: 5, borderRadius: 15 },
+  action: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 1, margin: 4, borderRadius: 21 },
   actionOn: { backgroundColor: colors.coral },
-  actionLabel: { fontFamily: fonts.ui, fontSize: 13, fontWeight: '600', color: colors.ink },
+  actionLabel: { fontFamily: fonts.ui, fontSize: 11, fontWeight: '600', color: colors.ink },
   actionLabelOn: { color: colors.onCoral },
   header: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, paddingHorizontal: 4 },
   title: { ...text.title, flexShrink: 0 },

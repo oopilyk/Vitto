@@ -19,6 +19,7 @@ import { GradeBadge, LogProgress, logHaptic } from '../components/logKit';
 import { SegmentedControl } from '../components/settingsKit';
 import { cacheSearch, cachedSearch, loadRecentFoods, localSuggestions, rememberFood } from '../services/foodSuggestions';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
+import { RoomWindowSlot } from '../petWorld/RoomPanel';
 
 interface Props {
   onComplete: (metadata: MealMetadata) => Promise<void>;
@@ -528,6 +529,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             if (fixing) scroll.current?.scrollToEnd({ animated: true });
           }}
         >
+          {inRoom ? <RoomWindowSlot spacing={14} /> : null}
           {mode === 'photo' && !canScanPhotos ? (
             <View style={styles.locked} testID="photo-locked">
               <Text style={styles.lockedTitle}>Snap your plate. Plus does the macros.</Text>
@@ -1486,7 +1488,7 @@ const styles = themedStyles(() => ({
     justifyContent: 'center',
     minWidth: 72,
   },
-  searchButtonLabel: { color: '#fff', fontFamily: fonts.ui, fontSize: 13 },
+  searchButtonLabel: { color: '#fff', fontFamily: fonts.ui, fontSize: 13, fontWeight: '700' },
   result: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 14, borderCurve: 'continuous' },
   resultOn: { backgroundColor: colors.selectedFill },
   // The calories stacked over their unit, right-aligned like a price.

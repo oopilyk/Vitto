@@ -5,121 +5,120 @@ export type ColorScheme = 'light' | 'dark';
 export type AppearancePreference = 'system' | ColorScheme;
 
 /**
- * The light palette: warm cream rather than parchment. Pages are a cream close
- * to white, raised cards nearly white, so layers separate cleanly; text is a
- * deep warm brown, and even the faintest grey clears 4.5:1 on the page (the
- * parchment's faint text was 2.6:1). Coral stays the one accent, for actions
- * and progress.
+ * The light palette: Clean coral. A neutral near-white page with pure white
+ * cards, near-black text and cool greys, so the pixel rooms and the pets are
+ * the warmth on screen. Coral stays the one accent, for actions and progress.
+ * Even the faintest grey clears 4.5:1 on the page.
  */
 const LIGHT = {
-  paper: '#f7f2e8',
-  card: '#fffcf6',
-  cardSoft: '#f1ebdf',
-  ink: '#2f261d',
-  inkSoft: '#4f4336',
-  muted: '#6b5f50',
-  faint: '#776a5c',
-  hairline: '#e6dccb',
-  border: '#c4b49a',
-  coral: '#bf5f42',
-  coralDeep: '#a24c33',
-  coralWash: '#f6e0d6',
-  mint: '#e5ecd8',
-  mintDeep: '#5e7f53',
-  sage: '#e6ecd6',
-  sageSoft: '#f0f3e6',
-  yellow: '#f6ebc6',
-  yellowDeep: '#8a6d27',
-  lilac: '#ece4ef',
-  lilacDeep: '#6b5b8f',
-  slate: '#ebe6dc',
+  paper: '#f6f6f7',
+  card: '#ffffff',
+  cardSoft: '#efeff1',
+  ink: '#17171a',
+  inkSoft: '#3a3a40',
+  muted: '#5e5e66',
+  faint: '#6b6b73',
+  hairline: '#e6e6ea',
+  border: '#c7c7cd',
+  coral: '#c25a3e',
+  coralDeep: '#a3472f',
+  coralWash: '#fbe7df',
+  mint: '#e3f1e6',
+  mintDeep: '#2f7a4a',
+  sage: '#e6efe3',
+  sageSoft: '#f1f5ef',
+  yellow: '#fbf0cc',
+  yellowDeep: '#85651a',
+  lilac: '#ece8f4',
+  lilacDeep: '#5f4f8f',
+  slate: '#ececef',
   /** Pale blue-grey. The aura palette is all light tones, so `sad` needs one too. */
-  periwinkle: '#d9dce6',
-  slateDeep: '#6a665e',
-  danger: '#a8473a',
+  periwinkle: '#dcdfe8',
+  slateDeep: '#5f5f66',
+  danger: '#b3261e',
   petSkin: '#d87855',
   petShade: '#c8684d',
   petInk: '#643e36',
-  /** Text and marks that sit ON coral (buttons, badges): a warm white in both schemes. */
-  onCoral: '#fff8ec',
+  /** Text and marks that sit ON coral (buttons, badges): white in both schemes. */
+  onCoral: '#ffffff',
   /** The selected tint: a soft coral wash, and the edge that goes with it. */
-  selectedFill: '#f8e7dc',
-  selectedBorder: '#e2bca6',
-  /** The warm tile a sprite sits on (companion rows, avatars). */
-  tile: '#efe5d1',
+  selectedFill: '#fbebe5',
+  selectedBorder: '#eac2b3',
+  /** The tile a sprite sits on (companion rows, avatars). */
+  tile: '#f0f0f2',
   /** A focused text field lifts to this. */
   inputFocus: '#ffffff',
   /** Progress tracks and empty bars. */
-  track: '#e8dfcf',
+  track: '#e7e7eb',
   /** The danger zone's quiet surface, its edge, and a pressed danger button. */
-  dangerWash: '#fbf0ea',
-  dangerBorder: '#ecccbf',
-  dangerPressed: '#f5ddd2',
+  dangerWash: '#fdf0ee',
+  dangerBorder: '#f1c9c4',
+  dangerPressed: '#fadcd7',
   /** Cautions that are not errors ("capped to stay safe"). */
-  caution: '#93604f',
+  caution: '#8f5a3c',
   /** Soft row dividers inside lists. */
-  divider: '#ece4d6',
-  /** Shadows: the pet world's hard, warm-dark drop. */
-  shadow: '#2a1f16',
+  divider: '#ececef',
+  /** Shadows. */
+  shadow: '#0b0b0d',
   /** A control raised off a track (the selected segment): lighter than what it sits on, in both schemes. */
   raised: '#ffffff',
   /** A primary button that cannot be pressed yet: a solid neutral, not a faded coral, so its label stays readable. */
-  disabledFill: '#e6ddcc',
-  onDisabled: '#74685a',
+  disabledFill: '#e7e7eb',
+  onDisabled: '#6b6b73',
 };
 
 export type Palette = { [K in keyof typeof LIGHT]: string };
 
 /**
- * Dark: the same warm, green-leaning family at night rather than a cold
- * blue-black. Surfaces step UP in lightness (paper < card < cardSoft) so cards
- * still read as raised; text steps down from a warm off-white. The "deep"
- * accents, used as text on washes, flip to their light tints so they keep
- * contrast; the washes become dark tints of the same hue.
+ * Dark: Clean coral at night. A near-black neutral, not a warm brown.
+ * Surfaces step UP in lightness (paper < card < cardSoft) so cards still read
+ * as raised; text steps down from an off-white. The "deep" accents, used as
+ * text on washes, flip to their light tints so they keep contrast; the washes
+ * become dark tints of the same hue.
  */
 const DARK: Palette = {
-  paper: '#1c1714',
-  card: '#2b2420',
-  cardSoft: '#332a25',
-  ink: '#efe5d0',
-  inkSoft: '#d6c9b1',
-  muted: '#b3a690',
-  faint: '#8f8370',
-  hairline: '#3d342d',
-  border: '#6b5c4e',
-  coral: '#d17f60',
-  coralDeep: '#eba082',
-  coralWash: '#4a2c22',
-  mint: '#26301f',
-  mintDeep: '#9cc48a',
-  sage: '#2a3224',
-  sageSoft: '#232a1f',
-  yellow: '#3b3220',
-  yellowDeep: '#e3c46e',
-  lilac: '#2f2838',
-  lilacDeep: '#c2b0e6',
-  slate: '#2e2a26',
-  periwinkle: '#383d4e',
-  slateDeep: '#b6ad9f',
-  danger: '#f08470',
+  paper: '#111113',
+  card: '#1c1c1f',
+  cardSoft: '#242428',
+  ink: '#f4f4f5',
+  inkSoft: '#d4d4d8',
+  muted: '#a1a1aa',
+  faint: '#85858e',
+  hairline: '#2a2a2f',
+  border: '#4a4a52',
+  coral: '#d8775a',
+  coralDeep: '#ec9479',
+  coralWash: '#3a1d14',
+  mint: '#1b2a20',
+  mintDeep: '#8fd0a4',
+  sage: '#1f2a1f',
+  sageSoft: '#1a211a',
+  yellow: '#33291a',
+  yellowDeep: '#e8c46a',
+  lilac: '#26222f',
+  lilacDeep: '#c2b4ec',
+  slate: '#232327',
+  periwinkle: '#30343f',
+  slateDeep: '#b0b0b8',
+  danger: '#f2826f',
   petSkin: '#d87855',
   petShade: '#c8684d',
   petInk: '#643e36',
-  onCoral: '#fff8ec',
-  selectedFill: '#3d2820',
-  selectedBorder: '#704030',
-  tile: '#352d26',
-  inputFocus: '#2f2823',
-  track: '#3a312a',
-  dangerWash: '#2d1d18',
-  dangerBorder: '#5c3328',
-  dangerPressed: '#3d241d',
-  caution: '#e0a48f',
-  divider: '#352c26',
+  onCoral: '#ffffff',
+  selectedFill: '#33201a',
+  selectedBorder: '#6e3a2a',
+  tile: '#26262a',
+  inputFocus: '#26262a',
+  track: '#2c2c31',
+  dangerWash: '#2a1714',
+  dangerBorder: '#5c2c25',
+  dangerPressed: '#3a1e1a',
+  caution: '#e8a58c',
+  divider: '#26262a',
   shadow: '#000000',
-  raised: '#40362f',
-  disabledFill: '#352d27',
-  onDisabled: '#958977',
+  raised: '#36363c',
+  disabledFill: '#2a2a2f',
+  onDisabled: '#8d8d96',
 };
 
 const PALETTES: Record<ColorScheme, Palette> = { light: LIGHT, dark: DARK };
@@ -128,6 +127,9 @@ let activeScheme: ColorScheme = 'light';
 
 /** The scheme every `colors` read and every `themedStyles` sheet answers with right now. */
 export const getColorScheme = (): ColorScheme => activeScheme;
+
+/** One scheme's palette whatever the active one: for a page that follows the room's light, not the phone's (Today goes dark at night). */
+export const paletteOf = (scheme: ColorScheme): Palette => PALETTES[scheme];
 
 /**
  * Switches the scheme. Called by App before it renders, from the Appearance
