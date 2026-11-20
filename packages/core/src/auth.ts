@@ -1,5 +1,6 @@
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { requireSupabase as requireClient } from './config';
+import { errorMessage } from './errorMessage';
 import { normalizeUsername, usernameError } from './domain/friends';
 
 export const signInWithEmail = (email: string, password: string) =>
@@ -25,6 +26,46 @@ export const verifySignupCode = (email: string, code: string) =>
 
 /** Sends a fresh confirmation code to an account that has not been confirmed yet. */
 export const resendSignupCode = (email: string) => requireClient().auth.resend({ type: 'signup', email });
+
+/**
+ * The shortest password a new account, a reset or a change may set. Signing in
+ * still accepts six, the old floor, so nobody is locked out of an existing
+ * account. The server's own minimum (Supabase Auth > Email provider) is the
+ * one that cannot be bypassed; keep it at this.
+ */
+export const NEW_PASSWORD_MIN_LENGTH = 8;
+export const EXISTING_PASSWORD_MIN_LENGTH = 6;
+
+/**
+ * Emails a password-reset code to `email`.
+ *
+ * A code, as for sign-up and for the same reason: mail scanners open links to
+ * check them, spending a one-time link before the person taps it. The "Reset
+ * password" email template must therefore show `{{ .Token }}`.
+ *
+ * Supabase answers the same whether or not an account has that address, so
+ * this cannot be used to find out who has one.
+ */
+export const sendPasswordResetCode = (email: string) => requireClient().auth.resetPasswordForEmail(email.trim());
+
+/** What went wrong with a password reset or change, in words a person can act on. */
+export const passwordErrorMessage = (cause: unknown, fallback: string): string => {
+  const { code, message } = (cause ?? {}) as { code?: unknown; message?: unknown };
+  const raw = typeof message === 'string' ? message : '';
+  if (code === 'invalid_credentials' || /invalid login credentials/i.test(raw)) return "That isn't your current password.";
+  if (code === 'otp_expired' || /token has expired|otp.*(expired|invalid)|invalid.*(otp|token)/i.test(raw)) {
+    return "That code didn't work. Check it, or send a new one.";
+  }
+  if (code === 'same_password' || /different from the old/i.test(raw)) return "That's your current password. Choose a new one.";
+  if (code === 'weak_password' || /password should be/i.test(raw)) {
+    return `Choose a stronger password, at least ${NEW_PASSWORD_MIN_LENGTH} characters.`;
+  }
+  if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || /rate limit/i.test(raw)) {
+    return 'Too many tries. Wait a few minutes, then try again.';
+  }
+  if (code === 'reauthentication_needed') return 'For your security, sign out and back in, then try again.';
+  return errorMessage(cause, fallback);
+};
 
 /** Supabase's answer to a password sign-in on an account whose email is not confirmed yet. */
 export const isEmailNotConfirmed = (cause: unknown): boolean => {

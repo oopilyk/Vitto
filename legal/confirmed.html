@@ -14,12 +14,23 @@
   // On a phone, hand it to the app, which signs in and opens onboarding. If the
   // app isn't installed (or this is a computer), nothing happens and the page
   // below says what to do instead.
-  if (/access_token=/.test(session) && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+  // A password-reset link is not a sign-up: it is never handed to the app (the
+  // app resets passwords with an emailed code), and the page says what to do.
+  var recovery = /type=recovery/.test(session);
+  if (!recovery && /access_token=/.test(session) && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
     location.href = 'vitto://auth-callback' + session;
   }
   // An expired or already-used link arrives with an error instead of a session.
   var failed = /error=/.test(session);
   document.addEventListener('DOMContentLoaded', function () {
+    if (recovery) {
+      document.querySelector('.mark').textContent = '!';
+      document.title = 'Reset your password · Vitto';
+      document.querySelector('h1').textContent = 'Reset your password in the app';
+      document.querySelectorAll('p')[0].textContent = 'Nothing has changed: this link does not reset your password.';
+      document.querySelectorAll('p')[1].textContent = 'Open Vitto, tap "Forgot password?" on the sign-in screen, and enter the 6-digit code from the newest email.';
+      return;
+    }
     if (!failed) return;
     document.querySelector('.mark').textContent = '!';
     document.querySelector('h1').textContent = 'That link has expired';

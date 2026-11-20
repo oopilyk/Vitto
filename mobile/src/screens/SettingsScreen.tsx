@@ -54,6 +54,8 @@ interface Props {
   petVoice?: PetVoice;
   /** Opens the page that picks it. */
   onOpenPetVoice?: () => void;
+  /** Opens the page that changes the password. Absent offline. */
+  onOpenChangePassword?: () => void;
   /** Opens the page that deletes the account. Absent offline. */
   onOpenDeleteAccount?: () => void;
 }
@@ -64,6 +66,7 @@ interface Props {
  * run on ONNX Runtime.
  */
 const CREDITS = [
+  'Food data: Open Food Facts (openfoodfacts.org), under the Open Database License; USDA FoodData Central; and the fatsecret Platform API.',
   'Pet voice: Kokoro-82M by hexgrad (Apache License 2.0), via the ONNX build by onnx-community.',
   'Pronunciations: misaki by hexgrad (Apache License 2.0).',
   'Voice engine: ONNX Runtime by Microsoft (MIT License).',
@@ -122,6 +125,7 @@ export function SettingsScreen({
   voiceLocked = false,
   petVoice,
   onOpenPetVoice,
+  onOpenChangePassword,
   onOpenDeleteAccount,
 }: Props) {
   const preferenceSummary = [profile.displayName, profile.age ? `${profile.age}` : null, GOAL_LABEL[profile.goal]]
@@ -226,9 +230,14 @@ export function SettingsScreen({
         <NavRow title="Credits" onPress={showCredits} testID="open-credits" />
       </NavGroup>
 
-      {onOpenDeleteAccount ? (
+      {onOpenChangePassword || onOpenDeleteAccount ? (
         <NavGroup title="Account">
-          <NavRow title="Delete account" onPress={onOpenDeleteAccount} danger testID="open-delete-account" />
+          {onOpenChangePassword ? (
+            <NavRow title="Change password" onPress={onOpenChangePassword} testID="open-change-password" />
+          ) : null}
+          {onOpenDeleteAccount ? (
+            <NavRow title="Delete account" onPress={onOpenDeleteAccount} danger testID="open-delete-account" />
+          ) : null}
         </NavGroup>
       ) : null}
     </SettingsPage>

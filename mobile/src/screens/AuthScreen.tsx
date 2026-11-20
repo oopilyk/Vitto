@@ -5,7 +5,10 @@ import { useFonts, Rubik_400Regular, Rubik_500Medium, Rubik_600SemiBold, Rubik_7
 import {
   checkBirthYear,
   errorMessage,
+  EXISTING_PASSWORD_MIN_LENGTH,
   isEmailNotConfirmed,
+  NEW_PASSWORD_MIN_LENGTH,
+  passwordErrorMessage,
   signInWithEmail,
   resendSignupCode,
   SIGNUP_CODE_MAX_LENGTH,
@@ -15,6 +18,7 @@ import {
 } from '@vitto/core';
 import { ONB_FONT, OnbButton, OnbInput, onboardingPalette, onboardingText as T } from '../components/onboardingKit';
 import { LEGAL_LINKS } from '../services/billingService';
+import { resetPasswordWithCode, sendResetCode } from '../services/passwordService';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { portraitFrame, sheetByBreed } from '../components/petSprites';
@@ -87,6 +91,7 @@ export function AuthScreen() {
   const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const minPassword = mode === 'sign-up' ? NEW_PASSWORD_MIN_LENGTH : EXISTING_PASSWORD_MIN_LENGTH;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -115,6 +120,65 @@ export function AuthScreen() {
     const timer = setTimeout(() => setResendIn((seconds) => seconds - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendIn]);
+
+  /**
+   * Forgot password: `email` asks where to send a code, `code` takes the code
+   * and the new password. Null outside it.
+   */
+  const [resetStep, setResetStep] = useState<'email' | 'code' | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+
+  const leaveReset = () => {
+    setResetStep(null);
+    setCode('');
+    setNewPassword('');
+    setError(null);
+    setMessage(null);
+  };
+
+  const sendReset = async () => {
+    const address = email.trim();
+    if (!address) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await sendResetCode(address);
+      setResetStep('code');
+      setCode('');
+      setResendIn(RESEND_AFTER_SECONDS);
+    } catch (cause) {
+      setError(passwordErrorMessage(cause, 'Could not send a code. Try again in a minute.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendReset = async () => {
+    if (resendIn > 0) return;
+    setError(null);
+    setMessage(null);
+    try {
+      await sendResetCode(email.trim());
+      setMessage('A new code is on its way.');
+      setResendIn(RESEND_AFTER_SECONDS);
+    } catch (cause) {
+      setError(passwordErrorMessage(cause, 'Could not send a new code. Try again in a minute.'));
+    }
+  };
+
+  const finishReset = async () => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      // Signs in with the new password once it is saved, and the app moves on.
+      await resetPasswordWithCode(email.trim(), code, newPassword);
+    } catch (cause) {
+      setError(passwordErrorMessage(cause, 'Could not reset your password.'));
+      setBusy(false);
+    }
+  };
 
   /** Moves to the code step for `address`; the code itself is already on its way. */
   const askForCode = (address: string) => {
@@ -284,6 +348,84 @@ export function AuthScreen() {
     );
   }
 
+  if (resetStep === 'email') {
+    return (
+      <Page testID="reset-email">
+        <Text style={T.eyebrow}>Forgot password</Text>
+        <Text style={T.title}>Reset your password</Text>
+        <Text style={T.sub}>Enter the email you signed up with and we'll send you a code.</Text>
+        <Field label="Email">
+          <OnbInput
+            form
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="emailAddress"
+            autoFocus
+          />
+        </Field>
+        {error ? <Text style={[T.error, styles.notice]}>{error}</Text> : null}
+        <View style={styles.actions}>
+          <OnbButton label="Email me a code" busy={busy} disabled={!email.trim()} onPress={() => void sendReset()} />
+          <TextLink label="Back to sign in" onPress={leaveReset} />
+        </View>
+      </Page>
+    );
+  }
+
+  if (resetStep === 'code') {
+    const complete = code.replace(/\D/g, '').length >= SIGNUP_CODE_MIN_LENGTH && newPassword.length >= NEW_PASSWORD_MIN_LENGTH;
+    return (
+      <Page testID="reset-code">
+        <Text style={T.eyebrow}>Forgot password</Text>
+        <Text style={T.title}>Check your email</Text>
+        <Text style={T.sub}>{`If ${email.trim()} has a Vitto account, we sent it a ${SIGNUP_CODE_MIN_LENGTH}-digit code. Enter it with your new password.`}</Text>
+
+        <OnbInput
+          style={styles.code}
+          value={code}
+          onChangeText={(next) => setCode(next.replace(/\D/g, '').slice(0, SIGNUP_CODE_MAX_LENGTH))}
+          placeholder={'0'.repeat(SIGNUP_CODE_MIN_LENGTH)}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="one-time-code"
+          autoFocus
+          maxLength={SIGNUP_CODE_MAX_LENGTH}
+          accessibilityLabel="Reset code"
+        />
+        <Field label="New password" hint={`${NEW_PASSWORD_MIN_LENGTH} characters minimum`}>
+          <OnbInput
+            form
+            value={newPassword}
+            onChangeText={setNewPassword}
+            placeholder="New password"
+            secureTextEntry
+            // iOS offers a strong password and saves it to the keychain.
+            textContentType="newPassword"
+            autoComplete="new-password"
+            accessibilityLabel="New password"
+          />
+        </Field>
+
+        {error ? <Text style={[T.error, styles.notice]}>{error}</Text> : null}
+        {message ? <Text style={[T.success, styles.notice]}>{message}</Text> : null}
+
+        <View style={styles.actions}>
+          <OnbButton label="Set new password" busy={busy} disabled={!complete} onPress={() => void finishReset()} />
+          <TextLink
+            label={resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+            disabled={resendIn > 0}
+            onPress={() => void resendReset()}
+          />
+          <TextLink label="Back to sign in" onPress={leaveReset} />
+        </View>
+      </Page>
+    );
+  }
+
   if (confirming) {
     const complete = code.replace(/\D/g, '').length >= SIGNUP_CODE_MIN_LENGTH;
     return (
@@ -433,7 +575,7 @@ export function AuthScreen() {
             />
           </Field>
 
-          <Field label="Password" hint="6 characters minimum">
+          <Field label="Password" hint={`${minPassword} characters minimum`}>
             <OnbInput form value={password} onChangeText={setPassword} placeholder="••••••" secureTextEntry textContentType="password" />
           </Field>
         </>
@@ -449,7 +591,7 @@ export function AuthScreen() {
             busy={busy}
             disabled={
               !email ||
-              password.length < 6 ||
+              password.length < minPassword ||
               (mode === 'sign-up' && !birthday.ok && birthday.reason !== 'too-young')
             }
             onPress={() => void submit()}
@@ -471,6 +613,16 @@ export function AuthScreen() {
             ) : null}
             .
           </Text>
+        ) : null}
+        {mode === 'sign-in' ? (
+          <TextLink
+            label="Forgot password?"
+            onPress={() => {
+              setResetStep('email');
+              setError(null);
+              setMessage(null);
+            }}
+          />
         ) : null}
         <TextLink
           label={mode === 'sign-in' ? 'Need an account?' : 'Already have an account?'}

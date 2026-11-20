@@ -91,6 +91,7 @@ import { CompanionMemoriesScreen } from './src/screens/CompanionMemoriesScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { CareAreasScreen } from './src/screens/CareAreasScreen';
 import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
+import { ChangePasswordScreen } from './src/screens/ChangePasswordScreen';
 import { APPEARANCE_LABEL, AppearanceScreen } from './src/screens/AppearanceScreen';
 import { PetVoiceScreen } from './src/screens/PetVoiceScreen';
 import { WordPuzzleScreen } from './src/screens/WordPuzzleScreen';
@@ -188,6 +189,7 @@ type RootStackParamList = {
   Notifications: undefined;
   /** What the pet remembers about them, each deletable. */
   CompanionMemories: undefined;
+  ChangePassword: undefined;
   DeleteAccount: undefined;
   Appearance: undefined;
   /** Which voice the pet speaks in. */
@@ -3723,6 +3725,7 @@ function VittoApp() {
                   setVoiceError(null);
                 }
               }}
+              onOpenChangePassword={isOnline && session?.user.email ? () => navigation.navigate('ChangePassword') : undefined}
               onOpenDeleteAccount={isOnline ? () => navigation.navigate('DeleteAccount') : undefined}
             />
           )}
@@ -3816,6 +3819,11 @@ function VittoApp() {
               }}
               onClose={() => navigation.goBack()}
             />
+          )}
+        </RootStack.Screen>
+        <RootStack.Screen name="ChangePassword">
+          {({ navigation }) => (
+            <ChangePasswordScreen email={session?.user.email ?? ''} onClose={() => navigation.goBack()} />
           )}
         </RootStack.Screen>
         <RootStack.Screen name="DeleteAccount">

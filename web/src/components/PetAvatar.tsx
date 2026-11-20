@@ -5,6 +5,7 @@ const MOOD_MOUTH: Record<PetState["mood"], string> = {
   bright: "◡",
   content: "⌣",
   sleepy: "─",
+  sluggish: "∼",
   hungry: "○",
 };
 

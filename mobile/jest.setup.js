@@ -3,6 +3,22 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// The Keychain, as a plain map: the native module is not there under jest.
+jest.mock('expo-secure-store', () => {
+  const items = new Map();
+  return {
+    AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 'AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY',
+    __items: items,
+    getItemAsync: jest.fn(async (key) => (items.has(key) ? items.get(key) : null)),
+    setItemAsync: jest.fn(async (key, value) => {
+      items.set(key, value);
+    }),
+    deleteItemAsync: jest.fn(async (key) => {
+      items.delete(key);
+    }),
+  };
+});
+
 // expo-video's native player is absent under jest. The stand-in keeps what a
 // test can observe: which clip was asked for, and how it was set to play.
 jest.mock('expo-video', () => {

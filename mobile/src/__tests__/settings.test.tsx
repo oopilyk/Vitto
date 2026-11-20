@@ -221,6 +221,7 @@ describe('settings menu', () => {
           onOpenMemories={() => opened.push('memories')}
           onOpenNotifications={() => opened.push('notifications')}
           onOpenPreferences={() => opened.push('preferences')}
+          onOpenChangePassword={() => opened.push('password')}
           onOpenDeleteAccount={() => opened.push('delete')}
           {...extra}
         />,
@@ -228,6 +229,15 @@ describe('settings menu', () => {
     });
     return tree;
   };
+
+  it('offers Change password beside Delete account, and hides it offline', () => {
+    const tree = renderMenu();
+    const row = tree.root.find((node) => node.props.testID === 'open-change-password' && typeof node.props.onPress === 'function');
+    act(() => row.props.onPress());
+    expect(opened).toEqual(['password']);
+    const offline = renderMenu({ onOpenChangePassword: undefined });
+    expect(offline.root.findAll((node) => node.props.testID === 'open-change-password')).toHaveLength(0);
+  });
 
   it('is a list of rows, each saying what it is set to and opening its own page', () => {
     const tree = renderMenu();

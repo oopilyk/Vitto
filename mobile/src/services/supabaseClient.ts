@@ -1,11 +1,11 @@
 import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 import { configureCore } from '@vitto/core';
+import { sessionStorage } from './secureSessionStorage';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+export const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+export const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
@@ -46,8 +46,9 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl!, supabaseAnonKey!, {
       global: { fetch: waitOutClockSkew },
       auth: {
-        // React Native has no localStorage; sessions live in AsyncStorage instead.
-        storage: AsyncStorage,
+        // React Native has no localStorage; the session lives in the Keychain
+        // instead (see secureSessionStorage, which also moves an older one over).
+        storage: sessionStorage,
         autoRefreshToken: true,
         persistSession: true,
         // There is no URL to parse a session out of on a native client.
