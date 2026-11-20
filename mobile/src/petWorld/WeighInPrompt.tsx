@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { convertWeightValue, plausibleWeighIn, type WeightUnit } from '@vitto/core';
 import { haptic, Mark, NumberInput } from '../components/ui';
 import { logHaptic } from '../components/logKit';
+import { UNDO_MS } from '../components/UndoToast';
 import { fonts, world, themedStyles } from '../theme';
 import { retro, retroPressed } from './retroStyle';
 
@@ -25,7 +26,8 @@ export interface WeighInPromptProps {
   /** Weigh-ins oldest first, in kg, for the sparkline, the hint and "since last time". */
   recentKg: readonly { at: string; kg: number }[];
   /** Logs a weigh-in, in kg, now. */
-  onLog: (kg: number) => Promise<void>;
+  /** Saves it; what comes back, if anything, takes it back (the card's Undo). */
+  onLog: (kg: number) => Promise<void | (() => Promise<void>)>;
   /** The weight page: the chart and every weigh-in. */
   onOpenChart: () => void;
 }
@@ -78,6 +80,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
   const [error, setError] = useState<string | null>(null);
   /** Just logged: what changed, shown in the card for a moment before it goes. */
   const [result, setResult] = useState<{ value: number; delta: number | null } | null>(null);
+  const undoRef = useRef<(() => Promise<void>) | null>(null);
   // The card rides up with the keyboard, at the keyboard's own pace, rather
   // than jumping when it starts to show. (Android resizes the window instead,
   // so there the card simply stays at its place above the room bar.)
@@ -114,7 +117,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
   }, []);
   useEffect(() => {
     if (!result) return undefined;
-    const timer = setTimeout(() => setResult(null), 4000);
+    const timer = setTimeout(() => setResult(null), UNDO_MS);
     return () => clearTimeout(timer);
   }, [result]);
 
@@ -148,7 +151,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
     setSaving(true);
     setError(null);
     try {
-      await onLog(kg);
+      undoRef.current = (await onLog(kg)) ?? null;
       logHaptic();
       Keyboard.dismiss();
       setResult({ value, delta: last === undefined ? null : tenths(value - last) });
@@ -233,6 +236,22 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
                     : `${result.delta < 0 ? '↓' : '↑'} ${Math.abs(result.delta)} ${unit} since last time. See you next week.`}
               </Text>
             </View>
+            {undoRef.current ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Undo weigh-in"
+                hitSlop={10}
+                onPress={() => {
+                  const undo = undoRef.current;
+                  undoRef.current = null;
+                  setResult(null);
+                  void undo?.().catch(() => undefined);
+                }}
+                testID="weigh-in-undo"
+              >
+                <Text style={[soft, styles.link]}>Undo</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <>

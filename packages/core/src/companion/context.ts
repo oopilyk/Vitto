@@ -53,11 +53,14 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
   const today = record(source.today);
   const now = record(source.now);
   const sleep = today.sleepHoursLastNight;
+  const plan = record(today.plan);
   const skipped = Array.isArray(today.skips)
     ? SKIPPABLE_CARE.filter((kind) => (today.skips as unknown[]).includes(kind))
     : [];
   return {
     ...(source.adult === true ? { adult: true } : {}),
+    ...(list(source.app, 30, 600).length ? { app: list(source.app, 30, 600) } : {}),
+    ...(source.under16 === true ? { under16: true } : {}),
     pet: {
       name: text(pet.name, 24, 'Vitto'),
       species: text(pet.species, 32, 'pet'),
@@ -121,6 +124,13 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
       stepGoal: Math.round(num(today.stepGoal, 0, 200_000, 8000)),
       workouts: Math.round(num(today.workouts, 0, 50, 0)),
       ...(text(today.lastWorkoutName, 40) ? { lastWorkoutName: text(today.lastWorkoutName, 40) } : {}),
+      ...(plan.of ? {
+        plan: {
+          day: Math.round(num(plan.day, 1, 14, 1)),
+          of: Math.round(num(plan.of, 1, 14, 1)),
+          ...(text(plan.routine, 40) ? { routine: text(plan.routine, 40), exercises: list(plan.exercises, 12, 40) } : {}),
+        },
+      } : {}),
       mindSessions: Math.round(num(today.mindSessions, 0, 200, 0)),
       sleepHoursLastNight: typeof sleep === 'number' && Number.isFinite(sleep) ? Math.round(clamp(sleep, 0, 24) * 10) / 10 : null,
       careStreakDays: Math.round(num(today.careStreakDays, 0, 100_000, 0)),

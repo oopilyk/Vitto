@@ -38,6 +38,14 @@
     },
     "plugins": [
       "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ],
       "./plugins/withOnnxruntimePin",
       [
         "expo-image-picker",

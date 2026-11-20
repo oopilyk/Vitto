@@ -1,5 +1,5 @@
 import { tracksArea } from './careAreas';
-import { convertWeightValue, isMinor, maintenanceCalories } from './macroTargets';
+import { convertWeightValue, isMinor, isUnder16, maintenanceCalories } from './macroTargets';
 import { liftScores, STANDARD_LIFT_LABEL } from './strengthRanks';
 import type { CompanionEventInput, LifeContext } from '../companion/types';
 import { PROPOSAL_RANGES, type CompanionProposal } from '../companion/proposals';
@@ -17,6 +17,9 @@ import { assessCondition, type PetAilment } from './petCondition';
 import { daysWithPet } from './petStats';
 import { reminderError } from './reminders';
 import { calculateStreakStatus } from './streaks';
+import { scheduleDayOn, type TrainingSchedule } from './trainingSchedule';
+import { companionSnapshot } from './companionSnapshot';
+import type { WorkoutTemplate } from './workoutTemplates';
 
 /**
  * Where Vitto's existing world meets the AI companion.
@@ -175,12 +178,16 @@ export const buildLifeContext = (input: {
   profile: BodyProfile;
   stepGoal: number;
   now?: Date;
+  /** Their training split, so the pet knows today's routine. */
+  schedule?: TrainingSchedule | null;
+  templates?: readonly WorkoutTemplate[];
 }): LifeContext => {
   const now = input.now ?? new Date();
   const { pet, events } = input;
   const recap = buildDailyRecap({ events, profile: input.profile, pet, stepGoal: input.stepGoal, day: now });
   const streak = calculateStreakStatus(events, now);
   const bond = bondFor(events, now, { adoptedAt: pet.adoptedAt });
+  const split = scheduleDayOn(input.schedule, input.templates ?? [], now);
 
   // Last night: the most recent sleep that ended within the past day.
   const lastSleep = events
@@ -200,6 +207,8 @@ export const buildLifeContext = (input: {
     .map(([, kind]) => kind);
   return {
     adult: !isMinor(input.profile),
+    app: companionSnapshot({ ...input, now }),
+    ...(isUnder16(input.profile) ? { under16: true } : {}),
     pet: {
       name: pet.name,
       species: SPECIES[pet.breed ?? ''] ?? 'pet',
@@ -246,6 +255,15 @@ export const buildLifeContext = (input: {
       stepGoal: recap.outdoors.goal,
       workouts: recap.gym.workoutCount,
       ...(recap.gym.lastName ? { lastWorkoutName: recap.gym.lastName } : {}),
+      ...(split
+        ? {
+            plan: {
+              day: split.index + 1,
+              of: split.length,
+              ...(split.template ? { routine: split.template.name, exercises: split.template.exercises.map((exercise) => exercise.name) } : {}),
+            },
+          }
+        : {}),
       mindSessions: recap.mind.sessionCount,
       sleepHoursLastNight: typeof asleep === 'number' ? Math.round((asleep / 60) * 10) / 10 : null,
       careStreakDays: streak.currentStreak,

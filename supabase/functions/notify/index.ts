@@ -300,7 +300,25 @@ Deno.serve(async (request) => {
       tiers.set(row.user_id, !lapsed && row.tier === 'plus' ? 'plus' : 'free');
     }
 
-    const candidates: Candidate[] = (stateRows ?? []).map((row: Row) => ({
+    // One pet per person: the one they last opened (each pet has its own row,
+    // and an old or switched-away pet used to push too, by its own name). And
+    // its name as it is now, not as cached at its last chat: a renamed pet
+    // kept pushing under the name it had then.
+    const lifeAt = (row: Row): number => (row.last_life_at ? Date.parse(row.last_life_at) : 0);
+    const latest = new Map<string, Row>();
+    for (const row of stateRows ?? []) {
+      const held = latest.get(row.user_id);
+      if (!held || lifeAt(row) > lifeAt(held)) latest.set(row.user_id, row);
+    }
+    const current = [...latest.values()];
+    const { data: petRows } = await db.from('pets').select('id, name').in('id', current.map((row) => row.pet_id));
+    const petNames = new Map<string, string>((petRows ?? []).map((row: Row) => [row.id, row.name]));
+
+    const candidates: Candidate[] = current.map((row: Row) => {
+      const cached = row.last_life as LifeContext;
+      const name = petNames.get(row.pet_id);
+      return { ...row, last_life: name ? { ...cached, pet: { ...cached.pet, name } } : cached };
+    }).map((row: Row) => ({
       userId: row.user_id,
       petId: row.pet_id,
       state: toState(row),

@@ -27,6 +27,15 @@ export interface WidgetSnapshot {
   calorieTarget: number;
   proteinGrams: number;
   proteinTarget: number;
+  /** The rest of the Today page's macro bars, for the medium and large widgets. */
+  carbsGrams: number;
+  carbsTarget: number;
+  fatGrams: number;
+  fatTarget: number;
+  fiberGrams: number;
+  fiberTarget: number;
+  /** The pet's level, shown beside its name. */
+  level: number;
   steps: number;
   stepGoal: number;
   /** Water today and the day's aim, in mL; a cup is `cupMl`. The widget's + adds one (LogWaterIntent). */
@@ -71,6 +80,13 @@ export const buildWidgetSnapshot = (
     calorieTarget: Math.round(recap.food.targets.calories),
     proteinGrams: Math.round(recap.food.consumed.proteinGrams),
     proteinTarget: Math.round(recap.food.targets.proteinGrams),
+    carbsGrams: Math.round(recap.food.consumed.carbsGrams),
+    carbsTarget: Math.round(recap.food.targets.carbsGrams),
+    fatGrams: Math.round(recap.food.consumed.fatGrams),
+    fatTarget: Math.round(recap.food.targets.fatGrams),
+    fiberGrams: Math.round(recap.food.consumed.fiberGrams ?? 0),
+    fiberTarget: Math.round(recap.food.targets.fiberGrams ?? 0),
+    level: input.pet.level,
     steps: recap.outdoors.steps,
     stepGoal: recap.outdoors.goal,
     waterMl: Math.max(0, Math.round(recap.food.waterMl)),

@@ -297,6 +297,12 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
                   <FitText style={styles.planPrice}>{option.price}</FitText>
                   <Text style={styles.planPer}>{perWord}</Text>
                   <Text style={[styles.planNote, selected && styles.planNoteOn]}>{option.note ?? 'Billed monthly'}</Text>
+                  {/* The trial is Yearly's alone: said on both cards, so picking Monthly never surprises. */}
+                  {trialDays !== null ? (
+                    <Text style={[styles.planTrial, option.value === 'yearly' && styles.planTrialOn]} numberOfLines={1}>
+                      {option.value === 'yearly' ? `${trialDays} days free` : 'No free trial'}
+                    </Text>
+                  ) : null}
                 </Pressable>
               );
             })}
@@ -306,7 +312,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
           <View style={[styles.card, styles.trialRow]}>
             <View style={styles.trialText}>
               <Text style={styles.trialTitle}>{`${trialDays}-day free trial`}</Text>
-              <Text style={styles.trialSub}>{trialOn ? 'Try everything. Pay nothing today.' : 'On the yearly plan'}</Text>
+              <Text style={styles.trialSub}>{trialOn ? 'Try everything. Pay nothing today.' : 'Yearly plan only'}</Text>
             </View>
             {store ? null : (
             <Switch
@@ -446,9 +452,12 @@ const styles = themedStyles(() => ({
     textAlign: 'center',
     paddingTop: 12,
     paddingBottom: 6,
+    // The value cells' side padding (valueCell), so these columns are the same width as theirs.
+    paddingHorizontal: 4,
   },
   plusHead: {
     backgroundColor: colors.mint,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingTop: 12,
@@ -490,6 +499,8 @@ const styles = themedStyles(() => ({
   statusLine: { ...text.body, color: colors.ink },
 
   plans: { flexDirection: 'row', gap: 10, paddingTop: 8 },
+  planTrial: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 6 },
+  planTrialOn: { fontWeight: '600', color: colors.mintDeep },
   plan: {
     flex: 1,
     backgroundColor: colors.card,

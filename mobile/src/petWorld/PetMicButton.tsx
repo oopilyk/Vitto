@@ -16,6 +16,8 @@ interface Props {
   busy?: boolean;
   night?: boolean;
   size: number;
+  /** Whether its caption (what it heard, or a hint) is showing: the weigh-in pill steps aside for it. */
+  onCaption?: (showing: boolean) => void;
 }
 
 /** Shorter than this is a tap, not a sentence: it shows how to use the button instead. */
@@ -46,7 +48,7 @@ export const canListen = (): boolean => {
  * Permission is asked on the first press, never before; that press only asks,
  * so nobody is recorded mid-prompt.
  */
-export function PetMicButton({ petName, onSay, busy = false, night = false, size }: Props) {
+export function PetMicButton({ petName, onSay, busy = false, night = false, size, onCaption }: Props) {
   /** Pressed, and the recogniser asked to start. */
   const [listening, setListening] = useState(false);
   /** The mic is actually recording: only now is it worth talking. */
@@ -167,6 +169,10 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
   const ring = { width: size, height: size, borderRadius: size / 2 };
   const glow = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
   const caption = listening ? heard || (ready ? 'Listening…' : 'One sec…') : hint;
+  const captionShowing = !!caption;
+  useEffect(() => {
+    onCaption?.(captionShowing);
+  }, [captionShowing]);
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">

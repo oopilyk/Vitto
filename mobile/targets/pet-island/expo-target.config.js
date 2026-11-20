@@ -33,8 +33,7 @@ module.exports = (config) => ({
   // A leading dot appends to the app's own bundle id, whichever developer's it is.
   bundleIdentifier: '.petisland',
   deploymentTarget: '16.4',
-  // AppIntents: the widget's water button (LogWaterIntent), iOS 17 and later.
-  frameworks: ['SwiftUI', 'WidgetKit', 'ActivityKit', 'AppIntents'],
+  frameworks: ['SwiftUI', 'WidgetKit', 'ActivityKit'],
   entitlements: {
     'com.apple.security.application-groups': config.ios?.entitlements?.['com.apple.security.application-groups'] ?? [],
   },

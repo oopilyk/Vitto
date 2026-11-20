@@ -677,7 +677,35 @@ export function WorkoutScreen({
 
   // ---- routines -----------------------------------------------------------
 
-  const loadRoutine = (template: WorkoutTemplate) => {
+  /**
+   * In the Gym room a new start replaces the workout waiting on its own page,
+   * so one tap on the wrong Start used to wipe a session half done. With one
+   * waiting, ask first: back to it, or replace it. Read from the saved draft,
+   * not `waiting`, so a workout finished since doesn't raise a stale question.
+   */
+  const unlessUnderWay = (label: string, begin: () => void) => {
+    if (!handsOff) {
+      begin();
+      return;
+    }
+    void loadWorkoutDraft().then((draft) => {
+      if (!draft || draft.exercises.length === 0) {
+        setWaiting(null);
+        begin();
+        return;
+      }
+      const current = draft.name || DEFAULT_SESSION_NAME;
+      Alert.alert(`${current} is in progress`, `Starting ${label} replaces it.`, [
+        { text: `Resume ${current}`, style: 'cancel', onPress: () => onOpenSession?.() },
+        { text: `Start ${label}`, style: 'destructive', onPress: begin },
+      ]);
+    });
+  };
+
+  const loadRoutine = (template: WorkoutTemplate) =>
+    unlessUnderWay(template.name, () => beginRoutine(template));
+
+  const beginRoutine = (template: WorkoutTemplate) => {
     setName(template.name);
     setExercises(sessionFromTemplate(template));
     setActiveTemplateId(template.id);
@@ -689,7 +717,10 @@ export function WorkoutScreen({
    * A past session done again: its exercises and numbers, as a fresh session.
    * Not a routine: nothing is written back to one.
    */
-  const repeatSession = (past: HealthEvent<WorkoutMetadata>) => {
+  const repeatSession = (past: HealthEvent<WorkoutMetadata>) =>
+    unlessUnderWay(past.metadata.name || DEFAULT_SESSION_NAME, () => beginRepeat(past));
+
+  const beginRepeat = (past: HealthEvent<WorkoutMetadata>) => {
     const pastName = past.metadata.name || DEFAULT_SESSION_NAME;
     setName(pastName);
     setExercises(sessionFromTemplate(templateFromSession(pastName, past.metadata.exercises ?? [])));
@@ -1053,11 +1084,12 @@ export function WorkoutScreen({
     });
   };
 
-  const openPicker = () => {
-    setSearch('');
-    setCardioOnly(false);
-    setPicking(true);
-  };
+  const openPicker = () =>
+    unlessUnderWay('a new workout', () => {
+      setSearch('');
+      setCardioOnly(false);
+      setPicking(true);
+    });
 
   /**
    * With today's routine on its card, Start there is the one loud button and

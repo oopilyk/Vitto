@@ -43,7 +43,9 @@ describe('the Home Screen widget', () => {
       },
     };
     const snapshot = buildWidgetSnapshot({ pet, events: [meal], profile, stepGoal: 8000 }, NOW);
-    expect(snapshot).toMatchObject({ name: 'Blue', calories: 350, proteinGrams: 24, steps: 0, stepGoal: 8000 });
+    expect(snapshot).toMatchObject({ name: 'Blue', calories: 350, proteinGrams: 24, carbsGrams: 2, fatGrams: 25, fiberGrams: 0, level: pet.level, steps: 0, stepGoal: 8000 });
+    expect(snapshot.carbsTarget).toBeGreaterThan(0);
+    expect(snapshot.fatTarget).toBeGreaterThan(0);
     expect(snapshot.calorieTarget).toBeGreaterThan(0);
     expect(snapshot.dayEndsAt).toBe(Math.round(new Date(2026, 10, 7).getTime() / 1000));
     expect(snapshot.sprite).toBe(buildIslandState(pet, NOW.getTime()).sprite);

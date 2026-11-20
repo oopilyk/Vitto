@@ -131,3 +131,25 @@ describe('applying what the pet proposed', () => {
     expect(proposalProblem(setting('calorieGoal', floor - 100), { profile, reminderCount: 0 })).toBeNull();
   });
 });
+
+describe('the rest of the app, for the pet', () => {
+  it('tells it what they ate, their workouts with sets, routines, split and profile', () => {
+    const pet = createPet('u', 'Blue');
+    const templates = [
+      { id: 't1', name: 'Legs', exercises: [{ name: 'Leg Press' }, { name: 'Leg Curl' }] },
+      { id: 't2', name: 'Push', exercises: [{ name: 'Bench Press' }] },
+    ] as never;
+    const schedule = { days: [{ kind: 'routine' as const, templateId: 't2' }, { kind: 'rest' as const, id: 'r' }, { kind: 'routine' as const, templateId: 't1' }], startedOn: '2026-09-14' };
+    const life = buildLifeContext({ pet, events: [meal(0, 'A'), bench(1, 100)], profile, stepGoal: 8000, now: NOW, schedule, templates });
+    const app = sanitizeLifeContext(life).app!.join('\n');
+    expect(app).toContain('Profile: 30, male, 180 cm, 80 kg');
+    expect(app).toContain('Eaten today: 1 bowl of chicken and rice, 1 side salad at 12:00 PM (640 kcal, 42 g protein)');
+    expect(app).toContain('Workout yesterday: Push, 45 min — Bench Press 100kg x 5');
+    expect(app).toContain('Saved routines: Legs (Leg Press, Leg Curl); Push (Bench Press)');
+    expect(app).toContain('Their split, in order: Push, Rest, Legs');
+    expect(app).toContain('Last 7 days:');
+    expect(app).toMatch(/coins: \d+/);
+    // And today's day in it: day 3, Legs.
+    expect(life.today.plan).toEqual({ day: 3, of: 3, routine: 'Legs', exercises: ['Leg Press', 'Leg Curl'] });
+  });
+});

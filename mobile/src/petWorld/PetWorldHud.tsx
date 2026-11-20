@@ -235,6 +235,8 @@ export function PetWorldHud({
 
   // The account menu. Closed on any choice and on a tap anywhere else.
   const [menuOpen, setMenuOpen] = useState(false);
+  /** The mic's caption is up (see PetMicButton). */
+  const [micCaption, setMicCaption] = useState(false);
   // What the first-run tour points at (see FirstRunTour).
   const accountTourRef = useTourTarget('account');
   const todayTourRef = useTourTarget('today');
@@ -528,12 +530,13 @@ export function PetWorldHud({
       {/* Living room only: every other room keeps that corner for its log button. */}
       {onTalk && environment === 'main' && canListen() ? (
         <View style={[styles.mic, { bottom: navBarHeight(chromeScale) + 4 }]} pointerEvents="box-none">
-          <PetMicButton petName={pet.name} onSay={onTalk} busy={talking} night={night} size={MIC} />
+          <PetMicButton petName={pet.name} onSay={onTalk} busy={talking} night={night} size={MIC} onCaption={setMicCaption} />
         </View>
       ) : null}
 
       {/* Home only, bottom left across from the mic: the day's weigh-in, until it is done. */}
-      {weighIn && environment === 'main' ? (
+      {/* Hidden while the mic's caption is up: that caption runs across the same strip. */}
+      {weighIn && environment === 'main' && !micCaption ? (
         <WeighInPrompt {...weighIn} bottom={navBarHeight(chromeScale) + 4} night={night} />
       ) : null}
 

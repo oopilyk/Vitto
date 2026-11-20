@@ -139,6 +139,8 @@ export interface LifeContext {
    * Absent from an older app, which reads as not.
    */
   adult?: boolean;
+  /** Under 16, from their profile: no weight-loss numbers, deficits or fasting advice. Absent reads as not. */
+  under16?: boolean;
   pet: {
     name: string;
     species: string;
@@ -173,6 +175,12 @@ export interface LifeContext {
    * their own unit, so "how many reps of 205 should I get?" has an answer.
    */
   lifts?: { lift: string; unit: 'kg' | 'lb'; oneRepMax: number; from: string }[];
+  /**
+   * The rest of their app as short lines (see companionSnapshot): meals today,
+   * water, weight, profile, recent workouts, routines, the week, coins. Absent
+   * from older clients.
+   */
+  app?: string[];
   today: {
     meals: number;
     calories: number;
@@ -183,6 +191,12 @@ export interface LifeContext {
     stepGoal: number;
     workouts: number;
     lastWorkoutName?: string;
+    /**
+     * Today in their training split: day `day` of `of`, and the routine with
+     * its exercises (no routine: a rest day). Absent without a split, and from
+     * older clients.
+     */
+    plan?: { day: number; of: number; routine?: string; exercises?: string[] };
     mindSessions: number;
     sleepHoursLastNight: number | null;
     careStreakDays: number;

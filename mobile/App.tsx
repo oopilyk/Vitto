@@ -1316,7 +1316,7 @@ function VittoApp() {
     });
     if (!perceived) return;
     try {
-      const life = buildLifeContext({ pet: fedPet, events: [event as HealthEvent, ...history], profile, stepGoal });
+      const life = buildLifeContext({ schedule: trainingSchedule, templates: workoutTemplates, pet: fedPet, events: [event as HealthEvent, ...history], profile, stepGoal });
       await companionService.record(fedPet.id, life, perceived);
       if (levelledUp) await companionService.record(fedPet.id, life, { type: 'LEVEL_UP', metadata: { level: fedPet.level } });
       const { message } = await companionService.checkIn(fedPet.id, life);
@@ -1999,7 +1999,7 @@ function VittoApp() {
    */
   const devCheckIn = async (kind: companion.DevCheckIn) => {
     if (!livePet) return;
-    const life = buildLifeContext({ pet: livePet, events, profile, stepGoal, now: new Date() });
+    const life = buildLifeContext({ schedule: trainingSchedule, templates: workoutTemplates, pet: livePet, events, profile, stepGoal, now: new Date() });
     const { message } = await companionService.checkIn(livePet.id, life, kind);
     if (!message) throw new Error('The pet had nothing to say. Is the companion function deployed?');
     setCompanionSaid({ id: message.id, text: message.content });
@@ -2117,17 +2117,20 @@ function VittoApp() {
    * body data, not care). The profile's weight follows the newest one, so the
    * calorie targets do too.
    */
-  const logWeight = async (kg: number) => {
+  const saveWeight = async (kg: number) => {
     const event = makeEvent<WeightMetadata>(userId, 'BODY_WEIGHT', { kg: Math.round(kg * 100) / 100 });
     if (isSupabaseConfigured && session) await withTimeout(remoteRepository.saveEvent(event), SAVE_TIMEOUT_MESSAGE);
     await repository.saveEvent(event);
     setEvents((current) => [event, ...current]);
     const before = profile.weightKg;
     updateProfile('weightKg', event.metadata.kg);
-    offerUndo('Weigh-in logged', async () => {
+    return async () => {
       await writeEvent(markRemoved(event));
       updateProfile('weightKg', before);
-    });
+    };
+  };
+  const logWeight = async (kg: number) => {
+    offerUndo('Weigh-in logged', await saveWeight(kg));
   };
 
   const editWeight = async (event: HealthEvent, kg: number) => {
@@ -2939,7 +2942,7 @@ function VittoApp() {
     const { pet: current, events: history, profile: body, stepGoal: goal } = companionInputs.current;
     if (!current) return;
     const at = new Date();
-    const life = buildLifeContext({ pet: applyTimeDecay(current, at), events: history, profile: body, stepGoal: goal, now: at });
+    const life = buildLifeContext({ schedule: trainingSchedule, templates: workoutTemplates, pet: applyTimeDecay(current, at), events: history, profile: body, stepGoal: goal, now: at });
     void companionService
       .record(current.id, life, { type: 'USER_OPENED_APP' })
       .then(() => companionService.checkIn(current.id, life))
@@ -3211,7 +3214,7 @@ function VittoApp() {
     setTalkingToPet(true);
     setCompanionSaid({ id: `listening-${Date.now()}`, text: '…' });
     try {
-      const life = buildLifeContext({ pet: livePet, events, profile, stepGoal });
+      const life = buildLifeContext({ schedule: trainingSchedule, templates: workoutTemplates, pet: livePet, events, profile, stepGoal });
       const result = await companionService.send(livePet.id, life, text);
       setCompanionSaid({ id: result.reply.id, text: result.reply.content });
       // Asked for a change ("set my calories to 1,900"): the chat shows a card
@@ -3467,7 +3470,8 @@ function VittoApp() {
                   ? {
                       unit: profile.weightUnit,
                       recentKg: weighIns(events).map((entry) => ({ at: entry.at, kg: entry.kg })),
-                      onLog: logWeight,
+                      // Home's card offers its own Undo: the toast would land on top of it.
+                      onLog: saveWeight,
                       onOpenChart: () => navigation.navigate('Weight'),
                     }
                   : undefined
@@ -3923,7 +3927,7 @@ function VittoApp() {
           {({ navigation }) => (
             <CompanionChatScreen
               pet={livePet}
-              life={buildLifeContext({ pet: livePet, events, profile, stepGoal })}
+              life={buildLifeContext({ schedule: trainingSchedule, templates: workoutTemplates, pet: livePet, events, profile, stepGoal })}
               onOpenPlus={canCustomise ? undefined : () => navigation.navigate('Plus')}
               onApplyProposal={applyCompanionProposal}
               onClose={() => {

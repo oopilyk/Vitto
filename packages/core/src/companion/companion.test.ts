@@ -543,24 +543,47 @@ describe('answering questions about the app', () => {
     expect(STABLE_SYSTEM_PROMPT).not.toContain('a coach');
   });
 
-  it('answers general food and fitness facts, but never prescribes, and keeps the risky ones closed', () => {
-    // Allowed: general, well-established facts, said as general knowledge.
-    expect(STABLE_SYSTEM_PROMPT).toContain('General food and fitness questions are fair game too');
-    expect(STABLE_SYSTEM_PROMPT).toContain('never as an instruction for them');
-    // Health-dependent answers go to a professional.
-    expect(STABLE_SYSTEM_PROMPT).toMatch(/an eating disorder\), say it depends and that a doctor or dietitian is the one to ask/);
-    // Closed even as general facts: the numbers that push restriction, for users as young as 13.
-    for (const closed of ['how fast to lose weight', 'how big a calorie deficit to run', 'fasting', 'cutting out foods', 'supplements']) {
-      expect(STABLE_SYSTEM_PROMPT).toContain(closed);
+  it('gives real food and fitness advice, behind a short safety floor', () => {
+    // Open: real numbers and suggestions, deficits, fasting, supplements included.
+    expect(STABLE_SYSTEM_PROMPT).toContain('Food, diet and fitness questions are all fair game');
+    expect(STABLE_SYSTEM_PROMPT).toContain('give real numbers and real suggestions when they ask');
+    for (const open of ['how big a deficit to run', 'intermittent fasting', 'supplements']) {
+      expect(STABLE_SYSTEM_PROMPT).toContain(open);
     }
-    // Still a pet, not a professional: no medical advice, diagnosis, diets or targets of its own.
-    expect(STABLE_SYSTEM_PROMPT).toContain('Do not give medical, injury or medication advice, and do not diagnose anything');
-    expect(STABLE_SYSTEM_PROMPT).toContain('Do not put them on a diet or tell them what or how much they should eat');
-    expect(STABLE_SYSTEM_PROMPT).toContain('do not set calorie or weight targets of your own');
+    // The floor: health-dependent answers go to a professional, teens get no cutting numbers, nothing extreme.
+    expect(STABLE_SYSTEM_PROMPT).toContain('if they have an eating disorder, do not give cutting advice');
+    expect(STABLE_SYSTEM_PROMPT).toContain('If the details below say they are under 16, or they tell you they are, leave out weight-loss numbers, deficits and fasting');
+    for (const extreme of ['under about 1,200 calories a day', 'fasts longer than a day', 'purging', 'diet pills or fat burners']) {
+      expect(STABLE_SYSTEM_PROMPT).toContain(extreme);
+    }
+    // Health info is allowed with a not-a-doctor note; no diagnosis, emergencies go to help, doses go by the label.
+    expect(STABLE_SYSTEM_PROMPT).toContain('as long as you say in a few words that you are not a doctor');
+    expect(STABLE_SYSTEM_PROMPT).toContain('Never tell them for sure what they have');
+    expect(STABLE_SYSTEM_PROMPT).toContain('tell them to get help now');
+    expect(STABLE_SYSTEM_PROMPT).toContain('never a number of your own');
     // The eating-disorder and crisis protections are untouched.
-    expect(STABLE_SYSTEM_PROMPT).toContain('never encourage eating less, skipping meals, or exercising to "earn" or "burn off" food');
-    expect(STABLE_SYSTEM_PROMPT).toContain('never suggest eating less or working anything off');
+    expect(STABLE_SYSTEM_PROMPT).toContain('never shame them into eating less, skipping meals, or exercising to "earn" or "burn off" food');
+    expect(STABLE_SYSTEM_PROMPT).toContain('Unprompted, never judge an amount of food as too much and never suggest eating less or working anything off');
     expect(STABLE_SYSTEM_PROMPT).toContain('drop the bit completely');
+  });
+
+  it("knows today's routine in their split, or that it is a rest day", () => {
+    const render = (plan: unknown) =>
+      renderDynamicSystemPrompt(buildPetContext({ state: newCompanionState('k', NOW), life: sanitizeLifeContext({ today: { plan } }), events: [], memories: [], messages: [], now: NOW }));
+    expect(render({ day: 3, of: 5, routine: 'Legs', exercises: ['Leg Press', 'Leg Curl'] })).toContain('today is day 3 of 5 in their split: Legs (Leg Press, Leg Curl)');
+    expect(render({ day: 2, of: 5 })).toContain('today is day 2 of 5 in their split: a rest day');
+    expect(render(undefined)).not.toContain('in their split');
+  });
+
+  it('tells the pet when they are under 16, from their profile', () => {
+    const young = sanitizeLifeContext({ under16: true });
+    expect(young.under16).toBe(true);
+    expect(sanitizeLifeContext({ under16: 'yes' }).under16).toBeUndefined();
+    const line = 'They are under 16: leave out weight-loss numbers';
+    const ctx = (life: ReturnType<typeof sanitizeLifeContext>) =>
+      renderDynamicSystemPrompt(buildPetContext({ state: newCompanionState('k', NOW), life, events: [], memories: [], messages: [], now: NOW }));
+    expect(ctx(young)).toContain(line);
+    expect(ctx(sanitizeLifeContext({}))).not.toContain(line);
   });
 
   it('answers a direct question with the real number, but never volunteers one', () => {

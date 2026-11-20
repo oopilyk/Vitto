@@ -6,7 +6,10 @@
   "build": {
     "production": {
       "environment": "production",
-      "autoIncrement": true
+      "autoIncrement": true,
+      "ios": {
+        "image": "macos-tahoe-26.6-xcode-27.2"
+      }
     }
   },
   "submit": {

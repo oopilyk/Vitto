@@ -286,6 +286,9 @@ export const ADULT_AGE = 18;
 
 export const isMinor = (profile: Pick<BodyProfile, 'age'>): boolean => finite(profile.age, 30) < ADULT_AGE;
 
+/** Under 16: the pet's chat leaves weight-loss advice out for them (see the companion prompt). */
+export const isUnder16 = (profile: Pick<BodyProfile, 'age'>): boolean => finite(profile.age, 30) < 16;
+
 /** The largest daily deficit this person may be given. */
 export const deficitCapFor = (profile: BodyProfile): number =>
   Math.round(Math.min(MAX_DAILY_DEFICIT, maintenanceCalories(profile) * MAX_DEFICIT_SHARE));

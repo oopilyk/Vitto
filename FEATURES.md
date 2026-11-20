@@ -14,7 +14,7 @@ Most of Vitto is free. **Vitto Plus** adds the AI-powered extras; see [Vitto Plu
 4. **Every log is one tap from the pet's world.** Each room is a page: the Kitchen for food and water, the Gym for workouts, Outside for walks and runs, the Study for mind games. The pet is right there in a window at the top. See [The pet's world](#the-pets-world).
 5. **A real workout logger.** About 137 exercises, routines, a training split that runs on the calendar, a rest timer that also shows in the Dynamic Island, personal records and strength ranks. See [Workouts](#workouts).
 6. **Evolution.** From level 15, what you do most shapes who your pet becomes: Lifter, Runner or Scholar. See [Evolution](#evolution).
-7. **Your pet on your Home Screen and Lock Screen.** Widgets show how it's doing and what's left today, and log a cup of water in one tap. See [Widgets and the Dynamic Island](#widgets-and-the-dynamic-island).
+7. **Your pet on your Home Screen and Lock Screen.** Widgets show how it's doing and what's left today. See [Widgets and the Dynamic Island](#widgets-and-the-dynamic-island).
 8. **Raise a pet together.** Share one pet with a care partner, and visit your friends' pets. See [Friends and shared pets](#friends-and-shared-pets).
 
 ---
@@ -135,7 +135,7 @@ The Food page opens on search, with your recent meals underneath. Five tabs alon
 
 ### Water
 - **Goal:** 2,000 mL a day (8 cups), shown in fl oz if you use imperial units.
-- **Logging:** + and − on the Food page's Water tab, or one tap from the Home Screen widget.
+- **Logging:** the quick-add buttons on the Food room's Water tab.
 - **Reward:** the cup that reaches the goal earns your pet XP.
 
 ### Workouts
@@ -255,7 +255,10 @@ Every session fully restores your pet's mind.
 
 ## Widgets and the Dynamic Island
 
-- **Home Screen widget, "Your pet"** (small and medium): how your pet is doing, today's food, steps and water, and a button to log a cup of water.
+- **Home Screen widget, "Your pet"** (small, medium and large), light or dark with the phone:
+  - **Small:** your pet with its level and mood, and calories left.
+  - **Medium:** adds a calorie ring, protein, carbs and fat bars, and steps and water.
+  - **Large:** adds all four macros (with fiber), steps and water bars, and today's goals.
 - **Lock Screen widget, "Today":** calories and steps left, and whether a workout is due.
 - **Dynamic Island and Lock Screen (iPhone, off by default):** your pet with its Food, Energy and Joy bars draining in real time and a word for how it feels ("happy", "hungry"). During a workout it shows your rest timer. Turn it on in Settings → Notifications → Dynamic Island.
 
