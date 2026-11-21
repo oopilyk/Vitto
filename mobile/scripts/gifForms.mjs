@@ -293,6 +293,15 @@ export const IDLE_HOLDS = {
   tabbyCatLifter: { at: [...everyBob([1, 11, 21]), 96], frames: 12 },
 };
 
+/**
+ * Idles cut down: `frames` keeps that range of the source and `skip` drops a
+ * stretch from inside it. The shiba lifter's 98 squints ahead of it, and
+ * 99-115 turn to face the camera and pop its chest; 97 runs straight on to 116.
+ */
+export const IDLE_CUTS = {
+  shibaLifter: { frames: [0, 123], skip: [98, 115] },
+};
+
 /** For buildLifterVideos.mjs: each form's clips. */
 export const gifFormClips = () =>
   Object.fromEntries(
@@ -304,7 +313,7 @@ export const gifFormClips = () =>
         key: keyFor(name, pet),
         ...(EXTRA_KEY[name]?.cutOutPockets ? { cutOutPockets: EXTRA_KEY[name].cutOutPockets } : {}),
         clips: [
-          IDLE_HOLDS[name] ? { name: idle, hold: IDLE_HOLDS[name] } : idle,
+          IDLE_HOLDS[name] || IDLE_CUTS[name] ? { name: idle, ...IDLE_CUTS[name], ...(IDLE_HOLDS[name] ? { hold: IDLE_HOLDS[name] } : {}) } : idle,
           'celebrating',
           { name: 'run', frames: run },
           // From once the stars are up, so the loop never stands it back up straight.

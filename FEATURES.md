@@ -10,12 +10,13 @@ Most of Vitto is free. **Vitto Plus** adds the AI-powered extras; see [Vitto Plu
 
 1. **A pet that lives your health.** Your meals, workouts, steps, sleep, water and mind games are what feed it, energise it and cheer it up. Its stats, moods and needs move with your real habits. See [Your pet](#your-pet).
 2. **Snap a photo, get the macros (Plus).** Point the camera at your plate. Vitto names the food, estimates calories, protein, carbs and fat, grades the meal A to D, and your pet reacts in its own voice. See [Food](#food).
-3. **A pet you can talk to.** Chat with it, hold the mic and speak to it, and hear it talk back out loud (Plus). It has a personality you choose or write yourself (Plus), remembers what you tell it (Plus), and messages you first when something's worth saying. See [Chat with your pet](#chat-with-your-pet).
-4. **Every log is one tap from the pet's world.** Each room is a page: the Kitchen for food and water, the Gym for workouts, Outside for walks and runs, the Study for mind games. The pet is right there in a window at the top. See [The pet's world](#the-pets-world).
-5. **A real workout logger.** About 137 exercises, routines, a training split that runs on the calendar, a rest timer that also shows in the Dynamic Island, personal records and strength ranks. See [Workouts](#workouts).
-6. **Evolution.** From level 15, what you do most shapes who your pet becomes: Lifter, Runner or Scholar. See [Evolution](#evolution).
-7. **Your pet on your Home Screen and Lock Screen.** Widgets show how it's doing and what's left today. See [Widgets and the Dynamic Island](#widgets-and-the-dynamic-island).
-8. **Raise a pet together.** Share one pet with a care partner, and visit your friends' pets. See [Friends and shared pets](#friends-and-shared-pets).
+3. **A pet you can talk to.** Chat with it, hold the mic and speak to it, and hear it talk back out loud (Plus). It knows everything in your app (today's split, what you've eaten, your lifts, your streak), gives real food, fitness and health answers, remembers what you tell it (Plus), and messages you first when something's worth saying. See [Chat with your pet](#chat-with-your-pet).
+4. **A personality that's yours (Plus).** Feisty, Cute, Sweet, Savage, Hype or Menace, or write your own character in your own words, then tune it on five dials. The same pet can be a hype coach or a sarcastic menace. See [Personalities](#chat-with-your-pet).
+5. **Every log is one tap from the pet's world.** Each room is a page: the Kitchen for food and water, the Gym for workouts, Outside for walks and runs, the Study for mind games. The pet is right there in a window at the top. See [The pet's world](#the-pets-world).
+6. **A real workout logger.** About 137 exercises, routines, a training split that runs on the calendar, a rest timer that also shows in the Dynamic Island, personal records and strength ranks. See [Workouts](#workouts).
+7. **Evolution.** From level 15, what you do most shapes who your pet becomes: Lifter, Runner or Scholar. See [Evolution](#evolution).
+8. **Your pet on your Home Screen and Lock Screen.** Widgets show how it's doing and what's left today. See [Widgets and the Dynamic Island](#widgets-and-the-dynamic-island).
+9. **Raise a pet together.** Share one pet with a care partner, and visit your friends' pets. See [Friends and shared pets](#friends-and-shared-pets).
 
 ---
 
@@ -124,7 +125,7 @@ The Food page opens on search, with your recent meals underneath. Five tabs alon
   - set each food's amount in grams, ounces or servings, with − and + buttons;
   - **keep a plate in Meals** to log it again in one tap.
 - **Barcode scan (free):** scan a packaged food.
-- **Meals:** your saved meals (up to 30), one tap to log.
+- **Meals:** your saved meals (up to 30), one tap to log. Tap a meal to see all of it: the full name, carbs and fat.
 - **Recent meals:** log any recent meal again, with its amount. What you ate around this time yesterday comes first.
 - **Copy yesterday's breakfast** (or lunch, dinner, snack) in one tap while today's is still empty.
 - **Quick add:** for food no database has, just the calories (and protein, carbs and fat if you know them).
@@ -144,7 +145,7 @@ The Food page opens on search, with your recent meals underneath. Five tabs alon
 - **Timing:** the workout is timed automatically, so there's nothing to fill in.
 - **Routines:** save routines (Push, Pull, Legs…). Starting one fills in its numbers, and finishing updates them.
 - **Training split:** put routines and rest days in a loop of up to 14 days. It runs on the calendar, so the Gym page always shows today's session ("Today · Day 2 of 5") with a Start button. You can step it forward or back, or restart it.
-- **Resume:** a workout left half done is waiting where you left it.
+- **Resume:** a workout left half done is waiting where you left it. Time spent away after "Keep for later" doesn't count toward the workout's length.
 - **Rest timer:** starts after a set (90 seconds by default, ±15, or skip), and counts down in the Dynamic Island too.
 - **Personal records:** a banner the moment you set one, plus your best bench, squat, deadlift and lat pulldown, your fastest mile or km and longest run.
 - **History:** every exercise has a history one tap away.
@@ -196,6 +197,7 @@ Every session fully restores your pet's mind.
 
 - **Today:**
   - your level progress;
+  - **calories count as done** within 10% of your target, or, on a fat-loss goal, once you've eaten three quarters of it: staying under is fine, and nothing nudges you to eat the rest;
   - a card for each part of life you track: workouts, steps against your goal (with calories burned), mind games and the daily word, food (calories against target, with protein, carbs and fat), and water;
   - today's activity.
 - **Trends:**
@@ -223,18 +225,24 @@ Every session fully restores your pet's mind.
 - **Talking to it:** your pet chats in its own personality, knows how you've been doing, and has its own moods.
 - **Speak to it:** hold the mic on Home and talk; what you say is sent as a message.
 - **It talks out loud (Plus):** your pet says its lines aloud in one of 8 voices (Girl, Boy, Deep, two squeaky, two fast, and Santa).
+- **It knows your app:** what you've eaten today, water, weight trend, recent workouts and their sets, your routines and today's day in your split ("you're on legs"), the past week, your streak and coins. It uses this to answer what you ask, and doesn't read it out unprompted.
+- **Real answers:** food, diet and fitness questions get real numbers and suggestions: macros, calories, cutting and bulking, how fast to lose, fasting, supplements, splits and simple plans. General health questions (soreness, a cold, sleep, a symptom) get general information, with a few words saying it isn't a doctor, and a nudge to see one for anything serious.
 - **It talks first sometimes:** it checks in after you log something, when you've been away, when a streak is at risk, when you usually train and haven't yet, or about something important you told it about.
 - **Personalities (Plus):**
   - **Ready-made:** Feisty, Cute, Sweet, Savage, Hype, and Menace (16+).
   - **Your own (16+):** write the character in your own words.
   - **Dials:** fine-tune any of them: serious↔playful, gentle↔blunt, calm↔energetic, wholesome↔sarcastic, independent↔clingy.
 - **Memory (Plus):** it remembers what you tell it (your goals, routines, upcoming events) and brings it up later. You can see and delete what it remembers in Settings. It never keeps passwords, card numbers, addresses or ID numbers.
+- **Changing settings:** ask it to change your calorie goal, step goal or a reminder, and it offers a card you tap to confirm.
 - **Safe by design:**
-  - no diet or medical advice;
-  - never negative about your body, weight or food;
-  - never pushes you to eat less;
-  - no guilt trips.
-  - If you seem to be in real distress, it drops the act and points you to real help.
+  - under 16: no weight-loss numbers, deficits or fasting;
+  - eating disorder mentioned: no cutting advice, and a doctor or dietitian is suggested;
+  - nothing extreme (under ~1,200 kcal a day, long fasts, diet pills);
+  - medication doses come from the label or a pharmacist, never its own number;
+  - never negative about your body or weight, and never suggests eating less unless you ask;
+  - no guilt trips;
+  - if you seem to be in real distress, it drops the act and points you to real help.
+- **Your friends stay private:** it only sees your own data, never your friends'.
 - **Limits:** 5 messages a day free, 50 with Plus.
 
 ---
