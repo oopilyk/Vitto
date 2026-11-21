@@ -33,11 +33,17 @@ export function PetSpeechBubble({
   petName,
   onPress,
   night,
+  headroom = 0,
 }: {
   said?: { id: string; text: string } | null;
   petName: string;
   onPress?: () => void;
   night?: boolean;
+  /**
+   * How high the bubble can reach above the pet before something crops it: in
+   * a room's window, the window's top edge. Zero is no such limit.
+   */
+  headroom?: number;
 }) {
   const [shownFor, setShownFor] = useState<string | null>(null);
   const anim = useRef(new Animated.Value(0)).current;
@@ -54,7 +60,7 @@ export function PetSpeechBubble({
     anchor.current?.measureInWindow((_x, y) => setAnchorY(Math.round(y)));
   }, []);
   const onLayout = useCallback((event: LayoutChangeEvent) => setHeight(Math.round(event.nativeEvent.layout.height)), []);
-  const { textMax, drop } = speechBubbleFit({ anchorY, actionReach });
+  const { textMax, drop } = speechBubbleFit({ anchorY, actionReach, headroom });
   const shown = !!said && shownFor === said.id;
   // Cut short to fit: flash the scroll bar so it reads as "there's more".
   const scroll = useRef<ScrollView>(null);
@@ -155,11 +161,17 @@ const BUBBLE_CHROME = 2 * PADDING_Y + 2 * RETRO_BORDER_WIDTH + TAIL / 2 + CLOSE_
  * not fit above the pet (a short phone), the bubble drops into the air over the
  * pet's head by the shortfall instead. Zero `anchorY` / `actionReach` mean not
  * measured yet, or a room with no button: the full six lines, where it always sat.
+ *
+ * `headroom` is the other ceiling: in a room's window (the Log pages), the
+ * window's own top edge, which crops anything past it. A long food reaction
+ * grew six lines tall there and was simply cut off, so there too it stops at
+ * the edge and the rest scrolls.
  */
-export const speechBubbleFit = ({ anchorY, actionReach }: { anchorY: number; actionReach: number }) => {
+export const speechBubbleFit = ({ anchorY, actionReach, headroom = 0 }: { anchorY: number; actionReach: number; headroom?: number }) => {
   const most = MAX_LINES * LINE_HEIGHT;
-  if (!anchorY || !actionReach) return { textMax: most, drop: 0 };
-  const room = anchorY - actionReach - BUBBLE_CHROME;
+  const space = Math.min(anchorY && actionReach ? anchorY - actionReach : Infinity, headroom > 0 ? headroom : Infinity);
+  if (space === Infinity) return { textMax: most, drop: 0 };
+  const room = space - BUBBLE_CHROME;
   const least = MIN_LINES * LINE_HEIGHT;
   // Whole lines only: a part line cut through the middle read as broken text.
   const lines = Math.floor(room / LINE_HEIGHT) * LINE_HEIGHT;

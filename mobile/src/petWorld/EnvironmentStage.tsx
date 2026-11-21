@@ -38,6 +38,8 @@ const FALLBACK_STAGE = { width: 393, height: 852 };
 const WINDOW_SPEECH_MARGIN = 6;
 /** Each side of the speech bubble in a room's window, clear of the Today ring. */
 const WINDOW_SPEECH_SIDE = 40;
+/** In a window, the gap kept between the speech bubble's top and the window's. */
+const WINDOW_SPEECH_TOP = 6;
 /**
  * In a room's window, where the bubbles hang: just over the pet's real head,
  * which in the sprite's square is a little over half way up. The full stage's
@@ -189,6 +191,10 @@ export function EnvironmentStage({
   const headFraction = paged ? WINDOW_HEAD_FRACTION : NAME_BUBBLE_HEAD_FRACTION;
   const speechGapFraction = paged ? WINDOW_SPEECH_GAP_FRACTION : SPEECH_BUBBLE_GAP_FRACTION;
   const nameBubbleLift = metrics.petBottom + Math.round(metrics.petSize * headFraction);
+  /** How far over the stage's bottom the speech bubble's tail ends. */
+  const speechLift = nameBubbleLift + Math.round(metrics.petSize * speechGapFraction);
+  /** In a window, its height: everything over `speechLift` is all the bubble has. */
+  const [speechLayerHeight, setSpeechLayerHeight] = useState(0);
 
   // 0 = the scene being left, 1 = the one being entered. Drives the background
   // blend and a small settle-pulse on the pet, so the pet visibly "carries
@@ -328,16 +334,23 @@ export function EnvironmentStage({
           its tail points down at the pet's head in every scene and at every size. */}
       <View
         pointerEvents="box-none"
+        onLayout={paged ? (event) => setSpeechLayerHeight(Math.round(event.nativeEvent.layout.height)) : undefined}
         style={[
           StyleSheet.absoluteFill,
           styles.speechLayer,
-          { paddingBottom: nameBubbleLift + Math.round(metrics.petSize * speechGapFraction) },
+          { paddingBottom: speechLift },
           // In a window the Today ring has the top-right corner: the bubble, still
           // centred over the pet, is narrowed so its × stays clear of it.
           paged && { paddingHorizontal: WINDOW_SPEECH_SIDE },
         ]}
       >
-        <PetSpeechBubble said={petSaid} petName={pet.name} onPress={onOpenChat} night={night} />
+        <PetSpeechBubble
+          said={petSaid}
+          petName={pet.name}
+          onPress={onOpenChat}
+          night={night}
+          headroom={paged && speechLayerHeight ? speechLayerHeight - speechLift - WINDOW_SPEECH_TOP : 0}
+        />
       </View>
 
       <FadeSwap swapKey={environment} style={styles.controlsLayer} durationMs={transitionMs}>

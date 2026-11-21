@@ -102,6 +102,20 @@ describe('speechBubbleFit — the speech bubble never covers the room button', (
     expect(speechBubbleFit({ anchorY: 380, actionReach: 300 }).textMax % 16).toBe(0);
   });
 
+  it('stops at the window top in a room window, and scrolls the rest', () => {
+    // 6 lines plus chrome would need about 130 points; a window gives 90 over the pet.
+    const { textMax, drop } = speechBubbleFit({ anchorY: 0, actionReach: 0, headroom: 90 });
+    expect(textMax).toBeLessThan(96);
+    expect(textMax % 16).toBe(0);
+    expect(drop).toBe(0);
+    // Plenty of room: the usual six lines, unchanged.
+    expect(speechBubbleFit({ anchorY: 0, actionReach: 0, headroom: 400 })).toEqual({ textMax: 96, drop: 0 });
+    // Whichever ceiling is lower wins.
+    expect(speechBubbleFit({ anchorY: 600, actionReach: 300, headroom: 90 }).textMax).toBe(
+      speechBubbleFit({ anchorY: 0, actionReach: 0, headroom: 90 }).textMax,
+    );
+  });
+
   it('drops over the pet on a short phone rather than shrinking past two lines', () => {
     const { textMax, drop } = speechBubbleFit({ anchorY: 333, actionReach: 308 });
     expect(textMax).toBe(32);
