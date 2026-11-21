@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as Haptics from 'expo-haptics';
-import { Alert, Animated, Pressable, ScrollView, Text, TextInput, View, Platform, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Animated, Keyboard, Pressable, ScrollView, type NativeScrollEvent, type NativeSyntheticEvent, Text, TextInput, View, Platform, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import {
   type WeightUnit,
@@ -44,9 +44,9 @@ import { DEFAULT_REST_MS, RestTimer, type Rest } from '../components/RestTimer';
 import { TIER_COLOR } from '../components/StrengthMap';
 import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { startRest, stopRest } from '../services/restTimer';
-import { clearWorkoutDraft, loadWorkoutDraft, saveWorkoutDraft } from '../services/workoutDraft';
+import { clearWorkoutDraft, loadWorkoutDraft, resumedStartedAt, saveWorkoutDraft } from '../services/workoutDraft';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
-import { RoomWindowSlot, useRoomKeyboardGap } from '../petWorld/RoomPanel';
+import { RoomWindowSlot, useRoomKeyboardGap, useScrollToWindowOnLog } from '../petWorld/RoomPanel';
 
 interface Props {
   onFinish: (metadata: WorkoutMetadata) => Promise<void>;
@@ -361,7 +361,8 @@ export function WorkoutScreen({
         setNotes(draft.notes);
         setDuration(draft.duration);
         setDistance(draft.distance);
-        setStartedAt(draft.startedAt);
+        // Time spent away after Keep for later is a break: the clock skips it.
+        setStartedAt(resumedStartedAt(draft));
         setActiveTemplateId(draft.activeTemplateId);
         setTicked(new Set(draft.ticked));
         setRestLength(draft.restLength);
@@ -383,7 +384,29 @@ export function WorkoutScreen({
   // Notes sit at the foot of the session, so the keyboard opens over them:
   // once it has made room, bring the end of the page up to meet it.
   const bodyRef = useRef<ScrollView>(null);
+  // In a room: back up to the pet when something is logged.
+  useScrollToWindowOnLog(bodyRef);
   const revealEnd = () => setTimeout(() => bodyRef.current?.scrollToEnd({ animated: true }), 300);
+
+  /**
+   * iOS takes the keyboard's inset away when it closes but leaves the page
+   * scrolled where it was, so a page scrolled to its end (a set's reps, the
+   * notes) was left hanging past it, blank below. Back to the real end then.
+   */
+  const bodyMetrics = useRef({ offset: 0, viewport: 0, content: 0 });
+  // Also when the page gets shorter (a set or an exercise removed) with no keyboard up.
+  const clampBody = () => {
+    const { offset, viewport, content } = bodyMetrics.current;
+    const end = Math.max(0, content - viewport);
+    if (offset > end + 1) bodyRef.current?.scrollTo({ y: end, animated: true });
+  };
+  const trackBodyScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    bodyMetrics.current.offset = event.nativeEvent.contentOffset.y;
+  };
+  useEffect(() => {
+    const hide = Keyboard.addListener('keyboardDidHide', clampBody);
+    return () => hide.remove();
+  }, []);
 
   /**
    * An exercise picked by hand while logging starts blank: the sets are there
@@ -434,21 +457,7 @@ export function WorkoutScreen({
       void clearWorkoutDraft();
       return undefined;
     }
-    const timer = setTimeout(() => {
-      void saveWorkoutDraft({
-        name,
-        exercises,
-        notes,
-        duration,
-        distance,
-        startedAt,
-        activeTemplateId,
-        ticked: [...ticked],
-        rest,
-        restLength,
-        savedAt: Date.now(),
-      });
-    }, 400);
+    const timer = setTimeout(() => void saveWorkoutDraft(draftNow()), 400);
     return () => clearTimeout(timer);
   }, [draftChecked, mode, name, exercises, notes, duration, distance, startedAt, activeTemplateId, ticked, rest, restLength]);
 
@@ -456,6 +465,27 @@ export function WorkoutScreen({
    * The × with a session under way asks first: keep it for later (the draft
    * stays and reopens), or throw it away. With nothing entered it just closes.
    */
+  /** The session as it stands, to keep on the phone. */
+  const draftNow = () => ({
+    name,
+    exercises,
+    notes,
+    duration,
+    distance,
+    startedAt,
+    activeTemplateId,
+    ticked: [...ticked],
+    rest,
+    restLength,
+    savedAt: Date.now(),
+  });
+
+  /** Keep for later: saved as it is now, with the moment it was put away, so the break is not timed. */
+  const keepForLater = () => {
+    void saveWorkoutDraft({ ...draftNow(), pausedAt: Date.now() });
+    onClose();
+  };
+
   const requestClose = () => {
     // Editing: the logged workout stays as it was unless Save changes is used.
     if (editing) {
@@ -478,11 +508,11 @@ export function WorkoutScreen({
     }
     // react-native-web has no buttons on Alert; there the draft is simply kept.
     if (Platform.OS === 'web') {
-      onClose();
+      keepForLater();
       return;
     }
     Alert.alert('Leave this workout?', 'Keep it to finish later, or discard it.', [
-      { text: 'Keep for later', onPress: onClose },
+      { text: 'Keep for later', onPress: keepForLater },
       {
         text: 'Discard workout',
         style: 'destructive',
@@ -1558,7 +1588,6 @@ export function WorkoutScreen({
         {/* The week against the days they said they train, and the day this
             session would add. Not while defining a routine or fixing an old
             workout: neither changes the count. */}
-        {!routineMode && !editing && !inRoom ? weekBar() : null}
 
         {recordBanner ? (
           <View style={[styles.recordBanner, inRoom && { top: 8 }]} pointerEvents="none" accessibilityLiveRegion="assertive" testID="record-banner">
@@ -1570,12 +1599,25 @@ export function WorkoutScreen({
         <ScrollView
           ref={bodyRef}
           scrollEnabled={!draggingDay}
+          onScroll={trackBodyScroll}
+          scrollEventThrottle={32}
+          onLayout={(event) => {
+            bodyMetrics.current.viewport = event.nativeEvent.layout.height;
+            // Taller now (the rest timer gone from the footer): no blank past the end either.
+            if (!Keyboard.isVisible()) clampBody();
+          }}
+          onContentSizeChange={(_, height) => {
+            bodyMetrics.current.content = height;
+            if (!Keyboard.isVisible()) clampBody();
+          }}
           contentContainerStyle={[styles.body, inRoom && styles.bodyInRoom, inRoom && (routineMode || !empty) && styles.bodyInRoomWorking]}
           automaticallyAdjustKeyboardInsets={rides}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
           {inRoom ? <RoomWindowSlot spacing={14} /> : null}
+          {/* Scrolls with the session rather than staying pinned over it. */}
+          {!routineMode && !editing && !inRoom ? weekBar(styles.weekBarInBody) : null}
           {routineMode && !inRoom ? (
             <>
               <Text style={styles.sectionLabel}>ROUTINE NAME</Text>
@@ -2318,6 +2360,8 @@ const styles = themedStyles(() => ({
   },
   title: { ...text.title, marginTop: 6 },
   body: { padding: 22, paddingBottom: 40 },
+  // Inside the body's padding now: the body gives it its sides and top.
+  weekBarInBody: { marginHorizontal: 0, marginTop: -8, marginBottom: 22 },
   field: { marginTop: 8 },
 
   // One caption style for every section, the meal page's plate title.

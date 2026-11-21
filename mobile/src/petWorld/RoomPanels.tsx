@@ -38,6 +38,7 @@ import {
   PanelSection,
   useRoomTask,
   RoomWindowSlot,
+  useScrollToWindowOnLog,
 } from './RoomPanel';
 
 /**
@@ -156,8 +157,10 @@ export function FoodPanel({ renderMealLogger, today, savedMeals = [], onLogSaved
 /** The Kitchen's Water tab: the day's cups, big, a tap each. */
 function WaterTab({ water }: { water: FoodPanelProps['water'] }) {
   const barInset = useRoomBarInset();
+  const scroller = useRef<ScrollView>(null);
+  useScrollToWindowOnLog(scroller);
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 16 + barInset, gap: 14 }} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={scroller} contentContainerStyle={{ padding: 16, paddingBottom: 16 + barInset, gap: 14 }} showsVerticalScrollIndicator={false}>
       <RoomWindowSlot />
       {water ? <WaterLog {...water} /> : null}
     </ScrollView>
@@ -182,13 +185,15 @@ function MealsTab({
   const [editing, setEditing] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const barInset = useRoomBarInset();
+  const scroller = useRef<ScrollView>(null);
+  useScrollToWindowOnLog(scroller);
   // Eaten lately and not kept yet: each a tap from being one of their meals.
   const kept = new Set(savedMeals.map((meal) => meal.name.toLowerCase()));
   const toKeep = onSaveMeal
     ? recentMeals.filter((meal) => !kept.has(normalizeSavedMealName(meal.name).toLowerCase())).slice(0, 6)
     : [];
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 16 + barInset, gap: 14 }} showsVerticalScrollIndicator={false}>
+    <ScrollView ref={scroller} contentContainerStyle={{ padding: 16, paddingBottom: 16 + barInset, gap: 14 }} showsVerticalScrollIndicator={false}>
       <RoomWindowSlot />
       {today ? (
         // Two by two: four bars in one row left each too narrow for its figures.
@@ -223,6 +228,7 @@ function MealsTab({
               key={meal.id}
               title={meal.name}
               detail={`${Math.round(meal.analysis.macros.calories).toLocaleString('en-US')} kcal · ${Math.round(meal.analysis.macros.proteinGrams)}g protein`}
+              more={`${Math.round(meal.analysis.macros.carbsGrams)}g carbs · ${Math.round(meal.analysis.macros.fatGrams)}g fat`}
               action={
                 editing
                   ? { label: `Delete ${meal.name}`, text: 'Delete', onPress: () => onDeleteSavedMeal?.(meal.id) }
@@ -242,6 +248,7 @@ function MealsTab({
               key={meal.key}
               title={meal.name}
               detail={`${Math.round(meal.analysis.macros.calories).toLocaleString('en-US')} kcal · ${Math.round(meal.analysis.macros.proteinGrams)}g protein`}
+              more={`${Math.round(meal.analysis.macros.carbsGrams)}g carbs · ${Math.round(meal.analysis.macros.fatGrams)}g fat`}
               action={{
                 label: `Keep ${meal.name} in your meals`,
                 text: '+ Add',

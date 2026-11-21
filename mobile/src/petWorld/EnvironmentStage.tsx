@@ -82,6 +82,10 @@ export interface EnvironmentDressing {
 
 interface EnvironmentStageProps {
   environment: EnvironmentId;
+  /** On a room page, the "logged" toast: hung just under the pet's window. */
+  windowToast?: ReactNode;
+  /** Changes each time something is logged: a room page scrolls back up to the window. */
+  logKey?: unknown;
   pet: PetState;
   activityProps: PetAvatarActivityProps;
   /**
@@ -138,6 +142,8 @@ export function EnvironmentStage({
   paused,
   petSaid,
   onOpenChat,
+  windowToast,
+  logKey,
 }: EnvironmentStageProps) {
   const regions = environments[environment];
   const reduceMotion = useReducedMotion();
@@ -373,6 +379,8 @@ export function EnvironmentStage({
             key={environment}
             pageTop={topInset}
             window={roomWindow}
+            windowToast={windowToast}
+            logKey={logKey}
             bottom={barHeight}
             topInset={topInset}
             onBarsOverPage={setBarsOverPage}

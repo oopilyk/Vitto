@@ -1,3 +1,4 @@
+import { CareToastBanner } from '../petWorld/CareToastBanner';
 import type { WeighInPromptProps } from '../petWorld/WeighInPrompt';
 import { useEffect, useRef, useState } from 'react';
 import { useScreenFocused } from '../hooks/useScreenFocused';
@@ -293,6 +294,10 @@ export function DashboardScreen({
       night={night}
       petSaid={said}
       onOpenChat={onOpenChat}
+      // In a room's page the toast hangs under the pet's window, and the page
+      // scrolls back up to it, rather than floating over the page's foot.
+      windowToast={<CareToastBanner toast={careToast} night={night} inline />}
+      logKey={careToast}
       hudOverlay={
         <PetWorldHud
           pet={pet}

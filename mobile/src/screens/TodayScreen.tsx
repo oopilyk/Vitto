@@ -414,7 +414,7 @@ export function TodayScreen({
             night={night}
             kicker="FOOD"
             more={onOpenFoodTrends ? { label: 'Trends & averages', onPress: onOpenFoodTrends } : undefined}
-            done={food.mealCount > 0 && caloriesMet(food.targets.calories, food.consumed.calories, burned)}
+            done={food.mealCount > 0 && caloriesMet(food.targets.calories, food.consumed.calories, burned, profile.goal)}
             xp={recap.xpByPillar.food}
             headline={
               food.mealCount > 0

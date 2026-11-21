@@ -23,7 +23,18 @@ export interface WorkoutDraft {
   rest: Rest | null;
   restLength: number;
   savedAt: number;
+  /**
+   * Set when it was put away with Keep for later: the time from then until it
+   * is picked up again is a break, not workout, and the clock skips it.
+   */
+  pausedAt?: number | null;
 }
+
+/** Where the session's clock starts once a kept-for-later draft is picked up at `now`. */
+export const resumedStartedAt = (draft: Pick<WorkoutDraft, 'startedAt' | 'pausedAt'>, now: number = Date.now()): number | null => {
+  if (draft.startedAt === null || !draft.pausedAt) return draft.startedAt;
+  return draft.startedAt + Math.max(0, now - draft.pausedAt);
+};
 
 const KEY = 'vitto.workoutDraft';
 export const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;

@@ -315,15 +315,10 @@ export function PetWorldHud({
     : 0;
   const rowFit = drawnWidth > readoutRoom && readoutRoom > 0 ? readoutRoom / drawnWidth : 1;
   // The Gym, Kitchen, Outside and Study are pages with the pet in a small
-  // window (see RoomPanel): no HUD over it but the "logged" toast. The day's
+  // window (see RoomPanel): no HUD over it. The day's
   // progress rides in the window's corner (WindowTodayRing), scrolling with it.
-  if (paged) {
-    return (
-      <View style={styles.fill} pointerEvents="box-none">
-        <CareToastBanner toast={careToast} night={night} />
-      </View>
-    );
-  }
+  // Its "logged" toast hangs under the window, from the page (RoomPanel).
+  if (paged) return null;
   const zoom = hudZoom(screenWidth, screenHeight, chromeScale);
   const topInset = topInsetFor(screenWidth, screenHeight);
 

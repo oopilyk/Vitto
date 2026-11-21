@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Animated, Keyboard, Platform, Pressable, ScrollView, StatusBar, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { haptic, Mark, NumberInput, useKeyboardFade } from '../components/ui';
@@ -77,10 +77,40 @@ export const useRoomTask = () => useContext(RoomTaskContext);
 
 interface RoomWindowApi {
   window: ReactNode;
+  /** The "logged" toast, hung just under the window (see RoomPanel's `windowToast`). */
+  toast?: ReactNode;
   /** A slot mounting (+1) or going (-1): with none on screen the page draws the window itself. */
   claim: (delta: number) => void;
 }
 const RoomWindowContext = createContext<RoomWindowApi | null>(null);
+
+/** Bumped each time something is logged: the page scrolls back up to the window. */
+const RoomLogTickContext = createContext(0);
+
+/**
+ * For a room page's scroller with the window in it: back to the top, where the
+ * pet and the toast under it are, each time something is logged.
+ */
+export function useScrollToWindowOnLog(ref: RefObject<ScrollView | null>) {
+  const tick = useContext(RoomLogTickContext);
+  useEffect(() => {
+    if (tick > 0) ref.current?.scrollTo({ y: 0, animated: true });
+  }, [tick, ref]);
+}
+
+/** The window, with the toast over the page's content just under its foot. */
+function WindowWithToast({ window, toast }: { window: ReactNode; toast?: ReactNode }) {
+  return (
+    <View style={styles.windowWrap}>
+      {window}
+      {toast ? (
+        <View style={styles.windowToast} pointerEvents="none">
+          {toast}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 /**
  * How much of the page's foot the floating room bar covers right now: the page
@@ -138,7 +168,11 @@ export function RoomWindowSlot({ spacing = 0 }: { spacing?: number }) {
     return () => claim(-1);
   }, [claim]);
   if (!room || typing) return null;
-  return <View style={{ marginBottom: spacing }}>{room.window}</View>;
+  return (
+    <View style={[{ marginBottom: spacing }, styles.windowLayer]}>
+      <WindowWithToast window={room.window} toast={room.toast} />
+    </View>
+  );
 }
 
 export function RoomPanel({
@@ -146,12 +180,18 @@ export function RoomPanel({
   bottom,
   topInset,
   window,
+  windowToast,
+  logKey,
   children,
   testID,
   onBarsOverPage,
 }: {
   /** The room's window (see RoomWindowSlot): scrolls at the top of the page. */
   window?: ReactNode;
+  /** The "logged" toast: shown just under the window, over the page. */
+  windowToast?: ReactNode;
+  /** Changes, to something, each time something is logged: the page scrolls up to the window. */
+  logKey?: unknown;
   /** Where the page starts: just under the status bar. */
   pageTop: number;
   /** The nav bar's height: the page runs under it and pads its content by this. */
@@ -223,7 +263,11 @@ export function RoomPanel({
   const taskApi = useMemo(() => ({ open: openTask, close: closeTask, task }), [openTask, closeTask, task]);
   const [slots, setSlots] = useState(0);
   const claim = useCallback((delta: number) => setSlots((count) => count + delta), []);
-  const windowApi = useMemo(() => (window ? { window, claim } : null), [window, claim]);
+  const windowApi = useMemo(() => (window ? { window, toast: windowToast, claim } : null), [window, windowToast, claim]);
+  const [logTick, setLogTick] = useState(0);
+  useEffect(() => {
+    if (logKey) setLogTick((tick) => tick + 1);
+  }, [logKey]);
   const typing = useKeyboardUp();
   const barsOverPage = !typing && !(task && !task.keepBars);
   const barInset = barsOverPage ? bottom : 0;
@@ -234,12 +278,17 @@ export function RoomPanel({
   return (
     <RoomTaskContext.Provider value={taskApi}>
     <RoomWindowContext.Provider value={windowApi}>
+    <RoomLogTickContext.Provider value={logTick}>
     <RoomBarInsetContext.Provider value={barInset}>
       {/* The clock sits on the page's own background here, not on a dark room. */}
       <StatusBar barStyle={getColorScheme() === 'dark' ? 'light-content' : 'dark-content'} />
       <Animated.View testID={testID} style={[styles.page, { top, bottom: 0 }]}>
         {/* A page with no scroller of its own showing the window: it sits fixed at the top. */}
-        {window && slots === 0 && !typing ? <View style={styles.windowFixed}>{window}</View> : null}
+        {window && slots === 0 && !typing ? (
+          <View style={[styles.windowFixed, styles.windowLayer]}>
+            <WindowWithToast window={window} toast={windowToast} />
+          </View>
+        ) : null}
         {task && !task.keepBars ? (
           <RoomKeyboardGapContext.Provider value={HOME_INDICATOR}>
             <View key={task.id} style={[styles.task, { paddingBottom: HOME_INDICATOR }]}>
@@ -251,6 +300,7 @@ export function RoomPanel({
         )}
       </Animated.View>
     </RoomBarInsetContext.Provider>
+    </RoomLogTickContext.Provider>
     </RoomWindowContext.Provider>
     </RoomTaskContext.Provider>
   );
@@ -274,6 +324,8 @@ export function PanelPage({ footer, children }: { footer?: ReactNode; children: 
   const underKeys = useKeyboardFade();
   const showFooter = Boolean(footer) && !typing;
   const footerSpace = showFooter ? ACTION_BAR_HEIGHT + ACTION_BAR_LIFT : 0;
+  const scroller = useRef<ScrollView>(null);
+  useScrollToWindowOnLog(scroller);
   return (
     <View style={styles.task}>
       {task?.keepBars ? (
@@ -284,6 +336,7 @@ export function PanelPage({ footer, children }: { footer?: ReactNode; children: 
         </RoomKeyboardGapContext.Provider>
       ) : (
         <ScrollView
+          ref={scroller}
           style={{ flex: 1 }}
           contentContainerStyle={[styles.content, { paddingBottom: (showFooter ? footerSpace + 18 : 28) + barInset }]}
           showsVerticalScrollIndicator={false}
@@ -565,10 +618,17 @@ export function PanelRow({
   onPress,
   action,
   done,
+  more,
 }: {
   title: string;
   detail?: string;
   onPress?: () => void;
+  /**
+   * More to say than one line holds: with it, a tap on the row opens it to
+   * the whole title and detail, then this under them, and a second tap folds
+   * it again. Ignored when the row has an `onPress` of its own.
+   */
+  more?: string;
   /**
    * A second thing to do with the row. With `text` it is a small labelled
    * button (Use, Delete); without, a +. Either turns to a tick once what it
@@ -580,6 +640,9 @@ export function PanelRow({
 }) {
   const [busy, setBusy] = useState(false);
   const [justDone, setJustDone] = useState(false);
+  const [open, setOpen] = useState(false);
+  const opens = !onPress && Boolean(more);
+  const press = opens ? () => setOpen((was) => !was) : onPress;
   const runAction = async () => {
     if (!action || busy) return;
     haptic('press');
@@ -596,20 +659,23 @@ export function PanelRow({
   };
   return (
     <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      accessibilityRole={onPress ? 'button' : undefined}
-      style={({ pressed }) => [styles.row, pressed && onPress && styles.pressed]}
+      onPress={press}
+      disabled={!press}
+      accessibilityRole={press ? 'button' : undefined}
+      accessibilityState={opens ? { expanded: open } : undefined}
+      accessibilityHint={opens ? (open ? 'Shows less' : 'Shows everything in it') : undefined}
+      style={({ pressed }) => [styles.row, pressed && press && styles.pressed]}
     >
       <View style={styles.rowText}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
+        <Text style={styles.rowTitle} numberOfLines={open ? undefined : 1}>
           {title}
         </Text>
         {detail ? (
-          <Text style={styles.rowDetail} numberOfLines={1}>
+          <Text style={styles.rowDetail} numberOfLines={open ? undefined : 1}>
             {detail}
           </Text>
         ) : null}
+        {open && more ? <Text style={styles.rowDetail}>{more}</Text> : null}
       </View>
       {done || justDone ? (
         <View style={[styles.rowAction, styles.rowDone]}>
@@ -657,6 +723,10 @@ const styles = themedStyles(() => ({
   },
   task: { flex: 1 },
   windowFixed: { marginHorizontal: 16, marginBottom: ROOM_WINDOW_GAP },
+  // Above what follows it on the page, so the toast hung under it shows over that.
+  windowLayer: { zIndex: 10, elevation: 10 },
+  windowWrap: { position: 'relative' },
+  windowToast: { position: 'absolute', left: 0, right: 0, top: '100%', marginTop: 8, alignItems: 'center' },
   content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 28, gap: 14 },
   footer: { position: 'absolute', left: 12, right: 12, bottom: ACTION_BAR_LIFT },
   actionBar: {

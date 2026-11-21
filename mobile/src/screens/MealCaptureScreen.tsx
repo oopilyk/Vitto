@@ -20,7 +20,7 @@ import { GradeBadge, LogProgress, logHaptic } from '../components/logKit';
 import { SegmentedControl } from '../components/settingsKit';
 import { cacheSearch, cachedSearch, loadRecentFoods, localSuggestions, rememberFood } from '../services/foodSuggestions';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
-import { RoomWindowSlot, useRoomKeyboardGap } from '../petWorld/RoomPanel';
+import { RoomWindowSlot, useRoomKeyboardGap, useScrollToWindowOnLog } from '../petWorld/RoomPanel';
 
 interface Props {
   onComplete: (metadata: MealMetadata) => Promise<void>;
@@ -109,6 +109,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   // under the keyboard: once the sheet has shrunk above the keyboard, the
   // page is scrolled down to it.
   const scroll = useRef<ScrollView>(null);
+  // In a room: back up to the pet when something is logged.
+  useScrollToWindowOnLog(scroll);
   const fixing = fixText !== null;
   useEffect(() => {
     if (!fixing) return undefined;

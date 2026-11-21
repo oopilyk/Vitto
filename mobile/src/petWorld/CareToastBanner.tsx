@@ -30,7 +30,16 @@ const OUT_MS = ENVIRONMENT_TRANSITION_MS;
  */
 const ACTION_ROW_CLEARANCE = (Platform.OS === 'ios' ? 28 : 16) + 78 + 12;
 
-export function CareToastBanner({ toast, night }: { toast?: CareToast | null; night?: boolean }) {
+export function CareToastBanner({
+  toast,
+  night,
+  inline = false,
+}: {
+  toast?: CareToast | null;
+  night?: boolean;
+  /** Laid out where it is put (a room page hangs it under the pet's window), not over the screen's foot. */
+  inline?: boolean;
+}) {
   const progress = useRef(new Animated.Value(0)).current;
   /**
    * The last thing worth showing, held through the fade-out. Reading `toast`
@@ -55,7 +64,7 @@ export function CareToastBanner({ toast, night }: { toast?: CareToast | null; ni
   if (!shown) return null;
 
   return (
-    <View style={[styles.slot, panelInset > 0 && { bottom: panelInset + 10 }]} pointerEvents="none">
+    <View style={inline ? styles.inline : [styles.slot, panelInset > 0 && { bottom: panelInset + 10 }]} pointerEvents="none">
       <Animated.View
         // Announced rather than focusable: it is confirmation of something the
         // user just did, so a screen reader should read it without stealing the
@@ -68,7 +77,8 @@ export function CareToastBanner({ toast, night }: { toast?: CareToast | null; ni
           night && styles.toastNight,
           {
             opacity: progress,
-            transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+            // Under the window it drops down from the window; at the foot it rises.
+            transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [inline ? -8 : 12, 0] }) }],
           },
         ]}
       >
@@ -91,6 +101,7 @@ const styles = themedStyles(() => ({
     alignItems: 'center',
     paddingHorizontal: 16,
   },
+  inline: { alignItems: 'center', paddingHorizontal: 8 },
   toast: {
     paddingHorizontal: 16,
     paddingVertical: 10,

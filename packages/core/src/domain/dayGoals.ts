@@ -31,16 +31,26 @@ const shortName = (name: string): string => {
 };
 
 /**
- * The day's calories count as done within a tenth of the target of it, or past
- * it. The banner and Today's Food card both ask this, so they never disagree.
+ * On a fat-loss goal, how much of the target counts as a full day of eating.
+ * Plenty of people cutting want to land under their number, not on it, so the
+ * day is done once they have eaten a real day's worth: nothing nudges them to
+ * eat the rest to tick it.
  */
-export const caloriesMet = (target: number, consumed: number, burned: number): boolean =>
-  target > 0 && target - consumed + burned <= target * 0.1;
+export const LOSE_CALORIES_FLOOR = 0.75;
+
+/**
+ * The day's calories count as done within a tenth of the target of it, or past
+ * it; on a fat-loss goal, from three quarters of it (LOSE_CALORIES_FLOOR). The
+ * banner and Today's Food card both ask this, so they never disagree.
+ */
+export const caloriesMet = (target: number, consumed: number, burned: number, goal?: BodyProfile['goal']): boolean =>
+  target > 0 && (target - consumed + burned <= target * 0.1 || (goal === 'lose' && consumed >= target * LOSE_CALORIES_FLOOR));
 
 export const dayGoals = (
   recap: DailyRecap,
   {
     events,
+    profile,
     pet,
     day = new Date(),
     rotation,
@@ -61,7 +71,7 @@ export const dayGoals = (
     const burned = estimateCaloriesBurned(getEventsForDay([...events], day));
     const left = Math.round(target - consumed + burned);
     goals.push(
-      caloriesMet(target, consumed, burned)
+      caloriesMet(target, consumed, burned, profile.goal)
         ? { id: 'calories', label: 'Calories', done: true }
         : { id: 'calories', label: `${left.toLocaleString('en-US')} kcal left`, done: false },
     );

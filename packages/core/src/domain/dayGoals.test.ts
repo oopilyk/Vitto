@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDailyRecap } from './dailyRecap';
-import { dayGoals } from './dayGoals';
+import { caloriesMet, dayGoals } from './dayGoals';
 import type { HealthEvent } from './health';
 import { PROFILE_SURVEY_DEFAULTS, type BodyProfile } from './macroTargets';
 import { createPet } from './pet';
@@ -109,5 +109,17 @@ describe('dayGoals with a training rotation', () => {
     const long = { ...push, name: 'Upper Body Hypertrophy' };
     const label = workoutGoal([], { index: 2, length: 5, day: { kind: 'routine', templateId: 'push' }, template: long })?.label;
     expect(label).toBe('Day 3 · Upper Body Hy…');
+  });
+
+  it('counts a cutting day as done under the target, once a real day is eaten', () => {
+    // Target 2,000: maintaining needs 1,800 or more; losing is done from 1,500.
+    expect(caloriesMet(2000, 1600, 0, 'maintain')).toBe(false);
+    expect(caloriesMet(2000, 1600, 0, 'lose')).toBe(true);
+    expect(caloriesMet(2000, 1500, 0, 'lose')).toBe(true);
+    expect(caloriesMet(2000, 1400, 0, 'lose')).toBe(false);
+    expect(caloriesMet(2000, 1900, 0, 'maintain')).toBe(true);
+    // Burned calories never undo a cut: eating 1,600 after a run is still done.
+    expect(caloriesMet(2000, 1600, 500, 'lose')).toBe(true);
+    expect(caloriesMet(0, 1600, 0, 'lose')).toBe(false);
   });
 });
