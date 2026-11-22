@@ -86,6 +86,7 @@ export * from './domain/companionBridge';
  * inside the Supabase edge function, and it has its own `clamp` and `WEEKDAYS`
  * that would collide with core's under a flat `export *`.
  */
-export * as companion from './companion';
+// Without the prompts: see companion/client.ts.
+export * as companion from './companion/client';
 /** The dials are set on the pet by the app, so the type is reachable without the namespace. */
 export type { PersonalityDials } from './companion/types';

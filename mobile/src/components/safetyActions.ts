@@ -1,5 +1,14 @@
 import { ActionSheetIOS, Platform } from 'react-native';
-import { REPORT_REASONS, REPORT_REASON_LABEL, REPORT_THANKS, type ReportReason, errorMessage } from '@vitto/core';
+import {
+  REPLY_REPORT_REASONS,
+  REPLY_REPORT_REASON_LABEL,
+  REPORT_REASONS,
+  REPORT_REASON_LABEL,
+  REPORT_THANKS,
+  type ReportReason,
+  errorMessage,
+} from '@vitto/core';
+import { companionService } from '../services/companionService';
 import { showAlert } from '../services/dialog';
 import { friendsService } from '../services/friendsService';
 
@@ -24,6 +33,23 @@ export const askReportOrBlock = ({
   const report = () => chooseReason(name, (reason) => void sendReport(userId, name, reason, block));
   sheet(name, [`Report ${name}`, `Block ${name}`], 1, (index) => (index === 0 ? report() : block()));
 };
+
+/**
+ * Report one of the pet's AI-written replies: a reason, then a thank-you.
+ * `onReported` runs once it went in (to mark the bubble).
+ */
+export const askReportReply = ({ messageId, petName, onReported }: { messageId: string; petName: string; onReported?: () => void }) =>
+  sheet(`Report what ${petName} said?`, ['Report reply'], 0, () =>
+    sheet('What’s wrong with it?', REPLY_REPORT_REASONS.map((reason) => REPLY_REPORT_REASON_LABEL[reason]), undefined, (index) =>
+      void companionService
+        .reportReply(messageId, REPLY_REPORT_REASONS[index]!)
+        .then(() => {
+          onReported?.();
+          showAlert('Report sent', REPORT_THANKS);
+        })
+        .catch((cause) => showAlert('Could not send the report', errorMessage(cause, 'Try again in a moment.'))),
+    ),
+  );
 
 const NEXT_SHEET_MS = 350;
 

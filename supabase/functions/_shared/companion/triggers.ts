@@ -5,9 +5,8 @@
 import { dueImportantEvents } from './memory.ts';
 import { expectedWorkoutMissing } from './patterns.ts';
 import { eventLineKind, type PushLineKind } from './pushLines.ts';
-import { humanizeEvent } from './prompts.ts';
 import type { CompanionEvent, CompanionEventType, CompanionMemory, CompanionMessage, CompanionState, LifeContext } from './types.ts';
-import { DAY, HOUR, MINUTE, formatAgo } from './util.ts';
+import { DAY, HOUR, MINUTE, formatAgo, humanizeEvent } from './util.ts';
 
 /** Minimum gap between time-based proactive messages. Event reactions bypass it. */
 export const PROACTIVE_COOLDOWN_MS = 2 * MINUTE;

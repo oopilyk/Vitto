@@ -1,4 +1,4 @@
-import { companion as ai } from '@vitto/core';
+import { companion as ai, type ReplyReportReason } from '@vitto/core';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
 
@@ -159,6 +159,21 @@ export const companionService = {
 
   /** Forgets everything: a fresh stranger with the current temperament. Dev only. */
   reset: (petId: string, life: LifeContext) => invoke<{ state: CompanionState }>({ action: 'reset', petId, life }),
+
+  /**
+   * Reports one of the pet's replies. The server checks it is a reply this
+   * person got and keeps a copy of what it said. Reporting the same reply
+   * twice counts as done.
+   */
+  reportReply: async (messageId: string, reason: ReplyReportReason): Promise<void> => {
+    if (!supabase) throw new Error('Reports need a connection.');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('Sign in to report a reply.');
+    const { error } = await supabase.from('ai_reply_reports').insert({ reporter_id: user.id, message_id: messageId, reason });
+    if (error && error.code !== '23505') throw new Error(error.message || 'Could not send that report.');
+  },
 };
 
 export interface CompanionDebug {

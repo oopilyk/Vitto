@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { companion as ai, describeReminderDays, errorMessage, formatReminderTime, type PetState, type Weekday } from '@vitto/core';
 import { TextButton } from '../components/ui';
 import { PetSpriteAvatar } from '../components/PetSpriteAvatar';
+import { askReportReply } from '../components/safetyActions';
 import { colors, fonts, layout, themedStyles } from '../theme';
 import {
   CompanionLimitError,
@@ -52,6 +53,9 @@ export const proposalTitle = (card: Pick<ProposalCard, 'proposal' | 'from'>): st
   return `${SETTING_LABEL[proposal.setting]}: ${card.from !== null ? `${card.from.toLocaleString('en-US')} → ` : ''}${to}`;
 };
 
+/** Stored replies have the row's uuid; anything else never reached the server. */
+const REPORTABLE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const buzz = (type: Haptics.NotificationFeedbackType) => {
   if (Platform.OS !== 'web') void Haptics.notificationAsync(type).catch(() => {});
 };
@@ -78,6 +82,10 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
   // Keyed by the reply's id. Only in this screen's memory, never in the
   // conversation cache: a card is a one-time offer on the reply it came with.
   const [cards, setCards] = useState<Record<string, ProposalCard>>({});
+  /** Replies reported here, marked under the bubble. */
+  const [reported, setReported] = useState<ReadonlySet<string>>(new Set());
+  const reportReply = (id: string) =>
+    askReportReply({ messageId: id, petName: pet.name, onReported: () => setReported((current) => new Set(current).add(id)) });
   // Taps that have already decided a card, checked before state has caught up,
   // so a double tap cannot apply the same change twice.
   const decided = useRef(new Set<string>());
@@ -263,9 +271,29 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
           const card = cards[item.id];
           return (
             <View key={item.id} style={styles.turn}>
-              <View style={[styles.bubble, item.role === 'user' ? styles.mine : styles.theirs]}>
-                <Text style={[styles.bubbleText, item.role === 'user' && styles.mineText]}>{item.content}</Text>
-              </View>
+              {item.role === 'pet' && REPORTABLE_ID.test(item.id) ? (
+                // Long-press reports it: the reply is written by an AI model.
+                <Pressable
+                  style={[styles.bubble, styles.theirs]}
+                  onLongPress={() => {
+                    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                    reportReply(item.id);
+                  }}
+                  accessibilityHint="Long-press to report this reply"
+                  accessibilityActions={[{ name: 'longpress', label: 'Report reply' }]}
+                  onAccessibilityAction={(event) => {
+                    if (event.nativeEvent.actionName === 'longpress') reportReply(item.id);
+                  }}
+                  testID={`chat-reply-${item.id}`}
+                >
+                  <Text style={styles.bubbleText}>{item.content}</Text>
+                </Pressable>
+              ) : (
+                <View style={[styles.bubble, item.role === 'user' ? styles.mine : styles.theirs]}>
+                  <Text style={[styles.bubbleText, item.role === 'user' && styles.mineText]}>{item.content}</Text>
+                </View>
+              )}
+              {reported.has(item.id) ? <Text style={styles.reported}>Reported. Thanks for telling us.</Text> : null}
               {card ? <ProposalCardView card={card} onDecide={(apply) => void decide(item.id, apply)} /> : null}
             </View>
           );
@@ -429,6 +457,7 @@ const styles = themedStyles(() => ({
   bubbleText: { fontFamily: fonts.pixel, fontSize: 20, lineHeight: 27, color: colors.ink },
   mineText: { color: '#fffdf8' },
   typing: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint, marginTop: 4 },
+  reported: { fontFamily: fonts.pixel, fontSize: 14, color: colors.faint, marginTop: 4 },
   error: { fontFamily: fonts.pixel, fontSize: 17, color: colors.danger, paddingHorizontal: 18, paddingBottom: 6 },
   composer: { width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center', flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 14, paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 28 : 14 },
   // The pet's own pixel face and square edge, over the app's SF Pro input: the chat stays in the room's style.

@@ -5,6 +5,8 @@
 import { renderLiftMath } from './liftMath.ts';
 import { describeDials } from './personality.ts';
 import { oneLine } from './memory.ts';
+import { humanizeEvent } from './util.ts';
+export { humanizeEvent } from './util.ts';
 import { PROPOSAL_RANGES } from './proposals.ts';
 import type { PetContext, Trait } from './types.ts';
 
@@ -162,7 +164,6 @@ export const PERSONALITY_VOICE: Record<string, string> = {
 const describeLevel = (value: number): string =>
   value >= 0.8 ? 'very high' : value >= 0.6 ? 'high' : value >= 0.4 ? 'medium' : value >= 0.2 ? 'low' : 'very low';
 
-export const humanizeEvent = (type: string): string => type.toLowerCase().replaceAll('_', ' ');
 
 export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
   const { life, relationship: r } = ctx;

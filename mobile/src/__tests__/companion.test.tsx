@@ -16,7 +16,7 @@ jest.mock('../services/companionService', () => {
   }
   return {
     CompanionLimitError,
-    companionService: { load: jest.fn(), cached: jest.fn(async () => null), send: jest.fn(), record: jest.fn(), checkIn: jest.fn(), debug: jest.fn(), reset: jest.fn() },
+    companionService: { load: jest.fn(), cached: jest.fn(async () => null), send: jest.fn(), record: jest.fn(), checkIn: jest.fn(), debug: jest.fn(), reset: jest.fn(), reportReply: jest.fn(async () => undefined) },
   };
 });
 
@@ -110,6 +110,16 @@ describe('talking to the pet', () => {
     const tree = await open();
     expect(companionService.load).toHaveBeenCalledWith(pet.id, life);
     expect(texts(tree)).toEqual(expect.arrayContaining(['there you are', 'Friends']));
+    tree.unmount();
+  });
+
+  it('lets a stored pet reply be reported with a long-press, and not your own messages', async () => {
+    const id = '1b4e28ba-2fa1-11d2-883f-0016d3cca427';
+    companionService.load.mockResolvedValue({ state, messages: [message('u1', 'user', 'hi'), message(id, 'pet', 'there you are')], access: free });
+    const tree = await open();
+    const replies = tree.root.findAll((node) => typeof node.props.testID === 'string' && node.props.testID.startsWith('chat-reply-') && typeof node.props.onLongPress === 'function');
+    expect(replies.map((node) => node.props.testID)).toEqual([`chat-reply-${id}`]);
+    expect(replies[0]!.props.accessibilityHint).toBe('Long-press to report this reply');
     tree.unmount();
   });
 

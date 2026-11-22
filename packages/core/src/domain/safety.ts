@@ -21,3 +21,18 @@ export interface BlockedUser {
 
 /** Said after a report goes in, so the person knows it went somewhere. */
 export const REPORT_THANKS = 'Thanks for telling us. We review every report within 24 hours.';
+
+/**
+ * Reporting one of the pet's AI-written replies (see the migration
+ * 20261122120000_ai_reply_reports.sql).
+ */
+export const REPLY_REPORT_REASONS = ['offensive', 'sexual', 'harmful', 'wrong', 'other'] as const;
+export type ReplyReportReason = (typeof REPLY_REPORT_REASONS)[number];
+
+export const REPLY_REPORT_REASON_LABEL: Record<ReplyReportReason, string> = {
+  offensive: 'Offensive or hateful',
+  sexual: 'Sexual content',
+  harmful: 'Harmful or dangerous advice',
+  wrong: 'Wrong or made up',
+  other: 'Something else',
+};

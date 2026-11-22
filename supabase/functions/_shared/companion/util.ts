@@ -92,3 +92,6 @@ export const hashString = (text: string): number => {
   for (const character of text) value = ((value << 5) + value + character.charCodeAt(0)) >>> 0;
   return value;
 };
+
+/** An event type as words: "WORKOUT_LOGGED" -> "workout logged". */
+export const humanizeEvent = (type: string): string => type.toLowerCase().replaceAll('_', ' ');

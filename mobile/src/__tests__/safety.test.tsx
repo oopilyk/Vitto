@@ -2,11 +2,15 @@ import { ActionSheetIOS, Alert } from 'react-native';
 import { usernameError } from '@vitto/core';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { askReportOrBlock } from '../components/safetyActions';
+import { askReportOrBlock, askReportReply } from '../components/safetyActions';
 
 jest.mock('../services/friendsService', () => ({
   friendsService: { reportUser: jest.fn(() => Promise.resolve()), blockUser: jest.fn(() => Promise.resolve()) },
 }));
+jest.mock('../services/companionService', () => ({
+  companionService: { reportReply: jest.fn(() => Promise.resolve()) },
+}));
+const mockCompanion = jest.requireMock('../services/companionService').companionService as { reportReply: jest.Mock };
 const mockService = jest.requireMock('../services/friendsService').friendsService as {
   reportUser: jest.Mock;
   blockUser: jest.Mock;
@@ -51,6 +55,24 @@ describe('report and block', () => {
     await flush();
     expect(mockService.blockUser).toHaveBeenCalledWith('u2');
     expect(onBlocked).toHaveBeenCalled();
+  });
+});
+
+describe('reporting what the pet said', () => {
+  it('asks why, sends it, and marks it reported', async () => {
+    const sheets = jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions').mockImplementation(() => undefined);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const onReported = jest.fn();
+    askReportReply({ messageId: 'm1', petName: 'Blue', onReported });
+    expect(sheets.mock.calls[0]![0].options).toEqual(['Report reply', 'Cancel']);
+    sheets.mock.calls[0]![1](0);
+    await flush();
+    expect(sheets.mock.calls[1]![0].options).toContain('Harmful or dangerous advice');
+    sheets.mock.calls[1]![1](2);
+    await flush();
+    expect(mockCompanion.reportReply).toHaveBeenCalledWith('m1', 'harmful');
+    expect(onReported).toHaveBeenCalled();
+    expect(alert.mock.calls[0]![0]).toBe('Report sent');
   });
 });
 
