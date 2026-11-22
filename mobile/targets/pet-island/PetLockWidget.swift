@@ -38,8 +38,8 @@ struct PetLockView: View {
         // "Open Vitto" until the app has written its first snapshot.
         switch family {
         case .accessoryInline: Text("Open Vitto")
-        case .accessoryCircular: Image(systemName: "pawprint.fill").font(.system(size: 22))
-        default: Label("Open Vitto to see today", systemImage: "pawprint.fill").font(.system(size: 13))
+        case .accessoryCircular: Image(systemName: "pawprint.fill").font(.title2)
+        default: Label("Open Vitto to see today", systemImage: "pawprint.fill").font(.footnote)
         }
       }
     }
@@ -62,17 +62,18 @@ struct GoalList: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 1) {
       HStack(spacing: 4) {
-        Image(systemName: "pawprint.fill").font(.system(size: 11))
+        Image(systemName: "pawprint.fill").font(.caption2)
         Text("\(snapshot.name) · \(snapshot.moodWord(at: at))")
-          .font(.system(size: 13, weight: .semibold))
+          .font(.footnote.weight(.semibold))
           .lineLimit(1)
+          .minimumScaleFactor(0.8)
       }
       ForEach(Array(snapshot.goals(at: at).prefix(3).enumerated()), id: \.offset) { _, goal in
         HStack(spacing: 4) {
           Image(systemName: goal.done ? "checkmark.circle.fill" : "circle")
-            .font(.system(size: 10))
+            .font(.caption2)
           Text(goal.label)
-            .font(.system(size: 13, weight: goal.done ? .regular : .medium))
+            .font(.footnote.weight(goal.done ? .regular : .medium))
             .lineLimit(1)
             .minimumScaleFactor(0.8)
         }
@@ -98,7 +99,8 @@ struct CalorieRing: View {
       Text("kcal")
     } currentValueLabel: {
       Text(left >= 1000 ? String(format: "%.1fk", left / 1000) : "\(Int(left.rounded()))")
-        .font(.system(size: 14, weight: .semibold).monospacedDigit())
+        .font(.subheadline.weight(.semibold).monospacedDigit())
+        .minimumScaleFactor(0.6)
     }
     .gaugeStyle(.accessoryCircularCapacity)
     .accessibilityLabel("\(Int(left.rounded())) calories left")
