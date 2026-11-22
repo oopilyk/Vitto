@@ -56,6 +56,7 @@ import {
   BODY_LIMITS,
   bodyProblem,
   hasBlockedTerm,
+  BLOCKED_PERSONA_MESSAGE,
   BLOCKED_NAME_MESSAGE,
 } from '@vitto/core';
 import { companion as ai } from '@vitto/core';
@@ -685,6 +686,7 @@ export function OnboardingScreen({
     if (stepId === 'personality' && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
       return 'Pick a personality.';
     if (stepId === 'personality' && personality === 'custom' && !isValidPersona(persona)) return 'Tell us who they are.';
+    if (stepId === 'personality' && personality === 'custom' && hasBlockedTerm(persona)) return BLOCKED_PERSONA_MESSAGE;
     return null;
   };
 

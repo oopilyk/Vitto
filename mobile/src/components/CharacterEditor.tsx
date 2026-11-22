@@ -2,9 +2,11 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { Keyboard, Platform, Pressable, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
+  BLOCKED_PERSONA_MESSAGE,
   PERSONALITY_PREVIEW,
   PERSONA_MAX_LENGTH,
   companion,
+  hasBlockedTerm,
   isValidPersona,
   petPersonalityOptionsFor,
   type PersonalityDials,
@@ -92,7 +94,8 @@ export function CharacterEditor({
     Keyboard.dismiss();
     setSaveState('saving');
     setSaveError(null);
-    const problem = await onSave({ ...draft, persona: draft.persona.trim() });
+    // Their own words become the character the model plays: none of the filtered terms.
+    const problem = hasBlockedTerm(draft.persona) ? BLOCKED_PERSONA_MESSAGE : await onSave({ ...draft, persona: draft.persona.trim() });
     if (typeof problem === 'string') {
       setSaveState('failed');
       setSaveError(problem);

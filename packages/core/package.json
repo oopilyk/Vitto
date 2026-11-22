@@ -7,7 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:word-puzzle-words": "node scripts/buildWordPuzzleWords.ts"
+    "build:word-puzzle-words": "node scripts/buildWordPuzzleWords.ts",
+    "build:blocked-terms": "node scripts/buildBlockedTerms.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4"

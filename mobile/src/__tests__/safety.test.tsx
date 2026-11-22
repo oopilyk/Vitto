@@ -1,6 +1,7 @@
 import { ActionSheetIOS, Alert } from 'react-native';
 import { usernameError } from '@vitto/core';
-import { BLOCKED_TERMS } from '../../../packages/core/src/data/blockedTerms';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { askReportOrBlock } from '../components/safetyActions';
 
 jest.mock('../services/friendsService', () => ({
@@ -55,7 +56,10 @@ describe('report and block', () => {
 
 describe('what other people see is filtered', () => {
   it('refuses a username with a blocked term in it', () => {
-    const term = BLOCKED_TERMS.find((word) => /^[a-z]{4,10}$/.test(word))!;
+    // From the fixture the filter's hashes are made from: the app carries no term itself.
+    const fixture = readFileSync(join(__dirname, '../../../packages/core/src/data/offensiveWords.fixture.txt'), 'utf8').split('\n');
+    const severe = fixture.slice(fixture.findIndex((line) => line.startsWith('[severe]')) + 1);
+    const term = severe.map((line) => line.trim()).find((word) => /^[a-z]{4,10}$/.test(word))!;
     expect(usernameError(`the_${term}`)).toBe("That username isn't allowed. Try another.");
     expect(usernameError('kyle_li')).toBeNull();
   });
