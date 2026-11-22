@@ -11,18 +11,23 @@ jest.mock('../services/mealAnalysis', () => ({
   correctMealAnalysis: (...args: unknown[]) => mockCorrect(...args),
   shrinkForUpload: async (asset: { uri: string; base64: string; mimeType?: string }) => asset,
 }));
-jest.mock('expo-camera', () => ({
-  __esModule: true,
-  CameraView: () => null,
-  useCameraPermissions: () => [{ granted: false }, jest.fn()],
-}));
+// The in-app viewfinder: its shutter takes the photo through the camera's ref.
+const mockTakePicture = jest.fn();
+jest.mock('expo-camera', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    CameraView: React.forwardRef((_props: unknown, ref: unknown) => {
+      React.useImperativeHandle(ref, () => ({ takePictureAsync: (...args: unknown[]) => mockTakePicture(...args) }));
+      return null;
+    }),
+    useCameraPermissions: () => [{ granted: true, canAskAgain: true }, jest.fn()],
+  };
+});
 
-const mockLaunchCamera = jest.fn();
 const stub = (name: string, value: unknown) =>
   Object.defineProperty(ImagePicker, name, { value, writable: true, configurable: true });
-stub('launchCameraAsync', mockLaunchCamera);
 stub('launchImageLibraryAsync', jest.fn());
-stub('requestCameraPermissionsAsync', jest.fn(async () => ({ granted: true })));
 stub('requestMediaLibraryPermissionsAsync', jest.fn(async () => ({ granted: true })));
 
 const analysis = (description: string, calories: number): MealAnalysis => ({
@@ -41,11 +46,14 @@ const byText = (tree: renderer.ReactTestRenderer, label: string) =>
     .find((node) => node.findAllByType(Text).some((text: any) => text.props.children === label));
 const shows = (tree: renderer.ReactTestRenderer, text: string) => JSON.stringify(tree.toJSON()).includes(text);
 
+const shutter = (tree: renderer.ReactTestRenderer) =>
+  tree.root.find((node) => node.props.testID === 'shutter' && typeof node.props.onPress === 'function');
+
 const mount = () => {
   let tree!: renderer.ReactTestRenderer;
   act(() => {
     tree = renderer.create(
-      <MealCaptureScreen onComplete={async () => {}} onFeedStart={() => {}} onAnalyzingChange={() => {}} onClose={() => {}} />,
+      <MealCaptureScreen initialMode="photo" onComplete={async () => {}} onFeedStart={() => {}} onAnalyzingChange={() => {}} onClose={() => {}} />,
     );
   });
   return tree;
@@ -53,18 +61,37 @@ const mount = () => {
 
 describe('meal photo', () => {
   beforeEach(() => {
-    mockLaunchCamera.mockReset().mockResolvedValue({ canceled: false, assets: [{ uri: 'file:///plate.jpg', base64: 'aGk=', mimeType: 'image/jpeg' }] });
+    mockTakePicture.mockReset().mockResolvedValue({ uri: 'file:///plate.jpg', base64: 'aGk=', width: 1200, height: 900 });
     mockAnalyze.mockReset().mockResolvedValue(analysis('1 iced matcha latte (~470ml)', 190));
     mockCorrect.mockReset().mockResolvedValue(analysis('1 iced strawberry matcha with almond milk (~470ml)', 160));
   });
 
-  it('opens the camera when the big photo box is tapped', async () => {
+  it('takes the photo with the shutter and reads it straight away', async () => {
     const tree = mount();
-    const box = tree.root.find((node) => node.props.testID === 'photo-box' && typeof node.props.onPress === 'function');
     await act(async () => {
-      await box.props.onPress();
+      await shutter(tree).props.onPress();
     });
-    expect(mockLaunchCamera).toHaveBeenCalledTimes(1);
+    // The bytes are asked for with the photo, so nothing reads the file back.
+    expect(mockTakePicture).toHaveBeenCalledWith(expect.objectContaining({ base64: true }));
+    expect(mockAnalyze).toHaveBeenCalledTimes(1);
+    expect(mockAnalyze.mock.calls[0][0]).toMatchObject({ uri: 'file:///plate.jpg', base64: 'aGk=' });
+    expect(shows(tree, 'iced matcha latte')).toBe(true);
+
+    // Retake goes back to the viewfinder, with nothing left over from the last photo.
+    act(() => byText(tree, 'Retake')!.props.onPress());
+    expect(shows(tree, 'iced matcha latte')).toBe(false);
+    expect(shutter(tree)).toBeTruthy();
+    act(() => tree.unmount());
+  });
+
+  it('says so when the camera could not take the photo', async () => {
+    mockTakePicture.mockRejectedValueOnce(new Error('camera busy'));
+    const tree = mount();
+    await act(async () => {
+      await shutter(tree).props.onPress();
+    });
+    expect(mockAnalyze).not.toHaveBeenCalled();
+    expect(shows(tree, 'That photo could not be taken')).toBe(true);
     act(() => tree.unmount());
   });
 
@@ -78,7 +105,7 @@ describe('meal photo', () => {
     const toEnd = jest.spyOn(ScrollView.prototype, 'scrollToEnd').mockImplementation(() => {});
     const tree = mount();
     await act(async () => {
-      await byText(tree, 'Take photo')!.props.onPress();
+      await shutter(tree).props.onPress();
     });
     expect(listeners.keyboardDidShow).toBeUndefined();
 
@@ -98,7 +125,7 @@ describe('meal photo', () => {
     const tree = mount();
     // Choosing the photo is enough: it is read straight away, no Analyze button.
     await act(async () => {
-      await byText(tree, 'Take photo')!.props.onPress();
+      await shutter(tree).props.onPress();
     });
     expect(byText(tree, 'Analyze meal')).toBeFalsy();
     expect(shows(tree, 'iced matcha latte')).toBe(true);

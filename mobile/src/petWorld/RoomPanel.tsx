@@ -366,6 +366,13 @@ const ACTION_ICON = {
     path: 'M4 9 a2 2 0 0 1 2 -2 h1.6 l1.5 -2 h5.8 l1.5 2 H18 a2 2 0 0 1 2 2 v8 a2 2 0 0 1 -2 2 H6 a2 2 0 0 1 -2 -2 Z',
   },
   scan: { circle: null, path: 'M4.5 6 V18 M8 6 V18 M10.5 6 V18 M14 6 V18 M17 6 V18 M19.5 6 V18' },
+  // The Kitchen's camera: barcodes and meal photos through one viewfinder.
+  camera: {
+    circle: { cx: 12, cy: 13, r: 3.4 },
+    path: 'M4 9 a2 2 0 0 1 2 -2 h1.6 l1.5 -2 h5.8 l1.5 2 H18 a2 2 0 0 1 2 2 v8 a2 2 0 0 1 -2 2 H6 a2 2 0 0 1 -2 -2 Z',
+  },
+  // A microphone: the meal said, or typed, in a sentence.
+  describe: { circle: null, path: 'M12 3.5 a3 3 0 0 0 -3 3 v4.5 a3 3 0 0 0 6 0 V6.5 a3 3 0 0 0 -3 -3 Z M6 11 a6 6 0 0 0 12 0 M12 17 V20.5 M9 20.5 H15' },
   // A bowl, steaming: a meal kept for next time.
   meals: { circle: null, path: 'M4 12.5 H20 A8 7 0 0 1 4 12.5 Z M9.5 9 C9 7.8 10.5 7 10 5.5 M14 9 C13.5 7.8 15 7 14.5 5.5' },
   // A drop of water.

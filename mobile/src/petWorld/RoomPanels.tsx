@@ -46,8 +46,8 @@ import {
  * so the usual thing is one tap and nothing is more than two.
  *
  *   Kitchen  the meal logger itself, open on Search: the meals eaten lately
- *            are right there to log again. Photo, Scan and Water are tabs
- *            pinned at the page's foot.
+ *            are right there to log again. The Camera (barcodes and photos),
+ *            Describe, Meals and Water are tabs pinned at the page's foot.
  *   Gym      the workout screen itself: today's routine and the rotation
  *            (edit, reorder, create), exercises picked by hand, past sessions
  *            to repeat, and the session, all in the page.
@@ -62,10 +62,14 @@ import {
 
 // --- Food ------------------------------------------------------------------
 
-/** The meal logger's ways in. `recent` is search with the keyboard down, as the Kitchen opens. */
-export type MealEntry = 'search' | 'photo' | 'scan' | 'recent';
+/**
+ * The meal logger's ways in. `recent` is search with the keyboard down, as the
+ * Kitchen opens. `camera` is barcodes and meal photos through one viewfinder
+ * (`photo` and `scan` open it on that mode); `describe` is the meal in a sentence.
+ */
+export type MealEntry = 'search' | 'camera' | 'photo' | 'scan' | 'describe' | 'recent';
 
-type FoodTab = 'search' | 'photo' | 'scan' | 'meals' | 'water';
+type FoodTab = 'search' | 'camera' | 'describe' | 'meals' | 'water';
 
 export interface FoodPanelProps {
   /**
@@ -93,8 +97,9 @@ export interface FoodPanelProps {
 /**
  * The Kitchen's page is the meal logger itself, opened on Search with the
  * keyboard down, so the meals eaten lately are the first thing under the
- * window. The pinned bar's tabs switch to Photo, Scan or Water; logging a meal
- * (or putting the logger away) comes back to Search.
+ * window. The pinned bar's tabs switch to the Camera (barcodes and photos),
+ * Describe, Meals or Water; logging a meal (or putting the logger away) comes
+ * back to Search.
  */
 export function FoodPanel({ renderMealLogger, today, savedMeals = [], onLogSavedMeal, onDeleteSavedMeal, recentMeals, onSaveMeal, water }: FoodPanelProps) {
   const task = useRoomTask();
@@ -130,8 +135,8 @@ export function FoodPanel({ renderMealLogger, today, savedMeals = [], onLogSaved
 
   const tabs: { icon: FoodTab; label: string; hint: string }[] = [
     { icon: 'search', label: 'Search', hint: 'Search foods' },
-    { icon: 'photo', label: 'Photo', hint: 'Log a meal from a photo' },
-    { icon: 'scan', label: 'Scan', hint: 'Scan a barcode' },
+    { icon: 'camera', label: 'Camera', hint: 'Scan a barcode or photograph a meal' },
+    { icon: 'describe', label: 'Describe', hint: 'Say or type what you ate' },
     { icon: 'meals', label: 'Meals', hint: 'Your saved meals' },
     ...(water ? [{ icon: 'water' as const, label: 'Water', hint: 'Log water' }] : []),
   ];

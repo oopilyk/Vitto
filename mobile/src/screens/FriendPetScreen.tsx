@@ -82,10 +82,11 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
       setSending(null);
     }
   };
-  // Same day/night palette as the friends list, so moving list -> detail is not
-  // a jarring theme flip; the room itself switches art on the same clock.
+  // The page around the room (its bar, its messages) is in the app's
+  // appearance, as the friends list is, so moving list -> detail is not a
+  // jarring theme flip. The room itself switches art on the clock.
   const night = isNightTime();
-  const palette = friendsPalette(night);
+  const palette = friendsPalette();
   const screenStyle = [layout.screen, { backgroundColor: palette.screenBg }];
 
   useEffect(() => {
@@ -303,6 +304,7 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
     isExploring: pose === 'exploring',
   };
 
+  // Over the room's art, which is night or day by the clock: the tone that reads on it.
   const healthColor = healthToneColor(status.health.tone, friendsPalette(night));
   const dayLabel = `DAY ${daysWithPet(pet)}`;
 

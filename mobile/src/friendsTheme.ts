@@ -2,14 +2,16 @@ import type { SocialHealthTone } from '@vitto/core';
 import { colors, getColorScheme } from './theme';
 
 /**
- * Friends & Social Pets -- the day/night palette for the friends surfaces.
+ * Friends & Social Pets -- the light and dark palettes for the friends surfaces.
  *
- * The product owner wants the friends list "light during the day and dark
- * during the night", the way Snapchat's is. Rather than thread a dozen
- * conditional style props through every row, the screen picks one of these two
- * flat palettes from `isNightTime()` and passes it down. Day reuses the app's
- * warm paper palette; night is a near-black ground with bright text, matching
- * the reference.
+ * The friends pages follow the app's appearance (Settings > Appearance), as
+ * every other page does. They used to go dark on the clock instead ("light
+ * during the day and dark during the night", the way Snapchat's list is),
+ * which predates the Appearance setting: with Light chosen, the list still
+ * turned dark at 7pm. Rather than thread a dozen conditional style props
+ * through every row, a screen picks one of these two flat palettes with
+ * `friendsPalette()` and passes it down. Light reuses the app's own palette;
+ * dark is a near-black ground with bright text.
  */
 export interface FriendsPalette {
   screenBg: string;
@@ -57,9 +59,14 @@ export const FRIENDS_DARK: FriendsPalette = {
   avatarPlaceholderBg: '#2c2b33',
 };
 
-/** Night, or the app in dark mode, gets the dark list; otherwise the day one. */
-export const friendsPalette = (isNight: boolean): FriendsPalette =>
-  isNight || getColorScheme() === 'dark' ? FRIENDS_DARK : FRIENDS_LIGHT;
+/**
+ * The palette for a friends page: the app's appearance, unless `dark` says
+ * otherwise. The one caller that does is text laid over a friend's room, whose
+ * art follows the clock whatever the appearance: at night it needs the dark
+ * palette's tones.
+ */
+export const friendsPalette = (dark: boolean = getColorScheme() === 'dark'): FriendsPalette =>
+  dark ? FRIENDS_DARK : FRIENDS_LIGHT;
 
 /**
  * The colour a `SocialHealthInfo.tone` reads as in a status line. `neutral`

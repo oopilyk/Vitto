@@ -101,7 +101,7 @@ describe('meal sheet', () => {
   it("asks for the camera, and sends someone who said no to Settings", () => {
     mockPermission.current = { granted: false, canAskAgain: true };
     let tree = render();
-    act(() => tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && node.findAllByType(Text).some((t: any) => t.props.children === 'Scan barcode'))[0]!.props.onPress());
+    act(() => tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && node.findAllByType(Text).some((t: any) => t.props.children === 'Camera'))[0]!.props.onPress());
     act(() => tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && node.findAllByType(Text).some((t: any) => t.props.children === 'Allow camera'))[0]!.props.onPress());
     expect(mockRequest).toHaveBeenCalled();
     act(() => tree.unmount());
@@ -109,7 +109,7 @@ describe('meal sheet', () => {
     mockPermission.current = { granted: false, canAskAgain: false };
     const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
     tree = render();
-    act(() => tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && node.findAllByType(Text).some((t: any) => t.props.children === 'Scan barcode'))[0]!.props.onPress());
+    act(() => tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && node.findAllByType(Text).some((t: any) => t.props.children === 'Camera'))[0]!.props.onPress());
     expect(texts(tree)).toContain('Turn it on in Settings');
     act(() => tree.root.findAll((node: any) => typeof node.props.onPress === 'function' && node.findAllByType(Text).some((t: any) => t.props.children === 'Open Settings'))[0]!.props.onPress());
     expect(openSettings).toHaveBeenCalled();

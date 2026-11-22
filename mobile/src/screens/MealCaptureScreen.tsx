@@ -8,13 +8,16 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View, Alert, Keyboard, Linking, Platform, useWindowDimensions } from 'react-native';
+  View, Alert, Keyboard, Platform } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import {  MAX_SAVED_MEAL_NAME, detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis } from '@vitto/core';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Svg, { Path } from 'react-native-svg';
+import {  MAX_SAVED_MEAL_NAME, detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis, describeMeal, MAX_MEAL_TEXT_LENGTH } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
-import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, TextButton, DoneTextInput, Mark, useKeyboardLift } from '../components/ui';
+import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, TextButton, DoneTextInput, Mark, haptic, useKeyboardLift } from '../components/ui';
+import { MealCamera, type CameraMode, type CameraShot } from '../components/MealCamera';
+import { canDictate, useDictation } from '../services/dictation';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { GradeBadge, LogProgress, logHaptic } from '../components/logKit';
 import { SegmentedControl } from '../components/settingsKit';
@@ -30,11 +33,11 @@ interface Props {
   /** Who is about to eat this, so the photo analysis can come back with their reaction. */
   petContext?: MealPetContext;
   /**
-   * Photo macro tracking is Plus. False shows the Photo tab as a locked Plus
-   * feature and opens on Search instead. Defaults to true.
+   * Photo macro tracking is Plus. False marks the camera's shutter as a Plus
+   * feature (barcodes still scan) and opens on Search instead. Defaults to true.
    */
   canScanPhotos?: boolean;
-  /** Opens the Plus paywall from the locked Photo tab. */
+  /** Opens the Plus paywall from the camera's locked shutter. */
   onOpenPlus?: () => void;
   /** Meals to log again in one tap (repeatableMeals), newest first. */
   repeatable?: readonly RepeatableMeal[];
@@ -46,14 +49,16 @@ interface Props {
   today?: { consumed: MacroTotals; targets: MacroTotals };
   /**
    * Which way in to open on: the Kitchen's page has a button for each. Defaults
-   * to the photo, or search without Plus. `recent` is search with the keyboard
-   * down, so the meals eaten lately are what shows.
+   * to the camera, or search without Plus. `camera` opens the camera as it was
+   * last used; `photo` and `scan` open it on that mode. `recent` is search with
+   * the keyboard down, so the meals eaten lately are what shows. `describe` is
+   * the meal said or typed in a sentence.
    */
-  initialMode?: 'photo' | 'search' | 'scan' | 'recent';
+  initialMode?: 'camera' | 'photo' | 'scan' | 'search' | 'recent' | 'describe';
   /**
-   * Opened in the Kitchen's page: its pinned bar switches between photo, search
-   * and scan, so there is no switch, title, × or progress card here, only the
-   * logging itself.
+   * Opened in the Kitchen's page: its pinned bar switches between search, the
+   * camera and describing, so there is no switch, title, × or progress card
+   * here, only the logging itself.
    */
   inRoom?: boolean;
   /**
@@ -64,17 +69,32 @@ interface Props {
   onSaveMeal?: (name: string, analysis: MealAnalysis) => Promise<string | null>;
 }
 
-type Mode = 'photo' | 'search' | 'scan';
+type Mode = 'camera' | 'search' | 'describe';
+
+export { closeUpLens } from '../components/MealCamera';
 
 /**
- * The camera to scan with, from the phone's own list (iOS names them in
- * English, e.g. "Back Triple Camera"). Pro iPhones' main camera cannot focus
- * nearer than about 20 cm, so a barcode held where it is natural to hold one
- * stays blurred. The combined cameras switch to the ultra-wide lens up close,
- * which focuses at a few centimetres. A phone without one keeps the default.
+ * The camera opens on the mode it was last used in, on this phone: someone who
+ * scans a protein bar every morning should not have to leave Photo each time.
  */
-export const closeUpLens = (lenses: readonly string[]): string | undefined =>
-  lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
+const CAMERA_MODE_KEY = 'vitto.mealCamera.mode';
+let lastCameraMode: CameraMode | null = null;
+const cameraModeLoaded: Promise<void> = AsyncStorage.getItem(CAMERA_MODE_KEY)
+  .then((stored) => {
+    if (stored === 'barcode' || stored === 'photo') lastCameraMode ??= stored;
+  })
+  .catch(() => undefined);
+const rememberCameraMode = (mode: CameraMode) => {
+  lastCameraMode = mode;
+  void AsyncStorage.setItem(CAMERA_MODE_KEY, mode).catch(() => undefined);
+};
+
+/** How long the barcode frame stays green on a find before the camera gives way to the food. */
+const FOUND_BEAT_MS = 550;
+/** How long the camera's page takes to slide away on iOS, before another can be shown. */
+const CAMERA_DISMISS_MS = 450;
+/** How long a barcode that was not found is left alone before it is looked up again. */
+const UNKNOWN_BARCODE_REST_MS = 5000;
 
 /** What reading a photo says while it works, one step every READING_STEP_MS. */
 const READING_STEPS = ['Spotting the foods...', 'Sizing up portions...', 'Counting it up...'];
@@ -85,13 +105,40 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   // row of Breakfast / Lunch / Dinner / Snack on every log was a question
   // nobody needed to answer, and the clock is right nearly always.
   const [slot] = useState<MealSlot>(() => slotForTime(new Date()));
-  // Below 390pt a third of the tab track is ~75-95pt of label: "Scan barcode"
-  // and "Photo · Plus" broke over two lines there, so they take their short form.
-  const compact = useWindowDimensions().width < 390;
-  const [mode, setMode] = useState<Mode>(initialMode === 'recent' ? 'search' : (initialMode ?? (canScanPhotos ? 'photo' : 'search')));
+  const [mode, setMode] = useState<Mode>(
+    initialMode === 'recent' ? 'search' : initialMode === 'photo' || initialMode === 'scan' ? 'camera' : (initialMode ?? (canScanPhotos ? 'camera' : 'search')),
+  );
+  // The camera's two modes. Asked for outright (a Photo or Scan way in), else
+  // as it was last used, else whichever this account can use: photos are Plus.
+  const camAsked = useRef(initialMode === 'photo' || initialMode === 'scan');
+  const [cam, setCamState] = useState<CameraMode>(
+    initialMode === 'photo' ? 'photo' : initialMode === 'scan' ? 'barcode' : (lastCameraMode ?? (canScanPhotos ? 'photo' : 'barcode')),
+  );
+  const camNow = useRef(cam);
+  camNow.current = cam;
+  useEffect(() => {
+    let mounted = true;
+    // The stored mode can arrive after the first open of a session.
+    void cameraModeLoaded.then(() => {
+      if (mounted && !camAsked.current && lastCameraMode && lastCameraMode !== camNow.current) setCamState(lastCameraMode);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  const photoMode = mode === 'camera' && cam === 'photo';
+  const scanMode = mode === 'camera' && cam === 'barcode';
+  // The camera is a page of its own over this one. It comes up at once when the
+  // camera was what was asked for (the Kitchen's Camera button); a sheet that
+  // merely opens on the camera's tab waits to be asked, behind "Open camera".
+  const [cameraOpen, setCameraOpen] = useState(initialMode === 'camera' || initialMode === 'photo' || initialMode === 'scan');
+  const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (closing.current) clearTimeout(closing.current);
+  }, []);
   const [image, setImage] = useState<PickedImage | null>(null);
   const [analysis, setAnalysis] = useState<MealAnalysis | null>(null);
-  const [busy, setBusy] = useState<'analyzing' | 'fixing' | 'saving' | 'searching' | null>(null);
+  const [busy, setBusy] = useState<'analyzing' | 'fixing' | 'saving' | 'searching' | 'describing' | null>(null);
   // A photo takes a few seconds to read. Saying what is happening, a step at a
   // time, makes the wait feel like work being done rather than a stall. It
   // stays on the last step if the reply is slow.
@@ -145,10 +192,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   const [again, setAgain] = useState<{ meal: RepeatableMeal; servings: number } | null>(null);
   const againAnalysis = again ? repeatMeal(again.meal.analysis, again.servings) : null;
 
-  const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  /** The close-focus camera for barcodes, once the phone has said which it has. */
-  const [scanLens, setScanLens] = useState<string | undefined>(undefined);
 
   const reset = () => {
     setAnalysis(null);
@@ -158,31 +202,39 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     setError(null);
   };
 
-  const pick = async (from: 'camera' | 'library') => {
+  /** Photo logging is Plus: the camera's shutter and library button go here without it. */
+  const lockedPhoto = () => {
+    // The paywall opens on the page under the camera.
+    setCameraOpen(false);
+    if (onOpenPlus) onOpenPlus();
+    else setError('Photo meal tracking is part of Vitto Plus. Search, scan a barcode or describe your meal instead.');
+  };
+
+  const pickFromLibrary = async () => {
+    if (!canScanPhotos) {
+      lockedPhoto();
+      return;
+    }
     reset();
-    const permissionResult =
-      from === 'camera'
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    // iOS shows one page over the app at a time: with the camera's page up, the
+    // library never appeared at all. So the camera goes first, and comes back
+    // if nothing is chosen.
+    const fromCamera = cameraOpen;
+    if (fromCamera) {
+      setCameraOpen(false);
+      if (Platform.OS === 'ios') await new Promise((resolve) => setTimeout(resolve, CAMERA_DISMISS_MS));
+    }
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      setError(
-        from === 'camera'
-          ? 'Camera access is off. Enable it in Settings to photograph a meal.'
-          : 'Photo access is off. Enable it in Settings to choose a meal photo.',
-      );
+      setError('Photo access is off. Enable it in Settings to choose a meal photo.');
       return;
     }
     // base64 keeps the bytes in hand, so nothing has to read the file back later.
-    const options: ImagePicker.ImagePickerOptions = {
-      quality: 0.6,
-      mediaTypes: ['images'],
-      base64: true,
-    };
-    const picked =
-      from === 'camera'
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
-    if (picked.canceled || !picked.assets?.length) return;
+    const picked = await ImagePicker.launchImageLibraryAsync({ quality: 0.6, mediaTypes: ['images'], base64: true });
+    if (picked.canceled || !picked.assets?.length) {
+      if (fromCamera) setCameraOpen(true);
+      return;
+    }
 
     const asset = picked.assets[0];
     if (!asset.base64) {
@@ -193,6 +245,43 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     setImage(shrunk);
     // Straight to reading it: choosing the photo is the decision to log it.
     await analyze(shrunk);
+  };
+
+  /** The shutter's photo: read straight away, as a chosen one is. */
+  const onShot = async (shot: CameraShot) => {
+    reset();
+    // Taken: the camera goes away and the page shows the photo being read.
+    setCameraOpen(false);
+    const shrunk = await shrinkForUpload({ ...shot, mimeType: 'image/jpeg' });
+    setImage(shrunk);
+    await analyze(shrunk);
+  };
+
+  /** Back to the camera for another go. */
+  const retake = () => {
+    if (busy) return;
+    reset();
+    setImage(null);
+    setCameraOpen(true);
+  };
+
+  /**
+   * The camera's ×. In the Kitchen, with nothing taken, that is leaving the
+   * Camera tab: its page would be empty. Elsewhere the page offers the way back in.
+   */
+  const closeCamera = () => {
+    setCameraOpen(false);
+    setError(null);
+    if (inRoom && !image && !selected) onClose();
+  };
+
+  const setCam = (next: CameraMode) => {
+    if (closing.current) clearTimeout(closing.current);
+    camAsked.current = true;
+    rememberCameraMode(next);
+    setCamState(next);
+    reset();
+    setScanned(false);
   };
 
   const analyze = async (photo: PickedImage | null = image) => {
@@ -301,19 +390,29 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     return [...known, ...list];
   }
 
+  /** A barcode no database had, and when: the camera still sees it many times a second. */
+  const unknownBarcode = useRef<{ data: string; at: number } | null>(null);
   const onBarcode = async ({ data }: { data: string }) => {
     if (scanned || busy) return;
+    // Still pointed at the one just looked up and not found: asking again every
+    // frame would spend the account's searches on the same "no".
+    if (unknownBarcode.current?.data === data && Date.now() - unknownBarcode.current.at < UNKNOWN_BARCODE_REST_MS) return;
     setScanned(true);
     setBusy('searching');
     setError(null);
     try {
       const found = await lookupBarcode(data);
       if (!found) {
+        unknownBarcode.current = { data, at: Date.now() };
         setError(`No food found for barcode ${data}.`);
         setScanned(false);
       } else {
+        haptic('press');
         setSelected(found);
         setServings('1');
+        // A beat on the green frame, so it is seen to have been found, then
+        // back to the page, where the food and its servings are.
+        closing.current = setTimeout(() => setCameraOpen(false), FOUND_BEAT_MS);
       }
     } catch (cause) {
       setError(errorMessage(cause, 'Barcode lookup failed.'));
@@ -422,6 +521,64 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     ? toMealAnalysis(selected, Math.max(0.1, Number(servings) || 1))
     : null;
 
+  // Describe: the meal said or typed in a sentence. What it is read as goes on
+  // the plate, the same plate Search builds, to be checked before it is logged.
+  const [describeText, setDescribeText] = useState('');
+  /** What was said that could not be found, told once under the box. */
+  const [describeNote, setDescribeNote] = useState<string | null>(null);
+  /** What was in the box when the mic went on: speech is added after it. */
+  const spokenAfter = useRef('');
+  const dictation = useDictation((heard) =>
+    setDescribeText(`${spokenAfter.current}${spokenAfter.current && heard ? ' ' : ''}${heard}`.slice(0, MAX_MEAL_TEXT_LENGTH)),
+  );
+  const toggleMic = () => {
+    if (dictation.listening) {
+      dictation.stop();
+      return;
+    }
+    spokenAfter.current = describeText.trim();
+    void dictation.start();
+  };
+  /** The search the box's own reading uses: an answer already had this session is not asked for twice. */
+  const searchOnce = async (term: string): Promise<FoodSearchResult[]> => {
+    const known = cachedSearch(term);
+    if (known) return known;
+    const found = await searchFoodsByName(term);
+    cacheSearch(term, found);
+    return found;
+  };
+  const describe = async () => {
+    const said = describeText.trim();
+    if (!said || busy) return;
+    dictation.stop();
+    Keyboard.dismiss();
+    setBusy('describing');
+    setError(null);
+    setDescribeNote(null);
+    try {
+      const meal = await describeMeal(said, { search: searchOnce });
+      // Onto the plate, after whatever is on it: "and a coke" adds to the meal.
+      setPlate((current) =>
+        meal.items.reduce(
+          (next, item) =>
+            next.some((entry) => entry.food.id === item.food.id)
+              ? next.map((entry) => (entry.food.id === item.food.id ? { ...entry, servings: entry.servings + item.servings } : entry))
+              : [...next, { food: item.food, servings: item.servings, unit: item.unit }],
+          current,
+        ),
+      );
+      meal.items.forEach(({ food }) => {
+        if (food.source !== 'estimate') rememberFood(food);
+      });
+      setDescribeText('');
+      setDescribeNote(meal.missed.length > 0 ? `Could not work out ${meal.missed.join(', ')}. Add it from Search.` : null);
+    } catch (cause) {
+      setError(errorMessage(cause, 'Could not read that meal. Try again.'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   // The one thing to do next, pinned under the page so it is never a scroll
   // away: log the meal, or (photo) say it is being read or offer a retry.
   const quickAnalysis =
@@ -444,7 +601,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           // A repeat is typed in, not read from a photo or a barcode.
           onPress: () => void saveAnalysis(againAnalysis, 'manual'),
         }
-      : mode === 'photo' && canScanPhotos
+      : photoMode && canScanPhotos
       ? busy === 'analyzing'
         ? { label: readingLabel, busy: true, disabled: true, onPress: () => {} }
         : analysis && fixText === null
@@ -452,14 +609,14 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           : image && !analysis
             ? { label: 'Try again', onPress: () => void analyze() }
             : null
-      : mode === 'search' && plateAnalysis
+      : (mode === 'search' || mode === 'describe') && plateAnalysis
         ? {
             label: busy === 'saving' ? 'Saving...' : plate.length === 1 ? 'Log meal' : `Add ${plate.length} foods`,
             summary: summaryOf(plateAnalysis),
             busy: busy === 'saving',
             onPress: () => void logPlate(plateAnalysis),
           }
-        : mode === 'scan' && selectedAnalysis
+        : scanMode && selectedAnalysis
           ? { label: busy === 'saving' ? 'Saving...' : 'Log meal', summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
           : null;
 
@@ -467,9 +624,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   const pending =
     (mode === 'search' ? quickAnalysis : null) ??
     againAnalysis ??
-    (mode === 'photo' && fixText === null ? analysis : null) ??
-    (mode === 'search' ? plateAnalysis : null) ??
-    (mode === 'scan' ? selectedAnalysis : null);
+    (photoMode && fixText === null ? analysis : null) ??
+    (mode === 'search' || mode === 'describe' ? plateAnalysis : null) ??
+    (scanMode ? selectedAnalysis : null);
 
   /**
    * The × with a meal ready to log asks before throwing it away: foods on the
@@ -487,6 +644,62 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       { text: 'Discard', style: 'destructive', onPress: onClose },
     ]);
   };
+
+  /** The foods chosen so far, each with its amount: Search and Describe both fill it. */
+  const plateCard =
+    plate.length > 0 ? (
+      <View style={styles.plate} testID="plate">
+        <View style={styles.plateHead}>
+          <Text style={styles.plateTitle}>Your plate</Text>
+          {plateAnalysis ? (
+            <Text style={styles.plateTotal}>
+              {`${plate.length} ${plate.length === 1 ? 'food' : 'foods'} · ${calorieEstimate(plateAnalysis.macros).toLocaleString('en-US')} kcal · ${Math.round(plateAnalysis.macros.proteinGrams)}g protein`}
+            </Text>
+          ) : null}
+        </View>
+        {plate.map(({ food, servings: count, unit }) => (
+          <PlateItem
+            key={food.id}
+            food={food}
+            servings={count}
+            unit={unit}
+            onServings={(next) => setPlateServings(food.id, next)}
+            onUnit={(next) => setPlateUnit(food.id, next)}
+            onRemove={() => togglePlate(food)}
+          />
+        ))}
+        {/* The same plate every day: keep it, and it is one tap from Meals. */}
+        {onSaveMeal ? (
+          <View style={styles.keepBox}>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: keepPlate }}
+              accessibilityLabel="Keep this plate in Meals"
+              onPress={() => setKeepPlate((on) => !on)}
+              hitSlop={6}
+              style={styles.keepRow}
+            >
+              <View style={[styles.keepTick, keepPlate && styles.keepTickOn]}>
+                {keepPlate ? <Mark kind="check" size={11} weight={2.2} color={colors.onCoral} /> : null}
+              </View>
+              <Text style={styles.keepLabel}>Keep in Meals for next time</Text>
+            </Pressable>
+            {keepPlate ? (
+              <TextInput
+                style={[layout.input, styles.keepName]}
+                value={plateName}
+                onChangeText={setPlateName}
+                placeholder={autoPlateName || 'Name it'}
+                placeholderTextColor={colors.faint}
+                accessibilityLabel="Name for this plate in Meals"
+                maxLength={MAX_SAVED_MEAL_NAME}
+                returnKeyType="done"
+              />
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+    ) : null;
 
   return (
     <SheetPage onBackPress={requestClose}>
@@ -515,17 +728,21 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           <View style={styles.tabs}>
             <SegmentedControl
               options={[
-                { value: 'photo' as Mode, label: canScanPhotos || compact ? 'Photo' : 'Photo · Plus' },
+                { value: 'camera' as Mode, label: 'Camera' },
                 { value: 'search' as Mode, label: 'Search' },
-                { value: 'scan' as Mode, label: compact ? 'Barcode' : 'Scan barcode' },
+                { value: 'describe' as Mode, label: 'Describe' },
               ]}
               value={mode}
               onChange={(option) => {
                 if (option === mode) return;
+                dictation.stop();
                 setMode(option);
                 reset();
-                setPlate([]);
+                // Search and Describe build the same plate: it is kept between them.
+                if (option === 'camera') setPlate([]);
                 setScanned(false);
+                // Choosing the camera is asking for it.
+                if (option === 'camera' && !image) setCameraOpen(true);
               }}
             />
           </View>
@@ -553,138 +770,151 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           }}
         >
           {inRoom ? <RoomWindowSlot spacing={14} /> : null}
-          {mode === 'photo' && !canScanPhotos ? (
-            <View style={styles.locked} testID="photo-locked">
-              <Text style={styles.lockedTitle}>Snap your plate. Plus does the macros.</Text>
-              <Text style={styles.lockedBody}>
-                Photo meal tracking is part of Vitto Plus: take a picture and Vitto reads the plate, estimates the calories and macros, and grades it. Searching foods and scanning barcodes stay free.
-              </Text>
-              {onOpenPlus ? <PrimaryButton label="See Plus" onPress={onOpenPlus} /> : null}
-              <TextButton label="Search foods instead" onPress={() => setMode('search')} />
-            </View>
-          ) : null}
-
-          {mode === 'photo' && canScanPhotos ? (
+          {mode === 'camera' ? (
             <>
-              {/* In the Kitchen's page, once there is a photo it shrinks to a
-                  thumbnail in the corner, with Retake and Library beside it, so
-                  what was read (the macros, the notes) is what fills the page. */}
-              {inRoom && image ? (
-                <View style={styles.thumbRow} testID="photo-box">
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Retake the photo"
-                    onPress={() => void pick('camera')}
-                    disabled={busy !== null}
-                    style={({ pressed }) => pressed && styles.cameraPressed}
-                  >
-                    <Image source={{ uri: image.uri }} style={styles.thumb} />
-                    {busy === 'analyzing' ? (
-                      <View style={[styles.readingOverlay, styles.thumbOverlay]}>
-                        <ActivityIndicator color="#fff" />
+              {/* The camera itself is a page over this one (see MealCamera).
+                  Here: the way back into it, or what it found. */}
+              <MealCamera
+                open={cameraOpen}
+                onClose={closeCamera}
+                onOpen={() => {
+                  setError(null);
+                  setCameraOpen(true);
+                }}
+                launcher={!(photoMode && image) && !selected}
+                problem={cameraOpen ? error : null}
+                mode={cam}
+                onMode={setCam}
+                canPhoto={canScanPhotos}
+                onLockedPhoto={lockedPhoto}
+                onBarcode={(data) => void onBarcode({ data })}
+                found={scanned && selected !== null}
+                busy={busy === 'searching'}
+                onPhoto={(shot) => void onShot(shot)}
+                onLibrary={() => void pickFromLibrary()}
+                onProblem={setError}
+              />
+              {photoMode && image ? (
+                inRoom ? (
+                  // In the Kitchen's page the photo shrinks to a thumbnail in the
+                  // corner, with Retake and Library beside it, so what was read
+                  // (the macros, the notes) is what fills the page.
+                  <View style={styles.thumbRow} testID="photo-box">
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Retake the photo"
+                      onPress={retake}
+                      disabled={busy !== null}
+                      style={({ pressed }) => pressed && styles.cameraPressed}
+                    >
+                      <Image source={{ uri: image.uri }} style={styles.thumb} />
+                      {busy === 'analyzing' ? (
+                        <View style={[styles.readingOverlay, styles.thumbOverlay]}>
+                          <ActivityIndicator color="#fff" />
+                        </View>
+                      ) : null}
+                    </Pressable>
+                    <View style={styles.thumbSide}>
+                      <View style={styles.thumbButtons}>
+                        <PressableScale style={[styles.pickButton, styles.thumbButton]} onPress={retake}>
+                          <Text style={styles.pickLabel} numberOfLines={1}>Retake</Text>
+                        </PressableScale>
+                        <PressableScale style={[styles.pickButton, styles.thumbButton]} onPress={() => void pickFromLibrary()}>
+                          <Text style={styles.pickLabel} numberOfLines={1}>Library</Text>
+                        </PressableScale>
                       </View>
-                    ) : null}
-                  </Pressable>
-                  <View style={styles.thumbSide}>
-                    <View style={styles.thumbButtons}>
-                      <PressableScale style={[styles.pickButton, styles.thumbButton]} onPress={() => pick('camera')}>
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <View testID="photo-box">
+                      <Image source={{ uri: image.uri }} style={styles.preview} />
+                      {/* Read over the photo itself, not in a line under it. */}
+                      {busy === 'analyzing' ? (
+                        <View style={styles.readingOverlay}>
+                          <ActivityIndicator color="#fff" />
+                          <Text style={styles.readingOverlayLabel}>{readingLabel}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.pickRow}>
+                      <PressableScale style={styles.pickButton} onPress={retake}>
                         <Text style={styles.pickLabel} numberOfLines={1}>Retake</Text>
                       </PressableScale>
-                      <PressableScale style={[styles.pickButton, styles.thumbButton]} onPress={() => pick('library')}>
+                      <PressableScale style={styles.pickButton} onPress={() => void pickFromLibrary()}>
                         <Text style={styles.pickLabel} numberOfLines={1}>Library</Text>
                       </PressableScale>
                     </View>
-                  </View>
-                </View>
-              ) : (
-              <>
-              {/* The card IS the camera button: testers tapped the big box again
-                  and again, so it opens the camera, and its pill says so. */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={image ? 'Retake the photo' : 'Take a photo of your meal'}
-                onPress={() => void pick('camera')}
-                disabled={busy !== null}
-                style={({ pressed }) => pressed && styles.cameraPressed}
-                testID="photo-box"
-              >
-                {image ? (
-                  <View>
-                    <Image source={{ uri: image.uri }} style={styles.preview} />
-                    {/* Read over the photo itself, not in a line under it. */}
-                    {busy === 'analyzing' ? (
-                      <View style={styles.readingOverlay}>
-                        <ActivityIndicator color="#fff" />
-                        <Text style={styles.readingOverlayLabel}>{readingLabel}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : (
-                  <View style={styles.camera}>
-                    <Text style={styles.cameraTitle}>Snap your plate</Text>
-                    <Text style={styles.cameraHint}>Vitto reads the food, counts the macros and grades it</Text>
-                    {/* A camera's own shutter button, which reads as "tap to shoot" without words. */}
-                    <View style={styles.shutter}>
-                      <View style={styles.shutterButton} />
-                    </View>
-                    <Text style={styles.shutterLabel}>Take photo</Text>
-                  </View>
-                )}
-              </Pressable>
-              <View style={styles.pickRow}>
-                {image ? (
-                  <PressableScale style={styles.pickButton} onPress={() => pick('camera')}>
-                    <Text style={styles.pickLabel} numberOfLines={1}>Retake</Text>
-                  </PressableScale>
-                ) : null}
-                <PressableScale style={styles.pickButton} onPress={() => pick('library')}>
-                  {/* Half the row beside Retake: the long form wrapped inside its pill below 390pt. */}
-                  <Text style={styles.pickLabel} numberOfLines={1}>{image ? 'Library' : 'Choose from library'}</Text>
-                </PressableScale>
-              </View>
-              </>
-              )}
-
-              {/* In the Kitchen these live on the Search tab, the room's first; the photo tab is just the photo. */}
-              {!image && !analysis && !inRoom ? copyRow : null}
-              {!image && !analysis && !inRoom ? <RecentMeals meals={forSlot(repeatable, slot)} again={again} onChange={setAgain} /> : null}
-
-              {analysis ? <AnalysisCard analysis={analysis} compact={inRoom} /> : null}
-              {/* The AI can mistake one drink for another; the person knows. */}
-              {analysis && fixText === null ? (
-                <TextButton
-                  label="Not quite right? Fix it"
-                  onPress={() => setFixText(analysis.foodDescription ?? analysis.detectedFoods.join(', '))}
-                  disabled={busy !== null}
-                />
+                  </>
+                )
               ) : null}
-              {analysis && fixText !== null ? (
-                <View style={styles.fixBox} testID="meal-fix">
-                  <Text style={styles.fixLabel}>What was it really?</Text>
-                  <TextInput
-                    style={[layout.input, styles.fixInput]}
-                    value={fixText}
-                    onChangeText={setFixText}
-                    placeholder="e.g. strawberry matcha with almond milk"
-                    placeholderTextColor={colors.faint}
-                    multiline
-                    maxLength={300}
-                    autoFocus
-                    accessibilityLabel="What the meal really was"
-                  />
-                  <Text style={styles.fixHint}>One fix a day is free. After that, a fix counts as one of your photos.</Text>
-                  <View style={styles.fixActions}>
-                    <PrimaryButton
-                      label={busy === 'fixing' ? 'Re-analyzing...' : 'Re-analyze'}
-                      busy={busy === 'fixing'}
-                      disabled={!fixText.trim() || busy !== null}
-                      onPress={() => void fix()}
+
+              {photoMode ? (
+                <>
+                  {/* In the Kitchen these live on the Search tab, the room's first; the camera is just the camera. */}
+                  {!image && !analysis && !inRoom ? copyRow : null}
+                  {!image && !analysis && !inRoom ? <RecentMeals meals={forSlot(repeatable, slot)} again={again} onChange={setAgain} /> : null}
+
+                  {analysis ? <AnalysisCard analysis={analysis} compact={inRoom} /> : null}
+                  {/* The AI can mistake one drink for another; the person knows. */}
+                  {analysis && fixText === null ? (
+                    <TextButton
+                      label="Not quite right? Fix it"
+                      onPress={() => setFixText(analysis.foodDescription ?? analysis.detectedFoods.join(', '))}
+                      disabled={busy !== null}
                     />
-                    <TextButton label="Never mind" onPress={() => setFixText(null)} disabled={busy !== null} />
-                  </View>
-                </View>
+                  ) : null}
+                  {analysis && fixText !== null ? (
+                    <View style={styles.fixBox} testID="meal-fix">
+                      <Text style={styles.fixLabel}>What was it really?</Text>
+                      <TextInput
+                        style={[layout.input, styles.fixInput]}
+                        value={fixText}
+                        onChangeText={setFixText}
+                        placeholder="e.g. strawberry matcha with almond milk"
+                        placeholderTextColor={colors.faint}
+                        multiline
+                        maxLength={300}
+                        autoFocus
+                        accessibilityLabel="What the meal really was"
+                      />
+                      <Text style={styles.fixHint}>One fix a day is free. After that, a fix counts as one of your photos.</Text>
+                      <View style={styles.fixActions}>
+                        <PrimaryButton
+                          label={busy === 'fixing' ? 'Re-analyzing...' : 'Re-analyze'}
+                          busy={busy === 'fixing'}
+                          disabled={!fixText.trim() || busy !== null}
+                          onPress={() => void fix()}
+                        />
+                        <TextButton label="Never mind" onPress={() => setFixText(null)} disabled={busy !== null} />
+                      </View>
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
+
+              {scanMode ? (
+                <>
+                  {/* How many: a scanned bar is one bar, but two is two. */}
+                  {selectedAnalysis ? <ServingsRow food={selected} servings={servings} onChange={setServings} /> : null}
+                  {selectedAnalysis ? <AnalysisCard analysis={selectedAnalysis} /> : null}
+                  {selected?.source === 'fatsecret' ? <FatSecretCredit /> : null}
+                </>
               ) : null}
               <ErrorText>{error}</ErrorText>
+
+              {scanMode && scanned ? (
+                <View style={styles.actions}>
+                  <TextButton
+                    label="Scan another"
+                    onPress={() => {
+                      setScanned(false);
+                      setSelected(null);
+                      setCameraOpen(true);
+                    }}
+                  />
+                </View>
+              ) : null}
             </>
           ) : null}
 
@@ -794,59 +1024,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
               {/* The plate after the results: what is being searched for stays right
                   under the field, and the plate collects under it, food by food. */}
-              {plate.length > 0 ? (
-                <View style={styles.plate} testID="plate">
-                  <View style={styles.plateHead}>
-                    <Text style={styles.plateTitle}>Your plate</Text>
-                    {plateAnalysis ? (
-                      <Text style={styles.plateTotal}>
-                        {`${plate.length} ${plate.length === 1 ? 'food' : 'foods'} · ${calorieEstimate(plateAnalysis.macros).toLocaleString('en-US')} kcal · ${Math.round(plateAnalysis.macros.proteinGrams)}g protein`}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {plate.map(({ food, servings: count, unit }) => (
-                    <PlateItem
-                      key={food.id}
-                      food={food}
-                      servings={count}
-                      unit={unit}
-                      onServings={(next) => setPlateServings(food.id, next)}
-                      onUnit={(next) => setPlateUnit(food.id, next)}
-                      onRemove={() => togglePlate(food)}
-                    />
-                  ))}
-                  {/* The same plate every day: keep it, and it is one tap from Meals. */}
-                  {onSaveMeal ? (
-                    <View style={styles.keepBox}>
-                      <Pressable
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: keepPlate }}
-                        accessibilityLabel="Keep this plate in Meals"
-                        onPress={() => setKeepPlate((on) => !on)}
-                        hitSlop={6}
-                        style={styles.keepRow}
-                      >
-                        <View style={[styles.keepTick, keepPlate && styles.keepTickOn]}>
-                          {keepPlate ? <Mark kind="check" size={11} weight={2.2} color={colors.onCoral} /> : null}
-                        </View>
-                        <Text style={styles.keepLabel}>Keep in Meals for next time</Text>
-                      </Pressable>
-                      {keepPlate ? (
-                        <TextInput
-                          style={[layout.input, styles.keepName]}
-                          value={plateName}
-                          onChangeText={setPlateName}
-                          placeholder={autoPlateName || 'Name it'}
-                          placeholderTextColor={colors.faint}
-                          accessibilityLabel="Name for this plate in Meals"
-                          maxLength={MAX_SAVED_MEAL_NAME}
-                          returnKeyType="done"
-                        />
-                      ) : null}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
+              {plateCard}
 
 
               {/* The way out for food no database has, under the list rather than
@@ -862,64 +1040,67 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             </>
           ) : null}
 
-          {mode === 'scan' ? (
+          {mode === 'describe' ? (
             <>
-              {!permission?.granted ? (
-                <View style={[styles.dropzone, styles.permission]} testID="camera-permission">
-                  <Text style={styles.dropTitle}>Camera access needed</Text>
-                  <Text style={styles.dropHint}>
-                    {permission && !permission.canAskAgain
-                      ? 'Camera access is off for Vitto. Turn it on in Settings to scan barcodes.'
-                      : 'To scan a barcode, allow the camera.'}
-                  </Text>
-                  {/* Once someone has said no, iOS will not ask again: the only
-                      way back is the app's page in Settings. */}
-                  <PressableScale
-                    accessibilityRole="button"
-                    style={styles.permissionButton}
-                    onPress={() => void (permission && !permission.canAskAgain ? Linking.openSettings() : requestPermission())}
-                  >
-                    <Text style={styles.permissionLabel}>
-                      {permission && !permission.canAskAgain ? 'Open Settings' : 'Allow camera'}
-                    </Text>
-                  </PressableScale>
+              <View style={styles.describeBox} testID="describe-meal">
+                <TextInput
+                  style={[layout.input, styles.describeInput]}
+                  value={describeText}
+                  onChangeText={setDescribeText}
+                  placeholder={plate.length > 0 ? 'Anything else? e.g. and a latte' : 'e.g. 2 eggs, toast with butter and a latte'}
+                  placeholderTextColor={colors.faint}
+                  multiline
+                  maxLength={MAX_MEAL_TEXT_LENGTH}
+                  editable={busy !== 'describing'}
+                  // Opened from the Kitchen's Describe button: straight to typing.
+                  autoFocus={initialMode === 'describe' && !canDictate()}
+                  accessibilityLabel="Describe your meal"
+                />
+                <View style={styles.describeRow}>
+                  {canDictate() ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={dictation.listening ? 'Stop listening' : 'Say what you ate'}
+                      accessibilityState={{ selected: dictation.listening }}
+                      disabled={busy !== null}
+                      onPress={toggleMic}
+                      hitSlop={6}
+                      style={({ pressed }) => [styles.mic, dictation.listening && styles.micOn, pressed && styles.cameraPressed]}
+                      testID="describe-mic"
+                    >
+                      <Svg width={22} height={22} viewBox="0 0 24 24" accessible={false}>
+                        <Path
+                          d="M12 3.5 a3 3 0 0 0 -3 3 v4.5 a3 3 0 0 0 6 0 V6.5 a3 3 0 0 0 -3 -3 Z M6 11 a6 6 0 0 0 12 0 M12 17 V20.5 M9 20.5 H15"
+                          stroke={dictation.listening ? colors.onCoral : colors.coral}
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          fill="none"
+                        />
+                      </Svg>
+                    </Pressable>
+                  ) : null}
+                  <View style={{ flex: 1 }}>
+                    <PrimaryButton
+                      label={busy === 'describing' ? 'Finding your foods...' : 'Find foods'}
+                      busy={busy === 'describing'}
+                      disabled={!describeText.trim() || busy !== null}
+                      onPress={() => void describe()}
+                    />
+                  </View>
                 </View>
-              ) : (
-                <View style={styles.scanner}>
-                  <CameraView
-                    style={StyleSheet.absoluteFill}
-                    facing="back"
-                    // A camera that can focus close: see closeUpLens.
-                    selectedLens={scanLens}
-                    onAvailableLensesChanged={({ lenses }) => setScanLens(closeUpLens(lenses))}
-                    barcodeScannerSettings={{
-                      barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128'],
-                    }}
-                    onBarcodeScanned={scanned ? undefined : onBarcode}
-                  />
-                </View>
-              )}
-              <Text style={styles.scanHint}>
-                {scanned ? 'Found it — check the details below.' : 'Point the camera at a product barcode.'}
-              </Text>
+                <Text style={styles.describeHint}>
+                  {dictation.listening
+                    ? dictation.ready
+                      ? 'Listening... tap the mic when you are done.'
+                      : 'One sec...'
+                    : (dictation.problem ?? describeNote ?? 'Say it or type it. You check the foods before anything is logged.')}
+                </Text>
+              </View>
 
-              {/* How many: a scanned bar is one bar, but two is two. */}
-              {selectedAnalysis ? <ServingsRow food={selected} servings={servings} onChange={setServings} /> : null}
-              {selectedAnalysis ? <AnalysisCard analysis={selectedAnalysis} /> : null}
-              {selected?.source === 'fatsecret' ? <FatSecretCredit /> : null}
+              {plateCard}
+              {plate.some(({ food }) => food.source === 'fatsecret') ? <FatSecretCredit /> : null}
               <ErrorText>{error}</ErrorText>
-
-              {scanned ? (
-                <View style={styles.actions}>
-                  <TextButton
-                    label="Scan another"
-                    onPress={() => {
-                      setScanned(false);
-                      setSelected(null);
-                    }}
-                  />
-                </View>
-              ) : null}
             </>
           ) : null}
         </ScrollView>
@@ -1079,6 +1260,8 @@ function PlateItem({
           {unit === 'serving' && !food.isPer100g ? (
             <Text style={styles.resultMeta} numberOfLines={1}>{`1 serving = ${food.servingDescription}`}</Text>
           ) : null}
+          {/* No database had it (a described meal): the figures are a guess, and say so. */}
+          {food.source === 'estimate' ? <Text style={styles.estimateTag} numberOfLines={1}>Estimate: not in the food database</Text> : null}
         </View>
         <View style={styles.rowKcalBox}>
           <Text style={styles.rowKcal}>{Math.round(food.macros.calories * servings).toLocaleString()}</Text>
@@ -1332,16 +1515,6 @@ function AnalysisCard({ analysis, compact }: { analysis: MealAnalysis; compact?:
 }
 
 const styles = themedStyles(() => ({
-  locked: {
-    gap: 10,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.cardSoft,
-  },
-  lockedTitle: { ...text.heading, fontSize: 21, color: colors.ink },
-  lockedBody: { ...text.body, color: colors.muted, lineHeight: 20 },
   sheet: { flex: 1, backgroundColor: colors.paper, paddingTop: 20 },
   header: {
     flexDirection: 'row',
@@ -1376,65 +1549,12 @@ const styles = themedStyles(() => ({
     backgroundColor: 'rgba(28,23,20,0.62)',
   },
   readingOverlayLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: '#fff' },
-  // The photo tab's hero: a dark viewfinder-like card, the obvious thing to tap.
-  camera: {
-    height: 220,
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    backgroundColor: '#2b2420',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 24,
-  },
   cameraPressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
-  // The card's own button, drawn like the iPhone camera's shutter: a ring with a gap, a solid disc inside.
-  shutter: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 4,
-    borderColor: '#fff8ec',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 18,
-  },
-  shutterButton: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.coral },
-  shutterLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, letterSpacing: 0.3, color: 'rgba(255,248,236,0.85)', marginTop: 8 },
-  cameraTitle: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 19, color: '#fff8ec' },
-  cameraHint: { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18, color: 'rgba(255,248,236,0.7)', textAlign: 'center' },
   fixBox: { gap: 8, marginTop: 4 },
   fixLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.ink },
   fixInput: { minHeight: 64, textAlignVertical: 'top' },
   fixHint: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, color: colors.faint },
   fixActions: { gap: 6 },
-  dropzone: {
-    height: 190,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    backgroundColor: colors.sageSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  dropTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.ink },
-  // The barcode tab's ask: room for a sentence that may wrap, and a button of
-  // its own (pickButton stretches with flex: 1, which in this column made it a
-  // tall narrow box).
-  permission: { height: undefined, minHeight: 190, paddingVertical: 24, paddingHorizontal: 20 },
-  permissionButton: {
-    marginTop: 8,
-    minHeight: 44,
-    paddingHorizontal: 22,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.coral,
-  },
-  permissionLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.onCoral },
-  dropHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, textAlign: 'center' },
   pickRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   pickButton: {
     flex: 1,
@@ -1568,6 +1688,12 @@ const styles = themedStyles(() => ({
   // A food's serving can be long ("1 cup shredded or chopped (55 g)"): it gives way to the field.
   servingsLabel: { flex: 1, minWidth: 0, fontFamily: fonts.ui, fontSize: 12, color: colors.muted },
   servingsInput: { width: 90 },
-  scanner: { height: 280, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' },
-  scanHint: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 12, textAlign: 'center' },
+  describeBox: { gap: 10, marginBottom: 10 },
+  describeInput: { minHeight: 76, textAlignVertical: 'top' },
+  describeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // The mic: a round button beside Find foods, filled in while it listens.
+  mic: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.coralWash },
+  micOn: { backgroundColor: colors.coral },
+  describeHint: { fontFamily: fonts.ui, fontSize: 12, lineHeight: 17, color: colors.faint, textAlign: 'center' },
+  estimateTag: { fontFamily: fonts.ui, fontSize: 12, color: colors.yellowDeep, marginTop: 3 },
 }));

@@ -27,7 +27,6 @@ import { friendsService, MIN_SEARCH_LENGTH } from '../services/friendsService';
 import { CarePartnerCard, type CarePartnerProps } from '../components/CarePartnerCard';
 import { FriendListRow } from '../components/FriendListRow';
 import { ErrorText, Field, PrimaryButton, Mark } from '../components/ui';
-import { isNightTime } from '../petWorld/timeOfDay';
 import { friendsPalette } from '../friendsTheme';
 import { colors, fonts, layout, themedStyles } from '../theme';
 
@@ -69,7 +68,8 @@ const nameFor = (profile: FriendProfileSummary | undefined, fallbackId: string):
 const handleFor = (profile: FriendProfileSummary): string => nameFor(profile, profile.id);
 
 export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePartner, openJoin, onUsernameChange }: Props) {
-  const palette = friendsPalette(isNightTime());
+  // The app's appearance, not the clock: with Light chosen this page is light at night too.
+  const palette = friendsPalette();
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);

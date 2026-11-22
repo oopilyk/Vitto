@@ -64,6 +64,7 @@ import { FriendsScreen } from './src/screens/FriendsScreen';
 import { FriendPetScreen } from './src/screens/FriendPetScreen';
 import { type ForcedTrophies, TodayScreen } from './src/screens/TodayScreen';
 import { MealCaptureScreen } from './src/screens/MealCaptureScreen';
+import type { MealEntry } from './src/petWorld/RoomPanels';
 import { FourCornersScreen } from './src/screens/FourCornersScreen';
 import { CompanionChatScreen, proposalTitle } from './src/screens/CompanionChatScreen';
 import { CompanionDebugScreen } from './src/screens/CompanionDebugScreen';
@@ -3255,10 +3256,10 @@ function VittoApp() {
     onOpenPlus,
     inRoom,
   }: {
-    mode?: 'photo' | 'search' | 'scan' | 'recent';
+    mode?: MealEntry;
     onClose: () => void;
     onOpenPlus: () => void;
-    /** In the Kitchen's page, whose pinned bar switches between photo, search and scan. */
+    /** In the Kitchen's page, whose pinned bar switches between search, the camera and describing. */
     inRoom?: boolean;
   }) => (
     <MealCaptureScreen
@@ -3415,7 +3416,7 @@ function VittoApp() {
                 return {
                   food: {
                     today: todayFood,
-                    renderMealLogger: (mode: 'photo' | 'search' | 'scan' | 'recent', close: () => void) =>
+                    renderMealLogger: (mode: MealEntry, close: () => void) =>
                       mealCaptureElement({
                         mode,
                         inRoom: true,

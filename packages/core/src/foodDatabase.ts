@@ -31,11 +31,12 @@ export interface FoodSearchResult {
   isPer100g?: boolean;
   macros: FoodMacros;
   /**
-   * Set when the food came from FatSecret, whose terms require a "Powered by
-   * fatsecret Platform API" link wherever its data is shown. Unset for USDA and
-   * OpenFoodFacts.
+   * `fatsecret` when the food came from FatSecret, whose terms require a
+   * "Powered by fatsecret Platform API" link wherever its data is shown.
+   * `estimate` when no database carried it and the figures are the model's
+   * own (a described meal: see describeMeal). Unset for USDA and OpenFoodFacts.
    */
-  source?: 'fatsecret';
+  source?: 'fatsecret' | 'estimate';
 }
 
 interface FdcNutrient {
@@ -186,6 +187,18 @@ const toSearchResult = (food: FdcFood): FoodSearchResult => {
     isPer100g: true,
     macros: scaleMacros(per100g, 1),
   };
+};
+
+/**
+ * One USDA food, as its search sends it, as a search result; null when it is
+ * not one. For replies that arrive from our own server (describe-meal), which
+ * passes USDA's foods through unmapped so that this stays the one place they
+ * are read.
+ */
+export const fdcFoodToResult = (food: unknown): FoodSearchResult | null => {
+  const candidate = food as Partial<FdcFood> | null;
+  if (!candidate || typeof candidate.fdcId !== 'number' || typeof candidate.description !== 'string' || !Array.isArray(candidate.foodNutrients)) return null;
+  return toSearchResult(candidate as FdcFood);
 };
 
 const dedupeResults = (results: FoodSearchResult[]): FoodSearchResult[] => {

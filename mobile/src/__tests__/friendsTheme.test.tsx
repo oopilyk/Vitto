@@ -1,5 +1,5 @@
 import { FRIENDS_DARK, FRIENDS_LIGHT, friendsPalette } from '../friendsTheme';
-import { colors } from '../theme';
+import { colors, setActiveColorScheme } from '../theme';
 
 /**
  * The requests banner used to be the coral wash — the same family as
@@ -24,7 +24,16 @@ describe('friends requests banner', () => {
     expect(FRIENDS_DARK.bannerBorder).not.toBe(FRIENDS_DARK.rowBg);
   });
 
-  it('picks the night palette after dark', () => {
+  it("follows the app's appearance, not the clock", () => {
+    // Light chosen in Settings: light at any hour (it used to go dark at night).
+    setActiveColorScheme('light');
+    expect(friendsPalette()).toBe(FRIENDS_LIGHT);
+    setActiveColorScheme('dark');
+    expect(friendsPalette()).toBe(FRIENDS_DARK);
+    setActiveColorScheme('light');
+  });
+
+  it("takes the room's light for text laid over a friend's room", () => {
     expect(friendsPalette(true)).toBe(FRIENDS_DARK);
     expect(friendsPalette(false)).toBe(FRIENDS_LIGHT);
   });

@@ -92,27 +92,33 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
     return () => clearTimeout(timer);
   }, [hint]);
 
+  // The recogniser's events reach every listener in the app (the meal logger
+  // dictates with it too): only the ones for a hold started here are this
+  // button's. Without the check, a meal said to the Kitchen was sent to the pet.
   useSpeechRecognitionEvent('start', () => {
-    if (released.current) ExpoSpeechRecognitionModule.stop();
+    if (active.current && released.current) ExpoSpeechRecognitionModule.stop();
   });
   // Starting the mic takes iOS a moment (the audio switches from playback to
   // recording): say so until it is really listening, then a tap to go.
   useSpeechRecognitionEvent('audiostart', () => {
-    if (released.current) return;
+    if (!active.current || released.current) return;
     setReady(true);
     void Haptics.selectionAsync?.().catch(() => undefined);
   });
   useSpeechRecognitionEvent('result', (event) => {
+    if (!active.current) return;
     const text = event.results[0]?.transcript ?? '';
     heardRef.current = text;
     setHeard(text);
   });
   useSpeechRecognitionEvent('error', (event) => {
+    if (!active.current) return;
     // Silence and a let-go are not failures worth a word.
     if (event.error === 'no-speech' || event.error === 'aborted') return;
     setHint(event.error === 'not-allowed' ? 'Allow the microphone in Settings to talk.' : 'I could not hear that. Try again.');
   });
   useSpeechRecognitionEvent('end', () => {
+    if (!active.current) return;
     active.current = false;
     setListening(false);
     setReady(false);

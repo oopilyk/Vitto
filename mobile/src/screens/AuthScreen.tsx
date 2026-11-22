@@ -575,7 +575,9 @@ export function AuthScreen() {
             />
           </Field>
 
-          <Field label="Password" hint={`${minPassword} characters minimum`}>
+          {/* The minimum only on sign-up: signing in still takes the old six-character
+              passwords, and showing either number there misleads someone. */}
+          <Field label="Password" hint={mode === 'sign-up' ? `${NEW_PASSWORD_MIN_LENGTH} characters minimum` : undefined}>
             <OnbInput form value={password} onChangeText={setPassword} placeholder="••••••" secureTextEntry textContentType="password" />
           </Field>
         </>
