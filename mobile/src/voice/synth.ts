@@ -15,7 +15,14 @@ const STYLE_SIZE = 256;
 export type RunKokoro = (ids: number[], style: Float32Array, speed: number) => Promise<Float32Array>;
 
 /** The first piece's length when it can be cut at a clause: short, so the voice starts quickly. */
-const FIRST_PIECE = 60;
+const FIRST_PIECE = 50;
+/**
+ * How much longer each piece may be than the one before. Pieces are made while
+ * the ones before them play, so a piece that jumps far past the last (a short
+ * first one, then a long sentence) is not ready when the last one ends, and the
+ * pet stops mid-line to wait. Growing a step at a time keeps the making ahead.
+ */
+const GROWTH = 1.5;
 
 /**
  * `piece` cut into parts of at most `max`, at clauses (",", ";", ":", "—")
@@ -51,17 +58,24 @@ const fit = (piece: string, max: number, byWord: boolean): string[] => {
 
 /**
  * Phonemes in the pieces the model is run on, one after another: a sentence
- * each (cut further only past `MAX_PHONEMES`), and the first one cut at a
- * clause when it is long. A piece is said as soon as it is made, so the
+ * each (cut further only past `MAX_PHONEMES`), with the early ones cut at
+ * clauses while they are long. A piece is said as soon as it is made, so the
  * first one sets how long the pet takes to start talking -- the whole line
  * as one piece took 4-5 s on a phone before a word was heard -- and the rest
- * are made while the ones before them play.
+ * are made while the ones before them play: each may be at most `GROWTH`
+ * times longer than the last, so the next is ready before this one ends.
  */
 export const chunkPhonemes = (phonemes: string, limit = MAX_PHONEMES): string[] => {
-  const sentences = (phonemes.match(/[^.!?…]+[.!?…]*\s*/g) ?? []).flatMap((sentence) => fit(sentence, limit, true));
-  const [first, ...rest] = sentences.filter(Boolean);
-  if (!first) return [];
-  return [...fit(first, FIRST_PIECE, false), ...rest];
+  const sentences = (phonemes.match(/[^.!?…]+[.!?…]*\s*/g) ?? []).flatMap((sentence) => fit(sentence, limit, true)).filter(Boolean);
+  const pieces: string[] = [];
+  let cap = FIRST_PIECE;
+  for (const sentence of sentences) {
+    for (const piece of cap < limit ? fit(sentence, cap, false) : [sentence]) {
+      pieces.push(piece);
+      cap = Math.min(limit, Math.round(Math.max(cap, piece.length) * GROWTH));
+    }
+  }
+  return pieces;
 };
 
 /**

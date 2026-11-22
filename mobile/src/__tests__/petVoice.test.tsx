@@ -51,6 +51,16 @@ describe('pet voice: text to speech', () => {
     expect(rest.at(-1)).toBe('jˈɛs.');
   });
 
+  it('grows the pieces a step at a time, so the next is made before this one ends', () => {
+    const clause = 'hˈI ðˈɛɹ ˈɪts mˈi, ';
+    const long = `${Array.from({ length: 30 }, () => clause).join('')}jˈɛs.`;
+    const pieces = chunkPhonemes(long);
+    expect(pieces.length).toBeGreaterThan(3);
+    expect(pieces[0].length).toBeLessThanOrEqual(50);
+    pieces.forEach((piece, index) => expect(piece.length).toBeLessThanOrEqual(Math.ceil(50 * 1.5 ** index)));
+    expect(pieces.join(' ').replace(/\s+/g, ' ')).toBe(long.trim().replace(/\s+/g, ' '));
+  });
+
   it('copies the style row rather than viewing it (the phone ignores a view\'s offset)', () => {
     const voice = new Float32Array(510 * 256).map((_, i) => i);
     const style = styleFor(voice, 3);

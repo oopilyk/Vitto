@@ -94,20 +94,31 @@ export const warmUpVoice = (pet: Pick<PetState, 'id' | 'voice'>): void => warmUp
 let generation = 0;
 let finishClip: (() => void) | null = null;
 
-/** Plays one file to its end, or until stopped. */
-const playClip = (uri: string) =>
+/**
+ * A clip's player, made as soon as the clip is, so it has loaded by the time
+ * the one before it ends. It keeps the audio session up when it finishes:
+ * left to itself expo-audio switches the session off after every clip and the
+ * next one switches it back on, which put a long pause after each sentence.
+ */
+const loadClip = (uri: string): AudioPlayer => createAudioPlayer(uri, { keepAudioSessionActive: true });
+
+const release = (player: AudioPlayer) => {
+  try {
+    player.remove();
+  } catch {
+    // Already gone.
+  }
+};
+
+/** Plays a loaded clip to its end, or until stopped. */
+const playClip = (player: AudioPlayer) =>
   new Promise<void>((resolve) => {
-    const player: AudioPlayer = createAudioPlayer(uri);
     let finished = false;
     const finish = () => {
       if (finished) return;
       finished = true;
       subscription.remove();
-      try {
-        player.remove();
-      } catch {
-        // Already gone.
-      }
+      release(player);
       if (finishClip === finish) finishClip = null;
       resolve();
     };
@@ -118,27 +129,55 @@ const playClip = (uri: string) =>
     player.play();
   });
 
-/** Plays the clips as they come, cutting off whatever it was saying before. */
+/**
+ * Plays the clips as they come, cutting off whatever it was saying before.
+ *
+ * The clips are made as fast as the model goes, not one ahead of what is
+ * playing: a sentence that takes longer to make than the one before it takes
+ * to say is then usually ready anyway, instead of the pet stopping to wait.
+ */
 const say = async (makeClips: (isCurrent: () => boolean) => AsyncIterator<File> | Iterator<File>): Promise<void> => {
   stopPetVoice();
   const mine = ++generation;
   const isCurrent = () => mine === generation;
+  const loaded: AudioPlayer[] = [];
+  let made = false;
+  let failure: unknown = null;
+  const waiting: { wake: (() => void) | null } = { wake: null };
   try {
     await setQuietAudioSession();
     const clips = makeClips(isCurrent);
-    let next: IteratorResult<File> | Promise<IteratorResult<File>> = clips.next();
+    void (async () => {
+      try {
+        for (;;) {
+          const { value, done } = await clips.next();
+          if (done || !isCurrent()) break;
+          loaded.push(loadClip(value.uri));
+          waiting.wake?.();
+        }
+      } catch (error) {
+        failure = error;
+      } finally {
+        made = true;
+        waiting.wake?.();
+      }
+    })();
     for (;;) {
-      const { value, done } = await next;
-      if (done || !isCurrent()) break;
-      // The next sentence is worked out while this one plays.
-      next = clips.next();
+      if (!loaded.length && !made) await new Promise<void>((resolve) => (waiting.wake = resolve));
+      waiting.wake = null;
+      if (!isCurrent()) break;
+      const player = loaded.shift();
+      if (!player) break;
       duckMusic(true);
-      await playClip(value.uri);
+      await playClip(player);
       if (!isCurrent()) break;
     }
+    if (failure) throw failure;
   } catch (error) {
     console.warn('[petVoice] could not speak', error);
   } finally {
+    // Stopped part way: the clips loaded but never played.
+    loaded.splice(0).forEach(release);
     if (isCurrent()) duckMusic(false);
   }
 };
