@@ -299,16 +299,24 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
 }
 
 const DIM = 'rgba(0,0,0,0.55)';
+const FRAME_HEIGHT = 220;
 const GLASS = 'rgba(0,0,0,0.5)';
 
 const styles = themedStyles(() => ({
   page: { flex: 1, alignItems: 'center', backgroundColor: '#000' },
   finder: { flex: 1, width: '100%', maxWidth: 560, overflow: 'hidden', backgroundColor: '#000' },
   dim: { flex: 1, backgroundColor: DIM },
-  // The hint sits just under the frame, not in the middle of the dark below it.
-  dimFoot: { flex: 1.5, alignItems: 'center', paddingTop: 18 },
-  frameRow: { flexDirection: 'row', height: 150 },
-  // The clear part of the picture. A wide box, the shape of a barcode.
+  // As much dark below the frame as above it (the plain `dim`), so the frame's
+  // middle is the picture's middle: an iPhone reads a barcode along lines
+  // through the centre of the picture, across and up-and-down, and a barcode
+  // lined up anywhere else is read late or not at all. The hint sits just
+  // under the frame, not in the middle of the dark below it.
+  dimFoot: { alignItems: 'center', paddingTop: 18 },
+  // Tall enough for a barcode printed on its side (down a can, along a carton's
+  // edge) to be held in the frame as it is, without turning the phone: the
+  // whole picture is read whichever way the bars run.
+  frameRow: { flexDirection: 'row', height: FRAME_HEIGHT },
+  // The clear part of the picture.
   frame: { width: '80%', borderWidth: 2.5, borderColor: '#ffffff', borderRadius: 16 },
   frameFound: { borderColor: '#57d98a' },
   finderHint: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: '#ffffff', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },

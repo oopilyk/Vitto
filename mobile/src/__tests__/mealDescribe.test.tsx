@@ -87,6 +87,27 @@ describe('describing a meal', () => {
     act(() => tree.unmount());
   });
 
+  it('finds the foods on Return, and keeps the plate\'s button off the keys while typing', async () => {
+    mockDescribe.mockResolvedValue(meal([{ food: food('e', 'Egg', 74), servings: 2, unit: 'serving', said: '2 eggs' }]));
+    const tree = mount();
+    const footer = () => tree.root.findAll((node) => node.props.testID === 'meal-footer');
+    act(() => box(tree).props.onChangeText('2 eggs'));
+    expect(box(tree).props.returnKeyType).toBe('search');
+    await act(async () => {
+      await box(tree).props.onSubmitEditing();
+    });
+    expect(mockDescribe).toHaveBeenCalledWith('2 eggs', expect.anything());
+    expect(plateItems(tree)).toHaveLength(1);
+    expect(footer().length).toBeGreaterThan(0);
+
+    // Typing more: Add stands aside, so it cannot cover Find foods above the keyboard.
+    act(() => box(tree).props.onFocus());
+    expect(footer()).toHaveLength(0);
+    act(() => box(tree).props.onBlur());
+    expect(footer().length).toBeGreaterThan(0);
+    act(() => tree.unmount());
+  });
+
   it('adds a second sentence to the same plate, and the same food to its amount', async () => {
     const tree = mount();
     mockDescribe.mockResolvedValueOnce(meal([{ food: food('e', 'Egg', 74), servings: 2, unit: 'serving', said: '2 eggs' }]));

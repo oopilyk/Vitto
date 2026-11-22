@@ -1,5 +1,5 @@
 import renderer, { act } from 'react-test-renderer';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import type { FoodSearchResult, MealAnalysis } from '@vitto/core';
@@ -145,6 +145,24 @@ describe('meal capture', () => {
     });
     expect(saved).toHaveLength(1);
     expect((saved[0] as { loggedVia: string }).loggedVia).toBe('barcode');
+    act(() => tree.unmount());
+  });
+
+  it('reads a barcode whichever way up it is printed', async () => {
+    const tree = mount({ initialMode: 'scan' });
+    // Nothing narrows where in the picture, or which way round, a barcode may be.
+    expect(Object.keys(mockCamera.props!.barcodeScannerSettings as object)).toEqual(['barcodeTypes']);
+    // The frame's middle is the picture's middle, where an iPhone reads from (across and up-and-down).
+    const [above, , below] = byId(tree, 'barcode-frame')[0]!.props.children as { props: { style: unknown } }[];
+    const flexOf = (view: { props: { style: unknown } }) => (StyleSheet.flatten(view.props.style as never) as { flex?: number }).flex;
+    expect([flexOf(above!), flexOf(below!)]).toEqual([1, 1]);
+
+    // A barcode on its side: a tall, narrow box, off to one side of the picture.
+    await act(async () => {
+      await mockCamera.props!.onBarcodeScanned({ data: '7340001803228', type: 'ean13', bounds: { origin: { x: 40, y: 120 }, size: { width: 90, height: 420 } }, cornerPoints: [] });
+    });
+    expect(mockLookup).toHaveBeenCalledWith('7340001803228');
+    expect(shows(tree, 'Found it')).toBe(true);
     act(() => tree.unmount());
   });
 

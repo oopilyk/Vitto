@@ -22,7 +22,7 @@ import { BUSY_MESSAGE, claimAiCall } from '../_shared/aiBudget.ts';
 import { isDevAccount } from '../_shared/devAccount.ts';
 import { searchFatsecret, searchUsda } from '../_shared/foodSources.ts';
 import {
-  FATSECRET_CANDIDATES,
+  FATSECRET_FETCHED,
   ITEMS_SYSTEM_PROMPT,
   MAX_TEXT_LENGTH,
   PICKS_SYSTEM_PROMPT,
@@ -67,7 +67,7 @@ Deno.serve(async (request) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return json({ error: 'Authentication required.' }, 401);
 
-    const { text: rawText, key } = (await request.json().catch(() => ({}))) as { text?: unknown; key?: unknown };
+    const { text: rawText, key, debug } = (await request.json().catch(() => ({}))) as { text?: unknown; key?: unknown; debug?: unknown };
     const text = typeof rawText === 'string' ? rawText.replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT_LENGTH) : '';
     if (!text) return json({ error: 'Say or type what you ate.' }, 400);
     const appKey = typeof key === 'string' && /^[A-Za-z0-9]{1,64}$/.test(key) ? key : null;
@@ -116,10 +116,10 @@ Deno.serve(async (request) => {
     const candidates = await Promise.all(
       items.map(async (item, index) => {
         const [fatsecret, usda] = await Promise.all([
-          searchFatsecret(item.query, String(FATSECRET_CANDIDATES)),
+          searchFatsecret(item.query, String(FATSECRET_FETCHED)),
           searchUsda(item.query, appKey, { pageSize: String(USDA_CANDIDATES), dataTypes: USDA_WHOLE_FOODS }).catch(() => []),
         ]);
-        return candidatesFor(index, fatsecret, usda);
+        return candidatesFor(index, fatsecret, usda, item.branded);
       }),
     );
 
@@ -135,8 +135,10 @@ Deno.serve(async (request) => {
     if (!picked.parsed_output) throw new Error(`No foods picked (stop_reason: ${picked.stop_reason}).`);
 
     const result = resolvePicks(items, candidates, picked.parsed_output);
-    if (result.items.length === 0) return json({ notFood: true });
-    return json(result);
+    // For the dev account only, on request: what each step read and was shown, to see why a food was chosen.
+    const trace = isDev && debug === true ? { trace: { items, shown: picksUserText(items, candidates), picks: picked.parsed_output.picks } } : {};
+    if (result.items.length === 0) return json({ notFood: true, ...trace });
+    return json({ ...result, ...trace });
   } catch (error) {
     // The detail goes to the logs, never to the caller.
     console.error('[describe-meal] failed', error);

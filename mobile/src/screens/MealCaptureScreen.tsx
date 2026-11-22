@@ -524,6 +524,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   // Describe: the meal said or typed in a sentence. What it is read as goes on
   // the plate, the same plate Search builds, to be checked before it is logged.
   const [describeText, setDescribeText] = useState('');
+  /** Typing a meal: the plate's Add button stands aside, so it never rides up over Find foods on the keys. */
+  const [typingMeal, setTypingMeal] = useState(false);
   /** What was said that could not be found, told once under the box. */
   const [describeNote, setDescribeNote] = useState<string | null>(null);
   /** What was in the box when the mic went on: speech is added after it. */
@@ -754,7 +756,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           style={styles.scrollArea}
           contentContainerStyle={[
             styles.body,
-            inRoom && { paddingTop: 10, paddingHorizontal: 16 },
+            // The room's own pages (Meals, Water) start 16 down: the window sits in the same place on every tab.
+            inRoom && { paddingTop: 16, paddingHorizontal: 16 },
             // The Log button lies over the page's foot: the last row clears it.
             rides && footer ? { paddingBottom: footerHeight + 16 } : null,
             // Tall enough that the search field can always be brought to the top.
@@ -1051,6 +1054,12 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   placeholderTextColor={colors.faint}
                   multiline
                   maxLength={MAX_MEAL_TEXT_LENGTH}
+                  // Return finds the foods, as the search box's does: a meal is one line however it wraps.
+                  returnKeyType="search"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={() => void describe()}
+                  onFocus={() => setTypingMeal(true)}
+                  onBlur={() => setTypingMeal(false)}
                   editable={busy !== 'describing'}
                   // Opened from the Kitchen's Describe button: straight to typing.
                   autoFocus={initialMode === 'describe' && !canDictate()}
@@ -1104,7 +1113,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             </>
           ) : null}
         </ScrollView>
-        {footer ? (
+        {footer && !(mode === 'describe' && typingMeal) ? (
           <Animated.View
             style={[styles.footer, inRoom && styles.footerInRoom, rides && styles.footerRides, rides && { transform: [{ translateY: lift }] }]}
             onLayout={rides ? (event) => setFooterHeight(event.nativeEvent.layout.height) : undefined}
