@@ -10,6 +10,11 @@ describe('errorMessage', () => {
     expect(errorMessage({ message: 'duplicate key', code: '23505' }, 'x')).toBe('duplicate key (23505)');
   });
 
+  it("shows a rule of our own as its sentence, without the database's code", () => {
+    const limit = { code: 'P0001', message: "That's a lot of reactions for one friend today. Try again tomorrow.", details: null, hint: null };
+    expect(errorMessage(limit, 'x')).toBe("That's a lot of reactions for one friend today. Try again tomorrow.");
+  });
+
   it('falls back when there is nothing usable', () => {
     expect(errorMessage(undefined, 'Could not save.')).toBe('Could not save.');
     expect(errorMessage({}, 'Could not save.')).toBe('Could not save.');

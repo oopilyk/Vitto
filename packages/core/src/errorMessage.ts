@@ -63,6 +63,9 @@ export const errorMessage = (cause: unknown, fallback: string): string => {
     const parts = [message, details, hint].filter(
       (part): part is string => typeof part === 'string' && part.length > 0,
     );
+    // P0001 is a `raise exception` of our own (a daily limit, a rule): its
+    // message was written for the person reading it, and the code is noise.
+    if (code === 'P0001' && typeof message === 'string' && message) return message;
     if (parts.length) {
       return typeof code === 'string' && code ? `${parts.join(' — ')} (${code})` : parts.join(' — ');
     }
