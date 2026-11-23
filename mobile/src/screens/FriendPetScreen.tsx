@@ -116,15 +116,18 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   const [sending, setSending] = useState<ReactionKind | null>(null);
   const [reactionNote, setReactionNote] = useState<string | null>(null);
   useEffect(() => setReactionNote(null), [currentFriendId]);
-  const react = async (kind: ReactionKind) => {
-    if (!currentFriendId) return;
+  /** True once it is sent; a refusal (the day's limit, no connection) is said in the note. */
+  const react = async (kind: ReactionKind): Promise<boolean> => {
+    if (!currentFriendId) return false;
     setSending(kind);
     try {
       await friendsService.sendReaction(currentFriendId, kind);
       haptic('press');
       setReactionNote(profile ? `${REACTION_SENT[kind]} to ${displayName(profile)}` : REACTION_SENT[kind]);
+      return true;
     } catch (cause) {
       setReactionNote(errorMessage(cause, 'Could not send that.'));
+      return false;
     } finally {
       setSending(null);
     }
@@ -286,7 +289,7 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
       night={night}
       onClose={onClose}
       pager={{ index, total: friendUserIds.length, canGoPrev, canGoNext, goPrev, goNext }}
-      reaction={{ sending, note: reactionNote, send: (kind) => void react(kind) }}
+      reaction={{ sending, note: reactionNote, send: react }}
     />
   );
 }
@@ -306,11 +309,8 @@ interface VisitProps {
     goNext: () => void;
   };
   /** Sending a reaction to this friend (see friendsService.sendReaction). */
-  reaction: { sending: ReactionKind | null; note: string | null; send: (kind: ReactionKind) => void };
+  reaction: { sending: ReactionKind | null; note: string | null; send: (kind: ReactionKind) => Promise<boolean> };
 }
-
-/** Each reaction's face: on its button, and floated up over the pet as it is sent. */
-const REACTION_EMOJI: Record<ReactionKind, string> = { high_five: '🙌', cheer: '📣', proud: '⭐', nudge: '👉' };
 
 /** The home HUD's measures (see PetWorldHud), so a friend's place is laid out like your own. */
 const GUTTER = 16;
@@ -319,6 +319,8 @@ const DISC = 44;
 const TOOL = 36;
 /** How far a swipe has to travel to move to the next friend. */
 const SWIPE = 50;
+/** How long a reaction's button says "Sent". */
+const SENT_MS = 1600;
 
 /**
  * The friend's room, with a visitor's HUD over it laid out row for row like
@@ -388,15 +390,17 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
   }, [pager.index, slide]);
   const fade = slide.interpolate({ inputRange: [-120, 0, 120], outputRange: [0.5, 1, 0.5], extrapolate: 'clamp' });
 
-  // A sent reaction floats up from its button: one at a time, keyed so a
-  // second send restarts it.
-  const [floating, setFloating] = useState<{ kind: ReactionKind; key: number } | null>(null);
-  const float = useRef(new Animated.Value(0)).current;
-  const send = (kind: ReactionKind) => {
-    setFloating({ kind, key: Date.now() });
-    float.setValue(0);
-    Animated.timing(float, { toValue: 1, duration: 1100, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => setFloating(null));
-    react(kind);
+  // A sent reaction's button says so for a moment, then goes back to its name.
+  const [sent, setSent] = useState<ReactionKind | null>(null);
+  useEffect(() => {
+    if (!sent) return undefined;
+    const timer = setTimeout(() => setSent(null), SENT_MS);
+    return () => clearTimeout(timer);
+  }, [sent]);
+  // Only once it has really gone: a refused one says why in the note instead.
+  const send = async (kind: ReactionKind) => {
+    setSent(null);
+    if (await react(kind)) setSent(kind);
   };
 
   return (
@@ -496,44 +500,34 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
 
       {/* Reactions: a quick word to the friend whose place this is. */}
       <View style={styles.reactions} pointerEvents="box-none" testID="friend-reactions">
-        {floating ? (
-          <Animated.Text
-            key={floating.key}
-            pointerEvents="none"
-            style={[
-              styles.float,
-              {
-                opacity: float.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 1, 1, 0] }),
-                transform: [
-                  { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [0, -180] }) },
-                  { scale: float.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0.6, 1.5, 1.2] }) },
-                ],
-              },
-            ]}
-          >
-            {REACTION_EMOJI[floating.kind]}
-          </Animated.Text>
-        ) : null}
         {reactionNote ? (
           <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.notePill]} pointerEvents="none">
-            <Text style={[retro.label, styles.noteLabel, night && retro.labelNight]} accessibilityLiveRegion="polite" numberOfLines={1}>
+            {/* Wraps rather than cuts off: a refusal from the server can be a whole sentence. */}
+            <Text style={[retro.label, styles.noteLabel, night && retro.labelNight]} accessibilityLiveRegion="polite" numberOfLines={3}>
               {reactionNote}
             </Text>
           </View>
         ) : null}
-        <View style={[retro.panel, night && retro.panelNight, styles.reactionBar]}>
+        {/* Four buttons of their own, side by side, each the retro panel the HUD's buttons are. */}
+        <View style={styles.reactionRow}>
           {REACTION_KINDS.map((kind) => (
             <Pressable
               key={kind}
               accessibilityRole="button"
               accessibilityLabel={`${REACTION_LABEL[kind]}, to ${displayName(profile)}`}
               disabled={sending !== null}
-              onPress={() => send(kind)}
-              style={({ pressed }) => [styles.reaction, pressed && styles.reactionPressed, sending === kind && styles.reactionSending]}
+              onPress={() => void send(kind)}
+              style={({ pressed }) => [
+                retro.panel,
+                night && retro.panelNight,
+                styles.reaction,
+                sent === kind && styles.reactionSent,
+                pressed && retroPressed,
+                sending === kind && styles.reactionSending,
+              ]}
             >
-              <Text style={styles.reactionEmoji}>{REACTION_EMOJI[kind]}</Text>
-              <Text style={[styles.reactionLabel, night && retro.labelNight]} numberOfLines={1}>
-                {REACTION_LABEL[kind]}
+              <Text style={[styles.reactionLabel, night && retro.labelNight, sent === kind && styles.reactionLabelSent]} numberOfLines={2}>
+                {sent === kind ? 'Sent' : REACTION_LABEL[kind]}
               </Text>
             </Pressable>
           ))}
@@ -554,16 +548,14 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
 
 const styles = themedStyles(() => ({
   reactions: { position: 'absolute', left: GUTTER, right: GUTTER, bottom: 30, alignItems: 'center', gap: 8 },
-  // One bar of four, like a sticker sheet: a face and a word each.
-  reactionBar: { flexDirection: 'row', width: '100%', maxWidth: 380, paddingVertical: 6, paddingHorizontal: 4 },
-  reaction: { flex: 1, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 12 },
-  reactionPressed: { transform: [{ scale: 0.9 }], backgroundColor: 'rgba(0,0,0,0.06)' },
-  reactionSending: { opacity: 0.55 },
-  reactionEmoji: { fontSize: 24, lineHeight: 30 },
-  reactionLabel: { fontFamily: fonts.systemMono, fontSize: 9, fontWeight: '700', letterSpacing: 0.6, color: world.ink, textTransform: 'uppercase' },
-  float: { position: 'absolute', bottom: 70, fontSize: 44 },
+  reactionRow: { flexDirection: 'row', gap: 8, width: '100%', maxWidth: 400 },
+  reaction: { flex: 1, minHeight: 48, paddingHorizontal: 4, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
+  reactionSent: { backgroundColor: '#dbe8c8' },
+  reactionSending: { opacity: 0.6 },
+  reactionLabel: { fontFamily: fonts.systemMono, fontSize: 10, fontWeight: '700', lineHeight: 13, letterSpacing: 0.5, color: world.ink, textAlign: 'center', textTransform: 'uppercase' },
+  reactionLabelSent: { color: '#3f6b2e' },
   notePill: { paddingHorizontal: 14, paddingVertical: 6, maxWidth: '100%' },
-  noteLabel: { fontSize: 11, letterSpacing: 0.8 },
+  noteLabel: { fontSize: 11, lineHeight: 15, letterSpacing: 0.8, textAlign: 'center' },
   reportLink: { textAlign: 'center', opacity: 0.8, paddingVertical: 4 },
   center: { alignItems: 'center', justifyContent: 'center' },
   topbar: {
