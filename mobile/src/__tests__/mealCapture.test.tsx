@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import type { FoodSearchResult, MealAnalysis } from '@vitto/core';
 import { MealCaptureScreen } from '../screens/MealCaptureScreen';
+import { pictureSize } from '../components/MealCamera';
 
 const asset = {
   uri: 'file:///tmp/plate.jpg',
@@ -145,6 +146,17 @@ describe('meal capture', () => {
     });
     expect(saved).toHaveLength(1);
     expect((saved[0] as { loggedVia: string }).loggedVia).toBe('barcode');
+    act(() => tree.unmount());
+  });
+
+  it('shows the whole photo it will take, not a zoomed-in crop of it', () => {
+    // An iPhone 15 Pro: the picture is 3:4 like the photo, as wide as the screen.
+    expect(pictureSize(393, 852)).toEqual({ width: 393, height: 524 });
+    // A short window: as tall as fits, still 3:4.
+    expect(pictureSize(560, 600)).toEqual({ width: 450, height: 600 });
+    const tree = mount({ initialMode: 'scan' });
+    const shown = StyleSheet.flatten(byId(tree, 'camera-picture')[0]!.props.style) as { width: number; height: number };
+    expect(shown.height / shown.width).toBeCloseTo(4 / 3);
     act(() => tree.unmount());
   });
 

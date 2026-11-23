@@ -22,12 +22,10 @@ import {
   getPetBuild,
   wordPuzzleStreak,
   isSameDay,
-  mindScoreLabel,
   statValue,
   toDateKey,
   MOOD_WORD,
   type PetForm,
-  LEVEL_UP_COINS,
   coinsOf,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
@@ -141,8 +139,7 @@ const GROUP_INFO = (petName: string): Record<PetStatGroup, { title: string; intr
   condition: {
     title: 'Condition',
     intro: `How ${petName} is doing right now. Hunger, vitality, energy, happiness and mind fade on their own; everything else only ever climbs.`,
-    outro:
-      'Health has no timer of its own. Meals move it by what was on the plate, and beyond that it climbs while hunger, vitality and happiness are all comfortable and drains for each one you let bottom out.',
+    outro: `${DECAY_RATES} Health has no timer of its own. Meals move it by what was on the plate, and beyond that it climbs while hunger, vitality and happiness are all comfortable and drains for each one you let bottom out.`,
   },
   body: { title: 'Body', intro: 'Built up through training, and it stays built.' },
   mind: { title: 'Mind', intro: `How sharp ${petName} is. It fades a little each day without a game.` },
@@ -349,7 +346,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
           </View>
         </View>
 
-        <Card title="Level & XP" hint={`100 XP carries ${pet.name} to the next level.`}>
+        <Card title="Level & XP">
           <View style={styles.facts}>
             <Fact label="level" value={String(pet.level)} />
             <Fact label="XP this level" value={`${pet.xp}/100`} />
@@ -358,7 +355,6 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
           <StatBar label="XP" value={pet.xp} color={colors.coral} />
           <View style={styles.coinsRow} testID="coins">
             <Text style={styles.coinsValue}>{`${coinsOf(pet)} coins`}</Text>
-            <Text style={styles.coinsHint}>{`${LEVEL_UP_COINS} for every level-up.`}</Text>
           </View>
         </Card>
 
@@ -378,31 +374,26 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
             <Text style={styles.moodValue}>
               Today's best mind score: {bestMindScore || '—'}
             </Text>
-            <Text style={styles.moodHint}>
-              {todaysMind.length
-                ? `${mindScoreLabel(bestMindScore)} · ${todaysMind.length} session${todaysMind.length > 1 ? 's' : ''} today.`
-                : `${mindScoreLabel(0)} — no mind session logged today.`}
-            </Text>
           </View>
           <View style={styles.moodRow}>
             <Text style={styles.moodValue}>
               Today's word puzzle: {todaysWordPuzzle ? todaysWordPuzzle.metadata.score : wordPuzzleStarted ? 'in progress' : 'not played yet'}
             </Text>
-            <Text style={styles.moodHint}>
-              {todaysWordPuzzle
-                ? todaysWordPuzzle.metadata.correct > 0
+            {todaysWordPuzzle ? (
+              <Text style={styles.moodHint}>
+                {todaysWordPuzzle.metadata.correct > 0
                   ? `Solved in ${todaysWordPuzzle.metadata.roundOutcomes?.[0]?.guessesUsed ?? '?'} guesses.`
-                  : 'Not solved today.'
-                : `One five-letter word, once a day — ${pet.name} is waiting on today's board.`}
-            </Text>
+                  : 'Not solved today.'}
+              </Text>
+            ) : null}
             <View style={styles.facts}>
               <Fact label="word puzzle streak" value={String(wordPuzzleDays.currentStreak)} />
-              <Fact label="longest word puzzle run" value={String(wordPuzzleDays.longestStreak)} />
+              <Fact label="longest run" value={String(wordPuzzleDays.longestStreak)} />
             </View>
           </View>
         </Card>
 
-        <Card title="Consistency" hint="Every day you logged something.">
+        <Card title="Consistency">
           <View style={styles.facts}>
             <Fact label="day streak" value={String(streaks.currentStreak)} />
             <Fact label="longest run" value={String(streaks.longestStreak)} />
@@ -412,7 +403,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
           <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} frozenDateKeys={streaks.frozenDateKeys} />
         </Card>
 
-        <Card title="Care breakdown" hint="What you have logged recently.">
+        <Card title="Care breakdown">
           <View style={styles.tableHead}>
             <Text style={[styles.tableLabel, styles.tableLabelHead]}>Type</Text>
             <Text style={styles.tableCount}>7d</Text>
@@ -430,7 +421,6 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
               ? `Last cared for ${daysSinceCare === 0 ? 'today' : daysSinceCare === 1 ? 'yesterday' : `${daysSinceCare} days ago`} · ${lastEventAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
               : `${pet.name} has not been cared for yet.`}
           </Text>
-          <Text style={styles.decayNote}>{DECAY_RATES}</Text>
         </Card>
       </ScrollView>
     </View>
@@ -440,7 +430,6 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
 const styles = themedStyles(() => ({
   coinsRow: { marginTop: 12, gap: 2 },
   coinsValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.yellowDeep },
-  coinsHint: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, lineHeight: 18 },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -567,7 +556,6 @@ const styles = themedStyles(() => ({
     color: colors.ink,
   },
   lastCare: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 14, lineHeight: 19 },
-  decayNote: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 8, lineHeight: 20 },
   testBanner: {
     backgroundColor: colors.coral,
     borderRadius: 12,

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, PanResponder, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import {
   type FriendProfileSummary,
   type PetState,
@@ -21,6 +21,8 @@ import { displayName, formatLastActive } from '../components/FriendPetCard';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
 import { LevelRing } from '../petWorld/LevelRing';
 import { retro, retroPressed } from '../petWorld/retroStyle';
+import { topInsetFor } from '../petWorld/chromeScale';
+import { FitText } from '../components/FitText';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { ENVIRONMENT_LABEL } from '../petWorld/types';
@@ -34,7 +36,56 @@ interface Props {
   onClose: () => void;
 }
 
-type LoadState = 'loading' | 'ready' | 'error';
+interface VisitData {
+  pet: PetState | null;
+  profile: FriendProfileSummary | null;
+  /** Set whenever `pet` is. */
+  status: SocialPetStatus | null;
+}
+
+interface VisitEntry {
+  data?: VisitData;
+  error?: string;
+  at: number;
+  pending?: Promise<void>;
+}
+
+/**
+ * Every friend's visit, fetched once and kept for the session: what makes
+ * paging between friends instant. Kept for a minute before it is fetched
+ * again, and the old one stays on screen while that happens.
+ */
+const visits = new Map<string, VisitEntry>();
+const FRESH_MS = 60_000;
+/** How many friends either side of the one showing are fetched ahead. */
+const AHEAD = 3;
+
+/** For tests: start with nothing fetched. */
+export const forgetFriendVisits = () => visits.clear();
+
+const fetchVisit = async (friendId: string): Promise<VisitData> => {
+  const [pet, profile] = await Promise.all([friendsService.loadFriendPet(friendId), friendsService.loadFriendProfile(friendId)]);
+  if (!pet) return { pet, profile, status: null };
+  // Best-effort: an RPC error/network blip here must never take the whole
+  // card down with it -- an empty signal list reads as "quiet lately".
+  const signals: RecentActivitySignal[] = await friendsService.loadFriendRecentActivity(friendId).catch(() => []);
+  return { pet, profile, status: deriveSocialPetStatus(pet, signals) };
+};
+
+/** Told whenever a visit lands: the open screen redraws. */
+const listeners = new Set<() => void>();
+
+/** Fetches a friend's visit unless a fresh one is kept or on its way. */
+const ensureVisit = (friendId: string): void => {
+  const kept = visits.get(friendId);
+  if (kept?.pending || (kept?.data && Date.now() - kept.at < FRESH_MS)) return;
+  const pending = fetchVisit(friendId).then(
+    (data) => void visits.set(friendId, { data, at: Date.now() }),
+    // A failed refresh keeps what was there; only a first fetch shows the error.
+    (cause) => void visits.set(friendId, kept?.data ? { data: kept.data, at: kept.at } : { error: errorMessage(cause, "Could not load your friend's pet."), at: Date.now() }),
+  );
+  visits.set(friendId, { ...kept, at: kept?.at ?? 0, pending: pending.then(() => listeners.forEach((listener) => listener())) });
+};
 
 /**
  * Visiting a friend: their pet, in their room, full-bleed — the same
@@ -49,21 +100,17 @@ type LoadState = 'loading' | 'ready' | 'error';
  * working out; a friend who trained three hours ago is at home, idle.
  *
  * `friendUserIds` is the full ordered accepted-friends list from
- * `FriendsScreen`; only ONE friend's data is fetched at a time (the current
- * index) — no neighbour prefetching, matching the rest of the codebase's
- * per-screen-load pattern.
+ * `FriendsScreen`. Every friend near the one showing is fetched as soon as the
+ * screen opens and kept (see `visits`), so moving between them is instant:
+ * no spinner between friends, and none on coming back within a minute.
  */
 export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }: Props) {
   // Falls back to the start of the list rather than crashing if the initial id
   // is somehow no longer in it (e.g. unfriended in the moment between tapping
   // and this screen mounting).
   const [index, setIndex] = useState(() => Math.max(0, friendUserIds.indexOf(initialFriendUserId)));
-
-  const [state, setState] = useState<LoadState>('loading');
-  const [pet, setPet] = useState<PetState | null>(null);
-  const [profile, setProfile] = useState<FriendProfileSummary | null>(null);
-  const [status, setStatus] = useState<SocialPetStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Redrawn whenever a fetched visit lands.
+  const [, landed] = useReducer((count: number) => count + 1, 0);
 
   const currentFriendId: string | undefined = friendUserIds[index];
   const [sending, setSending] = useState<ReactionKind | null>(null);
@@ -89,48 +136,26 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   const palette = friendsPalette();
   const screenStyle = [layout.screen, { backgroundColor: palette.screenBg }];
 
+  // This friend first, then outwards either side, so the next swipe is ready.
   useEffect(() => {
-    if (!currentFriendId) return;
-    let cancelled = false;
-    setState('loading');
-    setError(null);
-    setStatus(null);
-
-    void (async () => {
-      try {
-        const [loadedPet, loadedProfile] = await Promise.all([
-          friendsService.loadFriendPet(currentFriendId),
-          friendsService.loadFriendProfile(currentFriendId),
-        ]);
-        if (cancelled) return;
-        setPet(loadedPet);
-        setProfile(loadedProfile);
-
-        if (loadedPet) {
-          // Best-effort: an RPC error/network blip here must never take the
-          // whole card down with it -- fall back to an empty signal list, which
-          // `deriveSocialPetStatus` already treats as "quiet lately".
-          let signals: RecentActivitySignal[] = [];
-          try {
-            signals = await friendsService.loadFriendRecentActivity(currentFriendId);
-          } catch {
-            signals = [];
-          }
-          if (cancelled) return;
-          setStatus(deriveSocialPetStatus(loadedPet, signals));
-        }
-        setState('ready');
-      } catch (cause) {
-        if (cancelled) return;
-        setError(errorMessage(cause, "Could not load your friend's pet."));
-        setState('error');
+    listeners.add(landed);
+    return () => void listeners.delete(landed);
+  }, []);
+  useEffect(() => {
+    for (let step = 0; step <= AHEAD; step += 1) {
+      for (const at of step === 0 ? [index] : [index + step, index - step]) {
+        const id = friendUserIds[at];
+        if (id) ensureVisit(id);
       }
-    })();
+    }
+  }, [index, friendUserIds]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [currentFriendId]);
+  const entry = currentFriendId ? visits.get(currentFriendId) : undefined;
+  const pet = entry?.data?.pet ?? null;
+  const profile = entry?.data?.profile ?? null;
+  const status = entry?.data?.status ?? null;
+  const state: 'loading' | 'ready' | 'error' = entry?.data ? 'ready' : entry?.error ? 'error' : 'loading';
+  const error = entry?.error ?? null;
 
   const canGoPrev = index > 0;
   const canGoNext = index < friendUserIds.length - 1;
@@ -284,15 +309,31 @@ interface VisitProps {
   reaction: { sending: ReactionKind | null; note: string | null; send: (kind: ReactionKind) => void };
 }
 
-/** The friend's room, with a visitor's HUD over it. Split out so the stage and its chrome are one unit. */
+/** Each reaction's face: on its button, and floated up over the pet as it is sent. */
+const REACTION_EMOJI: Record<ReactionKind, string> = { high_five: '🙌', cheer: '📣', proud: '⭐', nudge: '👉' };
+
+/** The home HUD's measures (see PetWorldHud), so a friend's place is laid out like your own. */
+const GUTTER = 16;
+const RING = 64;
+const DISC = 44;
+const TOOL = 36;
+/** How far a swipe has to travel to move to the next friend. */
+const SWIPE = 50;
+
+/**
+ * The friend's room, with a visitor's HUD over it laid out row for row like
+ * the home screen's: the level ring, the name plate and a round button on top,
+ * the pet's line on a plaque across the width, then the way between friends.
+ * A sideways swipe anywhere on the room moves to the next or previous friend.
+ */
 function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitProps) {
   const { sending, note: reactionNote, send: react } = reaction;
   // Built once per visit rather than per render: each dressing is a tree of
   // backdrop elements, and the stage crossfades between them by identity.
   const environments = useMemo(() => visitEnvironments(), []);
   const environment = placeToEnvironment(status.place);
-  // Two 96pt side columns leave the plate too little room under 360pt.
-  const narrow = useWindowDimensions().width < 360;
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const topInset = topInsetFor(screenWidth, screenHeight);
 
   // Only a live signal may pose the pet — a recent-but-stale activity must
   // never be shown as if it is happening right now.
@@ -306,153 +347,194 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
 
   // Over the room's art, which is night or day by the clock: the tone that reads on it.
   const healthColor = healthToneColor(status.health.tone, friendsPalette(night));
-  const dayLabel = `DAY ${daysWithPet(pet)}`;
 
-  // The plate, the pet's line and its meta. Between the two side columns on
-  // most phones; on a 320pt screen that gap is 80pt, which ellipsised the room
-  // to "LIV…", so there it goes on a row of its own under them.
-  const centre = (
-    <>
-      <View style={[retro.panel, night && retro.panelNight, styles.plate]}>
-        <Text style={[retro.kicker, night && retro.kickerNight, styles.plateKicker]} numberOfLines={1}>
-          {`Visiting ${displayName(profile)}`}
-        </Text>
-        <Text style={[styles.plateName, night && retro.labelNight]} numberOfLines={1}>
-          {pet.name.toUpperCase()}
-        </Text>
-        <Text style={[retro.kicker, night && retro.kickerNight, styles.plateRoom]} numberOfLines={1}>
-          {ENVIRONMENT_LABEL[environment].toUpperCase()}
-        </Text>
-      </View>
-      <Text style={[styles.feeling, night && styles.feelingNight]} numberOfLines={2}>
-        {status.headline}
-      </Text>
-      {/* Separate tokens, not one joined line: a wrap falls between them,
-          never inside one ("HEAL / THY"). */}
-      <View style={styles.metaRow}>
-        <Text style={[styles.meta, night && styles.metaNight]} numberOfLines={1}>
-          {dayLabel}
-        </Text>
-        <Text style={[styles.meta, night && styles.metaNight, { color: healthColor }]} numberOfLines={1}>
-          {status.health.label.toUpperCase()}
-        </Text>
-        {/* Only when nothing is live: a live signal is already the
-            pose, and "Active just now" under it would be noise. */}
-        {!status.isLive && status.lastActiveAt ? (
-          <Text style={[styles.meta, night && styles.metaNight, styles.metaSoft]} numberOfLines={1}>
-            {`Active ${formatLastActive(status.lastActiveAt)}`}
-          </Text>
-        ) : null}
-      </View>
-    </>
-  );
+  // The swipe: the room follows the finger a little, then the next friend
+  // slides in from the side it was pulled from.
+  const slide = useRef(new Animated.Value(0)).current;
+  const pagerNow = useRef(pager);
+  pagerNow.current = pager;
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+      onPanResponderMove: (_event, gesture) => {
+        const { canGoNext, canGoPrev } = pagerNow.current;
+        // Against the end of the list it barely gives.
+        const open = gesture.dx < 0 ? canGoNext : canGoPrev;
+        slide.setValue(gesture.dx * (open ? 0.5 : 0.12));
+      },
+      onPanResponderRelease: (_event, gesture) => {
+        const { canGoNext, canGoPrev, goNext, goPrev } = pagerNow.current;
+        if (gesture.dx < -SWIPE && canGoNext) {
+          haptic('select');
+          goNext();
+        } else if (gesture.dx > SWIPE && canGoPrev) {
+          haptic('select');
+          goPrev();
+        } else {
+          Animated.spring(slide, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
+        }
+      },
+      onPanResponderTerminate: () => Animated.spring(slide, { toValue: 0, useNativeDriver: true }).start(),
+    }),
+  ).current;
+  // A new friend: in from the side the list moved towards.
+  const shownIndex = useRef(pager.index);
+  useEffect(() => {
+    if (shownIndex.current === pager.index) return;
+    const from = pager.index > shownIndex.current ? 1 : -1;
+    shownIndex.current = pager.index;
+    slide.setValue(from * 60);
+    Animated.timing(slide, { toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [pager.index, slide]);
+  const fade = slide.interpolate({ inputRange: [-120, 0, 120], outputRange: [0.5, 1, 0.5], extrapolate: 'clamp' });
+
+  // A sent reaction floats up from its button: one at a time, keyed so a
+  // second send restarts it.
+  const [floating, setFloating] = useState<{ kind: ReactionKind; key: number } | null>(null);
+  const float = useRef(new Animated.Value(0)).current;
+  const send = (kind: ReactionKind) => {
+    setFloating({ kind, key: Date.now() });
+    float.setValue(0);
+    Animated.timing(float, { toValue: 1, duration: 1100, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => setFloating(null));
+    react(kind);
+  };
 
   return (
-    <View style={styles.visit}>
-      <EnvironmentStage
-        environment={environment}
-        pet={pet}
-        activityProps={activityProps}
-        night={night}
-        environments={environments}
-        hudOverlay={
-          <View style={styles.hud} pointerEvents="box-none">
-            <View style={styles.hudRow} pointerEvents="box-none">
-              {/* Left column: whose place this is, then the way home. Same
-                  width as the home HUD's ring column so the centre plate lands
-                  on the true centre. */}
-              <View style={styles.hudSide}>
-                <LevelRing level={pet.level} xpPct={pet.xp} onPress={() => {}} night={night} />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Back to friends"
-                  onPress={onClose}
-                  hitSlop={8}
-                  style={({ pressed }) => [
-                    retro.panelQuiet,
-                    night && retro.panelQuietNight,
-                    styles.backButton,
-                    pressed && retroPressed,
-                  ]}
-                >
-                  <Text style={[retro.kicker, night && retro.kickerNight, styles.visitBackLabel]} numberOfLines={1}>
-                    ← Friends
-                  </Text>
-                </Pressable>
-              </View>
-
-              {narrow ? null : (
-                <View style={styles.hudCenter} pointerEvents="none">
-                  {centre}
+    <View style={styles.visit} {...pan.panHandlers}>
+      <Animated.View style={[styles.visit, { opacity: fade, transform: [{ translateX: slide }] }]}>
+        <EnvironmentStage
+          environment={environment}
+          pet={pet}
+          activityProps={activityProps}
+          night={night}
+          environments={environments}
+          hudOverlay={
+            <View style={styles.hud} pointerEvents="box-none">
+              {/* Row 1, as at home: level, whose pet and where, and the way out. */}
+              <View style={[styles.topRow, { paddingTop: topInset }]} pointerEvents="box-none">
+                <View pointerEvents="none">
+                  <LevelRing level={pet.level} xpPct={pet.xp} onPress={() => {}} night={night} size={RING} />
                 </View>
-              )}
+                <View style={[retro.panel, night && retro.panelNight, styles.plate]} pointerEvents="none">
+                  <Text style={[retro.kicker, night && retro.kickerNight, styles.plateKicker]} numberOfLines={1}>
+                    {`Visiting ${displayName(profile)}`}
+                  </Text>
+                  <FitText style={[styles.plateName, night && retro.labelNight]} minScale={0.7}>
+                    {pet.name.toUpperCase()}
+                  </FitText>
+                  <Text style={[retro.kicker, night && retro.kickerNight, styles.plateKicker]} numberOfLines={1}>
+                    {ENVIRONMENT_LABEL[environment].toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.sideSlot} pointerEvents="box-none">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Back to friends"
+                    onPress={onClose}
+                    hitSlop={8}
+                    style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.disc, pressed && retroPressed]}
+                  >
+                    <Text style={[styles.discMark, night && retro.labelNight]}>✕</Text>
+                  </Pressable>
+                </View>
+              </View>
 
-              {/* Right column: the pager as two discs, with the count between.
-                  Always visible, never swipe-only, so it works with a mouse. */}
-              <View style={[styles.hudSide, styles.hudSideRight]} pointerEvents="box-none">
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Previous friend"
-                  disabled={!pager.canGoPrev}
-                  onPress={pager.goPrev}
-                  hitSlop={8}
-                  style={({ pressed }) => [
-                    retro.panel,
-                    night && retro.panelNight,
-                    styles.disc,
-                    !pager.canGoPrev && styles.discDisabled,
-                    pressed && retroPressed,
-                  ]}
-                >
-                  <Text style={[styles.discMark, night && retro.labelNight]}>‹</Text>
-                </Pressable>
-                <Text style={[retro.kicker, night && retro.kickerNight, styles.visitCount]} numberOfLines={1}>
-                  {pager.total > 0 ? `${pager.index + 1} / ${pager.total}` : ''}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Next friend"
-                  disabled={!pager.canGoNext}
-                  onPress={pager.goNext}
-                  hitSlop={8}
-                  style={({ pressed }) => [
-                    retro.panel,
-                    night && retro.panelNight,
-                    styles.disc,
-                    !pager.canGoNext && styles.discDisabled,
-                    pressed && retroPressed,
-                  ]}
-                >
-                  <Text style={[styles.discMark, night && retro.labelNight]}>›</Text>
-                </Pressable>
+              {/* Row 2, the pet's line and how it is doing, on an opaque plaque. */}
+              <View style={[retro.panel, night && retro.panelNight, styles.readout]} pointerEvents="none">
+                <FitText style={[styles.feeling, night && retro.labelNight]} lines={2} minScale={0.85}>
+                  {status.headline}
+                </FitText>
+                {/* Separate tokens, not one joined line: a wrap falls between them. */}
+                <View style={styles.metaRow}>
+                  <Text style={[styles.meta, night && retro.captionNight]} numberOfLines={1}>
+                    {`DAY ${daysWithPet(pet)}`}
+                  </Text>
+                  <Text style={[styles.meta, { color: healthColor }]} numberOfLines={1}>
+                    {status.health.label.toUpperCase()}
+                  </Text>
+                  {/* Only when nothing is live: a live signal is already the pose. */}
+                  {!status.isLive && status.lastActiveAt ? (
+                    <Text style={[styles.meta, styles.metaSoft, night && retro.captionNight]} numberOfLines={1}>
+                      {`Active ${formatLastActive(status.lastActiveAt)}`}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
+
+              {/* Row 3, between friends. Buttons as well as the swipe, so it works with a mouse. */}
+              {pager.total > 1 ? (
+                <View style={styles.toolRow} pointerEvents="box-none">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Previous friend"
+                    disabled={!pager.canGoPrev}
+                    onPress={pager.goPrev}
+                    hitSlop={8}
+                    style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, !pager.canGoPrev && styles.pillOff, pressed && retroPressed]}
+                  >
+                    <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>‹</Text>
+                  </Pressable>
+                  <Text style={[retro.kicker, night && retro.kickerNight, styles.count]} numberOfLines={1}>
+                    {`${pager.index + 1} of ${pager.total}`}
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Next friend"
+                    disabled={!pager.canGoNext}
+                    onPress={pager.goNext}
+                    hitSlop={8}
+                    style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, !pager.canGoNext && styles.pillOff, pressed && retroPressed]}
+                  >
+                    <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>›</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
-            {narrow ? (
-              <View style={styles.hudCenterBelow} pointerEvents="none">
-                {centre}
-              </View>
-            ) : null}
-          </View>
-        }
-      />
+          }
+        />
+      </Animated.View>
+
       {/* Reactions: a quick word to the friend whose place this is. */}
       <View style={styles.reactions} pointerEvents="box-none" testID="friend-reactions">
-        {reactionNote ? (
-          <Text style={[retro.kicker, night && retro.kickerNight, styles.reactionNote]} accessibilityLiveRegion="polite">
-            {reactionNote}
-          </Text>
+        {floating ? (
+          <Animated.Text
+            key={floating.key}
+            pointerEvents="none"
+            style={[
+              styles.float,
+              {
+                opacity: float.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 1, 1, 0] }),
+                transform: [
+                  { translateY: float.interpolate({ inputRange: [0, 1], outputRange: [0, -180] }) },
+                  { scale: float.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0.6, 1.5, 1.2] }) },
+                ],
+              },
+            ]}
+          >
+            {REACTION_EMOJI[floating.kind]}
+          </Animated.Text>
         ) : null}
-        <View style={styles.reactionRow}>
+        {reactionNote ? (
+          <View style={[retro.panelQuiet, night && retro.panelQuietNight, styles.notePill]} pointerEvents="none">
+            <Text style={[retro.label, styles.noteLabel, night && retro.labelNight]} accessibilityLiveRegion="polite" numberOfLines={1}>
+              {reactionNote}
+            </Text>
+          </View>
+        ) : null}
+        <View style={[retro.panel, night && retro.panelNight, styles.reactionBar]}>
           {REACTION_KINDS.map((kind) => (
             <Pressable
               key={kind}
               accessibilityRole="button"
               accessibilityLabel={`${REACTION_LABEL[kind]}, to ${displayName(profile)}`}
               disabled={sending !== null}
-              onPress={() => react(kind)}
-              style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.reaction, pressed && retroPressed, sending === kind && styles.reactionSending]}
+              onPress={() => send(kind)}
+              style={({ pressed }) => [styles.reaction, pressed && styles.reactionPressed, sending === kind && styles.reactionSending]}
             >
-              <Text style={[styles.reactionLabel, night && retro.labelNight]} numberOfLines={1}>{REACTION_LABEL[kind]}</Text>
+              <Text style={styles.reactionEmoji}>{REACTION_EMOJI[kind]}</Text>
+              <Text style={[styles.reactionLabel, night && retro.labelNight]} numberOfLines={1}>
+                {REACTION_LABEL[kind]}
+              </Text>
             </Pressable>
           ))}
         </View>
@@ -471,13 +553,17 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
 }
 
 const styles = themedStyles(() => ({
-  reactions: { position: 'absolute', left: 12, right: 12, bottom: 36, alignItems: 'center', gap: 8 },
-  // A 2×2 grid of equal buttons, so none is left alone on a row.
-  reactionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, width: '100%', maxWidth: 340 },
-  reaction: { flexBasis: '45%', flexGrow: 1, minHeight: 44, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  reactionSending: { opacity: 0.6 },
-  reactionLabel: { fontFamily: fonts.ui, fontSize: 14, fontWeight: '600', color: world.ink },
-  reactionNote: { textAlign: 'center' },
+  reactions: { position: 'absolute', left: GUTTER, right: GUTTER, bottom: 30, alignItems: 'center', gap: 8 },
+  // One bar of four, like a sticker sheet: a face and a word each.
+  reactionBar: { flexDirection: 'row', width: '100%', maxWidth: 380, paddingVertical: 6, paddingHorizontal: 4 },
+  reaction: { flex: 1, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: 12 },
+  reactionPressed: { transform: [{ scale: 0.9 }], backgroundColor: 'rgba(0,0,0,0.06)' },
+  reactionSending: { opacity: 0.55 },
+  reactionEmoji: { fontSize: 24, lineHeight: 30 },
+  reactionLabel: { fontFamily: fonts.systemMono, fontSize: 9, fontWeight: '700', letterSpacing: 0.6, color: world.ink, textTransform: 'uppercase' },
+  float: { position: 'absolute', bottom: 70, fontSize: 44 },
+  notePill: { paddingHorizontal: 14, paddingVertical: 6, maxWidth: '100%' },
+  noteLabel: { fontSize: 11, letterSpacing: 0.8 },
   reportLink: { textAlign: 'center', opacity: 0.8, paddingVertical: 4 },
   center: { alignItems: 'center', justifyContent: 'center' },
   topbar: {
@@ -509,64 +595,36 @@ const styles = themedStyles(() => ({
   pagerLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.coral, letterSpacing: 0 },
   pagerLabelDisabled: { color: colors.faint },
   pagerCount: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint },
-  // The visit: a full-bleed stage with the visitor's chrome laid over it. The
-  // column widths and inset match `PetWorldHud` so moving between your own
-  // room and a friend's does not jump the plate around.
+  // The visit: a full-bleed stage with the visitor's chrome laid over it,
+  // measured like PetWorldHud so your own room and a friend's line up.
   visit: { flex: 1 },
   hud: { flex: 1 },
-  hudRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 56,
-  },
-  hudSide: { width: 96, alignItems: 'flex-start', gap: 10 },
-  hudSideRight: { alignItems: 'flex-end' },
-  hudCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
-  hudCenterBelow: { alignItems: 'center', paddingHorizontal: 16, marginTop: 8 },
-  // "← FRIENDS" fits the 96pt column on one line: at the kicker's own 12pt and
-  // 1.4 tracking it came to ~105pt and broke in two.
-  backButton: { paddingHorizontal: 8, paddingVertical: 6 },
-  visitBackLabel: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 0.6, flexShrink: 0 },
-  plate: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, alignItems: 'center', maxWidth: '100%' },
-  plateKicker: { fontFamily: fonts.ui, fontSize: 11, marginBottom: 1 },
-  plateName: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 20, letterSpacing: 0, color: world.ink },
-  plateRoom: { fontFamily: fonts.ui, fontSize: 11, marginTop: 2 },
-  feeling: {
-    fontFamily: fonts.ui, fontWeight: '600',
-    fontSize: 13,
-    
-    lineHeight: 18,
-    letterSpacing: 0,
-    color: '#241a11',
-    textAlign: 'center',
-    marginTop: 10,
-    textShadowColor: 'rgba(247,240,224,0.55)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  feelingNight: { color: '#f4ecda', textShadowColor: 'rgba(0,0,0,0.55)' },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: 12, marginTop: 5 },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: GUTTER },
+  sideSlot: { width: RING, alignItems: 'flex-end' },
+  plate: { flex: 1, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 8, alignItems: 'center' },
+  plateKicker: { fontSize: 10, marginBottom: 1 },
+  plateName: { fontFamily: fonts.systemMono, fontSize: 18, fontWeight: '700', letterSpacing: 1, color: world.ink, textAlign: 'center' },
+  disc: { width: DISC, height: DISC, borderRadius: DISC / 2, alignItems: 'center', justifyContent: 'center' },
+  discMark: { fontFamily: fonts.systemMono, fontSize: 17, fontWeight: '700', color: world.ink },
+  readout: { marginTop: 12, marginHorizontal: GUTTER, alignItems: 'center', paddingHorizontal: 14, paddingTop: 8, paddingBottom: 9 },
+  feeling: { fontFamily: fonts.systemMono, fontSize: 13, fontWeight: '700', lineHeight: 18, letterSpacing: 0.2, color: world.ink, textAlign: 'center' },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: 10, rowGap: 2, marginTop: 6 },
   meta: {
-    fontFamily: fonts.ui, fontWeight: '600',
-    fontSize: 12,
-    
-    letterSpacing: 0.6,
-    color: '#4a3c2b',
-    textAlign: 'center',
     flexShrink: 0,
+    fontFamily: fonts.systemMono,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: world.inkSoft,
+    textAlign: 'center',
     textTransform: 'uppercase',
-    textShadowColor: 'rgba(247,240,224,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
   },
-  metaNight: { color: '#cdbfa6', textShadowColor: 'rgba(0,0,0,0.5)' },
-  metaSoft: { fontWeight: '400', textTransform: 'none' },
-  visitCount: { fontFamily: fonts.ui, fontSize: 12 },
-  disc: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  discDisabled: { opacity: 0.35 },
-  discMark: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 22, color: world.ink, marginTop: -2 },
+  metaSoft: { fontWeight: '400', textTransform: 'none', letterSpacing: 0.4 },
+  toolRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: GUTTER, marginTop: 12 },
+  pill: { height: TOOL, minWidth: 52, borderRadius: TOOL / 2, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
+  pillOff: { opacity: 0.35 },
+  pillLabel: { fontSize: 20, lineHeight: 22, marginTop: -2 },
+  count: { fontSize: 11 },
   messageBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
   messageTitle: { ...text.title, fontSize: 32, lineHeight: 34, textAlign: 'center' },
   messageBodyText: { ...text.body, textAlign: 'center' },

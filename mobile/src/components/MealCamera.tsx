@@ -91,6 +91,7 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
   const flash = useRef(new Animated.Value(0)).current;
   const window = useWindowDimensions();
   const topInset = Platform.OS === 'web' ? 16 : topInsetFor(window.width, window.height);
+  const picture = pictureSize(Math.min(window.width, FINDER_MAX_WIDTH), window.height);
 
   useEffect(() => {
     if (!spotted) return undefined;
@@ -165,6 +166,10 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
           {/* On a wide browser window the picture keeps a phone's width. */}
           <View style={styles.finder} {...pan.panHandlers}>
             {granted ? (
+              // The picture the photo will be, 3:4 as the phone's camera shows
+              // it. Stretched over the whole tall screen it lost about 40% of
+              // its width, and looked zoomed in next to the photo it took.
+              <View style={[styles.picture, { width: picture.width, height: picture.height }]} testID="camera-picture">
               <CameraView
                 ref={camera}
                 style={StyleSheet.absoluteFill}
@@ -181,6 +186,7 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
                       : undefined
                 }
               />
+              </View>
             ) : (
               <View style={styles.permission} testID="camera-permission">
                 <Text style={styles.permissionTitle}>Camera access needed</Text>
@@ -298,13 +304,24 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
   );
 }
 
+const FINDER_MAX_WIDTH = 560;
+
+/** The camera's picture, 3:4 upright like a photo, as wide as fits: what is shown is what is taken. */
+export const pictureSize = (width: number, height: number): { width: number; height: number } => {
+  const tall = Math.min((width * 4) / 3, height);
+  return { width: (tall * 3) / 4, height: tall };
+};
+
 const DIM = 'rgba(0,0,0,0.55)';
 const FRAME_HEIGHT = 220;
 const GLASS = 'rgba(0,0,0,0.5)';
 
 const styles = themedStyles(() => ({
   page: { flex: 1, alignItems: 'center', backgroundColor: '#000' },
-  finder: { flex: 1, width: '100%', maxWidth: 560, overflow: 'hidden', backgroundColor: '#000' },
+  finder: { flex: 1, width: '100%', maxWidth: FINDER_MAX_WIDTH, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
+  // In the middle of the screen, so the barcode frame (drawn over the whole
+  // screen, centred) is centred on the picture too.
+  picture: { overflow: 'hidden', backgroundColor: '#000' },
   dim: { flex: 1, backgroundColor: DIM },
   // As much dark below the frame as above it (the plain `dim`), so the frame's
   // middle is the picture's middle: an iPhone reads a barcode along lines
@@ -344,7 +361,7 @@ const styles = themedStyles(() => ({
   modeLabelOn: { color: '#ffffff', fontWeight: '700' },
   library: { minHeight: 44, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: GLASS },
   libraryLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 14, color: '#ffffff' },
-  permission: { flex: 1, paddingHorizontal: 32, gap: 10, alignItems: 'center', justifyContent: 'center' },
+  permission: { flex: 1, alignSelf: 'stretch', paddingHorizontal: 32, gap: 10, alignItems: 'center', justifyContent: 'center' },
   permissionTitle: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 19, color: '#ffffff' },
   permissionHint: { fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: 'rgba(255,255,255,0.75)', textAlign: 'center' },
   permissionButton: { marginTop: 8, minHeight: 46, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: colors.coral },

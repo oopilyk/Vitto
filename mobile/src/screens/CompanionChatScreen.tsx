@@ -435,7 +435,12 @@ const styles = themedStyles(() => ({
   bondFill: { height: 4, borderRadius: 2, backgroundColor: colors.coral },
   // A column, like Settings, so on a tablet the bubbles read as a thread
   // rather than lines running the width of the screen. No change on a phone.
-  thread: { padding: 16, gap: 8, flexGrow: 1, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
+  // Never stretched to fill the screen (no flexGrow): iOS scrolls to the end
+  // as the content's height less the screen's plus the docked message box, so
+  // a short thread stretched to the screen's height was always pushed up by
+  // the box's height, its first message cut off at the top. At its own height
+  // a short thread has nothing to scroll and stays put.
+  thread: { padding: 16, gap: 8, width: '100%', maxWidth: SETTINGS_MAX_WIDTH, alignSelf: 'center' },
   empty: { fontFamily: fonts.pixel, fontSize: 16, color: colors.muted, textAlign: 'center', marginTop: 40, lineHeight: 23 },
   turn: { gap: 6 },
   card: {

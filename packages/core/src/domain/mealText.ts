@@ -94,9 +94,15 @@ const UNIT = `(${Object.keys(UNITS).sort((a, b) => b.length - a.length).join('|'
 /** "150g chicken", "2 cups of rice", "a banana", "3 eggs", "oatmeal". */
 const SEGMENT = new RegExp(String.raw`^(?:${AMOUNT}\s*)?(?:${UNIT}\b\.?\s+(?:of\s+)?)?([a-z][a-z' -]*)$`);
 
+/** The amount written after the food, as in a list: "cheese balls 5", "rice 150g", "eggs x2". */
+const TRAILING = new RegExp(String.raw`^([a-z][a-z' -]*?)\s+(?:x\s*)?(\d+(?:\.\d+)?)\s*(?:${UNIT}\b\.?)?$`);
+
 const parseSegment = (segment: string): ParsedMealItem | null => {
   // "half a banana", "half an avocado": the half is the amount.
-  const text = segment.replace(/^half an? /, 'half ');
+  let text = segment.replace(/^half an? /, 'half ');
+  // Turned round to the usual order, so it is read exactly as "5 cheese balls" would be.
+  const trailing = TRAILING.exec(text);
+  if (trailing) text = `${trailing[2]}${trailing[3] ? ` ${trailing[3]}` : ''} ${trailing[1]!.trim()}`;
   const match = SEGMENT.exec(text);
   if (!match) return null;
   const [, rawAmount, rawUnit, rawName] = match;

@@ -63,10 +63,11 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
     .filter((entry) => !entry.earned)
     .reduce<EvolutionProgress | null>((best, entry) => (!best || entry.progress > best.progress ? entry : best), null);
 
-  const hint = switchable
-    ? `Tap a form for ${pet.name} to wear it, base included. Locked ones unlock as ${pet.name} evolves.`
-    : earnedCount > 0
-      ? `${pet.name} has evolved. Every form earned stays unlocked.`
+  // Only before the first form: how evolving works. After it, each form says
+  // for itself whether it can be worn ("Tap to wear", "Wearing").
+  const hint =
+    switchable || earnedCount > 0
+      ? null
       : `From level ${EVOLUTION_LEVEL}, whichever you train most (workouts, cardio or mind sessions) decides who ${pet.name} becomes.`;
 
   /** One skin: tappable when it is unlocked, not worn, and there is a picker. */
@@ -95,7 +96,7 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
   return (
     <View style={styles.card} testID="evolution-card">
       <Kicker>Forms</Kicker>
-      <Text style={styles.hint}>{hint}</Text>
+      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       {skin(
         'base',
         (isWorn) => (
@@ -112,7 +113,6 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
                   {isWorn ? 'Wearing' : switchable ? 'Tap to wear' : 'Unlocked'}
                 </Text>
               </View>
-              <Text style={styles.needs}>{`Always ${pet.name}'s to wear.`}</Text>
             </View>
           </View>
         ),

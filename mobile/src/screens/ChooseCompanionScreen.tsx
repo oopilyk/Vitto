@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Image, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ROOM_THEMES, type PetBreed, type PetForm, type PetState, type RoomTheme } from '@vitto/core';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { CoinMark } from '../components/CoinMark';
@@ -227,7 +227,7 @@ const ANIMAL_SPRITE = 104;
  * which hit the same thing). The frame itself can take an aspect ratio, so the
  * card holds its shape before the art arrives.
  */
-function RoomHero({ theme, faded, badge }: { theme: RoomTheme; faded: boolean; badge?: ReactNode }) {
+function RoomHero({ theme, faded, badge, onPress, disabled }: { theme: RoomTheme; faded: boolean; badge?: ReactNode; onPress?: () => void; disabled?: boolean }) {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
   // Day or night art, per card; starts on whatever the rooms look like right now.
@@ -255,8 +255,14 @@ function RoomHero({ theme, faded, badge }: { theme: RoomTheme; faded: boolean; b
           style={faded && styles.heroFaded}
           accessibilityLabel={`${ROOM_THEME_LABEL[theme]} rooms, showing the ${ROOM_NAMES[page]?.toLowerCase() ?? 'living room'}`}
         >
+          {/* Each picture is its own tap target inside the scroller, the usual
+              carousel shape: a swipe scrolls and cancels the tap. Wrapped the
+              other way round (the whole card one button around the scroller)
+              the button kept the touch and the pictures would not swipe. */}
           {sources.map((source, index) => (
-            <Image key={index} source={source} style={{ width, height }} resizeMode="cover" />
+            <Pressable key={index} onPress={onPress} disabled={disabled} accessible={false}>
+              <Image source={source} style={{ width, height }} resizeMode="cover" />
+            </Pressable>
           ))}
         </ScrollView>
       ) : null}
@@ -544,23 +550,24 @@ export function ChooseCompanionScreen({
               const locked = !themeOwned && !themeAffordable;
               const note = current ? 'Equipped' : themeOwned ? 'Owned · free' : themeFree ? 'Free' : `${roomThemeCost} coins`;
               return (
-                <PressableScale
-                  key={theme}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected, disabled: locked }}
-                  accessibilityLabel={`${ROOM_THEME_LABEL[theme]} rooms, ${note}`}
-                  disabled={locked}
-                  onPress={() => pickTheme(theme)}
-                  scaleTo={0.985}
-                  style={[styles.theme, selected && styles.selected]}
-                  testID={`room-theme-${theme}`}
-                >
+                <View key={theme} style={[styles.theme, selected && styles.selected]}>
                   <RoomHero
                     theme={theme}
                     faded={locked}
                     badge={current ? <StateTag kind="equipped" pop={landed === `room:${theme}`} /> : undefined}
+                    onPress={() => pickTheme(theme)}
+                    disabled={locked}
                   />
-                  <View style={styles.themeText}>
+                  <PressableScale
+                    accessibilityRole="button"
+                    accessibilityState={{ selected, disabled: locked }}
+                    accessibilityLabel={`${ROOM_THEME_LABEL[theme]} rooms, ${note}`}
+                    disabled={locked}
+                    onPress={() => pickTheme(theme)}
+                    scaleTo={0.985}
+                    style={styles.themeText}
+                    testID={`room-theme-${theme}`}
+                  >
                     <View style={styles.themeCopy}>
                       <Text style={[styles.themeName, selected && styles.nameOn]}>{ROOM_THEME_LABEL[theme]}</Text>
                       <Text style={styles.themeDetail} numberOfLines={2}>
@@ -579,8 +586,8 @@ export function ChooseCompanionScreen({
                         {locked ? <Text style={styles.needMore} numberOfLines={1}>{`${roomThemeCost - coins} more`}</Text> : null}
                       </View>
                     )}
-                  </View>
-                </PressableScale>
+                  </PressableScale>
+                </View>
               );
             })}
           </>

@@ -177,6 +177,6 @@ const styles = themedStyles(() => ({
     backgroundColor: colors.card,
   },
   tileValue: { fontFamily: fonts.ui, fontSize: 22, fontWeight: '700', color: colors.ink, fontVariant: ['tabular-nums'] },
-  tileLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: 2 },
+  tileLabel: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSoft, marginTop: 2 },
   tileNote: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 4 },
 }));

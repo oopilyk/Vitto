@@ -88,8 +88,8 @@ Deno.serve(async (request) => {
       return json(
         {
           error: plus
-            ? `That's ${PLUS_PER_DAY} described meals today. Search or scan your food until tomorrow.`
-            : `That's today's ${FREE_PER_DAY} described meals. List each food with an amount ("2 eggs, 150 g rice"), search, or get Plus for more.`,
+            ? `You've used all ${PLUS_PER_DAY} of today's meal descriptions. They come back tomorrow. Until then, add foods with Search or scan them.`
+            : `You've used your ${FREE_PER_DAY} free meal descriptions for today. They come back tomorrow. Until then, add foods with Search, or get Plus for more.`,
         },
         429,
       );

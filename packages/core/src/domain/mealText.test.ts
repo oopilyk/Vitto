@@ -30,6 +30,16 @@ describe('parseMealText', () => {
     expect(parseMealText('0.2 kg salmon')).toEqual([{ name: 'salmon', amount: 200, unit: 'g', explicit: true }]);
   });
 
+  it('reads an amount written after the food, as in a list', () => {
+    expect(parseMealText('Cheese balls 5')).toEqual([{ name: 'cheese balls', amount: 5, unit: 'count', explicit: true }]);
+    expect(parseMealText('rice 150g, eggs x2')).toEqual([
+      { name: 'rice', amount: 150, unit: 'g', explicit: true },
+      { name: 'eggs', amount: 2, unit: 'count', explicit: true },
+    ]);
+    // Still too many to be a count of something.
+    expect(parseMealText('chicken 200')).toBeNull();
+  });
+
   it('drops how a spoken sentence starts and ends', () => {
     expect(parseMealText('For breakfast I had 3 eggs and oatmeal.')).toEqual([
       { name: 'eggs', amount: 3, unit: 'count', explicit: true },

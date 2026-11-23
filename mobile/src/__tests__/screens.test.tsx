@@ -3807,7 +3807,7 @@ describe('friends screen', () => {
 
 
 describe('friend pet screen', () => {
-  const { FriendPetScreen } = require('../screens/FriendPetScreen');
+  const { FriendPetScreen, forgetFriendVisits } = require('../screens/FriendPetScreen');
   const { friendsService } = require('../services/friendsService');
   const { PetAvatar } = require('../components/PetAvatar');
 
@@ -3816,6 +3816,7 @@ describe('friend pet screen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    forgetFriendVisits();
   });
 
   const findByAccessibilityLabel = (tree: renderer.ReactTestRenderer, label: string) =>
@@ -3986,6 +3987,30 @@ describe('friend pet screen', () => {
     });
 
     expect(JSON.stringify(tree.toJSON())).toContain('@friend_two');
+    tree.unmount();
+  });
+
+  it('fetches the friends either side up front, so the next one shows at once', async () => {
+    friendsService.loadFriendPet.mockImplementation((id: string) => Promise.resolve(id === 'user-2' ? pet : { ...pet, name: 'Riko' }));
+    friendsService.loadFriendProfile.mockImplementation((id: string) => Promise.resolve(id === 'user-2' ? friendTwoProfile : friendThreeProfile));
+    friendsService.loadFriendRecentActivity.mockResolvedValue([]);
+
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<FriendPetScreen friendUserIds={['user-2', 'user-3']} initialFriendUserId="user-2" onClose={() => {}} />);
+    });
+    // Both fetched as the screen opened.
+    expect(friendsService.loadFriendPet).toHaveBeenCalledWith('user-3');
+
+    // The next friend, with nothing left to wait for: no awaiting here.
+    act(() => findByAccessibilityLabel(tree, 'Next friend').props.onPress());
+    const rendered = JSON.stringify(tree.toJSON());
+    expect(rendered).toContain('@friend_three');
+    expect(tree.root.findAll((node: any) => node.type === 'ActivityIndicator')).toHaveLength(0);
+    // Each friend fetched once, not again on the way back.
+    act(() => findByAccessibilityLabel(tree, 'Previous friend').props.onPress());
+    expect(JSON.stringify(tree.toJSON())).toContain('@friend_two');
+    expect(friendsService.loadFriendPet).toHaveBeenCalledTimes(2);
     tree.unmount();
   });
 
