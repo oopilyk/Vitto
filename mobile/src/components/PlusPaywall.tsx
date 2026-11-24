@@ -71,7 +71,7 @@ const COMPARISON: { feature: string; detail: string; free: string; plus: string 
     plus: 'Included',
   },
   {
-    feature: 'Insights',
+    feature: 'AI insights',
     detail: 'Patterns your pet notices',
     free: '—',
     plus: 'Included',
@@ -224,8 +224,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
         {COMPARISON.map((row, index) => (
           <View key={row.feature} style={styles.tableRow}>
             <View style={[styles.featureCol, index > 0 && styles.rowRule]}>
-              <Text style={styles.feature}>{row.feature}</Text>
-              <Text style={styles.featureDetail}>{row.detail}</Text>
+              <Text style={styles.feature} accessibilityHint={row.detail}>{row.feature}</Text>
             </View>
             <View style={[styles.freeCol, styles.valueCell, index > 0 && styles.rowRule]}>
               <FitText style={styles.freeValue} minScale={0.85}>{row.free}</FitText>
@@ -265,6 +264,65 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
 
       {status && !isPlus && status.enabled ? (
         <>
+          {trialDays !== null ? (
+          <View style={[styles.card, styles.trialRow]}>
+            <View style={styles.trialText}>
+              <Text style={styles.trialTitle}>{`${trialDays}-day free trial`}</Text>
+              <Text style={styles.trialSub}>{trialOn ? 'Try everything. Pay nothing today.' : 'Yearly plan only'}</Text>
+            </View>
+            {store ? null : (
+            <Switch
+              value={trialOn}
+              onValueChange={toggleTrial}
+              trackColor={{ true: colors.mintDeep, false: colors.hairline }}
+              thumbColor="#ffffff"
+              ios_backgroundColor={colors.hairline}
+              // react-native-web colours the "on" thumb from this instead.
+              {...({ activeThumbColor: '#ffffff' } as object)}
+              accessibilityLabel="Free trial"
+              testID="trial-toggle"
+            />
+            )}
+          </View>
+          ) : null}
+
+          {trialOn ? (
+            <View style={styles.card} testID="trial-timeline">
+              <Text style={styles.timelineTitle}>How your trial works</Text>
+              <View style={styles.timeline}>
+                <View style={styles.timelineRail} />
+                {[
+                  { day: 'Today', what: 'Full access, free', tint: colors.mintDeep },
+                  { day: `Day ${reminderDay}`, what: 'A reminder, if you allow it', tint: colors.lilacDeep },
+                  { day: `Day ${trialDays}`, what: `${yearlyPrice} / year, cancel anytime`, tint: colors.inkSoft },
+                ].map((step) => (
+                  <View key={step.day} style={styles.stop}>
+                    <View style={[styles.stopDot, { backgroundColor: step.tint }]} />
+                    <Text style={styles.stopDay}>{step.day}</Text>
+                    <Text style={styles.stopWhat}>{step.what}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+        </>
+      ) : null}
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {skippable ? (
+        <Pressable accessibilityRole="button" onPress={onClose} style={styles.continueFree} testID="continue-free">
+          <Text style={styles.continueFreeLabel}>Continue with Free</Text>
+        </Pressable>
+      ) : null}
+      </ScrollView>
+
+      {/* What is being bought, pinned under the scroll as onboarding's offer
+          is: the plans, the button, the price in words and the links the App
+          Store asks for, on screen together however long the list above. */}
+      {status && !isPlus && status.enabled ? (
+        <View style={styles.footer} testID="plus-footer">
           <View style={styles.plans}>
             {plans.map((option) => {
               const selected = option.value === plan;
@@ -308,48 +366,6 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
             })}
           </View>
 
-          {trialDays !== null ? (
-          <View style={[styles.card, styles.trialRow]}>
-            <View style={styles.trialText}>
-              <Text style={styles.trialTitle}>{`${trialDays}-day free trial`}</Text>
-              <Text style={styles.trialSub}>{trialOn ? 'Try everything. Pay nothing today.' : 'Yearly plan only'}</Text>
-            </View>
-            {store ? null : (
-            <Switch
-              value={trialOn}
-              onValueChange={toggleTrial}
-              trackColor={{ true: colors.mintDeep, false: colors.hairline }}
-              thumbColor="#ffffff"
-              ios_backgroundColor={colors.hairline}
-              // react-native-web colours the "on" thumb from this instead.
-              {...({ activeThumbColor: '#ffffff' } as object)}
-              accessibilityLabel="Free trial"
-              testID="trial-toggle"
-            />
-            )}
-          </View>
-          ) : null}
-
-          {trialOn ? (
-            <View style={styles.card} testID="trial-timeline">
-              <Text style={styles.timelineTitle}>How your trial works</Text>
-              <View style={styles.timeline}>
-                <View style={styles.timelineRail} />
-                {[
-                  { day: 'Today', what: 'Full access, free', tint: colors.mintDeep },
-                  { day: `Day ${reminderDay}`, what: 'A reminder, if you allow it', tint: colors.lilacDeep },
-                  { day: `Day ${trialDays}`, what: `${yearlyPrice} / year, cancel anytime`, tint: colors.inkSoft },
-                ].map((step) => (
-                  <View key={step.day} style={styles.stop}>
-                    <View style={[styles.stopDot, { backgroundColor: step.tint }]} />
-                    <Text style={styles.stopDay}>{step.day}</Text>
-                    <Text style={styles.stopWhat}>{step.what}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
           <View style={styles.cta}>
             <PrimaryButton label={trialOn ? 'Start Free Trial' : 'Continue'} onPress={() => void buy()} busy={busy} disabled={busy} />
             <Text style={styles.terms} testID="plus-terms">{chosen.terms(trialOn)}</Text>
@@ -377,17 +393,8 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
               ) : null}
             </View>
           </View>
-        </>
+        </View>
       ) : null}
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {skippable ? (
-        <Pressable accessibilityRole="button" onPress={onClose} style={styles.continueFree} testID="continue-free">
-          <Text style={styles.continueFreeLabel}>Continue with Free</Text>
-        </Pressable>
-      ) : null}
-      </ScrollView>
     </View>
   );
 }
@@ -408,7 +415,7 @@ const styles = themedStyles(() => ({
     paddingBottom: 10,
   },
   scroll: { flex: 1 },
-  wrap: { gap: 14, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 + PAYWALL_BOTTOM_INSET },
+  wrap: { gap: 14, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 24 },
   skip: {
     paddingHorizontal: 16,
     paddingVertical: 7,
@@ -425,15 +432,15 @@ const styles = themedStyles(() => ({
 
   hero: { alignItems: 'center', paddingTop: 4, paddingBottom: 2 },
   icon: {
-    width: 76,
-    height: 76,
+    width: 56,
+    height: 56,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  title: { ...text.display, fontSize: 42, textAlign: 'center' },
-  subtitle: { ...text.body, fontSize: 20, color: colors.muted, textAlign: 'center', marginTop: 2 },
+  title: { ...text.display, fontSize: 34, textAlign: 'center' },
+  subtitle: { ...text.body, fontSize: 17, color: colors.muted, textAlign: 'center', marginTop: 2 },
 
   table: {
     backgroundColor: colors.card,
@@ -481,7 +488,6 @@ const styles = themedStyles(() => ({
   plusCell: { backgroundColor: colors.mint },
   plusCellLast: { paddingBottom: 2 },
   feature: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 15, color: colors.ink },
-  featureDetail: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 1 },
   freeValue: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, textAlign: 'center' },
   plusValue: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 13, color: colors.mintDeep, textAlign: 'center' },
   stillFree: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, textAlign: 'center', marginTop: -4 },
@@ -499,7 +505,16 @@ const styles = themedStyles(() => ({
   statusLine: { ...text.body, color: colors.ink },
 
   plans: { flexDirection: 'row', gap: 10, paddingTop: 8 },
-  planTrial: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 6 },
+  footer: {
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: PAYWALL_BOTTOM_INSET,
+    borderTopWidth: 1,
+    borderTopColor: colors.hairline,
+    backgroundColor: colors.paper,
+  },
+  planTrial: { fontFamily: fonts.ui, fontSize: 12, color: colors.faint, marginTop: 2 },
   planTrialOn: { fontWeight: '600', color: colors.mintDeep },
   plan: {
     flex: 1,
@@ -508,8 +523,8 @@ const styles = themedStyles(() => ({
     borderWidth: 1.5,
     borderColor: colors.hairline,
     paddingHorizontal: 14,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
   planOn: { borderColor: colors.mintDeep, borderWidth: 1, backgroundColor: colors.mint },
   planBadge: {
@@ -522,7 +537,7 @@ const styles = themedStyles(() => ({
     paddingVertical: 3,
   },
   planBadgeText: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 12, letterSpacing: 0, color: '#fff' },
-  planTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  planTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   planLabel: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 17, color: colors.inkSoft, flexShrink: 1 },
   planLabelOn: { color: colors.ink },
   radio: {
@@ -538,7 +553,7 @@ const styles = themedStyles(() => ({
   radioTick: { fontFamily: fonts.ui, fontWeight: '600', color: '#fff', fontSize: 12, },
   planPrice: { fontFamily: fonts.ui, fontWeight: '600', fontSize: 28, color: colors.ink, letterSpacing: 0 },
   planPer: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted, marginTop: -2 },
-  planNote: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 8 },
+  planNote: { fontFamily: fonts.ui, fontSize: 13, color: colors.faint, marginTop: 4 },
   planNoteOn: { color: colors.mintDeep, fontWeight: '600' },
 
   trialRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
