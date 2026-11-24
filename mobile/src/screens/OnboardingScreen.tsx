@@ -61,6 +61,7 @@ import {
 } from '@vitto/core';
 import { companion as ai } from '@vitto/core';
 import { FitText } from '../components/FitText';
+import { PlusComparison } from '../components/PlusPaywall';
 import { PetAvatar } from '../components/PetAvatar';
 import { PET_SHEETS, sheetByBreed, portraitFrame } from '../components/petSprites';
 import { SpriteFrame } from '../components/SpriteFrame';
@@ -983,12 +984,14 @@ export function OnboardingScreen({
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           // Pages are laid out to fit; only the keyboard can take enough room
-          // to need a scroll, so only then can it.
-          scrollEnabled={keyboardUp}
-          showsVerticalScrollIndicator={false}
+          // to need a scroll, so only then can it. The Plus offer is the
+          // exception: its Free/Plus table and the trial's timeline run past
+          // the screen, above the price pinned under them.
+          scrollEnabled={keyboardUp || stepId === 'plusOffer'}
+          showsVerticalScrollIndicator={stepId === 'plusOffer'}
           alwaysBounceVertical={false}
         >
-        <Animated.View style={[styles.page, { opacity: enter, transform: [{ translateX }] }]}>
+        <Animated.View style={[styles.page, stepId === 'plusOffer' && styles.grows, { opacity: enter, transform: [{ translateX }] }]}>
           {stepId === 'welcome' ? (
             <View style={[styles.fill, styles.centred]}>
               <View style={styles.welcomePets}>
@@ -1649,10 +1652,16 @@ export function OnboardingScreen({
           ) : null}
 
           {stepId === 'plusOffer' && paywall ? (
-            <View style={styles.fill} testID="plus-offer">
-              <Pressable accessibilityRole="button" onPress={() => goNext('plusOffer')} hitSlop={10} style={styles.offerSkip}>
-                <Text style={styles.link}>Not now</Text>
-              </Pressable>
+            <View style={[styles.fill, styles.grows]} testID="plus-offer">
+              {/* The page has no header (it is BARE), so its own way back, as every other step has. */}
+              <View style={styles.offerBar}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} hitSlop={12} style={styles.backButton}>
+                  <Text style={styles.backMark}>‹</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => goNext('plusOffer')} hitSlop={10}>
+                  <Text style={styles.link}>Not now</Text>
+                </Pressable>
+              </View>
               {plusLoading ? (
                 <ActivityIndicator color={F.green} style={styles.offerLoading} testID="plus-offer-loading" />
               ) : (
@@ -1661,50 +1670,31 @@ export function OnboardingScreen({
               <Text style={[styles.title, short && styles.titleShort]}>
                 {trialDays !== null ? `Start your ${trialDays}-day free trial` : 'Get Vitto Plus'}
               </Text>
+              {/* What Plus adds, the same table the Plus page in Settings shows. */}
+              <View style={styles.offerTable}>
+                <PlusComparison compact />
+              </View>
               {trialDays !== null ? (
-              <View style={styles.timeline}>
-                <View style={styles.timelineBar} />
+              // Three stops across, not stacked: under the table they fit on
+              // the screen with it, so nothing on the page needs a scroll.
+              <View style={styles.trialSteps} testID="trial-steps">
+                <View style={styles.trialRail} />
                 {[
-                  { title: 'Today', body: `Unlock everything in Plus and see what ${petName} can be.`, filled: true },
-                  { title: `Day ${reminderDay}`, body: 'If notifications are on, we’ll remind you your trial is ending.' },
+                  { title: 'Today', body: 'Full access, free', filled: true },
+                  { title: `Day ${reminderDay}`, body: 'A reminder before it ends' },
                   {
                     title: `Day ${trialDays}`,
-                    body: `You’ll be charged on ${new Date(Date.now() + trialDays * 86_400_000).toLocaleDateString([], { month: 'short', day: 'numeric' })}. Cancel anytime before.`,
+                    body: `${yearly.price} / year from ${new Date(Date.now() + trialDays * 86_400_000).toLocaleDateString([], { month: 'short', day: 'numeric' })}`,
                   },
                 ].map((row) => (
-                  <View key={row.title} style={styles.timelineRow}>
-                    <View style={styles.timelineMarkWrap}>
-                      <View style={[styles.timelineMark, row.filled && styles.timelineMarkOn]} />
-                    </View>
-                    <View style={styles.timelineText}>
-                      <Text style={styles.timelineTitle}>{row.title}</Text>
-                      <Text style={styles.timelineBody}>{row.body}</Text>
-                    </View>
+                  <View key={row.title} style={styles.trialStep}>
+                    <View style={[styles.timelineMark, styles.trialMark, row.filled && styles.timelineMarkOn]} />
+                    <Text style={styles.trialStepTitle}>{row.title}</Text>
+                    <Text style={styles.trialStepBody}>{row.body}</Text>
                   </View>
                 ))}
               </View>
-              ) : (
-                // No trial to lay out (Apple gives it to first-time subscribers
-                // only): what Plus brings instead, so the page is not empty.
-                <View style={styles.timeline} testID="plus-offer-perks">
-                  {[
-                    { title: 'Their personality', body: `Pick who ${petName} is, or write them a character of your own.` },
-                    { title: 'Photo meals', body: 'Snap a plate and get the calories and macros.' },
-                    { title: 'More chat', body: `Many more messages a day, and ${petName} remembers what you tell them.` },
-                    { title: 'Lift progress and insights', body: 'Your estimated max over time, and patterns your pet notices.' },
-                  ].map((row) => (
-                    <View key={row.title} style={styles.timelineRow}>
-                      <View style={styles.timelineMarkWrap}>
-                        <View style={[styles.timelineMark, styles.timelineMarkOn]} />
-                      </View>
-                      <View style={styles.timelineText}>
-                        <Text style={styles.timelineTitle}>{row.title}</Text>
-                        <Text style={styles.timelineBody}>{row.body}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )}
+              ) : null}
               </>
               )}
               {paywall.isDevAccount ? <Text style={styles.hint}>Dev account: Plus is always on here.</Text> : null}
@@ -1843,7 +1833,8 @@ export function OnboardingScreen({
               </Pressable>
               {/* What the App Store requires on any screen that sells a subscription. */}
               <Text style={styles.offerLegal}>
-                {'Renews automatically. Cancel anytime in Settings. '}
+                {/* The links on a line of their own, never broken across two. */}
+                {'Renews automatically. Cancel anytime in Settings.\n'}
                 <Text style={styles.offerLegalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
                   Terms
                 </Text>
@@ -2069,6 +2060,9 @@ const styles = themedStyles(() => {
     area: { flex: 1, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 4, overflow: 'hidden' },
     page: { flex: 1, width: '100%', maxWidth: MAX_WIDTH, alignSelf: 'center' },
     pageScroll: { flexGrow: 1 },
+    // At least the screen, and as tall as its content beyond that, so a page
+    // that scrolls (the Plus offer) is not squeezed to the screen and clipped.
+    grows: { flexGrow: 1, flexShrink: 0, flexBasis: 'auto' },
     fill: { flex: 1, minHeight: 0 },
     centred: { alignItems: 'center', justifyContent: 'center' },
     row: { flexDirection: 'row', gap: 12, alignSelf: 'stretch' },
@@ -2290,10 +2284,18 @@ const styles = themedStyles(() => {
     compareValue: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 20, color: F.sub, marginTop: 3 },
     compareValuePlus: { color: F.text },
 
-    offerSkip: { alignSelf: 'flex-end', paddingVertical: 4 },
+    offerTable: { marginTop: 10, marginBottom: 14 },
+    offerBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
     offerLoading: { marginTop: 80 },
     offerReady: { fontFamily: FONT.semibold, fontSize: 16, lineHeight: 21, color: F.green, textAlign: 'center', marginTop: 4 },
     timeline: { marginTop: 16, gap: 14 },
+    trialSteps: { flexDirection: 'row', gap: 8 },
+    // Through the middle of the three marks, behind them.
+    trialRail: { position: 'absolute', left: '16%', right: '16%', top: 8, height: 4, borderRadius: 2, backgroundColor: F.greenPale },
+    trialStep: { flex: 1, alignItems: 'center' },
+    trialMark: { width: 20, height: 20, borderRadius: 10, borderWidth: 4 },
+    trialStepTitle: { fontFamily: FONT.bold, fontSize: 15, lineHeight: 19, color: F.text, marginTop: 6 },
+    trialStepBody: { fontFamily: FONT.regular, fontSize: 13, lineHeight: 17, color: F.sub, textAlign: 'center' },
     timelineBar: { position: 'absolute', left: 11, top: 10, bottom: 10, width: 6, borderRadius: 3, backgroundColor: F.greenPale },
     timelineRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
     timelineMarkWrap: { width: 28, paddingTop: 2, alignItems: 'center' },

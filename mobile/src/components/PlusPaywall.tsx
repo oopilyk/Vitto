@@ -53,10 +53,10 @@ const COMPARISON: { feature: string; detail: string; free: string; plus: string 
   {
     feature: 'Chat',
     detail: 'Messages to your pet',
-    // Free shows its number, since that is the limit people actually meet;
-    // Plus is simply more, so the table never has to change with the cap.
+    // Both as numbers, read off the real caps: "5 a day" against "50 a day"
+    // says how much more at a glance, and follows the caps if they change.
     free: `${ai.TIER_LIMITS.free.messagesPerDay} a day`,
-    plus: 'Many more',
+    plus: `${ai.TIER_LIMITS.plus.messagesPerDay} a day`,
   },
   {
     feature: 'Memory',
@@ -213,29 +213,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
         <Text style={styles.subtitle}>Everything your pet can be.</Text>
       </View>
 
-      <View style={styles.table} testID="plus-comparison">
-        <View style={styles.tableHead}>
-          <View style={styles.featureCol} />
-          <Text style={[styles.headCell, styles.freeCol]}>Free</Text>
-          <View style={[styles.plusCol, styles.plusHead]}>
-            <Text style={styles.plusHeadLabel}>Plus</Text>
-          </View>
-        </View>
-        {COMPARISON.map((row, index) => (
-          <View key={row.feature} style={styles.tableRow}>
-            <View style={[styles.featureCol, index > 0 && styles.rowRule]}>
-              <Text style={styles.feature} accessibilityHint={row.detail}>{row.feature}</Text>
-            </View>
-            <View style={[styles.freeCol, styles.valueCell, index > 0 && styles.rowRule]}>
-              <FitText style={styles.freeValue} minScale={0.85}>{row.free}</FitText>
-            </View>
-            <View style={[styles.plusCol, styles.valueCell, styles.plusCell, index === COMPARISON.length - 1 && styles.plusCellLast]}>
-              {/* Fitted, never broken: "✓ In character" split over two lines in a 67pt cell at 320pt. */}
-              <FitText style={styles.plusValue} minScale={0.85}>{`✓ ${row.plus}`}</FitText>
-            </View>
-          </View>
-        ))}
-      </View>
+      <PlusComparison />
       <Text style={styles.stillFree}>Logging, workouts, steps and mind games stay free.</Text>
 
       {!status && !error ? <ActivityIndicator color={colors.coral} style={styles.loading} /> : null}
@@ -399,6 +377,41 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
   );
 }
 
+/**
+ * What Plus adds, Free against Plus, a row a feature. Shared by this paywall
+ * and onboarding's offer, so the two never describe Plus differently.
+ */
+export function PlusComparison({ compact = false }: { compact?: boolean }) {
+  return (
+    <View style={styles.table} testID="plus-comparison">
+      <View style={styles.tableHead}>
+        <View style={styles.featureCol} />
+        <Text style={[styles.headCell, styles.freeCol, compact && styles.headCompact]}>Free</Text>
+        <View style={[styles.plusCol, styles.plusHead, compact && styles.headCompact]}>
+          <Text style={styles.plusHeadLabel}>Plus</Text>
+        </View>
+      </View>
+      {COMPARISON.map((row, index) => (
+        <View key={row.feature} style={styles.tableRow}>
+          <View style={[styles.featureCol, compact && styles.featureColCompact, index > 0 && styles.rowRule]}>
+            {/* Wraps rather than ends in "…": a name is never cut short. */}
+            <Text style={[styles.feature, compact && styles.featureCompact]} accessibilityHint={row.detail}>
+              {row.feature}
+            </Text>
+          </View>
+          <View style={[styles.freeCol, styles.valueCell, index > 0 && styles.rowRule]}>
+            <FitText style={[styles.freeValue, compact && styles.valueCompact]} minScale={0.85}>{row.free}</FitText>
+          </View>
+          <View style={[styles.plusCol, styles.valueCell, styles.plusCell, index === COMPARISON.length - 1 && styles.plusCellLast]}>
+            {/* Fitted, never broken: "✓ In character" split over two lines in a 67pt cell at 320pt. */}
+            <FitText style={[styles.plusValue, compact && styles.valueCompact]} minScale={0.85}>{`✓ ${row.plus}`}</FitText>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /** Bottom padding that clears the iPhone home indicator. */
 export const PAYWALL_BOTTOM_INSET = Platform.OS === 'ios' ? 24 : 12;
 
@@ -483,6 +496,11 @@ const styles = themedStyles(() => ({
   // The feature column is the one that may wrap; the value columns hold a word or two each.
   featureCol: { flex: 1.6, paddingVertical: 9, paddingLeft: 14, paddingRight: 6, justifyContent: 'center' },
   freeCol: { flex: 0.9 },
+  // Onboarding's offer: the same table, short enough to leave room under it.
+  headCompact: { paddingTop: 7, paddingBottom: 4 },
+  featureColCompact: { paddingVertical: 7 },
+  featureCompact: { fontSize: 14 },
+  valueCompact: { fontSize: 12 },
   plusCol: { flex: 1.2 },
   valueCell: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   plusCell: { backgroundColor: colors.mint },

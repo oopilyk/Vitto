@@ -48,7 +48,7 @@ describe('Vitto Plus paywall (test mode)', () => {
     expect(all).toContain('Photo meal tracking');
     expect(all).toContain('✓ Included');
     expect(all).toContain('5 a day');
-    expect(all).toContain('✓ Many more');
+    expect(all).toContain('✓ 50 a day');
     expect(all).toContain('Only $4.99 a month');
     expect(byTestId(tree, 'trial-toggle')[0]!.props.value).toBe(true);
     expect(byTestId(tree, 'trial-timeline').length).toBeGreaterThan(0);
