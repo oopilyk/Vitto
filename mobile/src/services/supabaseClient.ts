@@ -77,5 +77,9 @@ if (supabase) {
 configureCore({
   supabase,
   envHint: 'EXPO_PUBLIC_SUPABASE_*',
-  fdcApiKey: process.env.EXPO_PUBLIC_FDC_API_KEY || 'DEMO_KEY',
+  // No USDA key of our own in the app: anything bundled here can be read out
+  // of it. Food search goes through our server, which holds the real key
+  // (FDC_API_KEY) and uses it ahead of this. USDA's public DEMO_KEY is only
+  // for the rare search that cannot reach the server.
+  fdcApiKey: 'DEMO_KEY',
 });

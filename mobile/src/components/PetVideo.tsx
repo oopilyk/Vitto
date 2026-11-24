@@ -37,6 +37,9 @@ interface Props {
   onFirstFrame?: () => void;
 }
 
+/** How long after a player stops on its own it is started again (see PetVideo). */
+const RESUME_AFTER_MS = 400;
+
 /**
  * Plays one animation clip in place of a sprite frame, muted, framed the way
  * `SpriteFrame` frames a cell: `videos.cell` is scaled to fill the cell, the
@@ -77,7 +80,31 @@ export function PetVideo({ videos, clip, size, artScale = 1, paused = false, onF
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active' && !paused) resume();
     });
-    return () => subscription.remove();
+    // iOS also stops a player without the app ever leaving the screen: the
+    // audio session changing under it (the mic listening, the pet speaking,
+    // the music starting, a call or another app taking audio), or a stall
+    // while decoding. Nothing restarted it, and the pet stood frozen mid-pose
+    // until the app was backgrounded and reopened. A player that stops while
+    // it should be playing is started again, after a beat so whatever stopped
+    // it has finished.
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const kick = () => {
+      if (paused || AppState.currentState !== 'active') return;
+      clearTimeout(retry);
+      retry = setTimeout(resume, RESUME_AFTER_MS);
+    };
+    const playing = player.addListener('playingChange', ({ isPlaying }) => {
+      if (!isPlaying) kick();
+    });
+    const status = player.addListener('statusChange', ({ status: now }) => {
+      if (now === 'readyToPlay' && !player.playing) kick();
+    });
+    return () => {
+      clearTimeout(retry);
+      subscription.remove();
+      playing.remove();
+      status.remove();
+    };
   }, [player, clip.loop, paused]);
 
   const cell = size * artScale;

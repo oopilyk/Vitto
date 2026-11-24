@@ -102,6 +102,9 @@ const AURA_BY_AILMENT = (): Record<PetAilment, string> => ({
 });
 
 /** The body pose each ailment puts the pet in. `starving` has no art of its own. */
+/** How much slower a tired pet with no sleep art plays its idle. */
+const TIRED_PACE = 1.8;
+
 const ANIMATION_BY_AILMENT: Record<PetAilment, PetAnimation> = {
   dying: 'faint',
   starving: 'sad',
@@ -206,7 +209,11 @@ export function PetAvatar({
   const decline = assessDecline(pet);
   const sleeping = isSleeping(pet.energy, condition, activity);
   const animation = sleeping ? 'rest' : animationFor(activity, pet.mood, condition);
-  const frames = sheet.animations[animation];
+  // Most sheets have no sleep art, and their `rest` is one borrowed still: a
+  // tired pet then stood frozen mid-pose, which reads as the app hanging. With
+  // only one frame to rest on, the pet idles instead, slowly (see TIRED_PACE).
+  const tiredIdle = animation === 'rest' && sheet.animations.rest.length < 2 && sheet.animations.idle.length > 1;
+  const frames = tiredIdle ? sheet.animations.idle : sheet.animations[animation];
   // A form animated as video plays its clip for this animation instead of the frames.
   const clip = videoClipFor(sheet, animation);
   const size = sizeOverride ?? PET_SIZE;
@@ -221,10 +228,10 @@ export function PetAvatar({
     // A collapse plays once and stays down. Looping it would stand the pet back
     // up every couple of seconds, which reads as recovery that never happened.
     const holds = HOLDS_LAST_FRAME.has(animation);
-    const step = sheet.frameMs?.[animation] ?? FRAME_MS[animation];
+    const step = tiredIdle ? (sheet.frameMs?.idle ?? FRAME_MS.idle) * TIRED_PACE : sheet.frameMs?.[animation] ?? FRAME_MS[animation];
     // An idle that rests between play-throughs holds its first frame that long
     // each time round (see CALM_IDLE_REST_MS).
-    const rest = animation === 'idle' ? sheet.idleRestMs ?? 0 : 0;
+    const rest = animation === 'idle' || tiredIdle ? sheet.idleRestMs ?? 0 : 0;
     let index = 0;
     let timer: ReturnType<typeof setTimeout>;
     const advance = () => {
@@ -234,7 +241,7 @@ export function PetAvatar({
     };
     timer = setTimeout(advance, rest ? step + rest : step);
     return () => clearTimeout(timer);
-  }, [animation, frames.length, sheet, clip, paused]);
+  }, [animation, frames.length, sheet, clip, paused, tiredIdle]);
 
   // A gentle bob on top of the frame animation, so idle never sits perfectly still.
   // A sleeping or sleepy pet breathes slower; a fainted one not at all.
@@ -395,7 +402,7 @@ export function PetAvatar({
             across={centringShift(clipCentre(sheet, animation), size)}
           />
         ) : (
-          <SpriteFrame sheet={sheet} frame={currentFrame} size={size} centre={animationCentre(sheet, animation)} />
+          <SpriteFrame sheet={sheet} frame={currentFrame} size={size} centre={animationCentre(sheet, tiredIdle ? 'idle' : animation)} />
         )}
         {/* Inside the window on purpose: the wash is a tinted copy of the frame
             stacked on it, so it must share the sprite's exact position. It ramps
@@ -410,7 +417,7 @@ export function PetAvatar({
             sheet={sheet}
             frame={currentFrame}
             size={size}
-            centre={animationCentre(sheet, animation)}
+            centre={animationCentre(sheet, tiredIdle ? 'idle' : animation)}
           />
         ) : null}
       </Animated.View>

@@ -2,15 +2,15 @@ import renderer, { act } from 'react-test-renderer';
 import { AppState } from 'react-native';
 import { CLIP_SWAP_TIMEOUT_MS, PetClipStack, PetVideo } from '../components/PetVideo';
 
-const players: { play: jest.Mock; duration: number; currentTime: number }[] = [];
+const players: { play: jest.Mock; duration: number; currentTime: number; playing: boolean; listeners: Record<string, (payload: never) => void> }[] = [];
 jest.mock('expo-video', () => {
   const { View } = require('react-native');
   return {
     useVideoPlayer: (_source: unknown, setup?: (player: unknown) => void) => {
-      const listeners: Record<string, () => void> = {};
+      const listeners: Record<string, (payload: never) => void> = {};
       const player = {
-        loop: false, muted: false, play: jest.fn(), pause: jest.fn(), duration: 4, currentTime: 1, listeners,
-        addListener: (name: string, handler: () => void) => {
+        loop: false, muted: false, playing: true, play: jest.fn(), pause: jest.fn(), duration: 4, currentTime: 1, listeners,
+        addListener: (name: string, handler: (payload: never) => void) => {
           listeners[name] = handler;
           return { remove: () => delete listeners[name] };
         },
@@ -148,5 +148,46 @@ describe('PetClipStack switching clips', () => {
     act(() => tree.update(render('idle', { hevc: 3, loop: true })));
     expect(layersOf(tree).map(({ hevc }) => hevc)).toEqual([1, 3]);
     act(() => tree.unmount());
+  });
+});
+
+describe('PetVideo stopped without leaving the app', () => {
+  // jest's AppState stand-in has no real `currentState`: an open, foreground app for these.
+  const asActiveApp = () => {
+    const before = AppState.currentState;
+    (AppState as { currentState: unknown }).currentState = 'active';
+    return { restore: () => void ((AppState as { currentState: unknown }).currentState = before) };
+  };
+
+  // The mic, the pet's voice, the music or a call changing the audio session
+  // stops the player while the app stays open.
+  it('starts a looping clip again when iOS stops it under the app', () => {
+    jest.useFakeTimers();
+    const spy = asActiveApp();
+    const { player, tree } = mount(true);
+    act(() => player.listeners.playingChange!({ isPlaying: false } as never));
+    expect(player.play).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(500));
+    expect(player.play).toHaveBeenCalledTimes(1);
+    spy.restore();
+    jest.useRealTimers();
+    tree.unmount();
+  });
+
+  it('leaves it stopped while another screen covers the pet', () => {
+    jest.useFakeTimers();
+    const spy = asActiveApp();
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(<PetVideo videos={videos} clip={{ hevc: 1, webm: 2, loop: true }} size={128} paused />);
+    });
+    const player = players[players.length - 1]!;
+    player.play.mockClear();
+    act(() => player.listeners.playingChange!({ isPlaying: false } as never));
+    act(() => jest.advanceTimersByTime(500));
+    expect(player.play).not.toHaveBeenCalled();
+    spy.restore();
+    jest.useRealTimers();
+    tree.unmount();
   });
 });

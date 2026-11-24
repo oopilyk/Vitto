@@ -25,7 +25,7 @@ jest.mock('expo-video', () => {
   const { View } = require('react-native');
   return {
     useVideoPlayer: (source, setup) => {
-      const player = { source, loop: false, muted: false, audioMixingMode: 'auto', play: () => {}, pause: () => {} };
+      const player = { source, loop: false, muted: false, audioMixingMode: 'auto', playing: false, play: () => {}, pause: () => {}, addListener: () => ({ remove: () => {} }) };
       setup?.(player);
       return player;
     },
