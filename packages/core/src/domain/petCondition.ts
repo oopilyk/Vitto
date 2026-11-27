@@ -1,4 +1,5 @@
 import { type PetState } from './pet';
+import { t } from '../i18n';
 
 /**
  * What is visibly wrong with a pet right now. Ailments are derived from stats on
@@ -61,12 +62,12 @@ export interface AilmentAdvice {
 export const AILMENT_MESSAGE: Record<PetAilment, (name: string, advice?: AilmentAdvice) => string> = {
   // First person: it is the pet talking, and "feed me" lands harder than "log a
   // meal". `name` is kept for callers and for a fallback that may want it.
-  dying: () => "I'm fading. Please look after me.",
-  starving: () => "I'm so hungry. Feed me?",
+  dying: () => t("I'm fading. Please look after me."),
+  starving: () => t("I'm so hungry. Feed me?"),
   // Vitality: only moving lifts it, so moving is the ask, Apple Health or not.
-  exhausted: () => "I'm running on empty. Take me for a walk or a workout?",
-  sad: () => 'I feel lonely. Spend some time with me?',
-  foggy: () => "My head's all foggy. Mind Gym?",
+  exhausted: () => t("I'm running on empty. Take me for a walk or a workout?"),
+  sad: () => t('I feel lonely. Spend some time with me?'),
+  foggy: () => t("My head's all foggy. Mind Gym?"),
 };
 
 /** Comfortably clear of every threshold, and above THRIVING_NEED. */

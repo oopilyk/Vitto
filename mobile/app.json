@@ -6,6 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "locales": {
+      "es": "./locales/es.json",
+      "zh-Hans": "./locales/zh-Hans.json"
+    },
     "ios": {
       "supportsTablet": true,
       "requireFullScreen": true,
@@ -16,6 +20,8 @@
         "NSCameraUsageDescription": "Vitto uses the camera to photograph meals and scan barcodes.",
         "NSPhotoLibraryUsageDescription": "Vitto reads meal photos you choose so it can grade the plate.",
         "NSSupportsLiveActivities": true,
+        "CFBundleLocalizations": ["en", "es", "zh-Hans"],
+        "CFBundleAllowMixedLocalizations": true,
         "ITSAppUsesNonExemptEncryption": false
       }
     },

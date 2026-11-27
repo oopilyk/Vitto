@@ -4,6 +4,7 @@ import type { RefObject } from 'react';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { SHARE_CARD_HEIGHT, SHARE_CARD_WIDTH } from '../components/PetShareCard';
+import { t } from '../i18n';
 
 /** Pixels across the shared image: what Instagram and Messages display at. */
 export const SHARE_IMAGE_WIDTH = 1080;
@@ -54,7 +55,7 @@ export const sharePetCard = async (
     await Sharing.shareAsync(uri, {
       mimeType: 'image/jpeg',
       UTI: 'public.jpeg',
-      dialogTitle: `${petName} on Vitto`,
+      dialogTitle: t('{pet} on Vitto', { pet: petName }),
     });
     return 'shared';
   } catch (error) {

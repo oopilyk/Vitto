@@ -132,7 +132,17 @@ export interface UserPattern {
 export type SkippedCare = 'food' | 'workouts' | 'steps' | 'mind';
 export const SKIPPABLE_CARE: readonly SkippedCare[] = ['food', 'workouts', 'steps', 'mind'];
 
+/** The languages the app is shown in, other than English. */
+export type CompanionLanguage = 'es' | 'zh-Hans';
+export const COMPANION_LANGUAGES: readonly CompanionLanguage[] = ['es', 'zh-Hans'];
+
 export interface LifeContext {
+  /**
+   * The language the app is shown in, when it is not English: the pet then
+   * writes to them in it (see languageNote in prompts.ts). Absent reads as
+   * English, which is also what an older app sends.
+   */
+  language?: CompanionLanguage;
   /**
    * 18 or older, from their profile. A character they wrote is only played with
    * the gloves off (edgy, not politically correct) for an adult; see customVoice.

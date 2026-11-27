@@ -48,13 +48,27 @@ describe('deviceLocale', () => {
     expect(deviceLocale()).toBe('en-US');
   });
 
-  it('answers metric rather than throwing when nothing is available', () => {
+  it('reads the iOS region through Settings, which the New Architecture keeps', () => {
+    jest.isolateModules(() => {
+      jest.doMock('react-native', () => ({
+        Platform: { OS: 'ios' },
+        NativeModules: {},
+        Settings: { get: (key: string) => (key === 'AppleLocale' ? 'en_US' : undefined) },
+      }));
+      const fresh = require('../services/deviceLocale') as typeof import('../services/deviceLocale');
+      expect(fresh.deviceLocale()).toBe('en_US');
+      expect(fresh.deviceMeasurementSystem()).toBe('imperial');
+    });
+    jest.dontMock('react-native');
+  });
+
+  it('answers imperial rather than throwing when nothing is available', () => {
     Platform.OS = 'ios';
     NativeModules.SettingsManager = undefined;
     NativeModules.I18nManager = undefined;
     // Deleting Intl is the shape of a JS engine built without it.
     global.Intl = undefined as unknown as typeof Intl;
     expect(deviceLocale()).toBeUndefined();
-    expect(deviceMeasurementSystem()).toBe('metric');
+    expect(deviceMeasurementSystem()).toBe('imperial');
   });
 })

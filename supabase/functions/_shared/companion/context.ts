@@ -5,8 +5,8 @@
 import { selectRelevantMemories } from './memory.ts';
 import { observePatterns } from './patterns.ts';
 import { describePersonality, dominantTraits, personalityFlavor } from './personality.ts';
-import { DIAL_KEYS, SKIPPABLE_CARE } from './types.ts';
-import type { CompanionEvent, CompanionMemory, CompanionMessage, CompanionState, LifeContext, PersonalityDials, PetContext } from './types.ts';
+import { COMPANION_LANGUAGES, DIAL_KEYS, SKIPPABLE_CARE } from './types.ts';
+import type { CompanionEvent, CompanionLanguage, CompanionMemory, CompanionMessage, CompanionState, LifeContext, PersonalityDials, PetContext } from './types.ts';
 import { DAY, clamp, formatAgo } from './util.ts';
 
 const RECENT_EVENT_WINDOW = 3 * DAY;
@@ -62,6 +62,7 @@ export const sanitizeLifeContext = (raw: unknown): LifeContext => {
     ? SKIPPABLE_CARE.filter((kind) => (today.skips as unknown[]).includes(kind))
     : [];
   return {
+    ...((COMPANION_LANGUAGES as readonly unknown[]).includes(source.language) ? { language: source.language as CompanionLanguage } : {}),
     ...(source.adult === true ? { adult: true } : {}),
     ...(list(source.app, 30, 600).length ? { app: list(source.app, 30, 600) } : {}),
     ...(source.under16 === true ? { under16: true } : {}),

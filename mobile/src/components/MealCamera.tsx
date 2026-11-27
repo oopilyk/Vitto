@@ -3,6 +3,7 @@ import { Animated, Linking, Modal, PanResponder, Platform, Pressable, StyleSheet
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Mark, PressableScale, haptic } from './ui';
 import { topInsetFor } from '../petWorld/chromeScale';
+import { t } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 export type CameraMode = 'barcode' | 'photo';
@@ -53,8 +54,8 @@ export const closeUpLens = (lenses: readonly string[]): string | undefined =>
   lenses.find((name) => /triple/i.test(name)) ?? lenses.find((name) => /dual wide/i.test(name));
 
 const MODES: readonly { value: CameraMode; label: string }[] = [
-  { value: 'barcode', label: 'Barcode' },
-  { value: 'photo', label: 'Photo' },
+  { value: 'barcode', label: t('Barcode') },
+  { value: 'photo', label: t('Photo') },
 ];
 
 /** How long a barcode seen in Photo mode keeps its "Look up" pill once it leaves the frame. */
@@ -137,7 +138,7 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
       if (!shot?.base64) throw new Error('no bytes');
       onPhoto({ uri: shot.uri, base64: shot.base64.replace(/^data:image\/\w+;base64,/, ''), width: shot.width, height: shot.height });
     } catch {
-      onProblem('That photo could not be taken. Try again, or choose one from your library.');
+      onProblem(t('That photo could not be taken. Try again, or choose one from your library.'));
     } finally {
       setShooting(false);
     }
@@ -151,12 +152,12 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
     <>
       {launcher && !open ? (
         <View style={styles.launcher} testID="camera-launcher">
-          <Text style={styles.launcherTitle}>{mode === 'barcode' ? 'Scan a barcode' : 'Snap your plate'}</Text>
+          <Text style={styles.launcherTitle}>{mode === 'barcode' ? t('Scan a barcode') : t('Snap your plate')}</Text>
           <Text style={styles.launcherHint}>
-            {mode === 'barcode' ? 'Point the camera at a product barcode and Vitto looks it up.' : 'Vitto reads the food, counts the macros and grades it.'}
+            {mode === 'barcode' ? t('Point the camera at a product barcode and Vitto looks it up.') : t('Vitto reads the food, counts the macros and grades it.')}
           </Text>
           <PressableScale accessibilityRole="button" style={styles.launcherButton} onPress={onOpen}>
-            <Text style={styles.launcherLabel}>Open camera</Text>
+            <Text style={styles.launcherLabel}>{t('Open camera')}</Text>
           </PressableScale>
         </View>
       ) : null}
@@ -189,18 +190,20 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
               </View>
             ) : (
               <View style={styles.permission} testID="camera-permission">
-                <Text style={styles.permissionTitle}>Camera access needed</Text>
+                <Text style={styles.permissionTitle}>{t('Camera access needed')}</Text>
                 <Text style={styles.permissionHint}>
                   {blocked
-                    ? `Camera access is off for Vitto. Turn it on in Settings to ${mode === 'barcode' ? 'scan barcodes' : 'photograph a meal'}.`
+                    ? mode === 'barcode'
+                      ? t('Camera access is off for Vitto. Turn it on in Settings to scan barcodes.')
+                      : t('Camera access is off for Vitto. Turn it on in Settings to photograph a meal.')
                     : mode === 'barcode'
-                      ? 'To scan a barcode, allow the camera.'
-                      : 'To photograph a meal, allow the camera.'}
+                      ? t('To scan a barcode, allow the camera.')
+                      : t('To photograph a meal, allow the camera.')}
                 </Text>
                 {/* Once someone has said no, iOS will not ask again: the only
                     way back is the app's page in Settings. */}
                 <PressableScale accessibilityRole="button" style={styles.permissionButton} onPress={() => void (blocked ? Linking.openSettings() : requestPermission())}>
-                  <Text style={styles.permissionLabel}>{blocked ? 'Open Settings' : 'Allow camera'}</Text>
+                  <Text style={styles.permissionLabel}>{blocked ? t('Open Settings') : t('Allow camera')}</Text>
                 </PressableScale>
               </View>
             )}
@@ -214,13 +217,13 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
                   <View style={styles.dim} />
                 </View>
                 <View style={[styles.dim, styles.dimFoot]}>
-                  <Text style={styles.finderHint}>{found ? 'Found it' : busy ? 'Looking it up...' : 'Line up the barcode'}</Text>
+                  <Text style={styles.finderHint}>{found ? t('Found it') : busy ? t('Looking it up...') : t('Line up the barcode')}</Text>
                 </View>
               </View>
             ) : null}
 
             <View style={[styles.top, { paddingTop: topInset }]} pointerEvents="box-none">
-              <Pressable accessibilityRole="button" accessibilityLabel="Close the camera" hitSlop={10} onPress={onClose} style={styles.close} testID="camera-close">
+              <Pressable accessibilityRole="button" accessibilityLabel={t('Close the camera')} hitSlop={10} onPress={onClose} style={styles.close} testID="camera-close">
                 <Mark kind="cross" size={13} color="#ffffff" />
               </Pressable>
               {problem ? (
@@ -230,7 +233,7 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
               ) : spotted && mode === 'photo' ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Barcode found. Look it up"
+                  accessibilityLabel={t('Barcode found. Look it up')}
                   onPress={() => {
                     const data = spotted;
                     setSpotted(null);
@@ -240,7 +243,7 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
                   style={styles.spotted}
                   testID="barcode-spotted"
                 >
-                  <Text style={styles.spottedLabel}>Barcode found · Look up</Text>
+                  <Text style={styles.spottedLabel}>{t('Barcode found · Look up')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -248,17 +251,17 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
             <View style={[styles.foot, { paddingBottom: HOME_INDICATOR_INSET + 10 }]} pointerEvents="box-none">
               {mode === 'photo' ? (
                 <>
-                  {granted ? <Text style={styles.finderHint}>{canPhoto ? 'Fit your whole plate in' : 'Photo logging is part of Vitto Plus'}</Text> : null}
+                  {granted ? <Text style={styles.finderHint}>{canPhoto ? t('Fit your whole plate in') : t('Photo logging is part of Vitto Plus')}</Text> : null}
                   <View style={styles.shutterRow} pointerEvents="box-none">
                     <View style={styles.side}>
                       <PressableScale style={styles.library} onPress={onLibrary}>
-                        <Text style={styles.libraryLabel} numberOfLines={1}>Library</Text>
+                        <Text style={styles.libraryLabel} numberOfLines={1}>{t('Library')}</Text>
                       </PressableScale>
                     </View>
                     {granted ? (
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={canPhoto ? 'Take photo' : 'Take photo, a Vitto Plus feature'}
+                        accessibilityLabel={canPhoto ? t('Take photo') : t('Take photo, a Vitto Plus feature')}
                         disabled={shooting}
                         onPress={() => void shoot()}
                         style={({ pressed }) => [styles.shutter, pressed && styles.shutterPressed]}
@@ -284,7 +287,7 @@ export function MealCamera({ open, onClose, onOpen, launcher, problem, mode, onM
                       key={option.value}
                       accessibilityRole="tab"
                       accessibilityState={{ selected: on }}
-                      accessibilityLabel={option.value === 'photo' && !canPhoto ? 'Photo, a Vitto Plus feature' : option.label}
+                      accessibilityLabel={option.value === 'photo' && !canPhoto ? t('Photo, a Vitto Plus feature') : option.label}
                       onPress={() => choose(option.value)}
                       hitSlop={8}
                       style={[styles.mode, on && styles.modeOn]}

@@ -52,6 +52,7 @@ import { toPetAvatarActivityProps } from '../petWorld/toPetAvatarActivityProps';
 import { isNightTime } from '../petWorld/timeOfDay';
 import type { EnvironmentId } from '../petWorld/types';
 import type { UsePetInteractionResult } from '../petWorld/usePetInteraction';
+import { t } from '../i18n';
 
 interface Props {
   pet: PetState;
@@ -198,7 +199,7 @@ export function DashboardScreen({
     // renders (see `usePetInteraction`), so this isn't re-run by its identity.
   }, [interaction]);
 
-  const formLabel = hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : `Level ${pet.level}`;
+  const formLabel = hasEvolved(pet) ? t(PET_BUILD_LABEL[getPetBuild(pet)]) : t('Level {level}', { level: pet.level });
 
   // One move for every scene change — a row button, or "Living room" back out of
   // a scene. The pet is simply in the new room: no dash between them.

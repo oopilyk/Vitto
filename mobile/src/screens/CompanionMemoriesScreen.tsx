@@ -5,6 +5,7 @@ import { companion as ai, errorMessage } from '@vitto/core';
 import { DangerButton, DangerZone, SettingsPage, kit } from '../components/settingsKit';
 import { companionService, type CompanionMemory } from '../services/companionService';
 import { colors, text } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   petId: string;
@@ -16,14 +17,14 @@ interface Props {
 
 /** What kind of thing each memory is, in plain words, under the memory itself. */
 const CATEGORY_LABEL: Record<ai.MemoryCategory, string> = {
-  preference: 'Likes and dislikes',
-  goal: 'A goal',
-  routine: 'Your routine',
-  activity: 'Something you did',
-  relationship: 'People in your life',
-  importantEvent: 'Coming up',
-  healthHabit: 'A health habit',
-  conversationFact: 'Something you said',
+  preference: t('Likes and dislikes'),
+  goal: t('A goal'),
+  routine: t('Your routine'),
+  activity: t('Something you did'),
+  relationship: t('People in your life'),
+  importantEvent: t('Coming up'),
+  healthHabit: t('A health habit'),
+  conversationFact: t('Something you said'),
 };
 
 /**
@@ -43,21 +44,21 @@ export function CompanionMemoriesScreen({ petId, petName, confirm, onClose }: Pr
     companionService
       .memories(petId)
       .then((loaded) => !cancelled && setMemories(loaded))
-      .catch((cause) => !cancelled && setError(errorMessage(cause, `Could not reach ${petName}.`)));
+      .catch((cause) => !cancelled && setError(errorMessage(cause, t('Could not reach {pet}.', { pet: petName }))));
     return () => {
       cancelled = true;
     };
   }, [petId, petName]);
 
   const forgetOne = async (memory: CompanionMemory) => {
-    if (busy || !(await confirm('Forget this?', `${petName} won't remember "${memory.content}".`, 'Forget'))) return;
+    if (busy || !(await confirm(t('Forget this?'), t(`{pet} won't remember "{memory}".`, { pet: petName, memory: memory.content }), t('Forget')))) return;
     setBusy(true);
     try {
       await companionService.forgetMemory(petId, memory.id);
       setMemories((current) => current?.filter((m) => m.id !== memory.id) ?? null);
       setError(null);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not forget that. Try again.'));
+      setError(errorMessage(cause, t('Could not forget that. Try again.')));
     } finally {
       setBusy(false);
     }
@@ -65,9 +66,9 @@ export function CompanionMemoriesScreen({ petId, petName, confirm, onClose }: Pr
 
   const forgetAll = async () => {
     const sure = await confirm(
-      'Forget everything?',
-      `${petName} will forget everything it has learned about you. Your chat and your pet stay. This cannot be undone.`,
-      'Forget everything',
+      t('Forget everything?'),
+      t('{pet} will forget everything it has learned about you. Your chat and your pet stay. This cannot be undone.', { pet: petName }),
+      t('Forget everything'),
     );
     if (!sure) return;
     setBusy(true);
@@ -76,7 +77,7 @@ export function CompanionMemoriesScreen({ petId, petName, confirm, onClose }: Pr
       setMemories([]);
       setError(null);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not forget. Try again.'));
+      setError(errorMessage(cause, t('Could not forget. Try again.')));
     } finally {
       setBusy(false);
     }
@@ -84,18 +85,18 @@ export function CompanionMemoriesScreen({ petId, petName, confirm, onClose }: Pr
 
   return (
     <SettingsPage
-      title={`What ${petName} remembers`}
-      lead={`Things you've told ${petName} in chat that it keeps in mind. Tap one to make ${petName} forget it.`}
-      backLabel="Settings"
+      title={t('What {pet} remembers', { pet: petName })}
+      lead={t("Things you've told {pet} in chat that it keeps in mind. Tap one to make {pet} forget it.", { pet: petName })}
+      backLabel={t('Settings')}
       onBack={onClose}
     >
       <View style={kit.sectionBody}>
         {error ? <Text style={text.error}>{error}</Text> : null}
         {memories === null ? (
-          error ? null : <Text style={kit.sectionDescription}>Loading...</Text>
+          error ? null : <Text style={kit.sectionDescription}>{t('Loading...')}</Text>
         ) : memories.length === 0 ? (
           <Text style={kit.sectionDescription} testID="memories-empty">
-            {`${petName} doesn't remember anything about you yet. Chat a little and it'll start to learn what matters to you.`}
+            {t("{pet} doesn't remember anything about you yet. Chat a little and it'll start to learn what matters to you.", { pet: petName })}
           </Text>
         ) : (
           <View style={kit.list}>
@@ -103,8 +104,8 @@ export function CompanionMemoriesScreen({ petId, petName, confirm, onClose }: Pr
               <Pressable
                 key={memory.id}
                 accessibilityRole="button"
-                accessibilityLabel={`Forget: ${memory.content}`}
-                accessibilityHint="Asks before forgetting"
+                accessibilityLabel={t('Forget: {memory}', { memory: memory.content })}
+                accessibilityHint={t('Asks before forgetting')}
                 onPress={() => void forgetOne(memory)}
                 disabled={busy}
                 style={({ pressed }) => [kit.row, index > 0 && kit.rowRuled, pressed && kit.navRowPressed]}
@@ -112,7 +113,7 @@ export function CompanionMemoriesScreen({ petId, petName, confirm, onClose }: Pr
               >
                 <View style={kit.rowText}>
                   <Text style={kit.rowLabel}>{memory.content}</Text>
-                  <Text style={kit.rowDetail}>{CATEGORY_LABEL[memory.category] ?? 'Something you said'}</Text>
+                  <Text style={kit.rowDetail}>{CATEGORY_LABEL[memory.category] ?? t('Something you said')}</Text>
                 </View>
                 <Mark kind="cross" size={11} color={colors.faint} />
               </Pressable>
@@ -121,10 +122,10 @@ export function CompanionMemoriesScreen({ petId, petName, confirm, onClose }: Pr
         )}
         {memories && memories.length > 0 ? (
           <DangerZone
-            title="Forget everything"
-            description={`Deletes everything ${petName} has learned about you. Your chat history, your pet and how close you are stay as they are.`}
+            title={t('Forget everything')}
+            description={t('Deletes everything {pet} has learned about you. Your chat history, your pet and how close you are stay as they are.', { pet: petName })}
           >
-            <DangerButton label={busy ? 'Forgetting...' : 'Forget everything'} disabled={busy} onPress={() => void forgetAll()} />
+            <DangerButton label={busy ? t('Forgetting...') : t('Forget everything')} disabled={busy} onPress={() => void forgetAll()} />
           </DangerZone>
         ) : null}
       </View>

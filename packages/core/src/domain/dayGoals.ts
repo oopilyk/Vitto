@@ -5,6 +5,7 @@ import type { BodyProfile } from './macroTargets';
 import { estimateCaloriesBurned, getEventsForDay } from './nutritionSummary';
 import type { PetState } from './pet';
 import type { ScheduleToday } from './trainingSchedule';
+import { formatLocale, msg, t, tx } from '../i18n';
 
 /**
  * What is left of today, as the short tokens under the pet's line on the main
@@ -72,8 +73,8 @@ export const dayGoals = (
     const left = Math.round(target - consumed + burned);
     goals.push(
       caloriesMet(target, consumed, burned, profile.goal)
-        ? { id: 'calories', label: 'Calories', done: true }
-        : { id: 'calories', label: `${left.toLocaleString('en-US')} kcal left`, done: false },
+        ? { id: 'calories', label: t('Calories'), done: true }
+        : { id: 'calories', label: t('{calories} kcal left', { calories: left.toLocaleString(formatLocale()) }), done: false },
     );
   }
 
@@ -81,10 +82,11 @@ export const dayGoals = (
     if (rotation) {
       // Where they are in their rotation: "Day 2 · Push", ticked once trained;
       // a rest day is done by resting.
-      const what = rotation.day.kind === 'rest' ? 'Rest' : shortName(rotation.template?.name ?? 'Workout');
-      goals.push({ id: 'workout', label: `Day ${rotation.index + 1} · ${what}`, done: rotation.day.kind === 'rest' || recap.gym.trainingDone });
+      // A routine's name is stored in English (a built-in one) or as it was typed: translated here, where it is shown.
+      const what = rotation.day.kind === 'rest' ? tx('a rest day in a training plan', 'Rest') : shortName(t(rotation.template?.name ?? msg('Workout')));
+      goals.push({ id: 'workout', label: t('Day {day} · {what}', { day: rotation.index + 1, what }), done: rotation.day.kind === 'rest' || recap.gym.trainingDone });
     } else {
-      goals.push({ id: 'workout', label: 'Workout', done: recap.gym.trainingDone });
+      goals.push({ id: 'workout', label: t('Workout'), done: recap.gym.trainingDone });
     }
   }
 
@@ -92,11 +94,11 @@ export const dayGoals = (
     const left = recap.outdoors.goal - recap.outdoors.steps;
     goals.push(
       left <= 0
-        ? { id: 'steps', label: 'Steps', done: true }
+        ? { id: 'steps', label: t('Steps'), done: true }
         : // Half an hour of runs or walks logged as workouts meets the day's movement too.
           recap.outdoors.cardioDone
-          ? { id: 'steps', label: 'Cardio', done: true }
-          : { id: 'steps', label: `${left.toLocaleString('en-US')} steps left`, done: false },
+          ? { id: 'steps', label: t('Cardio'), done: true }
+          : { id: 'steps', label: t('{steps} steps left', { steps: left.toLocaleString(formatLocale()) }), done: false },
     );
   }
 

@@ -1,6 +1,7 @@
 import type { MealAnalysis } from './domain/health';
 import { ZERO_CALORIE_LIMIT, withEstimatedCalories } from './domain/macros';
 import { getFdcApiKey, getSupabase } from './config';
+import { msg, t } from './i18n';
 
 export interface FoodMacros {
   calories: number;
@@ -182,7 +183,7 @@ const toSearchResult = (food: FdcFood): FoodSearchResult => {
     id: String(food.fdcId),
     name: food.description,
     brand: food.brandOwner,
-    servingDescription: 'per 100 g',
+    servingDescription: msg('per 100 g'),
     basisGrams: REFERENCE_GRAMS,
     isPer100g: true,
     macros: scaleMacros(per100g, 1),
@@ -256,7 +257,7 @@ export const fatsecretFoodToResult = (food: FatSecretFood): FoodSearchResult | n
 
   const amount = toNumber(serving.metric_serving_amount);
   const grams = serving.metric_serving_unit === 'g' && amount !== undefined && amount > 0 ? amount : undefined;
-  const label = serving.serving_description?.trim() || 'per serving';
+  const label = serving.serving_description?.trim() || msg('per serving');
   // "1 medium" says nothing about how much that is; the weight does.
   const servingDescription = grams && !/\d\s*g\b|gram/i.test(label) ? `${label} (${Math.round(grams)} g)` : label;
   const sodium = toNumber(serving.sodium);
@@ -339,16 +340,16 @@ const searchFdc = async (query: string): Promise<FoodSearchResult[]> => {
     response = await fetch(url);
   } catch {
     // No answer at all: offline, or this network cannot look USDA's name up.
-    throw new Error("Couldn't reach the food database. Check your connection and try again.");
+    throw new Error(t("Couldn't reach the food database. Check your connection and try again."));
   }
   if (response.status === 429) {
     throw new Error(
       key === DEMO_KEY
-        ? 'The shared USDA food key is out of requests for now. Add a free FoodData Central key to search whole foods.'
-        : 'The USDA food database is rate limiting us. Try again in a minute.',
+        ? t('The shared USDA food key is out of requests for now. Add a free FoodData Central key to search whole foods.')
+        : t('The USDA food database is rate limiting us. Try again in a minute.'),
     );
   }
-  if (!response.ok) throw new Error('Food search failed. Try again in a moment.');
+  if (!response.ok) throw new Error(t('Food search failed. Try again in a moment.'));
   const data = (await response.json()) as { foods?: FdcFood[] };
   return rankFdcFoods(data.foods ?? []);
 };
@@ -471,7 +472,7 @@ const offMacros = (
  */
 const offProductToResult = (product: OpenFoodFactsProduct, id: string): FoodSearchResult => {
   const nutriments = product.nutriments ?? {};
-  const name = product.product_name || 'Unknown product';
+  const name = product.product_name || msg('Unknown product');
   const brand = product.brands;
 
   const has100g =
@@ -483,7 +484,7 @@ const offProductToResult = (product: OpenFoodFactsProduct, id: string): FoodSear
   const quantity = toNumber(product.serving_quantity);
   // A serving's weight, when it is a believable one in grams.
   const servingGrams = quantity !== undefined && quantity > 0 && quantity <= MAX_SERVING_GRAMS ? quantity : undefined;
-  const servingLabel = product.serving_size?.trim() || (servingGrams ? `${servingGrams} g serving` : 'per serving');
+  const servingLabel = product.serving_size?.trim() || (servingGrams ? `${servingGrams} g serving` : msg('per serving'));
 
   // The label's own per-serving figures, as printed.
   if (hasServing) {
@@ -516,7 +517,7 @@ const offProductToResult = (product: OpenFoodFactsProduct, id: string): FoodSear
       id,
       name,
       brand,
-      servingDescription: 'per 100 g',
+      servingDescription: msg('per 100 g'),
       basisGrams: REFERENCE_GRAMS,
       isPer100g: true,
       macros: offMacros(nutriments, '_100g'),
@@ -527,7 +528,7 @@ const offProductToResult = (product: OpenFoodFactsProduct, id: string): FoodSear
     id,
     name,
     brand,
-    servingDescription: product.serving_size || 'per serving',
+    servingDescription: product.serving_size || msg('per serving'),
     basisGrams: toNumber(product.serving_quantity),
     isPer100g: false,
     macros: offMacros(nutriments, '_serving'),
@@ -557,7 +558,7 @@ const searchOpenFoodFacts = async (query: string): Promise<FoodSearchResult[]> =
   url.searchParams.set('fields', 'code,product_name,brands,serving_size,serving_quantity,nutriments');
 
   const response = await fetch(url);
-  if (!response.ok) throw new Error('Food search failed. Try again in a moment.');
+  if (!response.ok) throw new Error(t('Food search failed. Try again in a moment.'));
   const data = (await response.json()) as { products?: (OpenFoodFactsProduct & { code?: string })[] };
 
   const results = (data.products ?? [])
@@ -592,7 +593,7 @@ export const lookupBarcode = async (barcode: string): Promise<FoodSearchResult |
   const fromFatsecret = await barcodeViaServer(barcode);
   if (fromFatsecret) return fromFatsecret;
   const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
-  if (!response.ok) throw new Error('Barcode lookup failed. Try again.');
+  if (!response.ok) throw new Error(t('Barcode lookup failed. Try again.'));
   const data = (await response.json()) as { status: number; product?: OpenFoodFactsProduct };
   if (data.status !== 1 || !data.product) return null;
 
@@ -657,7 +658,7 @@ export const toPlateAnalysis = (items: readonly PlateItem[]): MealAnalysis => {
   const plate = items
     .filter((item) => Number.isFinite(item.servings) && item.servings > 0)
     .map((item) => ({ ...item, macros: scaleMacros(item.food.macros, item.servings) }));
-  if (plate.length === 0) throw new Error('A plate needs at least one food.');
+  if (plate.length === 0) throw new Error(t('A plate needs at least one food.'));
   if (plate.length === 1) return toMealAnalysis(plate[0]!.food, plate[0]!.servings);
 
   const total = (key: keyof FoodMacros) => plate.reduce((sum, item) => sum + (item.macros[key] ?? 0), 0);
@@ -740,6 +741,30 @@ export const servingGrams = (food: FoodSearchResult): number | undefined => {
   return Number.isFinite(grams) && grams > 0 ? grams : undefined;
 };
 
+/**
+ * A serving description as a screen shows it. The ones written here and in
+ * describeMeal ("per 100 g", "30 g serving", "about 120 g") are saved with the
+ * meal and read back for their grams, so they are kept in English and put into
+ * the app's language only here, where they are drawn. A database's own text
+ * ("1 bar (55 g)") comes back as it is.
+ */
+/** Names the app gives a food or meal that has none; saved in English, like the rest of a meal. */
+const STAND_IN_NAMES: ReadonlySet<string> = new Set(['Unknown product', 'Quick add', 'Meal']);
+
+/**
+ * A food's or meal's name as shown. Database and typed names are shown as
+ * they are; only the app's own stand-ins for a missing name are translated.
+ */
+export const foodNameText = (name: string): string => (STAND_IN_NAMES.has(name) ? t(name) : name);
+
+export const servingText = (servingDescription: string): string => {
+  const about = /^about (\d+) g$/.exec(servingDescription);
+  if (about) return t('about {grams} g', { grams: about[1]! });
+  const weighed = /^([\d.]+) g serving$/.exec(servingDescription);
+  if (weighed) return t('{grams} g serving', { grams: weighed[1]! });
+  return t(servingDescription);
+};
+
 export type PortionUnit = 'serving' | 'g' | 'oz';
 const GRAMS_PER_OZ = 28.3495;
 
@@ -777,7 +802,7 @@ export const quickAddAnalysis = ({
   carbsGrams?: number;
   fatGrams?: number;
 }): MealAnalysis => {
-  const label = name?.trim() || 'Quick add';
+  const label = name?.trim() || msg('Quick add');
   return {
     grade: 'C',
     foodDescription: label,

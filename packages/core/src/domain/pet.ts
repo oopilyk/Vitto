@@ -3,6 +3,7 @@ import type { FoodEffect } from './foodEffects';
 import type { FocusArea } from './macroTargets';
 import { newId } from './ids';
 import type { RoomTheme } from './roomThemes';
+import { msg, tx } from '../i18n';
 
 /**
  * `sleepy` is low Energy (sleep and food); `sluggish` is low Vitality
@@ -12,11 +13,11 @@ export type PetMood = 'bright' | 'content' | 'sleepy' | 'sluggish' | 'hungry';
 
 /** The mood as a word a person would use about a friend: "Blue is happy". */
 export const MOOD_WORD: Record<PetMood, string> = {
-  bright: 'happy',
-  content: 'doing fine',
-  sleepy: 'sleepy',
-  sluggish: 'sluggish',
-  hungry: 'hungry',
+  bright: tx('how the pet is, as in "Blue is happy"', 'happy'),
+  content: tx('how the pet is, as in "Blue is happy"', 'doing fine'),
+  sleepy: tx('how the pet is, as in "Blue is happy"', 'sleepy'),
+  sluggish: tx('how the pet is, as in "Blue is happy"', 'sluggish'),
+  hungry: tx('how the pet is, as in "Blue is happy"', 'hungry'),
 };
 
 /** Energy for a pet that may predate it: a comfortable middle, so no old pet wakes up sleepy. */
@@ -475,11 +476,12 @@ export const lockEvolution = <T extends PetState>(pet: T): T => {
   };
 };
 
+/** Kept English here, because the companion is sent it and reads it: translated where it is drawn, with `t(label)`. */
 export const PET_BUILD_LABEL: Record<PetBuild, string> = {
-  balanced: 'Balanced',
-  runner: 'Runner',
-  lifter: 'Lifter',
-  scholar: 'Scholar',
+  balanced: msg('Balanced'),
+  runner: msg('Runner'),
+  lifter: msg('Lifter'),
+  scholar: msg('Scholar'),
 };
 
 /**

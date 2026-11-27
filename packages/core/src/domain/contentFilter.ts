@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import {
   ALLOWED_CONTAINING,
   BLOCKED_LONG,
@@ -59,7 +60,7 @@ export const hasBlockedTerm = (text: string): boolean => {
   });
 };
 
-export const BLOCKED_USERNAME_MESSAGE = "That username isn't allowed. Try another.";
-export const BLOCKED_NAME_MESSAGE = "That name isn't allowed. Try another.";
-export const BLOCKED_BIO_MESSAGE = 'Your bio has words that aren’t allowed here.';
-export const BLOCKED_PERSONA_MESSAGE = 'Their character has words that aren’t allowed here.';
+export const BLOCKED_USERNAME_MESSAGE = t("That username isn't allowed. Try another.");
+export const BLOCKED_NAME_MESSAGE = t("That name isn't allowed. Try another.");
+export const BLOCKED_BIO_MESSAGE = t('Your bio has words that aren’t allowed here.');
+export const BLOCKED_PERSONA_MESSAGE = t('Their character has words that aren’t allowed here.');

@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native';
 import type { LetterMark } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 /**
  * One appearance table for both the board and the keyboard, so a letter never reads
@@ -19,19 +20,19 @@ export const MARK_APPEARANCE = (): Record<
     background: colors.mint,
     foreground: colors.mintDeep,
     glyph: '●',
-    label: 'right letter, right place',
+    label: t('right letter, right place'),
   },
   present: {
     background: colors.yellow,
     foreground: colors.yellowDeep,
     glyph: '◆',
-    label: 'right letter, wrong place',
+    label: t('right letter, wrong place'),
   },
   absent: {
     background: colors.slate,
     foreground: colors.slateDeep,
     glyph: '×',
-    label: 'not in the word',
+    label: t('not in the word'),
   },
 });
 
@@ -59,8 +60,8 @@ export function WordPuzzleGrid({ length, maxGuesses, guesses, marks, entry }: Pr
               const mark = guess ? marks[row]?.[column] : undefined;
               const appearance = mark ? MARK_APPEARANCE()[mark] : null;
               const spoken = letter
-                ? `${letter.toUpperCase()}, ${appearance ? appearance.label : 'not submitted yet'}`
-                : 'Empty tile';
+                ? t('{letter}, {state}', { letter: letter.toUpperCase(), state: appearance ? appearance.label : t('not submitted yet') })
+                : t('Empty tile');
               return (
                 <View
                   key={`tile-${row}-${column}`}

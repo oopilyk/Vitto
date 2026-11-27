@@ -1,11 +1,13 @@
+import { t } from '../i18n';
+
 const MINUTES_PER_DAY = 24 * 60;
 
 /** "2h 05m"; whole minutes in, so no rounding surprises. */
 export const formatMinutes = (minutes: number): string => {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  if (hours === 0) return `${rest}m`;
-  return rest === 0 ? `${hours}h` : `${hours}h ${String(rest).padStart(2, '0')}m`;
+  if (hours === 0) return t('{minutes}m', { minutes: rest });
+  return rest === 0 ? t('{hours}h', { hours }) : t('{hours}h {minutes}m', { hours, minutes: String(rest).padStart(2, '0') });
 };
 
 /**

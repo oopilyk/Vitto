@@ -20,6 +20,7 @@ import { calculateStreakStatus } from './streaks';
 import { scheduleDayOn, type TrainingSchedule } from './trainingSchedule';
 import { companionSnapshot } from './companionSnapshot';
 import type { WorkoutTemplate } from './workoutTemplates';
+import { formatLocale, t } from '../i18n';
 
 /**
  * Where Vitto's existing world meets the AI companion.
@@ -29,6 +30,11 @@ import type { WorkoutTemplate } from './workoutTemplates';
  * file is the only place that translates, and it runs on the PHONE, because
  * everything it reads is already derived there by the rest of core. Nothing here
  * is a second source of truth — it only re-describes what core already computed.
+ *
+ * What is built for the companion is stored on the server and read by the
+ * model, so it is English whatever the app's language: none of the tables here
+ * are wrapped for translation. Only `proposalProblem`, whose text the person
+ * reads, is.
  */
 
 const GAME_NAMES: Partial<Record<BrainTrainingMetadata['game'], string>> = {
@@ -91,7 +97,7 @@ export interface BridgeExtras {
  * plausibly know. Returns null for event types the pet has no feelings about.
  */
 export const toCompanionEvent = (event: HealthEvent, extras: BridgeExtras = {}): CompanionEventInput | null => {
-  const summary = describeLoggedEvent(event);
+  const summary = describeLoggedEvent(event, 'english');
   const timestamp = Date.parse(event.occurredAt);
   const at = Number.isFinite(timestamp) ? { timestamp } : {};
   switch (event.type) {
@@ -294,15 +300,17 @@ export const proposalProblem = (
   { profile, reminderCount }: { profile: BodyProfile; reminderCount: number },
 ): string | null => {
   if (proposal.kind === 'reminder') {
-    if (!proposal.days.every((day) => Number.isInteger(day) && day >= 1 && day <= 7)) return 'Those are not days of the week.';
+    if (!proposal.days.every((day) => Number.isInteger(day) && day >= 1 && day <= 7)) return t('Those are not days of the week.');
     return reminderError(proposal, reminderCount);
   }
   const range = PROPOSAL_RANGES[proposal.setting];
   if (!range || !Number.isInteger(proposal.value) || proposal.value < range.min || proposal.value > range.max) {
-    return `Choose between ${range ? `${range.min.toLocaleString('en-US')} and ${range.max.toLocaleString('en-US')}` : 'the allowed values'}.`;
+    return range
+      ? t('Choose between {min} and {max}.', { min: range.min.toLocaleString(formatLocale()), max: range.max.toLocaleString(formatLocale()) })
+      : t('Choose between the allowed values.');
   }
   if (proposal.setting === 'calorieGoal' && isMinor(profile) && proposal.value < maintenanceCalories(profile)) {
-    return `Under 18, your daily calories stay at ${maintenanceCalories(profile).toLocaleString('en-US')} or more.`;
+    return t('Under 18, your daily calories stay at {calories} or more.', { calories: maintenanceCalories(profile).toLocaleString(formatLocale()) });
   }
   return null;
 };

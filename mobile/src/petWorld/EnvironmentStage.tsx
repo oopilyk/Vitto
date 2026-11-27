@@ -18,6 +18,7 @@ import { navBarHeight } from './EnvironmentActionRow';
 import { topInsetFor, useChromeScale } from './chromeScale';
 import { RoomPanel, roomWindowFrame } from './RoomPanel';
 import { colors } from '../theme';
+import { t } from '../i18n';
 import { PetSpeechBubble } from './PetSpeechBubble';
 import { PetTapReaction } from './PetTapReaction';
 import { ENVIRONMENT_TRANSITION_MS } from './timing';
@@ -314,7 +315,7 @@ export function EnvironmentStage({
             size={metrics.petSize}
             paused={paused}
             onPress={tappable ? handlePetPress : undefined}
-            pressLabel={`Say hi to ${pet.name}`}
+            pressLabel={t('Say hi to {pet}', { pet: pet.name })}
           >
             {null}
           </PetAvatar>

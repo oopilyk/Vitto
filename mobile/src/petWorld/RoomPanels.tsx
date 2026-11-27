@@ -15,6 +15,7 @@ import {
   type SavedMeal,
   type RepeatableMeal,
   normalizeSavedMealName,
+  foodNameText,
 } from '@vitto/core';
 import { MIND_GAMES } from '../mind/registry';
 import { availableMindGames, featuredMindGame, isMindGamePlayed, type MindRouteHandlers } from '../mind/hub';
@@ -23,6 +24,7 @@ import { whenLabel } from './whenLabel';
 import { LogProgress } from '../components/logKit';
 import { WaterLog, type WaterLogProps } from '../components/WaterLog';
 import { layout } from '../theme';
+import { formatLocale, msg, t, tx } from '../i18n';
 import {
   PanelActionBar,
   PanelButton,
@@ -134,11 +136,11 @@ export function FoodPanel({ renderMealLogger, today, savedMeals = [], onLogSaved
   }, []);
 
   const tabs: { icon: FoodTab; label: string; hint: string }[] = [
-    { icon: 'search', label: 'Search', hint: 'Search foods' },
-    { icon: 'camera', label: 'Camera', hint: 'Scan a barcode or photograph a meal' },
-    { icon: 'describe', label: 'Describe', hint: 'Say or type what you ate' },
-    { icon: 'meals', label: 'Meals', hint: 'Your saved meals' },
-    ...(water ? [{ icon: 'water' as const, label: 'Water', hint: 'Log water' }] : []),
+    { icon: 'search', label: t('Search'), hint: t('Search foods') },
+    { icon: 'camera', label: t('Camera'), hint: t('Scan a barcode or photograph a meal') },
+    { icon: 'describe', label: t('Describe'), hint: t('Say or type what you ate') },
+    { icon: 'meals', label: t('Meals'), hint: t('Your saved meals') },
+    ...(water ? [{ icon: 'water' as const, label: t('Water'), hint: t('Log water') }] : []),
   ];
   return (
     <PanelPage
@@ -206,39 +208,39 @@ function MealsTab({
           <LogProgress
             style={MACRO_ROW}
             items={[
-              { label: 'Calories', value: today.consumed.calories, goal: today.targets.calories, unit: 'kcal' },
-              { label: 'Protein', value: today.consumed.proteinGrams, goal: today.targets.proteinGrams, unit: 'g' },
+              { label: t('Calories'), value: today.consumed.calories, goal: today.targets.calories, unit: 'kcal' },
+              { label: t('Protein'), value: today.consumed.proteinGrams, goal: today.targets.proteinGrams, unit: 'g' },
             ]}
           />
           <LogProgress
             style={MACRO_ROW}
             items={[
-              { label: 'Carbs', value: today.consumed.carbsGrams, goal: today.targets.carbsGrams, unit: 'g' },
-              { label: 'Fat', value: today.consumed.fatGrams, goal: today.targets.fatGrams, unit: 'g' },
+              { label: t('Carbs'), value: today.consumed.carbsGrams, goal: today.targets.carbsGrams, unit: 'g' },
+              { label: t('Fat'), value: today.consumed.fatGrams, goal: today.targets.fatGrams, unit: 'g' },
             ]}
           />
         </View>
       ) : null}
       <PanelSection
-        title="Your meals"
-        action={savedMeals.length > 0 && onDeleteSavedMeal ? { label: editing ? 'Done' : 'Edit', onPress: () => setEditing((on) => !on) } : undefined}
+        title={t('Your meals')}
+        action={savedMeals.length > 0 && onDeleteSavedMeal ? { label: editing ? t('Done') : t('Edit'), onPress: () => setEditing((on) => !on) } : undefined}
       >
         {savedMeals.length === 0 ? (
           <PanelEmpty>
-            Prep the same meals? Keep one from the list below, and it logs in one tap from here.
+            {t('Prep the same meals? Keep one from the list below, and it logs in one tap from here.')}
           </PanelEmpty>
         ) : (
           savedMeals.map((meal) => (
             <PanelRow
               key={meal.id}
-              title={meal.name}
-              detail={`${Math.round(meal.analysis.macros.calories).toLocaleString('en-US')} kcal · ${Math.round(meal.analysis.macros.proteinGrams)}g protein`}
-              more={`${Math.round(meal.analysis.macros.carbsGrams)}g carbs · ${Math.round(meal.analysis.macros.fatGrams)}g fat`}
+              title={foodNameText(meal.name)}
+              detail={t('{calories} kcal · {protein}g protein', { calories: Math.round(meal.analysis.macros.calories).toLocaleString(formatLocale()), protein: Math.round(meal.analysis.macros.proteinGrams) })}
+              more={t('{carbs}g carbs · {fat}g fat', { carbs: Math.round(meal.analysis.macros.carbsGrams), fat: Math.round(meal.analysis.macros.fatGrams) })}
               action={
                 editing
-                  ? { label: `Delete ${meal.name}`, text: 'Delete', onPress: () => onDeleteSavedMeal?.(meal.id) }
+                  ? { label: t('Delete {name}', { name: meal.name }), text: t('Delete'), onPress: () => onDeleteSavedMeal?.(meal.id) }
                   : onLogSavedMeal
-                    ? { label: `Log ${meal.name} now`, text: 'Log', onPress: () => onLogSavedMeal(meal) }
+                    ? { label: t('Log {name} now', { name: meal.name }), text: tx('button: log this now', 'Log'), onPress: () => onLogSavedMeal(meal) }
                     : undefined
               }
             />
@@ -246,17 +248,17 @@ function MealsTab({
         )}
       </PanelSection>
       {toKeep.length > 0 && !editing ? (
-        <PanelSection title="Add from what you've eaten">
+        <PanelSection title={t("Add from what you've eaten")}>
           {problem ? <PanelEmpty>{problem}</PanelEmpty> : null}
           {toKeep.map((meal) => (
             <PanelRow
               key={meal.key}
-              title={meal.name}
-              detail={`${Math.round(meal.analysis.macros.calories).toLocaleString('en-US')} kcal · ${Math.round(meal.analysis.macros.proteinGrams)}g protein`}
-              more={`${Math.round(meal.analysis.macros.carbsGrams)}g carbs · ${Math.round(meal.analysis.macros.fatGrams)}g fat`}
+              title={foodNameText(meal.name)}
+              detail={t('{calories} kcal · {protein}g protein', { calories: Math.round(meal.analysis.macros.calories).toLocaleString(formatLocale()), protein: Math.round(meal.analysis.macros.proteinGrams) })}
+              more={t('{carbs}g carbs · {fat}g fat', { carbs: Math.round(meal.analysis.macros.carbsGrams), fat: Math.round(meal.analysis.macros.fatGrams) })}
               action={{
-                label: `Keep ${meal.name} in your meals`,
-                text: '+ Add',
+                label: t('Keep {name} in your meals', { name: meal.name }),
+                text: t('+ Add'),
                 onPress: async () => {
                   const refused = await onSaveMeal!(meal.name, meal.analysis);
                   setProblem(refused);
@@ -308,9 +310,9 @@ export function GymPanel({ renderWorkout }: GymPanelProps) {
 
 /** The activities the page logs itself, by the name the exercise list knows them by. */
 const CARDIO = [
-  { value: 'Walking', label: 'Walk', noun: 'walk' },
-  { value: 'Running', label: 'Run', noun: 'run' },
-  { value: 'Cycling', label: 'Ride', noun: 'ride' },
+  { value: 'Walking', label: t('Walk') },
+  { value: 'Running', label: t('Run') },
+  { value: 'Cycling', label: t('Ride') },
 ] as const;
 export type CardioName = (typeof CARDIO)[number]['value'];
 
@@ -368,10 +370,17 @@ export interface OutsidePanelProps {
 }
 
 /** "Walk", "Run", "Ride", or the activity's own name. */
-const activityLabel = (activity: string): string => CARDIO.find((kind) => kind.value === activity)?.label ?? activity;
-/** What a log of it is called mid-sentence: "walk", "run", "hiking". */
-const activityNoun = (activity: string): string =>
-  CARDIO.find((kind) => kind.value === activity)?.noun ?? activity.toLowerCase();
+const activityLabel = (activity: string): string => CARDIO.find((kind) => kind.value === activity)?.label ?? t(activity);
+/** The quick log's button, whole: "Log 30 min walk", or "Log 5 km walk · 30 min" with a distance. */
+const quickLogLabel = (activity: CardioName, minutes: number, distance?: string): string => {
+  if (activity === 'Running') {
+    return distance ? t('Log {distance} run · {minutes} min', { distance, minutes }) : t('Log {minutes} min run', { minutes });
+  }
+  if (activity === 'Cycling') {
+    return distance ? t('Log {distance} ride · {minutes} min', { distance, minutes }) : t('Log {minutes} min ride', { minutes });
+  }
+  return distance ? t('Log {distance} walk · {minutes} min', { distance, minutes }) : t('Log {minutes} min walk', { minutes });
+};
 
 export function OutsidePanel({
   events,
@@ -405,10 +414,8 @@ export function OutsidePanel({
         .slice(0, 4),
     [events],
   );
-  const noun = activityNoun(activity);
   const toKm = (typed: number) => Math.round(typed * (distanceUnit === 'mi' ? KM_PER_MILE : 1) * 1000) / 1000;
   const distanceKm = distance && distance > 0 ? toKm(distance) : undefined;
-  const what = distanceKm ? `${distanceLabel(distanceKm, distanceUnit)} ${noun} · ${minutes} min` : `${minutes} min ${noun}`;
 
   const log = async () => {
     // The same check the full logger makes: a typo is refused or questioned
@@ -421,7 +428,7 @@ export function OutsidePanel({
     }
     if (check && asked.current !== key) {
       asked.current = key;
-      setProblem(`${check.message} Tap again to log it anyway.`);
+      setProblem(t('{message} Tap again to log it anyway.', { message: check.message }));
       return;
     }
     asked.current = '';
@@ -434,35 +441,39 @@ export function OutsidePanel({
   return (
     <PanelPage>
       <PanelHeader
-        title="Outside"
-        status={stepGoal > 0 ? `${steps.toLocaleString('en-US')} / ${stepGoal.toLocaleString('en-US')} steps` : `${steps.toLocaleString('en-US')} steps`}
+        title={t('Outside')}
+        status={
+          stepGoal > 0
+            ? t('{steps} / {goal} steps', { steps: steps.toLocaleString(formatLocale()), goal: stepGoal.toLocaleString(formatLocale()) })
+            : t('{count} steps', { count: steps.toLocaleString(formatLocale()) })
+        }
       />
       {stepGoal > 0 ? <PanelProgress fraction={steps / stepGoal} /> : null}
       {routines.length > 0 ? (
         <PanelSection
-          title="Routines"
-          action={onDeleteRoutine ? { label: editingRoutines ? 'Done' : 'Edit', onPress: () => setEditingRoutines((on) => !on) } : undefined}
+          title={t('Routines')}
+          action={onDeleteRoutine ? { label: editingRoutines ? t('Done') : t('Edit'), onPress: () => setEditingRoutines((on) => !on) } : undefined}
         >
           {routines.map((routine) => {
             const routineActivity = routine.exercises[0]!.name;
             return (
               <PanelRow
                 key={routine.id}
-                title={routine.name}
+                title={t(routine.name)}
                 detail={[
                   // "Walking · Walk" says it twice.
                   routine.name.toLowerCase() === routineActivity.toLowerCase() ? null : activityLabel(routineActivity),
-                  routine.minutes ? `${routine.minutes} min` : null,
+                  routine.minutes ? t('{minutes} min', { minutes: routine.minutes }) : null,
                   routine.distanceKm ? distanceLabel(routine.distanceKm, distanceUnit) : null,
                 ]
                   .filter(Boolean)
                   .join(' · ')}
                 action={
                   editingRoutines
-                    ? { label: `Delete ${routine.name}`, text: 'Delete', onPress: () => onDeleteRoutine?.(routine.id) }
+                    ? { label: t('Delete {name}', { name: t(routine.name) }), text: t('Delete'), onPress: () => onDeleteRoutine?.(routine.id) }
                     : {
-                        label: `Log ${routine.name} now`,
-                        text: 'Log',
+                        label: t('Log {name} now', { name: t(routine.name) }),
+                        text: tx('button: log this now', 'Log'),
                         onPress: () => onQuickCardio(routineActivity, routine.minutes ?? 30, routine.distanceKm, routine.name),
                       }
                 }
@@ -471,16 +482,16 @@ export function OutsidePanel({
           })}
         </PanelSection>
       ) : null}
-      <PanelSection title="Quick log">
+      <PanelSection title={t('Quick log')}>
         <PanelChips options={CARDIO} value={activity} onChange={setActivity} />
         <PanelChips
-          options={usual.options.map((option) => ({ value: option, label: `${option} min` }))}
+          options={usual.options.map((option) => ({ value: option, label: t('{minutes} min', { minutes: option }) }))}
           value={minutes}
           onChange={setMinutes}
         />
         <PanelNumberField
-          label="Distance"
-          hint="optional"
+          label={t('Distance')}
+          hint={t('optional')}
           unit={distanceUnit}
           value={distance}
           onValue={(next) => {
@@ -490,30 +501,34 @@ export function OutsidePanel({
         />
         {problem ? <PanelEmpty>{problem}</PanelEmpty> : null}
         <PanelButtonRow>
-          <PanelButton label={`Log ${what}`} primary onPress={log} />
+          <PanelButton
+            label={quickLogLabel(activity, minutes, distanceKm ? distanceLabel(distanceKm, distanceUnit) : undefined)}
+            primary
+            onPress={log}
+          />
         </PanelButtonRow>
       </PanelSection>
       <PanelButtonRow>
-        <PanelButton label="Other activity" onPress={() => task.open((close) => renderCardio(close), { keepBars: true })} />
-        {onSyncSteps ? <PanelButton label="Sync steps" onPress={onSyncSteps} style={{ flex: 0, flexBasis: 120 }} /> : null}
+        <PanelButton label={t('Other activity')} onPress={() => task.open((close) => renderCardio(close), { keepBars: true })} />
+        {onSyncSteps ? <PanelButton label={t('Sync steps')} onPress={onSyncSteps} style={{ flex: 0, flexBasis: 120 }} /> : null}
       </PanelButtonRow>
-      <PanelSection title="Recent">
+      <PanelSection title={t('Recent')}>
         {recent.length === 0 ? (
-          <PanelEmpty>No runs, walks or rides logged yet.</PanelEmpty>
+          <PanelEmpty>{t('No runs, walks or rides logged yet.')}</PanelEmpty>
         ) : (
           recent.map((workout) => {
-            const name = workout.metadata.name || 'Cardio';
+            const name = workout.metadata.name || msg('Cardio');
             const exercises = workout.metadata.exercises ?? [];
             // One activity logged by distance: the same again is one tap.
             const again = exercises.length === 1 && exercises[0]!.distance ? exercises[0]!.name : null;
             return (
               <PanelRow
                 key={workout.id}
-                title={name}
+                title={t(name)}
                 detail={[
                   whenLabel(workout.occurredAt),
                   workout.metadata.distanceKm ? distanceLabel(workout.metadata.distanceKm, distanceUnit) : null,
-                  `${workout.metadata.durationMinutes} min`,
+                  t('{minutes} min', { minutes: workout.metadata.durationMinutes }),
                 ]
                   .filter(Boolean)
                   .join(' · ')}
@@ -521,7 +536,7 @@ export function OutsidePanel({
                 action={
                   again
                     ? {
-                        label: `Log ${name} again`,
+                        label: t('Log {name} again', { name: t(name) }),
                         onPress: () => onQuickCardio(again, workout.metadata.durationMinutes, workout.metadata.distanceKm, name),
                       }
                     : undefined
@@ -564,22 +579,22 @@ export function MindPanel({ events, routes, openStage }: MindPanelProps) {
   return (
     <PanelPage>
       <PanelHeader
-        title="Mind"
-        status={playedCount > 0 ? `${playedCount} of ${games.length} played today` : 'Nothing played today'}
+        title={t('Mind')}
+        status={playedCount > 0 ? t('{played} of {total} played today', { played: playedCount, total: games.length }) : t('Nothing played today')}
       />
       {featured ? (
         <PanelButtonRow>
-          <PanelButton label={`Play ${featured.name} · ${featured.minutes} min`} primary onPress={() => play(featured)} />
+          <PanelButton label={t('Play {game} · {minutes} min', { game: featured.name, minutes: featured.minutes })} primary onPress={() => play(featured)} />
         </PanelButtonRow>
       ) : null}
-      <PanelSection title="All games">
+      <PanelSection title={t('All games')}>
         {games
           .filter((game) => game !== featured)
           .map((game) => (
             <PanelRow
               key={game.id}
               title={game.name}
-              detail={`${game.minutes} min · ${game.blurb}`}
+              detail={`${t('{minutes} min', { minutes: game.minutes })} · ${game.blurb}`}
               done={isMindGamePlayed(game, played)}
               onPress={() => play(game)}
             />

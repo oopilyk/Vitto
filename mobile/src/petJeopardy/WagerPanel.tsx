@@ -4,6 +4,7 @@ import { PrimaryButton } from '../components/ui';
 import { SURFACE_BORDER_WIDTH, SURFACE_RADIUS, surface, surfacePressed } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { WAGER_STEP } from './board';
+import { t } from '../i18n';
 
 interface WagerPanelProps {
   /** `maxJeopardyWager(game)` — exactly what the board paid out this round. */
@@ -40,20 +41,20 @@ export function WagerPanel({
   return (
     <View style={styles.wrap}>
       <View style={[styles.panel, surface.panel, night && surface.panelNight]}>
-        <Text style={[surface.kicker, night && surface.kickerNight]}>Final Jeopardy</Text>
-        <Text style={[styles.heading, night && styles.headingNight]}>How much do you risk?</Text>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>{t('Final Jeopardy')}</Text>
+        <Text style={[styles.heading, night && styles.headingNight]}>{t('How much do you risk?')}</Text>
         {/* The ceiling IS what was earned this round, stated plainly: winning
             doubles it, losing gives it back. */}
         <Text style={[surface.caption, night && surface.captionNight, styles.line]}>
           {max > 0
-            ? `You earned ${max} XP this round. Risk any part of it — win, and you double it; lose, and it's gone.`
-            : "You didn't bank any XP this round — this one is a free shot."}
+            ? t("You earned {xp} XP this round. Risk any part of it — win, and you double it; lose, and it's gone.", { xp: max })
+            : t("You didn't bank any XP this round — this one is a free shot.")}
         </Text>
 
         <View style={styles.stepper}>
           <StepButton
             label={`−${WAGER_STEP}`}
-            hint={`Lower the wager by ${WAGER_STEP} XP`}
+            hint={t('Lower the wager by {step} XP', { step: WAGER_STEP })}
             disabled={amount <= 0}
             night={night}
             onPress={() => onChange(clamp(amount - WAGER_STEP))}
@@ -61,7 +62,7 @@ export function WagerPanel({
           <View style={styles.readout}>
             <Text
               style={[styles.amount, night && styles.amountNight]}
-              accessibilityLabel={`Wager: ${amount} XP`}
+              accessibilityLabel={t('Wager: {amount} XP', { amount })}
             >
               {amount}
             </Text>
@@ -69,7 +70,7 @@ export function WagerPanel({
           </View>
           <StepButton
             label={`+${WAGER_STEP}`}
-            hint={`Raise the wager by ${WAGER_STEP} XP`}
+            hint={t('Raise the wager by {step} XP', { step: WAGER_STEP })}
             disabled={amount >= max}
             night={night}
             onPress={() => onChange(clamp(amount + WAGER_STEP))}
@@ -77,14 +78,14 @@ export function WagerPanel({
         </View>
 
         <View style={styles.presets}>
-          <Preset label="Nothing" night={night} onPress={() => onChange(0)} />
-          <Preset label="Half" night={night} onPress={() => onChange(clamp(max / 2))} />
-          <Preset label="Everything" night={night} onPress={() => onChange(max)} />
+          <Preset label={t('Nothing')} spoken={t('Wager nothing')} night={night} onPress={() => onChange(0)} />
+          <Preset label={t('Half')} spoken={t('Wager half')} night={night} onPress={() => onChange(clamp(max / 2))} />
+          <Preset label={t('Everything')} spoken={t('Wager everything')} night={night} onPress={() => onChange(max)} />
         </View>
       </View>
 
       <View style={styles.confirm}>
-        <PrimaryButton label="Lock it in" onPress={onConfirm} disabled={!canConfirm} busy={busy} />
+        <PrimaryButton label={t('Lock it in')} onPress={onConfirm} disabled={!canConfirm} busy={busy} />
       </View>
     </View>
   );
@@ -123,11 +124,11 @@ function StepButton({
   );
 }
 
-function Preset({ label, night, onPress }: { label: string; night: boolean; onPress: () => void }) {
+function Preset({ label, spoken, night, onPress }: { label: string; spoken: string; night: boolean; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Wager ${label.toLowerCase()}`}
+      accessibilityLabel={spoken}
       onPress={onPress}
       style={({ pressed }) => [
         styles.preset,

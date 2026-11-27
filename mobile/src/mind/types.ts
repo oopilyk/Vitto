@@ -66,6 +66,11 @@ export interface MindGameEntry {
   readonly hasPoints: boolean;
   readonly launch: MindLaunch;
   /**
+   * Whether the game is offered in the app's language. Absent means always;
+   * the games built on English words say so here (see `wordPuzzleAvailable`).
+   */
+  readonly available?: () => boolean;
+  /**
    * The `BrainTrainingMetadata['game']` ids that count as a play of this game.
    * More than one where a game has been renamed and old events still carry the
    * old id (the word garden's `spellingBee`).

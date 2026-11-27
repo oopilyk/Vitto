@@ -1,6 +1,7 @@
 import type { HealthEventType } from './health';
 import type { PetState } from './pet';
 import { getStatusEffects, type StatusEffect } from './petStatusEffects';
+import { t } from '../i18n';
 
 /**
  * Friends & Social Pets -- "what is this pet doing right now."
@@ -87,11 +88,11 @@ export interface SocialPetStatus {
 export type SocialPetPlace = 'home' | 'kitchen' | 'gym' | 'outdoors' | 'study';
 
 export const SOCIAL_PLACE_LABEL: Record<SocialPetPlace, string> = {
-  home: 'At home',
-  kitchen: 'In the kitchen',
-  gym: 'At the gym',
-  outdoors: 'Outdoors',
-  study: 'In the study',
+  home: t('At home'),
+  kitchen: t('In the kitchen'),
+  gym: t('At the gym'),
+  outdoors: t('Outdoors'),
+  study: t('In the study'),
 };
 
 /** The room each activity implies, when that activity is live. */
@@ -139,7 +140,7 @@ const HEALTH_TONE: Record<StatusEffect['id'], SocialHealthTone> = {
  */
 export const deriveSocialHealth = (pet: PetState): SocialHealthInfo => {
   const top = getStatusEffects(pet)[0];
-  if (!top) return { level: 'healthy', label: 'Healthy', tone: 'neutral' };
+  if (!top) return { level: 'healthy', label: t('Healthy'), tone: 'neutral' };
   return { level: top.id, label: top.label, tone: HEALTH_TONE[top.id] };
 };
 
@@ -160,23 +161,23 @@ const ACTIVITY_BY_EVENT_TYPE: Partial<Record<HealthEventType, SocialActivity>> =
 };
 
 const LIVE_HEADLINE: Record<SocialActivity, string> = {
-  workout: 'Working out',
-  eating: 'Having a meal',
-  walking: 'Out for a walk',
-  sleeping: 'Sleeping',
-  training: 'Training their mind',
-  relaxing: 'Taking it easy',
-  idle: 'Around',
+  workout: t('Working out'),
+  eating: t('Having a meal'),
+  walking: t('Out for a walk'),
+  sleeping: t('Sleeping'),
+  training: t('Training their mind'),
+  relaxing: t('Taking it easy'),
+  idle: t('Around'),
 };
 
 const RECENT_HEADLINE: Record<SocialActivity, string> = {
-  workout: 'Worked out earlier',
-  eating: 'Ate a meal earlier',
-  walking: 'Went for a walk earlier',
-  sleeping: 'Slept recently',
-  training: 'Trained their mind earlier',
-  relaxing: 'Checked in earlier',
-  idle: 'Was around earlier',
+  workout: t('Worked out earlier'),
+  eating: t('Ate a meal earlier'),
+  walking: t('Went for a walk earlier'),
+  sleeping: t('Slept recently'),
+  training: t('Trained their mind earlier'),
+  relaxing: t('Checked in earlier'),
+  idle: t('Was around earlier'),
 };
 
 /** Which of PetAvatar's existing activity flags a live social activity should light up. */
@@ -239,7 +240,7 @@ export const deriveSocialPetStatus = (
     headline = RECENT_HEADLINE[activity];
   } else {
     activity = 'idle';
-    headline = recentlyActive ? RECENT_HEADLINE.idle : 'Quiet lately';
+    headline = recentlyActive ? RECENT_HEADLINE.idle : t('Quiet lately');
   }
 
   const moodLabel = getStatusEffects(pet)[0]?.label ?? null;

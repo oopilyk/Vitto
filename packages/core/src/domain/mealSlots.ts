@@ -1,14 +1,15 @@
 import type { HealthEvent, MealMetadata } from './health';
 import { isRemoved } from './removedEvents';
+import { t } from '../i18n';
 
 export const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
 export type MealSlot = (typeof MEAL_SLOTS)[number];
 
 export const MEAL_SLOT_LABEL: Record<MealSlot, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snack: 'Snack',
+  breakfast: t('Breakfast'),
+  lunch: t('Lunch'),
+  dinner: t('Dinner'),
+  snack: t('Snack'),
 };
 
 /**

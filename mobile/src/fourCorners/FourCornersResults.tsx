@@ -13,6 +13,7 @@ import { PixelConfetti } from '../celebrations/PixelConfetti';
 import { surface } from '../components/surfaceStyle';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { fonts, world, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 interface FourCornersResultsProps {
   pet: PetState;
@@ -30,10 +31,10 @@ const RESULT_PET_SIZE = 148;
 
 /** Warm, never graded. Five of five is a moment; one of five is still a round played. */
 const closingLine = (correct: number, total: number): string => {
-  if (total === 0) return 'Nothing answered yet.';
-  if (correct === total) return 'Every corner. Showing off.';
-  if (correct === 0) return 'Brutal set. The pet had fun anyway.';
-  return correct * 2 >= total ? 'Solid round.' : 'A few tricky ones in there.';
+  if (total === 0) return t('Nothing answered yet.');
+  if (correct === total) return t('Every corner. Showing off.');
+  if (correct === 0) return t('Brutal set. The pet had fun anyway.');
+  return correct * 2 >= total ? t('Solid round.') : t('A few tricky ones in there.');
 };
 
 export function FourCornersResults({
@@ -53,9 +54,9 @@ export function FourCornersResults({
   return (
     <View style={styles.wrap}>
       <View style={[styles.scorePanel, surface.panel, night && surface.panelNight]}>
-        <Text style={[surface.kicker, night && surface.kickerNight]}>Four Corners</Text>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>{t('Four Corners')}</Text>
         <Text style={[styles.score, night && styles.scoreNight]}>
-          {`${correct} / ${round.answers.length} correct`}
+          {t('{correct} / {total} correct', { correct, total: round.answers.length })}
         </Text>
         <Text style={[surface.caption, night && surface.captionNight, styles.line]}>
           {closingLine(correct, round.answers.length)}
@@ -78,16 +79,16 @@ export function FourCornersResults({
 
       <View style={styles.rewards}>
         <Reward value={`+${xp}`} unit="XP" night={night} />
-        <Reward value={`+${points}`} unit="Mind Points" night={night} />
-        <Reward value={`${metadata.durationSeconds}s`} unit="Round time" night={night} />
+        <Reward value={`+${points}`} unit={t('Mind Points')} night={night} />
+        <Reward value={t('{seconds}s', { seconds: metadata.durationSeconds })} unit={t('Round time')} night={night} />
       </View>
 
       <ErrorText>{error}</ErrorText>
 
       <View style={styles.actions}>
-        <PrimaryButton label="Save and go back" onPress={onSaveAndLeave} busy={saving} />
+        <PrimaryButton label={t('Save and go back')} onPress={onSaveAndLeave} busy={saving} />
         <View style={styles.again}>
-          <TextButton label="Play again" onPress={onPlayAgain} disabled={saving} tone="coral" />
+          <TextButton label={t('Play again')} onPress={onPlayAgain} disabled={saving} tone="coral" />
         </View>
       </View>
     </View>

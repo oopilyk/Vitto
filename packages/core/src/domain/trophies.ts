@@ -2,6 +2,7 @@ import type { HealthEvent, MealMetadata, StepMetadata } from './health';
 import { calculateMacroTargets, type BodyProfile } from './macroTargets';
 import { sumMealMacros } from './nutritionSummary';
 import { toDateKey } from './streaks';
+import { formatLocale, t, tn } from '../i18n';
 
 /**
  * Trophies: three gold ornaments that appear on the living-room shelf, one by
@@ -23,10 +24,10 @@ export type TrophyId = 'dumbbell' | 'shoe' | 'drumstick' | 'book';
 export const TROPHY_IDS: readonly TrophyId[] = ['dumbbell', 'shoe', 'drumstick', 'book'];
 
 export const TROPHY_LABEL: Record<TrophyId, string> = {
-  dumbbell: 'Golden dumbbell',
-  shoe: 'Golden shoe',
-  drumstick: 'Golden drumstick',
-  book: 'Golden book',
+  dumbbell: t('Golden dumbbell'),
+  shoe: t('Golden shoe'),
+  drumstick: t('Golden drumstick'),
+  book: t('Golden book'),
 };
 
 /** How long a habit has to hold, in days. "A month", per the product owner. */
@@ -44,14 +45,14 @@ export const trophyRule = (id: TrophyId, profile: Pick<BodyProfile, 'trainingDay
   switch (id) {
     case 'dumbbell': {
       const perWeek = Math.max(1, Math.round(profile.trainingDaysPerWeek));
-      return `${WORKOUT_TROPHY_WEEKS} weeks in a row of ${perWeek} workout${perWeek === 1 ? '' : 's'} a week`;
+      return tn(perWeek, '{weeks} weeks in a row of {count} workout a week', '{weeks} weeks in a row of {count} workouts a week', { weeks: WORKOUT_TROPHY_WEEKS });
     }
     case 'shoe':
-      return `${STEP_TROPHY_DAILY_STEPS.toLocaleString()} steps every day for ${TROPHY_DAYS} days`;
+      return t('{steps} steps every day for {days} days', { steps: STEP_TROPHY_DAILY_STEPS.toLocaleString(formatLocale()), days: TROPHY_DAYS });
     case 'drumstick':
-      return `Hitting your calorie and protein goals every day for ${TROPHY_DAYS} days`;
+      return t('Hitting your calorie and protein goals every day for {days} days', { days: TROPHY_DAYS });
     case 'book':
-      return `A mind-gym session every day for ${TROPHY_DAYS} days`;
+      return t('A mind-gym session every day for {days} days', { days: TROPHY_DAYS });
   }
 };
 

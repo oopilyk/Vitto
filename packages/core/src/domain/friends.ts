@@ -11,6 +11,7 @@
 import type { PetState } from './pet';
 import { BLOCKED_USERNAME_MESSAGE, hasBlockedTerm } from './contentFilter';
 import type { RecentActivitySignal } from './socialPetStatus';
+import { t } from '../i18n';
 
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined';
 
@@ -89,11 +90,11 @@ export const normalizeUsername = (value: string): string => value.trim().toLower
  */
 export const usernameError = (value: string): string | null => {
   const normalized = normalizeUsername(value);
-  if (normalized.length === 0) return 'Pick a username so friends can find you.';
-  if (normalized.length < 3) return 'Usernames are at least 3 characters.';
-  if (normalized.length > 20) return 'Usernames are at most 20 characters.';
+  if (normalized.length === 0) return t('Pick a username so friends can find you.');
+  if (normalized.length < 3) return t('Usernames are at least 3 characters.');
+  if (normalized.length > 20) return t('Usernames are at most 20 characters.');
   if (!isValidUsername(normalized)) {
-    return 'Usernames can use lowercase letters, digits and underscores only.';
+    return t('Usernames can use lowercase letters, digits and underscores only.');
   }
   // Other people see it: no slurs or explicit terms (contentFilter).
   if (hasBlockedTerm(normalized)) return BLOCKED_USERNAME_MESSAGE;

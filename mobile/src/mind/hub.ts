@@ -22,12 +22,18 @@ export const isMindGamePlayed = (
  * only once its route is wired up: `MindGymScreen`'s route callbacks are
  * optional so the hub still stands alone in a test or a partial build, and a
  * card that navigates nowhere is worse than no card.
+ *
+ * A game not offered in the app's language (the word games are English words)
+ * is left out here, so no caller can list it or link to it.
  */
 export const availableMindGames = (
   games: readonly MindGameEntry[],
   routes: MindRouteHandlers,
 ): readonly MindGameEntry[] =>
-  games.filter((game) => game.launch.kind === 'stage' || Boolean(routes[game.launch.route]));
+  games.filter(
+    (game) =>
+      (game.available?.() ?? true) && (game.launch.kind === 'stage' || Boolean(routes[game.launch.route])),
+  );
 
 /**
  * A number from a date key, so the feature is the same game all day and a

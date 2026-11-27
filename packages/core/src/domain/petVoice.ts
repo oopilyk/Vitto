@@ -1,6 +1,7 @@
 import type { BondStage } from './bond';
 import type { PetPersonality } from './pet';
 import type { PetAilment } from './petCondition';
+import { getLocale, isCjk, msg, t } from '../i18n';
 
 /**
  * How the pet says a thing, as opposed to what it says.
@@ -38,21 +39,21 @@ const hash = (text: string): number => {
 /** The same line always gets the same flourish; different lines spread across them. */
 const pick = (line: string, options: readonly string[]): string => options[hash(line) % options.length]!;
 
-const COMPETITIVE_TAGS = ['Beat that tomorrow.', 'New record next?', 'Top that.'] as const;
-const SUPPORTIVE_TAGS = ['Proud of you.', "We've got this.", 'Nice work.'] as const;
-const ENERGETIC_OPENERS = ['Ooh!', 'Yes!', "Let's go!"] as const;
-const CHILL_TAGS = ['No rush.', 'All good.', 'Easy does it.'] as const;
+const COMPETITIVE_TAGS = [msg('Beat that tomorrow.'), msg('New record next?'), msg('Top that.')] as const;
+const SUPPORTIVE_TAGS = [msg('Proud of you.'), msg("We've got this."), msg('Nice work.')] as const;
+const ENERGETIC_OPENERS = [msg('Ooh!'), msg('Yes!'), msg("Let's go!")] as const;
+const CHILL_TAGS = [msg('No rush.'), msg('All good.'), msg('Easy does it.')] as const;
 
-const FEISTY_OPENERS = ['Oi.', 'Right.', 'Listen.'] as const;
-const FEISTY_TAGS = ['Fight me.', 'I said what I said.', 'Try me.'] as const;
-const CUTE_TAGS = ['hehe.', 'smol but mighty.', 'ok bye!!'] as const;
+const FEISTY_OPENERS = [msg('Oi.'), msg('Right.'), msg('Listen.')] as const;
+const FEISTY_TAGS = [msg('Fight me.'), msg('I said what I said.'), msg('Try me.')] as const;
+const CUTE_TAGS = [msg('hehe.'), msg('smol but mighty.'), msg('ok bye!!')] as const;
 // Aimed at the to-do list and never at the person: it orders you about, it does
 // not tell you what you are.
-const MENACE_OPENERS = ['Oi, dumbass.', 'Listen up.', 'Hey. You.'] as const;
-const MENACE_TAGS = ['Move your ass.', 'Now, not later.', "Don't make me say it twice.", 'Chop chop, dammit.'] as const;
-const HYPE_OPENERS = ['Ayy.', 'Okay, I see you.', 'Look at us.'] as const;
-const HYPE_TAGS = ['Big moves.', "That's what I'm talking about.", 'Main character energy.'] as const;
-const SWEET_TAGS = ['So glad you’re here.', 'Thinking of you.', 'Proud of you.'] as const;
+const MENACE_OPENERS = [msg('Oi, dumbass.'), msg('Listen up.'), msg('Hey. You.')] as const;
+const MENACE_TAGS = [msg('Move your ass.'), msg('Now, not later.'), msg("Don't make me say it twice."), msg('Chop chop, dammit.')] as const;
+const HYPE_OPENERS = [msg('Ayy.'), msg('Okay, I see you.'), msg('Look at us.')] as const;
+const HYPE_TAGS = [msg('Big moves.'), msg("That's what I'm talking about."), msg('Main character energy.')] as const;
+const SWEET_TAGS = [msg('So glad you’re here.'), msg('Thinking of you.'), msg('Proud of you.')] as const;
 /**
  * Savage, on the stock lines: dry, never foul.
  *
@@ -62,20 +63,20 @@ const SWEET_TAGS = ['So glad you’re here.', 'Thinking of you.', 'Proud of you.
  * malfunction rather than a character. See `PERSONALITY_VOICE` in the companion
  * prompts for where the licence actually lives.
  */
-const SAVAGE_TAGS = ['Incredible. Truly.', 'Sure. Great plan.', 'Wow. Okay.'] as const;
+const SAVAGE_TAGS = [msg('Incredible. Truly.'), msg('Sure. Great plan.'), msg('Wow. Okay.')] as const;
 /** Sulking: cool, not cruel. It still answers; it just is not thrilled you asked. */
-const SULKING_OPENERS = ["Oh. You're back.", 'Hm.', 'Fine.'] as const;
-const DEVOTED_TAGS = ['Love you.', 'Missed you.', 'Stay a while?'] as const;
+const SULKING_OPENERS = [msg("Oh. You're back."), msg('Hm.'), msg('Fine.')] as const;
+const DEVOTED_TAGS = [msg('Love you.'), msg('Missed you.'), msg('Stay a while?')] as const;
 
 // Complaints get their own flourishes. The everyday tags ("Proud of you.", "Big
 // moves.") are wrong after "I'm so hungry", which is why an ailing pet used to
 // go plain — but being hungry is exactly when a temperament is most audible.
-const FEISTY_GRIPES = ['I will riot.', 'Do not test me.', 'This is an outrage.'] as const;
-const CUTE_GRIPES = ['pretty please?', "i'm just a baby.", 'tiny emergency.'] as const;
-const SWEET_GRIPES = ['Whenever you get a moment.', 'Thank you, really.', 'Only if you can.'] as const;
-const SAVAGE_GRIPES = ['No pressure. I will simply perish.', 'Take your time. Really.', "It's fine. I'm fine."] as const;
-const HYPE_GRIPE_OPENERS = ['Yo, champ.', 'Boss.', 'Real talk.'] as const;
-const HYPE_GRIPES = ['Help a legend out.', "Can't be great on empty.", 'We fix this, we are back.'] as const;
+const FEISTY_GRIPES = [msg('I will riot.'), msg('Do not test me.'), msg('This is an outrage.')] as const;
+const CUTE_GRIPES = [msg('pretty please?'), msg("i'm just a baby."), msg('tiny emergency.')] as const;
+const SWEET_GRIPES = [msg('Whenever you get a moment.'), msg('Thank you, really.'), msg('Only if you can.')] as const;
+const SAVAGE_GRIPES = [msg('No pressure. I will simply perish.'), msg('Take your time. Really.'), msg("It's fine. I'm fine.")] as const;
+const HYPE_GRIPE_OPENERS = [msg('Yo, champ.'), msg('Boss.'), msg('Real talk.')] as const;
+const HYPE_GRIPES = [msg('Help a legend out.'), msg("Can't be great on empty."), msg('We fix this, we are back.')] as const;
 
 const SENTENCE = /[^.!?…]+[.!?…]*/g;
 const sentencesOf = (text: string): string[] => (text.match(SENTENCE) ?? [text]).map((s) => s.trim()).filter(Boolean);
@@ -132,22 +133,22 @@ const foggily = (text: string): string => {
  * what the model does. `savage` still stays clean in this layer (see SAVAGE_TAGS).
  */
 const DYING_VOICE: Partial<Record<PetPersonality, readonly [string, string]>> = {
-  feisty: ['Oi.', "Don't you dare."],
-  cute: ['', "i'm scared…"],
-  sweet: ['', "It's okay. I know you're busy."],
-  savage: ['Well.', 'Great timing, really.'],
-  hype: ['Yo.', 'We were so close, champ.'],
-  menace: ['Fuck you, man.', 'Do something.'],
+  feisty: [msg('Oi.'), msg("Don't you dare.")],
+  cute: ['', msg("i'm scared…")],
+  sweet: ['', msg("It's okay. I know you're busy.")],
+  savage: [msg('Well.'), msg('Great timing, really.')],
+  hype: [msg('Yo.'), msg('We were so close, champ.')],
+  menace: [msg('Fuck you, man.'), msg('Do something.')],
 };
 
 /** Same idea, for a head too foggy to hold the thread. Lower case, to match the mumble. */
 const FOGGY_VOICE: Partial<Record<PetPersonality, readonly [string, string]>> = {
-  feisty: ['', '…what was i even mad about.'],
-  cute: ['', '…huh?'],
-  sweet: ['', '…sorry, i lost it.'],
-  savage: ['', '…anyway.'],
-  hype: ['', '…lost the thread, champ.'],
-  menace: ['', '…the hell was i saying.'],
+  feisty: ['', msg('…what was i even mad about.')],
+  cute: ['', msg('…huh?')],
+  sweet: ['', msg('…sorry, i lost it.')],
+  savage: ['', msg('…anyway.')],
+  hype: ['', msg('…lost the thread, champ.')],
+  menace: ['', msg('…the hell was i saying.')],
 };
 
 /** Drops the empty halves, so a temperament can supply one side or neither. */
@@ -179,9 +180,78 @@ const complaining = (text: string, personality?: PetPersonality): string => {
   }
 };
 
+/**
+ * The everyday and the complaining flourishes of each temperament, as
+ * `[openers, tags]`: what `withPersonality` and `complaining` put around a line,
+ * for the languages whose lines they cannot rewrite (see `translatedVoice`).
+ */
+type Flourishes = Partial<Record<PetPersonality, readonly [readonly string[], readonly string[]]>>;
+const EVERYDAY: Flourishes = {
+  feisty: [FEISTY_OPENERS, FEISTY_TAGS],
+  cute: [[], CUTE_TAGS],
+  sweet: [[], SWEET_TAGS],
+  savage: [[], SAVAGE_TAGS],
+  menace: [MENACE_OPENERS, MENACE_TAGS],
+  hype: [HYPE_OPENERS, HYPE_TAGS],
+  energetic: [ENERGETIC_OPENERS, []],
+  chill: [[], CHILL_TAGS],
+  competitive: [[], COMPETITIVE_TAGS],
+  supportive: [[], SUPPORTIVE_TAGS],
+};
+const COMPLAINTS: Flourishes = {
+  feisty: [FEISTY_OPENERS, FEISTY_GRIPES],
+  cute: [[], CUTE_GRIPES],
+  sweet: [[], SWEET_GRIPES],
+  savage: [[], SAVAGE_GRIPES],
+  hype: [HYPE_GRIPE_OPENERS, HYPE_GRIPES],
+  menace: [MENACE_OPENERS, MENACE_TAGS],
+};
+
+/**
+ * A flourish in the app's language, or nothing while it has no translation:
+ * a Spanish line never gets an English word bolted onto it.
+ */
+const translated = (flourish: string): string => {
+  const said = flourish ? t(flourish) : '';
+  return said === flourish ? '' : said;
+};
+
+/**
+ * The voice in a language other than English. The line arrives already
+ * translated, and the rewrites above are English ones: "!" for "." leaves a
+ * Spanish sentence without its "¡", "?" to "." leaves a stray "¿", the "uh"
+ * goes after a first word Chinese does not have, and none of them know "。".
+ * So the line itself is left as it was written, apart from what means the same
+ * anywhere: a fading or foggy pet trails off where the line ended on a full
+ * stop, and a foggy one loses its capitals. The character comes from the
+ * flourishes around it, each translated whole.
+ */
+const translatedVoice = (text: string, { personality, ailments = [], bond }: VoiceContext): string => {
+  const join = (...parts: string[]): string => parts.filter(Boolean).join(isCjk() ? '' : ' ');
+  const around = (table: Flourishes): string => {
+    const [openers, tags] = (personality && table[personality]) || [[], []];
+    return join(openers.length > 0 ? translated(pick(text, openers)) : '', text, tags.length > 0 ? translated(pick(text, tags)) : '');
+  };
+  const trailingOff = text.replace(/[.。]$/, '…');
+  if (ailments.includes('dying')) {
+    const [before, after] = voiceFor(DYING_VOICE, personality);
+    return join(translated(before), trailingOff, translated(after));
+  }
+  if (ailments.includes('foggy')) {
+    const [before, after] = voiceFor(FOGGY_VOICE, personality);
+    return join(translated(before), trailingOff.toLowerCase(), translated(after));
+  }
+  if (ailments.length > 0) return bond === 'sulking' || bond === 'wary' ? text : around(COMPLAINTS);
+  if (bond === 'sulking') return join(translated(pick(text, SULKING_OPENERS)), text);
+  if (bond === 'wary') return text;
+  const styled = around(EVERYDAY);
+  return bond === 'devoted' ? join(styled, translated(pick(text, DEVOTED_TAGS))) : styled;
+};
+
 export const petVoice = (line: string, { personality, ailments = [], bond }: VoiceContext = {}): string => {
   const text = line.trim();
   if (!text) return text;
+  if (getLocale() !== 'en') return translatedVoice(text, { personality, ailments, bond });
   // Condition shapes the DELIVERY; personality still chooses the words around
   // it. An energetic pet on its last legs is not chipper, but it is still that
   // pet — before this, every temperament said the identical sentence from the

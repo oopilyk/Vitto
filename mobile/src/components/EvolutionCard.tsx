@@ -14,6 +14,7 @@ import {
 import { SpriteFrame } from './SpriteFrame';
 import { evolutionSheetFor, portraitFrame } from './petSprites';
 import { Kicker } from './ui';
+import { t } from '../i18n';
 import { colors, fonts, text, themedStyles } from '../theme';
 
 interface Props {
@@ -23,26 +24,26 @@ interface Props {
 }
 
 const STAT_WORD: Record<EvolutionProgress['stat']['key'], string> = {
-  endurance: 'Endurance',
-  strength: 'Strength',
-  mindSessions: 'Mind sessions',
+  endurance: t('Endurance'),
+  strength: t('Strength'),
+  mindSessions: t('Mind sessions'),
 };
 
 /** What the lead is measured in, said plainly: the scholar's is its mind score. */
 const LEAD_WORD: Record<EvolutionProgress['stat']['key'], string> = {
-  endurance: 'Endurance',
-  strength: 'Strength',
-  mindSessions: 'Mind score',
+  endurance: t('Endurance'),
+  strength: t('Strength'),
+  mindSessions: t('Mind score'),
 };
 
 /** What is still missing, in the order the pet will meet it. Empty once there is nothing left. */
 const stillNeeded = (progress: EvolutionProgress): string[] => {
   const word = STAT_WORD[progress.stat.key];
   const needs: string[] = [];
-  if (progress.level.have < progress.level.need) needs.push(`Level ${progress.level.have}/${progress.level.need}`);
-  if (progress.stat.have < progress.stat.need) needs.push(`${word} ${progress.stat.have}/${progress.stat.need}`);
+  if (progress.level.have < progress.level.need) needs.push(t('Level {have}/{need}', { have: progress.level.have, need: progress.level.need }));
+  if (progress.stat.have < progress.stat.need) needs.push(t('{stat} {have}/{need}', { stat: word, have: progress.stat.have, need: progress.stat.need }));
   if (progress.lead.have < progress.lead.need)
-    needs.push(`${LEAD_WORD[progress.stat.key]} ${Math.max(0, progress.lead.have)}/${progress.lead.need} ahead of the rest`);
+    needs.push(t('{stat} {have}/{need} ahead of the rest', { stat: LEAD_WORD[progress.stat.key], have: Math.max(0, progress.lead.have), need: progress.lead.need }));
   return needs;
 };
 
@@ -68,17 +69,17 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
   const hint =
     switchable || earnedCount > 0
       ? null
-      : `From level ${EVOLUTION_LEVEL}, whichever you train most (workouts, cardio or mind sessions) decides who ${pet.name} becomes.`;
+      : t('From level {level}, whichever you train most (workouts, cardio or mind sessions) decides who {pet} becomes.', { level: EVOLUTION_LEVEL, pet: pet.name });
 
   /** One skin: tappable when it is unlocked, not worn, and there is a picker. */
   const skin = (form: PetForm, row: (isWorn: boolean) => ReactNode, unlocked: boolean) => {
     const isWorn = unlocked && wearing === form;
-    const label = form === 'base' ? 'Base' : PET_BUILD_LABEL[form];
+    const label = form === 'base' ? t('Base') : t(PET_BUILD_LABEL[form]);
     return switchable && unlocked && !isWorn ? (
       <Pressable
         key={form}
         accessibilityRole="button"
-        accessibilityLabel={`Wear the ${label} form`}
+        accessibilityLabel={t('Wear the {form} form', { form: label })}
         onPress={() => onChooseForm?.(form)}
         testID={`form-${form}`}
       >
@@ -95,7 +96,7 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
 
   return (
     <View style={styles.card} testID="evolution-card">
-      <Kicker>Forms</Kicker>
+      <Kicker>{t('Forms')}</Kicker>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       {skin(
         'base',
@@ -107,10 +108,10 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
             <View style={styles.detail}>
               <View style={styles.titleRow}>
                 <Text style={styles.title} numberOfLines={1}>
-                  Base
+                  {t('Base')}
                 </Text>
                 <Text style={[styles.status, styles.statusEarned]} numberOfLines={1}>
-                  {isWorn ? 'Wearing' : switchable ? 'Tap to wear' : 'Unlocked'}
+                  {isWorn ? t('Wearing') : switchable ? t('Tap to wear') : t('Unlocked')}
                 </Text>
               </View>
             </View>
@@ -138,19 +139,19 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
               <View style={styles.detail}>
                 <View style={styles.titleRow}>
                   <Text style={styles.title} numberOfLines={1}>
-                    {entry.earned ? PET_BUILD_LABEL[entry.build] : `${PET_BUILD_LABEL[entry.build]}?`}
+                    {entry.earned ? t(PET_BUILD_LABEL[entry.build]) : t('{form}?', { form: t(PET_BUILD_LABEL[entry.build]) })}
                   </Text>
                   {entry === closest && entry.progress > 0 ? (
                     <Text style={styles.closest} numberOfLines={1}>
-                      closest
+                      {t('closest')}
                     </Text>
                   ) : null}
                   {/* Just the percent while locked: the silhouette and the "?" already say locked. */}
                   <Text style={[styles.status, entry.earned && styles.statusEarned]} numberOfLines={1}>
                     {isWorn
-                      ? 'Wearing'
+                      ? t('Wearing')
                       : entry.earned
-                        ? switchable ? 'Tap to wear' : 'Earned'
+                        ? switchable ? t('Tap to wear') : t('Earned')
                         : `${Math.round(entry.progress * 100)}%`}
                   </Text>
                 </View>
@@ -159,7 +160,7 @@ export function EvolutionCard({ pet, onChooseForm }: Props) {
                 </View>
                 {!entry.earned ? (
                   <Text style={styles.needs} numberOfLines={2}>
-                    {needs.length ? needs.join(' · ') : 'Ready — it happens on the next thing you log.'}
+                    {needs.length ? needs.join(' · ') : t('Ready — it happens on the next thing you log.')}
                   </Text>
                 ) : null}
               </View>

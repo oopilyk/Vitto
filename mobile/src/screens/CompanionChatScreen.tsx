@@ -7,6 +7,7 @@ import { TextButton } from '../components/ui';
 import { PetSpriteAvatar } from '../components/PetSpriteAvatar';
 import { askReportReply } from '../components/safetyActions';
 import { colors, fonts, layout, themedStyles } from '../theme';
+import { formatLocale, t, tn, tx } from '../i18n';
 import {
   CompanionLimitError,
   companionService,
@@ -43,14 +44,16 @@ interface ProposalCard {
   error?: string;
 }
 
-const SETTING_LABEL: Record<ai.ProposalSetting, string> = { calorieGoal: 'Daily calories', stepGoal: 'Daily steps' };
+const SETTING_LABEL: Record<ai.ProposalSetting, string> = { calorieGoal: t('Daily calories'), stepGoal: t('Daily steps') };
 
 /** The card's heading, and the mic's confirm dialog's: "Daily calories: 2,200 → 1,900". */
 export const proposalTitle = (card: Pick<ProposalCard, 'proposal' | 'from'>): string => {
   const { proposal } = card;
-  if (proposal.kind === 'reminder') return `Reminder: ${proposal.label}`;
-  const to = proposal.value.toLocaleString('en-US');
-  return `${SETTING_LABEL[proposal.setting]}: ${card.from !== null ? `${card.from.toLocaleString('en-US')} → ` : ''}${to}`;
+  if (proposal.kind === 'reminder') return t('Reminder: {label}', { label: proposal.label });
+  const to = proposal.value.toLocaleString(formatLocale());
+  return card.from !== null
+    ? t('{setting}: {from} → {to}', { setting: SETTING_LABEL[proposal.setting], from: card.from.toLocaleString(formatLocale()), to })
+    : t('{setting}: {value}', { setting: SETTING_LABEL[proposal.setting], value: to });
 };
 
 /** Stored replies have the row's uuid; anything else never reached the server. */
@@ -61,7 +64,7 @@ const buzz = (type: Haptics.NotificationFeedbackType) => {
 };
 
 const LEVEL_LABEL: Record<ai.RelationshipLevel, string> = {
-  STRANGER: 'Just met', ACQUAINTANCE: 'Getting to know you', FRIEND: 'Friends', CLOSE_FRIEND: 'Close friends', BONDED: 'Bonded',
+  STRANGER: t('Just met'), ACQUAINTANCE: t('Getting to know you'), FRIEND: tx('how close you and your pet are', 'Friends'), CLOSE_FRIEND: t('Close friends'), BONDED: tx('how close you and your pet are', 'Bonded'),
 };
 
 /**
@@ -133,7 +136,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
       setError(null);
       return loaded.messages;
     } catch (cause) {
-      setError(errorMessage(cause, `Could not reach ${pet.name}.`));
+      setError(errorMessage(cause, t('Could not reach {pet}.', { pet: pet.name })));
       return null;
     }
   }, [pet.id, pet.name]);
@@ -180,7 +183,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
         setDraft(text);
         setAccess(cause.access);
       } else {
-        const reason = errorMessage(cause, 'That did not send. Try again.');
+        const reason = errorMessage(cause, t('That did not send. Try again.'));
         // The server stores the message before it asks the model, so a failure
         // can mean "never arrived" or "arrived, but the reply was lost". Resync
         // and look: the draft comes back only if the message truly is not there,
@@ -211,7 +214,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
     } catch (cause) {
       // Nothing changed, so it can be tried again.
       decided.current.delete(id);
-      setCards((current) => ({ ...current, [id]: { ...card, status: 'open', error: errorMessage(cause, 'That did not save. Try again.') } }));
+      setCards((current) => ({ ...current, [id]: { ...card, status: 'open', error: errorMessage(cause, t('That did not save. Try again.')) } }));
       buzz(Haptics.NotificationFeedbackType.Error);
     }
   };
@@ -223,7 +226,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
   return (
     <Root style={[layout.screen, styles.screen]}>
       <View style={styles.topbar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onClose} hitSlop={10} style={styles.back}>
+        <Pressable accessibilityRole="button" accessibilityLabel={tx('go back to the previous screen', 'Back')} onPress={onClose} hitSlop={10} style={styles.back}>
           <Text style={styles.backArrow}>←</Text>
         </Pressable>
         <PetSpriteAvatar pet={pet} size={40} backgroundColor={colors.card} />
@@ -234,7 +237,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
               <Text style={styles.level} numberOfLines={1}>
                 {LEVEL_LABEL[state.relationshipLevel]}
               </Text>
-              <View style={styles.bondTrack} accessibilityLabel={`Progress to the next level: ${Math.round(ai.levelProgress(state.relationshipScore) * 100)} percent`}>
+              <View style={styles.bondTrack} accessibilityLabel={t('Progress to the next level: {percent} percent', { percent: Math.round(ai.levelProgress(state.relationshipScore) * 100) })}>
                 <View style={[styles.bondFill, { width: `${Math.round(ai.levelProgress(state.relationshipScore) * 100)}%` }]} />
               </View>
             </View>
@@ -262,7 +265,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
       >
         {messages.length === 0 ? (
           state ? (
-            <Text style={styles.empty}>{`Say hi. ${pet.name} remembers what you tell it.`}</Text>
+            <Text style={styles.empty}>{t('Say hi. {pet} remembers what you tell it.', { pet: pet.name })}</Text>
           ) : error ? null : (
             <ActivityIndicator color={colors.coral} style={{ marginTop: 40 }} />
           )
@@ -279,8 +282,8 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
                     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
                     reportReply(item.id);
                   }}
-                  accessibilityHint="Long-press to report this reply"
-                  accessibilityActions={[{ name: 'longpress', label: 'Report reply' }]}
+                  accessibilityHint={t('Long-press to report this reply')}
+                  accessibilityActions={[{ name: 'longpress', label: t('Report reply') }]}
                   onAccessibilityAction={(event) => {
                     if (event.nativeEvent.actionName === 'longpress') reportReply(item.id);
                   }}
@@ -293,12 +296,12 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
                   <Text style={[styles.bubbleText, item.role === 'user' && styles.mineText]}>{item.content}</Text>
                 </View>
               )}
-              {reported.has(item.id) ? <Text style={styles.reported}>Reported. Thanks for telling us.</Text> : null}
+              {reported.has(item.id) ? <Text style={styles.reported}>{t('Reported. Thanks for telling us.')}</Text> : null}
               {card ? <ProposalCardView card={card} onDecide={(apply) => void decide(item.id, apply)} /> : null}
             </View>
           );
         })}
-        {sending ? <Text style={styles.typing}>{`${pet.name} is thinking…`}</Text> : null}
+        {sending ? <Text style={styles.typing}>{t('{pet} is thinking…', { pet: pet.name })}</Text> : null}
       </ScrollView>
 
       {/* With the docked bar on iPhone the error rides in it, above the box; here it would sit behind it. */}
@@ -307,10 +310,10 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
       {limitReached ? (
         // The paywall seam, as the person meets it.
         <View style={styles.limit}>
-          <Text style={styles.limitTitle}>{`${pet.name} is all talked out for today.`}</Text>
-          <Text style={styles.limitBody}>{`You get ${limits.messagesPerDay} messages a day. It resets on its own — come back later.`}</Text>
+          <Text style={styles.limitTitle}>{t('{pet} is all talked out for today.', { pet: pet.name })}</Text>
+          <Text style={styles.limitBody}>{t('You get {count} messages a day. It resets on its own — come back later.', { count: limits.messagesPerDay })}</Text>
           {onOpenPlus ? (
-            <TextButton label="Chat more with Plus" tone="coral" onPress={onOpenPlus} />
+            <TextButton label={t('Chat more with Plus')} tone="coral" onPress={onOpenPlus} />
           ) : null}
         </View>
       ) : (
@@ -318,7 +321,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
         {accessory && error ? <Text style={styles.error}>{error}</Text> : null}
         {/* Above the box, not under it: under it, it sat between the box and the keyboard. */}
         {access && access.messagesLeftToday <= 5 ? (
-          <Text style={styles.remaining}>{`${access.messagesLeftToday} message${access.messagesLeftToday === 1 ? '' : 's'} left today`}</Text>
+          <Text style={styles.remaining}>{tn(access.messagesLeftToday, '{count} message left today', '{count} messages left today')}</Text>
         ) : null}
         {/* The home-bar space only when the keyboard is down: up, the box sits right on it. */}
         {/* iOS keeps the docked bar clear of the home indicator itself, so there
@@ -328,7 +331,7 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
             style={[layout.input, styles.input]}
             value={draft}
             onChangeText={setDraft}
-            placeholder={`Message ${pet.name}`}
+            placeholder={t('Message {pet}', { pet: pet.name })}
             placeholderTextColor={colors.faint}
             maxLength={limits.maxMessageLength}
             multiline
@@ -338,11 +341,11 @@ export function CompanionChatScreen({ pet, life, onClose, onOpenPlus, onApplyPro
             submitBehavior="blurAndSubmit"
             onSubmitEditing={() => void send()}
             editable={!sending}
-            accessibilityLabel={`Message ${pet.name}`}
+            accessibilityLabel={t('Message {pet}', { pet: pet.name })}
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Send"
+            accessibilityLabel={t('Send')}
             accessibilityState={{ disabled: sending || !draft.trim() }}
             disabled={sending || !draft.trim()}
             onPress={() => void send()}
@@ -384,13 +387,13 @@ function ProposalCardView({ card, onDecide }: { card: ProposalCard; onDecide: (a
       ) : null}
       {card.status === 'applied' || card.status === 'cancelled' ? (
         <Text style={styles.cardOutcome} accessibilityLiveRegion="polite">
-          {card.status === 'cancelled' ? 'Cancelled' : adding ? 'Added' : 'Changed'}
+          {card.status === 'cancelled' ? tx('a change the pet offered was turned down', 'Cancelled') : adding ? tx('a reminder the pet offered was added', 'Added') : tx('a setting was changed as the pet offered', 'Changed')}
         </Text>
       ) : (
         <View style={styles.cardActions}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={adding ? 'Add reminder' : 'Change'}
+            accessibilityLabel={adding ? t('Add reminder') : tx('button: make the change the pet offered', 'Change')}
             accessibilityState={{ disabled: card.status === 'applying' }}
             disabled={card.status === 'applying'}
             onPress={() => onDecide(true)}
@@ -400,18 +403,18 @@ function ProposalCardView({ card, onDecide }: { card: ProposalCard; onDecide: (a
             {card.status === 'applying' ? (
               <ActivityIndicator color="#fffdf8" size="small" />
             ) : (
-              <Text style={styles.cardConfirmText}>{adding ? 'Add' : 'Change'}</Text>
+              <Text style={styles.cardConfirmText}>{adding ? t('Add') : tx('button: make the change the pet offered', 'Change')}</Text>
             )}
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={t('Cancel')}
             disabled={card.status === 'applying'}
             onPress={() => onDecide(false)}
             hitSlop={6}
             style={({ pressed }) => [styles.cardButton, pressed && { opacity: 0.8 }]}
           >
-            <Text style={styles.cardCancelText}>Cancel</Text>
+            <Text style={styles.cardCancelText}>{t('Cancel')}</Text>
           </Pressable>
         </View>
       )}

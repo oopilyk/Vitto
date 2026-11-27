@@ -3,6 +3,7 @@ import { HUNGRY_NUTRITION_THRESHOLD } from './hunger';
 import { SLEEPY_ENERGY_THRESHOLD, SLUGGISH_VITALITY_THRESHOLD } from './petHealthEngine';
 import type { CareEventType, HealthEvent } from './health';
 import { chargeOf, clamp, type PetState } from './pet';
+import { t } from '../i18n';
 
 /**
  * The stats a pet actually carries. Every one of these is a 0-100 integer in the
@@ -50,75 +51,75 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 export const PET_STAT_DESCRIPTORS: PetStatDescriptor[] = [
   {
     key: 'health',
-    label: 'Health',
+    label: t('Health'),
     group: 'condition',
-    hint: 'What you eat moves it: a balanced plate adds up to 3, junk takes 3 or more. It also holds up while hunger, vitality and happiness stay in good shape, and slips away for every one of them you let run empty.',
+    hint: t('What you eat moves it: a balanced plate adds up to 3, junk takes 3 or more. It also holds up while hunger, vitality and happiness stay in good shape, and slips away for every one of them you let run empty.'),
   },
   {
     key: 'energy',
-    label: 'Vitality',
+    label: t('Vitality'),
     group: 'condition',
-    hint: `Your pet's get-up-and-go: workouts and walks build it. Under ${SLUGGISH_VITALITY_THRESHOLD} your pet turns sluggish. Falls ${DECAY_PER_DAY.energy} a day when nothing is logged.`,
+    hint: t("Your pet's get-up-and-go: workouts and walks build it. Under {threshold} your pet turns sluggish. Falls {perDay} a day when nothing is logged.", { threshold: SLUGGISH_VITALITY_THRESHOLD, perDay: DECAY_PER_DAY.energy }),
   },
   {
     key: 'charge',
-    label: 'Energy',
+    label: t('Energy'),
     group: 'condition',
-    hint: `Sleep and meals fill it: a full night's sleep most of all, a balanced plate more than a snack. Under ${SLEEPY_ENERGY_THRESHOLD} your pet gets sleepy. Falls ${DECAY_PER_DAY.charge} a day.`,
+    hint: t("Sleep and meals fill it: a full night's sleep most of all, a balanced plate more than a snack. Under {threshold} your pet gets sleepy. Falls {perDay} a day.", { threshold: SLEEPY_ENERGY_THRESHOLD, perDay: DECAY_PER_DAY.charge }),
   },
   {
     key: 'happiness',
-    label: 'Happiness',
+    label: t('Happiness'),
     group: 'condition',
-    hint: `Every care moment lifts it, treats most of all. Falls ${DECAY_PER_DAY.happiness} a day when nothing is logged.`,
+    hint: t('Every care moment lifts it, treats most of all. Falls {perDay} a day when nothing is logged.', { perDay: DECAY_PER_DAY.happiness }),
   },
   {
     key: 'nutrition',
-    label: 'Hunger',
+    label: t('Hunger'),
     group: 'condition',
-    hint: `What you ate in the last 24 hours, against what your body burns in a day: eat your maintenance and the bar is full. Each meal wears off a day after you ate it, and under ${HUNGRY_NUTRITION_THRESHOLD} your pet is hungry. What was on the plate counts toward health, not here.`,
+    hint: t('What you ate in the last 24 hours, against what your body burns in a day: eat your maintenance and the bar is full. Each meal wears off a day after you ate it, and under {threshold} your pet is hungry. What was on the plate counts toward health, not here.', { threshold: HUNGRY_NUTRITION_THRESHOLD }),
   },
   {
     key: 'strength',
-    label: 'Strength',
+    label: t('Strength'),
     group: 'body',
-    hint: 'Total lifting volume (weight times reps) in a strength workout, scored against what you have been lifting lately. Beat your recent average to climb, match it to hold — and the closer to 100, the harder each point.',
+    hint: t('Total lifting volume (weight times reps) in a strength workout, scored against what you have been lifting lately. Beat your recent average to climb, match it to hold — and the closer to 100, the harder each point.'),
   },
   {
     key: 'pushingStrength',
-    label: 'Pushing',
+    label: t('Pushing'),
     group: 'body',
-    hint: 'The chest, shoulder and triceps share of that volume, measured the same way — more than your recent push days to climb.',
+    hint: t('The chest, shoulder and triceps share of that volume, measured the same way — more than your recent push days to climb.'),
   },
   {
     key: 'pullingStrength',
-    label: 'Pulling',
+    label: t('Pulling'),
     group: 'body',
-    hint: 'The back and biceps share of that volume, measured the same way — more than your recent pull days to climb.',
+    hint: t('The back and biceps share of that volume, measured the same way — more than your recent pull days to climb.'),
   },
   {
     key: 'legStrength',
-    label: 'Legs',
+    label: t('Legs'),
     group: 'body',
-    hint: 'The leg share of that volume, measured the same way — more than your recent leg days to climb.',
+    hint: t('The leg share of that volume, measured the same way — more than your recent leg days to climb.'),
   },
   {
     key: 'endurance',
-    label: 'Endurance',
+    label: t('Endurance'),
     group: 'body',
-    hint: 'Cardio workouts, and days where you walk 8,000 steps or more.',
+    hint: t('Cardio workouts, and days where you walk 8,000 steps or more.'),
   },
   {
     key: 'recovery',
-    label: 'Recovery',
+    label: t('Recovery'),
     group: 'body',
-    hint: 'Mobility workouts, and mind sessions answered at 80% accuracy or better.',
+    hint: t('Mobility workouts, and mind sessions answered at 80% accuracy or better.'),
   },
   {
     key: 'mind',
-    label: 'Mind',
+    label: t('Mind'),
     group: 'mind',
-    hint: `Brain training — up to 8 for a reading session and 6 for maths, scaled by your accuracy — and 5 for a day that stays under your screen-time budget. Falls ${DECAY_PER_DAY.mind} a day.`,
+    hint: t('Brain training — up to 8 for a reading session and 6 for maths, scaled by your accuracy — and 5 for a day that stays under your screen-time budget. Falls {perDay} a day.', { perDay: DECAY_PER_DAY.mind }),
   },
 ];
 

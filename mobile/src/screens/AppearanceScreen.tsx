@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import type { AppearancePreference, ColorScheme } from '../theme';
 import { colors, themedStyles, fonts } from '../theme';
 import { SelectionList, SettingsPage, SettingsSection } from '../components/settingsKit';
+import { t, tx } from '../i18n';
 
 interface Props {
   preference: AppearancePreference;
@@ -12,31 +13,31 @@ interface Props {
 }
 
 export const APPEARANCE_LABEL: Record<AppearancePreference, string> = {
-  system: 'System',
-  light: 'Light',
-  dark: 'Dark',
+  system: tx('appearance: follow the phone', 'System'),
+  light: tx('appearance: the light theme', 'Light'),
+  dark: tx('appearance: the dark theme', 'Dark'),
 };
 
 /** Light, dark, or whatever the phone is set to (from Settings). Applies at once. */
 export function AppearanceScreen({ preference, scheme, onChange, onClose }: Props) {
   return (
-    <SettingsPage title="Appearance" backLabel="Settings" onBack={onClose}>
-      <SettingsSection title="Theme" description="Your pet's rooms keep their own day and night either way." first>
+    <SettingsPage title={t('Appearance')} backLabel={t('Settings')} onBack={onClose}>
+      <SettingsSection title={t('Theme')} description={t("Your pet's rooms keep their own day and night either way.")} first>
         <SelectionList
           options={[
-            { value: 'system' as const, label: 'System', detail: `Matches your phone. ${scheme === 'dark' ? 'Dark' : 'Light'} right now.` },
-            { value: 'light' as const, label: 'Light', detail: 'Warm paper, always' },
-            { value: 'dark' as const, label: 'Dark', detail: 'Easy on the eyes at night' },
+            { value: 'system' as const, label: APPEARANCE_LABEL.system, detail: scheme === 'dark' ? t('Matches your phone. Dark right now.') : t('Matches your phone. Light right now.') },
+            { value: 'light' as const, label: APPEARANCE_LABEL.light, detail: t('Warm paper, always') },
+            { value: 'dark' as const, label: APPEARANCE_LABEL.dark, detail: t('Easy on the eyes at night') },
           ]}
           value={preference}
           onChange={onChange}
         />
         <View style={styles.preview} testID="appearance-preview">
           <View style={styles.previewCard}>
-            <Text style={styles.previewTitle}>How it looks</Text>
-            <Text style={styles.previewBody}>Text, cards and buttons all follow the theme.</Text>
+            <Text style={styles.previewTitle}>{t('How it looks')}</Text>
+            <Text style={styles.previewBody}>{t('Text, cards and buttons all follow the theme.')}</Text>
             <View style={styles.previewButton}>
-              <Text style={styles.previewButtonLabel}>A button</Text>
+              <Text style={styles.previewButtonLabel}>{t('A button')}</Text>
             </View>
           </View>
         </View>

@@ -4,6 +4,7 @@ import type { HealthEvent, PetState } from '@vitto/core';
 import { PetShareCard, SHARE_CARD_HEIGHT, SHARE_CARD_WIDTH } from '../components/PetShareCard';
 import { sharePetCard } from '../services/shareCard';
 import { Kicker } from '../components/ui';
+import { t } from '../i18n';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 
 interface Props {
@@ -33,19 +34,19 @@ export function ShareCardScreen({ pet, events, onClose }: Props) {
     setBusy(true);
     setError(null);
     const outcome = await sharePetCard(card, pet.name);
-    if (outcome === 'unavailable') setError('Sharing is not available on this device.');
-    if (outcome === 'failed') setError(`Could not make ${pet.name}'s card. Try again.`);
+    if (outcome === 'unavailable') setError(t('Sharing is not available on this device.'));
+    if (outcome === 'failed') setError(t("Could not make {pet}'s card. Try again.", { pet: pet.name }));
     setBusy(false);
   };
 
   return (
     <View style={[layout.screen, styles.screen]}>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onClose} hitSlop={10} style={styles.back}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('Back')} onPress={onClose} hitSlop={10} style={styles.back}>
           <Text style={styles.backLabel}>‹</Text>
-          <Text style={styles.backText}>Pet</Text>
+          <Text style={styles.backText}>{t('Pet')}</Text>
         </Pressable>
-        <Text style={styles.title}>Share</Text>
+        <Text style={styles.title}>{t('Share')}</Text>
         <View style={styles.back} />
       </View>
 
@@ -61,9 +62,9 @@ export function ShareCardScreen({ pet, events, onClose }: Props) {
           ) : null}
         </View>
 
-        <Kicker>What gets sent</Kicker>
+        <Kicker>{t('What gets sent')}</Kicker>
         <Text style={styles.note}>
-          {`${pet.name} as a picture, with whatever they have to say today. Send it in Messages, or choose Save Image to keep it.`}
+          {t('{pet} as a picture, with whatever they have to say today. Send it in Messages, or choose Save Image to keep it.', { pet: pet.name })}
         </Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -75,7 +76,7 @@ export function ShareCardScreen({ pet, events, onClose }: Props) {
           onPress={() => void share()}
           style={({ pressed }) => [styles.action, busy ? styles.actionBusy : !ready && styles.actionOff, pressed && styles.pressed]}
         >
-          <Text style={[styles.actionLabel, !ready && !busy && styles.actionLabelOff]} numberOfLines={1}>{busy ? 'Getting it ready…' : `Share ${pet.name}`}</Text>
+          <Text style={[styles.actionLabel, !ready && !busy && styles.actionLabelOff]} numberOfLines={1}>{busy ? t('Getting it ready…') : t('Share {pet}', { pet: pet.name })}</Text>
         </Pressable>
       </ScrollView>
     </View>

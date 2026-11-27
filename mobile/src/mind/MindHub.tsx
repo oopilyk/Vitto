@@ -12,6 +12,7 @@ import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
 import { surface, surfacePressed } from '../components/surfaceStyle';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { fonts, world, themedStyles } from '../theme';
+import { t } from '../i18n';
 import { MindGameCard, MindFeatureCard } from './MindGameCard';
 import { MindTodayPanel } from './MindTodayPanel';
 import { availableMindGames, featuredMindGame, isMindGamePlayed, type MindRouteHandlers } from './hub';
@@ -79,14 +80,14 @@ export function MindHub({ pet, events, routes, onStartStage, onClose }: Props) {
 
       <View style={styles.bar}>
         <View style={styles.barText}>
-          <Text style={styles.title}>Mind</Text>
+          <Text style={styles.title}>{t('Mind')}</Text>
           <Text style={styles.flavour} numberOfLines={2}>
-            {pet.name}’s game room — pick something to think about.
+            {t('{pet}’s game room — pick something to think about.', { pet: pet.name })}
           </Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Close Mind"
+          accessibilityLabel={t('Close Mind')}
           onPress={onClose}
           hitSlop={10}
           style={({ pressed }) => [styles.close, pressed && surfacePressed]}
@@ -113,7 +114,7 @@ export function MindHub({ pet, events, routes, onStartStage, onClose }: Props) {
           </View>
         ) : null}
 
-        {rest.length > 0 ? <Text style={styles.section}>Today’s games</Text> : null}
+        {rest.length > 0 ? <Text style={styles.section}>{t('Today’s games')}</Text> : null}
         {rest.map((game) => (
           <View key={game.id} style={styles.card}>
             <MindGameCard

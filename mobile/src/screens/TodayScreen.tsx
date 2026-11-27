@@ -52,12 +52,13 @@ import { askEditOrDelete, changeable, describeRow, historyRows } from './Activit
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { colors, fonts, getColorScheme, layout, paletteOf, themedStyles, type ColorScheme } from '../theme';
 import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
+import { formatLocale, t, tn, tx, wordPuzzleAvailable } from '../i18n';
 
 /** "Dinner · 330 kcal · Spicy tuna nigiri…": the slot and calories first, so truncation only cuts the name. */
 const mealLogName = (event: HealthEvent): string => {
   const meal = event as HealthEvent<MealMetadata>;
   const analysis = meal.metadata.analysis;
-  const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
+  const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || t('Meal');
   return `${MEAL_SLOT_LABEL[mealSlotOf(meal)]} · ${Math.round(calorieEstimate(analysis?.macros))} kcal · ${name}`;
 };
 
@@ -263,7 +264,7 @@ export function TodayScreen({
   const syncStepsNow = async () => {
     if (!onSyncSteps || stepSync === 'syncing') return;
     setStepSync('syncing');
-    setStepSync(await onSyncSteps().catch(() => "Couldn't reach Apple Health. Try again."));
+    setStepSync(await onSyncSteps().catch(() => t("Couldn't reach Apple Health. Try again.")));
   };
   // The theme set in Settings (Appearance), not the hour: the panels and the
   // type on them both follow it, so they can never disagree.
@@ -298,8 +299,12 @@ export function TodayScreen({
     if (!latest) return null;
     const unit = profile.weightUnit;
     const days = Math.floor((Date.now() - Date.parse(latest.at)) / 86_400_000);
-    const when = days === 0 ? 'weighed today' : days === 1 ? 'weighed yesterday' : `${days} days since your last weigh-in`;
-    return `${Math.round(convertWeightValue(latest.trendKg, 'kg', unit) * 10) / 10} ${unit} trend · ${when}`;
+    const weight = `${Math.round(convertWeightValue(latest.trendKg, 'kg', unit) * 10) / 10} ${unit}`;
+    return days === 0
+      ? t('{weight} trend · weighed today', { weight })
+      : days === 1
+        ? t('{weight} trend · weighed yesterday', { weight })
+        : t('{weight} trend · {days} days since your last weigh-in', { weight, days });
   }, [events, profile.weightUnit]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `todayKey` stands in for `today`.
   const topInsight = useMemo(() => calculateInsights(events, today)[0] ?? null, [events, todayKey]);
@@ -330,15 +335,15 @@ export function TodayScreen({
       <View style={[styles.topbar, { borderBottomColor: c.hairline }]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to your pet"
+          accessibilityLabel={t('Back to your pet')}
           onPress={onClose}
           hitSlop={8}
           style={styles.back}
         >
           <Text style={[styles.backMark, { color: c.accent }]}>‹</Text>
-          <Text style={[styles.backLabel, { color: c.soft }]}>Pet</Text>
+          <Text style={[styles.backLabel, { color: c.soft }]}>{t('Pet')}</Text>
         </Pressable>
-        <Text style={[styles.topTitle, { color: c.ink }]}>Today</Text>
+        <Text style={[styles.topTitle, { color: c.ink }]}>{t('Today')}</Text>
         <View style={styles.back} />
       </View>
 
@@ -358,10 +363,10 @@ export function TodayScreen({
             Deliberately NOT boxed like the pillars below: this is the main
             section the screen leads with, not one panel among equals. */}
         <View style={[styles.overview, { borderBottomColor: c.hairline }]}>
-          <Text style={[styles.overKicker, { color: c.soft }]}>You and {petName}, today</Text>
+          <Text style={[styles.overKicker, { color: c.soft }]}>{t('You and {pet}, today', { pet: petName })}</Text>
           <View style={styles.xpRow}>
             <Text style={[styles.xpValue, { color: c.ink }]}>+{recap.xp}</Text>
-            <Text style={[styles.xpUnit, { color: c.soft }]}>XP earned</Text>
+            <Text style={[styles.xpUnit, { color: c.soft }]}>{t('XP earned')}</Text>
           </View>
           {/* This bar is level progress, not a daily quota -- there is no
               "XP due today". It reads left-to-right as one unit with the
@@ -371,17 +376,21 @@ export function TodayScreen({
             c={c}
           />
           <Text style={[styles.overMeta, { color: c.soft }]}>
-            Level {levelProgress.level} · {levelProgress.xpIntoLevel}/{levelProgress.xpForLevel} to
-            level {toLevel}
+            {t('Level {level} · {have}/{need} to level {next}', {
+              level: levelProgress.level,
+              have: levelProgress.xpIntoLevel,
+              need: levelProgress.xpForLevel,
+              next: toLevel,
+            })}
           </Text>
 
           <View style={[styles.glanceRow, { borderTopColor: c.hairline }]}>
             {shows('training', gym.done) ? (
-              <Glance label="GYM" value={gym.trainingDone ? '✓' : '—'} on={gym.trainingDone} c={c} />
+              <Glance label={t('GYM')} value={gym.trainingDone ? '✓' : '—'} on={gym.trainingDone} c={c} />
             ) : null}
             {shows('movement', outdoors.steps > 0) ? (
               <Glance
-                label="OUTDOORS"
+                label={t('OUTDOORS')}
                 value={outdoors.steps > 0 ? `${Math.round(outdoors.steps / 100) / 10}k` : '0'}
                 on={outdoors.steps > 0}
                 c={c}
@@ -389,7 +398,7 @@ export function TodayScreen({
             ) : null}
             {shows('mind', mind.sessionCount > 0) ? (
               <Glance
-                label="MIND"
+                label={t('MIND')}
                 value={mind.sessionCount > 0 ? String(mind.sessionCount) : '—'}
                 on={mind.sessionCount > 0}
                 c={c}
@@ -397,7 +406,7 @@ export function TodayScreen({
             ) : null}
             {shows('nutrition', food.mealCount > 0) ? (
               <Glance
-                label="FOOD"
+                label={t('FOOD')}
                 value={food.mealCount > 0 ? String(food.mealCount) : '—'}
                 on={food.mealCount > 0}
                 c={c}
@@ -412,21 +421,25 @@ export function TodayScreen({
           <Pillar
             c={c}
             night={night}
-            kicker="FOOD"
-            more={onOpenFoodTrends ? { label: 'Trends & averages', onPress: onOpenFoodTrends } : undefined}
+            kicker={t('FOOD')}
+            more={onOpenFoodTrends ? { label: t('Trends & averages'), onPress: onOpenFoodTrends } : undefined}
             done={food.mealCount > 0 && caloriesMet(food.targets.calories, food.consumed.calories, burned, profile.goal)}
             xp={recap.xpByPillar.food}
             headline={
               food.mealCount > 0
-                ? `${food.consumed.calories.toLocaleString()} / ${food.targets.calories.toLocaleString()} kcal`
-                : 'No meals logged'
+                ? `${food.consumed.calories.toLocaleString(formatLocale())} / ${food.targets.calories.toLocaleString(formatLocale())} kcal`
+                : t('No meals logged')
             }
             detail={
               food.mealCount === 0
-                ? `Log a meal and ${petName} eats well too.`
+                ? t('Log a meal and {pet} eats well too.', { pet: petName })
                 : food.someMealsUnanalyzed
-                  ? `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} logged — one analysis was incomplete, so this total is approximate.`
-                  : `${food.mealCount} meal${food.mealCount > 1 ? 's' : ''} · ${food.caloriePercent}% of today's calories`
+                  ? tn(
+                      food.mealCount,
+                      '{count} meal logged — one analysis was incomplete, so this total is approximate.',
+                      '{count} meals logged — one analysis was incomplete, so this total is approximate.',
+                    )
+                  : tn(food.mealCount, "{count} meal · {percent}% of today's calories", "{count} meals · {percent}% of today's calories", { percent: food.caloriePercent })
             }
           >
             {/* What's been eaten, burned and left, as the day's three rings. */}
@@ -434,7 +447,7 @@ export function TodayScreen({
               <NutrientRing
                 value={food.consumed.calories}
                 percent={(food.consumed.calories / food.targets.calories) * 100}
-                label="Consumed"
+                label={t('Consumed')}
                 color={c.accent}
                 size={ringSize}
                 tone={c}
@@ -442,7 +455,7 @@ export function TodayScreen({
               <NutrientRing
                 value={burned}
                 percent={(burned / food.targets.calories) * 100}
-                label="Burned"
+                label={t('Burned')}
                 color="#78a598"
                 size={ringSize}
                 tone={c}
@@ -450,7 +463,7 @@ export function TodayScreen({
               <NutrientRing
                 value={remaining}
                 percent={(Math.abs(remaining) / food.targets.calories) * 100}
-                label={remaining < 0 ? 'Over' : 'Remaining'}
+                label={remaining < 0 ? tx('over the calorie target', 'Over') : t('Remaining')}
                 color={remaining < 0 ? c.danger : '#9c8dba'}
                 emphasis={remaining < 0}
                 size={ringSize}
@@ -458,16 +471,16 @@ export function TodayScreen({
               />
             </View>
             {/* The macro targets are on their bars below; only the calorie target needs saying. */}
-            <Text style={[styles.targetLine, { color: c.soft }]}>Target {food.targets.calories.toLocaleString()} kcal</Text>
+            <Text style={[styles.targetLine, { color: c.soft }]}>{t('Target {calories} kcal', { calories: food.targets.calories.toLocaleString(formatLocale()) })}</Text>
             {/* Always shown, empty bars included: the day's targets are worth seeing before the first meal. */}
             <View style={styles.macros}>
                 {(
                   [
-                    ['Protein', food.consumed.proteinGrams, food.targets.proteinGrams, c.macro.protein],
-                    ['Carbs', food.consumed.carbsGrams, food.targets.carbsGrams, c.macro.carbs],
-                    ['Fat', food.consumed.fatGrams, food.targets.fatGrams, c.macro.fat],
+                    [t('Protein'), food.consumed.proteinGrams, food.targets.proteinGrams, c.macro.protein],
+                    [t('Carbs'), food.consumed.carbsGrams, food.targets.carbsGrams, c.macro.carbs],
+                    [t('Fat'), food.consumed.fatGrams, food.targets.fatGrams, c.macro.fat],
                     // The one sub-macro with a target (14 g per 1,000 kcal).
-                    ['Fiber', food.consumed.fiberGrams ?? 0, food.targets.fiberGrams ?? 0, c.macro.fiber],
+                    [t('Fiber'), food.consumed.fiberGrams ?? 0, food.targets.fiberGrams ?? 0, c.macro.fiber],
                   ] as const
                 ).map(([label, value, target, tint]) => (
                   <View key={label} style={styles.macroRow}>
@@ -500,14 +513,14 @@ export function TodayScreen({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ expanded: foodLogOpen }}
-                  accessibilityLabel={`Logged today, ${food.mealCount} meal${food.mealCount > 1 ? 's' : ''}`}
+                  accessibilityLabel={tn(food.mealCount, 'Logged today, {count} meal', 'Logged today, {count} meals')}
                   onPress={() => setFoodLogOpen((open) => !open)}
                   hitSlop={8}
                   style={styles.foodLogHeader}
                 >
-                  <Text style={[styles.foodLogTitle, { color: c.soft }]}>LOGGED TODAY</Text>
+                  <Text style={[styles.foodLogTitle, { color: c.soft }]}>{t('LOGGED TODAY')}</Text>
                   <Text style={[styles.foodLogTitle, { color: c.soft }]}>
-                    {`${food.mealCount} meal${food.mealCount > 1 ? 's' : ''}  ${foodLogOpen ? '▾' : '▸'}`}
+                    {`${tn(food.mealCount, '{count} meal', '{count} meals')}  ${foodLogOpen ? '▾' : '▸'}`}
                   </Text>
                 </Pressable>
                 {/* By meal of the day, each a tap from Edit or Delete. */}
@@ -522,19 +535,19 @@ export function TodayScreen({
                       <View key={slot}>
                         <View style={styles.foodSlotHead}>
                           <Text style={[styles.foodSlotTitle, { color: c.soft }]}>{MEAL_SLOT_LABEL[slot].toUpperCase()}</Text>
-                          <Text style={[styles.foodSlotTitle, { color: c.soft }]}>{`${kcal.toLocaleString()} kcal`}</Text>
+                          <Text style={[styles.foodSlotTitle, { color: c.soft }]}>{`${kcal.toLocaleString(formatLocale())} kcal`}</Text>
                         </View>
                         {meals.map((meal) => {
                           const analysis = meal.metadata.analysis;
-                          const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
+                          const name = analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || t('Meal');
                           const row = (
                             <>
                               <Text style={[styles.foodLogTime, { color: c.soft }]} numberOfLines={1}>
-                                {new Date(meal.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                {new Date(meal.occurredAt).toLocaleTimeString(formatLocale(), { hour: 'numeric', minute: '2-digit' })}
                               </Text>
                               <Text style={[styles.foodLogName, { color: c.ink }]} numberOfLines={2}>{name}</Text>
                               <Text style={[styles.foodLogKcal, { color: c.ink }]} numberOfLines={1}>
-                                {analysis ? `${calorieEstimate(analysis.macros).toLocaleString()} kcal` : '—'}
+                                {analysis ? `${calorieEstimate(analysis.macros).toLocaleString(formatLocale())} kcal` : '—'}
                               </Text>
                             </>
                           );
@@ -542,7 +555,7 @@ export function TodayScreen({
                             <Pressable
                               key={meal.id}
                               accessibilityRole="button"
-                              accessibilityLabel={`${name}, edit or delete`}
+                              accessibilityLabel={t('{name}, edit or delete', { name })}
                               onPress={() => askEditOrDelete(meal, { onEdit: onEditLog, onDelete: onDeleteLog })}
                               style={({ pressed }) => [styles.foodLogRow, pressed && { opacity: 0.6 }]}
                             >
@@ -566,40 +579,41 @@ export function TodayScreen({
           <Pillar
             c={c}
             night={night}
-            kicker="OUTDOORS"
-            more={onOpenStepTrends ? { label: 'Trends & averages', onPress: onOpenStepTrends } : undefined}
+            kicker={t('OUTDOORS')}
+            more={onOpenStepTrends ? { label: t('Trends & averages'), onPress: onOpenStepTrends } : undefined}
             done={outdoors.goalReached || outdoors.cardioDone}
             xp={outdoors.xp}
-            headline={`${outdoors.steps.toLocaleString()} / ${outdoors.goal.toLocaleString()} steps`}
+            headline={t('{steps} / {goal} steps', { steps: outdoors.steps.toLocaleString(formatLocale()), goal: outdoors.goal.toLocaleString(formatLocale()) })}
             actions={
               onConnectHealth
-                ? [{ label: 'Connect Apple Health', onPress: onConnectHealth }]
+                ? [{ label: t('Connect Apple Health'), onPress: onConnectHealth }]
                 : onSyncSteps
-                  ? [{ label: stepSync === 'syncing' ? 'Syncing…' : 'Steps look off? Sync now', onPress: () => void syncStepsNow() }]
+                  ? [{ label: stepSync === 'syncing' ? t('Syncing…') : t('Steps look off? Sync now'), onPress: () => void syncStepsNow() }]
                   : undefined
             }
             detail={
               onConnectHealth && outdoors.steps === 0
-                ? `Connect Apple Health and ${petName} counts every step you take, on its own.`
+                ? t('Connect Apple Health and {pet} counts every step you take, on its own.', { pet: petName })
                 : outdoors.steps > 0
                 ? outdoors.goalReached
-                  ? `${petName} explored every corner with you today.`
-                  : `${outdoors.percent}% of today's goal — ${petName} is enjoying the walk.`
-                : `${petName} is waiting for today's adventure.`
+                  ? t('{pet} explored every corner with you today.', { pet: petName })
+                  : t("{percent}% of today's goal — {pet} is enjoying the walk.", { percent: outdoors.percent, pet: petName })
+                : t("{pet} is waiting for today's adventure.", { pet: petName })
             }
             progressPercent={outdoors.percent}
           >
             {outdoors.steps > 0 ? (
               <Text style={[styles.caloriesLine, { color: c.soft }]}>
-                🔥 {outdoors.caloriesBurned.toLocaleString()} cal burned
-                {outdoors.caloriesBurnedFromHealth ? '' : ' (estimate)'}
+                {outdoors.caloriesBurnedFromHealth
+                  ? t('🔥 {calories} cal burned', { calories: outdoors.caloriesBurned.toLocaleString(formatLocale()) })
+                  : t('🔥 {calories} cal burned (estimate)', { calories: outdoors.caloriesBurned.toLocaleString(formatLocale()) })}
               </Text>
             ) : null}
             {stepSync && stepSync !== 'syncing' ? (
               <Text style={[styles.syncNote, { color: c.soft }]} accessibilityLiveRegion="polite">{stepSync}</Text>
             ) : null}
             <View style={styles.goalEdit}>
-              <Text style={[styles.goalEditLabel, { color: c.soft }]}>Daily goal</Text>
+              <Text style={[styles.goalEditLabel, { color: c.soft }]}>{t('Daily goal')}</Text>
               <StepGoalField
                 style={[styles.goalInput, { color: c.ink, borderColor: c.hairline }]}
                 goal={stepGoal}
@@ -613,28 +627,28 @@ export function TodayScreen({
           <Pillar
             c={c}
             night={night}
-            kicker="GYM"
-            more={onOpenLiftProgress ? { label: 'Lift progress', onPress: onOpenLiftProgress } : undefined}
+            kicker={t('GYM')}
+            more={onOpenLiftProgress ? { label: t('Lift progress'), onPress: onOpenLiftProgress } : undefined}
             done={gym.trainingDone}
             xp={gym.xp}
             headline={
               gym.done
                 ? gym.workoutCount > 1
-                  ? `${gym.workoutCount} workouts`
-                  : (gym.lastName ?? 'Workout complete')
-                : 'No workout yet'
+                  ? t('{count} workouts', { count: gym.workoutCount })
+                  : (gym.lastName != null ? t(gym.lastName) : t('Workout complete'))
+                : t('No workout yet')
             }
             detail={
               gym.done
                 ? [
-                    gym.totalMinutes > 0 ? `${gym.totalMinutes} min` : null,
+                    gym.totalMinutes > 0 ? t('{minutes} min', { minutes: gym.totalMinutes }) : null,
                     gym.exerciseCount > 0
-                      ? `${gym.exerciseCount} exercise${gym.exerciseCount > 1 ? 's' : ''}`
+                      ? tn(gym.exerciseCount, '{count} exercise', '{count} exercises')
                       : null,
                   ]
                     .filter(Boolean)
-                    .join(' · ') || 'Logged'
-                : `${petName} trains hard when you do.`
+                    .join(' · ') || t('Logged')
+                : t('{pet} trains hard when you do.', { pet: petName })
             }
           />
         ) : null}
@@ -643,24 +657,25 @@ export function TodayScreen({
           <Pillar
             c={c}
             night={night}
-            kicker="MIND"
+            kicker={t('MIND')}
             done={mind.sessionCount > 0}
             xp={mind.xp}
             headline={
               mind.sessionCount > 0
                 ? mind.bestScore > 0
-                  ? `Best score ${mind.bestScore}`
-                  : `${mind.sessionCount} session${mind.sessionCount > 1 ? 's' : ''}`
-                : 'Nothing completed yet'
+                  ? t('Best score {score}', { score: mind.bestScore })
+                  : tn(mind.sessionCount, '{count} session', '{count} sessions')
+                : t('Nothing completed yet')
             }
             detail={
               mind.sessionCount > 0
-                ? `${mindScoreLabel(mind.bestScore)} — ${petName} felt you thinking.`
-                : `${petName} is up for a puzzle whenever you are.`
+                ? t('{rating} — {pet} felt you thinking.', { rating: mindScoreLabel(mind.bestScore), pet: petName })
+                : t('{pet} is up for a puzzle whenever you are.', { pet: petName })
             }
             actions={[
-              { label: 'Train the mind →', onPress: onTrainMind },
-              ...(onOpenWordPuzzle
+              { label: t('Train the mind →'), onPress: onTrainMind },
+              // English only: the word puzzle is not offered in other languages.
+              ...(onOpenWordPuzzle && wordPuzzleAvailable()
                 ? [
                     {
                       label: wordPuzzleToday
@@ -677,15 +692,15 @@ export function TodayScreen({
         {onOpenWeek ? (
           <PressableScale
             accessibilityRole="button"
-            accessibilityLabel="Your week"
+            accessibilityLabel={t('Your week')}
             onPress={onOpenWeek}
             scaleTo={0.98}
             style={[...panelOf(c, true), styles.weightRow]}
             testID="today-week"
           >
             <View style={{ flex: 1 }}>
-              <Text style={[styles.weightRowTitle, { color: c.ink }]}>Your week</Text>
-              <Text style={[styles.activityEmpty, { color: c.soft }]}>Training, food, steps and XP over the last seven days.</Text>
+              <Text style={[styles.weightRowTitle, { color: c.ink }]}>{t('Your week')}</Text>
+              <Text style={[styles.activityEmpty, { color: c.soft }]}>{t('Training, food, steps and XP over the last seven days.')}</Text>
             </View>
             <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text>
           </PressableScale>
@@ -694,15 +709,15 @@ export function TodayScreen({
         {onOpenWeight ? (
           <PressableScale
             accessibilityRole="button"
-            accessibilityLabel={weightLine ? `Weight, ${weightLine}` : 'Weight, log your first weigh-in'}
+            accessibilityLabel={weightLine ? t('Weight, {summary}', { summary: weightLine }) : t('Weight, log your first weigh-in')}
             onPress={onOpenWeight}
             scaleTo={0.98}
             style={[...panelOf(c, true), styles.weightRow]}
             testID="today-weight"
           >
             <View style={{ flex: 1 }}>
-              <Text style={[styles.weightRowTitle, { color: c.ink }]}>Weight</Text>
-              <Text style={[styles.activityEmpty, { color: c.soft }]}>{weightLine ?? 'Log a weigh-in to start your trend.'}</Text>
+              <Text style={[styles.weightRowTitle, { color: c.ink }]}>{tx('body weight', 'Weight')}</Text>
+              <Text style={[styles.activityEmpty, { color: c.soft }]}>{weightLine ?? t('Log a weigh-in to start your trend.')}</Text>
             </View>
             <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text>
           </PressableScale>
@@ -710,16 +725,16 @@ export function TodayScreen({
 
         {/* --- Today's activity: aggregated, meaningful only --- */}
         <View style={[...panelOf(c, true), styles.activity]}>
-          <Text style={[styles.activityTitle, { color: c.ink }]}>Today's activity</Text>
+          <Text style={[styles.activityTitle, { color: c.ink }]}>{t("Today's activity")}</Text>
           {recap.outdoors.steps > 0 ? (
             <View style={styles.activityRow}>
               <Mark kind="check" size={11} weight={2.2} color={c.positive} />
-              <Text style={[styles.activityLabel, { color: c.ink }]}>{`Walked ${recap.outdoors.steps.toLocaleString()} steps`}</Text>
+              <Text style={[styles.activityLabel, { color: c.ink }]}>{t('Walked {steps} steps', { steps: recap.outdoors.steps.toLocaleString(formatLocale()) })}</Text>
             </View>
           ) : null}
           {todayLogs.length === 0 && recap.outdoors.steps === 0 ? (
             <Text style={[styles.activityEmpty, { color: c.soft }]}>
-              Nothing yet today. Every workout, walk, meal and puzzle counts.
+              {t('Nothing yet today. Every workout, walk, meal and puzzle counts.')}
             </Text>
           ) : (
             todayLogs.map(({ key, events: group }) => {
@@ -732,7 +747,7 @@ export function TodayScreen({
                     {event.type === 'MEAL' ? mealLogName(event) : describeRow(group, measurementSystemOf(profile))}
                   </Text>
                   <Text style={[styles.activityTime, { color: c.soft }]} numberOfLines={1}>
-                    {new Date(event.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    {new Date(event.occurredAt).toLocaleTimeString(formatLocale(), { hour: 'numeric', minute: '2-digit' })}
                   </Text>
                   {tappable ? <Text style={[styles.moreChevron, { color: c.soft }]}>›</Text> : null}
                 </View>
@@ -741,7 +756,7 @@ export function TodayScreen({
                 <Pressable
                   key={key}
                   accessibilityRole="button"
-                  accessibilityHint="Edit or delete"
+                  accessibilityHint={t('Edit or delete')}
                   onPress={() => askEditOrDelete(event, { onEdit: onEditLog, onDelete: onDeleteLog })}
                   style={({ pressed }) => pressed && { opacity: 0.6 }}
                   testID="today-log"
@@ -754,16 +769,16 @@ export function TodayScreen({
             })
           )}
           {todayLogs.some(({ events: group }) => changeable(group[0]!)) && (onEditLog || onDeleteLog) ? (
-            <Text style={[styles.activityHint, { color: c.soft }]}>Tap a log to change or remove it.</Text>
+            <Text style={[styles.activityHint, { color: c.soft }]}>{t('Tap a log to change or remove it.')}</Text>
           ) : null}
           <Pressable onPress={onOpenHistory ?? onOpenProfile} hitSlop={6} accessibilityRole="link">
-            <Text style={[styles.activityMore, { color: c.accent }]}>Full history →</Text>
+            <Text style={[styles.activityMore, { color: c.accent }]}>{t('Full history →')}</Text>
           </Pressable>
         </View>
 
         {topInsight && insightsUnlocked ? (
           <View style={[...panelOf(c, true), styles.softPanel]}>
-            <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
+            <Text style={[styles.softKicker, { color: c.soft }]}>{t('{pet} noticed', { pet: petName })}</Text>
             <Text style={[styles.softHeadline, { color: c.ink }]}>{topInsight.headline}</Text>
             <Text style={[styles.softDetail, { color: c.soft }]}>{topInsight.detail}</Text>
           </View>
@@ -776,31 +791,33 @@ export function TodayScreen({
             style={[...panelOf(c, true), styles.softPanel]}
             testID="insight-locked"
           >
-            <Text style={[styles.softKicker, { color: c.soft }]}>{`${petName} noticed`}</Text>
+            <Text style={[styles.softKicker, { color: c.soft }]}>{t('{pet} noticed', { pet: petName })}</Text>
             <Text
               style={[styles.softHeadline, { color: c.ink }]}
-            >{`${petName} spotted a pattern in your habits`}</Text>
+            >{t('{pet} spotted a pattern in your habits', { pet: petName })}</Text>
             <Text style={[styles.softDetail, { color: c.accent }]}>
-              See what it is with Plus →
+              {t('See what it is with Plus →')}
             </Text>
           </Pressable>
         ) : null}
 
         {screenTimeToday ? (
           <View style={[...panelOf(c, true), styles.softPanel]}>
-            <Text style={[styles.softKicker, { color: c.soft }]}>Screen time</Text>
+            <Text style={[styles.softKicker, { color: c.soft }]}>{t('Screen time')}</Text>
             <Text style={[styles.softHeadline, { color: c.ink }]}>
-              {formatScreenMinutes(screenTimeToday.metadata.minutes)}
               {screenTimeToday.metadata.budgetMinutes !== undefined
-                ? ` / ${formatScreenMinutes(screenTimeToday.metadata.budgetMinutes)} budget`
-                : ''}
+                ? t('{used} / {budget} budget', {
+                    used: formatScreenMinutes(screenTimeToday.metadata.minutes),
+                    budget: formatScreenMinutes(screenTimeToday.metadata.budgetMinutes),
+                  })
+                : formatScreenMinutes(screenTimeToday.metadata.minutes)}
             </Text>
             <Text style={[styles.softDetail, { color: c.soft }]}>
               {screenTimeToday.metadata.withinBudget === undefined
-                ? `Logged. Set a budget in Profile and ${petName} will notice the quiet days.`
+                ? t('Logged. Set a budget in Profile and {pet} will notice the quiet days.', { pet: petName })
                 : screenTimeToday.metadata.withinBudget
-                  ? `Under budget — ${petName} feels clearer for it.`
-                  : 'Over budget today. Tomorrow is a fresh screen.'}
+                  ? t('Under budget — {pet} feels clearer for it.', { pet: petName })
+                  : t('Over budget today. Tomorrow is a fresh screen.')}
             </Text>
           </View>
         ) : null}
@@ -948,7 +965,7 @@ function StepGoalField({ goal, onChange, style }: { goal: number; onChange: (goa
     <DoneTextInput
       style={style}
       keyboardType="number-pad"
-      accessibilityLabel="Daily step goal"
+      accessibilityLabel={t('Daily step goal')}
       value={text ?? String(goal)}
       selectTextOnFocus
       onChangeText={(value) => setText(value.replace(/[^0-9]/g, ''))}
@@ -1025,7 +1042,7 @@ function Pillar({
             {done ? (
               // Sits on the capitals' line: a tick's weight is at its bottom, so
               // centred on the text it reads low, and it is lifted a point.
-              <View accessible accessibilityLabel="Done for today" testID="pillar-done" style={styles.pillarDoneMark}>
+              <View accessible accessibilityLabel={t('Done for today')} testID="pillar-done" style={styles.pillarDoneMark}>
                 <Mark kind="check" size={12} weight={2.4} color={c.positive} />
               </View>
             ) : null}
@@ -1038,7 +1055,7 @@ function Pillar({
         </View>
         {xp && xp > 0 ? (
           <View style={[styles.xpChip, { borderColor: c.accent }]}>
-            <Text style={[styles.xpChipText, { color: c.accentDeep }]} numberOfLines={1}>+{xp} XP</Text>
+            <Text style={[styles.xpChipText, { color: c.accentDeep }]} numberOfLines={1}>{t('+{xp} XP', { xp })}</Text>
           </View>
         ) : null}
       </View>

@@ -3,6 +3,7 @@ import type { BodyProfile } from './macroTargets';
 import { hasEvolved, type PetState } from './pet';
 import { calculateQualifyingStreaks } from './streaks';
 import { TROPHY_IDS, TROPHY_LABEL, type TrophyId, trophyRule } from './trophies';
+import { t } from '../i18n';
 
 /**
  * Achievements: everything the app can congratulate someone for, in one list.
@@ -65,18 +66,18 @@ const trophy = (id: TrophyId): Achievement => ({
 
 /** Display order: the early badges first, trophies last, so the list reads as a path. */
 export const ACHIEVEMENTS: readonly Achievement[] = [
-  badge('first_care', 'Hello, world', 'Care for your pet for the first time'),
-  badge('first_meal', 'First bite', 'Log a meal'),
-  badge('first_walk', 'First steps', 'Sync a walk'),
-  badge('first_workout', 'First rep', 'Log a workout'),
-  badge('first_mind', 'First thought', 'Finish a mind-gym session'),
-  badge('streak_7', 'One week', `Care for your pet ${STREAK_WEEK} days in a row`),
-  badge('level_5', 'Growing', `Reach level ${LEVEL_MILESTONE_SMALL}`),
-  badge('care_50', 'Fifty moments', `${CARE_MILESTONE_SMALL} care moments logged`),
-  badge('streak_30', 'One month', `Care for your pet ${STREAK_MONTH} days in a row`),
-  badge('level_10', 'Grown', `Reach level ${LEVEL_MILESTONE_LARGE}`),
-  badge('evolved', 'Evolved', 'Your pet grows into what you raised it to be'),
-  badge('care_250', 'Devoted', `${CARE_MILESTONE_LARGE} care moments logged`),
+  badge('first_care', t('Hello, world'), t('Care for your pet for the first time')),
+  badge('first_meal', t('First bite'), t('Log a meal')),
+  badge('first_walk', t('First steps'), t('Sync a walk')),
+  badge('first_workout', t('First rep'), t('Log a workout')),
+  badge('first_mind', t('First thought'), t('Finish a mind-gym session')),
+  badge('streak_7', t('One week'), t('Care for your pet {days} days in a row', { days: STREAK_WEEK })),
+  badge('level_5', t('Growing'), t('Reach level {level}', { level: LEVEL_MILESTONE_SMALL })),
+  badge('care_50', t('Fifty moments'), t('{count} care moments logged', { count: CARE_MILESTONE_SMALL })),
+  badge('streak_30', t('One month'), t('Care for your pet {days} days in a row', { days: STREAK_MONTH })),
+  badge('level_10', t('Grown'), t('Reach level {level}', { level: LEVEL_MILESTONE_LARGE })),
+  badge('evolved', t('Evolved'), t('Your pet grows into what you raised it to be')),
+  badge('care_250', t('Devoted'), t('{count} care moments logged', { count: CARE_MILESTONE_LARGE })),
   ...TROPHY_IDS.map(trophy),
 ];
 

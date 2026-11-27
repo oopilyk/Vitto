@@ -9,6 +9,7 @@ import {
   type PetState,
   type WordPuzzleRoundOutcome,
 } from '@vitto/core';
+import { t } from '../i18n';
 
 const petKey = 'vitto.pet';
 const eventKey = 'vitto.events';
@@ -38,7 +39,7 @@ const trainingScheduleKey = 'vitto.workout.schedule';
 /** Meals kept to log again in one tap (the Kitchen's Meals tab). */
 const savedMealsKey = 'vitto.meals.saved';
 const MAX_STORED_EVENTS = 2000;
-const CARE_PARTNERS_OFFLINE_MESSAGE = 'Care partners need an online account.';
+const CARE_PARTNERS_OFFLINE_MESSAGE = t('Care partners need an online account.');
 
 /**
  * A day's WordPuzzle in flight.
@@ -275,7 +276,7 @@ export class LocalRepository {
   }
 
   async deleteAccount(): Promise<void> {
-    throw new Error('Deleting an account needs an online account.');
+    throw new Error(t('Deleting an account needs an online account.'));
   }
 
   // Same shapes as the remote repository, so the two cannot drift apart.

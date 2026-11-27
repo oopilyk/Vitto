@@ -3,6 +3,7 @@ import type { FourCorner } from '@vitto/core';
 import { SURFACE_BORDER_WIDTH, SURFACE_RADIUS, surface, surfacePressed, surfaceShadow } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { cornerLabel, isLeftCorner, isTopCorner } from './corners';
+import { t } from '../i18n';
 
 /**
  * `idle` — waiting on a tap. `correct` — this is the right answer (whether or
@@ -65,7 +66,7 @@ export function CornerTile({
       // tile as a child `Text`, which a screen reader never reaches once the
       // Pressable carries a label of its own. Without this, a VoiceOver user
       // plays a whole round and is never told whether they were right.
-      accessibilityLabel={mark ? `${cornerLabel(corner, answer)}, ${mark}` : cornerLabel(corner, answer)}
+      accessibilityLabel={mark ? t('{answer}, {mark}', { answer: cornerLabel(corner, answer), mark }) : cornerLabel(corner, answer)}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={() => onPress(corner)}

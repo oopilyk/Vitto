@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { PanResponder, View, type LayoutChangeEvent } from 'react-native';
 import { colors, themedStyles } from '../theme';
 import { haptic } from './ui';
+import { t } from '../i18n';
 
 /**
  * Where a row dragged `dy` points from `from` should land, given each row's
@@ -118,11 +119,11 @@ export function DragList<T>({ items, keyOf, renderItem, onMove, enabled, onDragg
             {...responderFor(key).panHandlers}
             accessible
             accessibilityRole="adjustable"
-            accessibilityLabel={`Reorder ${labelOf(item)}`}
-            accessibilityHint="Drag up or down to move it"
+            accessibilityLabel={t('Reorder {item}', { item: labelOf(item) })}
+            accessibilityHint={t('Drag up or down to move it')}
             accessibilityActions={[
-              { name: 'increment', label: 'Move down' },
-              { name: 'decrement', label: 'Move up' },
+              { name: 'increment', label: t('Move down') },
+              { name: 'decrement', label: t('Move up') },
             ]}
             onAccessibilityAction={(event) => {
               const to = event.nativeEvent.actionName === 'increment' ? index + 1 : index - 1;

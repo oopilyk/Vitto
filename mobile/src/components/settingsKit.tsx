@@ -18,6 +18,7 @@ import { FitText } from './FitText';
 import { DoneTextInput, PressableScale, PrimaryButton, TextButton, haptic, keypadWithoutReturn, Mark } from './ui';
 import { colors, fonts } from '../theme';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { t } from '../i18n';
 
 /**
  * The building blocks for settings-style screens, in the iOS idiom: a large
@@ -208,9 +209,9 @@ export function SaveBar({
         {error ? <Text style={kit.saveError}>{error}</Text> : null}
         <View style={kit.saveRow}>
           <View style={{ flex: 1 }}>
-            <PrimaryButton label={saving ? 'Saving...' : 'Save changes'} busy={saving} onPress={onSave} />
+            <PrimaryButton label={saving ? t('Saving...') : t('Save changes')} busy={saving} onPress={onSave} />
           </View>
-          <TextButton label="Discard" onPress={onDiscard} disabled={saving} />
+          <TextButton label={t('Discard')} onPress={onDiscard} disabled={saving} />
         </View>
       </View>
     </Animated.View>
@@ -247,6 +248,7 @@ export function NavGroup({ title, children }: { title?: string; children: ReactN
 export function NavRow({
   title,
   value,
+  hint,
   leading,
   onPress,
   danger,
@@ -255,6 +257,8 @@ export function NavRow({
   title: string;
   /** What it is set to now, e.g. "On" or "Kyle · 21 · Build muscle". */
   value?: string;
+  /** Read by VoiceOver after the title: what pressing it does, when the title does not say. */
+  hint?: string;
   /** Art on the left, e.g. the pet. */
   leading?: ReactNode;
   onPress: () => void;
@@ -265,6 +269,7 @@ export function NavRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
+      accessibilityHint={hint}
       onPress={onPress}
       style={({ pressed }) => [kit.navRow, pressed && kit.navRowPressed]}
       testID={testID}
@@ -332,7 +337,7 @@ export function useSavedNote() {
 }
 
 /** "Saved", where the Save bar was. */
-export function SavedBar({ label = 'Saved' }: { label?: string }) {
+export function SavedBar({ label = t('Saved') }: { label?: string }) {
   return (
     <View style={[kit.saveBar, { paddingBottom: HOME_INDICATOR_INSET }]} accessibilityLiveRegion="polite" testID="saved-bar">
       <View style={[kit.saveInner, kit.savedRow]}>

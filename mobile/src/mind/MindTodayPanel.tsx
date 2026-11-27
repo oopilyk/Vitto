@@ -4,6 +4,7 @@ import { PetAvatar } from '../components/PetAvatar';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { surface } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 /**
  * A lightweight "how has Mind gone today" strip for the hub's top, not a
@@ -48,16 +49,16 @@ export function MindTodayPanel({ pet, today, night }: MindTodayPanelProps) {
           panel to 355 pt with the pet in a narrow strip: a square of its own. */}
       <PetAvatar pet={pet} {...IDLE_ACTIVITY} size={PET_SIZE} hideStatusCaption stageStyle={styles.petStage} />
       <View style={styles.body}>
-        <Text style={[surface.kicker, night && surface.kickerNight]}>MIND TODAY</Text>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>{t('MIND TODAY')}</Text>
         {zero ? (
           <Text style={[surface.caption, night && surface.captionNight, styles.zeroLine]} numberOfLines={2}>
-            No games yet today. {pet.name} is ready whenever you are.
+            {t('No games yet today. {pet} is ready whenever you are.', { pet: pet.name })}
           </Text>
         ) : (
           <View style={styles.figures}>
             <Figure value={today.xp} label="XP" night={night} />
-            <Figure value={today.points} label="POINTS" night={night} />
-            <Figure value={today.sessionCount} label="PLAYED" night={night} />
+            <Figure value={today.points} label={t('POINTS')} night={night} />
+            <Figure value={today.sessionCount} label={t('PLAYED')} night={night} />
           </View>
         )}
       </View>

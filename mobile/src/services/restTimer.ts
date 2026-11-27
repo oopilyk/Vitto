@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { setIslandRest } from './petIsland';
+import { t } from '../i18n';
 
 /**
  * The rest between sets, outside the workout screen: a local notification for
@@ -33,7 +34,7 @@ const scheduleRestAlert = async (endsAt: number, next: string): Promise<void> =>
     if (!permission.granted) return;
     await Notifications.scheduleNotificationAsync({
       identifier: REST_ID,
-      content: { title: 'Rest is up', body: next, sound: true, data: { tag: REST_TAG } },
+      content: { title: t('Rest is up'), body: next, sound: true, data: { tag: REST_TAG } },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(endsAt) },
     });
   } catch {
@@ -45,7 +46,7 @@ const scheduleRestAlert = async (endsAt: number, next: string): Promise<void> =>
 export const startRest = async (endsAt: number, startedAt: number, label: string): Promise<void> => {
   await cancelRestAlert();
   await Promise.all([
-    scheduleRestAlert(endsAt, `Time for your next set of ${label}.`),
+    scheduleRestAlert(endsAt, t('Time for your next set of {exercise}.', { exercise: t(label) })),
     setIslandRest({ startedAt, endsAt, label }),
   ]);
 };

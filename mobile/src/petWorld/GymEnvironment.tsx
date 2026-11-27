@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { RoomActionButton } from './RoomActionButton';
+import { t } from '../i18n';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
@@ -44,7 +45,7 @@ interface GymEnvironmentProps extends GymEnvironmentControlsProps {
 
 /** The Gym's dedicated call to action, in the same slot as Kitchen's "Log meal". */
 function LogWorkoutButton({ onPress }: { onPress: () => void }) {
-  return <RoomActionButton label="Log workout" onPress={onPress} />;
+  return <RoomActionButton label={t('Log workout')} onPress={onPress} />;
 }
 
 function GymEnvironmentControls({

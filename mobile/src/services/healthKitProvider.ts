@@ -19,6 +19,7 @@ import {
   mapWorkoutSample,
   reconstructMealsFromNutrientSamples,
 } from './healthKitMapping';
+import { t } from '../i18n';
 
 /**
  * The real, iOS-only `HealthDataProvider`, backed by
@@ -130,7 +131,7 @@ export class HealthKitProvider implements HealthDataProvider {
 
   private assertAuthorized(): void {
     if (!this.authorized) {
-      throw new Error('Apple Health has not been connected yet.');
+      throw new Error(t('Apple Health has not been connected yet.'));
     }
   }
 
@@ -139,7 +140,7 @@ export class HealthKitProvider implements HealthDataProvider {
     // yet, rather than refusing. Only reached once the person has connected
     // Apple Health (see syncSteps), so this never asks out of the blue.
     if (!this.authorized && !(await this.requestAuthorization())) {
-      throw new Error('Apple Health access was not granted.');
+      throw new Error(t('Apple Health access was not granted.'));
     }
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());

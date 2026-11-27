@@ -4,6 +4,7 @@ import { FitText } from '../components/FitText';
 import { surface } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { ValueTile } from './ValueTile';
+import { t } from '../i18n';
 
 interface JeopardyBoardProps {
   game: JeopardyGame;
@@ -22,17 +23,17 @@ interface JeopardyBoardProps {
  */
 export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
   const labelOf = (categoryId: string): string =>
-    game.categories.find((category) => category.id === categoryId)?.label ?? categoryId;
+    t(game.categories.find((category) => category.id === categoryId)?.label ?? categoryId);
 
   const picked = game.cells.filter((cell) => cell.played).length;
 
   return (
     <View style={styles.wrap}>
       <View style={[styles.scoreStrip, surface.panelQuiet, night && surface.panelQuietNight]}>
-        <Text style={[surface.kicker, night && surface.kickerNight]}>This session</Text>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>{t('This session')}</Text>
         <Text style={[styles.score, night && styles.scoreNight]}>{`${game.boardPoints} XP`}</Text>
         <Text style={[surface.caption, night && surface.captionNight]}>
-          {`${picked} / ${JEOPARDY_PICKS_PER_ROUND} picks used`}
+          {t('{picked} / {total} picks used', { picked, total: JEOPARDY_PICKS_PER_ROUND })}
         </Text>
       </View>
 
@@ -44,7 +45,7 @@ export function JeopardyBoard({ game, night, onPick }: JeopardyBoardProps) {
                   repeats the name in its accessibility label, since a screen
                   reader lands on a tile with no sense of which column it is in. */}
               <FitText style={[styles.categoryLabel, night && styles.categoryLabelNight]} lines={2}>
-                {category.label}
+                {t(category.label)}
               </FitText>
             </View>
 

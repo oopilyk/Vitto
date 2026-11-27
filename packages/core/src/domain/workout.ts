@@ -1,5 +1,6 @@
 import { newId } from './ids';
 import type { WeightUnit, WorkoutExercise, WorkoutSet, WorkoutStats } from './health';
+import { msg } from '../i18n';
 
 /**
  * The exercise picker, grouped by muscle so a scroll reads like a gym: chest,
@@ -7,65 +8,69 @@ import type { WeightUnit, WorkoutExercise, WorkoutSet, WorkoutStats } from './he
  * `axisForMuscleGroup` and `startingWeight` know — chest/shoulders/triceps push,
  * back/biceps pull, legs are legs; core and cardio train no axis — so a new row
  * only needs a name, a group, and whether it is loaded.
+ *
+ * Names and groups are saved with a workout and looked up by (records, ranks,
+ * starting weights), so they stay English here: `msg` marks them for
+ * translation, and a screen draws them with `t(name)`.
  */
 export const exerciseLibrary = [
   // Chest
-  ['Bench Press', 'chest'], ['Incline Bench Press', 'chest'], ['Dumbbell Bench Press', 'chest'],
-  ['Incline Dumbbell Press', 'chest'], ['Machine Chest Press', 'chest'], ['Chest Fly', 'chest'],
-  ['Cable Crossover', 'chest'], ['Push Ups', 'chest', 'bodyweight'], ['Dips', 'chest', 'bodyweight'],
-  ['Decline Bench Press', 'chest'], ['Smith Machine Bench Press', 'chest'], ['Incline Machine Press', 'chest'],
-  ['Pec Deck', 'chest'], ['Incline Cable Fly', 'chest'], ['Low-to-High Cable Fly', 'chest'], ['Dumbbell Pullover', 'chest'],
+  [msg('Bench Press'), msg('chest')], [msg('Incline Bench Press'), msg('chest')], [msg('Dumbbell Bench Press'), msg('chest')],
+  [msg('Incline Dumbbell Press'), msg('chest')], [msg('Machine Chest Press'), msg('chest')], [msg('Chest Fly'), msg('chest')],
+  [msg('Cable Crossover'), msg('chest')], [msg('Push Ups'), msg('chest'), 'bodyweight'], [msg('Dips'), msg('chest'), 'bodyweight'],
+  [msg('Decline Bench Press'), msg('chest')], [msg('Smith Machine Bench Press'), msg('chest')], [msg('Incline Machine Press'), msg('chest')],
+  [msg('Pec Deck'), msg('chest')], [msg('Incline Cable Fly'), msg('chest')], [msg('Low-to-High Cable Fly'), msg('chest')], [msg('Dumbbell Pullover'), msg('chest')],
   // Back
-  ['Barbell Row', 'back'], ['Dumbbell Row', 'back'], ['Seated Cable Row', 'back'], ['T-Bar Row', 'back'],
-  ['Lat Pulldown', 'back'], ['Straight-Arm Pulldown', 'back'], ['Deadlift', 'back'], ['Face Pull', 'back'],
-  ['Pull Ups', 'back', 'bodyweight'], ['Chin Ups', 'back', 'bodyweight'],
-  ['Pendlay Row', 'back'], ['Chest-Supported Row', 'back'], ['Seal Row', 'back'], ['Meadows Row', 'back'],
-  ['Machine Row', 'back'], ['Single-Arm Cable Row', 'back'], ['Close-Grip Lat Pulldown', 'back'],
-  ['Single-Arm Lat Pulldown', 'back'], ['Rack Pull', 'back'], ['Back Extension', 'back'], ['Inverted Row', 'back', 'bodyweight'],
+  [msg('Barbell Row'), msg('back')], [msg('Dumbbell Row'), msg('back')], [msg('Seated Cable Row'), msg('back')], [msg('T-Bar Row'), msg('back')],
+  [msg('Lat Pulldown'), msg('back')], [msg('Straight-Arm Pulldown'), msg('back')], [msg('Deadlift'), msg('back')], [msg('Face Pull'), msg('back')],
+  [msg('Pull Ups'), msg('back'), 'bodyweight'], [msg('Chin Ups'), msg('back'), 'bodyweight'],
+  [msg('Pendlay Row'), msg('back')], [msg('Chest-Supported Row'), msg('back')], [msg('Seal Row'), msg('back')], [msg('Meadows Row'), msg('back')],
+  [msg('Machine Row'), msg('back')], [msg('Single-Arm Cable Row'), msg('back')], [msg('Close-Grip Lat Pulldown'), msg('back')],
+  [msg('Single-Arm Lat Pulldown'), msg('back')], [msg('Rack Pull'), msg('back')], [msg('Back Extension'), msg('back')], [msg('Inverted Row'), msg('back'), 'bodyweight'],
   // Legs
-  ['Squat', 'legs'], ['Front Squat', 'legs'], ['Goblet Squat', 'legs'], ['Leg Press', 'legs'],
-  ['Romanian Deadlift', 'legs'], ['Sumo Deadlift', 'legs'], ['Hip Thrust', 'legs'], ['Bulgarian Split Squat', 'legs'],
-  ['Leg Extension', 'legs'], ['Leg Curl', 'legs'], ['Calf Raise', 'legs'], ['Lunges', 'legs', 'bodyweight'],
-  ['Hack Squat', 'legs'], ['Smith Machine Squat', 'legs'], ['Pendulum Squat', 'legs'], ['Trap Bar Deadlift', 'legs'],
-  ['Stiff-Leg Deadlift', 'legs'], ['Good Morning', 'legs'], ['Walking Lunges', 'legs'], ['Reverse Lunges', 'legs'],
-  ['Split Squat', 'legs'], ['Step Ups', 'legs'], ['Seated Leg Curl', 'legs'], ['Lying Leg Curl', 'legs'],
-  ['Glute Bridge', 'legs'], ['Hip Abduction', 'legs'], ['Hip Adduction', 'legs'], ['Cable Glute Kickback', 'legs'],
-  ['Seated Calf Raise', 'legs'], ['Kettlebell Swing', 'legs'], ['Sissy Squat', 'legs', 'bodyweight'],
-  ['Nordic Curl', 'legs', 'bodyweight'],
+  [msg('Squat'), msg('legs')], [msg('Front Squat'), msg('legs')], [msg('Goblet Squat'), msg('legs')], [msg('Leg Press'), msg('legs')],
+  [msg('Romanian Deadlift'), msg('legs')], [msg('Sumo Deadlift'), msg('legs')], [msg('Hip Thrust'), msg('legs')], [msg('Bulgarian Split Squat'), msg('legs')],
+  [msg('Leg Extension'), msg('legs')], [msg('Leg Curl'), msg('legs')], [msg('Calf Raise'), msg('legs')], [msg('Lunges'), msg('legs'), 'bodyweight'],
+  [msg('Hack Squat'), msg('legs')], [msg('Smith Machine Squat'), msg('legs')], [msg('Pendulum Squat'), msg('legs')], [msg('Trap Bar Deadlift'), msg('legs')],
+  [msg('Stiff-Leg Deadlift'), msg('legs')], [msg('Good Morning'), msg('legs')], [msg('Walking Lunges'), msg('legs')], [msg('Reverse Lunges'), msg('legs')],
+  [msg('Split Squat'), msg('legs')], [msg('Step Ups'), msg('legs')], [msg('Seated Leg Curl'), msg('legs')], [msg('Lying Leg Curl'), msg('legs')],
+  [msg('Glute Bridge'), msg('legs')], [msg('Hip Abduction'), msg('legs')], [msg('Hip Adduction'), msg('legs')], [msg('Cable Glute Kickback'), msg('legs')],
+  [msg('Seated Calf Raise'), msg('legs')], [msg('Kettlebell Swing'), msg('legs')], [msg('Sissy Squat'), msg('legs'), 'bodyweight'],
+  [msg('Nordic Curl'), msg('legs'), 'bodyweight'],
   // Shoulders
-  ['Shoulder Press', 'shoulders'], ['Dumbbell Shoulder Press', 'shoulders'], ['Arnold Press', 'shoulders'],
-  ['Lateral Raise', 'shoulders'], ['Front Raise', 'shoulders'], ['Rear Delt Fly', 'shoulders'],
-  ['Upright Row', 'shoulders'], ['Shrugs', 'shoulders'],
-  ['Machine Shoulder Press', 'shoulders'], ['Push Press', 'shoulders'], ['Landmine Press', 'shoulders'],
-  ['Cable Lateral Raise', 'shoulders'], ['Machine Lateral Raise', 'shoulders'], ['Reverse Pec Deck', 'shoulders'],
-  ['Cable Rear Delt Fly', 'shoulders'],
+  [msg('Shoulder Press'), msg('shoulders')], [msg('Dumbbell Shoulder Press'), msg('shoulders')], [msg('Arnold Press'), msg('shoulders')],
+  [msg('Lateral Raise'), msg('shoulders')], [msg('Front Raise'), msg('shoulders')], [msg('Rear Delt Fly'), msg('shoulders')],
+  [msg('Upright Row'), msg('shoulders')], [msg('Shrugs'), msg('shoulders')],
+  [msg('Machine Shoulder Press'), msg('shoulders')], [msg('Push Press'), msg('shoulders')], [msg('Landmine Press'), msg('shoulders')],
+  [msg('Cable Lateral Raise'), msg('shoulders')], [msg('Machine Lateral Raise'), msg('shoulders')], [msg('Reverse Pec Deck'), msg('shoulders')],
+  [msg('Cable Rear Delt Fly'), msg('shoulders')],
   // Biceps
-  ['Bicep Curl', 'biceps'], ['Hammer Curl', 'biceps'], ['EZ Bar Curl', 'biceps'], ['Preacher Curl', 'biceps'],
-  ['Incline Dumbbell Curl', 'biceps'], ['Cable Curl', 'biceps'],
-  ['Bayesian Curl', 'biceps'], ['Spider Curl', 'biceps'], ['Concentration Curl', 'biceps'], ['Reverse Curl', 'biceps'],
-  ['Drag Curl', 'biceps'], ['Zottman Curl', 'biceps'], ['Machine Preacher Curl', 'biceps'], ['Rope Hammer Curl', 'biceps'],
+  [msg('Bicep Curl'), msg('biceps')], [msg('Hammer Curl'), msg('biceps')], [msg('EZ Bar Curl'), msg('biceps')], [msg('Preacher Curl'), msg('biceps')],
+  [msg('Incline Dumbbell Curl'), msg('biceps')], [msg('Cable Curl'), msg('biceps')],
+  [msg('Bayesian Curl'), msg('biceps')], [msg('Spider Curl'), msg('biceps')], [msg('Concentration Curl'), msg('biceps')], [msg('Reverse Curl'), msg('biceps')],
+  [msg('Drag Curl'), msg('biceps')], [msg('Zottman Curl'), msg('biceps')], [msg('Machine Preacher Curl'), msg('biceps')], [msg('Rope Hammer Curl'), msg('biceps')],
   // Triceps
-  ['Tricep Pushdown', 'triceps'], ['Skull Crushers', 'triceps'], ['Overhead Tricep Extension', 'triceps'],
-  ['Close-Grip Bench Press', 'triceps'], ['Tricep Kickback', 'triceps'],
-  ['Rope Pushdown', 'triceps'], ['Overhead Cable Extension', 'triceps'], ['Single-Arm Pushdown', 'triceps'],
-  ['JM Press', 'triceps'], ['Machine Dips', 'triceps'], ['Bench Dips', 'triceps', 'bodyweight'],
-  ['Diamond Push Ups', 'triceps', 'bodyweight'],
+  [msg('Tricep Pushdown'), msg('triceps')], [msg('Skull Crushers'), msg('triceps')], [msg('Overhead Tricep Extension'), msg('triceps')],
+  [msg('Close-Grip Bench Press'), msg('triceps')], [msg('Tricep Kickback'), msg('triceps')],
+  [msg('Rope Pushdown'), msg('triceps')], [msg('Overhead Cable Extension'), msg('triceps')], [msg('Single-Arm Pushdown'), msg('triceps')],
+  [msg('JM Press'), msg('triceps')], [msg('Machine Dips'), msg('triceps')], [msg('Bench Dips'), msg('triceps'), 'bodyweight'],
+  [msg('Diamond Push Ups'), msg('triceps'), 'bodyweight'],
   // Core
-  ['Plank', 'core', 'bodyweight'], ['Crunches', 'core', 'bodyweight'], ['Hanging Leg Raise', 'core', 'bodyweight'],
-  ['Russian Twist', 'core', 'bodyweight'], ['Ab Wheel Rollout', 'core', 'bodyweight'], ['Dead Bug', 'core', 'bodyweight'],
-  ['Mountain Climbers', 'core', 'bodyweight'], ['Cable Crunch', 'core'],
-  ['Sit Ups', 'core', 'bodyweight'], ['Bicycle Crunch', 'core', 'bodyweight'], ['Leg Raises', 'core', 'bodyweight'],
-  ['Side Plank', 'core', 'bodyweight'], ['Hollow Hold', 'core', 'bodyweight'], ['Pallof Press', 'core'],
-  ['Cable Woodchopper', 'core'], ["Farmer's Carry", 'core'],
+  [msg('Plank'), msg('core'), 'bodyweight'], [msg('Crunches'), msg('core'), 'bodyweight'], [msg('Hanging Leg Raise'), msg('core'), 'bodyweight'],
+  [msg('Russian Twist'), msg('core'), 'bodyweight'], [msg('Ab Wheel Rollout'), msg('core'), 'bodyweight'], [msg('Dead Bug'), msg('core'), 'bodyweight'],
+  [msg('Mountain Climbers'), msg('core'), 'bodyweight'], [msg('Cable Crunch'), msg('core')],
+  [msg('Sit Ups'), msg('core'), 'bodyweight'], [msg('Bicycle Crunch'), msg('core'), 'bodyweight'], [msg('Leg Raises'), msg('core'), 'bodyweight'],
+  [msg('Side Plank'), msg('core'), 'bodyweight'], [msg('Hollow Hold'), msg('core'), 'bodyweight'], [msg('Pallof Press'), msg('core')],
+  [msg('Cable Woodchopper'), msg('core')], [msg("Farmer's Carry"), msg('core')],
   // Cardio, split by how it is actually counted. The ones marked `distance` go
   // somewhere and are logged as ground covered plus time; the rest are reps like
   // any other bodyweight movement, and keep their sets.
-  ['Running', 'cardio', 'distance'], ['Walking', 'cardio', 'distance'], ['Cycling', 'cardio', 'distance'],
-  ['Rowing', 'cardio', 'distance'], ['Elliptical', 'cardio', 'distance'], ['Stair Climber', 'cardio', 'distance'],
-  ['Swimming', 'cardio', 'distance'],
-  ['Hiking', 'cardio', 'distance'],
-  ['Jump Rope', 'cardio', 'bodyweight'], ['Burpees', 'cardio', 'bodyweight'], ['Box Jumps', 'cardio', 'bodyweight'],
-  ['Battle Ropes', 'cardio', 'bodyweight'],
+  [msg('Running'), msg('cardio'), 'distance'], [msg('Walking'), msg('cardio'), 'distance'], [msg('Cycling'), msg('cardio'), 'distance'],
+  [msg('Rowing'), msg('cardio'), 'distance'], [msg('Elliptical'), msg('cardio'), 'distance'], [msg('Stair Climber'), msg('cardio'), 'distance'],
+  [msg('Swimming'), msg('cardio'), 'distance'],
+  [msg('Hiking'), msg('cardio'), 'distance'],
+  [msg('Jump Rope'), msg('cardio'), 'bodyweight'], [msg('Burpees'), msg('cardio'), 'bodyweight'], [msg('Box Jumps'), msg('cardio'), 'bodyweight'],
+  [msg('Battle Ropes'), msg('cardio'), 'bodyweight'],
 ] as const;
 
 /**

@@ -18,6 +18,7 @@ import { FitText } from './FitText';
 import { SpriteFrame } from './SpriteFrame';
 import { sheetForPet, portraitFrame } from './petSprites';
 import { isNightTime } from '../petWorld/timeOfDay';
+import { t } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 /**
@@ -53,11 +54,11 @@ export interface PetShareCardProps {
 
 /** How the pet says its mood, first person. MOOD_WORD reads "Blue is ..."; "I'm feeling doing fine" does not. */
 const MOOD_LINE: Record<PetState['mood'], string> = {
-  bright: "I'm feeling happy.",
-  content: "I'm doing fine.",
-  sleepy: "I'm feeling sleepy.",
-  sluggish: "I'm feeling sluggish.",
-  hungry: "I'm hungry.",
+  bright: t("I'm feeling happy."),
+  content: t("I'm doing fine."),
+  sleepy: t("I'm feeling sleepy."),
+  sluggish: t("I'm feeling sluggish."),
+  hungry: t("I'm hungry."),
 };
 
 /**
@@ -95,7 +96,7 @@ export const PetShareCard = forwardRef<View, PetShareCardProps>(function PetShar
   const night = isNightTime(now);
   const streak = calculateStreakStatus(events as HealthEvent[], now).currentStreak;
   const day = daysWithPet(pet, now);
-  const build = hasEvolved(pet) ? PET_BUILD_LABEL[getPetBuild(pet)] : null;
+  const build = hasEvolved(pet) ? t(PET_BUILD_LABEL[getPetBuild(pet)]) : null;
 
   return (
     <View ref={ref} collapsable={false} style={styles.card}>
@@ -132,13 +133,13 @@ export const PetShareCard = forwardRef<View, PetShareCardProps>(function PetShar
             {pet.name}
           </FitText>
           <View style={styles.level}>
-            <Text style={styles.levelLabel}>LV</Text>
+            <Text style={styles.levelLabel}>{t('LV')}</Text>
             <Text style={styles.levelValue}>{pet.level}</Text>
           </View>
         </View>
 
         <Text style={styles.meta} numberOfLines={1}>
-          {[`Day ${day}`, build, streak >= 2 ? `${streak} day streak` : null].filter(Boolean).join('  ·  ')}
+          {[t('Day {day}', { day }), build, streak >= 2 ? t('{streak} day streak', { streak }) : null].filter(Boolean).join('  ·  ')}
         </Text>
 
         <Text style={styles.line} numberOfLines={3}>“{shareCardLine(pet, events, now)}”</Text>

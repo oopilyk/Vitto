@@ -51,6 +51,12 @@ export const saveWithRetry = async (
   }
 };
 
-/** The message `withTimeout` in App rejects with — recognised by wording, since it is a plain Error. */
+/** Marks an error made by `timeoutError`: its message is translated, so the wording alone no longer says what it is. */
+const TIMEOUT_NAME = 'TimeoutError';
+
+/** What `withTimeout` in App rejects with. */
+export const timeoutError = (message: string): Error => Object.assign(new Error(message), { name: TIMEOUT_NAME });
+
+/** A timeout: one made by `timeoutError`, or a plain Error worded as one. */
 export const isTimeout = (cause: unknown): boolean =>
-  cause instanceof Error && /timed out/i.test(cause.message);
+  cause instanceof Error && (cause.name === TIMEOUT_NAME || /timed out/i.test(cause.message));

@@ -2,6 +2,7 @@ import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { requireSupabase as requireClient } from './config';
 import { errorMessage } from './errorMessage';
 import { normalizeUsername, usernameError } from './domain/friends';
+import { t } from './i18n';
 
 export const signInWithEmail = (email: string, password: string) =>
   requireClient().auth.signInWithPassword({ email, password });
@@ -52,18 +53,18 @@ export const sendPasswordResetCode = (email: string) => requireClient().auth.res
 export const passwordErrorMessage = (cause: unknown, fallback: string): string => {
   const { code, message } = (cause ?? {}) as { code?: unknown; message?: unknown };
   const raw = typeof message === 'string' ? message : '';
-  if (code === 'invalid_credentials' || /invalid login credentials/i.test(raw)) return "That isn't your current password.";
+  if (code === 'invalid_credentials' || /invalid login credentials/i.test(raw)) return t("That isn't your current password.");
   if (code === 'otp_expired' || /token has expired|otp.*(expired|invalid)|invalid.*(otp|token)/i.test(raw)) {
-    return "That code didn't work. Check it, or send a new one.";
+    return t("That code didn't work. Check it, or send a new one.");
   }
-  if (code === 'same_password' || /different from the old/i.test(raw)) return "That's your current password. Choose a new one.";
+  if (code === 'same_password' || /different from the old/i.test(raw)) return t("That's your current password. Choose a new one.");
   if (code === 'weak_password' || /password should be/i.test(raw)) {
-    return `Choose a stronger password, at least ${NEW_PASSWORD_MIN_LENGTH} characters.`;
+    return t('Choose a stronger password, at least {min} characters.', { min: NEW_PASSWORD_MIN_LENGTH });
   }
   if (code === 'over_email_send_rate_limit' || code === 'over_request_rate_limit' || /rate limit/i.test(raw)) {
-    return 'Too many tries. Wait a few minutes, then try again.';
+    return t('Too many tries. Wait a few minutes, then try again.');
   }
-  if (code === 'reauthentication_needed') return 'For your security, sign out and back in, then try again.';
+  if (code === 'reauthentication_needed') return t('For your security, sign out and back in, then try again.');
   return errorMessage(cause, fallback);
 };
 

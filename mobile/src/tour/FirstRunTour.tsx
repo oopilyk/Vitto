@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Modal, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { t, wordPuzzleAvailable } from '../i18n';
 import { RETRO_BORDER_WIDTH, RETRO_RADIUS, retroPressed, retroShadow } from '../petWorld/retroStyle';
 import { fonts, themedStyles, world } from '../theme';
 
@@ -75,51 +76,54 @@ export function useTourTarget(id: TourTargetId) {
 export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
   {
     target: 'kitchen',
-    title: 'The kitchen',
-    body: 'Tap here, then Log meal, whenever you eat. Search it, scan the barcode, or snap a photo with Plus. I eat what you eat!',
+    title: t('The kitchen'),
+    body: t('Tap here, then Log meal, whenever you eat. Search it, scan the barcode, or snap a photo with Plus. I eat what you eat!'),
   },
   {
     target: 'gym',
-    title: 'The gym',
-    body: 'Tap here, then Log workout after you train. Every session makes me stronger.',
+    title: t('The gym'),
+    body: t('Tap here, then Log workout after you train. Every session makes me stronger.'),
   },
   {
     target: 'outside',
-    title: 'Outside',
-    body: 'Log your runs and walks out here. Connect Apple Health and your steps come in on their own.',
+    title: t('Outside'),
+    body: t('Log your runs and walks out here. Connect Apple Health and your steps come in on their own.'),
   },
   {
     target: 'study',
-    title: 'The study',
-    body: 'Play a quick mind game in here each day: word puzzles, trivia and more. They keep my mind sharp!',
+    title: t('The study'),
+    // The word puzzle is English only (see wordPuzzleAvailable), so only English promises it.
+    body: wordPuzzleAvailable()
+      ? t('Play a quick mind game in here each day: word puzzles, trivia and more. They keep my mind sharp!')
+      : t('Play a quick mind game in here each day: trivia and more. They keep my mind sharp!'),
   },
   {
     target: 'today',
-    title: 'Today',
-    body: 'Tap TODAY to see how the day is going: calories, macros, steps and your goals.',
+    title: t('Today'),
+    body: t('Tap TODAY to see how the day is going: calories, macros, steps and your goals.'),
   },
   {
     target: 'chat',
-    title: 'Chat',
-    body: 'Come talk to me here! Ask me anything about health and fitness, or just say what’s up. I remember things about you.',
+    title: t('Chat'),
+    body: t('Come talk to me here! Ask me anything about health and fitness, or just say what’s up. I remember things about you.'),
   },
   {
     target: 'level',
-    title: 'My level',
-    body: 'Every log earns me XP and fills this ring. Tap it to see all my stats and how close I am to evolving!',
+    title: t('My level'),
+    body: t('Every log earns me XP and fills this ring. Tap it to see all my stats and how close I am to evolving!'),
   },
   {
     target: 'account',
-    title: 'Your account',
-    body: 'Tap here for your profile, your friends, and all your settings.',
+    title: t('Your account'),
+    body: t('Tap here for your profile, your friends, and all your settings.'),
   },
   ...(plus
     ? [
         {
           target: 'personality' as const,
           page: 'personality' as const,
-          title: 'My personality',
-          body: `This is where you choose who ${petName} is. Pick one, fine-tune it with the sliders, or pick Your own and write me a character. Then tap Save character. It's in Settings → Personality any time.`,
+          title: t('My personality'),
+          body: t("This is where you choose who {pet} is. Pick one, fine-tune it with the sliders, or pick Your own and write me a character. Then tap Save character. It's in Settings → Personality any time.", { pet: petName }),
         },
       ]
     : []),
@@ -132,8 +136,8 @@ export const tourSteps = (petName: string, plus: boolean): TourStep[] => [
 export const petSwitchTip = (current: string, other: string): TourStep[] => [
   {
     target: 'petSwitch',
-    title: 'Two pets now!',
-    body: `Tap the name up here to switch between ${current} and ${other}. The little triangle in its corner means there's another pet to see.`,
+    title: t('Two pets now!'),
+    body: t("Tap the name up here to switch between {current} and {other}. The little triangle in its corner means there's another pet to see.", { current, other }),
   },
 ];
 
@@ -173,10 +177,10 @@ export function FirstRunTour({
   const intro = index < 0;
   const step: { target?: TourTargetId; title: string; body: string; page?: TourPage } | undefined = intro
     ? {
-        title: 'Welcome home!',
+        title: t('Welcome home!'),
         body: speaker
-          ? `This is where ${speaker} lives. Want a quick look around?`
-          : 'This is your new home. Want a quick look around?',
+          ? t('This is where {pet} lives. Want a quick look around?', { pet: speaker })
+          : t('This is your new home. Want a quick look around?'),
       }
     : steps[index];
 
@@ -351,7 +355,7 @@ export function FirstRunTour({
             {intro ? (
               <View />
             ) : (
-              <View style={styles.progress} accessibilityLabel={`${index + 1} of ${steps.length}`}>
+              <View style={styles.progress} accessibilityLabel={t('{step} of {total}', { step: index + 1, total: steps.length })}>
                 {steps.map((_, n) => (
                   <View key={n} style={[styles.pip, n <= index && styles.pipOn]} />
                 ))}
@@ -359,17 +363,17 @@ export function FirstRunTour({
             )}
             <View style={styles.actions}>
               {last ? null : (
-                <Pressable accessibilityRole="button" accessibilityLabel={intro ? 'Maybe later' : 'Skip'} onPress={finish} hitSlop={10}>
-                  <Text style={styles.skip}>{intro ? 'MAYBE LATER' : 'SKIP'}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={intro ? t('Maybe later') : t('Skip')} onPress={finish} hitSlop={10}>
+                  <Text style={styles.skip}>{intro ? t('MAYBE LATER') : t('SKIP')}</Text>
                 </Pressable>
               )}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={intro ? 'Show me around' : last ? "Let's go" : 'Next'}
+                accessibilityLabel={intro ? t('Show me around') : last ? t("Let's go") : t('Next')}
                 onPress={next}
                 style={({ pressed }) => [styles.next, pressed && retroPressed]}
               >
-                <Text style={styles.nextLabel}>{intro ? 'SHOW ME' : last ? "LET'S GO" : 'NEXT'}</Text>
+                <Text style={styles.nextLabel}>{intro ? t('SHOW ME') : last ? t("LET'S GO") : t('NEXT')}</Text>
                 {/* A drawn arrowhead, not a ▶ character: iOS draws that as an emoji. */}
                 {last ? null : <View style={styles.nextArrow} />}
               </Pressable>

@@ -1,3 +1,5 @@
+import { msg, t, tx } from '../i18n';
+
 export type BrainGameKind = 'math' | 'reading' | 'wordPuzzle' | 'wordGarden' | 'spellingBee' | 'countryGuess' | 'fourCorners';
 
 /**
@@ -83,11 +85,11 @@ const TIER_BUILDERS: ((rng: Rng) => { prompt: string; answer: number })[] = [
     if (rng() < 0.5) {
       const percent = pick(rng, [5, 10, 15, 20, 25, 40, 60, 75]);
       const base = int(rng, 4, 24) * 20;
-      return { prompt: `${percent}% of ${base}`, answer: (base * percent) / 100 };
+      return { prompt: t('{percent}% of {base}', { percent, base }), answer: (base * percent) / 100 };
     }
     const quarters = pick(rng, [2, 3]);
     const whole = int(rng, 3, 16) * 4;
-    return { prompt: `${quarters}/4 of ${whole}`, answer: (whole / 4) * quarters };
+    return { prompt: t('{quarters}/4 of {whole}', { quarters, whole }), answer: (whole / 4) * quarters };
   },
   (rng) => {
     if (rng() < 0.5) {
@@ -115,40 +117,40 @@ export const generateMathProblem = (streak: number, rng: Rng = Math.random): Mat
 export const readingPassages: ReadingPassage[] = [
   {
     id: 'sleep-pressure',
-    title: 'Why the afternoon slump is real',
+    title: msg('Why the afternoon slump is real'),
     body:
-      'Your body runs two clocks at once. The first is sleep pressure: a molecule called adenosine builds up in the brain from the moment you wake, and the longer you are awake, the heavier it presses. The second is the circadian rhythm, a roughly 24-hour wave set largely by light, which pushes alertness up and down on its own schedule.\n\nEarly in the afternoon those two clocks briefly work against each other. Adenosine has been accumulating for six or seven hours, while the circadian wave dips before rising again toward evening. The result is a slump that has nothing to do with lunch, though a heavy meal can deepen it.\n\nCaffeine works by blocking adenosine from docking at its receptors. It does not remove the pressure; it hides it. When the caffeine clears, the adenosine that built up in the meantime is still waiting, which is why a late coffee can turn one tired afternoon into a poor night and a worse morning.',
+      msg('Your body runs two clocks at once. The first is sleep pressure: a molecule called adenosine builds up in the brain from the moment you wake, and the longer you are awake, the heavier it presses. The second is the circadian rhythm, a roughly 24-hour wave set largely by light, which pushes alertness up and down on its own schedule.\n\nEarly in the afternoon those two clocks briefly work against each other. Adenosine has been accumulating for six or seven hours, while the circadian wave dips before rising again toward evening. The result is a slump that has nothing to do with lunch, though a heavy meal can deepen it.\n\nCaffeine works by blocking adenosine from docking at its receptors. It does not remove the pressure; it hides it. When the caffeine clears, the adenosine that built up in the meantime is still waiting, which is why a late coffee can turn one tired afternoon into a poor night and a worse morning.'),
     questions: [
       {
         id: 'sleep-1',
-        prompt: 'What causes the afternoon slump, according to the passage?',
+        prompt: msg('What causes the afternoon slump, according to the passage?'),
         options: [
-          'A heavy lunch slowing digestion',
-          'Sleep pressure building while the circadian rhythm dips',
-          'A drop in blood sugar after eating',
-          'Adenosine being cleared too quickly',
+          msg('A heavy lunch slowing digestion'),
+          msg('Sleep pressure building while the circadian rhythm dips'),
+          msg('A drop in blood sugar after eating'),
+          msg('Adenosine being cleared too quickly'),
         ],
         answerIndex: 1,
       },
       {
         id: 'sleep-2',
-        prompt: 'How does caffeine affect adenosine?',
+        prompt: msg('How does caffeine affect adenosine?'),
         options: [
-          'It breaks adenosine down into smaller molecules',
-          'It stops the body producing adenosine',
-          'It blocks adenosine from reaching its receptors',
-          'It converts adenosine into usable energy',
+          msg('It breaks adenosine down into smaller molecules'),
+          msg('It stops the body producing adenosine'),
+          msg('It blocks adenosine from reaching its receptors'),
+          msg('It converts adenosine into usable energy'),
         ],
         answerIndex: 2,
       },
       {
         id: 'sleep-3',
-        prompt: 'Why can a late coffee lead to a worse morning?',
+        prompt: msg('Why can a late coffee lead to a worse morning?'),
         options: [
-          'The adenosine that accumulated is still waiting once caffeine clears',
-          'Caffeine permanently resets the circadian rhythm',
-          'It causes the body to produce extra adenosine overnight',
-          'It removes the afternoon dip entirely',
+          msg('The adenosine that accumulated is still waiting once caffeine clears'),
+          msg('Caffeine permanently resets the circadian rhythm'),
+          msg('It causes the body to produce extra adenosine overnight'),
+          msg('It removes the afternoon dip entirely'),
         ],
         answerIndex: 0,
       },
@@ -156,40 +158,40 @@ export const readingPassages: ReadingPassage[] = [
   },
   {
     id: 'zone-two',
-    title: 'The case for training slowly',
+    title: msg('The case for training slowly'),
     body:
-      'Endurance athletes spend a surprising share of their training going easy. A common pattern is roughly eighty per cent of sessions at a conversational pace and twenty per cent hard, an approach usually called polarised training. The easy work is not filler. It is where the body builds the machinery that makes hard work possible.\n\nAt low intensities, muscles rely mainly on fat for fuel and lean on slow-twitch fibres, which are dense with mitochondria. Training in that range increases both the number and the efficiency of those mitochondria, and grows the fine network of capillaries feeding the muscle. Those adaptations raise the ceiling at which lactate begins to accumulate faster than the body can clear it.\n\nThe trap is the middle. Sessions run at a moderately hard pace feel productive and leave real fatigue, but they are too intense to build the aerobic base and too easy to drive top-end power. Athletes who live there often plateau while training more than ever.',
+      msg('Endurance athletes spend a surprising share of their training going easy. A common pattern is roughly eighty per cent of sessions at a conversational pace and twenty per cent hard, an approach usually called polarised training. The easy work is not filler. It is where the body builds the machinery that makes hard work possible.\n\nAt low intensities, muscles rely mainly on fat for fuel and lean on slow-twitch fibres, which are dense with mitochondria. Training in that range increases both the number and the efficiency of those mitochondria, and grows the fine network of capillaries feeding the muscle. Those adaptations raise the ceiling at which lactate begins to accumulate faster than the body can clear it.\n\nThe trap is the middle. Sessions run at a moderately hard pace feel productive and leave real fatigue, but they are too intense to build the aerobic base and too easy to drive top-end power. Athletes who live there often plateau while training more than ever.'),
     questions: [
       {
         id: 'zone-1',
-        prompt: 'What does polarised training describe?',
+        prompt: msg('What does polarised training describe?'),
         options: [
-          'Alternating strength and cardio days',
-          'Mostly easy sessions with a small share of hard ones',
-          'Training only at a moderately hard pace',
-          'Splitting sessions evenly between easy and hard',
+          msg('Alternating strength and cardio days'),
+          msg('Mostly easy sessions with a small share of hard ones'),
+          msg('Training only at a moderately hard pace'),
+          msg('Splitting sessions evenly between easy and hard'),
         ],
         answerIndex: 1,
       },
       {
         id: 'zone-2',
-        prompt: 'What adaptation does easy training drive, per the passage?',
+        prompt: msg('What adaptation does easy training drive, per the passage?'),
         options: [
-          'Larger fast-twitch fibres',
-          'Higher resting heart rate',
-          'More and more efficient mitochondria, plus capillary growth',
-          'Faster glycogen storage after meals',
+          msg('Larger fast-twitch fibres'),
+          msg('Higher resting heart rate'),
+          msg('More and more efficient mitochondria, plus capillary growth'),
+          msg('Faster glycogen storage after meals'),
         ],
         answerIndex: 2,
       },
       {
         id: 'zone-3',
-        prompt: 'Why is the moderate middle described as a trap?',
+        prompt: msg('Why is the moderate middle described as a trap?'),
         options: [
-          'It is too intense to build the aerobic base and too easy to build top-end power',
-          'It burns fat instead of carbohydrate',
-          'It cannot be sustained for more than a few minutes',
-          'It only suits elite athletes',
+          msg('It is too intense to build the aerobic base and too easy to build top-end power'),
+          msg('It burns fat instead of carbohydrate'),
+          msg('It cannot be sustained for more than a few minutes'),
+          msg('It only suits elite athletes'),
         ],
         answerIndex: 0,
       },
@@ -197,40 +199,40 @@ export const readingPassages: ReadingPassage[] = [
   },
   {
     id: 'habit-loop',
-    title: 'How a habit actually forms',
+    title: msg('How a habit actually forms'),
     body:
-      'A habit is best understood as a loop with three parts: a cue that triggers the behaviour, the routine itself, and a reward that tells the brain the loop was worth repeating. With enough repetition the striatum begins running the sequence with little conscious input, which is why you can drive a familiar route and remember almost nothing of it.\n\nThis is why willpower is a poor tool for change. Willpower fights the routine in the middle of the loop, at the exact moment the cue has already fired and the reward is anticipated. Redesigning the cue is far cheaper. Leaving running shoes by the door or keeping the phone out of the bedroom changes which loop starts in the first place.\n\nResearch on habit formation also punctures a popular myth. The often-quoted twenty-one days comes from a surgeon’s observations about patients adjusting to amputation, not from a study of habits. When behaviour change was actually measured, the average was closer to sixty-six days, with enormous variation between people and behaviours.',
+      msg('A habit is best understood as a loop with three parts: a cue that triggers the behaviour, the routine itself, and a reward that tells the brain the loop was worth repeating. With enough repetition the striatum begins running the sequence with little conscious input, which is why you can drive a familiar route and remember almost nothing of it.\n\nThis is why willpower is a poor tool for change. Willpower fights the routine in the middle of the loop, at the exact moment the cue has already fired and the reward is anticipated. Redesigning the cue is far cheaper. Leaving running shoes by the door or keeping the phone out of the bedroom changes which loop starts in the first place.\n\nResearch on habit formation also punctures a popular myth. The often-quoted twenty-one days comes from a surgeon’s observations about patients adjusting to amputation, not from a study of habits. When behaviour change was actually measured, the average was closer to sixty-six days, with enormous variation between people and behaviours.'),
     questions: [
       {
         id: 'habit-1',
-        prompt: 'What are the three parts of the habit loop?',
+        prompt: msg('What are the three parts of the habit loop?'),
         options: [
-          'Intention, effort, and reflection',
-          'Cue, routine, and reward',
-          'Trigger, willpower, and streak',
-          'Goal, plan, and review',
+          msg('Intention, effort, and reflection'),
+          msg('Cue, routine, and reward'),
+          msg('Trigger, willpower, and streak'),
+          msg('Goal, plan, and review'),
         ],
         answerIndex: 1,
       },
       {
         id: 'habit-2',
-        prompt: 'Why does the passage argue willpower is a poor tool?',
+        prompt: msg('Why does the passage argue willpower is a poor tool?'),
         options: [
-          'It is a finite resource that runs out daily',
-          'It only works for physical habits',
-          'It fights the routine after the cue has already fired',
-          'It weakens the reward the brain expects',
+          msg('It is a finite resource that runs out daily'),
+          msg('It only works for physical habits'),
+          msg('It fights the routine after the cue has already fired'),
+          msg('It weakens the reward the brain expects'),
         ],
         answerIndex: 2,
       },
       {
         id: 'habit-3',
-        prompt: 'What does the passage say about the twenty-one day rule?',
+        prompt: msg('What does the passage say about the twenty-one day rule?'),
         options: [
-          'It came from observations of surgical patients, not habit research',
-          'It applies only to exercise habits',
-          'It was confirmed by later studies averaging sixty-six days',
-          'It describes how long a cue takes to form',
+          msg('It came from observations of surgical patients, not habit research'),
+          msg('It applies only to exercise habits'),
+          msg('It was confirmed by later studies averaging sixty-six days'),
+          msg('It describes how long a cue takes to form'),
         ],
         answerIndex: 0,
       },
@@ -238,35 +240,35 @@ export const readingPassages: ReadingPassage[] = [
   },
   {
     id: 'protein-timing',
-    title: 'The anabolic window that mostly is not',
+    title: msg('The anabolic window that mostly is not'),
     body:
-      'For years, gym advice held that a protein shake had to be swallowed within thirty minutes of the last set or the session was wasted. The idea rested on studies showing that muscle protein synthesis rises sharply after training and that amino acids delivered nearby amplify it.\n\nThe effect is real, but the window turned out to be a door left open far longer than anyone thought. Muscle protein synthesis stays elevated for at least twenty-four hours after a hard session, and remains sensitive to protein for much of that time. When researchers controlled for how much protein people ate across the whole day, the timing advantage largely disappeared.\n\nWhat does hold up is total daily intake, spread reasonably evenly. Most reviews land near 1.6 grams of protein per kilogram of body weight per day for people training seriously, with little further benefit past roughly 2.2. Distributing that across three or four meals beats loading it all into one, mostly because each feeding gives the synthesis machinery another prompt.',
+      msg('For years, gym advice held that a protein shake had to be swallowed within thirty minutes of the last set or the session was wasted. The idea rested on studies showing that muscle protein synthesis rises sharply after training and that amino acids delivered nearby amplify it.\n\nThe effect is real, but the window turned out to be a door left open far longer than anyone thought. Muscle protein synthesis stays elevated for at least twenty-four hours after a hard session, and remains sensitive to protein for much of that time. When researchers controlled for how much protein people ate across the whole day, the timing advantage largely disappeared.\n\nWhat does hold up is total daily intake, spread reasonably evenly. Most reviews land near 1.6 grams of protein per kilogram of body weight per day for people training seriously, with little further benefit past roughly 2.2. Distributing that across three or four meals beats loading it all into one, mostly because each feeding gives the synthesis machinery another prompt.'),
     questions: [
       {
         id: 'protein-1',
-        prompt: 'What happened to the timing advantage in controlled research?',
+        prompt: msg('What happened to the timing advantage in controlled research?'),
         options: [
-          'It doubled when total intake was matched',
-          'It largely disappeared once total daily protein was accounted for',
-          'It only applied to endurance athletes',
-          'It proved larger than first thought',
+          msg('It doubled when total intake was matched'),
+          msg('It largely disappeared once total daily protein was accounted for'),
+          msg('It only applied to endurance athletes'),
+          msg('It proved larger than first thought'),
         ],
         answerIndex: 1,
       },
       {
         id: 'protein-2',
-        prompt: 'How long does muscle protein synthesis stay elevated after a hard session?',
-        options: ['About thirty minutes', 'Two to three hours', 'At least twenty-four hours', 'Roughly a week'],
+        prompt: msg('How long does muscle protein synthesis stay elevated after a hard session?'),
+        options: [msg('About thirty minutes'), msg('Two to three hours'), msg('At least twenty-four hours'), msg('Roughly a week')],
         answerIndex: 2,
       },
       {
         id: 'protein-3',
-        prompt: 'What does the passage say matters most?',
+        prompt: msg('What does the passage say matters most?'),
         options: [
-          'Total daily protein, spread reasonably evenly',
-          'Taking protein within thirty minutes of training',
-          'Eating all protein in a single large meal',
-          'Exceeding 2.2 grams per kilogram every day',
+          msg('Total daily protein, spread reasonably evenly'),
+          msg('Taking protein within thirty minutes of training'),
+          msg('Eating all protein in a single large meal'),
+          msg('Exceeding 2.2 grams per kilogram every day'),
         ],
         answerIndex: 0,
       },
@@ -299,9 +301,9 @@ export const mindScore = ({ game, correct, total, durationSeconds }: PacedBrainS
 };
 
 export const mindScoreLabel = (score: number): string => {
-  if (score >= 90) return 'Razor sharp';
-  if (score >= 75) return 'Focused';
-  if (score >= 55) return 'Warmed up';
-  if (score > 0) return 'Foggy';
-  return 'Not started';
+  if (score >= 90) return t('Razor sharp');
+  if (score >= 75) return tx('a mind score label: concentrating well', 'Focused');
+  if (score >= 55) return t('Warmed up');
+  if (score > 0) return t('Foggy');
+  return t('Not started');
 };

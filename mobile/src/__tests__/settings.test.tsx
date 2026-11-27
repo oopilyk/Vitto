@@ -294,6 +294,18 @@ describe('settings menu', () => {
     expect(byLabel(tree, 'What Blue remembers')).toBeUndefined();
     tree.unmount();
   });
+
+  it("names the app's language, and opens the phone's Settings to change it", () => {
+    const { Linking } = require('react-native');
+    const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+    const tree = renderMenu();
+    const row = byLabel(tree, 'Language')!;
+    expect(row.findAllByType(Text).some((node: any) => node.props.children === 'English')).toBe(true);
+    act(() => row.props.onPress());
+    expect(open).toHaveBeenCalledTimes(1);
+    open.mockRestore();
+    tree.unmount();
+  });
 });
 
 describe('settings legal links', () => {

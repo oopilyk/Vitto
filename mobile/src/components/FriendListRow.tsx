@@ -3,6 +3,7 @@ import { type FriendOverview, deriveSocialPetStatus, initialOf } from '@vitto/co
 import { PetSpriteAvatar } from './PetSpriteAvatar';
 import { type FriendsPalette, healthToneColor } from '../friendsTheme';
 import { colors, fonts, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   friend: FriendOverview;
@@ -39,9 +40,9 @@ export function FriendListRow({ friend, palette, onPress, onLongPress }: Props) 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${rowName(friend)}'s pet`}
-      accessibilityHint={onLongPress ? 'Touch and hold to report or block' : undefined}
-      accessibilityActions={onLongPress ? [{ name: 'longpress', label: 'Report or block' }] : undefined}
+      accessibilityLabel={t("Open {name}'s pet", { name: rowName(friend) })}
+      accessibilityHint={onLongPress ? t('Touch and hold to report or block') : undefined}
+      accessibilityActions={onLongPress ? [{ name: 'longpress', label: t('Report or block') }] : undefined}
       onAccessibilityAction={(event) => event.nativeEvent.actionName === 'longpress' && onLongPress?.()}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -75,13 +76,13 @@ export function FriendListRow({ friend, palette, onPress, onLongPress }: Props) 
             </Text>
           </View>
         ) : (
-          <Text style={[styles.status, { color: palette.secondaryText }]}>No pet yet</Text>
+          <Text style={[styles.status, { color: palette.secondaryText }]}>{t('No pet yet')}</Text>
         )}
       </View>
       {/* The row is a door: say so. A friend with no pet has no room to visit. */}
       {friend.pet ? (
         <Text style={styles.visit} numberOfLines={1}>
-          Visit ›
+          {t('Visit ›')}
         </Text>
       ) : null}
     </Pressable>

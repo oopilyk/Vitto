@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ACHIEVEMENT_BY_ID, type AchievementId, type BodyProfile, type PetState, type TrophyId } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
+import { t } from '../i18n';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
 import { playCelebrationSound } from '../services/mealFeedback';
@@ -121,7 +122,7 @@ export function AchievementUnlock({ id, pet, profile, night, onComplete }: Props
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Achievement unlocked: ${achievement.title}. Tap to continue`}
+      accessibilityLabel={t('Achievement unlocked: {title}. Tap to continue', { title: achievement.title })}
       onPress={finish}
       style={StyleSheet.absoluteFill}
     >
@@ -162,7 +163,7 @@ export function AchievementUnlock({ id, pet, profile, night, onComplete }: Props
           ]}
         >
           <Text style={[retro.label, night && retro.labelNight, styles.kicker]}>
-            {achievement.kind === 'trophy' ? 'TROPHY EARNED' : 'ACHIEVEMENT UNLOCKED'}
+            {achievement.kind === 'trophy' ? t('TROPHY EARNED') : t('ACHIEVEMENT UNLOCKED')}
           </Text>
           {art ? <Image source={art} resizeMode="contain" style={styles.art} /> : <Text style={[styles.star, night && styles.starNight]}>★</Text>}
           <Animated.Text
@@ -180,7 +181,7 @@ export function AchievementUnlock({ id, pet, profile, night, onComplete }: Props
           <Text style={[retro.subtle, night && retro.subtleNight, styles.describe]}>
             {achievement.describe(profile)}
           </Text>
-          <Text style={[retro.subtle, night && retro.subtleNight, styles.hint]}>tap to continue</Text>
+          <Text style={[retro.subtle, night && retro.subtleNight, styles.hint]}>{t('tap to continue')}</Text>
         </Animated.View>
       </View>
     </Pressable>

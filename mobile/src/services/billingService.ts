@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import type { PurchasesPackage } from 'react-native-purchases';
 import { supabase } from './supabaseClient';
+import { t } from '../i18n';
 
 /**
  * Vitto Plus. Two ways to buy it, and the server's entitlement row is the only
@@ -63,15 +64,18 @@ export interface PlusPlanOption {
  * one-off payment would be an open-ended cost.
  */
 export const PLUS_PLANS: PlusPlanOption[] = [
-  { value: 'monthly', label: 'Monthly', price: '$9.99', per: '/ mo', terms: () => '$9.99 / month. Cancel anytime.' },
+  { value: 'monthly', label: t('Monthly'), price: '$9.99', per: t('/ mo'), terms: () => t('{price} / month. Cancel anytime.', { price: '$9.99' }) },
   {
     value: 'yearly',
-    label: 'Yearly',
+    label: t('Yearly'),
     price: '$59.99',
-    per: '/ yr',
-    note: 'Only $4.99 a month',
-    badge: 'SAVE 50%',
-    terms: (trial) => (trial ? `Free for ${TRIAL_DAYS} days, then $59.99 / year. Cancel anytime.` : '$59.99 / year. Cancel anytime.'),
+    per: t('/ yr'),
+    note: t('Only {price} a month', { price: '$4.99' }),
+    badge: t('SAVE {percent}', { percent: '50%' }),
+    terms: (trial) =>
+      trial
+        ? t('Free for {days} days, then {price} / year. Cancel anytime.', { days: TRIAL_DAYS, price: '$59.99' })
+        : t('{price} / year. Cancel anytime.', { price: '$59.99' }),
   },
 ];
 
@@ -86,7 +90,7 @@ interface ServerStatus {
 }
 
 const call = async (body: Record<string, unknown>): Promise<ServerStatus> => {
-  if (!supabase) throw new Error('Sign in to get Plus.');
+  if (!supabase) throw new Error(t('Sign in to get Plus.'));
   const { data, error } = await supabase.functions.invoke('billing', { body });
   if (!error) return data as ServerStatus;
   const context = (error as { context?: unknown }).context;
@@ -100,7 +104,7 @@ const call = async (body: Record<string, unknown>): Promise<ServerStatus> => {
     }
     if (reason) throw new Error(reason);
   }
-  throw new Error('Could not reach the store. Try again.');
+  throw new Error(t('Could not reach the store. Try again.'));
 };
 
 // ---- the App Store, through RevenueCat --------------------------------------
@@ -119,7 +123,7 @@ const ensureStore = async (): Promise<PurchasesModule> => {
   const Purchases = purchases();
   const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
   const userId = data.session?.user.id;
-  if (!userId) throw new Error('Sign in to get Plus.');
+  if (!userId) throw new Error(t('Sign in to get Plus.'));
   if (storeUser === null) {
     // The Supabase user id IS the RevenueCat app user id: the server looks the
     // subscriber up by it, so nobody can buy for, or claim, another account.
@@ -150,25 +154,25 @@ const storePlans = (packages: Partial<Record<PlusPlan, PurchasesPackage>>, trial
   if (monthly) {
     plans.push({
       value: 'monthly',
-      label: 'Monthly',
+      label: t('Monthly'),
       price: monthly.priceString,
-      per: '/ mo',
-      terms: () => `${monthly.priceString} / month, renews automatically. Cancel anytime in Settings.`,
+      per: t('/ mo'),
+      terms: () => t('{price} / month, renews automatically. Cancel anytime in Settings.', { price: monthly.priceString }),
     });
   }
   if (yearly) {
     const saving = monthly && monthly.price > 0 ? 1 - yearly.price / (monthly.price * 12) : 0;
     plans.push({
       value: 'yearly',
-      label: 'Yearly',
+      label: t('Yearly'),
       price: yearly.priceString,
-      per: '/ yr',
-      note: yearly.pricePerMonthString ? `Only ${yearly.pricePerMonthString} a month` : undefined,
-      badge: saving >= 0.05 ? `SAVE ${formatPercent(saving)}` : undefined,
+      per: t('/ yr'),
+      note: yearly.pricePerMonthString ? t('Only {price} a month', { price: yearly.pricePerMonthString }) : undefined,
+      badge: saving >= 0.05 ? t('SAVE {percent}', { percent: formatPercent(saving) }) : undefined,
       terms: (trial) =>
         trial && trialDays
-          ? `Free for ${trialDays} days, then ${yearly.priceString} / year, renews automatically. Cancel anytime in Settings.`
-          : `${yearly.priceString} / year, renews automatically. Cancel anytime in Settings.`,
+          ? t('Free for {days} days, then {price} / year, renews automatically. Cancel anytime in Settings.', { days: trialDays, price: yearly.priceString })
+          : t('{price} / year, renews automatically. Cancel anytime in Settings.', { price: yearly.priceString }),
     });
   }
   return plans;
@@ -220,7 +224,7 @@ export const billingService = {
     if (!(await storeMode())) return toStatus(await call({ action: 'purchase', plan, trial }));
     const Purchases = await ensureStore();
     const chosen = (await storePackages(Purchases))[plan];
-    if (!chosen) throw new Error('That plan is not available right now.');
+    if (!chosen) throw new Error(t('That plan is not available right now.'));
     try {
       await Purchases.purchasePackage(chosen);
     } catch (cause) {
@@ -228,7 +232,7 @@ export const billingService = {
       if (failure.userCancelled || failure.code === Purchases.PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
         return billingService.status();
       }
-      throw new Error(failure.message || 'The purchase did not go through.');
+      throw new Error(failure.message || t('The purchase did not go through.'));
     }
     // Apple took the payment; the server unlocks Plus once RevenueCat shows the
     // entitlement. One more look a moment later covers a slow first read.
@@ -239,7 +243,7 @@ export const billingService = {
     }
     // Paid but still free would otherwise look like a button that did nothing.
     if (next.tier !== 'plus') {
-      throw new Error('Your purchase went through, but Plus has not switched on yet. In a minute, tap Restore in Settings → Vitto Plus, or email getvitto@gmail.com.');
+      throw new Error(t('Your purchase went through, but Plus has not switched on yet. In a minute, tap Restore in Settings → Vitto Plus, or email {email}.', { email: 'getvitto@gmail.com' }));
     }
     return next;
   },

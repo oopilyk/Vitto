@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import type { LetterMark } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
+import { t } from '../i18n';
 import { MARK_APPEARANCE } from './WordPuzzleGrid';
 
 /**
@@ -27,12 +28,12 @@ export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disable
           {rowIndex === 2 ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Submit guess"
+              accessibilityLabel={t('Submit guess')}
               disabled={disabled}
               onPress={onEnter}
               style={({ pressed }) => [styles.key, styles.wideKey, pressed && styles.pressed, disabled && styles.dim]}
             >
-              <Text style={styles.actionLabel} numberOfLines={1}>ENTER</Text>
+              <Text style={styles.actionLabel} numberOfLines={1}>{t('ENTER')}</Text>
             </Pressable>
           ) : null}
           {row.split('').map((letter) => {
@@ -41,7 +42,7 @@ export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disable
               <Pressable
                 key={letter}
                 accessibilityRole="button"
-                accessibilityLabel={`${letter.toUpperCase()}, ${appearance ? appearance.label : 'not tried yet'}`}
+                accessibilityLabel={t('{letter}, {state}', { letter: letter.toUpperCase(), state: appearance ? appearance.label : t('not tried yet') })}
                 disabled={disabled}
                 onPress={() => onKey(letter)}
                 style={({ pressed }) => [
@@ -67,12 +68,12 @@ export function WordPuzzleKeyboard({ marks, onKey, onEnter, onBackspace, disable
           {rowIndex === 2 ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Delete letter"
+              accessibilityLabel={t('Delete letter')}
               disabled={disabled}
               onPress={onBackspace}
               style={({ pressed }) => [styles.key, styles.wideKey, pressed && styles.pressed, disabled && styles.dim]}
             >
-              <Text style={styles.actionLabel} numberOfLines={1}>DEL</Text>
+              <Text style={styles.actionLabel} numberOfLines={1}>{t('DEL')}</Text>
             </Pressable>
           ) : null}
         </View>

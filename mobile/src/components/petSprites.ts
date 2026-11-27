@@ -1,6 +1,7 @@
 import type { ImageSourcePropType } from 'react-native';
 import { clipFiles, type ClipFiles } from './petClips';
 import { EVOLUTION_LEVEL, getPetBuild, type PetBreed, type PetBuild, type PetState } from '@vitto/core';
+import { t } from '../i18n';
 
 /**
  * Every sheet is a 4-column grid of square cells; a sheet with more or fewer
@@ -72,7 +73,13 @@ type Frame = readonly [number, number];
 
 export interface PetSheet {
   name: PetBreed;
+  /** What the sheet is called on screen, in the app's language. */
   label: string;
+  /**
+   * The label in English whatever the language is, for anything that looks a
+   * sheet up by it (the widget's still frames are named after it). Never shown.
+   */
+  englishLabel: string;
   source: ImageSourcePropType;
   /**
    * Grid shape of this sheet, when it is not the 4x11 the dogs and cat use. Only
@@ -185,11 +192,37 @@ export interface PetVideos {
 // ---------------------------------------------------------------------------
 
 /** What a base sheet and the forms derived from it have in common. */
-type SheetLayout = Omit<PetSheet, 'source' | 'label' | 'evolutions'>;
+type SheetLayout = Omit<PetSheet, 'source' | 'label' | 'englishLabel' | 'evolutions'>;
+
+/** The animals' and the forms' names, each a name on its own. One missing from here is shown in English. */
+const NAMES: Record<string, string> = {
+  Bichon: t('Bichon'),
+  Shiba: t('Shiba'),
+  Otter: t('Otter'),
+  'Tabby Cat': t('Tabby Cat'),
+  Bunny: t('Bunny'),
+  Fox: t('Fox'),
+  Koala: t('Koala'),
+  Bear: t('Bear'),
+  Axolotl: t('Axolotl'),
+  Dino: t('Dino'),
+  Runner: t('Runner'),
+  Lifter: t('Lifter'),
+  Scholar: t('Scholar'),
+};
+
+/**
+ * A sheet's two labels from its English one. A form's ('Tabby Cat · Lifter')
+ * is the animal's name and the form's, translated one by one and joined again.
+ */
+const labelled = (english: string): Pick<PetSheet, 'label' | 'englishLabel'> => ({
+  label: english.split(' · ').map((name) => NAMES[name] ?? name).join(' · '),
+  englishLabel: english,
+});
 
 const sheetFrom = (layout: SheetLayout, label: string, source: ImageSourcePropType): PetSheet => ({
   ...layout,
-  label,
+  ...labelled(label),
   source,
   animations: { ...layout.animations },
 });
@@ -274,7 +307,7 @@ const gifFormSheet = (
   calmIdle = false,
 ): PetSheet => ({
   name: breed,
-  label,
+  ...labelled(label),
   source,
   rows: 16,
   ...(artScale ? { artScale } : {}),
@@ -336,7 +369,7 @@ const BICHON_RUNNER_CLIPS = {
 
 const BICHON_RUNNER: PetSheet = {
   name: 'bichon',
-  label: 'Bichon · Runner',
+  ...labelled('Bichon · Runner'),
   source: require('../../assets/pet/bichonRunner.png'),
   // Its idle is just the tail wag (eight frames, eyes open), a row shorter.
   rows: 15,
@@ -459,7 +492,7 @@ const SHIBA_RUNNER_CLIPS = {
 
 const SHIBA_RUNNER: PetSheet = {
   name: 'shiba',
-  label: 'Shiba · Runner',
+  ...labelled('Shiba · Runner'),
   source: require('../../assets/pet/shibaRunner.png'),
   rows: 16,
   animations: gifFormBands({ unwell: 8 }),
@@ -704,7 +737,7 @@ const OTTER_CELL = { x: 25, y: 15, size: 720 };
 
 const OTTER: PetSheet = {
   name: 'otter',
-  label: 'Otter',
+  ...labelled('Otter'),
   source: require('../../assets/pet/otter.png'),
   evolutions: { runner: OTTER_RUNNER, lifter: OTTER_LIFTER, scholar: OTTER_SCHOLAR },
   rows: 16,
@@ -853,7 +886,7 @@ const bunnyFormBands = (moveCells: [number, number][], after: number): PetSheet[
  */
 const BUNNY_LIFTER: PetSheet = {
   name: 'bunny',
-  label: 'Bunny · Lifter',
+  ...labelled('Bunny · Lifter'),
   source: require('../../assets/pet/bunnyLifter.png'),
   rows: 16,
   animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3]], 8),
@@ -880,7 +913,7 @@ const BUNNY_LIFTER: PetSheet = {
 /** Bunny · Runner, 4x16: orange headband and a gold medal. Its run is a quick three-frame hop. */
 const BUNNY_RUNNER: PetSheet = {
   name: 'bunny',
-  label: 'Bunny · Runner',
+  ...labelled('Bunny · Runner'),
   source: require('../../assets/pet/bunnyRunner.png'),
   rows: 16,
   animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1]], 8),
@@ -904,7 +937,7 @@ const BUNNY_RUNNER: PetSheet = {
 /** Bunny · Scholar, 4x17: carries a red book with a gold star. Its walk takes an extra row. */
 const BUNNY_SCHOLAR: PetSheet = {
   name: 'bunny',
-  label: 'Bunny · Scholar',
+  ...labelled('Bunny · Scholar'),
   source: require('../../assets/pet/bunnyScholar.png'),
   rows: 17,
   animations: bunnyFormBands([[6, 0], [6, 1], [6, 2], [6, 3], [7, 0], [7, 1], [7, 2], [7, 3], [8, 0], [8, 1]], 9),
@@ -1076,7 +1109,7 @@ const BEAR_LIFTER_VIDEOS: PetVideos = {
 const BEAR_LIFTER: PetSheet = {
   // Still the bear breed -- `name` identifies the animal, not the sheet.
   name: 'bear',
-  label: 'Bear · Lifter',
+  ...labelled('Bear · Lifter'),
   source: require('../../assets/pet/bearLifter.png'),
   rows: 16,
   animations: {
@@ -1139,7 +1172,7 @@ const BEAR_RUNNER_VIDEOS: PetVideos = {
 
 const BEAR_RUNNER: PetSheet = {
   name: 'bear',
-  label: 'Bear · Runner',
+  ...labelled('Bear · Runner'),
   source: require('../../assets/pet/bearRunner.png'),
   rows: 16,
   animations: {
@@ -1198,7 +1231,7 @@ const BEAR_SCHOLAR_VIDEOS: PetVideos = {
 
 const BEAR_SCHOLAR: PetSheet = {
   name: 'bear',
-  label: 'Bear · Scholar',
+  ...labelled('Bear · Scholar'),
   source: require('../../assets/pet/bearScholar.png'),
   rows: 16,
   animations: {
@@ -1259,7 +1292,7 @@ const AXOLOTL_FORM_TIMING: PetSheet['frameMs'] = { idle: 333, cheer: 167, move: 
 /** Axolotl · Lifter: red headband. Stands about, then flexes (idle); hops (move). */
 const AXOLOTL_LIFTER: PetSheet = {
   name: 'axolotl',
-  label: 'Axolotl · Lifter',
+  ...labelled('Axolotl · Lifter'),
   source: require('../../assets/pet/axolotlLifter.png'),
   rows: 16,
   animations: gifFormBands({ unwell: 8 }),
@@ -1284,7 +1317,7 @@ const AXOLOTL_LIFTER: PetSheet = {
 /** Axolotl · Runner: orange headband and a gold medal. */
 const AXOLOTL_RUNNER: PetSheet = {
   name: 'axolotl',
-  label: 'Axolotl · Runner',
+  ...labelled('Axolotl · Runner'),
   source: require('../../assets/pet/axolotlRunner.png'),
   rows: 16,
   animations: gifFormBands({ unwell: 8 }),
@@ -1308,7 +1341,7 @@ const AXOLOTL_RUNNER: PetSheet = {
 /** Axolotl · Scholar: carries a red book with a gold star; walks rather than runs. */
 const AXOLOTL_SCHOLAR: PetSheet = {
   name: 'axolotl',
-  label: 'Axolotl · Scholar',
+  ...labelled('Axolotl · Scholar'),
   source: require('../../assets/pet/axolotlScholar.png'),
   rows: 16,
   animations: gifFormBands({ unwell: 8 }),

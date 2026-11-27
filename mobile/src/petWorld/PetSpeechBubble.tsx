@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Mark } from '../components/ui';
 import { Animated, Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native';
 import { fonts, world, themedStyles } from '../theme';
+import { t, tx } from '../i18n';
 import { RETRO_BORDER_WIDTH, retro } from './retroStyle';
 import { useSpeechClearance } from './RoomActionSlot';
 
@@ -106,7 +107,7 @@ export function PetSpeechBubble({
         <Pressable
           testID="companion-bubble"
           accessibilityRole="button"
-          accessibilityLabel={`${petName} says: ${said.text}`}
+          accessibilityLabel={t('{pet} says: {line}', { pet: petName, line: said.text })}
           onPress={onPress}
           disabled={!onPress}
           style={[retro.panel, night && retro.panelNight, styles.bubble]}
@@ -118,7 +119,7 @@ export function PetSpeechBubble({
         <Pressable
           testID="companion-bubble-close"
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={tx('to dismiss', 'Close')}
           onPress={() => setShownFor(null)}
           hitSlop={12}
           style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.close, pressed && styles.closePressed]}

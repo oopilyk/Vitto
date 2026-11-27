@@ -1,4 +1,5 @@
 import type { BodyProfile } from './macroTargets';
+import { getLocale, t, tx } from '../i18n';
 
 /**
  * Where a lift sits against other lifters of the same sex, bodyweight and age.
@@ -112,11 +113,11 @@ export interface LiftStanding {
 }
 
 const BANDS: readonly (readonly [number, string])[] = [
-  [5, 'Untrained'], [20, 'Beginner'], [50, 'Novice'], [80, 'Intermediate'], [95, 'Advanced'],
+  [5, t('Untrained')], [20, t('Beginner')], [50, t('Novice')], [80, t('Intermediate')], [95, t('Advanced')],
 ];
 
 const bandFor = (percentile: number): string =>
-  BANDS.find(([ceiling]) => percentile < ceiling)?.[1] ?? 'Elite';
+  BANDS.find(([ceiling]) => percentile < ceiling)?.[1] ?? t('Elite');
 
 /**
  * Places one lift, or returns null when it cannot be placed honestly — an
@@ -147,6 +148,8 @@ export const overallStanding = (standings: readonly (LiftStanding | null)[]): Li
 
 /** "62nd", "1st", "23rd" — for a percentile read out in prose. */
 export const ordinal = (value: number): string => {
+  // English has four endings; the other languages have one way to write it, which the translator gives.
+  if (getLocale() !== 'en') return tx('an ordinal number, as in "the 62nd percentile"', '{value}th', { value });
   const rest = value % 100;
   if (rest >= 11 && rest <= 13) return `${value}th`;
   return `${value}${['th', 'st', 'nd', 'rd'][value % 10] ?? 'th'}`;

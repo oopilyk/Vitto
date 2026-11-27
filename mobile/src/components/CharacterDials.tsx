@@ -1,6 +1,7 @@
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { companion } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 type DialKey = companion.DialKey;
 type PersonalityDials = companion.PersonalityDials;
@@ -35,7 +36,8 @@ export function CharacterDials({
   return (
     <View style={styles.wrap} testID={testID}>
       {companion.DIAL_KEYS.map((key: DialKey) => {
-        const [low, high] = companion.DIAL_LABELS[key];
+        // The words are the companion's own table (English, shared with the prompt): translated here, where they are drawn.
+        const [low, high] = companion.DIAL_LABELS[key].map((word) => t(word)) as [string, string];
         const current = nearestStop(dials[key]);
         const lowWord = (
           <Text style={[styles.end, stacked && styles.endStacked, current < 0.5 && styles.endOn]} numberOfLines={1}>
@@ -60,7 +62,7 @@ export function CharacterDials({
             <View
               style={styles.track}
               accessibilityRole="adjustable"
-              accessibilityLabel={`${low} to ${high}`}
+              accessibilityLabel={t('{low} to {high}', { low, high })}
               accessibilityValue={{ min: 0, max: STOPS.length - 1, now: STOPS.indexOf(current as (typeof STOPS)[number]) }}
             >
               {STOPS.map((stop) => (
@@ -68,7 +70,7 @@ export function CharacterDials({
                   key={stop}
                   testID={`dial-${key}-${Math.round(stop * 6)}`}
                   accessibilityRole="button"
-                  accessibilityLabel={`${key} ${Math.round(stop * 6)} of 6`}
+                  accessibilityLabel={t('{dial} {stop} of 6', { dial: t(key), stop: Math.round(stop * 6) })}
                   hitSlop={6}
                   onPress={() => onChange({ ...dials, [key]: stop })}
                   style={[styles.stop, stop === current && styles.stopOn, stop === 0.5 && stop !== current && styles.stopMid]}

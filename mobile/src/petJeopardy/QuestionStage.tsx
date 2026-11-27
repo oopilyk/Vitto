@@ -3,6 +3,7 @@ import { Text, View, type LayoutChangeEvent } from 'react-native';
 import { surface } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
 import { AnswerTile, type AnswerTileState } from './AnswerTile';
+import { t } from '../i18n';
 
 export interface StageReveal {
   correctIndex: number;
@@ -70,8 +71,8 @@ export function QuestionStage({
 
   const tileMark = (index: number): string | null => {
     if (!reveal) return null;
-    if (index === reveal.correctIndex) return reveal.correct ? 'CORRECT' : 'ANSWER';
-    if (index === reveal.chosenIndex) return 'YOUR PICK';
+    if (index === reveal.correctIndex) return reveal.correct ? t('CORRECT') : t('ANSWER');
+    if (index === reveal.chosenIndex) return t('YOUR PICK');
     return null;
   };
 
@@ -121,7 +122,7 @@ export function QuestionStage({
         {options.map((option, index) => (
           <AnswerTile
             key={option}
-            answer={option}
+            answer={t(option)}
             state={tileState(index)}
             mark={tileMark(index)}
             night={night}

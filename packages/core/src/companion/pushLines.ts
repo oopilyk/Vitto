@@ -107,10 +107,13 @@ export const eventLineKind = (event: Pick<CompanionEvent, 'type' | 'metadata'>):
  * was written under, the bank is rewritten: a new name, temperament, persona,
  * set of dials or tier is a different voice.
  */
-export const pushVoiceKey = (life: Pick<LifeContext, 'pet'>, tier: CompanionTier): string =>
+export const pushVoiceKey = (life: Pick<LifeContext, 'pet' | 'language'>, tier: CompanionTier): string =>
   JSON.stringify({
     v: 1,
     tier,
+    // The lines are written in the app's language: a new language is a new bank.
+    // Left out in English, so an English bank written before this keeps its key.
+    ...(life.language ? { language: life.language } : {}),
     name: life.pet.name,
     temperament: life.pet.temperament ?? null,
     persona: life.pet.persona ?? null,

@@ -17,7 +17,7 @@ import {
   otherPartyId,
   partitionFriendRequests,
   relationToUser,
-  REACTION_RECEIVED,
+  reactionReceived,
   type FriendReaction,
   type BlockedUser,
 } from '@vitto/core';
@@ -29,6 +29,7 @@ import { FriendListRow } from '../components/FriendListRow';
 import { ErrorText, Field, PrimaryButton, Mark } from '../components/ui';
 import { friendsPalette } from '../friendsTheme';
 import { colors, fonts, layout, themedStyles } from '../theme';
+import { t, tx } from '../i18n';
 
 interface Props {
   currentUserId: string;
@@ -144,7 +145,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
       });
       setProfiles(nextProfiles);
     } catch (cause) {
-      setLoadError(errorMessage(cause, 'Could not load your friends.'));
+      setLoadError(errorMessage(cause, t('Could not load your friends.')));
     } finally {
       setLoading(false);
     }
@@ -173,7 +174,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
           setSearchResults(results.filter((result) => result.id !== currentUserId));
           setSearchError(null);
         })
-        .catch((cause) => setSearchError(errorMessage(cause, 'Could not search for that username.')))
+        .catch((cause) => setSearchError(errorMessage(cause, t('Could not search for that username.'))))
         .finally(() => setSearching(false));
     }, SEARCH_DEBOUNCE_MS);
     return () => {
@@ -195,7 +196,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
       // showed up there after a reload.
       onUsernameChange?.(saved);
     } catch (cause) {
-      setUsernameError(errorMessage(cause, 'Could not save your username.'));
+      setUsernameError(errorMessage(cause, t('Could not save your username.')));
     } finally {
       setSettingUsername(false);
     }
@@ -208,7 +209,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
       await action();
       await refresh();
     } catch (cause) {
-      setActionError(errorMessage(cause, 'That did not go through.'));
+      setActionError(errorMessage(cause, t('That did not go through.')));
     } finally {
       setPendingActionId(null);
     }
@@ -235,9 +236,9 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
       <View style={[styles.topbar, { borderBottomColor: palette.divider }]}>
         <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.back}>
           <Text style={styles.backMark}>‹</Text>
-          <Text style={[styles.backLabel, { color: palette.secondaryText }]}>Pet</Text>
+          <Text style={[styles.backLabel, { color: palette.secondaryText }]}>{tx('back to the screen with your pet', 'Pet')}</Text>
         </Pressable>
-        <Text style={[styles.topTitle, { color: palette.primaryText }]}>Friends</Text>
+        <Text style={[styles.topTitle, { color: palette.primaryText }]}>{t('Friends')}</Text>
         {/* Balances the back button so the title stays centred. */}
         <View style={styles.topbarSpacer} />
       </View>
@@ -260,13 +261,13 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
           {loadError ? null : (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add a friend"
+              accessibilityLabel={t('Add a friend')}
               onPress={() => setShowAdd(true)}
               style={({ pressed }) => [styles.addFriend, pressed && { opacity: 0.8 }]}
               testID="add-friend"
             >
               <Mark kind="plus" size={16} weight={2.4} color="#fff" />
-              <Text style={styles.addFriendLabel}>Add a friend</Text>
+              <Text style={styles.addFriendLabel}>{t('Add a friend')}</Text>
             </Pressable>
           )}
 
@@ -274,14 +275,14 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
 
           {reactions.length > 0 && !loadError ? (
             <View style={[styles.card, { backgroundColor: palette.rowBg, borderColor: palette.divider }]} testID="received-reactions">
-              <Text style={[styles.cardTitle, { color: palette.secondaryText }]}>Cheers for you</Text>
+              <Text style={[styles.cardTitle, { color: palette.secondaryText }]}>{t('Cheers for you')}</Text>
               {reactions.slice(0, 8).map((item) => {
                 const from = friends.find((friend) => friend.friendId === item.fromUserId);
                 return (
                   <View key={item.id} style={styles.reactionRow}>
-                    {!item.seenAt ? <View style={styles.reactionNew} accessibilityLabel="New" /> : null}
+                    {!item.seenAt ? <View style={styles.reactionNew} accessibilityLabel={tx('a reaction you have not seen yet', 'New')} /> : null}
                     <Text style={[styles.reactionText, { color: palette.primaryText }]}>
-                      {`${from ? handleFor(from.profile) : 'A friend'} ${REACTION_RECEIVED[item.kind]}`}
+                      {reactionReceived(item.kind, from ? handleFor(from.profile) : t('A friend'))}
                       <Text style={{ color: palette.secondaryText }}>{`  ·  ${formatLastActive(item.createdAt)}`}</Text>
                     </Text>
                   </View>
@@ -294,14 +295,14 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
             <View style={[styles.card, { backgroundColor: palette.rowBg, borderColor: palette.divider }]}>
               <ErrorText>{loadError}</ErrorText>
               <Pressable accessibilityRole="button" onPress={() => void refresh()} hitSlop={8}>
-                <Text style={styles.link}>Try again</Text>
+                <Text style={styles.link}>{t('Try again')}</Text>
               </Pressable>
             </View>
           ) : (
             <>
               {incoming.length > 0 ? (
                 <View style={styles.section}>
-                  <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>Requests</Text>
+                  <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>{t('Requests')}</Text>
                   {incoming.map((request) => {
                     const otherId = otherPartyId(request, currentUserId);
                     const name = nameFor(profiles[otherId], otherId);
@@ -314,7 +315,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                         ]}
                       >
                         <Text style={[styles.bannerText, { color: palette.bannerText }]} numberOfLines={2}>
-                          {name} wants to be friends
+                          {t('{name} wants to be friends', { name })}
                         </Text>
                         <View style={styles.bannerActions}>
                           <Pressable
@@ -325,7 +326,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                             }
                             hitSlop={8}
                           >
-                            <Text style={[styles.link, styles.accept]}>Accept</Text>
+                            <Text style={[styles.link, styles.accept]}>{t('Accept')}</Text>
                           </Pressable>
                           <Pressable
                             accessibilityRole="button"
@@ -335,16 +336,16 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                             }
                             hitSlop={8}
                           >
-                            <Text style={[styles.link, styles.decline]}>Decline</Text>
+                            <Text style={[styles.link, styles.decline]}>{t('Decline')}</Text>
                           </Pressable>
                           <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel={`Report or block ${name}`}
+                            accessibilityLabel={t('Report or block {name}', { name })}
                             disabled={pendingActionId === request.id}
                             onPress={() => askReportOrBlock({ userId: otherId, name, onBlocked: () => void refresh() })}
                             hitSlop={8}
                           >
-                            <Text style={[styles.link, { color: palette.secondaryText }]}>Report</Text>
+                            <Text style={[styles.link, { color: palette.secondaryText }]}>{tx('button: report this person', 'Report')}</Text>
                           </Pressable>
                         </View>
                       </View>
@@ -357,14 +358,13 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
 
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>
-                  Your friends{sortedFriends.length > 0 ? ` · ${sortedFriends.length}` : ''}
+                  {sortedFriends.length > 0 ? t('Your friends · {count}', { count: sortedFriends.length }) : t('Your friends')}
                 </Text>
                 {sortedFriends.length === 0 ? (
                   <View style={[styles.card, { backgroundColor: palette.rowBg, borderColor: palette.divider }]}>
-                    <Text style={[styles.emptyTitle, { color: palette.primaryText }]}>No friends yet</Text>
+                    <Text style={[styles.emptyTitle, { color: palette.primaryText }]}>{t('No friends yet')}</Text>
                     <Text style={[styles.emptyBody, { color: palette.secondaryText }]}>
-                      Add friends by username to see how their pets are doing. They see your pet the same way —
-                      never what you logged.
+                      {t('Add friends by username to see how their pets are doing. They see your pet the same way — never what you logged.')}
                     </Text>
                   </View>
                 ) : (
@@ -384,9 +384,9 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
 
               {blocked.length > 0 ? (
                 <View style={styles.section} testID="blocked-users">
-                  <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>Blocked</Text>
+                  <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>{tx('heading: people you have blocked', 'Blocked')}</Text>
                   {blocked.map((person) => {
-                    const label = person.username ? `@${person.username}` : 'Someone';
+                    const label = person.username ? `@${person.username}` : t('Someone');
                     return (
                       <View key={person.userId} style={[styles.banner, { backgroundColor: palette.rowBg, borderColor: palette.divider }]}>
                         <Text style={[styles.bannerText, { color: palette.primaryText }]} numberOfLines={1}>
@@ -394,12 +394,12 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                         </Text>
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel={`Unblock ${label}`}
+                          accessibilityLabel={t('Unblock {name}', { name: label })}
                           disabled={pendingActionId === person.userId}
                           onPress={() => void runAction(person.userId, () => friendsService.unblockUser(person.userId))}
                           hitSlop={8}
                         >
-                          <Text style={[styles.link, styles.accept]}>Unblock</Text>
+                          <Text style={[styles.link, styles.accept]}>{t('Unblock')}</Text>
                         </Pressable>
                       </View>
                     );
@@ -409,7 +409,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
 
               {outgoing.length > 0 ? (
                 <View style={styles.section}>
-                  <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>Pending</Text>
+                  <Text style={[styles.sectionLabel, { color: palette.secondaryText }]}>{tx('heading: friend requests you sent that are not answered yet', 'Pending')}</Text>
                   {outgoing.map((request) => {
                     const otherId = otherPartyId(request, currentUserId);
                     return (
@@ -428,7 +428,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                           }
                           hitSlop={8}
                         >
-                          <Text style={styles.link}>Cancel</Text>
+                          <Text style={styles.link}>{t('Cancel')}</Text>
                         </Pressable>
                       </View>
                     );
@@ -451,9 +451,9 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
       >
         <View style={[styles.sheet, { backgroundColor: palette.screenBg }]} testID="add-friend-sheet">
           <View style={[styles.sheetHead, { borderBottomColor: palette.divider }]}>
-            <Text style={[styles.topTitle, { color: palette.primaryText }]}>Add a friend</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={closeAdd} hitSlop={10}>
-              <Text style={styles.backLabel}>Done</Text>
+            <Text style={[styles.topTitle, { color: palette.primaryText }]}>{t('Add a friend')}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={tx('dismiss this screen', 'Close')} onPress={closeAdd} hitSlop={10}>
+              <Text style={styles.backLabel}>{t('Done')}</Text>
             </Pressable>
           </View>
           <ScrollView
@@ -465,14 +465,14 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
             {!hasUsername ? (
               <View style={styles.gate}>
                 <Text style={[styles.gateText, { color: palette.secondaryText }]}>
-                  Choose a username so friends can find you. Nothing else about your profile is shown.
+                  {t('Choose a username so friends can find you. Nothing else about your profile is shown.')}
                 </Text>
-                <Field label="Username">
+                <Field label={t('Username')}>
                   <TextInput
                     style={layout.input}
                     value={usernameInput}
                     onChangeText={setUsernameInput}
-                    placeholder="lowercase_letters_digits"
+                    placeholder={t('lowercase_letters_digits')}
                     placeholderTextColor={colors.faint}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -480,7 +480,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                 </Field>
                 <ErrorText>{usernameError}</ErrorText>
                 <PrimaryButton
-                  label={settingUsername ? 'Saving...' : 'Save username'}
+                  label={settingUsername ? t('Saving...') : t('Save username')}
                   busy={settingUsername}
                   disabled={usernameInput.trim().length === 0}
                   onPress={() => void saveUsername()}
@@ -492,7 +492,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                   style={layout.input}
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Search a username"
+                  placeholder={t('Search a username')}
                   placeholderTextColor={colors.faint}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -501,7 +501,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                 />
                 {query.trim().length < MIN_SEARCH_LENGTH ? (
                   <Text style={[styles.empty, { color: palette.secondaryText }]}>
-                    {`Type at least ${MIN_SEARCH_LENGTH} letters and everyone whose username matches shows here.`}
+                    {t('Type at least {count} letters and everyone whose username matches shows here.', { count: MIN_SEARCH_LENGTH })}
                   </Text>
                 ) : null}
                 <ErrorText>{actionError}</ErrorText>
@@ -513,7 +513,7 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                 {searchError ? <ErrorText>{searchError}</ErrorText> : null}
                 {!searching && searchResults && searchResults.length === 0 && !searchError ? (
                   <Text style={[styles.empty, { color: palette.secondaryText }]}>
-                    No one found with that username.
+                    {t('No one found with that username.')}
                   </Text>
                 ) : null}
                 {searchResults?.map((result) => {
@@ -534,15 +534,15 @@ export function FriendsScreen({ currentUserId, onClose, onOpenFriendPet, carePar
                           }
                           hitSlop={8}
                         >
-                          <Text style={styles.link}>Add</Text>
+                          <Text style={styles.link}>{t('Add')}</Text>
                         </Pressable>
                       ) : (
                         <Text style={[styles.searchStatusText, { color: palette.secondaryText }]} numberOfLines={1}>
                           {relation === 'friends'
-                            ? 'Friends'
+                            ? tx('you are already friends with this person', 'Friends')
                             : relation === 'outgoing'
-                              ? 'Requested'
-                              : 'Wants to be friends'}
+                              ? tx('you already sent this person a friend request', 'Requested')
+                              : t('Wants to be friends')}
                         </Text>
                       )}
                     </View>

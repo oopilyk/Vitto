@@ -46,6 +46,7 @@ import { useKeyboardHeight } from '../hooks/useKeyboardHeight';
 import { startRest, stopRest } from '../services/restTimer';
 import { clearWorkoutDraft, loadWorkoutDraft, resumedStartedAt, saveWorkoutDraft } from '../services/workoutDraft';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
+import { formatLocale, msg, t, tn, tx } from '../i18n';
 import { RoomWindowSlot, useRoomKeyboardGap, useScrollToWindowOnLog } from '../petWorld/RoomPanel';
 
 interface Props {
@@ -135,7 +136,7 @@ const RECORD_BANNER_MS = 3500;
 const RECORD_GOLD = TIER_COLOR[2]!;
 
 /** The unnamed session. Saving a routine still called this asks for a real name. */
-const DEFAULT_SESSION_NAME = 'Strength session';
+const DEFAULT_SESSION_NAME = msg('Strength session');
 /** As long as a meal or reminder name may be: past it, the title is a wall of text everywhere it shows. */
 const MAX_SESSION_NAME = 60;
 /** Below this width the set row's fixed columns tighten (see `narrow`). */
@@ -162,6 +163,10 @@ export const workoutDaysThisWeek = (history: readonly HealthEvent[], now = new D
   return { days: days.size, today: days.has(now.toDateString()) };
 };
 
+/** "8 reps", "1 rep". */
+const repsLabel = (count: number): string =>
+  count === 1 ? tx('repetitions of an exercise', '{count} rep', { count }) : tx('repetitions of an exercise', '{count} reps', { count });
+
 /** Two decimals at most, so 0.1 + 0.2 never reads as 0.30000000000000004. */
 const tidy = (value: number) => Math.round(value * 100) / 100;
 
@@ -176,15 +181,17 @@ function CardioStepper({
   onChange,
   step,
   decimal,
-  noun,
+  fewerLabel,
+  moreLabel,
   accessibilityLabel,
 }: {
   value: string;
   onChange: (next: string) => void;
   step: number;
   decimal?: boolean;
-  /** "minutes", "miles": what the − and + say they change. */
-  noun: string;
+  /** "Fewer minutes", "More miles": what the − and + say they do. */
+  fewerLabel: string;
+  moreLabel: string;
   accessibilityLabel: string;
 }) {
   const current = Number(value) || 0;
@@ -193,7 +200,7 @@ function CardioStepper({
     <View style={styles.stepper}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Fewer ${noun}`}
+        accessibilityLabel={fewerLabel}
         accessibilityState={{ disabled: atZero }}
         disabled={atZero}
         hitSlop={6}
@@ -218,7 +225,7 @@ function CardioStepper({
       />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`More ${noun}`}
+        accessibilityLabel={moreLabel}
         hitSlop={6}
         onPress={() => {
           haptic('select');
@@ -370,7 +377,7 @@ export function WorkoutScreen({
           setRest(draft.rest);
           void startRest(draft.rest.endsAt, draft.rest.startedAt, draft.rest.label);
         }
-        if (!quietResume) setRoutineMessage('Picked up where you left off.');
+        if (!quietResume) setRoutineMessage(t('Picked up where you left off.'));
       }
       setDraftChecked(true);
     });
@@ -495,9 +502,9 @@ export function WorkoutScreen({
         onClose();
         return;
       }
-      Alert.alert('Discard your changes?', 'The workout stays as it was logged.', [
-        { text: 'Discard', style: 'destructive', onPress: onClose },
-        { text: 'Keep editing', style: 'cancel' },
+      Alert.alert(t('Discard your changes?'), t('The workout stays as it was logged.'), [
+        { text: t('Discard'), style: 'destructive', onPress: onClose },
+        { text: t('Keep editing'), style: 'cancel' },
       ]);
       return;
     }
@@ -511,17 +518,17 @@ export function WorkoutScreen({
       keepForLater();
       return;
     }
-    Alert.alert('Leave this workout?', 'Keep it to finish later, or discard it.', [
-      { text: 'Keep for later', onPress: keepForLater },
+    Alert.alert(t('Leave this workout?'), t('Keep it to finish later, or discard it.'), [
+      { text: t('Keep for later'), onPress: keepForLater },
       {
-        text: 'Discard workout',
+        text: t('Discard workout'),
         style: 'destructive',
         onPress: () => {
           void clearWorkoutDraft();
           onClose();
         },
       },
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('Cancel'), style: 'cancel' },
     ]);
   };
 
@@ -550,9 +557,9 @@ export function WorkoutScreen({
       reset();
       return;
     }
-    Alert.alert('Start over?', 'This clears the workout so you can pick another.', [
-      { text: 'Start over', style: 'destructive', onPress: reset },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('Start over?'), t('This clears the workout so you can pick another.'), [
+      { text: t('Start over'), style: 'destructive', onPress: reset },
+      { text: t('Cancel'), style: 'cancel' },
     ]);
   };
 
@@ -663,7 +670,10 @@ export function WorkoutScreen({
     const unit = set.unit ?? weightUnit;
     setRecordBanner({
       key: setId,
-      text: record === 'weight' ? `New heaviest ${exercise.name}: ${set.weight} ${unit}` : `New best ${exercise.name}: ${set.weight} ${unit} × ${set.reps}`,
+      text:
+        record === 'weight'
+          ? t('New heaviest {exercise}: {weight} {unit}', { exercise: t(exercise.name), weight: String(set.weight), unit })
+          : t('New best {exercise}: {weight} {unit} × {reps}', { exercise: t(exercise.name), weight: String(set.weight), unit, reps: set.reps }),
     });
   };
 
@@ -713,7 +723,7 @@ export function WorkoutScreen({
    * waiting, ask first: back to it, or replace it. Read from the saved draft,
    * not `waiting`, so a workout finished since doesn't raise a stale question.
    */
-  const unlessUnderWay = (label: string, begin: () => void) => {
+  const unlessUnderWay = (label: string | null, begin: () => void) => {
     if (!handsOff) {
       begin();
       return;
@@ -724,11 +734,16 @@ export function WorkoutScreen({
         begin();
         return;
       }
-      const current = draft.name || DEFAULT_SESSION_NAME;
-      Alert.alert(`${current} is in progress`, `Starting ${label} replaces it.`, [
-        { text: `Resume ${current}`, style: 'cancel', onPress: () => onOpenSession?.() },
-        { text: `Start ${label}`, style: 'destructive', onPress: begin },
-      ]);
+      // The names are drawn in the person's language; a null label is "a new workout".
+      const current = t(draft.name || DEFAULT_SESSION_NAME);
+      Alert.alert(
+        t('{workout} is in progress', { workout: current }),
+        label === null ? t('Starting a new workout replaces it.') : t('Starting {workout} replaces it.', { workout: t(label) }),
+        [
+          { text: t('Resume {workout}', { workout: current }), style: 'cancel', onPress: () => onOpenSession?.() },
+          { text: label === null ? t('Start a new workout') : t('Start {workout}', { workout: t(label) }), style: 'destructive', onPress: begin },
+        ],
+      );
     });
   };
 
@@ -827,9 +842,9 @@ export function WorkoutScreen({
       setActiveTemplateId(template.id);
       setName(template.name);
       setExercises(sessionFromTemplate(template));
-      setRoutineMessage(`Saved "${template.name}" — one tap next time.`);
+      setRoutineMessage(t('Saved "{name}" — one tap next time.', { name: t(template.name) }));
     } catch (cause) {
-      setRoutineMessage(errorMessage(cause, 'Could not save that routine.'));
+      setRoutineMessage(errorMessage(cause, t('Could not save that routine.')));
     } finally {
       setSaving(false);
     }
@@ -879,14 +894,18 @@ export function WorkoutScreen({
   const summary = [
     ...(stats.completedSets > 0
       ? [
-          `${stats.completedSets} ${stats.completedSets === 1 ? 'set' : 'sets'}`,
-          `${stats.totalReps} reps`,
-          ...(stats.totalVolume > 0 ? [`${Math.round(stats.totalVolume).toLocaleString('en-US')} ${weightUnit} volume`] : []),
+          stats.completedSets === 1
+            ? tx('one set of an exercise', '{count} set', { count: stats.completedSets })
+            : tx('one set of an exercise', '{count} sets', { count: stats.completedSets }),
+          repsLabel(stats.totalReps),
+          ...(stats.totalVolume > 0
+            ? [tx('total weight lifted', '{amount} {unit} volume', { amount: Math.round(stats.totalVolume).toLocaleString(formatLocale()), unit: weightUnit })]
+            : []),
         ]
       : []),
     ...(goesSomewhere && Number(distance) > 0 ? [`${Number(distance)} ${distanceUnit}`] : []),
     // A walk with no time yet has no length to show; "1 min" read as logged.
-    goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0) ? 'Add the time' : `${stats.durationMinutes} min`,
+    goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0) ? t('Add the time') : t('{minutes} min', { minutes: stats.durationMinutes }),
   ].join(' · ');
 
   // The week so far, and the day this session would add if today has none
@@ -896,18 +915,18 @@ export function WorkoutScreen({
 
   const finish = async (confirmed = false) => {
     if (!exercises.length) {
-      setError('Add an exercise first.');
+      setError(t('Add an exercise first.'));
       return;
     }
     const unfilled = filled.find((exercise) => !exercise.distance && exercise.sets.length === 0);
     if (unfilled && !editing) {
-      setError(`Fill in the reps for ${unfilled.name}, or take it off.`);
+      setError(t('Fill in the reps for {exercise}, or take it off.', { exercise: t(unfilled.name) }));
       return;
     }
     // With no sets there is no clock to fall back on: an empty time would log
     // the walk as a single minute.
     if (goesSomewhere && stats.completedSets === 0 && !(Number(duration) > 0)) {
-      setError('Add how many minutes it took.');
+      setError(t('Add how many minutes it took.'));
       return;
     }
     // A typo is refused or questioned here, before it becomes a record.
@@ -918,9 +937,9 @@ export function WorkoutScreen({
     }
     if (check && !confirmed && !(Platform.OS === 'web' && globalThis.confirm?.(check.message))) {
       if (Platform.OS === 'web') return;
-      Alert.alert(check.message, 'Check the numbers before this goes in your log.', [
-        { text: 'Fix it', style: 'cancel' },
-        { text: 'Log it', onPress: () => void finish(true) },
+      Alert.alert(check.message, t('Check the numbers before this goes in your log.'), [
+        { text: t('Fix it'), style: 'cancel' },
+        { text: t('Log it'), onPress: () => void finish(true) },
       ]);
       return;
     }
@@ -968,7 +987,7 @@ export function WorkoutScreen({
       if (keepsDraft) await clearWorkoutDraft();
       onClose();
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not save workout.'));
+      setError(errorMessage(cause, t('Could not save workout.')));
     } finally {
       setSaving(false);
     }
@@ -978,16 +997,17 @@ export function WorkoutScreen({
   // Best match first: a name that starts with the search, then a word in it
   // that does, then the rest. "run" put Crunches above Running.
   const rank = (exerciseName: string) => {
-    const lower = exerciseName.toLowerCase();
-    if (lower.startsWith(query)) return 0;
-    if (lower.split(/[\s-]+/).some((word) => word.startsWith(query))) return 1;
+    // The name as it is shown, and the English it is stored under.
+    const names = [t(exerciseName).toLowerCase(), exerciseName.toLowerCase()];
+    if (names.some((lower) => lower.startsWith(query))) return 0;
+    if (names.some((lower) => lower.split(/[\s-]+/).some((word) => word.startsWith(query)))) return 1;
     return 2;
   };
   const matches = exerciseLibrary
     .filter(([exerciseName, muscle, kind]) => {
       if (cardioOnly && kind !== 'distance') return false;
       if (!query) return true;
-      return exerciseName.toLowerCase().includes(query) || muscle.toLowerCase().includes(query);
+      return [exerciseName, muscle, t(exerciseName), t(muscle)].some((value) => value.toLowerCase().includes(query));
     })
     .map((entry, index) => ({ entry, index, rank: query ? rank(entry[0]) : 0 }))
     .sort((a, b) => a.rank - b.rank || a.index - b.index)
@@ -1020,7 +1040,7 @@ export function WorkoutScreen({
     managingRoutines ? (
       <>
         {onRemove ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${label}`} hitSlop={8} onPress={onRemove} style={styles.routineDelete}>
+          <Pressable accessibilityRole="button" accessibilityLabel={label} hitSlop={8} onPress={onRemove} style={styles.routineDelete}>
             <Mark kind="cross" size={11} color={colors.danger} />
           </Pressable>
         ) : null}
@@ -1032,7 +1052,7 @@ export function WorkoutScreen({
   const dayLabel = (index: number) =>
     rotationSchedule && index < rotationDays.length ? (
       <Text style={[styles.dayLabel, rotation?.index === index && styles.dayLabelToday]}>
-        {rotation?.index === index ? `DAY ${index + 1} · TODAY` : `DAY ${index + 1}`}
+        {rotation?.index === index ? t('DAY {day} · TODAY', { day: index + 1 }) : t('DAY {day}', { day: index + 1 })}
       </Text>
     ) : null;
 
@@ -1048,41 +1068,41 @@ export function WorkoutScreen({
           >
             <View style={{ flex: 1 }}>
               {dayLabel(index)}
-              <Text style={[styles.routineName, styles.restName]}>Rest day</Text>
+              <Text style={[styles.routineName, styles.restName]}>{t('Rest day')}</Text>
             </View>
           </View>
-          {dayControls(handle, `rest day ${index + 1}`, () => rotationSchedule && saveRotation(removeScheduleDay(rotationSchedule, templates, scheduleDayId(day))))}
+          {dayControls(handle, t('Delete rest day {day}', { day: index + 1 }), () => rotationSchedule && saveRotation(removeScheduleDay(rotationSchedule, templates, scheduleDayId(day))))}
         </View>
       );
     }
     const template = templates.find((candidate) => candidate.id === day.templateId);
     if (!template) return null;
-    const preview = template.exercises.slice(0, 3).map((exercise) => exercise.name).join(', ');
+    const preview = template.exercises.slice(0, 3).map((exercise) => t(exercise.name)).join(', ');
     const more = template.exercises.length - 3;
     return (
       <View key={template.id} style={styles.routineRowWrap}>
         <PressableScale
           accessibilityRole="button"
-          accessibilityLabel={managingRoutines ? `Edit routine ${template.name}` : `Load routine ${template.name}`}
+          accessibilityLabel={managingRoutines ? t('Edit routine {name}', { name: t(template.name) }) : t('Load routine {name}', { name: t(template.name) })}
           onPress={() => (managingRoutines ? startEditingRoutine(template) : loadRoutine(template))}
           style={({ pressed }) => [styles.routineRow, isToday && styles.routineRowToday, lifted && styles.rowLifted, pressed && styles.pressed]}
         >
           <View style={{ flex: 1 }}>
             {dayLabel(index)}
-            <Text style={styles.routineName} numberOfLines={1}>{template.name}</Text>
+            <Text style={styles.routineName} numberOfLines={1}>{t(template.name)}</Text>
             <Text style={styles.routinePreview} numberOfLines={1}>
               {preview}
-              {more > 0 ? ` +${more} more` : ''}
+              {more > 0 ? ` ${t('+{count} more', { count: more })}` : ''}
             </Text>
           </View>
           {/* A light pill, not a coral one: today's card above holds the one loud Start. */}
           <View style={styles.goPill}>
-            <Text style={styles.goPillLabel} numberOfLines={1}>{managingRoutines ? 'Edit' : 'Start'}</Text>
+            <Text style={styles.goPillLabel} numberOfLines={1}>{managingRoutines ? t('Edit') : tx('begin this workout', 'Start')}</Text>
           </View>
         </PressableScale>
         {dayControls(
           handle,
-          `routine ${template.name}`,
+          t('Delete routine {name}', { name: t(template.name) }),
           onDeleteTemplate
             ? () => {
                 void onDeleteTemplate(template.id);
@@ -1115,7 +1135,7 @@ export function WorkoutScreen({
   };
 
   const openPicker = () =>
-    unlessUnderWay('a new workout', () => {
+    unlessUnderWay(null, () => {
       setSearch('');
       setCardioOnly(false);
       setPicking(true);
@@ -1135,8 +1155,8 @@ export function WorkoutScreen({
   const exerciseFigure = (exercise: WorkoutExercise): { value: string; unit: string } | null => {
     if (routineMode || exercise.distance) return null;
     const own = calculateWorkoutStats(inShownUnit([exercise]), 1);
-    if (own.totalVolume > 0) return { value: Math.round(own.totalVolume).toLocaleString('en-US'), unit: weightUnit };
-    if (own.totalReps > 0) return { value: own.totalReps.toLocaleString('en-US'), unit: own.totalReps === 1 ? 'rep' : 'reps' };
+    if (own.totalVolume > 0) return { value: Math.round(own.totalVolume).toLocaleString(formatLocale()), unit: weightUnit };
+    if (own.totalReps > 0) return { value: own.totalReps.toLocaleString(formatLocale()), unit: own.totalReps === 1 ? tx('repetitions of an exercise', 'rep') : tx('repetitions of an exercise', 'reps') };
     return null;
   };
 
@@ -1146,11 +1166,11 @@ export function WorkoutScreen({
       style={style}
       items={[
         {
-          label: 'Last 7 days',
+          label: t('Last 7 days'),
           value: week.days,
           goal: weeklyWorkoutGoal,
           adding: weekAdding,
-          unit: weeklyWorkoutGoal === 1 ? 'workout' : 'workouts',
+          unit: weeklyWorkoutGoal === 1 ? t('workout') : t('workouts'),
         },
       ]}
     />
@@ -1175,7 +1195,7 @@ export function WorkoutScreen({
     if (!onSaveOutdoorRoutine || !outdoorActivity || outdoorName === null) return;
     const minutes = Number(duration);
     if (!(minutes > 0)) {
-      setError('Add the time first: the routine logs it each time.');
+      setError(t('Add the time first: the routine logs it each time.'));
       return;
     }
     setSavingOutdoor(true);
@@ -1188,7 +1208,7 @@ export function WorkoutScreen({
       // Back to the Outside page, where the new routine is waiting with its Log.
       onClose();
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not save that routine.'));
+      setError(errorMessage(cause, t('Could not save that routine.')));
     } finally {
       setSavingOutdoor(false);
     }
@@ -1197,36 +1217,36 @@ export function WorkoutScreen({
   const recentBlock = recentSessions.length > 0 ? (
     <View style={styles.routines} testID="recent-sessions">
       <View style={styles.routinesHead}>
-        <Text style={styles.sectionLabel}>RECENT</Text>
+        <Text style={styles.sectionLabel}>{t('RECENT')}</Text>
       </View>
       <View style={styles.recentList}>
         {recentSessions.map((past) => {
-          const pastName = past.metadata.name || 'Workout';
+          const pastName = t(past.metadata.name || msg('Workout'));
           const minutes = past.metadata.stats?.durationMinutes ?? past.metadata.durationMinutes;
           const canRepeat = (past.metadata.exercises ?? []).length > 0;
           return (
             <PressableScale
               key={past.id}
               accessibilityRole="button"
-              accessibilityLabel={`Open ${pastName}, ${whenLabel(past.occurredAt)}`}
+              accessibilityLabel={t('Open {workout}, {when}', { workout: pastName, when: whenLabel(past.occurredAt) })}
               onPress={() => onOpenPast?.(past)}
               style={({ pressed }) => [styles.routineRow, pressed && styles.pressed]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.routineName} numberOfLines={1}>{pastName}</Text>
                 <Text style={styles.routinePreview} numberOfLines={1}>
-                  {`${whenLabel(past.occurredAt)} · ${minutes} min`}
+                  {t('{when} · {minutes} min', { when: whenLabel(past.occurredAt), minutes })}
                 </Text>
               </View>
               {canRepeat ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Do ${pastName} again`}
+                  accessibilityLabel={t('Do {workout} again', { workout: pastName })}
                   hitSlop={8}
                   onPress={() => repeatSession(past)}
                   style={({ pressed }) => [styles.goPill, pressed && styles.pressed]}
                 >
-                  <Text style={styles.goPillLabel} numberOfLines={1}>Repeat</Text>
+                  <Text style={styles.goPillLabel} numberOfLines={1}>{t('Repeat')}</Text>
                 </Pressable>
               ) : null}
             </PressableScale>
@@ -1251,25 +1271,25 @@ export function WorkoutScreen({
   const gymRoutines = templates.filter((template) => !(template.exercises.length === 1 && template.exercises[0]!.distance && template.minutes));
   const listed = gymRoutines.filter((template) => template.id !== todayTemplate?.id || managingRoutines);
   const splitLine = rotationDays
-    .map((day) => (day.kind === 'rest' ? 'Rest' : (templates.find((template) => template.id === day.templateId)?.name ?? '')))
+    .map((day) => (day.kind === 'rest' ? tx('a rest day in a training split', 'Rest') : t(templates.find((template) => template.id === day.templateId)?.name ?? '')))
     .join(' → ');
   const notInSplit = gymRoutines.filter((template) => !inSplit(template.id));
 
   /** One day of the split while editing it: its place, its name, take it out, and the grip. */
   const splitRow = (day: ScheduleDay, index: number, handle: ReactNode, lifted = false) => {
     const isToday = rotation?.index === index;
-    const name = day.kind === 'rest' ? 'Rest day' : (templates.find((template) => template.id === day.templateId)?.name ?? 'Routine');
+    const name = day.kind === 'rest' ? t('Rest day') : t(templates.find((template) => template.id === day.templateId)?.name ?? msg('Routine'));
     return (
       <View key={scheduleDayId(day)} style={styles.routineRowWrap}>
         <View style={[styles.routineRow, styles.routineRowRoom, isToday && styles.routineRowToday, lifted && styles.rowLifted]}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{isToday ? `DAY ${index + 1} · TODAY` : `DAY ${index + 1}`}</Text>
+            <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{isToday ? t('DAY {day} · TODAY', { day: index + 1 }) : t('DAY {day}', { day: index + 1 })}</Text>
             <Text style={[styles.routineName, day.kind === 'rest' && styles.restName]} numberOfLines={1}>{name}</Text>
           </View>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Take ${name} out of the split`}
+          accessibilityLabel={t('Take {day} out of the split', { day: name })}
           hitSlop={8}
           onPress={() => rotationSchedule && saveRotation(removeScheduleDay(rotationSchedule, templates, scheduleDayId(day)))}
           style={styles.routineDelete}
@@ -1287,15 +1307,15 @@ export function WorkoutScreen({
         // ---- the split, being set up
         <>
           <View style={[styles.roomListHead, { marginTop: 0 }]}>
-            <Text style={styles.sectionLabel}>YOUR SPLIT</Text>
-            <TextButton label="Done" onPress={() => setEditingSplit(false)} tone="coral" />
+            <Text style={styles.sectionLabel}>{t('YOUR SPLIT')}</Text>
+            <TextButton label={t('Done')} onPress={() => setEditingSplit(false)} tone="coral" />
           </View>
           {rotationDays.length > 0 ? (
             <DragList
               items={rotationDays}
               keyOf={scheduleDayId}
               labelOf={(day) =>
-                day.kind === 'rest' ? 'rest day' : (templates.find((template) => template.id === day.templateId)?.name ?? 'routine')
+                day.kind === 'rest' ? t('rest day') : t(templates.find((template) => template.id === day.templateId)?.name ?? msg('routine'))
               }
               renderItem={splitRow}
               enabled={rotationSchedule !== null}
@@ -1307,40 +1327,40 @@ export function WorkoutScreen({
             />
           ) : (
             <Text style={styles.splitHint}>
-              Pick the routines you rotate through, in order. Each day the next one is today's, and a rest day is a day off.
+              {t("Pick the routines you rotate through, in order. Each day the next one is today's, and a rest day is a day off.")}
             </Text>
           )}
-          <Text style={[styles.sectionLabel, { marginTop: 16, marginBottom: 6 }]}>ADD A DAY</Text>
+          <Text style={[styles.sectionLabel, { marginTop: 16, marginBottom: 6 }]}>{t('ADD A DAY')}</Text>
           <View style={styles.addDayChips}>
             {notInSplit.map((template) => (
               <Pressable
                 key={template.id}
                 accessibilityRole="button"
-                accessibilityLabel={`Add ${template.name} to the split`}
+                accessibilityLabel={t('Add {name} to the split', { name: t(template.name) })}
                 onPress={() => saveRotation(addRoutineDay(rotationSchedule, templates, template.id))}
                 style={({ pressed }) => [styles.addDayChip, pressed && styles.pressed]}
               >
-                <Text style={styles.addDayChipLabel} numberOfLines={1}>{`+ ${template.name}`}</Text>
+                <Text style={styles.addDayChipLabel} numberOfLines={1}>{`+ ${t(template.name)}`}</Text>
               </Pressable>
             ))}
             {rotationSchedule ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Add a rest day to the split"
+                accessibilityLabel={t('Add a rest day to the split')}
                 onPress={() => saveRotation(addRestDay(rotationSchedule, templates))}
                 style={({ pressed }) => [styles.addDayChip, styles.addDayChipRest, pressed && styles.pressed]}
                 testID="add-rest-day"
               >
-                <Text style={[styles.addDayChipLabel, styles.addDayChipRestLabel]}>+ Rest day</Text>
+                <Text style={[styles.addDayChipLabel, styles.addDayChipRestLabel]}>{t('+ Rest day')}</Text>
               </Pressable>
             ) : null}
           </View>
           {notInSplit.length === 0 && !rotationSchedule ? (
-            <Text style={styles.splitHint}>Make a routine first: it is one day of the split.</Text>
+            <Text style={styles.splitHint}>{t('Make a routine first: it is one day of the split.')}</Text>
           ) : null}
           {rotationSchedule && rotation && rotation.length > 1 ? (
             <View style={styles.roomRestart}>
-              <TextButton label="Restart from day 1" onPress={() => saveRotation(restartSchedule(rotationSchedule, templates))} />
+              <TextButton label={t('Restart from day 1')} onPress={() => saveRotation(restartSchedule(rotationSchedule, templates))} />
             </View>
           ) : null}
         </>
@@ -1350,12 +1370,12 @@ export function WorkoutScreen({
           {rotation ? (
             <View style={[styles.todayCard, styles.todayCardRoom]} testID="rotation-today">
               <View style={styles.todayHeadRoom}>
-                <Text style={styles.todayKicker}>{`TODAY · DAY ${rotation.index + 1} OF ${rotation.length}`}</Text>
+                <Text style={styles.todayKicker}>{t('TODAY · DAY {day} OF {total}', { day: rotation.index + 1, total: rotation.length })}</Text>
                 {rotationSchedule && rotation.length > 1 ? (
                   <View style={styles.dayNudge}>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Previous day"
+                      accessibilityLabel={t('Previous day')}
                       hitSlop={8}
                       onPress={() => saveRotation(stepToday(rotationSchedule, templates, -1))}
                       style={({ pressed }) => [styles.dayNudgeButton, pressed && styles.pressed]}
@@ -1364,7 +1384,7 @@ export function WorkoutScreen({
                     </Pressable>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Next day"
+                      accessibilityLabel={t('Next day')}
                       hitSlop={8}
                       onPress={() => saveRotation(stepToday(rotationSchedule, templates, 1))}
                       style={({ pressed }) => [styles.dayNudgeButton, pressed && styles.pressed]}
@@ -1377,25 +1397,25 @@ export function WorkoutScreen({
               {todayTemplate ? (
                 <PressableScale
                   accessibilityRole="button"
-                  accessibilityLabel={`Start ${todayTemplate.name}, today's routine`}
+                  accessibilityLabel={t("Start {name}, today's routine", { name: t(todayTemplate.name) })}
                   onPress={() => loadRoutine(todayTemplate)}
                   style={({ pressed }) => [styles.todayMain, styles.todayMainRoom, pressed && styles.pressed]}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.todayName} numberOfLines={1}>{todayTemplate.name}</Text>
+                    <Text style={styles.todayName} numberOfLines={1}>{t(todayTemplate.name)}</Text>
                     <Text style={styles.routinePreview} numberOfLines={1}>
-                      {todayTemplate.exercises.map((exercise) => exercise.name).join(', ')}
+                      {todayTemplate.exercises.map((exercise) => t(exercise.name)).join(', ')}
                     </Text>
                   </View>
                   <View style={styles.todayStart}>
-                    <Text style={styles.todayStartLabel} numberOfLines={1}>Start</Text>
+                    <Text style={styles.todayStartLabel} numberOfLines={1}>{tx('begin this workout', 'Start')}</Text>
                   </View>
                 </PressableScale>
               ) : (
                 <View style={[styles.todayMain, styles.todayMainRoom]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.todayName}>Rest day</Text>
-                    <Text style={styles.routinePreview} numberOfLines={1}>Nothing due. You can still train below.</Text>
+                    <Text style={styles.todayName}>{t('Rest day')}</Text>
+                    <Text style={styles.routinePreview} numberOfLines={1}>{t('Nothing due. You can still train below.')}</Text>
                   </View>
                 </View>
               )}
@@ -1406,10 +1426,10 @@ export function WorkoutScreen({
           {listed.length > 0 || managingRoutines ? (
             <>
               <View style={[styles.roomListHead, !rotation && { marginTop: 0 }]}>
-                <Text style={styles.sectionLabel}>{managingRoutines ? 'EDIT ROUTINES' : todayTemplate ? 'OTHER ROUTINES' : 'ROUTINES'}</Text>
+                <Text style={styles.sectionLabel}>{managingRoutines ? t('EDIT ROUTINES') : todayTemplate ? t('OTHER ROUTINES') : t('ROUTINES')}</Text>
                 {onDeleteTemplate ? (
                   <TextButton
-                    label={managingRoutines ? 'Done' : 'Edit'}
+                    label={managingRoutines ? t('Done') : t('Edit')}
                     onPress={() => setManagingRoutines((current) => !current)}
                     tone="coral"
                   />
@@ -1420,24 +1440,24 @@ export function WorkoutScreen({
                   <View key={template.id} style={styles.routineRowWrap}>
                     <PressableScale
                       accessibilityRole="button"
-                      accessibilityLabel={managingRoutines ? `Edit routine ${template.name}` : `Load routine ${template.name}`}
+                      accessibilityLabel={managingRoutines ? t('Edit routine {name}', { name: t(template.name) }) : t('Load routine {name}', { name: t(template.name) })}
                       onPress={() => (managingRoutines ? startEditingRoutine(template) : loadRoutine(template))}
                       style={({ pressed }) => [styles.routineRow, styles.routineRowRoom, pressed && styles.pressed]}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.routineName} numberOfLines={1}>{template.name}</Text>
+                        <Text style={styles.routineName} numberOfLines={1}>{t(template.name)}</Text>
                         <Text style={styles.routinePreview} numberOfLines={1}>
-                          {template.exercises.map((exercise) => exercise.name).join(', ')}
+                          {template.exercises.map((exercise) => t(exercise.name)).join(', ')}
                         </Text>
                       </View>
                       <View style={styles.goPill}>
-                        <Text style={styles.goPillLabel} numberOfLines={1}>{managingRoutines ? 'Edit' : 'Start'}</Text>
+                        <Text style={styles.goPillLabel} numberOfLines={1}>{managingRoutines ? t('Edit') : tx('begin this workout', 'Start')}</Text>
                       </View>
                     </PressableScale>
                     {managingRoutines && onDeleteTemplate ? (
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={`Delete routine ${template.name}`}
+                        accessibilityLabel={t('Delete routine {name}', { name: t(template.name) })}
                         hitSlop={8}
                         onPress={() => {
                           void onDeleteTemplate(template.id);
@@ -1457,20 +1477,20 @@ export function WorkoutScreen({
           <View style={[styles.roomButtons, { marginTop: 12 }]}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Pick exercises"
+              accessibilityLabel={t('Pick exercises')}
               onPress={openPicker}
               style={({ pressed }) => [styles.roomButton, pressed && styles.pressed]}
             >
-              <Text style={styles.roomButtonLabel} numberOfLines={1}>Pick exercises</Text>
+              <Text style={styles.roomButtonLabel} numberOfLines={1}>{t('Pick exercises')}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="New routine"
+              accessibilityLabel={t('New routine')}
               onPress={startNewRoutine}
               style={({ pressed }) => [styles.roomButton, pressed && styles.pressed]}
               testID="add-routine"
             >
-              <Text style={styles.roomButtonLabel} numberOfLines={1}>+ New routine</Text>
+              <Text style={styles.roomButtonLabel} numberOfLines={1}>{t('+ New routine')}</Text>
             </Pressable>
           </View>
 
@@ -1478,17 +1498,17 @@ export function WorkoutScreen({
           {onSaveSchedule && !managingRoutines ? (
             <PressableScale
               accessibilityRole="button"
-              accessibilityLabel={rotationSchedule ? `Your split: ${splitLine}. Edit it` : 'Set up a split'}
+              accessibilityLabel={rotationSchedule ? t('Your split: {days}. Edit it', { days: splitLine }) : t('Set up a split')}
               onPress={() => setEditingSplit(true)}
               style={({ pressed }) => [styles.splitRow, pressed && styles.pressed]}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.sectionLabel}>SPLIT</Text>
+                <Text style={styles.sectionLabel}>{t('SPLIT')}</Text>
                 <Text style={styles.splitLine} numberOfLines={1}>
-                  {rotationSchedule ? splitLine : 'Rotate routines, like Push → Pull → Legs'}
+                  {rotationSchedule ? splitLine : t('Rotate routines, like Push → Pull → Legs')}
                 </Text>
               </View>
-              <Text style={styles.splitEdit}>{rotationSchedule ? 'Edit' : 'Set up'}</Text>
+              <Text style={styles.splitEdit}>{rotationSchedule ? t('Edit') : t('Set up')}</Text>
             </PressableScale>
           ) : null}
 
@@ -1496,7 +1516,7 @@ export function WorkoutScreen({
 
           {!managingRoutines && weeklyWorkoutGoal > 0 ? (
             <Text style={styles.roomWeek}>
-              {`${week.days} of ${weeklyWorkoutGoal} ${weeklyWorkoutGoal === 1 ? 'workout' : 'workouts'} in the last 7 days`}
+              {tn(weeklyWorkoutGoal, '{done} of {count} workout in the last 7 days', '{done} of {count} workouts in the last 7 days', { done: week.days })}
             </Text>
           ) : null}
         </>
@@ -1516,28 +1536,28 @@ export function WorkoutScreen({
                 style={[layout.input, styles.roomNameInput]}
                 value={routineName}
                 onChangeText={setRoutineName}
-                placeholder="Routine name (Push, Legs...)"
+                placeholder={t('Routine name (Push, Legs...)')}
                 placeholderTextColor={colors.faint}
-                accessibilityLabel="Routine name"
+                accessibilityLabel={t('Routine name')}
                 maxLength={MAX_TEMPLATE_NAME}
                 autoFocus={!editingTemplateId}
                 returnKeyType="done"
               />
-              <TextButton label="Cancel" onPress={leaveRoutineMode} tone="coral" />
+              <TextButton label={t('Cancel')} onPress={leaveRoutineMode} tone="coral" />
             </View>
           ) : !empty ? (
             <View style={styles.roomBar}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={startWithCardio ? 'Back to the activities' : 'Back to all workouts'}
+                accessibilityLabel={startWithCardio ? t('Back to the activities') : t('Back to all workouts')}
                 onPress={startWithCardio ? backToActivities : backToStart}
                 hitSlop={8}
                 style={({ pressed }) => [styles.roomBack, pressed && styles.pressed]}
                 testID="workout-back"
               >
-                <Text style={styles.backToStartLabel}>‹ Back</Text>
+                <Text style={styles.backToStartLabel}>{t('‹ Back')}</Text>
               </Pressable>
-              <Text style={styles.roomTitle} numberOfLines={1}>{name || 'Workout'}</Text>
+              <Text style={styles.roomTitle} numberOfLines={1}>{t(name || msg('Workout'))}</Text>
               {/* Outside, the logger sits over the room's page: × puts it away. */}
               {startWithCardio ? <CloseButton onPress={requestClose} /> : null}
             </View>
@@ -1550,13 +1570,13 @@ export function WorkoutScreen({
               {!routineMode && !editing && exercises.length > 0 ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Back to all workouts"
+                  accessibilityLabel={t('Back to all workouts')}
                   onPress={backToStart}
                   hitSlop={8}
                   style={styles.backToStart}
                   testID="workout-back"
                 >
-                  <Text style={styles.backToStartLabel}>‹ Back</Text>
+                  <Text style={styles.backToStartLabel}>{t('‹ Back')}</Text>
                 </Pressable>
               ) : null}
               {/* A routine's or session's own name can run long: two lines at most,
@@ -1567,18 +1587,18 @@ export function WorkoutScreen({
               >
                 {routineMode
                   ? editingTemplateId
-                    ? routineName || 'Edit routine'
-                    : routineName || 'New routine'
+                    ? routineName || t('Edit routine')
+                    : routineName || t('New routine')
                   : editing
-                    ? 'Edit workout'
+                    ? t('Edit workout')
                     : empty
-                      ? 'What are you training?'
-                      : name || 'Workout'}
+                      ? t('What are you training?')
+                      : t(name || msg('Workout'))}
               </Text>
             </View>
             {/* Cancel leaves the routine editor, not the sheet, so it stays a word. */}
             {routineMode ? (
-              <TextButton label="Cancel" onPress={leaveRoutineMode} tone="coral" />
+              <TextButton label={t('Cancel')} onPress={leaveRoutineMode} tone="coral" />
             ) : (
               <CloseButton onPress={requestClose} />
             )}
@@ -1591,7 +1611,7 @@ export function WorkoutScreen({
 
         {recordBanner ? (
           <View style={[styles.recordBanner, inRoom && { top: 8 }]} pointerEvents="none" accessibilityLiveRegion="assertive" testID="record-banner">
-            <Text style={styles.recordKicker}>PERSONAL RECORD</Text>
+            <Text style={styles.recordKicker}>{t('PERSONAL RECORD')}</Text>
             <Text style={styles.recordText}>{recordBanner.text}</Text>
           </View>
         ) : null}
@@ -1620,19 +1640,18 @@ export function WorkoutScreen({
           {!routineMode && !editing && !inRoom ? weekBar(styles.weekBarInBody) : null}
           {routineMode && !inRoom ? (
             <>
-              <Text style={styles.sectionLabel}>ROUTINE NAME</Text>
+              <Text style={styles.sectionLabel}>{t('ROUTINE NAME')}</Text>
               <TextInput
                 style={[layout.input, styles.field]}
                 value={routineName}
                 onChangeText={setRoutineName}
-                placeholder="Push, Pull, Legs"
+                placeholder={t('Push, Pull, Legs')}
                 placeholderTextColor={colors.faint}
                 maxLength={MAX_TEMPLATE_NAME}
                 autoFocus={!editingTemplateId}
               />
               <Text style={styles.sectionHint}>
-                Add the exercises you do on this day. The weights and reps are a starting point:
-                each time you train it, they update to what you actually did.
+                {t('Add the exercises you do on this day. The weights and reps are a starting point: each time you train it, they update to what you actually did.')}
               </Text>
             </>
           ) : null}
@@ -1643,14 +1662,14 @@ export function WorkoutScreen({
           {handsOff && waiting && !routineMode ? (
             <PressableScale
               accessibilityRole="button"
-              accessibilityLabel={`Resume ${waiting}`}
+              accessibilityLabel={t('Resume {workout}', { workout: t(waiting) })}
               onPress={() => onOpenSession?.()}
               style={({ pressed }) => [styles.startCard, styles.resumeCard, pressed && styles.pressed]}
               testID="resume-workout"
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.startTitle} numberOfLines={1}>{`Resume ${waiting}`}</Text>
-                <Text style={styles.startHint}>A workout in progress</Text>
+                <Text style={styles.startTitle} numberOfLines={1}>{t('Resume {workout}', { workout: t(waiting) })}</Text>
+                <Text style={styles.startHint}>{t('A workout in progress')}</Text>
               </View>
               <Text style={styles.startArrow}>→</Text>
             </PressableScale>
@@ -1663,43 +1682,43 @@ export function WorkoutScreen({
               {/* Their rotation's answer, first: today's routine, or a rest day. */}
               {rotation ? (
                 <View style={styles.todayCard} testID="rotation-today">
-                  <Text style={styles.todayKicker}>{`TODAY · DAY ${rotation.index + 1} OF ${rotation.length}`}</Text>
+                  <Text style={styles.todayKicker}>{t('TODAY · DAY {day} OF {total}', { day: rotation.index + 1, total: rotation.length })}</Text>
                   {rotation.template ? (
                     <PressableScale
                       accessibilityRole="button"
-                      accessibilityLabel={`Start ${rotation.template.name}, today's routine`}
+                      accessibilityLabel={t("Start {name}, today's routine", { name: t(rotation.template.name) })}
                       onPress={() => loadRoutine(rotation.template!)}
                       style={({ pressed }) => [styles.todayMain, pressed && styles.pressed]}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.todayName} numberOfLines={1}>{rotation.template.name}</Text>
+                        <Text style={styles.todayName} numberOfLines={1}>{t(rotation.template.name)}</Text>
                         <Text style={styles.routinePreview} numberOfLines={2}>
-                          {rotation.template.exercises.map((exercise) => exercise.name).join(', ')}
+                          {rotation.template.exercises.map((exercise) => t(exercise.name)).join(', ')}
                         </Text>
                       </View>
                       <View style={styles.todayStart}>
-                        <Text style={styles.todayStartLabel} numberOfLines={1}>Start</Text>
+                        <Text style={styles.todayStartLabel} numberOfLines={1}>{tx('begin this workout', 'Start')}</Text>
                       </View>
                     </PressableScale>
                   ) : (
                     <View style={styles.todayMain}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.todayName}>Rest day</Text>
-                        <Text style={styles.routinePreview}>Nothing due today. You can still train below.</Text>
+                        <Text style={styles.todayName}>{t('Rest day')}</Text>
+                        <Text style={styles.routinePreview}>{t('Nothing due today. You can still train below.')}</Text>
                       </View>
                     </View>
                   )}
                   {/* Out of step after time away: nudge today, or start the loop over. */}
                   {rotationSchedule ? (
                     <View style={styles.todayLinks}>
-                      <Pressable accessibilityRole="button" accessibilityLabel="Previous day" hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, -1))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-                        <Text style={styles.chipLabel}>‹ Previous</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t('Previous day')} hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, -1))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                        <Text style={styles.chipLabel}>{t('‹ Previous')}</Text>
                       </Pressable>
-                      <Pressable accessibilityRole="button" accessibilityLabel="Restart from day 1" hitSlop={6} onPress={() => saveRotation(restartSchedule(rotationSchedule, templates))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-                        <Text style={styles.chipLabel}>Restart from day 1</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t('Restart from day 1')} hitSlop={6} onPress={() => saveRotation(restartSchedule(rotationSchedule, templates))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                        <Text style={styles.chipLabel}>{t('Restart from day 1')}</Text>
                       </Pressable>
-                      <Pressable accessibilityRole="button" accessibilityLabel="Next day" hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, 1))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
-                        <Text style={styles.chipLabel}>Next ›</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t('Next day')} hitSlop={6} onPress={() => saveRotation(stepToday(rotationSchedule, templates, 1))} style={({ pressed }) => [styles.chip, pressed && styles.pressed]}>
+                        <Text style={styles.chipLabel}>{t('Next ›')}</Text>
                       </Pressable>
                     </View>
                   ) : null}
@@ -1710,16 +1729,16 @@ export function WorkoutScreen({
                 accessibilityRole="button"
                 // Each label is the words on the button, so Voice Control's
                 // "tap Pick exercises" finds it.
-                accessibilityLabel="Pick exercises"
+                accessibilityLabel={t('Pick exercises')}
                 onPress={openPicker}
                 style={({ pressed }) => [styles.startCard, !pickIsMain && styles.startCardQuiet, pressed && styles.pressed]}
               >
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.startTitle, !pickIsMain && styles.startTitleQuiet]}>Pick exercises</Text>
+                  <Text style={[styles.startTitle, !pickIsMain && styles.startTitleQuiet]}>{t('Pick exercises')}</Text>
                   <Text style={[styles.startHint, !pickIsMain && styles.startHintQuiet]}>
                     {pickIsMain
-                      ? `Choose from ${exerciseLibrary.length} moves, then fill in your sets`
-                      : `Something else today? Choose from ${exerciseLibrary.length} moves`}
+                      ? t('Choose from {count} moves, then fill in your sets', { count: exerciseLibrary.length })
+                      : t('Something else today? Choose from {count} moves', { count: exerciseLibrary.length })}
                   </Text>
                 </View>
                 {pickIsMain ? (
@@ -1736,10 +1755,10 @@ export function WorkoutScreen({
                   {templates.length > 0 ? (
                     <>
                       <View style={styles.routinesHead}>
-                        <Text style={styles.sectionLabel}>{rotationSchedule ? 'YOUR SPLIT AND ROUTINES' : 'OR START A ROUTINE'}</Text>
+                        <Text style={styles.sectionLabel}>{rotationSchedule ? t('YOUR SPLIT AND ROUTINES') : t('OR START A ROUTINE')}</Text>
                         {onDeleteTemplate ? (
                           <TextButton
-                            label={managingRoutines ? 'Done' : 'Edit'}
+                            label={managingRoutines ? t('Done') : t('Edit')}
                             onPress={() => setManagingRoutines((current) => !current)}
                             tone="coral"
                           />
@@ -1749,7 +1768,7 @@ export function WorkoutScreen({
                         items={sheetDays}
                         keyOf={scheduleDayId}
                         labelOf={(day) =>
-                          day.kind === 'rest' ? 'rest day' : (templates.find((template) => template.id === day.templateId)?.name ?? 'routine')
+                          day.kind === 'rest' ? t('rest day') : t(templates.find((template) => template.id === day.templateId)?.name ?? msg('routine'))
                         }
                         renderItem={dayRow}
                         enabled={managingRoutines && rotationSchedule !== null}
@@ -1766,16 +1785,16 @@ export function WorkoutScreen({
                       means logging a session first. */}
                   <PressableScale
                     accessibilityRole="button"
-                    accessibilityLabel="Create a routine"
+                    accessibilityLabel={t('Create a routine')}
                     onPress={createDay}
                     style={({ pressed }) => [styles.newRoutine, pressed && styles.pressed]}
                   >
-                    <Text style={styles.newRoutineTitle}>{choosingDay ? 'Add to your rotation' : '+ Create a routine'}</Text>
+                    <Text style={styles.newRoutineTitle}>{choosingDay ? t('Add to your rotation') : t('+ Create a routine')}</Text>
                     {choosingDay && rotationSchedule ? (
                       <View style={styles.newChoices}>
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel="New routine"
+                          accessibilityLabel={t('New routine')}
                           onPress={() => {
                             setChoosingDay(false);
                             startNewRoutine();
@@ -1783,11 +1802,11 @@ export function WorkoutScreen({
                           style={({ pressed }) => [styles.newChoice, styles.newChoiceMain, pressed && styles.pressed]}
                           testID="add-routine"
                         >
-                          <Text style={[styles.newChoiceText, styles.newChoiceMainText]}>New routine</Text>
+                          <Text style={[styles.newChoiceText, styles.newChoiceMainText]}>{t('New routine')}</Text>
                         </Pressable>
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel="Rest day"
+                          accessibilityLabel={t('Rest day')}
                           onPress={() => {
                             setChoosingDay(false);
                             saveRotation(addRestDay(rotationSchedule, templates));
@@ -1795,14 +1814,14 @@ export function WorkoutScreen({
                           style={({ pressed }) => [styles.newChoice, pressed && styles.pressed]}
                           testID="add-rest-day"
                         >
-                          <Text style={styles.newChoiceText}>Rest day</Text>
+                          <Text style={styles.newChoiceText}>{t('Rest day')}</Text>
                         </Pressable>
                       </View>
                     ) : (
                       <Text style={styles.newRoutineHint}>
                         {templates.length === 0
-                          ? 'Same workout every week? Set it up once, then start it in one tap.'
-                          : 'Another day of your split, or a rest day.'}
+                          ? t('Same workout every week? Set it up once, then start it in one tap.')
+                          : t('Another day of your split, or a rest day.')}
                       </Text>
                     )}
                   </PressableScale>
@@ -1816,13 +1835,13 @@ export function WorkoutScreen({
           {routineMode && empty ? (
             <PressableScale
               accessibilityRole="button"
-              accessibilityLabel="Add exercises"
+              accessibilityLabel={t('Add exercises')}
               onPress={openPicker}
               style={({ pressed }) => [styles.startCard, styles.routineStart, inRoom && styles.routineStartInRoom, pressed && styles.pressed]}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.startTitle}>Add exercises</Text>
-                <Text style={styles.startHint}>Pick everything you do on this day</Text>
+                <Text style={styles.startTitle}>{t('Add exercises')}</Text>
+                <Text style={styles.startHint}>{t('Pick everything you do on this day')}</Text>
               </View>
               <Text style={styles.startArrow}>→</Text>
             </PressableScale>
@@ -1837,15 +1856,15 @@ export function WorkoutScreen({
                 {/* The name opens its past sessions, once there are any. */}
                 <Pressable
                   accessibilityRole={pastSessions(exercise.name) ? 'button' : undefined}
-                  accessibilityHint={pastSessions(exercise.name) ? 'Shows past sessions' : undefined}
+                  accessibilityHint={pastSessions(exercise.name) ? t('Shows past sessions') : undefined}
                   disabled={!pastSessions(exercise.name)}
                   onPress={() => setHistoryFor(exercise.name)}
                   style={({ pressed }) => [{ flex: 1 }, pressed && styles.pressed]}
                 >
-                  <Text style={styles.exerciseName} numberOfLines={2}>{exercise.name}</Text>
+                  <Text style={styles.exerciseName} numberOfLines={2}>{t(exercise.name)}</Text>
                   <Text style={styles.exerciseMuscle}>
-                    {exercise.muscleGroup}
-                    {pastSessions(exercise.name) ? <Text style={styles.exerciseHistoryLink}>{'  ·  History ›'}</Text> : null}
+                    {t(exercise.muscleGroup)}
+                    {pastSessions(exercise.name) ? <Text style={styles.exerciseHistoryLink}>{`  ·  ${t('History ›')}`}</Text> : null}
                   </Text>
                 </Pressable>
                 {figure ? (
@@ -1856,7 +1875,7 @@ export function WorkoutScreen({
                 ) : null}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Remove ${exercise.name}`}
+                  accessibilityLabel={t('Remove {exercise}', { exercise: t(exercise.name) })}
                   hitSlop={8}
                   onPress={() => removeExercise(exercise.id)}
                   style={({ pressed }) => [styles.exerciseRemove, pressed && styles.pressed]}
@@ -1869,7 +1888,7 @@ export function WorkoutScreen({
                 // so they are asked for right here on its card. Burpees and jump
                 // rope are cardio too but go nowhere, so they keep the set table.
                 routineMode ? (
-                  <Text style={styles.cardioNote}>Distance and time are filled in each time you log it.</Text>
+                  <Text style={styles.cardioNote}>{t('Distance and time are filled in each time you log it.')}</Text>
                 ) : (
                   // Time first and on its own row: it is the one that matters
                   // (a session with no sets has no clock to fall back on).
@@ -1878,24 +1897,25 @@ export function WorkoutScreen({
                   <View style={styles.cardioFields}>
                     <View style={styles.cardioRow}>
                       <View style={styles.cardioLabelBox}>
-                        <Text style={styles.cardioLabel}>Time</Text>
+                        <Text style={styles.cardioLabel}>{tx('how long an activity took', 'Time')}</Text>
                       </View>
-                      <CardioStepper value={duration} onChange={setDuration} step={MINUTE_STEP} noun="minutes" accessibilityLabel="Minutes" />
-                      <Text style={styles.cardioUnit} numberOfLines={1}>min</Text>
+                      <CardioStepper value={duration} onChange={setDuration} step={MINUTE_STEP} fewerLabel={t('Fewer minutes')} moreLabel={t('More minutes')} accessibilityLabel={t('Minutes')} />
+                      <Text style={styles.cardioUnit} numberOfLines={1}>{tx('short for minutes', 'min')}</Text>
                     </View>
                     <View style={styles.cardioRow}>
                       <View style={styles.cardioLabelBox}>
                         {/* Beside the stepper on a 320pt phone this column is ~55pt: shrinks rather than breaking the word. */}
-                        <FitText style={styles.cardioLabel} minScale={0.75}>Distance</FitText>
-                        <Text style={styles.cardioOptional}>(optional)</Text>
+                        <FitText style={styles.cardioLabel} minScale={0.75}>{t('Distance')}</FitText>
+                        <Text style={styles.cardioOptional}>{t('(optional)')}</Text>
                       </View>
                       <CardioStepper
                         decimal
                         value={distance}
                         onChange={setDistance}
                         step={DISTANCE_STEP}
-                        noun={distanceUnit === 'mi' ? 'miles' : 'kilometres'}
-                        accessibilityLabel={`Distance in ${distanceUnit === 'mi' ? 'miles' : 'kilometres'}, optional`}
+                        fewerLabel={distanceUnit === 'mi' ? t('Fewer miles') : t('Fewer kilometres')}
+                        moreLabel={distanceUnit === 'mi' ? t('More miles') : t('More kilometres')}
+                        accessibilityLabel={distanceUnit === 'mi' ? t('Distance in miles, optional') : t('Distance in kilometres, optional')}
                       />
                       <Text style={styles.cardioUnit} numberOfLines={1}>{distanceUnit}</Text>
                     </View>
@@ -1904,18 +1924,18 @@ export function WorkoutScreen({
               ) : (
                 <>
                   <View style={[styles.setHead, narrow && styles.setGapNarrow]}>
-                    <Text style={[styles.setHeadLabel, styles.setIndex, narrow && styles.setIndexNarrow]}>SET</Text>
+                    <Text style={[styles.setHeadLabel, styles.setIndex, narrow && styles.setIndexNarrow]}>{tx('one set of an exercise', 'SET')}</Text>
                     {exercise.sets.some((set) => set.previous) ? (
-                      <Text style={[styles.setHeadLabel, styles.setPrevious, narrow && styles.setPreviousNarrow]}>LAST</Text>
+                      <Text style={[styles.setHeadLabel, styles.setPrevious, narrow && styles.setPreviousNarrow]}>{tx('what this set was last time', 'LAST')}</Text>
                     ) : null}
                     <Text style={[styles.setHeadLabel, styles.setInputHead]}>
-                      {exercise.bodyweight ? 'body' : weightUnit}
+                      {exercise.bodyweight ? tx('weight column of a bodyweight exercise', 'body') : weightUnit}
                     </Text>
-                    <Text style={[styles.setHeadLabel, styles.setInputHead]}>reps</Text>
+                    <Text style={[styles.setHeadLabel, styles.setInputHead]}>{tx('repetitions of an exercise', 'reps')}</Text>
                     {/* Says what the circle under it does: a tap ticks the set and starts the rest timer. */}
                     {routineMode ? null : (
                       <Text style={[styles.setHeadLabel, styles.tickHead]} numberOfLines={1} accessible={false}>
-                        REST
+                        {tx('the pause between sets', 'REST')}
                       </Text>
                     )}
                     <View style={styles.setRemoveSlot} />
@@ -1926,7 +1946,7 @@ export function WorkoutScreen({
                       {exercise.sets.some((candidate) => candidate.previous) ? (
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel={set.previous ? `Use last time for set ${index + 1}: ${previousLabel(set.previous, exercise.bodyweight)}` : `No last time for set ${index + 1}`}
+                          accessibilityLabel={set.previous ? t('Use last time for set {set}: {previous}', { set: index + 1, previous: previousLabel(set.previous, exercise.bodyweight) }) : t('No last time for set {set}', { set: index + 1 })}
                           disabled={!set.previous}
                           hitSlop={4}
                           onPress={() => fillFromPrevious(exercise.id, set)}
@@ -1944,9 +1964,9 @@ export function WorkoutScreen({
                           style={[layout.input, styles.setInput, narrow && styles.setInputNarrow, styles.setInputOff]}
                           editable={false}
                           value=""
-                          placeholder="BW"
+                          placeholder={tx('short for bodyweight', 'BW')}
                           placeholderTextColor={colors.faint}
-                          accessibilityLabel={`Set ${index + 1} weight`}
+                          accessibilityLabel={t('Set {set} weight', { set: index + 1 })}
                         />
                       ) : (
                         <NumberInput
@@ -1956,7 +1976,7 @@ export function WorkoutScreen({
                           value={set.weight}
                           placeholder={weightUnit}
                           placeholderTextColor={colors.faint}
-                          accessibilityLabel={`Set ${index + 1} weight`}
+                          accessibilityLabel={t('Set {set} weight', { set: index + 1 })}
                           onValue={(value) => patchSet(exercise.id, set.id, { weight: value })}
                         />
                       )}
@@ -1964,9 +1984,9 @@ export function WorkoutScreen({
                         style={[layout.input, styles.setInput, narrow && styles.setInputNarrow]}
                         selectTextOnFocus
                         value={set.reps > 0 ? set.reps : undefined}
-                        placeholder="reps"
+                        placeholder={tx('repetitions of an exercise', 'reps')}
                         placeholderTextColor={colors.faint}
-                        accessibilityLabel={`Set ${index + 1} reps`}
+                        accessibilityLabel={t('Set {set} reps', { set: index + 1 })}
                         onValue={(value) => patchSet(exercise.id, set.id, { reps: value ?? 0 })}
                       />
                       {/* The tick is for the rest timer and your own place in
@@ -1976,7 +1996,7 @@ export function WorkoutScreen({
                         <Pressable
                           accessibilityRole="checkbox"
                           accessibilityState={{ checked: ticked.has(set.id) }}
-                          accessibilityLabel={`Set ${index + 1} of ${exercise.name} done`}
+                          accessibilityLabel={t('Set {set} of {exercise} done', { set: index + 1, exercise: t(exercise.name) })}
                           hitSlop={7}
                           onPress={() => toggleTick(exercise, set.id)}
                           style={[styles.tickSlot, styles.tick, ticked.has(set.id) && styles.tickOn, recordSets.has(set.id) && styles.tickRecord]}
@@ -1988,7 +2008,7 @@ export function WorkoutScreen({
                       {exercise.sets.length > 1 ? (
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel={`Remove set ${index + 1} of ${exercise.name}`}
+                          accessibilityLabel={t('Remove set {set} of {exercise}', { set: index + 1, exercise: t(exercise.name) })}
                           hitSlop={8}
                           onPress={() =>
                             setExercises((current) =>
@@ -2010,7 +2030,7 @@ export function WorkoutScreen({
                   ))}
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Add a set to ${exercise.name}`}
+                    accessibilityLabel={t('Add a set to {exercise}', { exercise: t(exercise.name) })}
                     onPress={() => {
                       haptic('select');
                       setExercises((current) =>
@@ -2019,7 +2039,7 @@ export function WorkoutScreen({
                     }}
                     style={({ pressed }) => [styles.addSet, pressed && styles.pressed]}
                   >
-                    <Text style={styles.addSetLabel}>+ Add set</Text>
+                    <Text style={styles.addSetLabel}>{t('+ Add set')}</Text>
                   </Pressable>
                 </>
               )}
@@ -2033,7 +2053,7 @@ export function WorkoutScreen({
             outdoorName === null ? (
               <PressableScale
                 accessibilityRole="button"
-                accessibilityLabel="Save as a routine"
+                accessibilityLabel={t('Save as a routine')}
                 onPress={() => {
                   setError(null);
                   setOutdoorName('');
@@ -2043,7 +2063,7 @@ export function WorkoutScreen({
                 <View style={styles.roundAdd}>
                   <Mark kind="plus" size={12} color={colors.coral} />
                 </View>
-                <Text style={styles.addExerciseLabel}>Save as a routine</Text>
+                <Text style={styles.addExerciseLabel}>{t('Save as a routine')}</Text>
               </PressableScale>
             ) : (
               <View style={[styles.addExercise, styles.outdoorSave]}>
@@ -2051,18 +2071,18 @@ export function WorkoutScreen({
                   style={[layout.input, styles.outdoorName]}
                   value={outdoorName}
                   onChangeText={setOutdoorName}
-                  placeholder="Name it (Morning walk...)"
+                  placeholder={t('Name it (Morning walk...)')}
                   placeholderTextColor={colors.faint}
-                  accessibilityLabel="Routine name"
+                  accessibilityLabel={t('Routine name')}
                   maxLength={MAX_TEMPLATE_NAME}
                   autoFocus
                   returnKeyType="done"
                   onSubmitEditing={() => void saveOutdoor()}
                 />
                 <View style={styles.outdoorActions}>
-                  <TextButton label="Cancel" onPress={() => setOutdoorName(null)} />
+                  <TextButton label={t('Cancel')} onPress={() => setOutdoorName(null)} />
                   <View style={{ flex: 1 }}>
-                    <PrimaryButton label={savingOutdoor ? 'Saving...' : 'Save routine'} busy={savingOutdoor} onPress={() => void saveOutdoor()} />
+                    <PrimaryButton label={savingOutdoor ? t('Saving...') : t('Save routine')} busy={savingOutdoor} onPress={() => void saveOutdoor()} />
                   </View>
                 </View>
               </View>
@@ -2072,38 +2092,39 @@ export function WorkoutScreen({
           {!empty && !(inRoom && startWithCardio) ? (
             <PressableScale
               accessibilityRole="button"
-              accessibilityLabel="Add another exercise"
+              accessibilityLabel={t('Add another exercise')}
               onPress={openPicker}
               style={({ pressed }) => [styles.addExercise, pressed && styles.pressed]}
             >
               <View style={styles.roundAdd}>
                 <Mark kind="plus" size={12} color={colors.coral} />
               </View>
-              <Text style={styles.addExerciseLabel}>Add another exercise</Text>
+              <Text style={styles.addExerciseLabel}>{t('Add another exercise')}</Text>
             </PressableScale>
           ) : null}
 
           {/* The session's details, once there is a session to describe. */}
           {!routineMode && !empty ? (
             <View style={styles.details}>
-              <Text style={styles.sectionLabel}>DETAILS</Text>
+              <Text style={styles.sectionLabel}>{t('DETAILS')}</Text>
               <View style={styles.detailsCard}>
-                <Text style={styles.fieldLabel}>Name</Text>
+                <Text style={styles.fieldLabel}>{t('Name')}</Text>
                 <TextInput
                   style={[layout.input, styles.cardInput]}
-                  value={name}
+                  // A name the app chose (the default, or the activity's) reads in their language; it is stored as it was.
+                  value={name === DEFAULT_SESSION_NAME || tracksDistance(name) ? t(name) : name}
                   onChangeText={setName}
                   maxLength={MAX_SESSION_NAME}
-                  placeholder="Workout name"
+                  placeholder={t('Workout name')}
                   placeholderTextColor={colors.faint}
                 />
 
-                <Text style={styles.fieldLabel}>Notes (optional)</Text>
+                <Text style={styles.fieldLabel}>{t('Notes (optional)')}</Text>
                 <TextInput
                   style={[layout.input, styles.cardInput, styles.notes]}
                   value={notes}
                   onChangeText={setNotes}
-                  placeholder="How did it feel?"
+                  placeholder={t('How did it feel?')}
                   placeholderTextColor={colors.faint}
                   multiline
                   onFocus={revealEnd}
@@ -2117,7 +2138,7 @@ export function WorkoutScreen({
               {onSaveTemplate && !inRoom ? (
                 <View style={styles.sessionActions}>
                   <TextButton
-                    label={activeTemplateId ? 'Update routine' : 'Save as routine'}
+                    label={activeTemplateId ? t('Update routine') : t('Save as routine')}
                     onPress={saveSessionAsRoutine}
                   />
                 </View>
@@ -2136,7 +2157,7 @@ export function WorkoutScreen({
             <>
               {routineMessage ? <Text style={styles.routineError}>{routineMessage}</Text> : null}
               <PrimaryButton
-                label={saving ? 'Saving...' : editingTemplateId ? 'Save changes' : 'Save routine'}
+                label={saving ? t('Saving...') : editingTemplateId ? t('Save changes') : t('Save routine')}
                 busy={saving}
                 onPress={() => void saveRoutine()}
               />
@@ -2147,17 +2168,17 @@ export function WorkoutScreen({
               {inRoom ? (
                 <View style={styles.footerRow}>
                   <Text style={[styles.stats, styles.statsInRoom]} numberOfLines={2}>
-                    {empty ? 'Add an exercise to finish' : summary}
+                    {empty ? t('Add an exercise to finish') : summary}
                   </Text>
                   <View style={styles.footerFinish}>
-                    <PrimaryButton label={saving ? 'Saving...' : 'Finish'} busy={saving} disabled={empty} onPress={() => void finish()} />
+                    <PrimaryButton label={saving ? t('Saving...') : t('Finish')} busy={saving} disabled={empty} onPress={() => void finish()} />
                   </View>
                 </View>
               ) : (
                 <>
-                  <Text style={styles.stats}>{empty ? 'Add an exercise to finish' : summary}</Text>
+                  <Text style={styles.stats}>{empty ? t('Add an exercise to finish') : summary}</Text>
                   <PrimaryButton
-                    label={saving ? 'Saving...' : editing ? 'Save changes' : 'Finish workout'}
+                    label={saving ? t('Saving...') : editing ? t('Save changes') : t('Finish workout')}
                     busy={saving}
                     disabled={empty}
                     onPress={() => void finish()}
@@ -2176,19 +2197,19 @@ export function WorkoutScreen({
           <View style={[styles.picker, inRoom && styles.pickerInRoom]} testID="exercise-history">
             <View style={styles.pickerHead}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.title} numberOfLines={2}>{historyFor}</Text>
+                <Text style={styles.title} numberOfLines={2}>{t(historyFor)}</Text>
               </View>
-              <CloseButton onPress={() => setHistoryFor(null)} label="Close history" />
+              <CloseButton onPress={() => setHistoryFor(null)} label={t('Close history')} />
             </View>
             <ScrollView contentContainerStyle={styles.historyBody}>
               {sessionsOf(historyFor).map((session) => (
                 <View key={`${session.id}-${session.at}`} style={styles.historySession}>
                   <Text style={styles.historyDate}>
-                    {new Date(session.at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {new Date(session.at).toLocaleDateString(formatLocale(), { weekday: 'short', month: 'short', day: 'numeric' })}
                   </Text>
                   <Text style={styles.historySets}>
                     {/* Non-breaking inside a set: lines break between sets, never in "60 kg × 8". */}
-                    {session.sets.map((set) => (set.weight ? `${set.weight}\u00a0${set.unit ?? weightUnit}\u00a0×\u00a0${set.reps}` : `${set.reps}\u00a0reps`)).join('   ·   ')}
+                    {session.sets.map((set) => (set.weight ? `${set.weight}\u00a0${set.unit ?? weightUnit}\u00a0×\u00a0${set.reps}` : repsLabel(set.reps).replace(/ /g, '\u00a0'))).join('   ·   ')}
                   </Text>
                 </View>
               ))}
@@ -2202,10 +2223,10 @@ export function WorkoutScreen({
             {inRoom && !cardioOnly ? null : (
               <View style={[styles.pickerHead, inRoom && styles.pickerHeadInRoom]}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.title}>{cardioOnly ? 'What did you do?' : 'Add exercise'}</Text>
+                  <Text style={styles.title}>{cardioOnly ? t('What did you do?') : t('Add exercise')}</Text>
                 </View>
                 <CloseButton
-                  label={cardioOnly ? 'Close' : 'Close the exercise list'}
+                  label={cardioOnly ? tx('put a page away', 'Close') : t('Close the exercise list')}
                   onPress={() => (cardioOnly ? requestClose() : setPicking(false))}
                 />
               </View>
@@ -2218,7 +2239,7 @@ export function WorkoutScreen({
                   style={layout.input}
                   value={search}
                   onChangeText={setSearch}
-                  placeholder="Search exercises to add"
+                  placeholder={t('Search exercises to add')}
                   placeholderTextColor={colors.faint}
                   autoFocus
                 />
@@ -2230,7 +2251,7 @@ export function WorkoutScreen({
                     <Pressable
                       key={exerciseName}
                       accessibilityRole="button"
-                      accessibilityLabel={`${added ? 'Remove' : 'Add'} ${exerciseName}`}
+                      accessibilityLabel={added ? t('Remove {exercise}', { exercise: t(exerciseName) }) : t('Add {exercise}', { exercise: t(exerciseName) })}
                       accessibilityState={{ selected: added }}
                       style={({ pressed }) => [styles.libraryRow, added && styles.libraryRowOn, pressed && styles.pressed]}
                       onPress={() => {
@@ -2240,10 +2261,10 @@ export function WorkoutScreen({
                       }}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.libraryName}>{exerciseName}</Text>
+                        <Text style={styles.libraryName}>{t(exerciseName)}</Text>
                         <Text style={styles.libraryMuscle}>
-                          {muscle}
-                          {bodyweight === 'bodyweight' ? ' · bodyweight' : bodyweight === 'distance' ? ' · distance' : ''}
+                          {t(muscle)}
+                          {bodyweight === 'bodyweight' ? ` · ${t('bodyweight')}` : bodyweight === 'distance' ? ` · ${t('distance')}` : ''}
                         </Text>
                       </View>
                       {/* Stays open after a tap so a whole day goes in at once. Each
@@ -2260,11 +2281,11 @@ export function WorkoutScreen({
                   );
                 })}
                 {matches.length === 0 ? (
-                  <Text style={styles.empty}>Nothing matched that search.</Text>
+                  <Text style={styles.empty}>{t('Nothing matched that search.')}</Text>
                 ) : null}
               </ScrollView>
               <PrimaryButton
-                label={exercises.length > 0 ? `Done · ${exercises.length} in this workout` : 'Done'}
+                label={exercises.length > 0 ? t('Done · {count} in this workout', { count: exercises.length }) : t('Done')}
                 onPress={() => setPicking(false)}
               />
             </View>

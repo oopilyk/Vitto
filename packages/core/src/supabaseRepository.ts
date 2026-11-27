@@ -15,6 +15,7 @@ import {
   type PetSaveResult,
 } from './domain/carePartners';
 import { requireSupabase } from './config';
+import { t } from './i18n';
 
 type PetRow = Omit<PetState, 'voice' | 'userId' | 'lastEventAt' | 'pushingStrength' | 'pullingStrength' | 'legStrength' | 'mind' | 'adoptedAt' | 'personality' | 'evolvedBuild' | 'earnedBuilds' | 'chosenBuild' | 'showBase' | 'ownedBreeds' | 'roomTheme' | 'ownedRoomThemes' | 'coins' | 'mindSessions' | 'careAreas' | 'recentMeals' | 'charge'> & { user_id: string; last_event_at: string | null; pushing_strength: number; pulling_strength: number; leg_strength: number; mind: number | null; adopted_at: string | null; created_at: string | null; personality: string | null; persona: string | null; personality_dials: PersonalityDials | null; care_areas?: FocusArea[] | null; recent_meals?: unknown; charge?: number | null; evolved_build?: EvolvedBuild | null; earned_builds?: EvolvedBuild[] | null; chosen_build?: EvolvedBuild | null; show_base?: boolean | null; owned_breeds?: PetBreed[] | null; room_theme?: string | null; owned_room_themes?: string[] | null; coins?: number | null; mind_sessions?: number | null; voice?: string | null };
 type HealthEventRow = HealthEvent & { user_id: string; occurred_at: string };
@@ -253,7 +254,7 @@ export class SupabaseRepository {
   async saveProfile(profile: BodyProfile): Promise<void> {
     const client = requireClient();
     const { data: { user } } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in before saving your profile.');
+    if (!user) throw new Error(t('Sign in before saving your profile.'));
 
     const payload = {
       age: profile.age,
@@ -338,7 +339,7 @@ export class SupabaseRepository {
   async saveWorkoutTemplates(templates: readonly WorkoutTemplate[]): Promise<void> {
     const client = requireClient();
     const { data: { user } } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in before saving routines.');
+    if (!user) throw new Error(t('Sign in before saving routines.'));
     const { error } = await client
       .from('workout_templates')
       .upsert({ user_id: user.id, templates, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
@@ -368,7 +369,7 @@ export class SupabaseRepository {
   async saveTrainingSchedule(schedule: TrainingSchedule | null): Promise<void> {
     const client = requireClient();
     const { data: { user } } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in before saving a rotation.');
+    if (!user) throw new Error(t('Sign in before saving a rotation.'));
     const { error } = await client.from('workout_templates').update({ schedule }).eq('user_id', user.id);
     if (error && (missingTable(error) || missingColumn(error))) return;
     if (error) throw error;
@@ -567,7 +568,7 @@ export class SupabaseRepository {
       throw error;
     }
     const row = (Array.isArray(data) ? data[0] : data) as { breed: string; coins: number; version: number } | undefined;
-    if (!row) throw new Error('Could not switch.');
+    if (!row) throw new Error(t('Could not switch.'));
     return row;
   }
 
@@ -589,7 +590,7 @@ export class SupabaseRepository {
     const row = (Array.isArray(data) ? data[0] : data) as
       | { room_theme: string | null; owned_room_themes: string[] | null; coins: number; version: number }
       | undefined;
-    if (!row) throw new Error('Could not change the rooms.');
+    if (!row) throw new Error(t('Could not change the rooms.'));
     return {
       roomTheme: isRoomTheme(row.room_theme) ? row.room_theme : 'classic',
       ownedRoomThemes: (row.owned_room_themes ?? []).filter(isRoomTheme),
@@ -671,7 +672,7 @@ export class SupabaseRepository {
     const client = requireClient();
     const { data, error } = await client.rpc('create_pet_invite', { p_pet_id: petId });
     if (error) throw error;
-    if (!data) throw new Error('Could not create an invite.');
+    if (!data) throw new Error(t('Could not create an invite.'));
     return toPetInvite(data as PetInviteRow);
   }
 

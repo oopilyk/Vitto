@@ -27,6 +27,7 @@ import {
   MOOD_WORD,
   type PetForm,
   coinsOf,
+  tParts,
 } from '@vitto/core';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { EvolutionCard } from '../components/EvolutionCard';
@@ -37,6 +38,7 @@ import { sheetForPet, portraitFrame } from '../components/petSprites';
 import { Kicker } from '../components/ui';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 import { SETTINGS_MAX_WIDTH } from '../components/settingsKit';
+import { formatLocale, t, tn, tx, wordPuzzleAvailable } from '../i18n';
 
 interface Props {
   /**
@@ -65,10 +67,10 @@ const GROUP_COLOR = (): Record<PetStatGroup, string> => ({
 });
 
 const CARE_LABEL = [
-  ['MEAL', 'Meals'],
-  ['WORKOUT', 'Workouts'],
-  ['STEP_ACTIVITY', 'Step days'],
-  ['BRAIN_TRAINING', 'Mind sessions'],
+  ['MEAL', t('Meals')],
+  ['WORKOUT', t('Workouts')],
+  ['STEP_ACTIVITY', t('Step days')],
+  ['BRAIN_TRAINING', t('Mind sessions')],
 ] as const;
 
 /**
@@ -76,16 +78,12 @@ const CARE_LABEL = [
  * table. Hand-copying these numbers is how the copy drifts from the behaviour.
  * Health is deliberately absent — it is derived, not a rate.
  */
-const DECAY_RATES = `${(
-  [
-    ['Vitality', DECAY_PER_DAY.energy],
-    ['Energy', DECAY_PER_DAY.charge],
-    ['Happiness', DECAY_PER_DAY.happiness],
-    ['Mind', DECAY_PER_DAY.mind],
-  ] as const
-)
-  .map(([label, rate]) => `${label} −${rate}`)
-  .join(' · ')}, every day without care. Hunger follows what you ate in the last 24 hours instead.`;
+const DECAY_RATES = {
+  vitality: DECAY_PER_DAY.energy,
+  energy: DECAY_PER_DAY.charge,
+  happiness: DECAY_PER_DAY.happiness,
+  mind: DECAY_PER_DAY.mind,
+};
 
 /**
  * How long one "day" of decline actually lasts, in words. Derived rather than
@@ -119,7 +117,7 @@ function Card({
         {onInfo ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`About ${title}`}
+            accessibilityLabel={t('About {title}', { title })}
             onPress={onInfo}
             hitSlop={10}
             style={({ pressed }) => [styles.infoButton, pressed && styles.sharePressed]}
@@ -137,12 +135,15 @@ function Card({
 /** What each stat card's info page says above its stats, and under them. */
 const GROUP_INFO = (petName: string): Record<PetStatGroup, { title: string; intro: string; outro?: string }> => ({
   condition: {
-    title: 'Condition',
-    intro: `How ${petName} is doing right now. Hunger, vitality, energy, happiness and mind fade on their own; everything else only ever climbs.`,
-    outro: `${DECAY_RATES} Health has no timer of its own. Meals move it by what was on the plate, and beyond that it climbs while hunger, vitality and happiness are all comfortable and drains for each one you let bottom out.`,
+    title: t('Condition'),
+    intro: t('How {pet} is doing right now. Hunger, vitality, energy, happiness and mind fade on their own; everything else only ever climbs.', { pet: petName }),
+    outro: t(
+      'Vitality −{vitality} · Energy −{energy} · Happiness −{happiness} · Mind −{mind}, every day without care. Hunger follows what you ate in the last 24 hours instead. Health has no timer of its own. Meals move it by what was on the plate, and beyond that it climbs while hunger, vitality and happiness are all comfortable and drains for each one you let bottom out.',
+      DECAY_RATES,
+    ),
   },
-  body: { title: 'Body', intro: 'Built up through training, and it stays built.' },
-  mind: { title: 'Mind', intro: `How sharp ${petName} is. It fades a little each day without a game.` },
+  body: { title: t('Body'), intro: t('Built up through training, and it stays built.') },
+  mind: { title: t('Mind'), intro: t('How sharp {pet} is. It fades a little each day without a game.', { pet: petName }) },
 });
 
 /** One card's explanations, on their own page: the card itself only shows the bars. */
@@ -151,9 +152,9 @@ function StatInfoPage({ group, petName, onBack }: { group: PetStatGroup; petName
   return (
     <View style={layout.screen}>
       <View style={styles.topbar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back to stats" onPress={onBack} hitSlop={8} style={styles.back}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('Back to stats')} onPress={onBack} hitSlop={8} style={styles.back}>
           <Text style={styles.backMark}>‹</Text>
-          <Text style={styles.backLabel}>Stats</Text>
+          <Text style={styles.backLabel}>{t('Stats')}</Text>
         </Pressable>
         <Text style={styles.topTitle}>{info.title}</Text>
         <View style={styles.back} />
@@ -224,12 +225,19 @@ const FEELING_INK = (): Record<PetState['mood'], string> => ({
   hungry: colors.coralDeep,
 });
 
+const lastCaredFor = (days: number, date: string): string =>
+  days === 0
+    ? t('Last cared for today · {date}', { date })
+    : days === 1
+      ? t('Last cared for yesterday · {date}', { date })
+      : t('Last cared for {days} days ago · {date}', { days, date });
+
 const describeMood = (pet: PetState): string => {
-  if (pet.mood === 'hungry') return `The hunger bar is under ${HUNGRY_NUTRITION_THRESHOLD}. A real meal will sort it.`;
-  if (pet.mood === 'sleepy') return `Energy is under ${SLEEPY_ENERGY_THRESHOLD}. Sleep or a good meal will sort it.`;
-  if (pet.mood === 'sluggish') return `Vitality is under ${SLUGGISH_VITALITY_THRESHOLD}. A walk or a workout will sort it.`;
-  if (pet.mood === 'bright') return `Vitality and happiness are both 65 or more.`;
-  return `Fed and lively, not quite at 65 vitality and happiness together yet.`;
+  if (pet.mood === 'hungry') return t('The hunger bar is under {threshold}. A real meal will sort it.', { threshold: HUNGRY_NUTRITION_THRESHOLD });
+  if (pet.mood === 'sleepy') return t('Energy is under {threshold}. Sleep or a good meal will sort it.', { threshold: SLEEPY_ENERGY_THRESHOLD });
+  if (pet.mood === 'sluggish') return t('Vitality is under {threshold}. A walk or a workout will sort it.', { threshold: SLUGGISH_VITALITY_THRESHOLD });
+  if (pet.mood === 'bright') return t('Vitality and happiness are both 65 or more.');
+  return t('Fed and lively, not quite at 65 vitality and happiness together yet.');
 };
 
 export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wordPuzzleStarted = false }: Props) {
@@ -272,24 +280,24 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
       <View style={styles.topbar}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to your pet"
+          accessibilityLabel={t('Back to your pet')}
           onPress={onClose}
           hitSlop={8}
           style={styles.back}
         >
           <Text style={styles.backMark}>‹</Text>
-          <Text style={styles.backLabel}>Pet</Text>
+          <Text style={styles.backLabel}>{t('Pet')}</Text>
         </Pressable>
-        <Text style={styles.topTitle}>Stats</Text>
+        <Text style={styles.topTitle}>{t('Stats')}</Text>
         {onShare ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Share ${pet.name}`}
+            accessibilityLabel={t('Share {pet}', { pet: pet.name })}
             onPress={onShare}
             hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
             style={({ pressed }) => [styles.back, styles.shareButton, pressed && styles.sharePressed]}
           >
-            <Text style={styles.shareLabel}>Share</Text>
+            <Text style={styles.shareLabel}>{t('Share')}</Text>
           </Pressable>
         ) : (
           <View style={styles.back} />
@@ -317,7 +325,7 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
             <SpriteFrame sheet={sheet} frame={portraitFrame(sheet)} size={96} />
           </View>
           <View style={styles.identityText}>
-            <Kicker>{PET_BUILD_LABEL[getPetBuild(pet)].toUpperCase()}</Kicker>
+            <Kicker>{t(PET_BUILD_LABEL[getPetBuild(pet)]).toUpperCase()}</Kicker>
             {/* Beside a 96pt portrait an 18-letter name at 38pt broke mid-word
                 on a 320-375pt phone: it shrinks first, onto two lines at most. */}
             <FitText style={styles.petName} lines={2} minScale={0.5}>
@@ -325,56 +333,64 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
             </FitText>
             {/* The breed is the animal. `pet.species` predates the breed picker and was
                 defaulted for every pet, which is how a bunny read as "Bunny · Cat". */}
-            <Text style={styles.identityMeta}>{`${sheet.label} · Day ${daysWithPet(pet, now)} together`}</Text>
+            <Text style={styles.identityMeta}>{`${sheet.label} · ${t('Day {day} together', { day: daysWithPet(pet, now) })}`}</Text>
             {/* How they are doing, beside the face it belongs to and before any
                 number: it is the one thing a person opens this screen to know. */}
             <View style={[styles.feeling, FEELING_TINT()[pet.mood]]} accessibilityRole="summary">
               <View style={[styles.feelingDot, { backgroundColor: FEELING_INK()[pet.mood] }]} />
               {/* Two pieces, so a long name is what gives way ("Sir Wigglesw… is
                   hungry"), never the mood: one line ended "Biscuit is doing f…"
-                  on a 375pt phone. */}
+                  on a 375pt phone. One sentence all the same: the name sits
+                  wherever the translation puts it. */}
               <View style={styles.feelingWords}>
-                <Text style={[styles.feelingText, styles.feelingName, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
-                  {pet.name}
-                </Text>
-                <Text style={[styles.feelingText, styles.feelingMood, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
-                  {`is ${MOOD_WORD[pet.mood]}`}
-                </Text>
+                {tParts('{pet} is {mood}', { mood: MOOD_WORD[pet.mood] }).map((part, index) =>
+                  'slot' in part ? (
+                    <Text key={index} style={[styles.feelingText, styles.feelingName, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
+                      {pet.name}
+                    </Text>
+                  ) : (
+                    <Text key={index} style={[styles.feelingText, styles.feelingMood, index === 0 && styles.feelingLead, { color: FEELING_INK()[pet.mood] }]} numberOfLines={1}>
+                      {part.text.trim()}
+                    </Text>
+                  ),
+                )}
               </View>
             </View>
             <Text style={styles.feelingWhy}>{describeMood(pet)}</Text>
           </View>
         </View>
 
-        <Card title="Level & XP">
+        <Card title={t('Level & XP')}>
           <View style={styles.facts}>
-            <Fact label="level" value={String(pet.level)} />
-            <Fact label="XP this level" value={`${pet.xp}/100`} />
-            <Fact label="build" value={PET_BUILD_LABEL[getPetBuild(pet)]} />
+            <Fact label={t('level')} value={String(pet.level)} />
+            <Fact label={t('XP this level')} value={`${pet.xp}/100`} />
+            <Fact label={t('build')} value={t(PET_BUILD_LABEL[getPetBuild(pet)])} />
           </View>
-          <StatBar label="XP" value={pet.xp} color={colors.coral} />
+          <StatBar label={t('XP')} value={pet.xp} color={colors.coral} />
           <View style={styles.coinsRow} testID="coins">
-            <Text style={styles.coinsValue}>{`${coinsOf(pet)} coins`}</Text>
+            <Text style={styles.coinsValue}>{tn(coinsOf(pet), '{count} coin', '{count} coins')}</Text>
           </View>
         </Card>
 
         <EvolutionCard pet={pet} onChooseForm={onChooseForm} />
 
-        <Card title="Condition" onInfo={() => setInfo('condition')}>
+        <Card title={t('Condition')} onInfo={() => setInfo('condition')}>
           {renderGroup('condition')}
         </Card>
 
-        <Card title="Body" onInfo={() => setInfo('body')}>
+        <Card title={t('Body')} onInfo={() => setInfo('body')}>
           {renderGroup('body')}
         </Card>
 
-        <Card title="Mind" onInfo={() => setInfo('mind')}>
+        <Card title={t('Mind')} onInfo={() => setInfo('mind')}>
           {renderGroup('mind')}
           <View style={styles.moodRow}>
             <Text style={styles.moodValue}>
-              Today's best mind score: {bestMindScore || '—'}
+              {t("Today's best mind score: {score}", { score: bestMindScore || '—' })}
             </Text>
           </View>
+          {/* English only: the puzzle is not offered in other languages, so neither are its facts. */}
+          {wordPuzzleAvailable() ? (
           <View style={styles.moodRow}>
             <Text style={styles.moodValue}>
               Today's word puzzle: {todaysWordPuzzle ? todaysWordPuzzle.metadata.score : wordPuzzleStarted ? 'in progress' : 'not played yet'}
@@ -391,23 +407,24 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
               <Fact label="longest run" value={String(wordPuzzleDays.longestStreak)} />
             </View>
           </View>
+          ) : null}
         </Card>
 
-        <Card title="Consistency">
+        <Card title={t('Consistency')}>
           <View style={styles.facts}>
-            <Fact label="day streak" value={String(streaks.currentStreak)} />
-            <Fact label="longest run" value={String(streaks.longestStreak)} />
-            <Fact label="streak freezes" value={String(streaks.freezes)} />
-            <Fact label="logs" value={String(careMomentCount(events))} />
+            <Fact label={t('day streak')} value={String(streaks.currentStreak)} />
+            <Fact label={tx('the longest streak of days', 'longest run')} value={String(streaks.longestStreak)} />
+            <Fact label={t('streak freezes')} value={String(streaks.freezes)} />
+            <Fact label={t('logs')} value={String(careMomentCount(events))} />
           </View>
           <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} frozenDateKeys={streaks.frozenDateKeys} />
         </Card>
 
-        <Card title="Care breakdown">
+        <Card title={t('Care breakdown')}>
           <View style={styles.tableHead}>
-            <Text style={[styles.tableLabel, styles.tableLabelHead]}>Type</Text>
-            <Text style={styles.tableCount}>7d</Text>
-            <Text style={styles.tableCount}>30d</Text>
+            <Text style={[styles.tableLabel, styles.tableLabelHead]}>{tx('column heading: the kind of care', 'Type')}</Text>
+            <Text style={styles.tableCount}>{t('7d')}</Text>
+            <Text style={styles.tableCount}>{t('30d')}</Text>
           </View>
           {CARE_LABEL.map(([type, label]) => (
             <View key={type} style={styles.tableRow}>
@@ -418,8 +435,8 @@ export function PetStatsScreen({ pet, events, onClose, onShare, onChooseForm, wo
           ))}
           <Text style={styles.lastCare}>
             {lastEventAt
-              ? `Last cared for ${daysSinceCare === 0 ? 'today' : daysSinceCare === 1 ? 'yesterday' : `${daysSinceCare} days ago`} · ${lastEventAt.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`
-              : `${pet.name} has not been cared for yet.`}
+              ? lastCaredFor(daysSinceCare ?? 0, lastEventAt.toLocaleString(formatLocale(), { dateStyle: 'medium', timeStyle: 'short' }))
+              : t('{pet} has not been cared for yet.', { pet: pet.name })}
           </Text>
         </Card>
       </ScrollView>
@@ -514,6 +531,7 @@ const styles = themedStyles(() => ({
   feelingName: { flexShrink: 1 },
   // A leading space in its own block is dropped on the web, so the gap is a margin.
   feelingMood: { flexShrink: 0, marginLeft: 5 },
+  feelingLead: { marginLeft: 0, marginRight: 5 },
   feelingText: { fontFamily: fonts.ui, fontSize: 17, fontWeight: '500', letterSpacing: 0 },
   feelingWhy: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 7, lineHeight: 17 },
   shareButton: { justifyContent: 'flex-end' },

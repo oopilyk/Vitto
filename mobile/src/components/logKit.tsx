@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Platform, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { formatLocale, t } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 /**
@@ -24,7 +25,7 @@ const GRADE_FILL: Record<Grade, string> = {
 export function GradeBadge({ grade, size = 34 }: { grade: Grade; size?: number }) {
   return (
     <View
-      accessibilityLabel={`Grade ${grade}`}
+      accessibilityLabel={t('Grade {grade}', { grade })}
       style={[logKit.badge, { width: size, height: size, borderRadius: size / 2, backgroundColor: GRADE_FILL[grade] ?? GRADE_FILL.C }]}
     >
       <Text style={[logKit.badgeLetter, { fontSize: Math.round(size * 0.47) }]}>{grade}</Text>
@@ -42,7 +43,7 @@ export interface ProgressItem {
   unit: string;
 }
 
-const formatted = (value: number) => Math.round(value).toLocaleString('en-US');
+const formatted = (value: number) => Math.round(value).toLocaleString(formatLocale());
 
 /**
  * Today so far, with goals, at the top of a log page. Picking something to
@@ -83,7 +84,11 @@ function ProgressBar({ item }: { item: ProgressItem }) {
     <View
       style={logKit.item}
       accessible
-      accessibilityLabel={`${item.label}: ${formatted(item.value)} of ${formatted(item.goal)} ${item.unit}${adding > 0 ? `, plus ${adding} with this` : ''}`}
+      accessibilityLabel={
+        adding > 0
+          ? t('{label}: {value} of {goal} {unit}, plus {adding} with this', { label: item.label, value: formatted(item.value), goal: formatted(item.goal), unit: item.unit, adding })
+          : t('{label}: {value} of {goal} {unit}', { label: item.label, value: formatted(item.value), goal: formatted(item.goal), unit: item.unit })
+      }
     >
       <View style={logKit.itemHead}>
         <Text style={logKit.itemLabel}>{item.label}</Text>

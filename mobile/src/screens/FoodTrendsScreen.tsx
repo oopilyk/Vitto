@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Text, View } from 'react-native';
-import { type BodyProfile, type HealthEvent, type TrendWindow, foodTrends } from '@vitto/core';
+import { type BodyProfile, type HealthEvent, type TrendWindow, foodTrends, foodNameText } from '@vitto/core';
 import { SegmentedControl, SettingsPage, SettingsSection } from '../components/settingsKit';
 import { StatGrid, StatTile, TrendBars } from '../components/TrendBars';
+import { formatLocale, t, tn } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
@@ -12,13 +13,13 @@ interface Props {
 }
 
 const WINDOWS: { value: `${TrendWindow}`; label: string }[] = [
-  { value: '7', label: '7 days' },
-  { value: '30', label: '30 days' },
+  { value: '7', label: t('7 days') },
+  { value: '30', label: t('30 days') },
 ];
 
-const kcal = (value: number) => Math.round(value).toLocaleString();
+const kcal = (value: number) => Math.round(value).toLocaleString(formatLocale());
 const changeNote = (change: number | null, window: TrendWindow) =>
-  change === null ? undefined : `${change > 0 ? '+' : ''}${change}% vs the ${window} days before`;
+  change === null ? undefined : t('{change}% vs the {days} days before', { change: `${change > 0 ? '+' : ''}${change}`, days: window });
 
 /**
  * Food over the last week or month, from the Today card's "Trends": calories
@@ -30,46 +31,49 @@ export function FoodTrendsScreen({ events, profile, onClose }: Props) {
   const trends = useMemo(() => foodTrends(events, profile, window), [events, profile, window]);
   const { average, targets } = trends;
   const graded = trends.grades.A + trends.grades.B + trends.grades.C + trends.grades.D;
-  const over = `${trends.loggedDays} logged ${trends.loggedDays === 1 ? 'day' : 'days'}`;
 
   return (
-    <SettingsPage title="Food trends" backLabel="Today" onBack={onClose}>
+    <SettingsPage title={t('Food trends')} backLabel={t('Today')} onBack={onClose}>
       <SegmentedControl options={WINDOWS} value={`${window}`} onChange={(value) => setWindow(Number(value) as TrendWindow)} />
 
       <SettingsSection
         first
-        title="Calories each day"
-        description={`Against your target of ${kcal(targets.calories)} kcal. Today is lighter: it isn't over yet.`}
+        title={t('Calories each day')}
+        description={t("Against your target of {calories} kcal. Today is lighter: it isn't over yet.", { calories: kcal(targets.calories) })}
       >
         <TrendBars bars={trends.days.map((day) => ({ date: day.date, value: day.calories, isToday: day.isToday }))} goal={targets.calories} format={kcal} unit="kcal" />
       </SettingsSection>
 
       <SettingsSection
-        title="Your average day"
-        description={average ? `Over ${over}, not counting today or days with nothing logged.` : 'Log a few days of meals and your averages show up here.'}
+        title={t('Your average day')}
+        description={
+          average
+            ? tn(trends.loggedDays, 'Over {count} logged day, not counting today or days with nothing logged.', 'Over {count} logged days, not counting today or days with nothing logged.')
+            : t('Log a few days of meals and your averages show up here.')
+        }
       >
         {average ? (
           <>
             <StatGrid>
-              <StatTile value={kcal(average.calories)} label="kcal a day" note={changeNote(trends.caloriesChange, window)} />
-              <StatTile value={`${average.proteinGrams}g`} label="protein a day" note={`Target ${targets.proteinGrams}g`} />
-              <StatTile value={`${trends.daysOnTarget}/${trends.loggedDays}`} label="days on calorie target" note="Within 10% either way" />
-              <StatTile value={`${trends.proteinDays}/${trends.loggedDays}`} label="days protein hit" note="90% of target or more" />
-              <StatTile value={String(average.meals)} label="meals a day" />
-              <StatTile value={`${average.fiberGrams}g`} label="fiber a day" note={`Target ${targets.fiberGrams}g`} />
+              <StatTile value={kcal(average.calories)} label={t('kcal a day')} note={changeNote(trends.caloriesChange, window)} />
+              <StatTile value={`${average.proteinGrams}g`} label={t('protein a day')} note={t('Target {grams}g', { grams: targets.proteinGrams })} />
+              <StatTile value={`${trends.daysOnTarget}/${trends.loggedDays}`} label={t('days on calorie target')} note={t('Within 10% either way')} />
+              <StatTile value={`${trends.proteinDays}/${trends.loggedDays}`} label={t('days protein hit')} note={t('90% of target or more')} />
+              <StatTile value={String(average.meals)} label={t('meals a day')} />
+              <StatTile value={`${average.fiberGrams}g`} label={t('fiber a day')} note={t('Target {grams}g', { grams: targets.fiberGrams })} />
             </StatGrid>
             {trends.split ? (
               <View style={styles.split}>
-                <Text style={styles.splitTitle}>Where the calories come from</Text>
+                <Text style={styles.splitTitle}>{t('Where the calories come from')}</Text>
                 <View style={styles.splitBar}>
                   <View style={[styles.splitPart, styles.protein, { flex: trends.split.protein }]} />
                   <View style={[styles.splitPart, styles.carbs, { flex: trends.split.carbs }]} />
                   <View style={[styles.splitPart, styles.fat, { flex: trends.split.fat }]} />
                 </View>
                 <View style={styles.splitKey}>
-                  <Key style={styles.protein} label={`Protein ${trends.split.protein}%`} />
-                  <Key style={styles.carbs} label={`Carbs ${trends.split.carbs}%`} />
-                  <Key style={styles.fat} label={`Fat ${trends.split.fat}%`} />
+                  <Key style={styles.protein} label={t('Protein {percent}%', { percent: trends.split.protein })} />
+                  <Key style={styles.carbs} label={t('Carbs {percent}%', { percent: trends.split.carbs })} />
+                  <Key style={styles.fat} label={t('Fat {percent}%', { percent: trends.split.fat })} />
                 </View>
               </View>
             ) : null}
@@ -78,7 +82,7 @@ export function FoodTrendsScreen({ events, profile, onClose }: Props) {
       </SettingsSection>
 
       {graded > 0 ? (
-        <SettingsSection title="Plate grades" description={`Every meal graded in the last ${window} days.`}>
+        <SettingsSection title={t('Plate grades')} description={t('Every meal graded in the last {days} days.', { days: window })}>
           <View style={styles.grades}>
             {(['A', 'B', 'C', 'D'] as const).map((grade) => (
               <View key={grade} style={styles.grade}>
@@ -94,11 +98,11 @@ export function FoodTrendsScreen({ events, profile, onClose }: Props) {
       ) : null}
 
       {trends.favourites.length > 0 ? (
-        <SettingsSection title="Eaten most" description="Each is one tap under Recent when you log a meal.">
+        <SettingsSection title={t('Eaten most')} description={t('Each is one tap under Recent when you log a meal.')}>
           <View style={styles.list}>
             {trends.favourites.map((meal) => (
               <View key={meal.name} style={styles.listRow}>
-                <Text style={styles.listName} numberOfLines={1}>{meal.name}</Text>
+                <Text style={styles.listName} numberOfLines={1}>{foodNameText(meal.name)}</Text>
                 <Text style={styles.listMeta} numberOfLines={1}>
                   {meal.count}× · {kcal(meal.calories)} kcal
                 </Text>

@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import appConfig from '../../app.json';
 import { companionService } from './companionService';
+import { t, tn } from '../i18n';
 
 /**
  * Registering this device so the pet can reach it while the app is closed.
@@ -98,7 +99,7 @@ export const registerForPush = async (): Promise<PushRegistration> => {
 
     if (Platform.OS === 'android' && typeof Notifications.setNotificationChannelAsync === 'function') {
       await Notifications.setNotificationChannelAsync('companion', {
-        name: 'Your pet',
+        name: t('Your pet'),
         importance: Notifications.AndroidImportance.DEFAULT,
       });
     }
@@ -204,8 +205,12 @@ export const scheduleTrialReminder = async (daysIn: number, trialDays: number, {
     await Notifications.scheduleNotificationAsync({
       identifier: TRIAL_REMINDER_ID,
       content: {
-        title: 'Your Plus trial ends soon',
-        body: `${trialDays - daysIn} days left of your free trial. Cancel anytime before then if it is not for you.`,
+        title: t('Your Plus trial ends soon'),
+        body: tn(
+          trialDays - daysIn,
+          '{count} day left of your free trial. Cancel anytime before then if it is not for you.',
+          '{count} days left of your free trial. Cancel anytime before then if it is not for you.',
+        ),
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + daysIn * 24 * 60 * 60 * 1000) },
     });
@@ -236,8 +241,8 @@ export const scheduleWeeklyRecap = async (petName: string): Promise<void> => {
     await Notifications.scheduleNotificationAsync({
       identifier: WEEKLY_RECAP_ID,
       content: {
-        title: `Your week with ${petName}`,
-        body: 'Workouts, food, steps and how much you both grew. Take a look.',
+        title: t('Your week with {pet}', { pet: petName }),
+        body: t('Workouts, food, steps and how much you both grew. Take a look.'),
         data: { screen: 'weekly' },
       },
       // weekday: 1 is Sunday.

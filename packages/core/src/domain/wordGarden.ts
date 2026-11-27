@@ -21,9 +21,16 @@
  * for anyone who wants to spell them, and score like any other word.
  */
 import { CHEEKY_WORDS } from '../data/cheekyWords';
+import { msg, t, wordPuzzleAvailable } from '../i18n';
 import type { WordPuzzleWordLength } from '../data/wordPuzzleWords';
 import type { BrainTrainingMetadata } from './health';
 import { answerEligibleWords } from './wordPuzzle';
+
+/**
+ * The garden grows English words from English letters, so like the daily word
+ * puzzle it is only offered in English: every way into it asks this first.
+ */
+export const wordGardenAvailable = (): boolean => wordPuzzleAvailable();
 
 export const WORD_GARDEN_LETTERS = 6;
 export const WORD_GARDEN_MIN_WORD_LENGTH = 4;
@@ -75,14 +82,14 @@ export interface WordGardenStage {
 
 /** Ascending, so the last stage whose bar is met is the current one. */
 export const WORD_GARDEN_STAGES: WordGardenStage[] = [
-  { name: 'Seed', share: 0 },
-  { name: 'Sprout', share: 0.05 },
-  { name: 'Seedling', share: 0.12 },
-  { name: 'Leafy', share: 0.2 },
-  { name: 'Budding', share: 0.35 },
-  { name: 'Blossoming', share: 0.5 },
-  { name: 'Full bloom', share: WORD_GARDEN_FULL_BLOOM_SHARE },
-  { name: 'Wild garden', share: 1 },
+  { name: msg('Seed'), share: 0 },
+  { name: msg('Sprout'), share: 0.05 },
+  { name: msg('Seedling'), share: 0.12 },
+  { name: msg('Leafy'), share: 0.2 },
+  { name: msg('Budding'), share: 0.35 },
+  { name: msg('Blossoming'), share: 0.5 },
+  { name: msg('Full bloom'), share: WORD_GARDEN_FULL_BLOOM_SHARE },
+  { name: msg('Wild garden'), share: 1 },
 ];
 
 type Rng = () => number;
@@ -199,17 +206,17 @@ export const judgeWordGardenWord = (
 export const wordGardenVerdictMessage = (verdict: WordGardenVerdict): string => {
   switch (verdict) {
     case 'accepted':
-      return 'Nice!';
+      return t('Nice!');
     case 'too-short':
-      return 'Too short';
+      return t('Too short');
     case 'missing-seed':
-      return 'Needs the seed letter';
+      return t('Needs the seed letter');
     case 'bad-letter':
-      return 'Uses a letter that is not in the garden';
+      return t('Uses a letter that is not in the garden');
     case 'not-a-word':
-      return 'Not in the word list';
+      return t('Not in the word list');
     case 'already-found':
-      return 'Already grown';
+      return t('Already grown');
   }
 };
 

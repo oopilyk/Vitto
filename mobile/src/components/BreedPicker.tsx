@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import type { PetBreed } from '@vitto/core';
 import { PET_SHEETS, portraitFrame } from './petSprites';
 import { SpriteFrame } from './SpriteFrame';
+import { t, tx } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
@@ -46,7 +47,7 @@ export function BreedPicker({ value, onChange, size = 84, locked, lockedNote, cu
             key={sheet.name}
             accessibilityRole="button"
             accessibilityState={{ selected, disabled: isLocked }}
-            accessibilityLabel={`Choose the ${sheet.label}`}
+            accessibilityLabel={t('Choose the {breed}', { breed: sheet.label })}
             disabled={isLocked}
             onPress={() => onChange(sheet.name)}
             style={[styles.option, selected && styles.optionOn]}
@@ -74,7 +75,7 @@ export function BreedPicker({ value, onChange, size = 84, locked, lockedNote, cu
               ) : null
             ) : (
               <>
-                {current === sheet.name && value !== current ? <Text style={styles.note}>Current</Text> : null}
+                {current === sheet.name && value !== current ? <Text style={styles.note}>{tx('the breed the pet is now', 'Current')}</Text> : null}
                 {isLocked && lockedNote ? <Text style={styles.note}>{lockedNote}</Text> : null}
               </>
             )}

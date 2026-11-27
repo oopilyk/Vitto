@@ -8,6 +8,7 @@ import type {
 } from './health';
 import { type MacroTotals, sumMealMacros } from './nutritionSummary';
 import { type EventDateKey, toDateKey } from './streaks';
+import { t } from '../i18n';
 
 // ---------------------------------------------------------------------------
 // Insights: what the collected health data says about the user.
@@ -318,8 +319,6 @@ const percent = (effectSize: number): string => `${Math.round(Math.abs(effectSiz
 /** 8000 -> "8,000" without leaning on the runtime's locale tables. */
 const withThousands = (value: number): string => String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
-const dayCount = (days: number): string => `${days} day${days === 1 ? '' : 's'}`;
-
 /**
  * Sleep in the night that ended on a morning, against the mind accuracy of that same
  * day -- which is the day after the night, since `night` is stamped to the morning.
@@ -328,15 +327,25 @@ export const compareSleepToMind = (rows: DailyHealthRow[]): Insight | null => {
   const pairs = pairDays(rows, (row) => row.asleepMinutes, (row) => row.mindAccuracy);
   const comparison = compareGroups(pairs, SHORT_SLEEP_MINUTES);
   if (!comparison) return null;
-  const hours = SHORT_SLEEP_MINUTES / 60;
+  // Every count in the sentence is plural: a comparison needs MIN_PAIRED_DAYS in all and MIN_DAYS_PER_GROUP a side.
+  const numbers = {
+    hours: SHORT_SLEEP_MINUTES / 60,
+    percent: percent(comparison.effectSize),
+    days: comparison.sampleDays,
+    under: comparison.under.days,
+    over: comparison.over.days,
+  };
   return {
     id: `sleep-mind-${comparison.direction}`,
     kind: 'sleep-mind',
     headline:
       comparison.direction === 'lower'
-        ? 'Your sharper puzzle days seem to follow your longer nights.'
-        : 'Your sharper puzzle days have tended to follow your shorter nights, oddly enough.',
-    detail: `On days after less than ${hours} hours of sleep, your mind accuracy averaged ${percent(comparison.effectSize)} ${comparison.direction} (${dayCount(comparison.sampleDays)}: ${comparison.under.days} short nights, ${comparison.over.days} fuller).`,
+        ? t('Your sharper puzzle days seem to follow your longer nights.')
+        : t('Your sharper puzzle days have tended to follow your shorter nights, oddly enough.'),
+    detail:
+      comparison.direction === 'lower'
+        ? t('On days after less than {hours} hours of sleep, your mind accuracy averaged {percent} lower ({days} days: {under} short nights, {over} fuller).', numbers)
+        : t('On days after less than {hours} hours of sleep, your mind accuracy averaged {percent} higher ({days} days: {under} short nights, {over} fuller).', numbers),
     ...comparison,
   };
 };
@@ -348,14 +357,24 @@ export const compareProteinToVolume = (rows: DailyHealthRow[]): Insight | null =
   const threshold = quantileOf(pairs.map((pair) => pair.predictor), PROTEIN_SPLIT_QUANTILE);
   const comparison = compareGroups(pairs, threshold);
   if (!comparison) return null;
+  const numbers = {
+    grams: Math.round(threshold),
+    percent: percent(comparison.effectSize),
+    days: comparison.sampleDays,
+    under: comparison.under.days,
+    over: comparison.over.days,
+  };
   return {
     id: `protein-volume-${comparison.direction}`,
     kind: 'protein-volume',
     headline:
       comparison.direction === 'lower'
-        ? 'Your bigger lifting days seem to follow your higher-protein days.'
-        : 'Your bigger lifting days have tended to follow your lighter-protein days, oddly enough.',
-    detail: `The day after eating under about ${Math.round(threshold)}g of protein, your workout volume averaged ${percent(comparison.effectSize)} ${comparison.direction} (${dayCount(comparison.sampleDays)}: ${comparison.under.days} lighter, ${comparison.over.days} higher-protein).`,
+        ? t('Your bigger lifting days seem to follow your higher-protein days.')
+        : t('Your bigger lifting days have tended to follow your lighter-protein days, oddly enough.'),
+    detail:
+      comparison.direction === 'lower'
+        ? t('The day after eating under about {grams}g of protein, your workout volume averaged {percent} lower ({days} days: {under} lighter, {over} higher-protein).', numbers)
+        : t('The day after eating under about {grams}g of protein, your workout volume averaged {percent} higher ({days} days: {under} lighter, {over} higher-protein).', numbers),
     ...comparison,
   };
 };
@@ -365,14 +384,24 @@ export const compareStepsToMind = (rows: DailyHealthRow[]): Insight | null => {
   const pairs = pairDays(rows, (row) => row.steps, (row) => row.mindAccuracy);
   const comparison = compareGroups(pairs, ACTIVE_STEPS);
   if (!comparison) return null;
+  const numbers = {
+    steps: withThousands(ACTIVE_STEPS),
+    percent: percent(comparison.effectSize),
+    days: comparison.sampleDays,
+    under: comparison.under.days,
+    over: comparison.over.days,
+  };
   return {
     id: `steps-mind-${comparison.direction}`,
     kind: 'steps-mind',
     headline:
       comparison.direction === 'lower'
-        ? 'Your sharper puzzle days seem to be the ones we explored more.'
-        : 'Your sharper puzzle days seem to be the quieter ones, oddly enough.',
-    detail: `On days under ${withThousands(ACTIVE_STEPS)} steps, your mind accuracy averaged ${percent(comparison.effectSize)} ${comparison.direction} (${dayCount(comparison.sampleDays)}: ${comparison.under.days} quieter, ${comparison.over.days} active).`,
+        ? t('Your sharper puzzle days seem to be the ones we explored more.')
+        : t('Your sharper puzzle days seem to be the quieter ones, oddly enough.'),
+    detail:
+      comparison.direction === 'lower'
+        ? t('On days under {steps} steps, your mind accuracy averaged {percent} lower ({days} days: {under} quieter, {over} active).', numbers)
+        : t('On days under {steps} steps, your mind accuracy averaged {percent} higher ({days} days: {under} quieter, {over} active).', numbers),
     ...comparison,
   };
 };

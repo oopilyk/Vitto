@@ -1,0 +1,8 @@
+{
+  "NSCameraUsageDescription": "Vitto 使用相机拍摄餐食和扫描条形码。",
+  "NSPhotoLibraryUsageDescription": "Vitto 会读取你选择的餐食照片，用来为这一餐评分。",
+  "NSMicrophoneUsageDescription": "只有在你按住麦克风按钮时 Vitto 才会聆听，让你可以和宠物说话。你的声音不会被保存。",
+  "NSSpeechRecognitionUsageDescription": "Vitto 会把你对宠物说的话转成文字（尽可能在你的 iPhone 上完成），这样宠物才能回应你。",
+  "NSHealthShareUsageDescription": "Vitto 会从 Apple Health 读取你的步数、训练和已记录的餐食，这样 Strong、MyFitnessPal 等 App 的数据可以自动喂养你的宠物。",
+  "NSHealthUpdateUsageDescription": "Vitto 不会向 Apple Health 写入任何内容，只会读取你的步数、训练、睡眠和餐食来照顾你的宠物。"
+}

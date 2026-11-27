@@ -79,6 +79,7 @@ import type { OnboardingProgress } from '../services/onboardingDraft';
 import { scheduleTrialReminder } from '../services/pushService';
 import { colors, getColorScheme, themedStyles, fonts } from '../theme';
 import { ONB_FONT as FONT, OnbButton as FButton, OnbInput as FInput, onboardingPalette as palette } from '../components/onboardingKit';
+import { formatLocale, isCjk, t, tn, tRich, tx } from '../i18n';
 
 interface Props {
   name: string;
@@ -150,21 +151,21 @@ const GOAL_BOUNDS = { kg: { min: 30, max: 300 }, lb: { min: 66, max: 660 } } as 
  * happiness rises with everything, so it is left off every line).
  */
 const CARE_AREA_CHOICE: Record<CareArea, { label: string; detail: (pet: string) => string; stats: string }> = {
-  nutrition: { label: 'Food', detail: (pet) => `Log your meals. Skip them and ${pet} gets hungry.`, stats: '+ Hunger · Energy · Health' },
-  training: { label: 'Workouts', detail: () => 'Log your training sessions.', stats: '+ Strength · Endurance · Vitality' },
-  movement: { label: 'Steps', detail: () => 'Sync your daily steps.', stats: '+ Vitality · Endurance' },
-  mind: { label: 'Mind games', detail: (pet) => `Play quick games. Skip them and ${pet} gets foggy.`, stats: '+ Mind' },
+  nutrition: { label: t('Food'), detail: (pet) => t('Log your meals. Skip them and {pet} gets hungry.', { pet }), stats: t('+ Hunger · Energy · Health') },
+  training: { label: t('Workouts'), detail: () => t('Log your training sessions.'), stats: t('+ Strength · Endurance · Vitality') },
+  movement: { label: t('Steps'), detail: () => t('Sync your daily steps.'), stats: t('+ Vitality · Endurance') },
+  mind: { label: t('Mind games'), detail: (pet) => t('Play quick games. Skip them and {pet} gets foggy.', { pet }), stats: t('+ Mind') },
 };
 
 /** Ages as ranges, the way you would say it out loud; each lands on a representative age. */
 const AGE_OPTIONS = [
-  { label: 'Under 18', age: 15 },
-  { label: '18-24', age: 21 },
-  { label: '25-34', age: 29 },
-  { label: '35-44', age: 39 },
-  { label: '45-54', age: 49 },
-  { label: '55-64', age: 59 },
-  { label: '65 and over', age: 68 },
+  { label: t('Under 18'), age: 15 },
+  { label: t('18-24'), age: 21 },
+  { label: t('25-34'), age: 29 },
+  { label: t('35-44'), age: 39 },
+  { label: t('45-54'), age: 49 },
+  { label: t('55-64'), age: 59 },
+  { label: t('65 and over'), age: 68 },
 ];
 
 /**
@@ -174,29 +175,29 @@ const AGE_OPTIONS = [
  * deficit gentle (see calculateMacroTargets).
  */
 const GOAL_OPTIONS = [
-  { key: 'lose', goal: 'lose' as const, buildMuscle: false, label: 'Lose fat' },
-  { key: 'loseBuild', goal: 'lose' as const, buildMuscle: true, label: 'Lose fat & build muscle' },
-  { key: 'maintain', goal: 'maintain' as const, buildMuscle: false, label: 'Stay where I am' },
-  { key: 'recomp', goal: 'maintain' as const, buildMuscle: true, label: 'Build muscle, same weight' },
-  { key: 'gain', goal: 'gain' as const, buildMuscle: true, label: 'Build muscle & size' },
+  { key: 'lose', goal: 'lose' as const, buildMuscle: false, label: t('Lose fat') },
+  { key: 'loseBuild', goal: 'lose' as const, buildMuscle: true, label: t('Lose fat & build muscle') },
+  { key: 'maintain', goal: 'maintain' as const, buildMuscle: false, label: t('Stay where I am') },
+  { key: 'recomp', goal: 'maintain' as const, buildMuscle: true, label: t('Build muscle, same weight') },
+  { key: 'gain', goal: 'gain' as const, buildMuscle: true, label: t('Build muscle & size') },
 ];
 
 const ACTIVITY_OPTIONS = [
-  { value: 'low' as const, label: 'Mostly sitting', detail: 'Desk job, not much walking' },
-  { value: 'moderate' as const, label: 'On my feet some', detail: 'Walking through the day' },
-  { value: 'high' as const, label: 'Always moving', detail: 'A physical job, rarely sitting' },
+  { value: 'low' as const, label: t('Mostly sitting'), detail: t('Desk job, not much walking') },
+  { value: 'moderate' as const, label: t('On my feet some'), detail: t('Walking through the day') },
+  { value: 'high' as const, label: t('Always moving'), detail: t('A physical job, rarely sitting') },
 ];
 
 const TRAINING_DAY_OPTIONS = [
-  { value: 0, label: 'Not yet' },
-  { value: 2, label: '2 days' },
-  { value: 3, label: '3 days' },
-  { value: 4, label: '4 days' },
-  { value: 5, label: '5 days' },
-  { value: 6, label: '6+ days' },
+  { value: 0, label: t('Not yet') },
+  { value: 2, label: tn(2, '{count} day', '{count} days') },
+  { value: 3, label: tn(3, '{count} day', '{count} days') },
+  { value: 4, label: tn(4, '{count} day', '{count} days') },
+  { value: 5, label: tn(5, '{count} day', '{count} days') },
+  { value: 6, label: t('6+ days') },
 ];
 
-const STEP_LABEL: Record<number, string> = { 5000: 'Easing in', 7500: 'Steady', 10000: 'The classic', 12500: 'Ambitious' };
+const STEP_LABEL: Record<number, string> = { 5000: t('Easing in'), 7500: t('Steady'), 10000: t('The classic'), 12500: t('Ambitious') };
 
 const NAME_IDEAS = [
   'Miso',
@@ -226,14 +227,14 @@ const monthChoices = () => {
     const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
     out.push({
       value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`,
-      label: d.toLocaleDateString([], { month: 'short', year: 'numeric' }),
+      label: d.toLocaleDateString(formatLocale(), { month: 'short', year: 'numeric' }),
     });
   }
   return out;
 };
 
 const formatMonth = (iso: string | undefined) =>
-  iso ? new Date(`${iso}T00:00:00`).toLocaleDateString([], { month: 'long', year: 'numeric' }) : '';
+  iso ? new Date(`${iso}T00:00:00`).toLocaleDateString(formatLocale(), { month: 'long', year: 'numeric' }) : '';
 
 type StepId =
   | 'welcome'
@@ -355,10 +356,10 @@ const TAP_TO_ADVANCE = new Set<StepId>(['age', 'sex', 'goal', 'activity', 'train
 /** Screens without the back button and progress bar. */
 /** What Apple Health brings in on its own, as the health page lists it. */
 const HEALTH_FEEDS = [
-  { label: 'Steps', detail: 'Counted all day, no logging' },
-  { label: 'Workouts', detail: 'From your Apple Watch or other apps' },
-  { label: 'Sleep', detail: 'How well you rested last night' },
-  { label: 'Meals', detail: 'From apps like MyFitnessPal' },
+  { label: t('Steps'), detail: t('Counted all day, no logging') },
+  { label: t('Workouts'), detail: t('From your Apple Watch or other apps') },
+  { label: t('Sleep'), detail: t('How well you rested last night') },
+  { label: t('Meals'), detail: t('From apps like MyFitnessPal') },
 ] as const;
 
 const BARE = new Set<StepId>(['welcome', 'plusOffer', 'dayOne']);
@@ -594,14 +595,14 @@ export function OnboardingScreen({
   const goalNumber = goalText === '' ? undefined : Number(goalText);
   const targets = calculateMacroTargets(profile);
   const named = Boolean(picked.namePet && name.trim());
-  const petName = named ? name.trim() : 'your pet';
-  const PetName = named ? name.trim() : 'Your pet';
+  const petName = named ? name.trim() : tx('stands in for the pet’s name inside a sentence, before it has one', 'your pet');
+  const PetName = named ? name.trim() : tx('stands in for the pet’s name at the start of a sentence, before it has one', 'Your pet');
   const you = picked.yourName ? profile.displayName?.trim() : undefined;
-  const survival = petSurvivalGuidance(named ? name.trim() : 'your pet');
+  const survival = petSurvivalGuidance(petName);
   const animal = sheetByBreed(breed).label.toLowerCase();
 
   const previewPet = useMemo(
-    () => createPet('preview', named ? name.trim() : 'Pet', 'dog', breed, personality, undefined, persona),
+    () => createPet('preview', named ? name.trim() : tx('stands in for the pet’s name before it has one', 'Pet'), 'dog', breed, personality, undefined, persona),
     [named, name, breed, personality, persona],
   );
 
@@ -670,7 +671,7 @@ export function OnboardingScreen({
       if (problem) return problem;
     }
     if (stepId === 'target' && goalNumber !== undefined && (goalNumber < bounds.min || goalNumber > bounds.max))
-      return `Pick a goal between ${bounds.min} and ${bounds.max} ${profile.weightUnit}.`;
+      return t('Pick a goal between {min} and {max} {unit}.', { min: bounds.min, max: bounds.max, unit: profile.weightUnit });
     // The goal's direction has to match the choice before it. It used to be
     // quietly read off the number instead, so 300 lb for someone at 160 who
     // chose "Lose fat" was relabelled "Build muscle" without a word.
@@ -678,15 +679,15 @@ export function OnboardingScreen({
       const heading = deriveEnergyGoal(profile.weightKg, fromDisplayWeight(goalNumber));
       if (heading !== goalChoice) {
         return goalChoice === 'lose'
-          ? `To lose fat, pick a goal under ${displayedWeight} ${profile.weightUnit}, or go back and change your goal.`
-          : `To build size, pick a goal over ${displayedWeight} ${profile.weightUnit}, or go back and change your goal.`;
+          ? t('To lose fat, pick a goal under {weight} {unit}, or go back and change your goal.', { weight: displayedWeight, unit: profile.weightUnit })
+          : t('To build size, pick a goal over {weight} {unit}, or go back and change your goal.', { weight: displayedWeight, unit: profile.weightUnit });
       }
     }
-    if (stepId === 'careAreas' && careAreas.length === 0) return 'Pick at least one.';
+    if (stepId === 'careAreas' && careAreas.length === 0) return t('Pick at least one.');
     // They can go back and lower their age after choosing an age-gated one.
     if (stepId === 'personality' && !petPersonalityOptionsFor(profile.age).some((option) => option.value === personality))
-      return 'Pick a personality.';
-    if (stepId === 'personality' && personality === 'custom' && !isValidPersona(persona)) return 'Tell us who they are.';
+      return t('Pick a personality.');
+    if (stepId === 'personality' && personality === 'custom' && !isValidPersona(persona)) return t('Tell us who they are.');
     if (stepId === 'personality' && personality === 'custom' && hasBlockedTerm(persona)) return BLOCKED_PERSONA_MESSAGE;
     return null;
   };
@@ -711,7 +712,7 @@ export function OnboardingScreen({
       try {
         await onClaimUsername(normalizeUsername(handle));
       } catch (cause) {
-        setStepError(cause instanceof Error ? cause.message : 'Could not save that username.');
+        setStepError(cause instanceof Error ? cause.message : t('Could not save that username.'));
         return;
       } finally {
         setClaiming(false);
@@ -750,14 +751,14 @@ export function OnboardingScreen({
     if (!onRedeemInvite) return;
     const code = normalizeInviteCode(joinCode);
     if (!INVITE_CODE_LENGTHS.includes(code.length)) {
-      setStepError('Enter the code your partner shared.');
+      setStepError(t('Enter the code your partner shared.'));
       return;
     }
     setJoining(true);
     try {
       await onRedeemInvite(code);
     } catch (cause) {
-      setStepError(cause instanceof Error && cause.message ? cause.message : 'Could not join that pet.');
+      setStepError(cause instanceof Error && cause.message ? cause.message : t('Could not join that pet.'));
     } finally {
       setJoining(false);
     }
@@ -838,7 +839,7 @@ export function OnboardingScreen({
         goNext('plusOffer');
       }
     } catch (cause) {
-      setStepError(cause instanceof Error ? cause.message : 'That did not go through.');
+      setStepError(cause instanceof Error ? cause.message : t('That did not go through.'));
     } finally {
       setPlusBusy(null);
     }
@@ -852,7 +853,7 @@ export function OnboardingScreen({
         <Pressable
           style={styles.petPress}
           accessibilityRole="button"
-          accessibilityLabel={`Say hi to ${petName}`}
+          accessibilityLabel={named ? t('Say hi to {pet}', { pet: petName }) : t('Say hi to your pet')}
           onPress={() => {
             thump();
             celebrate();
@@ -891,7 +892,9 @@ export function OnboardingScreen({
     const inside = area.width > 0 ? Math.min(MAX_WIDTH, area.width - 40) : Infinity;
     const titleLine = Math.min(26, Math.floor(inside / ((short ? 20 : 23) * 0.55)));
     const subLine = Math.min(44, Math.floor(inside / (16 * 0.55)));
-    const header = 26 + (title.length > titleLine ? 64 : 34) + (sub && !short ? 8 + 22 * Math.ceil(sub.length / subLine) : 0);
+    // A Chinese character is as wide as two of the Latin ones these lines are counted in.
+    const wide = isCjk() ? 2 : 1;
+    const header = 26 + (title.length * wide > titleLine ? 64 : 34) + (sub && !short ? 8 + 22 * Math.ceil((sub.length * wide) / subLine) : 0);
     const size = petRoom(wanted, header + listNeeds(count, columns) + extraRoom);
     // Centred on the page: a short list (three answers and no Next button) sat
     // at the top over a band of empty screen. A long one still shrinks to fit.
@@ -913,29 +916,29 @@ export function OnboardingScreen({
     if (TAP_TO_ADVANCE.has(stepId) || stepId === 'plusOffer' || stepId === 'notifications' || stepId === 'health') return null;
     switch (stepId) {
       case 'welcome':
-        return { label: 'Get started' };
+        return { label: t('Get started') };
       case 'choosePet':
-        return picked.choosePet ? { label: `Choose the ${animal}` } : { label: 'Choose your companion', disabled: true };
+        return picked.choosePet ? { label: t('Choose the {breed}', { breed: animal }) } : { label: t('Choose your companion'), disabled: true };
       case 'namePet':
-        return { label: 'Next', disabled: !named };
+        return { label: t('Next'), disabled: !named };
       case 'yourName':
-        return { label: 'Next', disabled: !profile.displayName?.trim() || !picked.yourName };
+        return { label: t('Next'), disabled: !profile.displayName?.trim() || !picked.yourName };
       case 'username':
-        return { label: 'Next', disabled: usernameError(handle) !== null };
+        return { label: t('Next'), disabled: usernameError(handle) !== null };
       case 'body':
-        return { label: 'Next', disabled: !bodyComplete };
+        return { label: t('Next'), disabled: !bodyComplete };
       case 'target':
-        return { label: 'Next', disabled: goalNumber === undefined || !picked.target || !profile.goalTargetDate };
+        return { label: t('Next'), disabled: goalNumber === undefined || !picked.target || !profile.goalTargetDate };
       case 'careAreas':
-        return { label: 'Next', disabled: careAreas.length === 0 };
+        return { label: t('Next'), disabled: careAreas.length === 0 };
       case 'personality':
-        return { label: 'Next', disabled: !picked.personality };
+        return { label: t('Next'), disabled: !picked.personality };
       case 'plan':
-        return { label: 'Let’s do it!' };
+        return { label: t('Let’s do it!') };
       case 'dayOne':
-        return { label: 'Start today' };
+        return { label: t('Start today') };
       default:
-        return { label: 'Next' };
+        return { label: t('Next') };
     }
   })();
 
@@ -943,6 +946,8 @@ export function OnboardingScreen({
   const progress = Math.max(0.05, index / (sequence.length - 1));
   const personalities = petPersonalityOptionsFor(profile.age);
   const preview = picked.personality && personality !== 'custom' ? PERSONALITY_PREVIEW[personality] : undefined;
+  /** The yearly price, set strong inside the offer's price line. */
+  const yearlyPrice = <Text style={styles.offerPriceStrong}>{t('{price} per year', { price: yearly.price })}</Text>;
 
   // Pet tiles: five across, square, from the measured width.
   // `area` is measured outside its 20pt side padding, and the page caps at MAX_WIDTH.
@@ -953,10 +958,10 @@ export function OnboardingScreen({
     <View style={[styles.screen, { backgroundColor: F.bg, paddingBottom: keyboardHeight }]}>
       {!BARE.has(stepId) ? (
         <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} hitSlop={12} style={styles.backButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('Back')} onPress={back} hitSlop={12} style={styles.backButton}>
             <Text style={styles.backMark}>‹</Text>
           </Pressable>
-          <View style={styles.progressTrack} accessibilityLabel={`Step ${index + 1} of ${sequence.length}`}>
+          <View style={styles.progressTrack} accessibilityLabel={t('Step {step} of {total}', { step: index + 1, total: sequence.length })}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]}>
               <View style={styles.progressShine} />
             </View>
@@ -966,7 +971,7 @@ export function OnboardingScreen({
       ) : stepId === 'welcome' && onSignOut ? (
         <View style={[styles.header, styles.headerEnd]}>
           <Pressable accessibilityRole="button" onPress={onSignOut} hitSlop={8}>
-            <Text style={styles.link}>Log out</Text>
+            <Text style={styles.link}>{t('Log out')}</Text>
           </Pressable>
         </View>
       ) : (
@@ -1004,12 +1009,12 @@ export function OnboardingScreen({
                   ) : null;
                 })}
               </View>
-              <Text style={styles.title}>A companion that grows with you.</Text>
-              <Text style={styles.sub}>Every workout, meal and step keeps them going. Let’s meet yours!</Text>
+              <Text style={styles.title}>{t('A companion that grows with you.')}</Text>
+              <Text style={styles.sub}>{t('Every workout, meal and step keeps them going. Let’s meet yours!')}</Text>
               {onRedeemInvite ? (
                 showJoin ? (
                   <View style={styles.join}>
-                    <Text style={styles.fieldLabel}>Invite code from your care partner</Text>
+                    <Text style={styles.fieldLabel}>{t('Invite code from your care partner')}</Text>
                     <FInput
                       value={joinCode}
                       onChangeText={(value) => {
@@ -1020,10 +1025,10 @@ export function OnboardingScreen({
                       autoCorrect={false}
                       maxLength={INVITE_INPUT_MAX_LENGTH}
                       placeholder="ABCD-EFGH"
-                      accessibilityLabel="Invite code"
+                      accessibilityLabel={t('Invite code')}
                     />
                     <FButton
-                      label="Join their pet"
+                      label={t('Join their pet')}
                       busy={joining}
                       disabled={!INVITE_CODE_LENGTHS.includes(normalizeInviteCode(joinCode).length)}
                       onPress={() => void join()}
@@ -1031,7 +1036,7 @@ export function OnboardingScreen({
                   </View>
                 ) : (
                   <Pressable accessibilityRole="button" onPress={() => setShowJoin(true)} style={styles.linkRow}>
-                    <Text style={styles.link}>Have an invite code? Join a partner’s pet</Text>
+                    <Text style={styles.link}>{t('Have an invite code? Join a partner’s pet')}</Text>
                   </Pressable>
                 )
               ) : null}
@@ -1040,13 +1045,13 @@ export function OnboardingScreen({
 
           {stepId === 'choosePet' ? (
             <View style={styles.fill}>
-              <Text style={styles.title}>Choose your companion!</Text>
-              {!short ? <Text style={styles.sub}>Pick the one that feels right.</Text> : null}
+              <Text style={styles.title}>{t('Choose your companion!')}</Text>
+              {!short ? <Text style={styles.sub}>{t('Pick the one that feels right.')}</Text> : null}
               <View style={[styles.fill, styles.centred]}>
                 {picked.choosePet ? (
                   <>
                     {pet(petRoom(170, (short ? 50 : 80) + tile * 2 + 8 + 50), undefined, true)}
-                    <Text style={styles.chosenName}>{`The ${animal}`}</Text>
+                    <Text style={styles.chosenName}>{t('The {breed}', { breed: animal })}</Text>
                   </>
                 ) : (
                   <View style={styles.mystery}>
@@ -1062,7 +1067,7 @@ export function OnboardingScreen({
                       key={sheet.name}
                       accessibilityRole="button"
                       accessibilityState={{ selected: on }}
-                      accessibilityLabel={`Choose the ${sheet.label}`}
+                      accessibilityLabel={t('Choose the {breed}', { breed: sheet.label })}
                       onPress={() => {
                         tick();
                         pick('choosePet');
@@ -1086,7 +1091,7 @@ export function OnboardingScreen({
 
           {stepId === 'namePet' ? (
             <View style={[styles.fill, styles.centred]}>
-              {pet(petRoom(160, 96 + 80 + 72), 'Hi! Thanks for choosing me. What do you want to call me?')}
+              {pet(petRoom(160, 96 + 80 + 72), t('Hi! Thanks for choosing me. What do you want to call me?'))}
               <FInput
                 value={picked.namePet ? name : ''}
                 onChangeText={(value) => {
@@ -1094,14 +1099,14 @@ export function OnboardingScreen({
                   onNameChange(value);
                 }}
                 maxLength={18}
-                placeholder="Their name"
+                placeholder={t('Their name')}
                 returnKeyType="done"
-                accessibilityLabel="Your companion's name"
+                accessibilityLabel={t("Your companion's name")}
               />
               <View style={[styles.row, styles.rowSpaced]}>
                 <View style={styles.rowItem}>
                   <FButton
-                    label="Shuffle"
+                    label={t('Shuffle')}
                     tone="secondary"
                     onPress={() => {
                       tick();
@@ -1117,7 +1122,7 @@ export function OnboardingScreen({
 
           {stepId === 'yourName' ? (
             <View style={[styles.fill, styles.centred]}>
-              {pet(petRoom(150, 96 + 80), `Cheers! I’m ${petName}. And what’s your name?`)}
+              {pet(petRoom(150, 96 + 80), t('Cheers! I’m {pet}. And what’s your name?', { pet: petName }))}
               <FInput
                 value={picked.yourName ? (profile.displayName ?? '') : ''}
                 onChangeText={(value) => {
@@ -1125,16 +1130,16 @@ export function OnboardingScreen({
                   onUpdate('displayName', value);
                 }}
                 maxLength={40}
-                placeholder="Your name"
+                placeholder={t('Your name')}
                 returnKeyType="done"
-                accessibilityLabel="Your name"
+                accessibilityLabel={t('Your name')}
               />
             </View>
           ) : null}
 
           {stepId === 'username' ? (
             <View style={[styles.fill, styles.centred]}>
-              {pet(petRoom(140, 96 + 80 + 50), `Now pick a username, so your friends can find us!`)}
+              {pet(petRoom(140, 96 + 80 + 50), t('Now pick a username, so your friends can find us!'))}
               <FInput
                 value={handle}
                 onChangeText={(value) => {
@@ -1144,12 +1149,12 @@ export function OnboardingScreen({
                 autoCapitalize="none"
                 autoCorrect={false}
                 maxLength={20}
-                placeholder="@username"
+                placeholder={t('@username')}
                 returnKeyType="done"
-                accessibilityLabel="Your username"
+                accessibilityLabel={t('Your username')}
               />
               <Text style={styles.hint}>
-                {handle && usernameError(handle) ? usernameError(handle) : 'Letters, numbers and underscores. Friends see this, not your name.'}
+                {handle && usernameError(handle) ? usernameError(handle) : t('Letters, numbers and underscores. Friends see this, not your name.')}
               </Text>
             </View>
           ) : null}
@@ -1157,9 +1162,9 @@ export function OnboardingScreen({
           {stepId === 'age'
             ? question(
                 {
-                  eyebrow: 'About you',
-                  title: 'How old are you?',
-                  sub: 'This helps us personalize your experience',
+                  eyebrow: t('About you'),
+                  title: t('How old are you?'),
+                  sub: t('This helps us personalize your experience'),
                   count: AGE_OPTIONS.length,
                   columns: 2,
                 },
@@ -1183,12 +1188,12 @@ export function OnboardingScreen({
 
           {stepId === 'sex'
             ? question(
-                { eyebrow: 'About you', title: 'What’s your sex?', sub: 'Only for your energy estimate and strength standards', count: 3 },
+                { eyebrow: t('About you'), title: t('What’s your sex?'), sub: t('Only for your energy estimate and strength standards'), count: 3 },
                 <>
                   {(['male', 'female'] as const).map((value) => (
                     <FChoice
                       key={value}
-                      label={value === 'male' ? 'Male' : 'Female'}
+                      label={value === 'male' ? t('Male') : t('Female')}
                       selected={sexChoice === value}
                       onPress={() =>
                         answer(() => {
@@ -1208,7 +1213,7 @@ export function OnboardingScreen({
                     }
                     style={styles.linkRow}
                   >
-                    <Text style={styles.linkLarge}>Prefer not to answer</Text>
+                    <Text style={styles.linkLarge}>{t('Prefer not to answer')}</Text>
                   </Pressable>
                 </>,
               )
@@ -1217,9 +1222,9 @@ export function OnboardingScreen({
           {stepId === 'body'
             ? question(
                 {
-                  eyebrow: 'About you',
-                  title: 'Your height and weight',
-                  sub: 'Just for your calorie target. Nobody else sees it.',
+                  eyebrow: t('About you'),
+                  title: t('Your height and weight'),
+                  sub: t('Just for your calorie target. Nobody else sees it.'),
                   count: 4,
                   wanted: 100,
                   // The feet and inches buttons stand taller than one box.
@@ -1254,14 +1259,14 @@ export function OnboardingScreen({
                       keyboardType="number-pad"
                       value={body.cm}
                       onChangeText={(value) => updateBody({ ...body, cm: digits(value) })}
-                      placeholder="Height (cm)"
-                      accessibilityLabel="Height in centimetres"
+                      placeholder={t('Height (cm)')}
+                      accessibilityLabel={t('Height in centimetres')}
                     />
                   ) : (
                     // Feet and inches by tapping: two short lists beat two
                     // number boxes whose units only lived in their placeholders.
                     <View style={styles.heightPick}>
-                      <Text style={styles.heightLabel}>Height</Text>
+                      <Text style={styles.heightLabel}>{t('Height')}</Text>
                       <View style={styles.toggle}>
                         {[3, 4, 5, 6, 7].map((feet) => {
                           const on = body.feet === String(feet);
@@ -1269,7 +1274,7 @@ export function OnboardingScreen({
                             <Pressable
                               key={feet}
                               accessibilityRole="radio"
-                              accessibilityLabel={`${feet} feet`}
+                              accessibilityLabel={t('{count} feet', { count: feet })}
                               accessibilityState={{ selected: on }}
                               onPress={() => {
                                 tick();
@@ -1289,7 +1294,7 @@ export function OnboardingScreen({
                             <Pressable
                               key={inches}
                               accessibilityRole="radio"
-                              accessibilityLabel={`${inches} inches`}
+                              accessibilityLabel={tn(inches, '{count} inch', '{count} inches')}
                               accessibilityState={{ selected: on }}
                               onPress={() => {
                                 tick();
@@ -1306,13 +1311,13 @@ export function OnboardingScreen({
                   )}
                   {/* Labelled above, with an example inside, so it reads as a box to
                       type in rather than a button like the choices around it. */}
-                  <Text style={styles.heightLabel}>{`Weight (${profile.weightUnit})`}</Text>
+                  <Text style={styles.heightLabel}>{t('Weight ({unit})', { unit: profile.weightUnit })}</Text>
                   <FInput
                     keyboardType="decimal-pad"
                     value={body.weight}
                     onChangeText={(value) => updateBody({ ...body, weight: decimal(value) })}
-                    placeholder={profile.weightUnit === 'lb' ? 'Type it here, e.g. 160' : 'Type it here, e.g. 72'}
-                    accessibilityLabel={`Weight in ${profile.weightUnit}`}
+                    placeholder={t('Type it here, e.g. {example}', { example: profile.weightUnit === 'lb' ? 160 : 72 })}
+                    accessibilityLabel={t('Weight in {unit}', { unit: profile.weightUnit })}
                   />
                 </>,
               )
@@ -1320,7 +1325,7 @@ export function OnboardingScreen({
 
           {stepId === 'goal'
             ? question(
-                { eyebrow: 'Your goal', title: 'What would you most like to do?', count: GOAL_OPTIONS.length, wanted: 120 },
+                { eyebrow: t('Your goal'), title: t('What would you most like to do?'), count: GOAL_OPTIONS.length, wanted: 120 },
                 <>
                   {/* No weight loss under 18: maintaining or building only (see calorieAdjustmentFor). */}
                   {GOAL_OPTIONS.filter((option) => !(isMinor(profile) && option.goal === 'lose')).map((option) => (
@@ -1352,9 +1357,9 @@ export function OnboardingScreen({
           {stepId === 'target'
             ? question(
                 {
-                  eyebrow: 'Your goal',
-                  title: 'What weight are you aiming for?',
-                  sub: `You’re at ${displayedWeight} ${profile.weightUnit} now.`,
+                  eyebrow: t('Your goal'),
+                  title: t('What weight are you aiming for?'),
+                  sub: t('You’re at {weight} {unit} now.', { weight: displayedWeight, unit: profile.weightUnit }),
                   count: 3,
                   wanted: 100,
                 },
@@ -1368,14 +1373,14 @@ export function OnboardingScreen({
                       setGoalText(next);
                       setGoalWeight(next === '' ? undefined : Number(next));
                     }}
-                    placeholder={`Goal weight (${profile.weightUnit})`}
-                    accessibilityLabel={`Goal weight in ${profile.weightUnit}`}
+                    placeholder={t('Goal weight ({unit})', { unit: profile.weightUnit })}
+                    accessibilityLabel={t('Goal weight in {unit}', { unit: profile.weightUnit })}
                   />
                   <Text style={styles.fieldLabel}>
-                    By when?
+                    {t('By when?')}
                     {/* Next waits for a month too; say so once the weight is in. */}
                     {goalNumber !== undefined && !(picked.target && profile.goalTargetDate) ? (
-                      <Text style={styles.fieldHint}>  Pick a month to go on.</Text>
+                      <Text style={styles.fieldHint}>{`  ${t('Pick a month to go on.')}`}</Text>
                     ) : null}
                   </Text>
                   {/* The one sideways list: fifteen months in a row, swiped, never the page. */}
@@ -1410,8 +1415,8 @@ export function OnboardingScreen({
           {stepId === 'activity'
             ? question(
                 {
-                  eyebrow: 'Your days',
-                  title: 'Outside workouts, how active is your day?',
+                  eyebrow: t('Your days'),
+                  title: t('Outside workouts, how active is your day?'),
                   count: 3,
                   // The detail line makes each answer taller than a plain one.
                   extraRoom: short ? 0 : 3 * (DETAILED_CHOICE - MIN_CHOICE),
@@ -1435,9 +1440,9 @@ export function OnboardingScreen({
           {stepId === 'trainingDays'
             ? question(
                 {
-                  eyebrow: 'Your days',
-                  title: 'How many days a week will you train?',
-                  sub: `${PetName} gets stronger every time you do`,
+                  eyebrow: t('Your days'),
+                  title: t('How many days a week will you train?'),
+                  sub: t('{pet} gets stronger every time you do', { pet: PetName }),
                   count: TRAINING_DAY_OPTIONS.length,
                   columns: 2,
                 },
@@ -1458,8 +1463,8 @@ export function OnboardingScreen({
             ? question(
                 {
                   eyebrow: petName,
-                  title: `What should keep ${petName} healthy?`,
-                  sub: `Pick what you'll track. Anything you leave off never affects ${petName}.`,
+                  title: t('What should keep {pet} healthy?', { pet: petName }),
+                  sub: t("Pick what you'll track. Anything you leave off never affects {pet}.", { pet: petName }),
                   count: CARE_AREAS.length,
                   // Two-line rows: room for them, so nothing scrolls.
                   // What the cards really take beyond the minimum: on an iPhone each
@@ -1491,9 +1496,9 @@ export function OnboardingScreen({
           {stepId === 'trainingTypes'
             ? question(
                 {
-                  eyebrow: 'Your days',
-                  title: 'What kind of training do you like?',
-                  sub: 'Pick any, or none yet',
+                  eyebrow: t('Your days'),
+                  title: t('What kind of training do you like?'),
+                  sub: t('Pick any, or none yet'),
                   count: TRAINING_TYPE_OPTIONS.length,
                   columns: 2,
                 },
@@ -1513,29 +1518,29 @@ export function OnboardingScreen({
           {stepId === 'steps'
             ? question(
                 {
-                  eyebrow: 'Your days',
-                  title: 'How many steps a day?',
-                  sub: `Every one of them feeds ${petName}`,
+                  eyebrow: t('Your days'),
+                  title: t('How many steps a day?'),
+                  sub: t('Every one of them feeds {pet}', { pet: petName }),
                   count: STEP_GOAL_PRESETS.length + 1,
                 },
                 <>
                   {STEP_GOAL_PRESETS.map((steps) => (
                     <FChoice
                       key={steps}
-                      label={`${steps.toLocaleString()} steps`}
+                      label={t('{steps} steps', { steps: steps.toLocaleString(formatLocale()) })}
                       note={STEP_LABEL[steps]}
                       selected={picked.steps && stepGoal === steps}
                       onPress={() => answer(() => onStepGoalChange(steps))}
                     />
                   ))}
-                  <FChoice label="Let Vitto choose" onPress={() => answer(() => onStepGoalChange(suggestStepGoal(profile)))} />
+                  <FChoice label={t('Let Vitto choose')} onPress={() => answer(() => onStepGoalChange(suggestStepGoal(profile)))} />
                 </>,
               )
             : null}
 
           {stepId === 'plan' ? (
             <View style={styles.fill}>
-              {pet(petRoom(120, 64 + 330 + 50), 'You got this!')}
+              {pet(petRoom(120, 64 + 330 + 50), t('You got this!'))}
               <View style={styles.planCard} testID="starter-plan">
                 <View style={styles.planRings}>
                   {[0, 1, 2, 3, 4].map((n) => (
@@ -1544,27 +1549,27 @@ export function OnboardingScreen({
                 </View>
                 {/* A 40-character name shrinks onto two lines rather than taking a third from the plan. */}
                 <FitText style={styles.planTitle} lines={2} minScale={0.7}>
-                  {you ? `${you}’s starter plan` : 'Your starter plan'}
+                  {you ? t('{name}’s starter plan', { name: you }) : t('Your starter plan')}
                 </FitText>
-                <Text style={styles.planSub}>{`Try these easy goals with ${petName}!`}</Text>
-                <PlanRow text={`Eat about ${targets.calories.toLocaleString()} kcal a day`} />
-                <PlanRow text={`Get ${targets.proteinGrams}g of protein`} />
-                <PlanRow text={`Walk ${stepGoal.toLocaleString()} steps`} />
+                <Text style={styles.planSub}>{t('Try these easy goals with {pet}!', { pet: petName })}</Text>
+                <PlanRow text={t('Eat about {calories} kcal a day', { calories: targets.calories.toLocaleString(formatLocale()) })} />
+                <PlanRow text={t('Get {grams}g of protein', { grams: targets.proteinGrams })} />
+                <PlanRow text={t('Walk {steps} steps', { steps: stepGoal.toLocaleString(formatLocale()) })} />
                 <PlanRow
-                  text={profile.trainingDaysPerWeek > 0 ? `Train ${profile.trainingDaysPerWeek} days a week` : 'Try one workout this week'}
+                  text={profile.trainingDaysPerWeek > 0 ? tn(profile.trainingDaysPerWeek, 'Train {count} day a week', 'Train {count} days a week') : t('Try one workout this week')}
                 />
                 {goalChoice !== 'maintain' && profile.goal !== 'maintain' && profile.targetWeightKg !== undefined ? (
                   <PlanRow
-                    text={`Reach ${toDisplayWeight(profile.targetWeightKg)} ${profile.weightUnit} by ${formatMonth(profile.goalTargetDate)}`}
+                    text={t('Reach {weight} {unit} by {month}', { weight: toDisplayWeight(profile.targetWeightKg), unit: profile.weightUnit, month: formatMonth(profile.goalTargetDate) })}
                     last
                   />
                 ) : (
-                  <PlanRow text={`Hold steady around ${displayedWeight} ${profile.weightUnit}`} last />
+                  <PlanRow text={t('Hold steady around {weight} {unit}', { weight: displayedWeight, unit: profile.weightUnit })} last />
                 )}
               </View>
               {/* The numbers are a starting point, not a contract. */}
               <Text style={styles.planNote} testID="plan-change-anytime">
-                Estimates, not medical advice. Change them anytime in Settings.
+                {t('Estimates, not medical advice. Change them anytime in Settings.')}
               </Text>
             </View>
           ) : null}
@@ -1573,27 +1578,27 @@ export function OnboardingScreen({
             <View style={[styles.fill, styles.centred]}>
               <Text style={styles.plusKicker}>Vitto Plus</Text>
               {/* Titles with the pet's name stay on two lines (the page is laid out for that) by shrinking for a long name. */}
-              <FitText style={styles.title} lines={2} minScale={0.7}>{`Make ${petName} truly yours`}</FitText>
+              <FitText style={styles.title} lines={2} minScale={0.7}>{t('Make {pet} truly yours', { pet: petName })}</FitText>
               <View style={styles.perkStage}>
                 <View style={[styles.voice, styles.voiceLeft]}>
-                  <Text style={styles.voiceTag}>Sweet</Text>
-                  <Text style={styles.voiceLine}>You came back! I saved you a spot.</Text>
+                  <Text style={styles.voiceTag}>{t('Sweet')}</Text>
+                  <Text style={styles.voiceLine}>{t('You came back! I saved you a spot.')}</Text>
                 </View>
                 <View style={[styles.voice, styles.voiceRight]}>
-                  <Text style={styles.voiceTag}>Savage</Text>
-                  <Text style={styles.voiceLine}>Oh, you’re up. Groundbreaking.</Text>
+                  <Text style={styles.voiceTag}>{t('Savage')}</Text>
+                  <Text style={styles.voiceLine}>{t('Oh, you’re up. Groundbreaking.')}</Text>
                 </View>
               </View>
               {pet(petRoom(120, 80 + 150 + 70 + 90))}
-              {!short ? <Text style={styles.sub}>Pick a personality, or write them a whole character of your own.</Text> : null}
-              <PerkCompare free="One easygoing voice" plus="Every personality, and your own" />
+              {!short ? <Text style={styles.sub}>{t('Pick a personality, or write them a whole character of your own.')}</Text> : null}
+              <PerkCompare free={t('One easygoing voice')} plus={t('Every personality, and your own')} />
             </View>
           ) : null}
 
           {stepId === 'plusMeals' ? (
             <View style={[styles.fill, styles.centred]}>
               <Text style={styles.plusKicker}>Vitto Plus</Text>
-              <Text style={styles.title}>Snap a photo, get the macros</Text>
+              <Text style={styles.title}>{t('Snap a photo, get the macros')}</Text>
               <View style={styles.mealCard}>
                 {/* A real plate in the viewfinder, and what the photo log would
                     make of it: eggs scrambled with chorizo, home fries, salsa. */}
@@ -1602,14 +1607,14 @@ export function OnboardingScreen({
                     source={PLUS_MEAL_PHOTO}
                     style={styles.mealPhoto}
                     resizeMode="cover"
-                    accessibilityLabel="A plate of scrambled eggs with chorizo, home fries and salsa"
+                    accessibilityLabel={t('A plate of scrambled eggs with chorizo, home fries and salsa')}
                   />
                   {(['tl', 'tr', 'bl', 'br'] as const).map((corner) => (
                     <View key={corner} style={[styles.corner, styles[`corner_${corner}`]]} />
                   ))}
                 </View>
                 <View style={styles.mealChips}>
-                  {['840 kcal', '33g protein', '50g carbs', '56g fat'].map((chip) => (
+                  {['840 kcal', t('{grams}g protein', { grams: 33 }), t('{grams}g carbs', { grams: 50 }), t('{grams}g fat', { grams: 56 })].map((chip) => (
                     <View key={chip} style={styles.mealChip}>
                       <Text style={styles.mealChipLabel}>{chip}</Text>
                     </View>
@@ -1620,33 +1625,33 @@ export function OnboardingScreen({
               {!short ? (
                 <Text
                   style={styles.sub}
-                >{`Point your camera at a meal and Vitto works out the calories and macros, then feeds ${petName}.`}</Text>
+                >{t('Point your camera at a meal and Vitto works out the calories and macros, then feeds {pet}.', { pet: petName })}</Text>
               ) : null}
-              <PerkCompare free="Search and log by hand" plus="Photo meal tracking" />
+              <PerkCompare free={t('Search and log by hand')} plus={t('Photo meal tracking')} />
             </View>
           ) : null}
 
           {stepId === 'plusChat' ? (
             <View style={[styles.fill, styles.centred]}>
               <Text style={styles.plusKicker}>Vitto Plus</Text>
-              <FitText style={styles.title} lines={2} minScale={0.7}>{`Talk with ${petName} anytime`}</FitText>
+              <FitText style={styles.title} lines={2} minScale={0.7}>{t('Talk with {pet} anytime', { pet: petName })}</FitText>
               <View style={styles.chat}>
                 <View style={[styles.chatBubble, styles.chatMine]}>
-                  <Text style={[styles.chatText, styles.chatTextMine]}>Hit a new bench PR today!</Text>
+                  <Text style={[styles.chatText, styles.chatTextMine]}>{t('Hit a new bench PR today!')}</Text>
                 </View>
                 <View style={[styles.chatBubble, styles.chatTheirs]}>
-                  <Text style={styles.chatText}>No way! I KNEW you had it in you. What’s next, the squat?</Text>
+                  <Text style={styles.chatText}>{t('No way! I KNEW you had it in you. What’s next, the squat?')}</Text>
                 </View>
               </View>
               {pet(petRoom(110, 80 + 140 + 70 + 90))}
               {!short ? (
                 <Text
                   style={styles.sub}
-                >{`A more in-character ${petName} who remembers your week and checks in on you more.`}</Text>
+                >{t('A more in-character {pet} who remembers your week and checks in on you more.', { pet: petName })}</Text>
               ) : null}
               <PerkCompare
-                free={`${ai.TIER_LIMITS.free.messagesPerDay} messages a day`}
-                plus="Many more, and remembers you"
+                free={tn(ai.TIER_LIMITS.free.messagesPerDay, '{count} message a day', '{count} messages a day')}
+                plus={t('Many more, and remembers you')}
               />
             </View>
           ) : null}
@@ -1655,20 +1660,20 @@ export function OnboardingScreen({
             <View style={[styles.fill, styles.grows]} testID="plus-offer">
               {/* The page has no header (it is BARE), so its own way back, as every other step has. */}
               <View style={styles.offerBar}>
-                <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} hitSlop={12} style={styles.backButton}>
+                <Pressable accessibilityRole="button" accessibilityLabel={t('Back')} onPress={back} hitSlop={12} style={styles.backButton}>
                   <Text style={styles.backMark}>‹</Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" onPress={() => goNext('plusOffer')} hitSlop={10}>
-                  <Text style={styles.link}>Not now</Text>
+                  <Text style={styles.link}>{t('Not now')}</Text>
                 </Pressable>
               </View>
               {plusLoading ? (
                 <ActivityIndicator color={F.green} style={styles.offerLoading} testID="plus-offer-loading" />
               ) : (
               <>
-              <Text style={styles.offerReady}>{trialDays !== null ? 'Your free trial is ready' : 'Everything your pet can be'}</Text>
+              <Text style={styles.offerReady}>{trialDays !== null ? t('Your free trial is ready') : t('Everything your pet can be')}</Text>
               <Text style={[styles.title, short && styles.titleShort]}>
-                {trialDays !== null ? `Start your ${trialDays}-day free trial` : 'Get Vitto Plus'}
+                {trialDays !== null ? t('Start your {days}-day free trial', { days: trialDays }) : t('Get Vitto Plus')}
               </Text>
               {/* What Plus adds, the same table the Plus page in Settings shows. */}
               <View style={styles.offerTable}>
@@ -1680,11 +1685,14 @@ export function OnboardingScreen({
               <View style={styles.trialSteps} testID="trial-steps">
                 <View style={styles.trialRail} />
                 {[
-                  { title: 'Today', body: 'Full access, free', filled: true },
-                  { title: `Day ${reminderDay}`, body: 'A reminder before it ends' },
+                  { title: t('Today'), body: t('Full access, free'), filled: true },
+                  { title: t('Day {day}', { day: reminderDay ?? trialDays }), body: t('A reminder before it ends') },
                   {
-                    title: `Day ${trialDays}`,
-                    body: `${yearly.price} / year from ${new Date(Date.now() + trialDays * 86_400_000).toLocaleDateString([], { month: 'short', day: 'numeric' })}`,
+                    title: t('Day {day}', { day: trialDays }),
+                    body: t('{price} / year from {date}', {
+                      price: yearly.price,
+                      date: new Date(Date.now() + trialDays * 86_400_000).toLocaleDateString(formatLocale(), { month: 'short', day: 'numeric' }),
+                    }),
                   },
                 ].map((row) => (
                   <View key={row.title} style={styles.trialStep}>
@@ -1705,9 +1713,9 @@ export function OnboardingScreen({
           {stepId === 'personality' ? (
             <View style={styles.fill}>
               <FitText style={[styles.title, short && styles.titleShort]} lines={2} minScale={0.7}>
-                {`Choose a personality for ${petName}`}
+                {t('Choose a personality for {pet}', { pet: petName })}
               </FitText>
-              {!short ? <Text style={styles.sub}>Their personality: how they talk to you. Fine-tune it any time in Settings.</Text> : null}
+              {!short ? <Text style={styles.sub}>{t('Their personality: how they talk to you. Fine-tune it any time in Settings.')}</Text> : null}
               <View style={styles.choices}>
                 <Grid columns={2}>
                   {personalities.map((option) => (
@@ -1728,25 +1736,25 @@ export function OnboardingScreen({
               </View>
               {picked.personality && personality === 'custom' && profile.age >= MATURE_PERSONALITY_AGE ? (
                 <View style={styles.personaBox}>
-                  <Text style={styles.fieldLabel}>Who are they?</Text>
+                  <Text style={styles.fieldLabel}>{t('Who are they?')}</Text>
                   <FInput
                     multiline
                     style={styles.persona}
                     value={persona}
                     onChangeText={(value) => onPersonaChange(value.slice(0, PERSONA_MAX_LENGTH))}
-                    placeholder="A grumpy old pirate who secretly adores us"
+                    placeholder={t('A grumpy old pirate who secretly adores us')}
                     // Return closes the keyboard rather than starting a new line.
                     returnKeyType="done"
                     submitBehavior="blurAndSubmit"
                     onSubmitEditing={() => Keyboard.dismiss()}
                     maxLength={PERSONA_MAX_LENGTH}
-                    accessibilityLabel="Their character"
+                    accessibilityLabel={t('Their character')}
                   />
                 </View>
               ) : preview ? (
                 <View style={styles.previewCard} testID={`personality-preview-${personality}`}>
                   <Text style={styles.previewAbout}>{preview.about}</Text>
-                  {preview.sample ? <Text style={styles.previewQuote}>{`“${preview.sample}”`}</Text> : null}
+                  {preview.sample ? <Text style={styles.previewQuote}>{t('“{quote}”', { quote: preview.sample })}</Text> : null}
                 </View>
               ) : null}
             </View>
@@ -1754,17 +1762,17 @@ export function OnboardingScreen({
 
           {stepId === 'notifications' ? (
             <View style={[styles.fill, styles.centred]}>
-              <FitText style={styles.title} lines={2} minScale={0.7}>{`Get reminders from ${petName}`}</FitText>
+              <FitText style={styles.title} lines={2} minScale={0.7}>{t('Get reminders from {pet}', { pet: petName })}</FitText>
               <View style={styles.notification}>
                 <View style={styles.notificationIcon}>
                   <SpriteFrame sheet={sheetByBreed(breed)} frame={portraitFrame(sheetByBreed(breed))} size={58} />
                 </View>
                 <View style={styles.notificationText}>
                   {/* A long name shrinks a touch rather than breaking mid-word on a 320pt phone. */}
-                  <FitText style={styles.notificationTitle}>{`From ${PetName}`}</FitText>
-                  <Text style={styles.notificationBody}>A quick walk would make my whole day!</Text>
+                  <FitText style={styles.notificationTitle}>{t('From {pet}', { pet: PetName })}</FitText>
+                  <Text style={styles.notificationBody}>{t('A quick walk would make my whole day!')}</Text>
                 </View>
-                <Text style={styles.notificationTime}>now</Text>
+                <Text style={styles.notificationTime}>{tx('how long ago a notification arrived', 'now')}</Text>
               </View>
               {pet(petRoom(180, 80 + 100))}
             </View>
@@ -1772,8 +1780,8 @@ export function OnboardingScreen({
 
           {stepId === 'health' ? (
             <View style={[styles.fill, styles.centred]}>
-              <Text style={styles.title}>Connect Apple Health</Text>
-              <Text style={styles.sub}>{`So ${petName} is looked after even on days you forget to log.`}</Text>
+              <Text style={styles.title}>{t('Connect Apple Health')}</Text>
+              <Text style={styles.sub}>{t('So {pet} is looked after even on days you forget to log.', { pet: petName })}</Text>
               <View style={styles.healthList}>
                 {HEALTH_FEEDS.map((feed) => (
                   <View key={feed.label} style={styles.healthRow}>
@@ -1791,12 +1799,12 @@ export function OnboardingScreen({
 
           {stepId === 'dayOne' ? (
             <View style={[styles.fill, styles.centred]}>
-              <Text style={styles.dayKicker}>Day 1</Text>
-              <Text style={styles.title}>{`Happy ${new Date().toLocaleDateString([], { weekday: 'long' })}!`}</Text>
+              <Text style={styles.dayKicker}>{t('Day {day}', { day: 1 })}</Text>
+              <Text style={styles.title}>{t('Happy {weekday}!', { weekday: new Date().toLocaleDateString(formatLocale(), { weekday: 'long' }) })}</Text>
               {pet(petRoom(190, 80 + 230))}
               <View style={styles.dayCard}>
-                <Text style={styles.dayCardKicker}>A gentle reminder</Text>
-                <Text style={styles.dayCardTitle}>Good things take time.</Text>
+                <Text style={styles.dayCardKicker}>{t('A gentle reminder')}</Text>
+                <Text style={styles.dayCardTitle}>{t('Good things take time.')}</Text>
                 <Text style={styles.dayCardBody}>{survival.detail}</Text>
               </View>
             </View>
@@ -1809,16 +1817,20 @@ export function OnboardingScreen({
         <View style={styles.footerInner}>
           {(stepError ?? error) ? <Text style={styles.error}>{stepError ?? error}</Text> : null}
           {stepId === 'plusOffer' && plusLoading ? (
-            <FButton label="Loading" busy disabled onPress={() => {}} />
+            <FButton label={t('Loading')} busy disabled onPress={() => {}} />
           ) : stepId === 'plusOffer' ? (
             <>
               <Text style={styles.offerPrice}>
-                {trialDays !== null ? `${trialDays} days free, then ` : ''}
-                <Text style={styles.offerPriceStrong}>{`${yearly.price} per year`}</Text>
-                {yearly.note ? ` (${yearly.note.toLowerCase()})` : ''}
+                {trialDays !== null
+                  ? yearly.note
+                    ? tRich('{days} days free, then {yearlyPrice} ({note})', { yearlyPrice }, { days: trialDays, note: yearly.note.toLowerCase() })
+                    : tRich('{days} days free, then {yearlyPrice}', { yearlyPrice }, { days: trialDays })
+                  : yearly.note
+                    ? tRich('{yearlyPrice} ({note})', { yearlyPrice }, { note: yearly.note.toLowerCase() })
+                    : yearlyPrice}
               </Text>
               <FButton
-                label={trialDays !== null ? 'Start my free trial' : 'Get Plus yearly'}
+                label={trialDays !== null ? t('Start my free trial') : t('Get Plus yearly')}
                 busy={plusBusy === 'yearly'}
                 disabled={plusBusy !== null}
                 onPress={() => void buyPlus('yearly')}
@@ -1829,33 +1841,43 @@ export function OnboardingScreen({
                 disabled={plusBusy !== null}
                 style={styles.linkRow}
               >
-                <Text style={styles.linkLarge}>{`Or ${monthly.price} a month${trialDays !== null ? ', no trial' : ''}`}</Text>
+                <Text style={styles.linkLarge}>
+                  {trialDays !== null ? t('Or {price} a month, no trial', { price: monthly.price }) : t('Or {price} a month', { price: monthly.price })}
+                </Text>
               </Pressable>
               {/* What the App Store requires on any screen that sells a subscription. */}
               <Text style={styles.offerLegal}>
                 {/* The links on a line of their own, never broken across two. */}
-                {'Renews automatically. Cancel anytime in Settings.\n'}
-                <Text style={styles.offerLegalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
-                  Terms
-                </Text>
-                {LEGAL_LINKS.privacy ? (
-                  <>
-                    {' · '}
-                    <Text
-                      style={styles.offerLegalLink}
-                      accessibilityRole="link"
-                      onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}
-                    >
-                      Privacy
-                    </Text>
-                  </>
-                ) : null}
+                {LEGAL_LINKS.privacy
+                  ? tRich('Renews automatically. Cancel anytime in Settings.\n{terms} · {privacy}', {
+                      terms: (
+                        <Text style={styles.offerLegalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+                          {t('Terms')}
+                        </Text>
+                      ),
+                      privacy: (
+                        <Text
+                          style={styles.offerLegalLink}
+                          accessibilityRole="link"
+                          onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}
+                        >
+                          {t('Privacy')}
+                        </Text>
+                      ),
+                    })
+                  : tRich('Renews automatically. Cancel anytime in Settings.\n{terms}', {
+                      terms: (
+                        <Text style={styles.offerLegalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+                          {t('Terms')}
+                        </Text>
+                      ),
+                    })}
               </Text>
             </>
           ) : stepId === 'notifications' ? (
             <>
               <FButton
-                label="Turn on notifications"
+                label={t('Turn on notifications')}
                 busy={notificationsBusy}
                 onPress={() => {
                   thump();
@@ -1874,12 +1896,12 @@ export function OnboardingScreen({
                     });
                 }}
               />
-              <FButton label="Maybe later" tone="secondary" onPress={() => goNext('notifications')} />
+              <FButton label={t('Maybe later')} tone="secondary" onPress={() => goNext('notifications')} />
             </>
           ) : stepId === 'health' ? (
             <>
               <FButton
-                label="Connect Apple Health"
+                label={t('Connect Apple Health')}
                 busy={healthBusy}
                 onPress={() => {
                   thump();
@@ -1892,14 +1914,14 @@ export function OnboardingScreen({
                     });
                 }}
               />
-              <FButton label="Maybe later" tone="secondary" onPress={() => goNext('health')} />
+              <FButton label={t('Maybe later')} tone="secondary" onPress={() => goNext('health')} />
             </>
           ) : footer ? (
             <>
               <FButton label={footer.label} busy={busy || claiming} disabled={footer.disabled} onPress={() => void advance()} />
               {stepId === 'yourName' && footer.disabled ? (
                 <Pressable accessibilityRole="button" onPress={() => goNext()} style={styles.linkRow}>
-                  <Text style={styles.linkLarge}>Skip</Text>
+                  <Text style={styles.linkLarge}>{t('Skip')}</Text>
                 </Pressable>
               ) : null}
             </>
@@ -2008,7 +2030,7 @@ function PerkCompare({ free, plus }: { free: string; plus: string }) {
   return (
     <View style={styles.compare}>
       <View style={styles.compareCell}>
-        <Text style={styles.compareLabel}>Free</Text>
+        <Text style={styles.compareLabel}>{tx('the free plan, beside Plus', 'Free')}</Text>
         <Text style={styles.compareValue}>{free}</Text>
       </View>
       <View style={[styles.compareCell, styles.compareCellPlus]}>

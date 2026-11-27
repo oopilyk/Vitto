@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Animated, type ImageSourcePropType, Platform, StyleSheet, View } from 'react-native';
 import { colors, getColorScheme, themedStyles } from '../theme';
+import { t } from '../i18n';
 import { EnvironmentButton } from './EnvironmentButton';
 import { useTourTarget, type TourTargetId } from '../tour/FirstRunTour';
 import { useChromeScale } from './chromeScale';
@@ -47,11 +48,11 @@ interface SceneButton {
  * its right, per the product owner's layout call.
  */
 const SCENES: readonly SceneButton[] = [
-  { id: 'outside', label: 'Outside', accessibilityLabel: 'Go outdoors', filledSource: OUTDOORS_FILLED, outlineSource: OUTDOORS_OUTLINE },
-  { id: 'kitchen', label: 'Food', accessibilityLabel: 'Go to the kitchen', filledSource: KITCHEN_FILLED, outlineSource: KITCHEN_OUTLINE },
-  { id: 'main', label: 'Home', accessibilityLabel: 'Back to the living room', filledSource: LIVING_ROOM_FILLED, outlineSource: LIVING_ROOM_OUTLINE },
-  { id: 'gym', label: 'Gym', accessibilityLabel: 'Go to the gym', filledSource: GYM_FILLED, outlineSource: GYM_OUTLINE },
-  { id: 'study', label: 'Mind', accessibilityLabel: 'Go to the study', filledSource: STUDY_FILLED, outlineSource: STUDY_OUTLINE },
+  { id: 'outside', label: t('Outside'), accessibilityLabel: t('Go outdoors'), filledSource: OUTDOORS_FILLED, outlineSource: OUTDOORS_OUTLINE },
+  { id: 'kitchen', label: t('Food'), accessibilityLabel: t('Go to the kitchen'), filledSource: KITCHEN_FILLED, outlineSource: KITCHEN_OUTLINE },
+  { id: 'main', label: t('Home'), accessibilityLabel: t('Back to the living room'), filledSource: LIVING_ROOM_FILLED, outlineSource: LIVING_ROOM_OUTLINE },
+  { id: 'gym', label: t('Gym'), accessibilityLabel: t('Go to the gym'), filledSource: GYM_FILLED, outlineSource: GYM_OUTLINE },
+  { id: 'study', label: t('Mind'), accessibilityLabel: t('Go to the study'), filledSource: STUDY_FILLED, outlineSource: STUDY_OUTLINE },
 ];
 
 // Clears the home indicator on modern iPhones without pulling in a safe-area

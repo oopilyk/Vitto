@@ -7,6 +7,7 @@ import type {
   TrainingType,
 } from './macroTargets';
 import type { PetPersonality } from './pet';
+import { t } from '../i18n';
 
 /**
  * Onboarding is a way of populating the real `profiles` / `pets` models — not a
@@ -29,31 +30,31 @@ export interface Choice<T extends string> {
 }
 
 export const TRAINING_TYPE_OPTIONS: Choice<TrainingType>[] = [
-  { value: 'weightlifting', label: 'Weightlifting' },
-  { value: 'running', label: 'Running' },
-  { value: 'cycling', label: 'Cycling' },
-  { value: 'sports', label: 'Sports' },
-  { value: 'hiit', label: 'HIIT' },
-  { value: 'classes', label: 'Classes' },
-  { value: 'other', label: 'Other' },
+  { value: 'weightlifting', label: t('Weightlifting') },
+  { value: 'running', label: t('Running') },
+  { value: 'cycling', label: t('Cycling') },
+  { value: 'sports', label: t('Sports') },
+  { value: 'hiit', label: t('HIIT') },
+  { value: 'classes', label: t('Classes') },
+  { value: 'other', label: t('Other') },
 ];
 
 export const DIETARY_OPTIONS: Choice<DietaryPreference>[] = [
-  { value: 'none', label: 'No preference' },
-  { value: 'vegetarian', label: 'Vegetarian' },
-  { value: 'vegan', label: 'Vegan' },
-  { value: 'pescatarian', label: 'Pescatarian' },
-  { value: 'other', label: 'Other' },
+  { value: 'none', label: t('No preference') },
+  { value: 'vegetarian', label: t('Vegetarian') },
+  { value: 'vegan', label: t('Vegan') },
+  { value: 'pescatarian', label: t('Pescatarian') },
+  { value: 'other', label: t('Other') },
 ];
 
 export const MOTIVATION_OPTIONS: Choice<Motivation>[] = [
-  { value: 'progress', label: 'Seeing progress' },
-  { value: 'streaks', label: 'Keeping a streak alive' },
-  { value: 'goals', label: 'Completing goals' },
-  { value: 'pet', label: 'Taking care of my pet' },
-  { value: 'habits', label: 'Building better habits' },
-  { value: 'friends', label: 'Doing it with friends' },
-  { value: 'competition', label: 'A bit of competition' },
+  { value: 'progress', label: t('Seeing progress') },
+  { value: 'streaks', label: t('Keeping a streak alive') },
+  { value: 'goals', label: t('Completing goals') },
+  { value: 'pet', label: t('Taking care of my pet') },
+  { value: 'habits', label: t('Building better habits') },
+  { value: 'friends', label: t('Doing it with friends') },
+  { value: 'competition', label: t('A bit of competition') },
 ];
 
 /**
@@ -70,13 +71,13 @@ export const MOTIVATION_OPTIONS: Choice<Motivation>[] = [
  * below MATURE_PERSONALITY_AGE, see petPersonalityOptionsFor).
  */
 export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
-  { value: 'custom', label: 'Your own', detail: 'No base. Just the sliders and your notes' },
-  { value: 'feisty', label: 'Feisty', detail: 'Scrappy, mouthy, spoiling for a fight' },
-  { value: 'cute', label: 'Cute', detail: 'Tiny, adoring, a bit of a baby' },
-  { value: 'sweet', label: 'Sweet', detail: 'Warm, kind, endlessly in your corner' },
-  { value: 'savage', label: 'Savage', detail: 'Deadpan, merciless, swears a little' },
-  { value: 'hype', label: 'Hype', detail: 'All swagger. Your personal hype man' },
-  { value: 'menace', label: 'Menace', detail: 'Bossy, loud, swears like hell. 16+' },
+  { value: 'custom', label: t('Your own'), detail: t('No base. Just the sliders and your notes') },
+  { value: 'feisty', label: t('Feisty'), detail: t('Scrappy, mouthy, spoiling for a fight') },
+  { value: 'cute', label: t('Cute'), detail: t('Tiny, adoring, a bit of a baby') },
+  { value: 'sweet', label: t('Sweet'), detail: t('Warm, kind, endlessly in your corner') },
+  { value: 'savage', label: t('Savage'), detail: t('Deadpan, merciless, swears a little') },
+  { value: 'hype', label: t('Hype'), detail: t('All swagger. Your personal hype man') },
+  { value: 'menace', label: t('Menace'), detail: t('Bossy, loud, swears like hell. 16+') },
 ];
 
 /**
@@ -87,31 +88,31 @@ export const PET_PERSONALITY_OPTIONS: Choice<PetPersonality>[] = [
  */
 export const PERSONALITY_PREVIEW: Partial<Record<PetPersonality, { about: string; sample?: string }>> = {
   feisty: {
-    about: 'Scrappy and competitive. Pushes you, picks fights it cannot win, and is fiercely loyal underneath.',
-    sample: "Rest day? Again? Fine. But tomorrow we're going hard, got it?",
+    about: t('Scrappy and competitive. Pushes you, picks fights it cannot win, and is fiercely loyal underneath.'),
+    sample: t("Rest day? Again? Fine. But tomorrow we're going hard, got it?"),
   },
   cute: {
-    about: 'Small, adoring and a little dramatic. Everything you do is the best thing that has ever happened.',
-    sample: 'hiii!! i missed you sooo much. can we go on a walk?? pleaseee',
+    about: t('Small, adoring and a little dramatic. Everything you do is the best thing that has ever happened.'),
+    sample: t('hiii!! i missed you sooo much. can we go on a walk?? pleaseee'),
   },
   sweet: {
-    about: 'Warm and patient. Notices how you are doing, never guilts you, always glad to see you.',
-    sample: "You came back! I saved you a spot. How was today, really?",
+    about: t('Warm and patient. Notices how you are doing, never guilts you, always glad to see you.'),
+    sample: t("You came back! I saved you a spot. How was today, really?"),
   },
   savage: {
-    about: 'Deadpan and merciless, with a little swearing. Roasts you because it cares, and it does care.',
-    sample: 'Oh, a salad. Groundbreaking. Proud of you, I guess.',
+    about: t('Deadpan and merciless, with a little swearing. Roasts you because it cares, and it does care.'),
+    sample: t('Oh, a salad. Groundbreaking. Proud of you, I guess.'),
   },
   hype: {
-    about: 'Pure swagger. Treats every rep and every meal like a championship moment.',
-    sample: "LET'S GO. That's a PR. You're actually built different.",
+    about: t('Pure swagger. Treats every rep and every meal like a championship moment.'),
+    sample: t("LET'S GO. That's a PR. You're actually built different."),
   },
   menace: {
-    about: 'Bossy, loud and swears like hell. Bullies you into looking after yourself, and means it lovingly.',
-    sample: 'Did you eat yet? No? Then what the hell are you doing. Go. Now.',
+    about: t('Bossy, loud and swears like hell. Bullies you into looking after yourself, and means it lovingly.'),
+    sample: t('Did you eat yet? No? Then what the hell are you doing. Go. Now.'),
   },
   custom: {
-    about: 'Exactly who you describe. The sliders set the tone; your notes decide who they are.',
+    about: t('Exactly who you describe. The sliders set the tone; your notes decide who they are.'),
   },
 };
 
@@ -190,8 +191,8 @@ export const weeksUntil = (isoDate: string | undefined, now: Date = new Date()):
  */
 export const deriveTrainingStyle = (types: TrainingType[] | undefined): TrainingStyle | undefined => {
   if (!types || types.length === 0) return undefined;
-  const lifting = types.some((t) => t === 'weightlifting' || t === 'hiit' || t === 'classes');
-  const cardio = types.some((t) => t === 'running' || t === 'cycling' || t === 'sports');
+  const lifting = types.some((type) => type === 'weightlifting' || type === 'hiit' || type === 'classes');
+  const cardio = types.some((type) => type === 'running' || type === 'cycling' || type === 'sports');
   if (lifting && cardio) return 'mixed';
   if (lifting) return 'strength';
   if (cardio) return 'cardio';
@@ -233,11 +234,11 @@ export interface PetSurvivalGuidance {
 export const petSurvivalGuidance = (petName: string): PetSurvivalGuidance => ({
   minActiveDaysPerWeek: 3,
   neglectDays: MAX_DECAY_DAYS,
-  headline: `${petName} needs you`,
-  detail:
-    `Log a workout, a meal or your steps most days and ${petName} thrives. Go quiet for a few ` +
-    `days and ${petName} starts to fade — about ${MAX_DECAY_DAYS} days of nothing and ${petName} ` +
-    `could be lost.`,
+  headline: t('{petName} needs you', { petName }),
+  detail: t(
+    'Log a workout, a meal or your steps most days and {petName} thrives. Go quiet for a few days and {petName} starts to fade — about {days} days of nothing and {petName} could be lost.',
+    { petName, days: MAX_DECAY_DAYS },
+  ),
 });
 
 /**

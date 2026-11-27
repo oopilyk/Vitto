@@ -13,7 +13,7 @@ import { SheetPage } from '../components/SheetPage';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Path } from 'react-native-svg';
-import {  MAX_SAVED_MEAL_NAME, detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, MEAL_SLOT_LABEL, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis, describeMeal, MAX_MEAL_TEXT_LENGTH } from '@vitto/core';
+import {  MAX_SAVED_MEAL_NAME, detectFoodEffects,type FoodSearchResult, type MealAnalysis, type MealMetadata, type MealPetContext, type RepeatableMeal, forSlot, calorieEstimate, quickAddAnalysis, servingGrams, servingsFrom, amountIn, type PortionUnit, slotForTime, type MealSlot, type HealthEvent, type MacroTotals, repeatMeal, describeSubMacros, errorMessage, servingText, foodNameText, lookupBarcode, searchFoodsByName, toMealAnalysis, toPlateAnalysis, describeMeal, MAX_MEAL_TEXT_LENGTH } from '@vitto/core';
 import { analyzeMealImage, correctMealAnalysis, shrinkForUpload, type PickedImage } from '../services/mealAnalysis';
 import { CloseButton, ErrorText, NumberInput, PressableScale, PrimaryButton, TextButton, DoneTextInput, Mark, haptic, useKeyboardLift } from '../components/ui';
 import { MealCamera, type CameraMode, type CameraShot } from '../components/MealCamera';
@@ -21,6 +21,7 @@ import { canDictate, useDictation } from '../services/dictation';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { GradeBadge, LogProgress, logHaptic } from '../components/logKit';
 import { SegmentedControl } from '../components/settingsKit';
+import { formatLocale, t, tn } from '../i18n';
 import { cacheSearch, cachedSearch, loadRecentFoods, localSuggestions, rememberFood } from '../services/foodSuggestions';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 import { RoomWindowSlot, useRoomKeyboardGap, useScrollToWindowOnLog } from '../petWorld/RoomPanel';
@@ -97,8 +98,16 @@ const CAMERA_DISMISS_MS = 450;
 const UNKNOWN_BARCODE_REST_MS = 5000;
 
 /** What reading a photo says while it works, one step every READING_STEP_MS. */
-const READING_STEPS = ['Spotting the foods...', 'Sizing up portions...', 'Counting it up...'];
+const READING_STEPS = [t('Spotting the foods...'), t('Sizing up portions...'), t('Counting it up...')];
 const READING_STEP_MS = 1800;
+
+/** "Copy yesterday's breakfast", a whole sentence for each slot: a translation does not lower-case a label and append it. */
+const COPY_SLOT_LABEL: Record<MealSlot, string> = {
+  breakfast: t("Copy yesterday's breakfast"),
+  lunch: t("Copy yesterday's lunch"),
+  dinner: t("Copy yesterday's dinner"),
+  snack: t("Copy yesterday's snack"),
+};
 
 export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, onClose, petContext, canScanPhotos = true, onOpenPlus, repeatable = [], copyableFor, onCopy, today, initialMode, inRoom, onSaveMeal }: Props) {
   // Which meal of the day this is, read off the clock. There is no picker: a
@@ -207,7 +216,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     // The paywall opens on the page under the camera.
     setCameraOpen(false);
     if (onOpenPlus) onOpenPlus();
-    else setError('Photo meal tracking is part of Vitto Plus. Search, scan a barcode or describe your meal instead.');
+    else setError(t('Photo meal tracking is part of Vitto Plus. Search, scan a barcode or describe your meal instead.'));
   };
 
   const pickFromLibrary = async () => {
@@ -226,7 +235,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     }
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      setError('Photo access is off. Enable it in Settings to choose a meal photo.');
+      setError(t('Photo access is off. Enable it in Settings to choose a meal photo.'));
       return;
     }
     // base64 keeps the bytes in hand, so nothing has to read the file back later.
@@ -238,7 +247,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
 
     const asset = picked.assets[0];
     if (!asset.base64) {
-      setError('That photo could not be read. Try another one.');
+      setError(t('That photo could not be read. Try another one.'));
       return;
     }
     const shrunk = await shrinkForUpload({ ...asset, base64: asset.base64, mimeType: asset.mimeType ?? undefined });
@@ -292,7 +301,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     try {
       setAnalysis(await analyzeMealImage(photo, petContext));
     } catch (cause) {
-      setError(errorMessage(cause, 'Meal analysis failed.'));
+      setError(errorMessage(cause, t('Meal analysis failed.')));
     } finally {
       setBusy(null);
       onAnalyzingChange(false);
@@ -308,7 +317,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       setAnalysis(await correctMealAnalysis(analysis, fixText, petContext));
       setFixText(null);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not re-analyze that.'));
+      setError(errorMessage(cause, t('Could not re-analyze that.')));
     } finally {
       setBusy(null);
     }
@@ -334,7 +343,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     const cached = cachedSearch(trimmed);
     if (cached) {
       setResults(withKnown(trimmed, cached));
-      if (cached.length === 0 && !live) setError('No foods matched that search.');
+      if (cached.length === 0 && !live) setError(t('No foods matched that search.'));
       return;
     }
     setBusy('searching');
@@ -345,9 +354,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       // Typed on while it was asked: the answer is for a term no longer there.
       if (live && latestQuery.current.trim().toLowerCase() !== trimmed.toLowerCase()) return;
       setResults(withKnown(trimmed, list));
-      if (list.length === 0 && !live) setError('No foods matched that search.');
+      if (list.length === 0 && !live) setError(t('No foods matched that search.'));
     } catch (cause) {
-      if (!live) setError(errorMessage(cause, 'Food search failed.'));
+      if (!live) setError(errorMessage(cause, t('Food search failed.')));
     } finally {
       setBusy(null);
     }
@@ -404,7 +413,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       const found = await lookupBarcode(data);
       if (!found) {
         unknownBarcode.current = { data, at: Date.now() };
-        setError(`No food found for barcode ${data}.`);
+        setError(t('No food found for barcode {barcode}.', { barcode: data }));
         setScanned(false);
       } else {
         haptic('press');
@@ -415,7 +424,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         closing.current = setTimeout(() => setCameraOpen(false), FOUND_BEAT_MS);
       }
     } catch (cause) {
-      setError(errorMessage(cause, 'Barcode lookup failed.'));
+      setError(errorMessage(cause, t('Barcode lookup failed.')));
       setScanned(false);
     } finally {
       setBusy(null);
@@ -431,7 +440,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       onFeedStart(loggedVia === 'ai' ? (image?.uri ?? null) : null, next.grade);
       onClose();
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not save this meal.'));
+      setError(errorMessage(cause, t('Could not save this meal.')));
     } finally {
       setBusy(null);
     }
@@ -451,7 +460,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       await onCopy(toCopy, slot);
       onClose();
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not copy that meal.'));
+      setError(errorMessage(cause, t('Could not copy that meal.')));
     } finally {
       setBusy(null);
     }
@@ -460,18 +469,18 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     onCopy && toCopy.length > 0 ? (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Copy yesterday's ${MEAL_SLOT_LABEL[slot].toLowerCase()}`}
+        accessibilityLabel={COPY_SLOT_LABEL[slot]}
         disabled={busy !== null}
         onPress={() => void copy()}
         style={({ pressed }) => [styles.copy, pressed && styles.copyPressed]}
         testID="copy-slot"
       >
         <View style={{ flex: 1 }}>
-          <Text style={styles.copyTitle}>{`Copy yesterday's ${MEAL_SLOT_LABEL[slot].toLowerCase()}`}</Text>
+          <Text style={styles.copyTitle}>{COPY_SLOT_LABEL[slot]}</Text>
           <Text style={styles.copyMeta} numberOfLines={1}>
-            {`${toCopy.map((meal) => meal.metadata.analysis?.foodDescription || meal.metadata.analysis?.detectedFoods.join(', ') || 'Meal').join(' · ')} · ${toCopy
+            {`${toCopy.map((meal) => meal.metadata.analysis?.foodDescription || meal.metadata.analysis?.detectedFoods.join(', ') || t('Meal')).join(' · ')} · ${toCopy
               .reduce((sum, meal) => sum + calorieEstimate(meal.metadata.analysis?.macros), 0)
-              .toLocaleString()} kcal`}
+              .toLocaleString(formatLocale())} kcal`}
           </Text>
         </View>
         <Mark kind="plus" size={12} color={colors.coral} />
@@ -573,9 +582,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         if (food.source !== 'estimate') rememberFood(food);
       });
       setDescribeText('');
-      setDescribeNote(meal.missed.length > 0 ? `Could not work out ${meal.missed.join(', ')}. Add it from Search.` : null);
+      setDescribeNote(meal.missed.length > 0 ? t('Could not work out {foods}. Add it from Search.', { foods: meal.missed.join(', ') }) : null);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not read that meal. Try again.'));
+      setError(errorMessage(cause, t('Could not read that meal. Try again.')));
     } finally {
       setBusy(null);
     }
@@ -590,14 +599,14 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
   const footer: { label: string; summary?: string; busy?: boolean; disabled?: boolean; onPress: () => void } | null =
     mode === 'search' && quickAnalysis
       ? {
-          label: busy === 'saving' ? 'Saving...' : 'Log meal',
+          label: busy === 'saving' ? t('Saving...') : t('Log meal'),
           summary: summaryOf(quickAnalysis),
           busy: busy === 'saving',
           onPress: () => void saveAnalysis(quickAnalysis, 'manual'),
         }
       : againAnalysis
       ? {
-          label: busy === 'saving' ? 'Saving...' : 'Log meal',
+          label: busy === 'saving' ? t('Saving...') : t('Log meal'),
           summary: summaryOf(againAnalysis),
           busy: busy === 'saving',
           // A repeat is typed in, not read from a photo or a barcode.
@@ -607,19 +616,19 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       ? busy === 'analyzing'
         ? { label: readingLabel, busy: true, disabled: true, onPress: () => {} }
         : analysis && fixText === null
-          ? { label: busy === 'saving' ? 'Saving...' : 'Log meal', summary: summaryOf(analysis), busy: busy === 'saving', onPress: () => void saveAnalysis(analysis, 'ai') }
+          ? { label: busy === 'saving' ? t('Saving...') : t('Log meal'), summary: summaryOf(analysis), busy: busy === 'saving', onPress: () => void saveAnalysis(analysis, 'ai') }
           : image && !analysis
-            ? { label: 'Try again', onPress: () => void analyze() }
+            ? { label: t('Try again'), onPress: () => void analyze() }
             : null
       : (mode === 'search' || mode === 'describe') && plateAnalysis
         ? {
-            label: busy === 'saving' ? 'Saving...' : plate.length === 1 ? 'Log meal' : `Add ${plate.length} foods`,
+            label: busy === 'saving' ? t('Saving...') : plate.length === 1 ? t('Log meal') : t('Add {count} foods', { count: plate.length }),
             summary: summaryOf(plateAnalysis),
             busy: busy === 'saving',
             onPress: () => void logPlate(plateAnalysis),
           }
         : scanMode && selectedAnalysis
-          ? { label: busy === 'saving' ? 'Saving...' : 'Log meal', summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
+          ? { label: busy === 'saving' ? t('Saving...') : t('Log meal'), summary: summaryOf(selectedAnalysis), busy: busy === 'saving', onPress: () => void saveAnalysis(selectedAnalysis, 'barcode') }
           : null;
 
   // What the footer would log, so the bars at the top can show what it adds.
@@ -641,9 +650,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
       onClose();
       return;
     }
-    Alert.alert('Discard this meal?', "It hasn't been added to your log yet.", [
-      { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: onClose },
+    Alert.alert(t('Discard this meal?'), t("It hasn't been added to your log yet."), [
+      { text: t('Keep editing'), style: 'cancel' },
+      { text: t('Discard'), style: 'destructive', onPress: onClose },
     ]);
   };
 
@@ -652,10 +661,13 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
     plate.length > 0 ? (
       <View style={styles.plate} testID="plate">
         <View style={styles.plateHead}>
-          <Text style={styles.plateTitle}>Your plate</Text>
+          <Text style={styles.plateTitle}>{t('Your plate')}</Text>
           {plateAnalysis ? (
             <Text style={styles.plateTotal}>
-              {`${plate.length} ${plate.length === 1 ? 'food' : 'foods'} · ${calorieEstimate(plateAnalysis.macros).toLocaleString('en-US')} kcal · ${Math.round(plateAnalysis.macros.proteinGrams)}g protein`}
+              {tn(plate.length, '{count} food · {calories} kcal · {protein}g protein', '{count} foods · {calories} kcal · {protein}g protein', {
+                calories: calorieEstimate(plateAnalysis.macros).toLocaleString(formatLocale()),
+                protein: Math.round(plateAnalysis.macros.proteinGrams),
+              })}
             </Text>
           ) : null}
         </View>
@@ -676,7 +688,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
             <Pressable
               accessibilityRole="checkbox"
               accessibilityState={{ checked: keepPlate }}
-              accessibilityLabel="Keep this plate in Meals"
+              accessibilityLabel={t('Keep this plate in Meals')}
               onPress={() => setKeepPlate((on) => !on)}
               hitSlop={6}
               style={styles.keepRow}
@@ -684,16 +696,16 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               <View style={[styles.keepTick, keepPlate && styles.keepTickOn]}>
                 {keepPlate ? <Mark kind="check" size={11} weight={2.2} color={colors.onCoral} /> : null}
               </View>
-              <Text style={styles.keepLabel}>Keep in Meals for next time</Text>
+              <Text style={styles.keepLabel}>{t('Keep in Meals for next time')}</Text>
             </Pressable>
             {keepPlate ? (
               <TextInput
                 style={[layout.input, styles.keepName]}
                 value={plateName}
                 onChangeText={setPlateName}
-                placeholder={autoPlateName || 'Name it'}
+                placeholder={autoPlateName || t('Name it')}
                 placeholderTextColor={colors.faint}
-                accessibilityLabel="Name for this plate in Meals"
+                accessibilityLabel={t('Name for this plate in Meals')}
                 maxLength={MAX_SAVED_MEAL_NAME}
                 returnKeyType="done"
               />
@@ -711,7 +723,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           <View style={styles.header}>
             {/* Flexed, so a long title at large text wraps instead of pushing × off the sheet. */}
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>What's on your plate?</Text>
+              <Text style={styles.title}>{t("What's on your plate?")}</Text>
             </View>
             <CloseButton onPress={requestClose} />
           </View>
@@ -720,8 +732,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
         {today && !inRoom ? (
           <LogProgress
             items={[
-              { label: 'Calories', value: today.consumed.calories, goal: today.targets.calories, adding: pending ? calorieEstimate(pending.macros) : 0, unit: 'kcal' },
-              { label: 'Protein', value: today.consumed.proteinGrams, goal: today.targets.proteinGrams, adding: pending?.macros.proteinGrams ?? 0, unit: 'g' },
+              { label: t('Calories'), value: today.consumed.calories, goal: today.targets.calories, adding: pending ? calorieEstimate(pending.macros) : 0, unit: 'kcal' },
+              { label: t('Protein'), value: today.consumed.proteinGrams, goal: today.targets.proteinGrams, adding: pending?.macros.proteinGrams ?? 0, unit: 'g' },
             ]}
           />
         ) : null}
@@ -730,9 +742,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
           <View style={styles.tabs}>
             <SegmentedControl
               options={[
-                { value: 'camera' as Mode, label: 'Camera' },
-                { value: 'search' as Mode, label: 'Search' },
-                { value: 'describe' as Mode, label: 'Describe' },
+                { value: 'camera' as Mode, label: t('Camera') },
+                { value: 'search' as Mode, label: t('Search') },
+                { value: 'describe' as Mode, label: t('Describe') },
               ]}
               value={mode}
               onChange={(option) => {
@@ -805,7 +817,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   <View style={styles.thumbRow} testID="photo-box">
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Retake the photo"
+                      accessibilityLabel={t('Retake the photo')}
                       onPress={retake}
                       disabled={busy !== null}
                       style={({ pressed }) => pressed && styles.cameraPressed}
@@ -820,10 +832,10 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                     <View style={styles.thumbSide}>
                       <View style={styles.thumbButtons}>
                         <PressableScale style={[styles.pickButton, styles.thumbButton]} onPress={retake}>
-                          <Text style={styles.pickLabel} numberOfLines={1}>Retake</Text>
+                          <Text style={styles.pickLabel} numberOfLines={1}>{t('Retake')}</Text>
                         </PressableScale>
                         <PressableScale style={[styles.pickButton, styles.thumbButton]} onPress={() => void pickFromLibrary()}>
-                          <Text style={styles.pickLabel} numberOfLines={1}>Library</Text>
+                          <Text style={styles.pickLabel} numberOfLines={1}>{t('Library')}</Text>
                         </PressableScale>
                       </View>
                     </View>
@@ -842,10 +854,10 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                     </View>
                     <View style={styles.pickRow}>
                       <PressableScale style={styles.pickButton} onPress={retake}>
-                        <Text style={styles.pickLabel} numberOfLines={1}>Retake</Text>
+                        <Text style={styles.pickLabel} numberOfLines={1}>{t('Retake')}</Text>
                       </PressableScale>
                       <PressableScale style={styles.pickButton} onPress={() => void pickFromLibrary()}>
-                        <Text style={styles.pickLabel} numberOfLines={1}>Library</Text>
+                        <Text style={styles.pickLabel} numberOfLines={1}>{t('Library')}</Text>
                       </PressableScale>
                     </View>
                   </>
@@ -862,34 +874,34 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   {/* The AI can mistake one drink for another; the person knows. */}
                   {analysis && fixText === null ? (
                     <TextButton
-                      label="Not quite right? Fix it"
+                      label={t('Not quite right? Fix it')}
                       onPress={() => setFixText(analysis.foodDescription ?? analysis.detectedFoods.join(', '))}
                       disabled={busy !== null}
                     />
                   ) : null}
                   {analysis && fixText !== null ? (
                     <View style={styles.fixBox} testID="meal-fix">
-                      <Text style={styles.fixLabel}>What was it really?</Text>
+                      <Text style={styles.fixLabel}>{t('What was it really?')}</Text>
                       <TextInput
                         style={[layout.input, styles.fixInput]}
                         value={fixText}
                         onChangeText={setFixText}
-                        placeholder="e.g. strawberry matcha with almond milk"
+                        placeholder={t('e.g. strawberry matcha with almond milk')}
                         placeholderTextColor={colors.faint}
                         multiline
                         maxLength={300}
                         autoFocus
-                        accessibilityLabel="What the meal really was"
+                        accessibilityLabel={t('What the meal really was')}
                       />
-                      <Text style={styles.fixHint}>One fix a day is free. After that, a fix counts as one of your photos.</Text>
+                      <Text style={styles.fixHint}>{t('One fix a day is free. After that, a fix counts as one of your photos.')}</Text>
                       <View style={styles.fixActions}>
                         <PrimaryButton
-                          label={busy === 'fixing' ? 'Re-analyzing...' : 'Re-analyze'}
+                          label={busy === 'fixing' ? t('Re-analyzing...') : t('Re-analyze')}
                           busy={busy === 'fixing'}
                           disabled={!fixText.trim() || busy !== null}
                           onPress={() => void fix()}
                         />
-                        <TextButton label="Never mind" onPress={() => setFixText(null)} disabled={busy !== null} />
+                        <TextButton label={t('Never mind')} onPress={() => setFixText(null)} disabled={busy !== null} />
                       </View>
                     </View>
                   ) : null}
@@ -909,7 +921,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               {scanMode && scanned ? (
                 <View style={styles.actions}>
                   <TextButton
-                    label="Scan another"
+                    label={t('Scan another')}
                     onPress={() => {
                       setScanned(false);
                       setSelected(null);
@@ -932,19 +944,19 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   style={[layout.input, styles.searchInput]}
                   value={query}
                   onChangeText={setQuery}
-                  placeholder={plate.length > 0 ? 'Add another food' : 'Search foods'}
+                  placeholder={plate.length > 0 ? t('Add another food') : t('Search foods')}
                   placeholderTextColor={colors.faint}
-                  accessibilityLabel="Search foods"
+                  accessibilityLabel={t('Search foods')}
                   returnKeyType="search"
                   onSubmitEditing={() => void runSearch()}
                   // Opened from the Kitchen's Search button: straight to typing.
                   autoFocus={initialMode === 'search'}
                 />
-                <PressableScale style={styles.searchButton} onPress={() => void runSearch()} accessibilityRole="button" accessibilityLabel="Find">
+                <PressableScale style={styles.searchButton} onPress={() => void runSearch()} accessibilityRole="button" accessibilityLabel={t('Find')}>
                   {busy === 'searching' ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={styles.searchButtonLabel}>Find</Text>
+                    <Text style={styles.searchButtonLabel}>{t('Find')}</Text>
                   )}
                 </PressableScale>
               </View>
@@ -952,24 +964,24 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
               {quick ? (
                 <View style={styles.quick} testID="quick-add">
                   <View style={styles.quickHead}>
-                    <Text style={styles.quickTitle}>Quick add</Text>
-                    <TextButton label="Cancel" onPress={() => setQuick(null)} />
+                    <Text style={styles.quickTitle}>{t('Quick add')}</Text>
+                    <TextButton label={t('Cancel')} onPress={() => setQuick(null)} />
                   </View>
                   <TextInput
                     style={layout.input}
                     value={quick.name}
                     onChangeText={(name) => setQuick({ ...quick, name })}
-                    placeholder="What was it? (optional)"
+                    placeholder={t('What was it? (optional)')}
                     placeholderTextColor={colors.faint}
                     maxLength={60}
-                    accessibilityLabel="Quick add name"
+                    accessibilityLabel={t('Quick add name')}
                   />
                   <View style={styles.quickRow}>
                     {([
                       ['calories', 'kcal'],
-                      ['proteinGrams', 'protein g'],
-                      ['carbsGrams', 'carbs g'],
-                      ['fatGrams', 'fat g'],
+                      ['proteinGrams', t('protein g')],
+                      ['carbsGrams', t('carbs g')],
+                      ['fatGrams', t('fat g')],
                     ] as const).map(([key, label]) => (
                       <View key={key} style={styles.quickField}>
                         <NumberInput
@@ -979,7 +991,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                           onValue={(value) => setQuick({ ...quick, [key]: value })}
                           placeholder="0"
                           placeholderTextColor={colors.faint}
-                          accessibilityLabel={`Quick add ${label}`}
+                          accessibilityLabel={t('Quick add {field}', { field: label })}
                         />
                         <Text style={styles.quickLabel}>{label}</Text>
                       </View>
@@ -1009,11 +1021,11 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                     onPress={() => togglePlate(food)}
                   >
                     <View style={styles.resultText}>
-                      <Text style={styles.resultName} numberOfLines={2}>{food.name}</Text>
-                      <Text style={styles.resultMeta} numberOfLines={1}>{food.servingDescription}</Text>
+                      <Text style={styles.resultName} numberOfLines={2}>{foodNameText(food.name)}</Text>
+                      <Text style={styles.resultMeta} numberOfLines={1}>{servingText(food.servingDescription)}</Text>
                     </View>
                     <View style={styles.rowKcalBox}>
-                      <Text style={styles.rowKcal}>{food.macros.calories.toLocaleString()}</Text>
+                      <Text style={styles.rowKcal}>{food.macros.calories.toLocaleString(formatLocale())}</Text>
                       <Text style={styles.rowKcalUnit}>kcal</Text>
                     </View>
                     <View style={[styles.tick, on && styles.tickOn]}>
@@ -1034,8 +1046,8 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   between the field and the results, where it read as the next step. */}
               {!quick ? (
                 <View style={styles.quickOpen}>
-                  <Text style={styles.quickPrompt}>Can't find it?</Text>
-                  <TextButton label="Quick add calories" onPress={() => setQuick({ name: query.trim() })} />
+                  <Text style={styles.quickPrompt}>{t("Can't find it?")}</Text>
+                  <TextButton label={t('Quick add calories')} onPress={() => setQuick({ name: query.trim() })} />
                 </View>
               ) : null}
 
@@ -1050,7 +1062,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   style={[layout.input, styles.describeInput]}
                   value={describeText}
                   onChangeText={setDescribeText}
-                  placeholder={plate.length > 0 ? 'Anything else? e.g. and a latte' : 'e.g. 2 eggs, toast with butter and a latte'}
+                  placeholder={plate.length > 0 ? t('Anything else? e.g. and a latte') : t('e.g. 2 eggs, toast with butter and a latte')}
                   placeholderTextColor={colors.faint}
                   multiline
                   maxLength={MAX_MEAL_TEXT_LENGTH}
@@ -1063,13 +1075,13 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   editable={busy !== 'describing'}
                   // Opened from the Kitchen's Describe button: straight to typing.
                   autoFocus={initialMode === 'describe' && !canDictate()}
-                  accessibilityLabel="Describe your meal"
+                  accessibilityLabel={t('Describe your meal')}
                 />
                 <View style={styles.describeRow}>
                   {canDictate() ? (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={dictation.listening ? 'Stop listening' : 'Say what you ate'}
+                      accessibilityLabel={dictation.listening ? t('Stop listening') : t('Say what you ate')}
                       accessibilityState={{ selected: dictation.listening }}
                       disabled={busy !== null}
                       onPress={toggleMic}
@@ -1091,7 +1103,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                   ) : null}
                   <View style={{ flex: 1 }}>
                     <PrimaryButton
-                      label={busy === 'describing' ? 'Finding your foods...' : 'Find foods'}
+                      label={busy === 'describing' ? t('Finding your foods...') : t('Find foods')}
                       busy={busy === 'describing'}
                       disabled={!describeText.trim() || busy !== null}
                       onPress={() => void describe()}
@@ -1101,9 +1113,9 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
                 <Text style={styles.describeHint}>
                   {dictation.listening
                     ? dictation.ready
-                      ? 'Listening... tap the mic when you are done.'
-                      : 'One sec...'
-                    : (dictation.problem ?? describeNote ?? 'Say it or type it. You check the foods before anything is logged.')}
+                      ? t('Listening... tap the mic when you are done.')
+                      : t('One sec...')
+                    : (dictation.problem ?? describeNote ?? t('Say it or type it. You check the foods before anything is logged.'))}
                 </Text>
               </View>
 
@@ -1140,7 +1152,7 @@ export function MealCaptureScreen({ onComplete, onFeedStart, onAnalyzingChange, 
  * phone and ended in "…".
  */
 const summaryOf = (meal: MealAnalysis): string =>
-  `${calorieEstimate(meal.macros).toLocaleString()} kcal · ${meal.macros.proteinGrams}g protein`;
+  t('{calories} kcal · {protein}g protein', { calories: calorieEstimate(meal.macros).toLocaleString(formatLocale()), protein: meal.macros.proteinGrams });
 
 /**
  * The meals eaten lately, to log again in one tap: the likeliest first (what
@@ -1159,7 +1171,7 @@ function RecentMeals({
   if (meals.length === 0) return null;
   return (
     <View style={styles.recent} testID="recent-meals">
-      <Text style={styles.recentTitle}>Recent</Text>
+      <Text style={styles.recentTitle}>{t('Recent')}</Text>
       {meals.map((meal) => {
         const on = again?.meal.key === meal.key;
         return (
@@ -1167,20 +1179,20 @@ function RecentMeals({
             <Pressable
               accessibilityRole="checkbox"
               accessibilityState={{ checked: on }}
-              accessibilityLabel={`Log ${meal.name} again`}
+              accessibilityLabel={t('Log {meal} again', { meal: meal.name })}
               onPress={() => onChange(on ? null : { meal, servings: 1 })}
               style={styles.recentMain}
             >
               <GradeBadge grade={meal.analysis.grade} size={30} />
               <View style={styles.resultText}>
-                <Text style={styles.resultName} numberOfLines={1}>{meal.name}</Text>
+                <Text style={styles.resultName} numberOfLines={1}>{foodNameText(meal.name)}</Text>
                 <Text style={styles.resultMeta} numberOfLines={1}>
-                  {meal.sameTimeYesterday ? 'Yesterday around now' : `${meal.analysis.macros.proteinGrams}g protein`}
+                  {meal.sameTimeYesterday ? t('Yesterday around now') : t('{protein}g protein', { protein: meal.analysis.macros.proteinGrams })}
                 </Text>
               </View>
               <View style={styles.rowKcalBox}>
                 <Text style={styles.rowKcal}>
-                  {calorieEstimate(repeatMeal(meal.analysis, on ? again!.servings : 1).macros).toLocaleString()}
+                  {calorieEstimate(repeatMeal(meal.analysis, on ? again!.servings : 1).macros).toLocaleString(formatLocale())}
                 </Text>
                 <Text style={styles.rowKcalUnit}>kcal</Text>
               </View>
@@ -1193,7 +1205,7 @@ function RecentMeals({
             {on ? (
               <Stepper
                 value={again!.servings}
-                label={meal.name}
+                label={foodNameText(meal.name)}
                 onChange={(next) => onChange({ meal, servings: next })}
                 onRemove={() => onChange(null)}
               />
@@ -1223,7 +1235,7 @@ const startingServings = (food: FoodSearchResult): number => {
 
 /** What − and + move by, in each unit. */
 const PORTION_STEP: Record<PortionUnit, number> = { g: 10, oz: 0.5, serving: 0.5 };
-const UNIT_LABEL: Record<PortionUnit, string> = { g: 'g', oz: 'oz', serving: 'servings' };
+const UNIT_LABEL: Record<PortionUnit, string> = { g: 'g', oz: 'oz', serving: t('servings') };
 
 /**
  * One food on the plate, with its amount always in reach: − and + by a step
@@ -1265,25 +1277,25 @@ function PlateItem({
     <View style={styles.plateItem} testID="plate-item">
       <View style={styles.plateItemHead}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.plateName} numberOfLines={2}>{food.name}</Text>
+          <Text style={styles.plateName} numberOfLines={2}>{foodNameText(food.name)}</Text>
           {unit === 'serving' && !food.isPer100g ? (
-            <Text style={styles.resultMeta} numberOfLines={1}>{`1 serving = ${food.servingDescription}`}</Text>
+            <Text style={styles.resultMeta} numberOfLines={1}>{t('1 serving = {serving}', { serving: servingText(food.servingDescription) })}</Text>
           ) : null}
           {/* No database had it (a described meal): the figures are a guess, and say so. */}
-          {food.source === 'estimate' ? <Text style={styles.estimateTag} numberOfLines={1}>Estimate: not in the food database</Text> : null}
+          {food.source === 'estimate' ? <Text style={styles.estimateTag} numberOfLines={1}>{t('Estimate: not in the food database')}</Text> : null}
         </View>
         <View style={styles.rowKcalBox}>
-          <Text style={styles.rowKcal}>{Math.round(food.macros.calories * servings).toLocaleString()}</Text>
+          <Text style={styles.rowKcal}>{Math.round(food.macros.calories * servings).toLocaleString(formatLocale())}</Text>
           <Text style={styles.rowKcalUnit}>kcal</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${food.name}`} hitSlop={8} onPress={onRemove} style={styles.stepRemove}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('Remove {name}', { name: food.name })} hitSlop={8} onPress={onRemove} style={styles.stepRemove}>
           <Mark kind="cross" size={10} color={colors.muted} />
         </Pressable>
       </View>
       <View style={styles.amountRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Less ${food.name}`}
+          accessibilityLabel={t('Less {name}', { name: food.name })}
           accessibilityState={{ disabled: atLeast }}
           disabled={atLeast}
           hitSlop={6}
@@ -1304,11 +1316,11 @@ function PlateItem({
             if (value !== undefined) set(value);
           }}
           onBlur={() => setDraft(null)}
-          accessibilityLabel={`Amount of ${food.name} in ${UNIT_LABEL[unit]}`}
+          accessibilityLabel={t('Amount of {food} in {unit}', { food: food.name, unit: UNIT_LABEL[unit] })}
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`More ${food.name}`}
+          accessibilityLabel={t('More {name}', { name: food.name })}
           hitSlop={6}
           onPress={() => {
             setDraft(null);
@@ -1318,7 +1330,7 @@ function PlateItem({
         >
           <Mark kind="plus" size={10} color={colors.inkSoft} />
         </Pressable>
-        <View style={styles.amountUnits} accessibilityRole="radiogroup" accessibilityLabel="Unit">
+        <View style={styles.amountUnits} accessibilityRole="radiogroup" accessibilityLabel={t('Unit')}>
           {units.map((option) => (
             <Pressable
               key={option}
@@ -1369,7 +1381,7 @@ function Stepper({
     <View style={styles.stepper}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Less ${label}`}
+        accessibilityLabel={t('Less {name}', { name: label })}
         accessibilityState={{ disabled: atLeast }}
         disabled={atLeast}
         hitSlop={7}
@@ -1379,10 +1391,10 @@ function Stepper({
         <Mark kind="minus" size={10} color={colors.inkSoft} />
       </Pressable>
       <Text style={styles.stepValue} numberOfLines={1}>{`${value}×`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`More ${label}`} hitSlop={7} onPress={() => onChange(value + 0.5)} style={styles.stepButton}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('More {name}', { name: label })} hitSlop={7} onPress={() => onChange(value + 0.5)} style={styles.stepButton}>
         <Mark kind="plus" size={10} color={colors.inkSoft} />
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${label}`} hitSlop={7} onPress={onRemove} style={styles.stepRemove}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('Remove {name}', { name: label })} hitSlop={7} onPress={onRemove} style={styles.stepRemove}>
         <Mark kind="cross" size={10} color={colors.muted} />
       </Pressable>
     </View>
@@ -1401,13 +1413,13 @@ function ServingsRow({
 }) {
   return (
     <View style={styles.servingsRow}>
-      <Text style={styles.servingsLabel} numberOfLines={2}>Servings{food ? ` · ${food.servingDescription}` : ''}</Text>
+      <Text style={styles.servingsLabel} numberOfLines={2}>{food ? t('Servings · {serving}', { serving: servingText(food.servingDescription) }) : t('Servings')}</Text>
       <DoneTextInput
         style={[layout.input, styles.servingsInput]}
         keyboardType="decimal-pad"
         value={servings}
         onChangeText={onChange}
-        accessibilityLabel="Servings"
+        accessibilityLabel={t('Servings')}
       />
     </View>
   );
@@ -1420,9 +1432,9 @@ function ServingsRow({
  */
 const shortPlateName = (analysis: MealAnalysis): string => {
   const foods = analysis.detectedFoods.filter(Boolean);
-  if (foods.length === 0) return analysis.summary?.trim() || analysis.foodDescription?.trim() || 'Meal detected';
+  if (foods.length === 0) return analysis.summary?.trim() || analysis.foodDescription?.trim() || t('Meal detected');
   const shown = foods.slice(0, 2).join(', ');
-  return foods.length > 2 ? `${shown} +${foods.length - 2} more` : shown;
+  return foods.length > 2 ? t('{foods} +{count} more', { foods: shown, count: foods.length - 2 }) : shown;
 };
 
 function AnalysisCard({ analysis, compact }: { analysis: MealAnalysis; compact?: boolean }) {
@@ -1446,9 +1458,9 @@ function AnalysisCard({ analysis, compact }: { analysis: MealAnalysis; compact?:
         <View style={styles.compactMacros}>
           {[
             [String(calorieEstimate(analysis.macros)), 'kcal'],
-            [`${analysis.macros.proteinGrams}g`, 'protein'],
-            [`${analysis.macros.carbsGrams}g`, 'carbs'],
-            [`${analysis.macros.fatGrams}g`, 'fat'],
+            [`${analysis.macros.proteinGrams}g`, t('protein')],
+            [`${analysis.macros.carbsGrams}g`, t('carbs')],
+            [`${analysis.macros.fatGrams}g`, t('fat')],
           ].map(([value, label]) => (
             <View key={label} style={styles.compactTile}>
               <Text style={styles.compactValue} numberOfLines={1}>{value}</Text>
@@ -1458,10 +1470,10 @@ function AnalysisCard({ analysis, compact }: { analysis: MealAnalysis; compact?:
         </View>
         {sub ? <Text style={styles.compactSub} numberOfLines={1}>{sub}</Text> : null}
         {effects.length > 0 ? (
-          <View style={[styles.effectRow, { marginTop: 0 }]} accessibilityLabel={`Effects: ${effects.map((e) => e.label).join(', ')}`}>
+          <View style={[styles.effectRow, { marginTop: 0 }]} accessibilityLabel={t('Effects: {effects}', { effects: effects.map((e) => t(e.label)).join(', ') })}>
             {effects.map((effect) => (
               <View key={effect.id} style={styles.effectChip}>
-                <Text style={styles.effectChipLabel}>{effect.label.toUpperCase()}</Text>
+                <Text style={styles.effectChipLabel}>{t(effect.label).toUpperCase()}</Text>
               </View>
             ))}
           </View>
@@ -1475,7 +1487,7 @@ function AnalysisCard({ analysis, compact }: { analysis: MealAnalysis; compact?:
               hitSlop={8}
               style={styles.compactToggle}
             >
-              <Text style={styles.compactToggleLabel}>{details ? 'Hide details' : 'Show details'}</Text>
+              <Text style={styles.compactToggleLabel}>{details ? t('Hide details') : t('Show details')}</Text>
             </Pressable>
           </>
         ) : null}
@@ -1486,18 +1498,18 @@ function AnalysisCard({ analysis, compact }: { analysis: MealAnalysis; compact?:
     <View style={styles.analysis}>
       <View style={styles.grade}>
         <GradeBadge grade={analysis.grade} size={64} />
-        <Text style={styles.gradeLabel}>Plate grade</Text>
+        <Text style={styles.gradeLabel}>{t('Plate grade')}</Text>
       </View>
       <View style={styles.analysisBody}>
         <Text style={styles.analysisName}>
-          {analysis.foodDescription || analysis.detectedFoods.join(', ') || 'Meal detected'}
+          {analysis.foodDescription || analysis.detectedFoods.join(', ') || t('Meal detected')}
         </Text>
         <View style={styles.macroLine}>
           {[
             [calorieEstimate(analysis.macros), 'kcal'],
-            [`${analysis.macros.proteinGrams}g`, 'protein'],
-            [`${analysis.macros.carbsGrams}g`, 'carbs'],
-            [`${analysis.macros.fatGrams}g`, 'fat'],
+            [`${analysis.macros.proteinGrams}g`, t('protein')],
+            [`${analysis.macros.carbsGrams}g`, t('carbs')],
+            [`${analysis.macros.fatGrams}g`, t('fat')],
           ].map(([value, label]) => (
             <Text key={String(label)} style={styles.macro}>
               <Text style={styles.macroValue}>{value}</Text>
@@ -1509,10 +1521,10 @@ function AnalysisCard({ analysis, compact }: { analysis: MealAnalysis; compact?:
           <Text style={styles.subMacros}>{describeSubMacros(analysis.macros)}</Text>
         ) : null}
         {effects.length > 0 ? (
-          <View style={styles.effectRow} accessibilityLabel={`Effects: ${effects.map((e) => e.label).join(', ')}`}>
+          <View style={styles.effectRow} accessibilityLabel={t('Effects: {effects}', { effects: effects.map((e) => t(e.label)).join(', ') })}>
             {effects.map((effect) => (
               <View key={effect.id} style={styles.effectChip}>
-                <Text style={styles.effectChipLabel}>{effect.label.toUpperCase()}</Text>
+                <Text style={styles.effectChipLabel}>{t(effect.label).toUpperCase()}</Text>
               </View>
             ))}
             <Text style={styles.effectLine} numberOfLines={1}>{effects[0].reaction}</Text>

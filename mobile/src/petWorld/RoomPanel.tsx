@@ -4,6 +4,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { haptic, Mark, NumberInput, useKeyboardFade } from '../components/ui';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors, fonts, getColorScheme, layout, text, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 /**
  * A room as a page: the Gym, the Kitchen, Outside and the Study.
@@ -601,7 +602,7 @@ export function PanelNumberField({
         onValue={onValue}
         placeholder="0"
         placeholderTextColor={colors.faint}
-        accessibilityLabel={`${label} in ${unit}`}
+        accessibilityLabel={t('{label} in {unit}', { label, unit })}
         maxLength={6}
         style={styles.numberInput}
       />
@@ -670,7 +671,7 @@ export function PanelRow({
       disabled={!press}
       accessibilityRole={press ? 'button' : undefined}
       accessibilityState={opens ? { expanded: open } : undefined}
-      accessibilityHint={opens ? (open ? 'Shows less' : 'Shows everything in it') : undefined}
+      accessibilityHint={opens ? (open ? t('Shows less') : t('Shows everything in it')) : undefined}
       style={({ pressed }) => [styles.row, pressed && press && styles.pressed]}
     >
       <View style={styles.rowText}>

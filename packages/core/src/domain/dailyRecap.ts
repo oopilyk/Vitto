@@ -14,6 +14,7 @@ import {
 import { toDateKey } from './streaks';
 import { WATER_GOAL_ML, formatWater, waterMlForDay } from './hydration';
 import { ZERO_CALORIE_LIMIT } from './macros';
+import { formatLocale, t } from '../i18n';
 
 /**
  * ONE derivation of the daily recap, from the real event log. Every number the
@@ -322,45 +323,45 @@ export function buildDailyRecap({
       id: 'gym',
       label:
         gym.workoutCount > 1
-          ? `Completed ${gym.workoutCount} workouts`
+          ? t('Completed {count} workouts', { count: gym.workoutCount })
           : gym.lastName
-            ? `Completed ${gym.lastName}`
-            : 'Completed a workout',
+            ? t('Completed {workout}', { workout: t(gym.lastName) })
+            : t('Completed a workout'),
     });
   }
   if (meals.length > 0) {
     activity.push({
       id: 'food',
-      label: meals.length > 1 ? `Logged ${meals.length} meals` : 'Logged a meal',
+      label: meals.length > 1 ? t('Logged {count} meals', { count: meals.length }) : t('Logged a meal'),
     });
   }
   if (food.waterMl > 0) {
-    activity.push({ id: 'water', label: `Drank ${formatWater(food.waterMl, measurementSystemOf(profile))} of water` });
+    activity.push({ id: 'water', label: t('Drank {amount} of water', { amount: formatWater(food.waterMl, measurementSystemOf(profile)) }) });
   }
   if (mind.sessionCount > 0) {
     activity.push({
       id: 'mind',
       label:
         mind.sessionCount > 1
-          ? `Completed ${mind.sessionCount} mind sessions`
-          : 'Completed a mind session',
+          ? t('Completed {count} mind sessions', { count: mind.sessionCount })
+          : t('Completed a mind session'),
     });
   }
   if (steps > 0) {
     activity.push({
       id: 'steps',
       label: outdoors.goalReached
-        ? `Reached the ${stepGoal.toLocaleString()}-step goal`
-        : `Walked ${steps.toLocaleString()} steps`,
+        ? t('Reached the {steps}-step goal', { steps: stepGoal.toLocaleString(formatLocale()) })
+        : t('Walked {steps} steps', { steps: steps.toLocaleString(formatLocale()) }),
     });
   }
   // Also surface meaningful non-pillar events (sleep, screen time) if the engine
   // gave them XP — they still count toward "how I took care of myself".
   for (const event of todays) {
     if (event.type === 'SLEEP' && xpOf(event) > 0)
-      activity.push({ id: event.id, label: 'Logged sleep' });
+      activity.push({ id: event.id, label: t('Logged sleep') });
     if (event.type === 'SCREEN_TIME' && xpOf(event) > 0)
-      activity.push({ id: event.id, label: 'Logged screen time' });
+      activity.push({ id: event.id, label: t('Logged screen time') });
   }
 
   return {

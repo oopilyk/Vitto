@@ -8,6 +8,7 @@ import {
 import { PetAvatar } from './PetAvatar';
 import { FRIENDS_LIGHT, type FriendsPalette, healthToneColor } from '../friendsTheme';
 import { colors, fonts, text, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 interface FriendPetCardProps {
   profile: FriendProfileSummary;
@@ -40,11 +41,25 @@ const DAY_MS = 24 * HOUR_MS;
  */
 export const formatLastActive = (iso: string, now: Date = new Date()): string => {
   const elapsedMs = Math.max(0, now.getTime() - new Date(iso).getTime());
-  if (elapsedMs < MINUTE_MS) return 'Just now';
-  if (elapsedMs < HOUR_MS) return `${Math.floor(elapsedMs / MINUTE_MS)}m ago`;
-  if (elapsedMs < DAY_MS) return `${Math.floor(elapsedMs / HOUR_MS)}h ago`;
+  if (elapsedMs < MINUTE_MS) return t('Just now');
+  if (elapsedMs < HOUR_MS) return t('{minutes}m ago', { minutes: Math.floor(elapsedMs / MINUTE_MS) });
+  if (elapsedMs < DAY_MS) return t('{hours}h ago', { hours: Math.floor(elapsedMs / HOUR_MS) });
   const days = Math.floor(elapsedMs / DAY_MS);
-  return days === 1 ? 'Yesterday' : `${days}d ago`;
+  return days === 1 ? t('Yesterday') : t('{days}d ago', { days });
+};
+
+/**
+ * The same time as the whole line it is shown in ("Active 2h ago"). A sentence
+ * of its own rather than "Active " in front of `formatLastActive`: another
+ * language does not put the two in that order.
+ */
+export const formatActive = (iso: string, now: Date = new Date()): string => {
+  const elapsedMs = Math.max(0, now.getTime() - new Date(iso).getTime());
+  if (elapsedMs < MINUTE_MS) return t('Active Just now');
+  if (elapsedMs < HOUR_MS) return t('Active {minutes}m ago', { minutes: Math.floor(elapsedMs / MINUTE_MS) });
+  if (elapsedMs < DAY_MS) return t('Active {hours}h ago', { hours: Math.floor(elapsedMs / HOUR_MS) });
+  const days = Math.floor(elapsedMs / DAY_MS);
+  return days === 1 ? t('Active Yesterday') : t('Active {days}d ago', { days });
 };
 
 /**
@@ -89,7 +104,7 @@ export function FriendPetCard({ profile, pet, status, palette = FRIENDS_LIGHT }:
       </Text>
       {!status.isLive && status.lastActiveAt ? (
         <Text style={[styles.lastActive, { color: palette.secondaryText }]}>
-          Active {formatLastActive(status.lastActiveAt)}
+          {formatActive(status.lastActiveAt)}
         </Text>
       ) : null}
     </View>

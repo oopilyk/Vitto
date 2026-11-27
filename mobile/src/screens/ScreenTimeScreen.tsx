@@ -6,6 +6,7 @@ import { TextButton } from '../components/ui';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { formatMinutes, joinMinutes } from '../services/minutes';
 import { colors, text, themedStyles, fonts } from '../theme';
+import { t } from '../i18n';
 
 export interface ScreenTimeAccess {
   granted: boolean;
@@ -72,7 +73,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
       await onSave({ ...profile, screenTimeBudgetMinutes: budget });
       savedNote.show();
     } catch (cause) {
-      setSaveError(cause instanceof Error ? cause.message : 'Could not save your budget.');
+      setSaveError(cause instanceof Error ? cause.message : t('Could not save your budget.'));
     } finally {
       setSaving(false);
     }
@@ -93,7 +94,7 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
       await onLogScreenTime(entry!, budget);
       setToday({ hours: '', minutes: '' });
     } catch (cause) {
-      setLogError(cause instanceof Error ? cause.message : 'Could not log screen time.');
+      setLogError(cause instanceof Error ? cause.message : t('Could not log screen time.'));
     } finally {
       setLogging(false);
     }
@@ -101,82 +102,82 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
 
   return (
     <SettingsPage
-      title="Screen time"
-      lead="Stay under a budget you set and your pet's mind sharpens. Going over never costs anything."
-      backLabel="Profile"
+      title={t('Screen time')}
+      lead={t("Stay under a budget you set and your pet's mind sharpens. Going over never costs anything.")}
+      backLabel={t('Profile')}
       onBack={onClose}
       // Up while saving and after a failure too: App applies the change before
       // the write lands, so `dirty` alone hid the bar and any error with it.
-      footer={dirty || saving || saveError ? <SaveBar saving={saving} error={saveError} onSave={() => void save()} onDiscard={discard} /> : savedNote.saved ? <SavedBar label="Budget saved" /> : null}
+      footer={dirty || saving || saveError ? <SaveBar saving={saving} error={saveError} onSave={() => void save()} onDiscard={discard} /> : savedNote.saved ? <SavedBar label={t('Budget saved')} /> : null}
     >
       <SettingsSection
-        title="Daily budget"
-        description={budget === undefined ? 'No budget set. A log still counts, it just is not scored.' : `${formatMinutes(budget)} a day.`}
+        title={t('Daily budget')}
+        description={budget === undefined ? t('No budget set. A log still counts, it just is not scored.') : t('{duration} a day.', { duration: formatMinutes(budget) })}
         first
       >
         <FieldRow>
-          <FormField label="Hours">
+          <FormField label={t('Hours')}>
             <TextField
               keyboardType="decimal-pad"
               placeholder="0"
               value={budgetFields.hours}
               onChangeText={(value) => updateBudget({ ...budgetFields, hours: digits(value, true) })}
-              accessibilityLabel="Budget hours"
+              accessibilityLabel={t('Budget hours')}
             />
           </FormField>
-          <FormField label="Minutes">
+          <FormField label={t('Minutes')}>
             <TextField
               keyboardType="number-pad"
               placeholder="0"
               value={budgetFields.minutes}
               onChangeText={(value) => updateBudget({ ...budgetFields, minutes: digits(value) })}
-              accessibilityLabel="Budget minutes"
+              accessibilityLabel={t('Budget minutes')}
             />
           </FormField>
         </FieldRow>
       </SettingsSection>
 
       <SettingsSection
-        title="Today"
-        description={Platform.OS === 'ios' && !logged ? 'Find it in your iPhone Settings, under Screen Time.' : undefined}
+        title={t('Today')}
+        description={Platform.OS === 'ios' && !logged ? t('Find it in your iPhone Settings, under Screen Time.') : undefined}
       >
         {logged ? (
           <View style={styles.logged} testID="screen-time-logged">
             <Text style={styles.loggedValue}>{formatMinutes(logged.metadata.minutes)}</Text>
             <Text style={styles.loggedVerdict}>
               {logged.metadata.withinBudget === undefined
-                ? 'Logged for today.'
+                ? t('Logged for today.')
                 : logged.metadata.withinBudget
-                  ? 'Under budget. Nicely done.'
-                  : 'Over budget. Tomorrow is a fresh screen.'}
+                  ? t('Under budget. Nicely done.')
+                  : t('Over budget. Tomorrow is a fresh screen.')}
             </Text>
           </View>
         ) : (
           <>
             <FieldRow>
-              <FormField label="Hours">
+              <FormField label={t('Hours')}>
                 <TextField
                   keyboardType="number-pad"
                   placeholder="0"
                   value={today.hours}
                   onChangeText={(value) => setToday({ ...today, hours: digits(value) })}
-                  accessibilityLabel="Today hours"
+                  accessibilityLabel={t('Today hours')}
                 />
               </FormField>
-              <FormField label="Minutes">
+              <FormField label={t('Minutes')}>
                 <TextField
                   keyboardType="number-pad"
                   placeholder="0"
                   value={today.minutes}
                   onChangeText={(value) => setToday({ ...today, minutes: digits(value) })}
-                  accessibilityLabel="Today minutes"
+                  accessibilityLabel={t('Today minutes')}
                 />
               </FormField>
             </FieldRow>
             {logError ? <Text style={styles.error}>{logError}</Text> : null}
             <View style={styles.actions}>
               <TextButton
-                label={logging ? 'Logging...' : "Log today's screen time"}
+                label={logging ? t('Logging...') : t("Log today's screen time")}
                 tone="coral"
                 onPress={() => void log()}
                 disabled={!onLogScreenTime || !canLog || logging}
@@ -184,19 +185,18 @@ export function ScreenTimeScreen({ profile, events, onSave, onLogScreenTime, scr
               {screenTimeAccess ? (
                 screenTimeAccess.granted ? (
                   <TextButton
-                    label={screenTimeAccess.syncing ? 'Reading...' : 'Read from this phone'}
+                    label={screenTimeAccess.syncing ? t('Reading...') : t('Read from this phone')}
                     onPress={() => screenTimeAccess.onSync(budget)}
                     disabled={screenTimeAccess.syncing}
                   />
                 ) : (
-                  <TextButton label="Allow usage access" onPress={screenTimeAccess.onOpenSettings} />
+                  <TextButton label={t('Allow usage access')} onPress={screenTimeAccess.onOpenSettings} />
                 )
               ) : null}
             </View>
             {screenTimeAccess && !screenTimeAccess.granted ? (
               <Text style={styles.hint}>
-                Android can read today's total for you. Vitto asks for "usage access" in Settings, keeps only the total, and never sees
-                which apps you used.
+                {t('Android can read today\'s total for you. Vitto asks for "usage access" in Settings, keeps only the total, and never sees which apps you used.')}
               </Text>
             ) : null}
           </>

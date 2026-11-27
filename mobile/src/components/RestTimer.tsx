@@ -3,6 +3,7 @@ import { Platform, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { PressableScale } from './ui';
 import { colors, fonts, themedStyles } from '../theme';
+import { t, tx } from '../i18n';
 
 /** A rest between sets, in epoch ms. */
 export interface Rest {
@@ -57,20 +58,20 @@ export function RestTimer({ rest, onAdjust, onSkip, onDone }: Props) {
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <Text style={styles.label} numberOfLines={2}>
-            Rest · {rest.label}
+            {tx('the pause between sets', 'Rest · {exercise}', { exercise: t(rest.label) })}
           </Text>
-          <Text style={styles.clock} accessibilityLabel={`${formatRest(left)} of rest left`}>
+          <Text style={styles.clock} accessibilityLabel={t('{time} of rest left', { time: formatRest(left) })}>
             {formatRest(left)}
           </Text>
         </View>
-        <PressableScale accessibilityRole="button" accessibilityLabel="15 seconds less rest" onPress={() => onAdjust(-REST_STEP_MS)} hitSlop={4} style={styles.step}>
+        <PressableScale accessibilityRole="button" accessibilityLabel={t('15 seconds less rest')} onPress={() => onAdjust(-REST_STEP_MS)} hitSlop={4} style={styles.step}>
           <Text style={styles.stepLabel}>−15</Text>
         </PressableScale>
-        <PressableScale accessibilityRole="button" accessibilityLabel="15 seconds more rest" onPress={() => onAdjust(REST_STEP_MS)} hitSlop={4} style={styles.step}>
+        <PressableScale accessibilityRole="button" accessibilityLabel={t('15 seconds more rest')} onPress={() => onAdjust(REST_STEP_MS)} hitSlop={4} style={styles.step}>
           <Text style={styles.stepLabel}>+15</Text>
         </PressableScale>
-        <PressableScale accessibilityRole="button" accessibilityLabel="Skip rest" onPress={onSkip} hitSlop={4} style={[styles.step, styles.skip]}>
-          <Text style={[styles.stepLabel, styles.skipLabel]}>Skip</Text>
+        <PressableScale accessibilityRole="button" accessibilityLabel={t('Skip rest')} onPress={onSkip} hitSlop={4} style={[styles.step, styles.skip]}>
+          <Text style={[styles.stepLabel, styles.skipLabel]}>{t('Skip')}</Text>
         </PressableScale>
       </View>
       <View style={styles.track}>

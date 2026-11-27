@@ -68,12 +68,29 @@ export interface MealPetContext {
 }
 
 /** The text that goes with the photo; with a pet, the model also writes its reaction. */
-export const mealUserText = (pet: MealPetContext | null): string =>
+export const mealUserText = (pet: MealPetContext | null, language: MealLanguage | null = null): string =>
   'Identify and grade this meal for general balanced nutrition.' +
   (pet
     ? ` The pet about to eat it is ${pet.name}, a ${pet.personality} pet who is currently ${pet.mood}` +
       (pet.ailments.length > 0 ? ` and ${pet.ailments.join(', ')}` : '') + '.'
-    : '');
+    : '') +
+  languageLine(language);
+
+/** The languages the app is shown in, other than English, as it sends them (`locale`). */
+export type MealLanguage = 'es' | 'zh-Hans';
+export const readMealLanguage = (raw: unknown): MealLanguage | null => (raw === 'es' || raw === 'zh-Hans' ? raw : null);
+
+const MEAL_LANGUAGE_NAME: Record<MealLanguage, string> = { es: 'Spanish (informal, neutral Latin American)', 'zh-Hans': 'Simplified Chinese (mainland usage)' };
+
+/**
+ * Asks for the words the person reads (the food names, the summary, the pet's
+ * line) in the app's language. Nothing for English, so an English request is
+ * exactly what it was.
+ */
+const languageLine = (language: MealLanguage | null): string =>
+  language
+    ? ` The person uses the app in ${MEAL_LANGUAGE_NAME[language]}: write foodDescription, every entry of detectedFoods, summary and petReaction in that language. Every other field keeps exactly the values described.`
+    : '';
 
 /** A correction to an earlier estimate, as the app sends it and the model reads it. */
 export interface MealCorrection {
@@ -134,7 +151,7 @@ export const MEAL_FIX_SYSTEM_PROMPT =
   'never mention calories, weight, diets or health outcomes, never shame the person. With no pet described, petReaction is "".';
 
 /** The correction, the earlier estimate and the pet, as the model reads them. */
-export const mealFixUserText = (correction: MealCorrection, pet: MealPetContext | null): string => {
+export const mealFixUserText = (correction: MealCorrection, pet: MealPetContext | null, language: MealLanguage | null = null): string => {
   const p = correction.previous;
   return (
     `Earlier estimate: ${p.foodDescription || p.detectedFoods.join(', ') || 'unknown'} ` +
@@ -144,6 +161,7 @@ export const mealFixUserText = (correction: MealCorrection, pet: MealPetContext 
     (pet
       ? ` The pet about to eat it is ${pet.name}, a ${pet.personality} pet who is currently ${pet.mood}` +
         (pet.ailments.length > 0 ? ` and ${pet.ailments.join(', ')}` : '') + '.'
-      : '')
+      : '') +
+    languageLine(language)
   );
 };

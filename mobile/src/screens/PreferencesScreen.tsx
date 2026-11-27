@@ -30,6 +30,7 @@ import {
 } from '../components/settingsKit';
 import { useNumberText } from '../components/ui';
 import { colors, themedStyles, fonts } from '../theme';
+import { formatLocale, t, tRich, tx } from '../i18n';
 
 interface Props {
   profile: BodyProfile;
@@ -83,12 +84,20 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
   const digits = (value: string, decimals = false) => value.replace(decimals ? /[^0-9.]/g : /[^0-9]/g, '');
   const plan = planForGoal(profile);
   const recommended = recommendedCalories(profile);
+  // The plan's sentence: the bold figures, and the plain ones, wherever a translation puts them.
+  const planSlots = plan
+    ? {
+        rate: <Text style={styles.planValue}>{weightLabel(plan.kgPerWeek)}</Text>,
+        calories: <Text style={styles.planValue}>{Math.abs(plan.dailyAdjustment)} kcal</Text>,
+      }
+    : {};
+  const planValues = plan ? { total: weightLabel(plan.totalKg), weeks: plan.achievableWeeks } : undefined;
   /** Typed separately so a half-typed "18" is not rejected or rounded while typing. */
   const [calorieText, setCalorieText] = useState(initial.calorieGoal ? String(initial.calorieGoal) : '');
   const ownCalories = profile.calorieGoal !== undefined;
   const calorieGoalProblem =
     ownCalories && !(profile.calorieGoal! >= CALORIE_GOAL_RANGE.min && profile.calorieGoal! <= CALORIE_GOAL_RANGE.max)
-      ? `Choose between ${CALORIE_GOAL_RANGE.min.toLocaleString()} and ${CALORIE_GOAL_RANGE.max.toLocaleString()} kcal.`
+      ? t('Choose between {min} and {max} kcal.', { min: CALORIE_GOAL_RANGE.min.toLocaleString(formatLocale()), max: CALORIE_GOAL_RANGE.max.toLocaleString(formatLocale()) })
       : null;
 
   const save = async () => {
@@ -106,7 +115,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
       await onSave(profile);
       savedNote.show();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save your settings.');
+      setError(cause instanceof Error ? cause.message : t('Could not save your settings.'));
     } finally {
       setSaving(false);
     }
@@ -117,34 +126,34 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
   const saveBar = dirty || saving || error ? <SaveBar saving={saving} error={error} onSave={() => void save()} onDiscard={() => {
           setProfile(initial);
           setCalorieText(initial.calorieGoal ? String(initial.calorieGoal) : '');
-        }} /> : savedNote.saved ? <SavedBar label="Preferences saved" /> : null;
+        }} /> : savedNote.saved ? <SavedBar label={t('Preferences saved')} /> : null;
 
   return (
     <SettingsPage
-      title="Your preferences"
-      lead="What Vitto knows about you, and what you want from it. Private to you."
-      backLabel="Settings"
+      title={t('Your preferences')}
+      lead={t('What Vitto knows about you, and what you want from it. Private to you.')}
+      backLabel={t('Settings')}
       onBack={onClose}
       footer={saveBar}
     >
-      <SettingsSection title="About you" description="Private to you. Used to set your daily calorie and protein targets." first>
-        <FormField label="Name" hint="shown to your care partner">
+      <SettingsSection title={t('About you')} description={t('Private to you. Used to set your daily calorie and protein targets.')} first>
+        <FormField label={t('Name')} hint={t('shown to your care partner')}>
           <TextField
             value={profile.displayName ?? ''}
-            placeholder="Your name"
+            placeholder={t('Your name')}
             maxLength={DISPLAY_NAME_MAX_LENGTH}
             onChangeText={(value) => update('displayName', value === '' ? undefined : value)}
           />
         </FormField>
         <FieldRow>
-          <FormField label="Age">
+          <FormField label={t('Age')}>
             <TextField
               keyboardType="number-pad"
               value={String(profile.age)}
               onChangeText={(value) => update('age', Number(digits(value)) || 0)}
             />
           </FormField>
-          <FormField label={`Weight (${profile.weightUnit})`}>
+          <FormField label={t('Weight ({unit})', { unit: profile.weightUnit })}>
             <TextField
               keyboardType="decimal-pad"
               {...weightText}
@@ -152,7 +161,7 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           </FormField>
         </FieldRow>
         {profile.heightUnit === 'cm' ? (
-          <FormField label="Height (cm)">
+          <FormField label={t('Height (cm)')}>
             <TextField
               keyboardType="number-pad"
               value={String(profile.heightCm)}
@@ -161,14 +170,14 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           </FormField>
         ) : (
           <FieldRow>
-            <FormField label="Height (ft)">
+            <FormField label={t('Height (ft)')}>
               <TextField
                 keyboardType="number-pad"
                 value={String(displayedHeight.feet)}
                 onChangeText={(value) => update('heightCm', feetAndInchesToCm(Number(digits(value)) || 0, displayedHeight.inches))}
               />
             </FormField>
-            <FormField label="Height (in)">
+            <FormField label={t('Height (in)')}>
               <TextField
                 keyboardType="number-pad"
                 value={String(displayedHeight.inches)}
@@ -178,11 +187,11 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           </FieldRow>
         )}
         {/* One toggle for every unit, matching sign-up: weight and height move together. */}
-        <FormField label="Units">
+        <FormField label={t('Units')}>
           <SegmentedControl
             options={[
-              { value: 'metric' as const, label: 'Metric' },
-              { value: 'imperial' as const, label: 'Imperial' },
+              { value: 'metric' as const, label: t('Metric') },
+              { value: 'imperial' as const, label: t('Imperial') },
             ]}
             value={measurementSystemOf(profile)}
             onChange={(value: MeasurementSystem) => {
@@ -192,13 +201,13 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
             }}
           />
         </FormField>
-        <FormField label="Sex" hint="sets your strength standards and targets">
+        <FormField label={t('Sex')} hint={t('sets your strength standards and targets')}>
           <SegmentedControl
             options={[
-              { value: 'male' as const, label: 'Male' },
-              { value: 'female' as const, label: 'Female' },
+              { value: 'male' as const, label: t('Male') },
+              { value: 'female' as const, label: t('Female') },
               // One line in a third of a 320pt phone: "Prefer not to say" broke in two.
-              { value: 'other' as const, label: 'Private' },
+              { value: 'other' as const, label: tx('a choice for sex: prefer not to say', 'Private') },
             ]}
             value={profile.sex}
             onChange={(value) => update('sex', value)}
@@ -206,24 +215,24 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         </FormField>
       </SettingsSection>
 
-      <SettingsSection title="Your goal" description="Sets how far your daily calories sit from maintenance.">
+      <SettingsSection title={t('Your goal')} description={t('Sets how far your daily calories sit from maintenance.')}>
         <SegmentedControl
           options={[
             // No weight loss under 18 (see calorieAdjustmentFor).
-            ...(isMinor(profile) ? [] : [{ value: 'lose' as const, label: 'Lose fat' }]),
-            { value: 'maintain' as const, label: 'Maintain' },
+            ...(isMinor(profile) ? [] : [{ value: 'lose' as const, label: t('Lose fat') }]),
+            { value: 'maintain' as const, label: t('Maintain') },
             // "Build muscle" broke in two in a third of a 320pt phone.
-            { value: 'gain' as const, label: 'Bulk up' },
+            { value: 'gain' as const, label: t('Bulk up') },
           ]}
           value={isMinor(profile) && profile.goal === 'lose' ? 'maintain' : profile.goal}
           onChange={(value) => update('goal', value)}
         />
         {profile.goal !== 'gain' ? (
-          <FormField label="Build muscle too" hint={profile.goal === 'lose' ? 'gentler deficit, more protein' : 'same weight, more protein'}>
+          <FormField label={t('Build muscle too')} hint={profile.goal === 'lose' ? t('gentler deficit, more protein') : t('same weight, more protein')}>
             <SegmentedControl
               options={[
-                { value: 'no' as const, label: 'No' },
-                { value: 'yes' as const, label: 'Yes' },
+                { value: 'no' as const, label: t('No') },
+                { value: 'yes' as const, label: t('Yes') },
               ]}
               value={profile.buildMuscle ? 'yes' : 'no'}
               onChange={(value) => update('buildMuscle', value === 'yes' || undefined)}
@@ -234,17 +243,17 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           <>
             <FieldRow>
               {/* "optional" as the placeholder: beside the label it wrapped in half a 320pt phone. */}
-              <FormField label={`Target (${profile.weightUnit})`}>
+              <FormField label={t('Target ({unit})', { unit: profile.weightUnit })}>
                 <TextField
                   keyboardType="decimal-pad"
-                  placeholder="Optional"
+                  placeholder={t('Optional')}
                   {...targetText}
                 />
               </FormField>
-              <FormField label="Weeks">
+              <FormField label={t('Weeks')}>
                 <TextField
                   keyboardType="number-pad"
-                  placeholder="Optional"
+                  placeholder={t('Optional')}
                   value={profile.goalWeeks === undefined ? '' : String(profile.goalWeeks)}
                   onChangeText={(value) => {
                     const next = digits(value);
@@ -256,20 +265,19 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
             {plan ? (
               <View style={styles.plan}>
                 <Text style={styles.planText}>
-                  {weightLabel(plan.totalKg)} over {plan.achievableWeeks} weeks —{' '}
-                  <Text style={styles.planValue}>{weightLabel(plan.kgPerWeek)}</Text> per week,{' '}
-                  <Text style={styles.planValue}>{Math.abs(plan.dailyAdjustment)} kcal</Text> {profile.goal === 'lose' ? 'below' : 'above'}{' '}
-                  maintenance.
+                  {profile.goal === 'lose'
+                    ? tRich('{total} over {weeks} weeks — {rate} per week, {calories} below maintenance.', planSlots, planValues)
+                    : tRich('{total} over {weeks} weeks — {rate} per week, {calories} above maintenance.', planSlots, planValues)}
                 </Text>
-                {plan.capped ? <Text style={styles.planWarning}>Capped to a safe rate.</Text> : null}
+                {plan.capped ? <Text style={styles.planWarning}>{t('Capped to a safe rate.')}</Text> : null}
               </View>
             ) : (
-              <FormField label="Pace">
+              <FormField label={t('Pace')}>
                 <SegmentedControl
                   options={[
-                    { value: 'gentle' as const, label: 'Gentle' },
-                    { value: 'steady' as const, label: 'Steady' },
-                    { value: 'focused' as const, label: 'Focused' },
+                    { value: 'gentle' as const, label: t('Gentle') },
+                    { value: 'steady' as const, label: t('Steady') },
+                    { value: 'focused' as const, label: t('Focused') },
                   ]}
                   value={profile.goalPace}
                   onChange={(value) => update('goalPace', value)}
@@ -281,13 +289,13 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
       </SettingsSection>
 
       <SettingsSection
-        title="Daily calories"
-        description="Vitto estimates this from your body, activity and goal. It is a general guide, not medical advice: check with a doctor before changing how you eat, especially with a medical condition, during pregnancy, or with a history of disordered eating. Set your own if you already follow a number."
+        title={t('Daily calories')}
+        description={t('Vitto estimates this from your body, activity and goal. It is a general guide, not medical advice: check with a doctor before changing how you eat, especially with a medical condition, during pregnancy, or with a history of disordered eating. Set your own if you already follow a number.')}
       >
         <SegmentedControl
           options={[
-            { value: 'recommended' as const, label: 'Recommended' },
-            { value: 'own' as const, label: 'My own' },
+            { value: 'recommended' as const, label: t('Recommended') },
+            { value: 'own' as const, label: t('My own') },
           ]}
           value={ownCalories ? 'own' : 'recommended'}
           onChange={(value) => {
@@ -301,11 +309,11 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           }}
         />
         {ownCalories ? (
-          <FormField label="Calories a day" hint={`recommended ${recommended.toLocaleString()}`}>
+          <FormField label={t('Calories a day')} hint={t('recommended {calories}', { calories: recommended.toLocaleString(formatLocale()) })}>
             <TextField
               keyboardType="number-pad"
               value={calorieText}
-              accessibilityLabel="Your daily calorie goal"
+              accessibilityLabel={t('Your daily calorie goal')}
               onChangeText={(value) => {
                 const next = digits(value).slice(0, 4);
                 setCalorieText(next);
@@ -316,28 +324,30 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
         ) : (
           <View style={styles.plan}>
             <Text style={styles.planText}>
-              <Text style={styles.planValue}>{recommended.toLocaleString()} kcal</Text> a day, from your details above.
+              {tRich('{calories} a day, from your details above.', {
+                calories: <Text style={styles.planValue}>{recommended.toLocaleString(formatLocale())} kcal</Text>,
+              })}
             </Text>
           </View>
         )}
         {calorieGoalProblem ? <Text style={styles.planWarning}>{calorieGoalProblem}</Text> : null}
       </SettingsSection>
 
-      <SettingsSection title="Your training" description="Training days lift calories; lifting raises protein.">
+      <SettingsSection title={t('Your training')} description={t('Training days lift calories; lifting raises protein.')}>
         {/* Short answers, each on one line in a third of a 320pt phone. */}
-        <FormField label="Time on your feet">
+        <FormField label={t('Time on your feet')}>
           <SegmentedControl
             options={[
-              { value: 'low' as const, label: 'Little' },
-              { value: 'moderate' as const, label: 'Some' },
-              { value: 'high' as const, label: 'All day' },
+              { value: 'low' as const, label: t('Little') },
+              { value: 'moderate' as const, label: t('Some') },
+              { value: 'high' as const, label: t('All day') },
             ]}
             value={profile.activity}
             onChange={(value) => update('activity', value)}
           />
         </FormField>
         <FieldRow>
-          <FormField label="Days a week">
+          <FormField label={t('Days a week')}>
             <TextField
               keyboardType="number-pad"
               value={String(profile.trainingDaysPerWeek)}
@@ -346,12 +356,12 @@ export function PreferencesScreen({ profile: initial, onSave, onClose }: Props) 
           </FormField>
           <View style={styles.fieldSpacer} />
         </FieldRow>
-        <FormField label="Style">
+        <FormField label={t('Style')}>
           <SegmentedControl
             options={[
-              { value: 'strength' as const, label: 'Strength' },
-              { value: 'cardio' as const, label: 'Cardio' },
-              { value: 'mixed' as const, label: 'Both' },
+              { value: 'strength' as const, label: t('Strength') },
+              { value: 'cardio' as const, label: t('Cardio') },
+              { value: 'mixed' as const, label: t('Both') },
             ]}
             value={profile.trainingStyle}
             onChange={(value) => update('trainingStyle', value)}

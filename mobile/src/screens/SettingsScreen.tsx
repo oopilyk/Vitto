@@ -1,11 +1,12 @@
 import { Alert, Linking, Platform, View } from 'react-native';
-import { type BodyProfile, CARE_AREAS, type CareArea, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, type PetVoice, ownedBreedsOf, tracksArea } from '@vitto/core';
+import { type BodyProfile, CARE_AREAS, type CareArea, type Locale, PET_PERSONALITY_OPTIONS, type PetBreed, type PetState, type PetVoice, ownedBreedsOf, tracksArea } from '@vitto/core';
 import { SpriteFrame } from '../components/SpriteFrame';
 import { NavGroup, NavRow, SettingsPage, ToggleRow } from '../components/settingsKit';
 import { sheetByBreed, portraitFrame } from '../components/petSprites';
 import { LEGAL_LINKS } from '../services/billingService';
 import { VOICE_STYLES } from '../services/petVoice';
 import { colors, themedStyles } from '../theme';
+import { getLocale, petSpeechAvailable, t, tn, tx } from '../i18n';
 
 interface Props {
   profile: BodyProfile;
@@ -66,28 +67,31 @@ interface Props {
  * run on ONNX Runtime.
  */
 const CREDITS = [
-  'Food data: Open Food Facts (openfoodfacts.org), under the Open Database License; USDA FoodData Central; and the fatsecret Platform API.',
-  'Pet voice: Kokoro-82M by hexgrad (Apache License 2.0), via the ONNX build by onnx-community.',
-  'Pronunciations: misaki by hexgrad (Apache License 2.0).',
-  'Voice engine: ONNX Runtime by Microsoft (MIT License).',
+  t('Food data: Open Food Facts (openfoodfacts.org), under the Open Database License; USDA FoodData Central; and the fatsecret Platform API.'),
+  t('Pet voice: Kokoro-82M by hexgrad (Apache License 2.0), via the ONNX build by onnx-community.'),
+  t('Pronunciations: misaki by hexgrad (Apache License 2.0).'),
+  t('Voice engine: ONNX Runtime by Microsoft (MIT License).'),
   'Apache License 2.0: apache.org/licenses/LICENSE-2.0',
 ].join('\n\n');
 
 // react-native-web's Alert does nothing, so the browser's own alert there.
-const showCredits = () => (Platform.OS === 'web' ? window.alert(`Credits\n\n${CREDITS}`) : Alert.alert('Credits', CREDITS));
+const showCredits = () => (Platform.OS === 'web' ? window.alert(`${t('Credits')}\n\n${CREDITS}`) : Alert.alert(t('Credits'), CREDITS));
 
-const CARE_AREA_LABEL: Record<CareArea, string> = { nutrition: 'Food', training: 'Workouts', movement: 'Steps', mind: 'Mind games' };
+const CARE_AREA_LABEL: Record<CareArea, string> = { nutrition: t('Food'), training: t('Workouts'), movement: t('Steps'), mind: t('Mind games') };
+
+/** Each language's own name for itself, as iOS lists them: never translated. */
+const LANGUAGE_NAME: Record<Locale, string> = { en: 'English', es: 'Español', 'zh-Hans': '简体中文' };
 
 /** "Everything", or the areas that are on: "Workouts, Steps". */
 const careAreasSummary = (areas: readonly CareArea[] | undefined) => {
   const on = CARE_AREAS.filter((area) => tracksArea(areas, area));
-  return on.length === CARE_AREAS.length ? 'Food, workouts, steps and mind games' : on.map((area) => CARE_AREA_LABEL[area]).join(', ');
+  return on.length === CARE_AREAS.length ? t('Food, workouts, steps and mind games') : on.map((area) => CARE_AREA_LABEL[area]).join(tx('between the items of a list', ', '));
 };
 
 const GOAL_LABEL: Record<BodyProfile['goal'], string> = {
-  lose: 'Lose fat',
-  maintain: 'Maintain',
-  gain: 'Build muscle',
+  lose: t('Lose fat'),
+  maintain: t('Maintain'),
+  gain: t('Build muscle'),
 };
 
 /**
@@ -99,7 +103,7 @@ const GOAL_LABEL: Record<BodyProfile['goal'], string> = {
 export function SettingsScreen({
   profile,
   onClose,
-  backLabel = 'Profile',
+  backLabel = t('Profile'),
   breed,
   onBreedChange,
   coins = 0,
@@ -133,29 +137,29 @@ export function SettingsScreen({
     .join(' · ');
   const personalityLabel = canCustomise
     ? PET_PERSONALITY_OPTIONS.find((option) => option.value === pet?.personality)?.label
-    : 'A Plus feature';
+    : t('A Plus feature');
 
   return (
-    <SettingsPage title="Settings" backLabel={backLabel} onBack={onClose}>
+    <SettingsPage title={t('Settings')} backLabel={backLabel} onBack={onClose}>
       {onOpenPlus ? (
         <NavGroup>
           <NavRow
             title="Vitto Plus"
-            value={isPlus ? 'On · manage your plan' : 'Personalities, a sharper voice, and more'}
+            value={isPlus ? t('On · manage your plan') : t('Personalities, a sharper voice, and more')}
             onPress={onOpenPlus}
             testID="plus-row"
           />
         </NavGroup>
       ) : null}
 
-      <NavGroup title="Your companion">
+      <NavGroup title={t('Your companion')}>
         {onBreedChange && onOpenChooseCompanion ? (
           <NavRow
-            title="Shop"
+            title={t('Shop')}
             value={[
               breed ? sheetByBreed(breed).label : null,
-              `${ownedBreedsOf({ breed, ownedBreeds: pet?.ownedBreeds }).length} owned`,
-              breedChangeCost > 0 ? `${coins} coins` : 'Switching is free',
+              t('{count} owned', { count: ownedBreedsOf({ breed, ownedBreeds: pet?.ownedBreeds }).length }),
+              breedChangeCost > 0 ? tn(coins, '{count} coin', '{count} coins') : t('Switching is free'),
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -172,71 +176,82 @@ export function SettingsScreen({
         ) : null}
         {pet && onOpenCareAreas ? (
           <NavRow
-            title={`What affects ${pet.name}`}
+            title={t('What affects {pet}', { pet: pet.name })}
             value={careAreasSummary(pet.careAreas)}
             onPress={onOpenCareAreas}
             testID="open-care-areas"
           />
         ) : null}
         {pet && onOpenPersonality ? (
-          <NavRow title="Personality" value={personalityLabel} onPress={onOpenPersonality} testID="open-personality" />
+          <NavRow title={t('Personality')} value={personalityLabel} onPress={onOpenPersonality} testID="open-personality" />
         ) : null}
         {pet && onOpenMemories ? (
           <NavRow
-            title={`What ${pet.name} remembers`}
-            value="See and delete what it knows about you"
+            title={t('What {pet} remembers', { pet: pet.name })}
+            value={t('See and delete what it knows about you')}
             onPress={onOpenMemories}
             testID="open-memories"
           />
         ) : null}
       </NavGroup>
 
-      <NavGroup title="You">
+      <NavGroup title={t('You')}>
         {onOpenPreferences ? (
-          <NavRow title="Your preferences" value={preferenceSummary} onPress={onOpenPreferences} testID="open-preferences" />
+          <NavRow title={t('Your preferences')} value={preferenceSummary} onPress={onOpenPreferences} testID="open-preferences" />
         ) : null}
         {onOpenNotifications && typeof notificationsOn === 'boolean' ? (
-          <NavRow title="Notifications" value={notificationsOn ? 'On' : 'Off'} onPress={onOpenNotifications} testID="open-notifications" />
+          <NavRow title={t('Notifications')} value={notificationsOn ? t('On') : t('Off')} onPress={onOpenNotifications} testID="open-notifications" />
         ) : null}
       </NavGroup>
 
-      <NavGroup title="App">
+      <NavGroup title={t('App')}>
         {onOpenAppearance ? (
-          <NavRow title="Appearance" value={appearanceLabel} onPress={onOpenAppearance} testID="open-appearance" />
+          <NavRow title={t('Appearance')} value={appearanceLabel} onPress={onOpenAppearance} testID="open-appearance" />
         ) : null}
         {typeof musicOn === 'boolean' && onMusicChange ? (
           <View style={styles.toggle} testID="music-toggle">
-            <ToggleRow title="Music" description="Quiet lo-fi while the app is open." value={musicOn} onChange={onMusicChange} />
+            <ToggleRow title={t('Music')} description={t('Quiet lo-fi while the app is open.')} value={musicOn} onChange={onMusicChange} />
           </View>
         ) : null}
-        {typeof voiceOn === 'boolean' && onVoiceChange && voiceLocked ? (
-          onOpenPlus ? <NavRow title="Pet voice" value="A Plus feature" onPress={onOpenPlus} testID="voice-locked" /> : null
+        {/* The voice is English only: in another language nothing here offers it. */}
+        {!petSpeechAvailable() ? null : typeof voiceOn === 'boolean' && onVoiceChange && voiceLocked ? (
+          onOpenPlus ? <NavRow title={t('Pet voice')} value={t('A Plus feature')} onPress={onOpenPlus} testID="voice-locked" /> : null
         ) : typeof voiceOn === 'boolean' && onVoiceChange ? (
           <View style={styles.toggle} testID="voice-toggle">
-            <ToggleRow title="Pet voice" description={voiceStatus ?? 'Your pet says its lines out loud.'} value={voiceOn} onChange={onVoiceChange} />
+            <ToggleRow title={t('Pet voice')} description={voiceStatus ?? t('Your pet says its lines out loud.')} value={voiceOn} onChange={onVoiceChange} />
           </View>
         ) : null}
-        {voiceOn && !voiceLocked && petVoice && onOpenPetVoice ? (
-          <NavRow title="Voice" value={VOICE_STYLES[petVoice].label} onPress={onOpenPetVoice} testID="pet-voice-choice" />
+        {petSpeechAvailable() && voiceOn && !voiceLocked && petVoice && onOpenPetVoice ? (
+          <NavRow title={t('Voice')} value={VOICE_STYLES[petVoice].label} onPress={onOpenPetVoice} testID="pet-voice-choice" />
+        ) : null}
+        {/* iOS keeps an app's language in the system Settings app, and restarts the app when it changes. */}
+        {Platform.OS !== 'web' ? (
+          <NavRow
+            title={t('Language')}
+            value={LANGUAGE_NAME[getLocale()]}
+            hint={t('Change the language in your phone’s Settings.')}
+            onPress={() => void Linking.openSettings().catch(() => undefined)}
+            testID="open-language"
+          />
         ) : null}
       </NavGroup>
 
       {/* Always reachable, not only next to a purchase: App Review asks for both. */}
-      <NavGroup title="Legal">
+      <NavGroup title={t('Legal')}>
         {LEGAL_LINKS.privacy ? (
-          <NavRow title="Privacy Policy" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)} testID="open-privacy" />
+          <NavRow title={t('Privacy Policy')} onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)} testID="open-privacy" />
         ) : null}
-        <NavRow title="Terms of Use" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)} testID="open-terms" />
-        <NavRow title="Credits" onPress={showCredits} testID="open-credits" />
+        <NavRow title={t('Terms of Use')} onPress={() => void Linking.openURL(LEGAL_LINKS.terms)} testID="open-terms" />
+        <NavRow title={t('Credits')} onPress={showCredits} testID="open-credits" />
       </NavGroup>
 
       {onOpenChangePassword || onOpenDeleteAccount ? (
-        <NavGroup title="Account">
+        <NavGroup title={t('Account')}>
           {onOpenChangePassword ? (
-            <NavRow title="Change password" onPress={onOpenChangePassword} testID="open-change-password" />
+            <NavRow title={t('Change password')} onPress={onOpenChangePassword} testID="open-change-password" />
           ) : null}
           {onOpenDeleteAccount ? (
-            <NavRow title="Delete account" onPress={onOpenDeleteAccount} danger testID="open-delete-account" />
+            <NavRow title={t('Delete account')} onPress={onOpenDeleteAccount} danger testID="open-delete-account" />
           ) : null}
         </NavGroup>
       ) : null}

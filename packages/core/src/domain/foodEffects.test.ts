@@ -22,6 +22,19 @@ describe('detectFoodEffects', () => {
     expect(ids(meal('Bell pepper salad'))).not.toContain('spicy');
   });
 
+  it('finds the same effects in a meal described in Spanish or Chinese', () => {
+    // A photo is described in the app's language (see analyze-meal): the effect must not depend on English.
+    expect(ids(meal('Tacos de pollo con salsa picante'))).toContain('spicy');
+    expect(ids(meal('Ensalada de espinacas con salmón'))).toEqual(expect.arrayContaining(['greens', 'brain_food']));
+    expect(ids(meal('Café con leche y dos galletas'))).toEqual(expect.arrayContaining(['caffeinated', 'sugar_rush']));
+    expect(ids(meal('麻辣火锅'))).toContain('spicy');
+    expect(ids(meal('三文鱼牛油果沙拉'))).toEqual(expect.arrayContaining(['greens', 'brain_food']));
+    expect(ids(meal('拿铁和一块蛋糕'))).toEqual(expect.arrayContaining(['caffeinated', 'sugar_rush']));
+    // Whole Spanish words only, accents counted as letters.
+    expect(ids(meal('Paté de pato'))).not.toContain('caffeinated');
+    expect(ids(meal('Sopa de fideos'))).toContain('comfort');
+  });
+
   it('matches whole words only', () => {
     // "shot" is not "hot", "eggplant" is not "egg", "donuts" is not "nuts".
     expect(ids(meal('Espresso shot'))).toContain('caffeinated');

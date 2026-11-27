@@ -14,6 +14,7 @@ import { StatGrid, StatTile } from '../components/TrendBars';
 import { ErrorText, Mark, NumberInput, PrimaryButton } from '../components/ui';
 import { logHaptic } from '../components/logKit';
 import { askEditOrDelete } from './ActivityHistoryScreen';
+import { formatLocale, t, tx } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
@@ -32,7 +33,7 @@ interface Props {
 
 const CHART_HEIGHT = 200;
 const PAD = { top: 14, right: 12, bottom: 26, left: 40 };
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString(formatLocale(), { month: 'short', day: 'numeric' });
 /** What − and + move the weigh-in by: a scale's own last digit, in either unit. */
 const STEP = 0.1;
 const tenths = (value: number) => Math.round(value * 10) / 10;
@@ -42,7 +43,7 @@ const tenths = (value: number) => Math.round(value * 10) / 10;
  * and the trend a line through them, so a day's swing reads as the noise it
  * is. The goal from onboarding is the dashed line the trend heads for.
  */
-export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, onClose, editId, backLabel = 'Back' }: Props) {
+export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, onClose, editId, backLabel = t('Back') }: Props) {
   const entries = useMemo(() => weighIns(events as HealthEvent[]), [events]);
   const summary = weightSummary(entries, goalKg);
   const show = (kg: number) => Math.round(convertWeightValue(kg, 'kg', unit) * 10) / 10;
@@ -61,12 +62,12 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
     const save = (text?: string) => {
       const value = Number((text ?? '').replace(',', '.'));
       if (!plausibleWeighIn(toKg(value))) {
-        setError('That weight doesn’t look right.');
+        setError(t('That weight doesn’t look right.'));
         return;
       }
       void onEdit(event, toKg(value));
     };
-    if (Platform.OS === 'ios') Alert.prompt('Edit weigh-in', `In ${unit}`, save, 'plain-text', String(current), 'decimal-pad');
+    if (Platform.OS === 'ios') Alert.prompt(t('Edit weigh-in'), t('In {unit}', { unit }), save, 'plain-text', String(current), 'decimal-pad');
   };
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
 
   const log = async () => {
     if (typed === undefined || !plausibleWeighIn(toKg(typed))) {
-      setError(`Type your weight in ${unit}.`);
+      setError(t('Type your weight in {unit}.', { unit }));
       return;
     }
     setSaving(true);
@@ -90,7 +91,7 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
       // Done: a second tap must not log it again.
       setTyped(undefined);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save that weigh-in.');
+      setError(cause instanceof Error ? cause.message : t('Could not save that weigh-in.'));
     } finally {
       setSaving(false);
     }
@@ -112,7 +113,12 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
   const signed = (value: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(show(value))} ${unit}`;
   /** A difference already in the person's unit. */
   const signedShown = (value: number) => `${value > 0 ? '+' : '−'}${Math.abs(value)} ${unit}`;
-  const when = (days: number | null) => (days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`);
+  const lastWeighIn = (weight: string, days: number | null) =>
+    days === 0
+      ? t('Last weigh-in {weight}, today', { weight })
+      : days === 1
+        ? t('Last weigh-in {weight}, yesterday', { weight })
+        : t('Last weigh-in {weight}, {days} days ago', { weight, days: String(days) });
 
   /** − and + step from what is in the field, or from the last weigh-in when it is blank. */
   const base = typed ?? (summary.latest ? show(summary.latest.kg) : undefined);
@@ -125,28 +131,28 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
   // The line over the button: how this weigh-in compares with the last one.
   const difference = typed !== undefined && summary.latest && plausibleWeighIn(toKg(typed)) ? tenths(typed - show(summary.latest.kg)) : null;
   const footerSummary =
-    difference === null ? null : difference === 0 ? 'Same as your last weigh-in' : `${signedShown(difference)} since your last weigh-in`;
+    difference === null ? null : difference === 0 ? t('Same as your last weigh-in') : t('{change} since your last weigh-in', { change: signedShown(difference) });
 
   return (
     <SettingsPage
-      title="Weight"
+      title={tx('body weight', 'Weight')}
       backLabel={backLabel}
       onBack={onClose}
       footer={
         <PinnedBar>
           <ErrorText>{error}</ErrorText>
           {footerSummary ? <Text style={styles.footerSummary} numberOfLines={1}>{footerSummary}</Text> : null}
-          <PrimaryButton label={saving ? 'Saving...' : 'Log weigh-in'} busy={saving} onPress={() => void log()} />
+          <PrimaryButton label={saving ? t('Saving...') : t('Log weigh-in')} busy={saving} onPress={() => void log()} />
         </PinnedBar>
       }
     >
       {/* The weigh-in itself, always open: − and + either side of the number. */}
       <View style={styles.entry}>
-        <Text style={styles.entryLabel}>Today</Text>
+        <Text style={styles.entryLabel}>{t('Today')}</Text>
         <View style={styles.entryRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Less weight"
+            accessibilityLabel={t('Less weight')}
             accessibilityState={{ disabled: base === undefined }}
             disabled={base === undefined}
             hitSlop={6}
@@ -166,13 +172,13 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
               }}
               placeholder={summary.latest ? String(show(summary.latest.kg)) : '0.0'}
               placeholderTextColor={colors.faint}
-              accessibilityLabel={`Today's weight in ${unit}`}
+              accessibilityLabel={t("Today's weight in {unit}", { unit })}
             />
             <Text style={styles.entryUnit} numberOfLines={1}>{unit}</Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="More weight"
+            accessibilityLabel={t('More weight')}
             accessibilityState={{ disabled: base === undefined }}
             disabled={base === undefined}
             hitSlop={6}
@@ -184,8 +190,8 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
         </View>
         <Text style={styles.entryContext}>
           {summary.latest
-            ? `Last weigh-in ${show(summary.latest.kg)} ${unit}, ${when(summary.daysSince)}`
-            : 'Same time of day, same scale, is all it asks.'}
+            ? lastWeighIn(`${show(summary.latest.kg)} ${unit}`, summary.daysSince)
+            : t('Same time of day, same scale, is all it asks.')}
         </Text>
       </View>
 
@@ -193,22 +199,22 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
         <>
           <View style={styles.stats}>
             <StatGrid>
-              <StatTile value={`${show(summary.latest.trendKg)} ${unit}`} label="trend weight" />
-              <StatTile value={summary.change30 === null ? '—' : signed(summary.change30)} label="in 30 days" />
+              <StatTile value={`${show(summary.latest.trendKg)} ${unit}`} label={t('trend weight')} />
+              <StatTile value={summary.change30 === null ? '—' : signed(summary.change30)} label={t('in 30 days')} />
               {summary.toGoal !== null ? (
-                <StatTile value={Math.abs(summary.toGoal) < 0.5 ? 'There' : signed(summary.toGoal)} label="to your goal" note={`Goal ${show(goalKg!)} ${unit}`} />
+                <StatTile value={Math.abs(summary.toGoal) < 0.5 ? tx('already at the goal weight', 'There') : signed(summary.toGoal)} label={t('to your goal')} note={t('Goal {weight}', { weight: `${show(goalKg!)} ${unit}` })} />
               ) : null}
             </StatGrid>
           </View>
 
           {recent.length > 1 ? (
             <>
-              <Text style={styles.heading}>Trend</Text>
-              <Text style={styles.caption}>Dots are weigh-ins; the line smooths out the day-to-day.</Text>
+              <Text style={styles.heading}>{t('Trend')}</Text>
+              <Text style={styles.caption}>{t('Dots are weigh-ins; the line smooths out the day-to-day.')}</Text>
               <View
                 style={styles.chart}
                 onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
-                accessibilityLabel={`Weight trend over ${recent.length} weigh-ins`}
+                accessibilityLabel={t('Weight trend over {count} weigh-ins', { count: recent.length })}
               >
                 {width > 0 ? (
                   <Svg width={width} height={CHART_HEIGHT}>
@@ -236,7 +242,7 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
             </>
           ) : null}
 
-          <Text style={styles.heading} accessibilityRole="header">Weigh-ins</Text>
+          <Text style={styles.heading} accessibilityRole="header">{t('Weigh-ins')}</Text>
           <View style={styles.list}>
             {[...entries].reverse().slice(0, 30).map((entry, index) => {
               const event = events.find((candidate) => candidate.id === entry.id)!;
@@ -247,14 +253,14 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
                 <Pressable
                   key={entry.id}
                   accessibilityRole="button"
-                  accessibilityHint="Edit or delete"
+                  accessibilityHint={t('Edit or delete')}
                   onPress={() => askEditOrDelete(event, { onEdit: () => askNewValue(event), onDelete })}
                   style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.rowDate}>{new Date(entry.at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+                    <Text style={styles.rowDate}>{new Date(entry.at).toLocaleDateString(formatLocale(), { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
                     {moved !== null ? (
-                      <Text style={styles.rowMeta}>{moved === 0 ? 'No change' : `${signedShown(moved)} from the one before`}</Text>
+                      <Text style={styles.rowMeta}>{moved === 0 ? t('No change') : t('{change} from the one before', { change: signedShown(moved) })}</Text>
                     ) : null}
                   </View>
                   {/* The weight stacked over its unit, right-aligned like the meal page's calories. */}
@@ -268,7 +274,7 @@ export function WeightScreen({ events, unit, goalKg, onLog, onEdit, onDelete, on
           </View>
         </>
       ) : (
-        <Text style={styles.empty}>Your first weigh-in starts the line.</Text>
+        <Text style={styles.empty}>{t('Your first weigh-in starts the line.')}</Text>
       )}
     </SettingsPage>
   );

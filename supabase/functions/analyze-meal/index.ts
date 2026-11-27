@@ -3,7 +3,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.126.0';
 import { zodOutputFormat } from 'npm:@anthropic-ai/sdk@0.126.0/helpers/zod';
 import { z } from 'npm:zod@4.6.5';
 import { BUSY_MESSAGE, claimAiCall } from '../_shared/aiBudget.ts';
-import { MEAL_FIX_SYSTEM_PROMPT, MEAL_SYSTEM_PROMPT, mealAnalysisSchema, mealFixUserText, mealUserText, readCorrection } from './mealPrompt.ts';
+import { MEAL_FIX_SYSTEM_PROMPT, MEAL_SYSTEM_PROMPT, mealAnalysisSchema, mealFixUserText, mealUserText, readCorrection, readMealLanguage } from './mealPrompt.ts';
 import { isDevAccount } from '../_shared/devAccount.ts';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' };
@@ -101,11 +101,14 @@ Deno.serve(async (request) => {
     if (Number(request.headers.get('content-length') ?? 0) > MAX_REQUEST_BYTES) {
       return json({ error: 'That image is too large to analyse.' }, 413);
     }
-    const { image, pet, correction: rawCorrection } = (await request.json().catch(() => ({}))) as {
+    const { image, pet, correction: rawCorrection, locale } = (await request.json().catch(() => ({}))) as {
       image?: { base64?: unknown; mimeType?: unknown };
       pet?: Record<string, unknown>;
       correction?: unknown;
+      locale?: unknown;
     };
+    // The app's language when it is not English: the words the person reads come back in it.
+    const language = readMealLanguage(locale);
     // A correction ("it's a strawberry matcha with almond milk") re-reads the
     // earlier estimate from words alone: no photo, so it is cheap.
     const correction = readCorrection(rawCorrection);
@@ -178,7 +181,7 @@ Deno.serve(async (request) => {
             // Haiku 5.5 thinks unless told not to, billed as output and out of max_tokens.
             thinking: { type: 'disabled' },
             system: MEAL_FIX_SYSTEM_PROMPT,
-            messages: [{ role: 'user', content: mealFixUserText(correction, petContext) }],
+            messages: [{ role: 'user', content: mealFixUserText(correction, petContext, language) }],
             output_config: { format: zodOutputFormat(MealAnalysisSchema) },
           }
         : {
@@ -191,7 +194,7 @@ Deno.serve(async (request) => {
               role: 'user',
               content: [
                 { type: 'image', source: { type: 'base64', media_type: imageType as ClaudeImageType, data: imageBase64 } },
-                { type: 'text', text: mealUserText(petContext) },
+                { type: 'text', text: mealUserText(petContext, language) },
               ],
             }],
             output_config: { format: zodOutputFormat(MealAnalysisSchema) },

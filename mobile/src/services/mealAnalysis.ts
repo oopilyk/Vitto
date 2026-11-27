@@ -1,6 +1,7 @@
 import { type MealAnalysis, type MealPetContext, parseMealAnalysisResponse } from '@vitto/core';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { supabase } from './supabaseClient';
+import { getLocale, t } from '../i18n';
 
 export interface PickedImage {
   /** Local file URI, used for the on-screen preview. */
@@ -65,7 +66,7 @@ const RETRY_DELAY_MS = 800;
  * the analysis is exactly what it always was.
  */
 export const analyzeMealImage = async (image: PickedImage, pet?: MealPetContext): Promise<MealAnalysis> => {
-  if (!image.base64) throw new Error('That photo could not be read. Try choosing it again.');
+  if (!image.base64) throw new Error(t('That photo could not be read. Try choosing it again.'));
   return askAnalyzeMeal({ image: { base64: image.base64, mimeType: image.mimeType ?? 'image/jpeg' }, ...(pet ? { pet } : {}) });
 };
 
@@ -81,7 +82,7 @@ export const correctMealAnalysis = async (
   pet?: MealPetContext,
 ): Promise<MealAnalysis> => {
   const said = text.trim();
-  if (!said) throw new Error('Tell us what it actually was.');
+  if (!said) throw new Error(t('Tell us what it actually was.'));
   return askAnalyzeMeal({
     correction: {
       text: said,
@@ -95,9 +96,10 @@ export const correctMealAnalysis = async (
 const askAnalyzeMeal = async (body: Record<string, unknown>): Promise<MealAnalysis> => {
   if (!supabase) throw new Error('Supabase is not configured.');
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Sign in before analyzing a meal.');
+  if (!user) throw new Error(t('Sign in before analyzing a meal.'));
 
-  const send = () => supabase!.functions.invoke('analyze-meal', { body });
+  // The app's language goes with it, so the pet's line about the plate can come back in it.
+  const send = () => supabase!.functions.invoke('analyze-meal', { body: { ...body, locale: getLocale() } });
   let { data, error } = await send();
   // A broken upload is retried once: on a patchy connection the second usually
   // lands. Only a request that never got an answer; a server's "no" stands.
@@ -105,7 +107,7 @@ const askAnalyzeMeal = async (body: Record<string, unknown>): Promise<MealAnalys
     await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
     ({ data, error } = await send());
     if (error && isNetworkFailure(error)) {
-      throw new Error("Couldn't reach Vitto to read your plate. Check your connection and try again.");
+      throw new Error(t("Couldn't reach Vitto to read your plate. Check your connection and try again."));
     }
   }
   if (error) {
@@ -127,7 +129,7 @@ const askAnalyzeMeal = async (body: Record<string, unknown>): Promise<MealAnalys
           // Not JSON — a gateway or runtime error page. Its text is still the
           // most specific thing we have, so pass it through as-is.
         }
-        if (detail === 'PLUS_REQUIRED') throw new Error('Photo meal tracking is part of Vitto Plus. Search or scan a barcode instead.');
+        if (detail === 'PLUS_REQUIRED') throw new Error(t('Photo meal tracking is part of Vitto Plus. Search or scan a barcode instead.'));
         if (detail) throw new Error(detail);
       }
     }

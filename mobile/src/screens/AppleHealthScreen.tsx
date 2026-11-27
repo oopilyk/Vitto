@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import { SettingsPage } from '../components/settingsKit';
 import { PrimaryButton } from '../components/ui';
 import { colors, themedStyles, fonts } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   status: 'disconnected' | 'connected';
@@ -15,20 +16,20 @@ interface Props {
 export function AppleHealthScreen({ status, onConnect, onSync, syncing, onClose }: Props) {
   const connected = status === 'connected';
   return (
-    <SettingsPage title="Apple Health" backLabel="Profile" onBack={onClose}>
+    <SettingsPage title="Apple Health" backLabel={t('Profile')} onBack={onClose}>
       <View style={styles.status}>
-        <Text style={styles.statusTitle}>{connected ? 'Connected' : 'Not connected'}</Text>
+        <Text style={styles.statusTitle}>{connected ? t('Connected') : t('Not connected')}</Text>
         <Text style={styles.statusBody}>
           {connected
-            ? 'Workouts and meals from apps like Strong or MyFitnessPal show up here automatically. Sync to pull in the last two days now.'
-            : "Connect to pull in workouts and meals you've already logged in Strong, MyFitnessPal, or similar apps."}
+            ? t('Workouts and meals from apps like Strong or MyFitnessPal show up here automatically. Sync to pull in the last two days now.')
+            : t("Connect to pull in workouts and meals you've already logged in Strong, MyFitnessPal, or similar apps.")}
         </Text>
       </View>
       <View style={styles.actions}>
         {connected ? (
-          <PrimaryButton label={syncing ? 'Syncing...' : 'Sync now'} busy={syncing} onPress={onSync} />
+          <PrimaryButton label={syncing ? t('Syncing...') : t('Sync now')} busy={syncing} onPress={onSync} />
         ) : (
-          <PrimaryButton label="Connect Apple Health" onPress={onConnect} />
+          <PrimaryButton label={t('Connect Apple Health')} onPress={onConnect} />
         )}
       </View>
     </SettingsPage>

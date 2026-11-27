@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { RoomActionButton } from './RoomActionButton';
+import { t } from '../i18n';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
@@ -53,7 +54,7 @@ interface StudyEnvironmentProps extends StudyEnvironmentControlsProps {
 
 /** The Study's call to action, in the same slot as the Gym's "Log workout". */
 function TrainMindButton({ onPress }: { onPress: () => void }) {
-  return <RoomActionButton label="Train mind" onPress={onPress} />;
+  return <RoomActionButton label={t('Train mind')} onPress={onPress} />;
 }
 
 function StudyEnvironmentControls({

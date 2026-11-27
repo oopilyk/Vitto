@@ -49,6 +49,7 @@ import {
 import { isNightTime } from '../petWorld/timeOfDay';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { themedStyles } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   pet: PetState;
@@ -81,7 +82,7 @@ const dealGame = (): Deal => {
       error: null,
     };
   } catch (cause) {
-    return { game: null, error: errorMessage(cause, 'This board is unavailable right now.') };
+    return { game: null, error: errorMessage(cause, t('This board is unavailable right now.')) };
   }
 };
 
@@ -246,7 +247,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
       return true;
     } catch (cause) {
       submittedRef.current = false;
-      setSaveError(errorMessage(cause, 'Could not save this game. Try again.'));
+      setSaveError(errorMessage(cause, t('Could not save this game. Try again.')));
       setSaving(false);
       return false;
     }
@@ -298,7 +299,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
         <JeopardyFrame night={night} centred>
           <JeopardyUnavailable
             night={night}
-            message={deal.error ?? 'This game is unavailable right now.'}
+            message={deal.error ?? t('This game is unavailable right now.')}
             onClose={onClose}
           />
         </JeopardyFrame>
@@ -345,7 +346,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
       : null;
 
   const categoryLabel = (categoryId: string): string =>
-    active.categories.find((category) => category.id === categoryId)?.label ?? categoryId;
+    t(active.categories.find((category) => category.id === categoryId)?.label ?? categoryId);
 
   return (
     <SheetPage onBackPress={requestClose}>
@@ -365,7 +366,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
           <QuestionStage
             kicker={categoryLabel(openCell.categoryId)}
             stake={`${openCell.value} XP`}
-            prompt={openCell.question.prompt}
+            prompt={t(openCell.question.prompt)}
             options={openCell.options}
             reveal={boardReveal}
             night={night}
@@ -394,9 +395,9 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
 
         {final && (active.status === 'final' || active.status === 'finalRevealing') ? (
           <QuestionStage
-            kicker="Final Jeopardy"
-            stake={`${active.wager ?? 0} XP at stake`}
-            prompt={final.question.prompt}
+            kicker={t('Final Jeopardy')}
+            stake={t('{wager} XP at stake', { wager: active.wager ?? 0 })}
+            prompt={t(final.question.prompt)}
             options={final.options}
             reveal={finalReveal}
             night={night}
@@ -411,7 +412,7 @@ export function PetJeopardyScreen({ pet, onFinish, onClose, game }: Props) {
               ) : null
             }
             footer={
-              finalReveal ? <PrimaryButton label="See results" onPress={handleSeeResults} /> : null
+              finalReveal ? <PrimaryButton label={t('See results')} onPress={handleSeeResults} /> : null
             }
           />
         ) : null}

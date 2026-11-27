@@ -1,4 +1,5 @@
 import { Alert, Platform, type AlertButton } from 'react-native';
+import { t } from '../i18n';
 
 /**
  * `Alert.alert` that also works in a browser.
@@ -25,7 +26,10 @@ export const showAlert = (title: string, message?: string, buttons?: AlertButton
     return;
   }
   for (const choice of choices) {
-    const prompt = choices.length === 1 ? `${body}\n\nOK to ${String(choice.text).toLowerCase()}.` : `${body}\n\n${choice.text}?`;
+    const prompt =
+      choices.length === 1
+        ? `${body}\n\n${t('OK to {action}.', { action: String(choice.text).toLowerCase() })}`
+        : `${body}\n\n${t('{choice}?', { choice: String(choice.text) })}`;
     if (window.confirm(prompt)) {
       choice.onPress?.();
       return;

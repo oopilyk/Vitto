@@ -1,6 +1,7 @@
 import { type JeopardyCell, type JeopardyGame, type JeopardyValue } from '@vitto/core';
 import type { Offset, PlaySize } from '../fourCorners/corners';
 import { world } from '../theme';
+import { t } from '../i18n';
 
 /**
  * Geometry, tempo and spoken labels for Pet Jeopardy, kept out of the screen so
@@ -84,9 +85,11 @@ export const valueTone = (value: JeopardyValue, night: boolean): ValueTone => {
  * user they cannot tap it, not that they already won it.
  */
 export const cellLabel = (categoryLabel: string, cell: JeopardyCell): string => {
-  if (!cell.played) return `${categoryLabel}, ${cell.value} XP`;
-  const outcome = cell.correct ? `won ${cell.value} XP` : 'missed';
-  return `${categoryLabel}, ${cell.value} XP, already played, ${outcome}`;
+  const said = { category: categoryLabel, value: cell.value };
+  if (!cell.played) return t('{category}, {value} XP', said);
+  return cell.correct
+    ? t('{category}, {value} XP, already played, won {value} XP', said)
+    : t('{category}, {value} XP, already played, missed', said);
 };
 
 /**
@@ -96,16 +99,18 @@ export const cellLabel = (categoryLabel: string, cell: JeopardyCell): string => 
  * plays a whole game and is never told whether they were right.
  */
 export const answerLabel = (answer: string, mark: string | null): string =>
-  mark ? `${answer}, ${mark}` : answer;
+  mark ? t('{answer}, {mark}', { answer, mark }) : answer;
 
-/** Warm, never scolding — a missed square costs XP, not encouragement. */
+/** Warm, never scolding — a missed square costs XP, not encouragement. `answer` is the stored English; it is translated here. */
 export const verdictLine = (correct: boolean, value: number, answer: string): string =>
-  correct ? `CORRECT  ·  +${value} XP` : `NOT THIS TIME  ·  IT WAS ${answer.toUpperCase()}`;
+  correct
+    ? t('CORRECT  ·  +{xp} XP', { xp: value })
+    : t('NOT THIS TIME  ·  IT WAS {answer}', { answer: t(answer).toUpperCase() });
 
 export const finalVerdictLine = (correct: boolean, wager: number, answer: string): string =>
   correct
-    ? `CORRECT  ·  +${wager} XP`
-    : `IT WAS ${answer.toUpperCase()}  ·  -${wager} XP`;
+    ? t('CORRECT  ·  +{xp} XP', { xp: wager })
+    : t('IT WAS {answer}  ·  -{xp} XP', { answer: t(answer).toUpperCase(), xp: wager });
 
 /**
  * The pet's reaction hop, as a share of the *measured* pet stage rather than a

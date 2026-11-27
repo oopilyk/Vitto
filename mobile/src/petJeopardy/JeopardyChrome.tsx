@@ -5,6 +5,7 @@ import { PrimaryButton, Mark } from '../components/ui';
 import { EnvironmentBackdrop } from '../petWorld/EnvironmentBackdrop';
 import { surface, surfacePressed } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 /**
  * The frame every Pet Jeopardy stage sits in: the scene behind it, the bar
@@ -48,10 +49,10 @@ export function JeopardyFrame({ night, centred, children }: FrameProps) {
 
 /** What the header says about where the session is, in one short line. */
 export const progressLine = (game: JeopardyGame): string => {
-  if (game.status === 'wager') return 'Final Jeopardy · set your stake';
-  if (game.status === 'final' || game.status === 'finalRevealing') return 'Final Jeopardy';
+  if (game.status === 'wager') return t('Final Jeopardy · set your stake');
+  if (game.status === 'final' || game.status === 'finalRevealing') return t('Final Jeopardy');
   const played = game.cells.filter((cell) => cell.played).length;
-  return `${played} / ${JEOPARDY_PICKS_PER_ROUND} picks · ${game.boardPoints} XP`;
+  return t('{played} / {total} picks · {xp} XP', { played, total: JEOPARDY_PICKS_PER_ROUND, xp: game.boardPoints });
 };
 
 interface HeaderProps {
@@ -65,14 +66,14 @@ export function JeopardyHeader({ night, progress, onClose, closeDisabled }: Head
   return (
     <View style={[styles.header, { backgroundColor: night ? world.barNight : world.barDay }]}>
       <View style={styles.headerText}>
-        <Text style={styles.title}>Pet Jeopardy</Text>
+        <Text style={styles.title}>{t('Pet Jeopardy')}</Text>
         <Text style={styles.progress} numberOfLines={1}>
           {progress}
         </Text>
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Close Pet Jeopardy"
+        accessibilityLabel={t('Close Pet Jeopardy')}
         accessibilityState={{ disabled: closeDisabled }}
         disabled={closeDisabled}
         onPress={onClose}
@@ -97,10 +98,10 @@ export function JeopardyUnavailable({
 }) {
   return (
     <View style={[styles.errorPanel, surface.panel, night && surface.panelNight]}>
-      <Text style={[surface.label, night && surface.labelNight]}>Pet Jeopardy</Text>
+      <Text style={[surface.label, night && surface.labelNight]}>{t('Pet Jeopardy')}</Text>
       <Text style={[surface.caption, night && surface.captionNight, styles.errorLine]}>{message}</Text>
       <View style={styles.errorAction}>
-        <PrimaryButton label="Back to Mind" onPress={onClose} />
+        <PrimaryButton label={t('Back to Mind')} onPress={onClose} />
       </View>
     </View>
   );

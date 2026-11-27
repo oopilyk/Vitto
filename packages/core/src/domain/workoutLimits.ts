@@ -1,6 +1,7 @@
 import type { WorkoutExercise, WorkoutSet } from './health';
 import { convertWeightValue } from './macroTargets';
 import { estimatedOneRepMax } from './oneRepMax';
+import { t } from '../i18n';
 
 /**
  * How far a logged workout can go before it is a typo.
@@ -75,28 +76,28 @@ export const checkWorkout = ({
   const sets = exercises.flatMap((exercise) => exercise.sets.map((set) => ({ exercise: exercise.name, set })));
 
   for (const { exercise, set } of sets) {
-    if (set.reps > WORKOUT_LIMITS.reps.max) return { level: 'refuse', message: `${set.reps} reps of ${exercise} can't be right. Check the set.` };
+    if (set.reps > WORKOUT_LIMITS.reps.max) return { level: 'refuse', message: t("{reps} reps of {exercise} can't be right. Check the set.", { reps: set.reps, exercise: t(exercise) }) };
     if (setOneRepMaxKg(set) > WORKOUT_LIMITS.oneRepMaxKg.max) {
-      return { level: 'refuse', message: `${set.weight} ${set.unit ?? 'kg'} × ${set.reps} on ${exercise} is past any world record. Check the weight.` };
+      return { level: 'refuse', message: t('{weight} {unit} × {reps} on {exercise} is past any world record. Check the weight.', { weight: set.weight ?? 0, unit: set.unit ?? 'kg', reps: set.reps, exercise: t(exercise) }) };
     }
-    if (set.reps > WORKOUT_LIMITS.reps.usual) asks.push({ level: 'confirm', message: `${set.reps} reps of ${exercise} in one set?` });
+    if (set.reps > WORKOUT_LIMITS.reps.usual) asks.push({ level: 'confirm', message: t('{reps} reps of {exercise} in one set?', { reps: set.reps, exercise: t(exercise) }) });
     else if (setOneRepMaxKg(set) > WORKOUT_LIMITS.oneRepMaxKg.usual) {
-      asks.push({ level: 'confirm', message: `${set.weight} ${set.unit ?? 'kg'} × ${set.reps} on ${exercise}? That's elite.` });
+      asks.push({ level: 'confirm', message: t("{weight} {unit} × {reps} on {exercise}? That's elite.", { weight: set.weight ?? 0, unit: set.unit ?? 'kg', reps: set.reps, exercise: t(exercise) }) });
     }
   }
 
-  if (durationMinutes > WORKOUT_LIMITS.minutes.max) return { level: 'refuse', message: 'A session can be 24 hours at most. Check the time.' };
-  if (durationMinutes > WORKOUT_LIMITS.minutes.usual) asks.push({ level: 'confirm', message: `${durationMinutes} minutes in one session?` });
+  if (durationMinutes > WORKOUT_LIMITS.minutes.max) return { level: 'refuse', message: t('A session can be 24 hours at most. Check the time.') };
+  if (durationMinutes > WORKOUT_LIMITS.minutes.usual) asks.push({ level: 'confirm', message: t('{minutes} minutes in one session?', { minutes: durationMinutes }) });
 
   if (distanceKm !== undefined && distanceKm > 0) {
     const moving = exercises.find((exercise) => exercise.distance)?.name ?? exercises[0]?.name;
     if (!plausibleDistance(moving, distanceKm, durationMinutes)) {
-      return { level: 'refuse', message: "That distance and time aren't possible together. Check both." };
+      return { level: 'refuse', message: t("That distance and time aren't possible together. Check both.") };
     }
     const speed = SPEED_KMH[moving ?? ''] ?? DEFAULT_SPEED_KMH;
-    if (distanceKm > WORKOUT_LIMITS.distanceKm.usual) asks.push({ level: 'confirm', message: 'Over 100 km in one session?' });
+    if (distanceKm > WORKOUT_LIMITS.distanceKm.usual) asks.push({ level: 'confirm', message: t('Over 100 km in one session?') });
     else if (durationMinutes > 0 && distanceKm / (durationMinutes / 60) > speed.usual) {
-      asks.push({ level: 'confirm', message: "That's faster than most elite athletes. Is the time right?" });
+      asks.push({ level: 'confirm', message: t("That's faster than most elite athletes. Is the time right?") });
     }
   }
 

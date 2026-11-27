@@ -4,7 +4,7 @@ import { oneLine } from './memory';
 import { humanizeEvent } from './util';
 export { humanizeEvent } from './util';
 import { PROPOSAL_RANGES } from './proposals';
-import type { PetContext, Trait } from './types';
+import type { CompanionLanguage, PetContext, Trait } from './types';
 
 /**
  * Prompt rendering, split in two on purpose.
@@ -322,6 +322,9 @@ export const renderDynamicSystemPrompt = (ctx: PetContext): string => {
   ].filter(Boolean).join(', ');
   const reminder = remind ? `you are ${remind}` : null;
   if (reminder) lines.push(`\nBefore you write: ${reminder}. That has to be audible in this next message, whatever it is about.`);
+  const language = languageNote(life.language);
+  if (language) lines.push(`\n# Language\n${language}`);
+
   return lines.join('\n');
 };
 
@@ -355,6 +358,26 @@ export const customVoice = (
   );
 };
 
+const LANGUAGE_NAME: Record<CompanionLanguage, string> = {
+  es: 'Spanish (natural and informal, "tú"; neutral Latin American)',
+  'zh-Hans': 'Simplified Chinese (mainland usage, informal 你)',
+};
+
+/**
+ * Said last in the system prompt when the app is shown in another language:
+ * everything above it is written in English, the voice notes and their example
+ * lines included, and without this the pet answers in English.
+ */
+export const languageNote = (language: CompanionLanguage | undefined): string =>
+  language
+    ? `They use the app in ${LANGUAGE_NAME[language]}. Write everything you say to them in that language, even though these notes are in English. ` +
+      'Carry your personality and way of talking across into it: do not translate English catchphrases or example lines word for word, find what a pet like you would naturally say in that language. ' +
+      'Keep their name, your name and any app term they would see on screen as they are. If they write to you in a different language, answer in the language they wrote in.'
+    : '';
+
+/** For a prompt that is not the pet talking (memory notes): the language to write in, or '' for English. */
+export const languageName = (language: CompanionLanguage | undefined): string => (language ? LANGUAGE_NAME[language].replace(/ \(.*$/, '') : '');
+
 export const renderProactiveInstruction = (situation: string): string =>
   `[This is not a message from the user. The user has not said anything. Situation: ${situation}
 Write the single short message you, the pet, would send them right now, unprompted. It is shown in a small speech bubble over your head, so keep it to one or two short sentences, under 120 characters. Stay in character; do not explain the situation back to them mechanically. Output only the message text.]`;
@@ -363,8 +386,10 @@ export const renderExtractionPrompt = (args: {
   petName: string;
   existingMemories: readonly string[];
   askForNickname: boolean;
+  /** The language the app is shown in when it is not English: the notes are shown to them, so they are written in it. */
+  language?: CompanionLanguage;
 }): string =>
-  `You analyse a short conversation between a user and their virtual pet "${args.petName}" and extract only information likely to matter in FUTURE conversations.
+  `${args.language ? `Write every memory in ${languageName(args.language)}: the user reads them in the app, which they use in that language.\n\n` : ''}You analyse a short conversation between a user and their virtual pet "${args.petName}" and extract only information likely to matter in FUTURE conversations.
 
 Extract facts about the USER's life: preferences, goals, routines, activities, relationships, important upcoming events (with a date if one can be inferred; today's date is provided), health habits, and stable personal facts. Also extract things the user explicitly asks the pet to remember.
 

@@ -1,5 +1,6 @@
 import { errorMessage } from '../errorMessage';
 import type { CareEventType, HealthEvent, HealthEventType } from './health';
+import { t, tx } from '../i18n';
 
 /**
  * Care partners: two people raising one pet.
@@ -74,7 +75,7 @@ export const INVITE_CODE_LENGTHS: readonly number[] = [6, 8];
 export const INVITE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** Shown when a member's display name is unusable (blank, or an email we refuse to leak). */
-export const PARTNER_FALLBACK_NAME = 'Your partner';
+export const PARTNER_FALLBACK_NAME = t('Your partner');
 
 /**
  * `random` is injectable so tests can pin the output; the default is
@@ -161,29 +162,29 @@ export const memberDisplayName = (members: PetMember[], userId: string): string 
  * type-level on purpose: "Shared a meal", never what the meal was.
  */
 export const CARE_LOG_LABEL: Record<CareEventType, string> = {
-  WORKOUT: 'Trained together',
-  STEP_ACTIVITY: 'Went exploring',
-  MEAL: 'Shared a meal',
-  BRAIN_TRAINING: 'Trained their mind',
-  SLEEP: 'Rested up',
-  SCREEN_TIME: 'Screen check-in',
-  HYDRATION: 'Had a drink',
-  MANUAL_ACTIVITY: 'A healthy moment',
+  WORKOUT: t('Trained together'),
+  STEP_ACTIVITY: t('Went exploring'),
+  MEAL: t('Shared a meal'),
+  BRAIN_TRAINING: t('Trained their mind'),
+  SLEEP: t('Rested up'),
+  SCREEN_TIME: t('Screen check-in'),
+  HYDRATION: t('Had a drink'),
+  MANUAL_ACTIVITY: t('A healthy moment'),
 };
 
 export const careLogLabel = (type: HealthEventType): string =>
   CARE_LOG_LABEL[type as CareEventType] ?? CARE_LOG_LABEL.MANUAL_ACTIVITY;
 
-/** Past-tense verb phrases for the "while you were away" sentence; the labels above are not all verbs. */
-const CARE_LOG_VERB: Record<CareEventType, string> = {
-  WORKOUT: 'trained together',
-  STEP_ACTIVITY: 'went exploring',
-  MEAL: 'shared a meal',
-  BRAIN_TRAINING: 'trained their mind',
-  SLEEP: 'rested up',
-  SCREEN_TIME: 'checked in on screen time',
-  HYDRATION: 'had a drink',
-  MANUAL_ACTIVITY: 'had a healthy moment',
+/** The "while you were away" sentence for one care moment, whole so it can be translated; the labels above are not all verbs. */
+const CARE_LOG_SENTENCE: Record<CareEventType, (names: { partner: string; pet: string }) => string> = {
+  WORKOUT: (names) => t('{partner} trained together with {pet} while you were away.', names),
+  STEP_ACTIVITY: (names) => t('{partner} went exploring with {pet} while you were away.', names),
+  MEAL: (names) => t('{partner} shared a meal with {pet} while you were away.', names),
+  BRAIN_TRAINING: (names) => t('{partner} trained their mind with {pet} while you were away.', names),
+  SLEEP: (names) => t('{partner} rested up with {pet} while you were away.', names),
+  SCREEN_TIME: (names) => t('{partner} checked in on screen time with {pet} while you were away.', names),
+  HYDRATION: (names) => t('{partner} had a drink with {pet} while you were away.', names),
+  MANUAL_ACTIVITY: (names) => t('{partner} had a healthy moment with {pet} while you were away.', names),
 };
 
 /** Newest first, then id ascending, so two renders of the same data never reorder. */
@@ -245,8 +246,9 @@ export const partnerEntriesSince = (
 
 const listNames = (names: string[]): string => {
   if (names.length <= 1) return names[0] ?? PARTNER_FALLBACK_NAME;
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+  const and = tx('joins the last two items of a list', 'and');
+  if (names.length === 2) return `${names[0]} ${and} ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')}, ${and} ${names[names.length - 1]}`;
 };
 
 /**
@@ -262,14 +264,15 @@ export const partnerActivityMessage = (
   if (entries.length === 0) return null;
   if (entries.length === 1) {
     const [entry] = entries;
-    return `${memberDisplayName(members, entry.userId)} ${CARE_LOG_VERB[entry.type as CareEventType] ?? CARE_LOG_VERB.MANUAL_ACTIVITY} with ${petName} while you were away.`;
+    const sentence = CARE_LOG_SENTENCE[entry.type as CareEventType] ?? CARE_LOG_SENTENCE.MANUAL_ACTIVITY;
+    return sentence({ partner: memberDisplayName(members, entry.userId), pet: petName });
   }
   const names: string[] = [];
   for (const entry of entries) {
     const name = memberDisplayName(members, entry.userId);
     if (!names.includes(name)) names.push(name);
   }
-  return `${listNames(names)} cared for ${petName} ${entries.length} times while you were away.`;
+  return t('{partners} cared for {pet} {count} times while you were away.', { partners: listNames(names), pet: petName, count: entries.length });
 };
 
 /**
@@ -277,21 +280,21 @@ export const partnerActivityMessage = (
  * here instead of in SQL and stay in step with the rest of the app's voice.
  */
 const INVITE_ERROR_COPY: Record<string, string> = {
-  INVITE_INVALID: "That code isn't valid. Check it, or ask your partner for a new one.",
-  INVITE_RATE_LIMITED: 'Too many tries. Wait an hour, then try again.',
-  INVITE_NOT_FOUND: "That code doesn't match any invite. Check it and try again.",
-  INVITE_USED: 'That code has already been used.',
-  INVITE_EXPIRED: 'That code has expired. Ask your partner for a new one.',
-  OWN_INVITE: "That's your own code — share it with your partner instead.",
-  ALREADY_MEMBER: "You're already caring for this pet.",
-  PET_FULL: `This pet already has ${MAX_PET_MEMBERS} carers.`,
+  INVITE_INVALID: t("That code isn't valid. Check it, or ask your partner for a new one."),
+  INVITE_RATE_LIMITED: t('Too many tries. Wait an hour, then try again.'),
+  INVITE_NOT_FOUND: t("That code doesn't match any invite. Check it and try again."),
+  INVITE_USED: t('That code has already been used.'),
+  INVITE_EXPIRED: t('That code has expired. Ask your partner for a new one.'),
+  OWN_INVITE: t("That's your own code — share it with your partner instead."),
+  ALREADY_MEMBER: t("You're already caring for this pet."),
+  PET_FULL: t('This pet already has {count} carers.', { count: MAX_PET_MEMBERS }),
   // Raised by servers still on the one-pet rule; kept so the copy is not lost.
-  HAS_ACTIVE_PET: "You're already caring for a pet. Leave them first to join another.",
-  HAS_JOINT_PET: 'Your joint slot is taken. Leave that pet first to join another.',
-  ALREADY_OWNS_PET: 'You already have a pet of your own. A second pet can only be a joint one.',
-  NOT_A_MEMBER: "You're not caring for this pet any more.",
-  NOT_THE_OWNER: 'Only the owner can remove a care partner.',
-  NOT_SIGNED_IN: 'Sign in to use invite codes.',
+  HAS_ACTIVE_PET: t("You're already caring for a pet. Leave them first to join another."),
+  HAS_JOINT_PET: t('Your joint slot is taken. Leave that pet first to join another.'),
+  ALREADY_OWNS_PET: t('You already have a pet of your own. A second pet can only be a joint one.'),
+  NOT_A_MEMBER: t("You're not caring for this pet any more."),
+  NOT_THE_OWNER: t('Only the owner can remove a care partner.'),
+  NOT_SIGNED_IN: t('Sign in to use invite codes.'),
 };
 
 const causeText = (cause: unknown): string => {
@@ -314,5 +317,5 @@ export const inviteErrorMessage = (cause: unknown): string => {
   const text = causeText(cause);
   const code = Object.keys(INVITE_ERROR_COPY).find((candidate) => text.includes(candidate));
   if (code) return INVITE_ERROR_COPY[code];
-  return errorMessage(cause, 'Could not join that pet.');
+  return errorMessage(cause, t('Could not join that pet.'));
 };

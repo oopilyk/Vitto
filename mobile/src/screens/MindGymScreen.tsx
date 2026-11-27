@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SheetPage } from '../components/SheetPage';
-import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindRecapForDay, mindScore, mindScoreLabel, pickReadingPassage } from '@vitto/core';
+import { type BrainTrainingMetadata, type HealthEvent, type PetState, type ReadingPassage, errorMessage, mindRecapForDay, mindScore, mindScoreLabel, pickReadingPassage, wordGardenAvailable } from '@vitto/core';
 import { CountryGuessGame } from '../components/CountryGuessGame';
 import { WordGardenGame } from '../components/WordGardenGame';
 import { CloseButton, ErrorText, PrimaryButton, TextButton } from '../components/ui';
@@ -11,6 +11,7 @@ import { MindHub } from '../mind/MindHub';
 import type { MindRouteHandlers } from '../mind/hub';
 import type { MindStage } from '../mind/types';
 import { colors, fonts, text, themedStyles } from '../theme';
+import { msg, t, tn, wordPuzzleAvailable } from '../i18n';
 
 /**
  * The Mind section: a game room to choose from, and the sheet the four
@@ -42,12 +43,12 @@ interface Props {
 type Stage = 'pick' | MindStage | 'quiz' | 'result';
 
 const STAGE_TITLE: Record<Exclude<Stage, 'pick'>, string> = {
-  math: 'Quick maths',
-  reading: 'Read and recall',
-  quiz: 'Read and recall',
-  garden: 'Word garden',
-  country: 'Guess the country',
-  result: 'Train your mind',
+  math: t('Quick maths'),
+  reading: t('Read and recall'),
+  quiz: t('Read and recall'),
+  garden: t('Word garden'),
+  country: t('Guess the country'),
+  result: t('Train your mind'),
 };
 
 interface SessionResult extends BrainTrainingMetadata {
@@ -61,15 +62,18 @@ const resultMeta = (result: SessionResult): string => {
   switch (result.game) {
     case 'wordGarden':
     case 'spellingBee':
-      return `${result.wordsFound ?? 0} ${result.wordsFound === 1 ? 'word' : 'words'} · ${result.points ?? 0} points${
-        (result.bestMultiplier ?? 1) > 1 ? ` · best run ×${result.bestMultiplier}` : ''
-      } · ${result.durationSeconds}s`;
+      return [
+        tn(result.wordsFound ?? 0, '{count} word', '{count} words'),
+        t('{points} points', { points: result.points ?? 0 }),
+        ...((result.bestMultiplier ?? 1) > 1 ? [t('best run ×{multiplier}', { multiplier: result.bestMultiplier ?? 1 })] : []),
+        t('{seconds}s', { seconds: result.durationSeconds }),
+      ].join(' · ');
     case 'countryGuess':
-      return `${result.correct} of ${result.total} countries found · ${result.durationSeconds}s`;
+      return t('{correct} of {total} countries found · {seconds}s', { correct: result.correct, total: result.total, seconds: result.durationSeconds });
     case 'math':
-      return `${result.correct} of ${result.total} obstacles dodged · ${result.durationSeconds}s · best run ${result.bestStreak ?? 0}`;
+      return t('{correct} of {total} obstacles dodged · {seconds}s · best run {streak}', { correct: result.correct, total: result.total, seconds: result.durationSeconds, streak: result.bestStreak ?? 0 });
     default:
-      return `${result.correct} of ${result.total} right · ${result.durationSeconds}s`;
+      return t('{correct} of {total} right · {seconds}s', { correct: result.correct, total: result.total, seconds: result.durationSeconds });
   }
 };
 
@@ -143,7 +147,7 @@ export function MindGymScreen({
       .filter((question) => answers[question.id] !== question.answerIndex)
       .map((question) => ({
         prompt: question.prompt,
-        chosen: question.options[answers[question.id]] ?? 'No answer',
+        chosen: question.options[answers[question.id]] ?? msg('No answer'),
         answer: question.options[question.answerIndex],
       }));
     finishReading({ correct: passage.questions.length - missed.length, total: passage.questions.length }, missed);
@@ -159,7 +163,7 @@ export function MindGymScreen({
       logHaptic();
       onClose();
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not save this session.'));
+      setError(errorMessage(cause, t('Could not save this session.')));
     } finally {
       setSaving(false);
     }
@@ -173,7 +177,8 @@ export function MindGymScreen({
    */
   const routes: MindRouteHandlers = useMemo(
     () => ({
-      wordPuzzle: onOpenWordPuzzle,
+      // English words: no way into it in another language.
+      wordPuzzle: wordPuzzleAvailable() ? onOpenWordPuzzle : undefined,
       fourCorners: onOpenFourCorners,
       petJeopardy: onOpenPetJeopardy,
     }),
@@ -182,6 +187,8 @@ export function MindGymScreen({
 
   /** The hub's one way in to a game this sheet plays itself. */
   const startStage = (next: MindStage) => {
+    // English words, like the word puzzle: stay on the hub in another language.
+    if (next === 'garden' && !wordGardenAvailable()) return;
     if (next === 'reading') {
       startReading();
       return;
@@ -236,7 +243,7 @@ export function MindGymScreen({
         {stage === 'result' ? (
           // The day's mind goal is one session: once it is met, another adds nothing
           // to it, so the bar shows it full rather than "1 +1 / 1".
-          <LogProgress items={[{ label: 'Mind today', value: sessionsToday, goal: 1, adding: sessionsToday < 1 ? 1 : 0, unit: 'session' }]} />
+          <LogProgress items={[{ label: t('Mind today'), value: sessionsToday, goal: 1, adding: sessionsToday < 1 ? 1 : 0, unit: t('session') }]} />
         ) : null}
 
         <ScrollView
@@ -262,14 +269,14 @@ export function MindGymScreen({
           {stage === 'reading' && passage ? (
             <>
               <View style={styles.passage}>
-                <Text style={styles.passageTitle}>{passage.title}</Text>
-                {passage.body.split('\n\n').map((paragraph) => (
+                <Text style={styles.passageTitle}>{t(passage.title)}</Text>
+                {t(passage.body).split('\n\n').map((paragraph) => (
                   <Text key={paragraph.slice(0, 24)} style={styles.passageText}>
                     {paragraph}
                   </Text>
                 ))}
               </View>
-              <Text style={styles.note}>The passage is hidden once you continue — read it properly first.</Text>
+              <Text style={styles.note}>{t('The passage is hidden once you continue — read it properly first.')}</Text>
             </>
           ) : null}
 
@@ -278,7 +285,7 @@ export function MindGymScreen({
               {passage.questions.map((question, index) => (
                 <View key={question.id} style={styles.question}>
                   <Text style={styles.questionPrompt}>
-                    {index + 1}. {question.prompt}
+                    {index + 1}. {t(question.prompt)}
                   </Text>
                   {question.options.map((option, optionIndex) => (
                     <Pressable
@@ -294,7 +301,7 @@ export function MindGymScreen({
                           answers[question.id] === optionIndex && styles.optionLabelOn,
                         ]}
                       >
-                        {option}
+                        {t(option)}
                       </Text>
                     </Pressable>
                   ))}
@@ -305,7 +312,7 @@ export function MindGymScreen({
 
           {stage === 'result' && result ? (
             <>
-              <View style={styles.resultCard} accessible accessibilityLabel={`Mind score ${result.score}, ${mindScoreLabel(result.score)}`}>
+              <View style={styles.resultCard} accessible accessibilityLabel={t('Mind score {score}, {label}', { score: result.score, label: mindScoreLabel(result.score) })}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.resultLabel}>{mindScoreLabel(result.score)}</Text>
                   <Text style={styles.resultMeta}>{resultMeta(result)}</Text>
@@ -313,7 +320,7 @@ export function MindGymScreen({
                 {/* The score stacked over its unit, right-aligned like the meal page's calories. */}
                 <View style={styles.scoreBox}>
                   <Text style={styles.scoreNumber}>{result.score}</Text>
-                  <Text style={styles.scoreCaption}>mind score</Text>
+                  <Text style={styles.scoreCaption}>{t('mind score')}</Text>
                 </View>
               </View>
 
@@ -329,12 +336,12 @@ export function MindGymScreen({
 
               {result.missed?.length ? (
                 <View style={styles.review}>
-                  <Text style={styles.reviewTitle}>Missed</Text>
+                  <Text style={styles.reviewTitle}>{t('Missed')}</Text>
                   {result.missed.map((miss) => (
                     <View key={miss.prompt} style={styles.reviewRow}>
-                      <Text style={styles.reviewPrompt}>{miss.prompt}</Text>
+                      <Text style={styles.reviewPrompt}>{t(miss.prompt)}</Text>
                       <Text style={styles.reviewDetail}>
-                        You said “{miss.chosen}” · Answer: “{miss.answer}”
+                        {t('You said “{chosen}” · Answer: “{answer}”', { chosen: t(miss.chosen), answer: t(miss.answer) })}
                       </Text>
                     </View>
                   ))}
@@ -351,16 +358,16 @@ export function MindGymScreen({
             Cancel is gone from here: the × in the header already does it. */}
         {stage === 'reading' && passage ? (
           <View style={styles.footer}>
-            <PrimaryButton label="I've finished reading" onPress={() => setStage('quiz')} />
+            <PrimaryButton label={t("I've finished reading")} onPress={() => setStage('quiz')} />
           </View>
         ) : null}
         {stage === 'quiz' && passage ? (
           <View style={styles.footer}>
             {allAnswered ? null : (
-              <Text style={styles.footerSummary}>{`${Object.keys(answers).length} of ${passage.questions.length} answered`}</Text>
+              <Text style={styles.footerSummary}>{t('{answered} of {total} answered', { answered: Object.keys(answers).length, total: passage.questions.length })}</Text>
             )}
             <PrimaryButton
-              label={allAnswered ? 'Check answers' : 'Answer every question'}
+              label={allAnswered ? t('Check answers') : t('Answer every question')}
               disabled={!allAnswered}
               onPress={submitQuiz}
             />
@@ -370,11 +377,11 @@ export function MindGymScreen({
           <View style={styles.footer}>
             <ErrorText>{error}</ErrorText>
             <PrimaryButton
-              label={saving ? 'Saving...' : 'Log session'}
+              label={saving ? t('Saving...') : t('Log session')}
               busy={saving}
               onPress={() => void save()}
             />
-            <TextButton label="Play again" onPress={() => setStage('pick')} disabled={saving} />
+            <TextButton label={t('Play again')} onPress={() => setStage('pick')} disabled={saving} />
           </View>
         ) : null}
       </View>

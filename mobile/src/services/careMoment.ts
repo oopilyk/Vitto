@@ -16,6 +16,7 @@ import {
   totalPetXp,
   maintenanceCalories,
 } from '@vitto/core';
+import { t } from '../i18n';
 
 const PET_DELTA_KEYS: (keyof PetDelta)[] = [
   'health',
@@ -90,7 +91,7 @@ export const REVIVAL_BONUS = { health: 35, nutrition: 25, energy: 20, happiness:
 export const MAX_CARE_MOMENT_ATTEMPTS = 3;
 
 export const careConflictMessage = (petName: string): string =>
-  `Someone just cared for ${petName} — try again.`;
+  t('Someone just cared for {pet} — try again.', { pet: petName });
 
 export interface CareMomentInput {
   /** The STORED pet, never a decayed projection — decay is settled here, once. */
@@ -149,7 +150,7 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
       const bonus = { xp: STREAK_MILESTONE_BONUS_XP, happiness: 10 };
       nextPet = applyDelta(nextPet, bonus, event.occurredAt);
       nextReaction = {
-        message: `${pet.name} celebrates your ${projected}-day streak! +${STREAK_MILESTONE_BONUS_XP} bonus XP`,
+        message: t('{pet} celebrates your {days}-day streak! +{xp} bonus XP', { pet: pet.name, days: projected, xp: STREAK_MILESTONE_BONUS_XP }),
         eventLabel: 'Streak milestone',
         delta: bonus,
       };
@@ -161,7 +162,7 @@ export const planCareMoment = ({ pet, event, events, profile, engine }: CareMome
   if (wasDying) {
     nextPet = applyDelta(nextPet, REVIVAL_BONUS, event.occurredAt);
     nextReaction = {
-      message: `${pet.name} was fading — that brought them back.`,
+      message: t('{pet} was fading — that brought them back.', { pet: pet.name }),
       eventLabel: 'Back from the brink',
       delta: { ...REVIVAL_BONUS },
     };
@@ -218,7 +219,7 @@ export const commitCareMoment = async ({
     // Somebody else wrote first. Never resend: their write moved the decay
     // anchor and the stats this plan was computed against.
     const fresh = await remote.loadPetById(base.id);
-    if (!fresh) throw new Error(`Could not reach ${input.pet.name}. Check your connection and try again.`);
+    if (!fresh) throw new Error(t('Could not reach {pet}. Check your connection and try again.', { pet: input.pet.name }));
     base = fresh;
   }
   throw new Error(careConflictMessage(input.pet.name));

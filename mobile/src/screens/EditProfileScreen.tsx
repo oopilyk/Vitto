@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { type BodyProfile, BLOCKED_BIO_MESSAGE, BLOCKED_NAME_MESSAGE, MAX_BIO_LENGTH, hasBlockedTerm, initialOf, normalizeBio } from '@vitto/core';
 import { FormField, SaveBar, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
+import { t } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 interface Props {
@@ -49,7 +50,7 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
       // as if Save had done nothing.
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save your profile.');
+      setError(cause instanceof Error ? cause.message : t('Could not save your profile.'));
     } finally {
       setSaving(false);
     }
@@ -59,8 +60,8 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
 
   return (
     <SettingsPage
-      title="Edit profile"
-      backLabel="Profile"
+      title={t('Edit profile')}
+      backLabel={t('Profile')}
       onBack={onClose}
       footer={dirty ? <SaveBar saving={saving} error={error} onSave={() => void save()} onDiscard={() => setProfile(initial)} /> : null}
     >
@@ -72,43 +73,43 @@ export function EditProfileScreen({ profile: initial, onSave, onClose, onOpenFri
           {profile.username ? (
             <Text style={styles.handle} numberOfLines={1}>{`@${profile.username}`}</Text>
           ) : (
-            <Text style={styles.handleUnset}>No username yet</Text>
+            <Text style={styles.handleUnset}>{t('No username yet')}</Text>
           )}
           {onOpenFriends ? (
             <Pressable accessibilityRole="button" onPress={onOpenFriends} hitSlop={6}>
-              <Text style={styles.handleLink}>{profile.username ? 'Change it in Friends' : 'Pick a username in Friends'}</Text>
+              <Text style={styles.handleLink}>{profile.username ? t('Change it in Friends') : t('Pick a username in Friends')}</Text>
             </Pressable>
           ) : null}
         </View>
       </View>
 
-      <SettingsSection title="About you" description="Friends see your username and your bio. Your name is just for you." first>
+      <SettingsSection title={t('About you')} description={t('Friends see your username and your bio. Your name is just for you.')} first>
         {/* The count once it matters, so the limit is not a silent stop. */}
         <FormField
-          label="Name"
+          label={t('Name')}
           hint={
             (profile.displayName ?? '').length >= DISPLAY_NAME_MAX_LENGTH - 10
               ? `${(profile.displayName ?? '').length} / ${DISPLAY_NAME_MAX_LENGTH}`
-              : 'only you see this'
+              : t('only you see this')
           }
         >
           <TextField
             value={profile.displayName ?? ''}
             onChangeText={(value) => update('displayName', value)}
-            placeholder="Your name"
+            placeholder={t('Your name')}
             maxLength={DISPLAY_NAME_MAX_LENGTH}
-            accessibilityLabel="Your display name"
+            accessibilityLabel={t('Your display name')}
             returnKeyType="done"
           />
         </FormField>
-        <FormField label="Bio" hint={`${(profile.bio ?? '').length} / ${MAX_BIO_LENGTH}`}>
+        <FormField label={t('Bio')} hint={`${(profile.bio ?? '').length} / ${MAX_BIO_LENGTH}`}>
           <TextField
             value={profile.bio ?? ''}
             onChangeText={(value) => update('bio', value.slice(0, MAX_BIO_LENGTH))}
-            placeholder="What you are training for, what you are working on."
+            placeholder={t('What you are training for, what you are working on.')}
             multiline
             maxLength={MAX_BIO_LENGTH}
-            accessibilityLabel="Your bio"
+            accessibilityLabel={t('Your bio')}
             style={styles.bio}
           />
         </FormField>

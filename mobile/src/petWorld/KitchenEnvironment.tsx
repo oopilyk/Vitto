@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { RoomActionButton } from './RoomActionButton';
+import { t } from '../i18n';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
@@ -50,7 +51,7 @@ interface KitchenEnvironmentProps extends KitchenEnvironmentControlsProps {
 /** The Kitchen's dedicated call to action, floating between the name card and
  *  the pet. Coral on white reads on both the day and night kitchen art. */
 function LogMealButton({ onPress }: { onPress: () => void }) {
-  return <RoomActionButton label="Log meal" onPress={onPress} />;
+  return <RoomActionButton label={t('Log meal')} onPress={onPress} />;
 }
 
 function KitchenEnvironmentControls({

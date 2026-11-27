@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 import { SettingsPage, ToggleRow } from '../components/settingsKit';
 import { themedStyles } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   petName?: string;
@@ -28,28 +29,32 @@ export function NotificationsScreen({
   onClose,
 }: Props) {
   return (
-    <SettingsPage title="Notifications" backLabel="Settings" onBack={onClose}>
+    <SettingsPage title={t('Notifications')} backLabel={t('Settings')} onBack={onClose}>
       <View style={styles.body}>
         {typeof pushEnabled === 'boolean' && onPushEnabledChange ? (
           <ToggleRow
-            title={`${petName ?? 'Your pet'} can message you`}
-            description="Never between 10pm and 8am."
+            title={petName ? t('{pet} can message you', { pet: petName }) : t('Your pet can message you')}
+            description={t('Never between 10pm and 8am.')}
             value={pushEnabled}
             onChange={onPushEnabledChange}
           />
         ) : null}
         {typeof affirmationsEnabled === 'boolean' && onAffirmationsEnabledChange ? (
           <ToggleRow
-            title="Little affirmations"
-            description={`Every couple of days, a kind word from ${petName ?? 'your pet'}. Daytime only.`}
+            title={t('Little affirmations')}
+            description={
+              petName
+                ? t('Every couple of days, a kind word from {pet}. Daytime only.', { pet: petName })
+                : t('Every couple of days, a kind word from your pet. Daytime only.')
+            }
             value={affirmationsEnabled}
             onChange={onAffirmationsEnabledChange}
           />
         ) : null}
         {typeof islandEnabled === 'boolean' && onIslandEnabledChange ? (
           <ToggleRow
-            title="Dynamic Island"
-            description="How hungry and sleepy they are, live, and how long until they need you."
+            title={t('Dynamic Island')}
+            description={t('How hungry and sleepy they are, live, and how long until they need you.')}
             value={islandEnabled}
             onChange={onIslandEnabledChange}
           />

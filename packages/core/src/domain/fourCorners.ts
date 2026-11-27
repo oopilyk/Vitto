@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type { BrainTrainingMetadata } from './health';
 
 /**
@@ -112,7 +113,7 @@ export const createFourCornersRound = (
   pool: readonly TriviaQuestion[],
   rng: Rng = Math.random,
 ): FourCornersRound => {
-  if (pool.length === 0) throw new Error('No trivia questions are available right now.');
+  if (pool.length === 0) throw new Error(t('No trivia questions are available right now.'));
   const cards = shuffle(pool, rng)
     .slice(0, FOUR_CORNERS_QUESTIONS_PER_ROUND)
     .map((question) => toCard(question, rng));

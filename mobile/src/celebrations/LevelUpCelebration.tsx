@@ -12,6 +12,7 @@ import {
 import type { PetState } from '@vitto/core';
 import { CoinMark } from '../components/CoinMark';
 import { PetAvatar } from '../components/PetAvatar';
+import { t } from '../i18n';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
 import { colors, fonts, themedStyles, world } from '../theme';
@@ -139,7 +140,9 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
         useNativeDriver: true,
       }).start();
       AccessibilityInfo.announceForAccessibility(
-        coins > 0 ? `Level ${level}. ${pet.name} is growing. You earned ${coins} coins.` : `Level ${level}. ${pet.name} is growing.`,
+        coins > 0
+          ? t('Level {level}. {pet} is growing. You earned {coins} coins.', { level, pet: pet.name, coins })
+          : t('Level {level}. {pet} is growing.', { level, pet: pet.name }),
       );
     });
 
@@ -195,8 +198,8 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
       if (event.key === 'Escape' && canContinue) handleContinue();
     };
     const web = globalThis as unknown as {
-      addEventListener?: (t: string, cb: (e: never) => void) => void;
-      removeEventListener?: (t: string, cb: (e: never) => void) => void;
+      addEventListener?: (type: string, cb: (e: never) => void) => void;
+      removeEventListener?: (type: string, cb: (e: never) => void) => void;
     };
     web.addEventListener?.('keydown', onKey as (e: never) => void);
     return () => web.removeEventListener?.('keydown', onKey as (e: never) => void);
@@ -218,7 +221,7 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
     <Animated.View
       style={[styles.root, { opacity: veil }]}
       accessibilityViewIsModal
-      accessibilityLabel={`${pet.name} reached level ${level}`}
+      accessibilityLabel={t('{pet} reached level {level}', { pet: pet.name, level })}
     >
       <View style={styles.backdrop} pointerEvents="none">
         <Starfield count={26} />
@@ -249,11 +252,11 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
             },
           ]}
         >
-          LEVEL UP!
+          {t('LEVEL UP!')}
         </Animated.Text>
 
         <View style={styles.numberRow}>
-          <Text style={styles.numberTag}>LVL</Text>
+          <Text style={styles.numberTag}>{t('LVL')}</Text>
           <Animated.Text
             style={[
               styles.number,
@@ -282,7 +285,7 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
             },
           ]}
         >
-          {pet.name} is growing!
+          {t('{pet} is growing!', { pet: pet.name })}
         </Animated.Text>
 
         {coins > 0 ? (
@@ -294,11 +297,11 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
                 transform: [{ scale: rewardIn.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.6, 1.08, 1] }) }],
               },
             ]}
-            accessibilityLabel={`You earned ${coins} coins`}
+            accessibilityLabel={t('You earned {coins} coins', { coins })}
             testID="level-up-coins"
           >
             <CoinMark size={22} />
-            <Text style={styles.rewardLabel}>{`+${coins} COINS`}</Text>
+            <Text style={styles.rewardLabel}>{t('+{coins} COINS', { coins })}</Text>
           </Animated.View>
         ) : null}
       </View>
@@ -318,8 +321,8 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
           onPress={handleContinue}
           disabled={!canContinue}
           accessibilityRole="button"
-          accessibilityLabel="Continue"
-          accessibilityHint={`Return to ${pet.name}`}
+          accessibilityLabel={t('Continue')}
+          accessibilityHint={t('Return to {pet}', { pet: pet.name })}
           accessibilityState={{ disabled: !canContinue }}
           style={({ pressed }) => [
             retro.panel,
@@ -328,7 +331,7 @@ export function LevelUpCelebration({ pet, level, coins = 0, night, onComplete }:
             pressed && styles.continuePressed,
           ]}
         >
-          <Text style={[styles.continueLabel, night && retro.labelNight]}>CONTINUE</Text>
+          <Text style={[styles.continueLabel, night && retro.labelNight]}>{t('CONTINUE')}</Text>
           <Text style={[styles.continueMark, night && retro.labelNight]}>›</Text>
         </Pressable>
       </Animated.View>

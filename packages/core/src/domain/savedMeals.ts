@@ -1,5 +1,6 @@
 import { newId } from './ids';
 import type { MealAnalysis } from './health';
+import { t } from '../i18n';
 
 /**
  * Saved meals, for meal preppers: the chicken-and-rice box eaten four days in a
@@ -31,9 +32,9 @@ const sameName = (a: string, b: string): boolean => a.toLowerCase() === b.toLowe
 /** Why this meal cannot be saved under this name, or null. */
 export const savedMealError = (name: string, meals: readonly SavedMeal[]): string | null => {
   const clean = normalizeSavedMealName(name);
-  if (!clean) return 'Give the meal a name.';
+  if (!clean) return t('Give the meal a name.');
   const replacing = meals.some((meal) => sameName(meal.name, clean));
-  if (!replacing && meals.length >= MAX_SAVED_MEALS) return `You can keep up to ${MAX_SAVED_MEALS} meals.`;
+  if (!replacing && meals.length >= MAX_SAVED_MEALS) return t('You can keep up to {max} meals.', { max: MAX_SAVED_MEALS });
   return null;
 };
 

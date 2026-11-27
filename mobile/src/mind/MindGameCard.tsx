@@ -2,6 +2,7 @@ import { Pressable, Text, View } from 'react-native';
 import type { MindCategory, MindGameEntry } from './types';
 import { surface, surfacePressed } from '../components/surfaceStyle';
 import { fonts, world, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 /**
  * The two card treatments the Mind hub renders its roster with. Both are pure
@@ -40,13 +41,23 @@ const ACCENT_BY_CATEGORY: Record<MindCategory, { day: string; night: string }> =
   REACTION: { day: world.accent, night: world.nightAccent },
 };
 
+/** The category as the card prints it. `MindCategory` itself stays the lookup key. */
+const CATEGORY_LABEL: Record<MindCategory, string> = {
+  TRIVIA: t('TRIVIA'),
+  MEMORY: t('MEMORY'),
+  WORDS: t('WORDS'),
+  LOGIC: t('LOGIC'),
+  GEOGRAPHY: t('GEOGRAPHY'),
+  REACTION: t('REACTION'),
+};
+
 const accentFor = (category: MindCategory, night: boolean): string =>
   night ? ACCENT_BY_CATEGORY[category].night : ACCENT_BY_CATEGORY[category].day;
 
 const rewardLine = (game: MindGameEntry): string =>
-  game.hasPoints ? `UP TO ${game.maxXp} XP · + MIND POINTS` : `UP TO ${game.maxXp} XP`;
+  game.hasPoints ? t('UP TO {xp} XP · + MIND POINTS', { xp: game.maxXp }) : t('UP TO {xp} XP', { xp: game.maxXp });
 
-const minutesLine = (game: MindGameEntry): string => `~${game.minutes} MIN`;
+const minutesLine = (game: MindGameEntry): string => t('~{minutes} MIN', { minutes: game.minutes });
 
 /**
  * Sage, day and night alike: the same "this went well" colour the pet world
@@ -56,7 +67,7 @@ const minutesLine = (game: MindGameEntry): string => `~${game.minutes} MIN`;
 function PlayedMark() {
   return (
     <Text style={styles.playedMark} numberOfLines={1}>
-      ✓ PLAYED TODAY
+      {t('✓ PLAYED TODAY')}
     </Text>
   );
 }
@@ -66,7 +77,7 @@ export function MindGameCard({ game, playedToday, night, onPress }: MindGameCard
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Play ${game.name}`}
+      accessibilityLabel={t('Play {game}', { game: game.name })}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -78,7 +89,7 @@ export function MindGameCard({ game, playedToday, night, onPress }: MindGameCard
     >
       <View style={styles.cardTop}>
         <Text style={[styles.category, { color: accent }]} numberOfLines={1}>
-          {game.category}
+          {CATEGORY_LABEL[game.category]}
         </Text>
         {playedToday ? <PlayedMark /> : null}
       </View>
@@ -93,7 +104,7 @@ export function MindGameCard({ game, playedToday, night, onPress }: MindGameCard
           {minutesLine(game)} · {rewardLine(game)}
         </Text>
         <Text style={[styles.playLabel, { color: night ? world.nightAccent : world.accentDeep }]}>
-          PLAY →
+          {t('PLAY →')}
         </Text>
       </View>
     </Pressable>
@@ -105,7 +116,7 @@ export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameC
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Play ${game.name}`}
+      accessibilityLabel={t('Play {game}', { game: game.name })}
       onPress={onPress}
       style={({ pressed }) => [
         styles.featureCard,
@@ -116,7 +127,7 @@ export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameC
       ]}
     >
       <View style={styles.cardTop}>
-        <Text style={[styles.kicker, night && styles.kickerNight]}>TODAY'S FEATURE</Text>
+        <Text style={[styles.kicker, night && styles.kickerNight]}>{t("TODAY'S FEATURE")}</Text>
         {playedToday ? <PlayedMark /> : null}
       </View>
       <Text style={[styles.featureName, night && styles.featureNameNight]} numberOfLines={2}>
@@ -127,7 +138,7 @@ export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameC
       </Text>
       <View style={styles.featureFooter}>
         <Text style={[styles.featureCategory, { color: accent }]} numberOfLines={1}>
-          {game.category}
+          {CATEGORY_LABEL[game.category]}
         </Text>
         <Text style={[surface.caption, night && surface.captionNight]}>{minutesLine(game)}</Text>
         <Text style={[styles.reward, night && styles.rewardNight, styles.featureReward]} numberOfLines={1}>
@@ -136,7 +147,7 @@ export function MindFeatureCard({ game, playedToday, night, onPress }: MindGameC
       </View>
       <View style={[styles.playBar, { borderColor: night ? world.nightAccent : world.accentDeep }]}>
         <Text style={[styles.playBarLabel, { color: night ? world.nightAccent : world.accentDeep }]}>
-          PLAY NOW
+          {t('PLAY NOW')}
         </Text>
       </View>
     </Pressable>

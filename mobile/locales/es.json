@@ -1,0 +1,8 @@
+{
+  "NSCameraUsageDescription": "Vitto usa la cámara para fotografiar comidas y escanear códigos de barras.",
+  "NSPhotoLibraryUsageDescription": "Vitto lee las fotos de comida que eliges para evaluar el plato.",
+  "NSMicrophoneUsageDescription": "Vitto solo escucha mientras mantienes pulsado el botón del micrófono, para que puedas hablar con tu mascota. Tu voz nunca se guarda.",
+  "NSSpeechRecognitionUsageDescription": "Vitto convierte en texto lo que le dices a tu mascota, en tu iPhone cuando es posible, para que pueda responderte.",
+  "NSHealthShareUsageDescription": "Vitto lee tus pasos, entrenamientos y comidas registradas en Apple Health para que apps como Strong o MyFitnessPal alimenten a tu mascota automáticamente.",
+  "NSHealthUpdateUsageDescription": "Vitto no guarda nada en Apple Health. Solo lee tus pasos, entrenamientos, sueño y comidas para cuidar de tu mascota."
+}

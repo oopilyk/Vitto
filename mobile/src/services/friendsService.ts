@@ -18,6 +18,7 @@ import {
   partitionFriendRequests,
   requireSupabase,
 } from '@vitto/core';
+import { t } from '../i18n';
 
 /**
  * Friends & Social Pets -- client-side repository.
@@ -172,15 +173,15 @@ const isMissingFunction = (error: { code?: string; message?: string } | null): b
   error?.code === 'PGRST202' || /schema cache/i.test(error?.message ?? '');
 
 export const mapSetUsernameError = (error: { code?: string; message?: string } | null): string => {
-  if (error?.code === UNIQUE_VIOLATION) return 'That username is taken.';
-  return errorMessage(error, 'Could not save your username.');
+  if (error?.code === UNIQUE_VIOLATION) return t('That username is taken.');
+  return errorMessage(error, t('Could not save your username.'));
 };
 
 /** Fails fast, client-side, before any network call -- see `setMyUsername`. */
 export const validateUsernameInput = (value: string): string => {
   const normalized = value.trim().toLowerCase();
   if (!isValidUsername(normalized)) {
-    throw new Error('Usernames are 3-20 characters: lowercase letters, digits, and underscores only.');
+    throw new Error(t('Usernames are 3-20 characters: lowercase letters, digits, and underscores only.'));
   }
   return normalized;
 };
@@ -196,7 +197,7 @@ export class FriendsService {
 
     const client = requireSupabase();
     const { data, error } = await client.rpc('search_profiles', { search_query: trimmed });
-    if (error) throw new Error(errorMessage(error, 'Could not search for that username.'));
+    if (error) throw new Error(errorMessage(error, t('Could not search for that username.')));
     return ((data ?? []) as ProfileSummaryRow[]).map(toProfileSummary);
   }
 
@@ -205,7 +206,7 @@ export class FriendsService {
     const {
       data: { user },
     } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in before adding friends.');
+    if (!user) throw new Error(t('Sign in before adding friends.'));
 
     const row = {
       id: newId(),
@@ -216,7 +217,7 @@ export class FriendsService {
       responded_at: null,
     };
     const { data, error } = await client.from('friend_requests').insert(row).select().single();
-    if (error) throw new Error(errorMessage(error, 'Could not send that friend request.'));
+    if (error) throw new Error(errorMessage(error, t('Could not send that friend request.')));
     return toFriendRequest(data as FriendRequestRow);
   }
 
@@ -226,7 +227,7 @@ export class FriendsService {
       .from('friend_requests')
       .update({ status: 'accepted', responded_at: new Date().toISOString() })
       .eq('id', requestId);
-    if (error) throw new Error(errorMessage(error, 'Could not accept that friend request.'));
+    if (error) throw new Error(errorMessage(error, t('Could not accept that friend request.')));
   }
 
   async declineFriendRequest(requestId: string): Promise<void> {
@@ -235,7 +236,7 @@ export class FriendsService {
       .from('friend_requests')
       .update({ status: 'declined', responded_at: new Date().toISOString() })
       .eq('id', requestId);
-    if (error) throw new Error(errorMessage(error, 'Could not decline that friend request.'));
+    if (error) throw new Error(errorMessage(error, t('Could not decline that friend request.')));
   }
 
   /** Deletes the row -- covers both cancelling a pending outgoing request and
@@ -243,7 +244,7 @@ export class FriendsService {
   async cancelOrUnfriend(requestId: string): Promise<void> {
     const client = requireSupabase();
     const { error } = await client.from('friend_requests').delete().eq('id', requestId);
-    if (error) throw new Error(errorMessage(error, 'Could not remove that friend request.'));
+    if (error) throw new Error(errorMessage(error, t('Could not remove that friend request.')));
   }
 
   /**
@@ -265,7 +266,7 @@ export class FriendsService {
     const { data, error } = await client.rpc('get_friends_overview');
     if (error) {
       if (isMissingFunction(error)) return this.loadFriendsOverviewPerFriend();
-      throw new Error(errorMessage(error, 'Could not load your friends.'));
+      throw new Error(errorMessage(error, t('Could not load your friends.')));
     }
     return ((data ?? []) as FriendsOverviewRow[]).map(toFriendOverview);
   }
@@ -277,7 +278,7 @@ export class FriendsService {
     const {
       data: { user },
     } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in to see your friends.');
+    if (!user) throw new Error(t('Sign in to see your friends.'));
 
     const requests = await this.loadMyFriendRequests();
     const { accepted } = partitionFriendRequests(requests, user.id);
@@ -304,7 +305,7 @@ export class FriendsService {
   async loadMyFriendRequests(): Promise<FriendRequest[]> {
     const client = requireSupabase();
     const { data, error } = await client.from('friend_requests').select('*');
-    if (error) throw new Error(errorMessage(error, 'Could not load your friends.'));
+    if (error) throw new Error(errorMessage(error, t('Could not load your friends.')));
     return ((data ?? []) as FriendRequestRow[]).map(toFriendRequest);
   }
 
@@ -324,7 +325,7 @@ export class FriendsService {
   async loadFriendPet(friendUserId: string): Promise<PetState | null> {
     const client = requireSupabase();
     const { data, error } = await client.rpc('get_friend_pet', { friend_id: friendUserId });
-    if (error) throw new Error(errorMessage(error, "Could not load your friend's pet."));
+    if (error) throw new Error(errorMessage(error, t("Could not load your friend's pet.")));
     return data ? toPetState(data as FriendPetRow) : null;
   }
 
@@ -338,7 +339,7 @@ export class FriendsService {
   async loadFriendRecentActivity(friendUserId: string): Promise<RecentActivitySignal[]> {
     const client = requireSupabase();
     const { data, error } = await client.rpc('get_friend_recent_activity', { friend_id: friendUserId });
-    if (error) throw new Error(errorMessage(error, "Could not load your friend's activity."));
+    if (error) throw new Error(errorMessage(error, t("Could not load your friend's activity.")));
     return ((data ?? []) as RecentActivityRow[]).map(toRecentActivitySignal);
   }
 
@@ -353,7 +354,7 @@ export class FriendsService {
   async loadFriendProfile(friendUserId: string): Promise<FriendProfileSummary | null> {
     const client = requireSupabase();
     const { data, error } = await client.rpc('get_friend_profile', { friend_id: friendUserId });
-    if (error) throw new Error(errorMessage(error, "Could not load your friend's profile."));
+    if (error) throw new Error(errorMessage(error, t("Could not load your friend's profile.")));
     const rows = (data ?? []) as ProfileSummaryRow[];
     return rows.length > 0 ? toProfileSummary(rows[0]) : null;
   }
@@ -373,11 +374,11 @@ export class FriendsService {
     const {
       data: { user },
     } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in to send a reaction.');
+    if (!user) throw new Error(t('Sign in to send a reaction.'));
     const { error } = await client.from('friend_reactions').insert({ from_user: user.id, to_user: toUserId, kind });
     if (error) {
       // 42501: row-level security said no, which for a friend is the daily limit.
-      throw new Error(error.code === '42501' ? REACTION_LIMIT_MESSAGE : errorMessage(error, 'Could not send that.'));
+      throw new Error(error.code === '42501' ? REACTION_LIMIT_MESSAGE : errorMessage(error, t('Could not send that.')));
     }
   }
 
@@ -395,7 +396,7 @@ export class FriendsService {
       .gte('created_at', new Date(Date.now() - 7 * 86_400_000).toISOString())
       .order('created_at', { ascending: false })
       .limit(50);
-    if (error) throw new Error(errorMessage(error, 'Could not load reactions.'));
+    if (error) throw new Error(errorMessage(error, t('Could not load reactions.')));
     return (data as { id: string; from_user: string; kind: ReactionKind; created_at: string; seen_at: string | null }[])
       .filter((row) => (REACTION_KINDS as readonly string[]).includes(row.kind))
       .map((row) => ({ id: row.id, fromUserId: row.from_user, kind: row.kind, createdAt: row.created_at, seenAt: row.seen_at }));
@@ -407,7 +408,7 @@ export class FriendsService {
       .from('friend_reactions')
       .update({ seen_at: new Date().toISOString() })
       .in('id', [...ids]);
-    if (error) throw new Error(errorMessage(error, 'Could not update reactions.'));
+    if (error) throw new Error(errorMessage(error, t('Could not update reactions.')));
   }
 
   /**
@@ -420,9 +421,9 @@ export class FriendsService {
     const {
       data: { user },
     } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in to block someone.');
+    if (!user) throw new Error(t('Sign in to block someone.'));
     const { error } = await client.from('user_blocks').upsert({ blocker_id: user.id, blocked_id: userId }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
-    if (error) throw new Error(errorMessage(error, 'Could not block them.'));
+    if (error) throw new Error(errorMessage(error, t('Could not block them.')));
   }
 
   async unblockUser(userId: string): Promise<void> {
@@ -432,7 +433,7 @@ export class FriendsService {
     } = await client.auth.getUser();
     if (!user) return;
     const { error } = await client.from('user_blocks').delete().eq('blocker_id', user.id).eq('blocked_id', userId);
-    if (error) throw new Error(errorMessage(error, 'Could not unblock them.'));
+    if (error) throw new Error(errorMessage(error, t('Could not unblock them.')));
   }
 
   /** Who you have blocked, newest first. */
@@ -442,7 +443,7 @@ export class FriendsService {
       .from('user_blocks')
       .select('blocked_id, blocked_username, created_at')
       .order('created_at', { ascending: false });
-    if (error) throw new Error(errorMessage(error, 'Could not load blocked people.'));
+    if (error) throw new Error(errorMessage(error, t('Could not load blocked people.')));
     return ((data ?? []) as { blocked_id: string; blocked_username: string | null; created_at: string }[]).map((row) => ({
       userId: row.blocked_id,
       username: row.blocked_username,
@@ -456,12 +457,12 @@ export class FriendsService {
     const {
       data: { user },
     } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in to report someone.');
+    if (!user) throw new Error(t('Sign in to report someone.'));
     const trimmed = details?.trim().slice(0, 500);
     const { error } = await client
       .from('user_reports')
       .insert({ reporter_id: user.id, reported_id: userId, reason, ...(trimmed ? { details: trimmed } : {}) });
-    if (error) throw new Error(errorMessage(error, 'Could not send that report.'));
+    if (error) throw new Error(errorMessage(error, t('Could not send that report.')));
   }
 
   async getMyUsername(): Promise<string | null> {
@@ -475,7 +476,7 @@ export class FriendsService {
       .select('username')
       .eq('id', user.id)
       .maybeSingle();
-    if (error) throw new Error(errorMessage(error, 'Could not load your username.'));
+    if (error) throw new Error(errorMessage(error, t('Could not load your username.')));
     return (data as { username: string | null } | null)?.username ?? null;
   }
 
@@ -485,7 +486,7 @@ export class FriendsService {
     const {
       data: { user },
     } = await client.auth.getUser();
-    if (!user) throw new Error('Sign in before choosing a username.');
+    if (!user) throw new Error(t('Sign in before choosing a username.'));
 
     // Upsert, not update. PostgREST reports NO error when an update matches zero
     // rows, so on an account whose `profiles` row is missing — created before the

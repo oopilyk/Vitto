@@ -14,6 +14,7 @@ import {
   type PetState,
 } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
+import { t, tn, tx } from '../i18n';
 import { useTourTarget } from '../tour/FirstRunTour';
 import { CharacterDials } from './CharacterDials';
 import { SelectionList, TextField } from './settingsKit';
@@ -29,6 +30,16 @@ const same = (a: Character, b: Character): boolean =>
   a.personality === b.personality &&
   a.persona.trim() === b.persona.trim() &&
   companion.DIAL_KEYS.every((key) => Math.abs(a.dials[key] - b.dials[key]) < 1e-6);
+
+/**
+ * Where the sliders have moved the character, in the app's language. The
+ * companion writes it in English for the prompt ("quite gentle, extremely
+ * clingy"); each part is translated here, where it is drawn.
+ */
+const tunedText = (dials: PersonalityDials): string => {
+  const tuned = companion.describeDials(dials);
+  return tuned ? tuned.split(', ').map((part) => t(part)).join(tx('between the items of a list', ', ')) : '';
+};
 
 export const characterOf = (pet: Pick<PetState, 'personality' | 'dials' | 'persona'>): Character => ({
   personality: pet.personality ?? 'sweet',
@@ -125,12 +136,12 @@ export function CharacterEditor({
         testID="save-character"
       >
         <Text style={[styles.saveLabel, !justSaved && !busy && !savable && styles.saveLabelOff]}>
-          {busy ? 'Saving…' : justSaved ? '✓ Saved' : 'Save character'}
+          {busy ? t('Saving…') : justSaved ? t('✓ Saved') : t('Save character')}
         </Text>
       </Pressable>
       {saveState === 'failed' && saveError ? (
         <View style={styles.failed} testID="character-save-failed">
-          <Text style={styles.failedTitle}>Not saved</Text>
+          <Text style={styles.failedTitle}>{t('Not saved')}</Text>
           <Text style={styles.failedBody}>{saveError}</Text>
         </View>
       ) : null}
@@ -141,7 +152,7 @@ export function CharacterEditor({
     <View style={styles.wrap}>
       <CurrentCharacter
         pet={pet}
-        label={options.find((option) => option.value === stored.personality)?.label ?? 'Default'}
+        label={options.find((option) => option.value === stored.personality)?.label ?? t('Default')}
         dials={stored.dials}
         confirmed={justSaved}
       />
@@ -164,23 +175,23 @@ export function CharacterEditor({
                 persona={draft.persona}
                 name={pet.name}
               />
-              <Text style={styles.label}>Fine-tune</Text>
+              <Text style={styles.label}>{t('Fine-tune')}</Text>
               <CharacterDials dials={draft.dials} onChange={(dials) => setDraft((current) => ({ ...current, dials }))} testID="character-dials" />
               {notesAllowed && personality === 'custom' ? (
                 <View>
-                  <Text style={styles.label}>Who are they?</Text>
+                  <Text style={styles.label}>{t('Who are they?')}</Text>
                   <TextField
                     style={styles.persona}
                     value={draft.persona}
                     onChangeText={(persona) => setDraft((current) => ({ ...current, persona: persona.slice(0, PERSONA_MAX_LENGTH) }))}
-                    placeholder="A grumpy old pirate who secretly adores us."
+                    placeholder={t('A grumpy old pirate who secretly adores us.')}
                     multiline
                     // Return closes the keyboard rather than starting a new line.
                     returnKeyType="done"
                     submitBehavior="blurAndSubmit"
                     onSubmitEditing={() => Keyboard.dismiss()}
                     maxLength={PERSONA_MAX_LENGTH}
-                    accessibilityLabel="Their character"
+                    accessibilityLabel={t('Their character')}
                   />
                   <Text style={styles.count}>{`${draft.persona.length} / ${PERSONA_MAX_LENGTH}`}</Text>
                 </View>
@@ -193,8 +204,8 @@ export function CharacterEditor({
       {typeof changesLeft === 'number' ? (
         <Text style={[styles.note, outOfChanges && styles.noteOut]} testID="changes-left">
           {outOfChanges
-            ? 'No character changes left this month. They reset on the 1st.'
-            : `${changesLeft} character change${changesLeft === 1 ? '' : 's'} left this month.`}
+            ? t('No character changes left this month. They reset on the 1st.')
+            : tn(changesLeft, '{count} character change left this month.', '{count} character changes left this month.')}
         </Text>
       ) : null}
     </View>
@@ -217,16 +228,16 @@ function CurrentCharacter({
   dials: PersonalityDials;
   confirmed: boolean;
 }) {
-  const tuned = companion.describeDials(dials);
+  const tuned = tunedText(dials);
   const notes = pet.personality === 'custom' ? pet.persona?.trim() : undefined;
   return (
     <View style={[styles.current, confirmed && styles.currentConfirmed]} testID="current-character">
       <Text style={[styles.currentKicker, confirmed && styles.currentKickerConfirmed]}>
-        {confirmed ? '✓ Live now' : 'Current voice'}
+        {confirmed ? t('✓ Live now') : t('Current voice')}
       </Text>
-      <Text style={styles.currentName}>{pet.personality === 'custom' ? `${pet.name} is their own character` : `${pet.name} is ${label}`}</Text>
-      {notes ? <Text style={styles.currentNotes} numberOfLines={3}>{`“${notes}”`}</Text> : null}
-      {tuned ? <Text style={styles.currentTuned}>{`Tuned: ${tuned}.`}</Text> : null}
+      <Text style={styles.currentName}>{pet.personality === 'custom' ? t('{pet} is their own character', { pet: pet.name }) : t('{pet} is {personality}', { pet: pet.name, personality: label })}</Text>
+      {notes ? <Text style={styles.currentNotes} numberOfLines={3}>{t('“{notes}”', { notes })}</Text> : null}
+      {tuned ? <Text style={styles.currentTuned}>{t('Tuned: {tuned}.', { tuned })}</Text> : null}
     </View>
   );
 }
@@ -240,17 +251,17 @@ export function PersonalityPreview({ personality, dials, persona, name }: { pers
   const preview = PERSONALITY_PREVIEW[personality];
   if (!preview) return null;
   const quote = personality === 'custom' ? persona.trim() : preview.sample;
-  const tuned = companion.describeDials(dials);
+  const tuned = tunedText(dials);
   return (
     <View style={styles.preview} testID="personality-preview">
       <Text style={styles.previewAbout}>{preview.about}</Text>
       {quote ? (
         <View style={styles.previewQuote}>
-          <Text style={styles.previewQuoteText}>{personality === 'custom' ? quote : `"${quote}"`}</Text>
-          <Text style={styles.previewQuoteBy}>{personality === 'custom' ? 'Your notes' : `${name}, probably`}</Text>
+          <Text style={styles.previewQuoteText}>{personality === 'custom' ? quote : t('"{quote}"', { quote })}</Text>
+          <Text style={styles.previewQuoteBy}>{personality === 'custom' ? t('Your notes') : t('{pet}, probably', { pet: name })}</Text>
         </View>
       ) : null}
-      <Text style={styles.previewTuned}>{tuned ? `Tuned: ${tuned}.` : 'Tuned: right where this personality sits.'}</Text>
+      <Text style={styles.previewTuned}>{tuned ? t('Tuned: {tuned}.', { tuned }) : t('Tuned: right where this personality sits.')}</Text>
     </View>
   );
 }

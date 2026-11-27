@@ -17,6 +17,7 @@ import {
   liftingUnit,
 } from '@vitto/core';
 import { colors, fonts, themedStyles } from '../theme';
+import { t, tn, tRich, tx } from '../i18n';
 
 /** One colour per rank, Bronze -> Grand Champion; the top is the red you want to see. */
 export const TIER_COLOR: readonly string[] = ['#a8693a', '#97a1ab', '#d1a01a', '#3aa99f', '#4a8fe0', '#8d58d4', '#d8343a'];
@@ -143,18 +144,21 @@ export function StrengthMap({ profile, events }: Props) {
     <View style={styles.wrap} testID="strength-map">
       {strongest ? (
         <Text style={styles.headline}>
-          {'Strongest: '}
-          <Text style={{ color: TIER_COLOR[strongest[1]!], fontWeight: '700' }}>
-            {`${MUSCLE_GROUP_LABEL[strongest[0]]} · ${STRENGTH_TIERS[strongest[1]!]}`}
-          </Text>
+          {tRich('Strongest: {muscle}', {
+            muscle: (
+              <Text style={{ color: TIER_COLOR[strongest[1]!], fontWeight: '700' }}>
+                {`${MUSCLE_GROUP_LABEL[strongest[0]]} · ${STRENGTH_TIERS[strongest[1]!]}`}
+              </Text>
+            ),
+          })}
         </Text>
       ) : (
-        <Text style={styles.headline}>Log a bench, squat, deadlift, press, row or curl to light up your map.</Text>
+        <Text style={styles.headline}>{t('Log a bench, squat, deadlift, press, row or curl to light up your map.')}</Text>
       )}
 
       <View style={styles.bodies}>
-        <Body view={female ? 'femaleFront' : 'maleFront'} ranks={ranks} trained={trained} label="Front" />
-        <Body view={female ? 'femaleBack' : 'maleBack'} ranks={ranks} trained={trained} label="Back" />
+        <Body view={female ? 'femaleFront' : 'maleFront'} ranks={ranks} trained={trained} label={t('Front')} />
+        <Body view={female ? 'femaleBack' : 'maleBack'} ranks={ranks} trained={trained} label={tx('the body seen from behind', 'Back')} />
       </View>
 
       <View style={styles.legend}>
@@ -168,17 +172,23 @@ export function StrengthMap({ profile, events }: Props) {
 
       {nextUp ? (
         <Text style={styles.nextUp} testID="next-rank-up">
-          {'Next rank-up: '}
-          <Text style={styles.nextUpLift}>{STANDARD_LIFT_LABEL[nextUp.lift]}</Text>
-          {`, ${Math.max(1, show(nextUp.nextTierKg!) - show(nextUp.oneRepMaxKg!))} ${unit} to `}
-          <Text style={{ color: TIER_COLOR[nextUp.tier === null ? 0 : nextUp.tier + 1], fontWeight: '700' }}>
-            {STRENGTH_TIERS[nextUp.tier === null ? 0 : nextUp.tier + 1]}
-          </Text>
+          {tRich(
+            'Next rank-up: {lift}, {amount} {unit} to {rank}',
+            {
+              lift: <Text style={styles.nextUpLift}>{t(STANDARD_LIFT_LABEL[nextUp.lift])}</Text>,
+              rank: (
+                <Text style={{ color: TIER_COLOR[nextUp.tier === null ? 0 : nextUp.tier + 1], fontWeight: '700' }}>
+                  {STRENGTH_TIERS[nextUp.tier === null ? 0 : nextUp.tier + 1]}
+                </Text>
+              ),
+            },
+            { amount: Math.max(1, show(nextUp.nextTierKg!) - show(nextUp.oneRepMaxKg!)), unit },
+          )}
         </Text>
       ) : null}
 
       <Pressable accessibilityRole="button" onPress={() => setShowLifts((open) => !open)} style={styles.toggle} testID="toggle-lifts">
-        <Text style={styles.toggleLabel}>{showLifts ? 'Hide lifts' : 'Show lifts'}</Text>
+        <Text style={styles.toggleLabel}>{showLifts ? t('Hide lifts') : t('Show lifts')}</Text>
         <Mark kind={showLifts ? 'minus' : 'plus'} size={11} color={colors.muted} />
       </Pressable>
 
@@ -191,34 +201,34 @@ export function StrengthMap({ profile, events }: Props) {
             <View key={score.lift} style={styles.lift} testID={`lift-${score.lift}`}>
               <View style={[styles.liftBar, { backgroundColor: color }]} />
               <View style={styles.liftText}>
-                <Text style={styles.liftName}>{STANDARD_LIFT_LABEL[score.lift]}</Text>
+                <Text style={styles.liftName}>{t(STANDARD_LIFT_LABEL[score.lift])}</Text>
                 <Text style={styles.liftMeta}>
                   {score.oneRepMaxKg === null
-                    ? 'Not logged yet'
-                    : `${show(score.oneRepMaxKg)} ${unit} est. max · ${score.ratio}× bodyweight`}
+                    ? t('Not logged yet')
+                    : t('{weight} {unit} est. max · {ratio}× bodyweight', { weight: show(score.oneRepMaxKg), unit, ratio: String(score.ratio) })}
                 </Text>
                 {score.oneRepMaxKg !== null && score.nextTierKg !== null ? (
                   <Text style={styles.liftNext}>
-                    {`${Math.max(1, show(score.nextTierKg) - show(score.oneRepMaxKg))} ${unit} to ${STRENGTH_TIERS[tier === null ? 0 : tier + 1]}`}
+                    {t('{amount} {unit} to {rank}', { amount: Math.max(1, show(score.nextTierKg) - show(score.oneRepMaxKg)), unit, rank: STRENGTH_TIERS[tier === null ? 0 : tier + 1] })}
                   </Text>
                 ) : null}
               </View>
               <Text style={[styles.tierPill, { color: tier === null ? colors.faint : color, borderColor: color }]} numberOfLines={1}>
-                {tier === null ? (score.oneRepMaxKg === null ? '—' : 'Unranked') : STRENGTH_TIERS[tier]}
+                {tier === null ? (score.oneRepMaxKg === null ? '—' : t('Unranked')) : STRENGTH_TIERS[tier]}
               </Text>
             </View>
           );
         })}
         {/* Everything else lifted more than once: not ranked (no published
             standards for it), but there, so the six above are not the whole story. */}
-        {others.length > 0 ? <Text style={styles.othersTitle}>Other lifts</Text> : null}
+        {others.length > 0 ? <Text style={styles.othersTitle}>{t('Other lifts')}</Text> : null}
         {others.map((other) => (
           <View key={other.exercise} style={styles.lift} testID={`other-lift-${other.exercise}`}>
             <View style={[styles.liftBar, { backgroundColor: colors.border }]} />
             <View style={styles.liftText}>
-              <Text style={styles.liftName} numberOfLines={2}>{other.exercise}</Text>
+              <Text style={styles.liftName} numberOfLines={2}>{t(other.exercise)}</Text>
               <Text style={styles.liftMeta}>
-                {`${show(other.best.oneRepMaxKg)} ${unit} est. max · ${other.sessions} sessions`}
+                {tn(other.sessions, '{weight} {unit} est. max · {count} session', '{weight} {unit} est. max · {count} sessions', { weight: show(other.best.oneRepMaxKg), unit })}
               </Text>
             </View>
           </View>
@@ -228,7 +238,7 @@ export function StrengthMap({ profile, events }: Props) {
 
       {showLifts ? (
       <Text style={styles.foot}>
-        Ranked by your best estimated one-rep max against your bodyweight, using published strength standards for your sex. With no press, curl or extension can stand in for it: a lateral raise ranks your shoulders, a leg curl your hamstrings. Pale muscles were trained but not yet ranked; grey ones are untested, not weak.
+        {t('Ranked by your best estimated one-rep max against your bodyweight, using published strength standards for your sex. With no press, curl or extension can stand in for it: a lateral raise ranks your shoulders, a leg curl your hamstrings. Pale muscles were trained but not yet ranked; grey ones are untested, not weak.')}
       </Text>
       ) : null}
     </View>

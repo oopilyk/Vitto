@@ -13,6 +13,7 @@ import { colors, fonts, layout, text, themedStyles } from '../theme';
 import { SETTINGS_MAX_WIDTH, SegmentedControl } from '../components/settingsKit';
 import { ROOM_THEME_DETAIL, ROOM_THEME_LABEL, ROOM_THEME_NIGHT_PREVIEWS, ROOM_THEME_PREVIEWS } from '../petWorld/roomTheme';
 import { isNightTime } from '../petWorld/timeOfDay';
+import { t, tn, tx } from '../i18n';
 
 interface Props {
   /** The animal the pet is now. */
@@ -50,7 +51,7 @@ const DONE_MS = 3500;
 const SHEET_ROOM = 230;
 
 /** The order ROOM_THEME_PREVIEWS draws each theme's rooms in. */
-const ROOM_NAMES = ['Living room', 'Kitchen', 'Gym', 'Study', 'Outside'] as const;
+const ROOM_NAMES = [t('Living room'), t('Kitchen'), t('Gym'), t('Study'), t('Outside')] as const;
 /**
  * The hero's height for its width. A little under square: the living room is
  * 2:3 and the others 3:5, so this keeps each room's middle (where the pet and
@@ -83,7 +84,7 @@ function PriceTag({ amount, dim }: { amount: number; dim?: boolean }) {
   return (
     <View style={[styles.tag, styles.priceTag, dim && styles.priceTagDim]}>
       <CoinMark size={14} />
-      <Text style={[styles.priceText, dim && styles.priceTextDim]} numberOfLines={1}>{`${amount} coins`}</Text>
+      <Text style={[styles.priceText, dim && styles.priceTextDim]} numberOfLines={1}>{tn(amount, '{count} coin', '{count} coins')}</Text>
     </View>
   );
 }
@@ -95,7 +96,7 @@ function StateTag({ kind, pop = false }: { kind: 'equipped' | 'owned'; pop?: boo
     return (
       <View style={[styles.tag, styles.ownedTag]}>
         <Text style={styles.ownedText} numberOfLines={1}>
-          Owned · free
+          {t('Owned · free')}
         </Text>
       </View>
     );
@@ -104,7 +105,7 @@ function StateTag({ kind, pop = false }: { kind: 'equipped' | 'owned'; pop?: boo
     <Animated.View style={[styles.tag, styles.equippedTag, popStyle]}>
       <Mark kind="check" size={11} color={colors.coralDeep} weight={2.2} />
       <Text style={styles.equippedText} numberOfLines={1}>
-        Equipped
+        {t('Equipped')}
       </Text>
     </Animated.View>
   );
@@ -149,7 +150,7 @@ function CoinPill({ coins }: { coins: number }) {
     Animated.spring(scale, { toValue: 1, speed: 12, bounciness: 10, useNativeDriver: NATIVE_DRIVER }).start();
   }, [coins, reduced, scale]);
   return (
-    <Animated.View style={[styles.coinPill, { transform: [{ scale }] }]} accessibilityLabel={`${coins} coins`} accessible>
+    <Animated.View style={[styles.coinPill, { transform: [{ scale }] }]} accessibilityLabel={tn(coins, '{count} coin', '{count} coins')} accessible>
       <CoinMark size={18} />
       <Text style={styles.coinValue} numberOfLines={1}>
         {coins}
@@ -185,7 +186,7 @@ function AnimalTile({
     <PressableScale
       accessibilityRole="button"
       accessibilityState={{ selected, disabled: locked }}
-      accessibilityLabel={`Choose the ${sheet.label}`}
+      accessibilityLabel={t('Choose the {animal}', { animal: sheet.label })}
       disabled={locked}
       onPress={onPress}
       scaleTo={0.96}
@@ -208,7 +209,7 @@ function AnimalTile({
         <PriceTag amount={price} dim={locked} />
       ) : (
         <View style={[styles.tag, styles.ownedTag]}>
-          <Text style={styles.ownedText} numberOfLines={1}>Free</Text>
+          <Text style={styles.ownedText} numberOfLines={1}>{tx('costs nothing', 'Free')}</Text>
         </View>
       )}
     </PressableScale>
@@ -253,7 +254,7 @@ function RoomHero({ theme, faded, badge, onPress, disabled }: { theme: RoomTheme
             setPage((current) => (current === next ? current : next));
           }}
           style={faded && styles.heroFaded}
-          accessibilityLabel={`${ROOM_THEME_LABEL[theme]} rooms, showing the ${ROOM_NAMES[page]?.toLowerCase() ?? 'living room'}`}
+          accessibilityLabel={t('{theme} rooms, showing the {room}', { theme: ROOM_THEME_LABEL[theme], room: (ROOM_NAMES[page] ?? ROOM_NAMES[0]).toLowerCase() })}
         >
           {/* Each picture is its own tap target inside the scroller, the usual
               carousel shape: a swipe scrolls and cancels the tap. Wrapped the
@@ -268,7 +269,7 @@ function RoomHero({ theme, faded, badge, onPress, disabled }: { theme: RoomTheme
       ) : null}
       <PressableScale
         accessibilityRole="button"
-        accessibilityLabel={night ? `Show the ${ROOM_THEME_LABEL[theme]} rooms by day` : `Show the ${ROOM_THEME_LABEL[theme]} rooms at night`}
+        accessibilityLabel={night ? t('Show the {theme} rooms by day', { theme: ROOM_THEME_LABEL[theme] }) : t('Show the {theme} rooms at night', { theme: ROOM_THEME_LABEL[theme] })}
         onPress={() => {
           haptic('select');
           setNight((current) => !current);
@@ -358,7 +359,7 @@ function ConfirmSheet({
         </View>
         <PrimaryButton label={action} onPress={onConfirm} />
         <View style={styles.sheetCancel}>
-          <TextButton label="Not now" onPress={onCancel} />
+          <TextButton label={t('Not now')} onPress={onCancel} />
         </View>
       </View>
     </Animated.View>
@@ -424,7 +425,8 @@ export function ChooseCompanionScreen({
   useEffect(() => {
     if (!switching || breed !== switching.breed) return;
     const name = sheetByBreed(switching.breed).label;
-    setDone(switching.bought ? `You got the ${name}! ${pet?.name ?? 'Your pet'} is wearing it now.` : `${pet?.name ?? 'Your pet'} is the ${name} again.`);
+    const who = pet?.name ?? t('Your pet');
+    setDone(switching.bought ? t('You got the {animal}! {pet} is wearing it now.', { animal: name, pet: who }) : t('{pet} is the {animal} again.', { pet: who, animal: name }));
     setLanded(`breed:${switching.breed}`);
     setSwitching(null);
     logHaptic();
@@ -439,8 +441,8 @@ export function ChooseCompanionScreen({
   useEffect(() => {
     if (!switchingTheme || roomTheme !== switchingTheme.theme) return;
     const name = ROOM_THEME_LABEL[switchingTheme.theme];
-    const who = pet?.name ?? 'Your pet';
-    setDone(switchingTheme.bought ? `The ${name} rooms are yours! ${who} has moved in.` : `${who} is back in the ${name} rooms.`);
+    const who = pet?.name ?? t('Your pet');
+    setDone(switchingTheme.bought ? t('The {theme} rooms are yours! {pet} has moved in.', { theme: name, pet: who }) : t('{pet} is back in the {theme} rooms.', { pet: who, theme: name }));
     setLanded(`room:${switchingTheme.theme}`);
     setSwitchingTheme(null);
     logHaptic();
@@ -505,7 +507,7 @@ export function ChooseCompanionScreen({
       <View style={styles.header}>
         {/* Flexed, so a long title at large text wraps instead of pushing the coins off. */}
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Shop</Text>
+          <Text style={styles.title}>{t('Shop')}</Text>
         </View>
         {/* The balance stays in sight while everything scrolls. */}
         <CoinPill coins={coins} />
@@ -516,8 +518,8 @@ export function ChooseCompanionScreen({
         <View style={styles.tabs}>
           <SegmentedControl
             options={[
-              { value: 'animals' as const, label: 'Animals' },
-              { value: 'rooms' as const, label: 'Rooms' },
+              { value: 'animals' as const, label: t('Animals') },
+              { value: 'rooms' as const, label: t('Rooms') },
             ]}
             value={tab}
             onChange={(next) => {
@@ -535,12 +537,12 @@ export function ChooseCompanionScreen({
         {showRooms ? (
           <>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>Rooms</Text>
-              <Text style={styles.sectionCount} numberOfLines={1}>{`${new Set(themesOwned).size} of ${ROOM_THEMES.length} owned`}</Text>
+              <Text style={styles.sectionTitle}>{t('Rooms')}</Text>
+              <Text style={styles.sectionCount} numberOfLines={1}>{t('{count} of {total} owned', { count: new Set(themesOwned).size, total: ROOM_THEMES.length })}</Text>
             </View>
             {!themeAffordable && themesOwned.length < ROOM_THEMES.length ? (
               <ShortNote have={coins} need={roomThemeCost} testID="room-coins-short">
-                {`You need ${roomThemeCost - coins} more coins for new rooms. You earn 50 for every level-up.`}
+                {tn(roomThemeCost - coins, 'You need {count} more coin for new rooms. You earn 50 for every level-up.', 'You need {count} more coins for new rooms. You earn 50 for every level-up.')}
               </ShortNote>
             ) : null}
             {ROOM_THEMES.map((theme) => {
@@ -548,7 +550,7 @@ export function ChooseCompanionScreen({
               const selected = (pendingTheme ?? roomTheme) === theme;
               const themeOwned = themesOwned.includes(theme);
               const locked = !themeOwned && !themeAffordable;
-              const note = current ? 'Equipped' : themeOwned ? 'Owned · free' : themeFree ? 'Free' : `${roomThemeCost} coins`;
+              const note = current ? t('Equipped') : themeOwned ? t('Owned · free') : themeFree ? tx('costs nothing', 'Free') : tn(roomThemeCost, '{count} coin', '{count} coins');
               return (
                 <View key={theme} style={[styles.theme, selected && styles.selected]}>
                   <RoomHero
@@ -561,7 +563,7 @@ export function ChooseCompanionScreen({
                   <PressableScale
                     accessibilityRole="button"
                     accessibilityState={{ selected, disabled: locked }}
-                    accessibilityLabel={`${ROOM_THEME_LABEL[theme]} rooms, ${note}`}
+                    accessibilityLabel={t('{theme} rooms, {note}', { theme: ROOM_THEME_LABEL[theme], note })}
                     disabled={locked}
                     onPress={() => pickTheme(theme)}
                     scaleTo={0.985}
@@ -578,12 +580,12 @@ export function ChooseCompanionScreen({
                       <StateTag kind="owned" />
                     ) : themeFree ? (
                       <View style={[styles.tag, styles.ownedTag]}>
-                        <Text style={styles.ownedText} numberOfLines={1}>Free</Text>
+                        <Text style={styles.ownedText} numberOfLines={1}>{tx('costs nothing', 'Free')}</Text>
                       </View>
                     ) : (
                       <View style={styles.themePrice}>
                         <PriceTag amount={roomThemeCost} dim={locked} />
-                        {locked ? <Text style={styles.needMore} numberOfLines={1}>{`${roomThemeCost - coins} more`}</Text> : null}
+                        {locked ? <Text style={styles.needMore} numberOfLines={1}>{tx('how many more coins are needed', '{count} more', { count: roomThemeCost - coins })}</Text> : null}
                       </View>
                     )}
                   </PressableScale>
@@ -594,13 +596,13 @@ export function ChooseCompanionScreen({
         ) : (
           <>
             <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>Animals</Text>
-              <Text style={styles.sectionCount} numberOfLines={1}>{`${ownedBreeds.length} of ${PET_SHEETS.length} owned`}</Text>
+              <Text style={styles.sectionTitle}>{t('Animals')}</Text>
+              <Text style={styles.sectionCount} numberOfLines={1}>{t('{count} of {total} owned', { count: ownedBreeds.length, total: PET_SHEETS.length })}</Text>
             </View>
 
             {!affordable ? (
               <ShortNote have={coins} need={cost} testID="coins-short">
-                {`You need ${cost - coins} more coins for a new animal. You earn 50 for every level-up.`}
+                {tn(cost - coins, 'You need {count} more coin for a new animal. You earn 50 for every level-up.', 'You need {count} more coins for a new animal. You earn 50 for every level-up.')}
               </ShortNote>
             ) : null}
 
@@ -632,9 +634,9 @@ export function ChooseCompanionScreen({
         <ConfirmSheet
           testID="room-theme-confirm"
           art={<Image source={ROOM_THEME_PREVIEWS[pendingTheme][0]} style={styles.sheetArt} resizeMode="cover" />}
-          title={`Get the ${ROOM_THEME_LABEL[pendingTheme]} rooms?`}
-          body={`You'll have ${coins - roomThemeCost} left, and can switch back to any rooms you own for free.`}
-          action={`Move in · ${roomThemeCost} coins`}
+          title={t('Get the {theme} rooms?', { theme: ROOM_THEME_LABEL[pendingTheme] })}
+          body={t("You'll have {coins} left, and can switch back to any rooms you own for free.", { coins: coins - roomThemeCost })}
+          action={tn(roomThemeCost, 'Move in · {count} coin', 'Move in · {count} coins')}
           onConfirm={() => {
             chooseTheme(pendingTheme, true);
             setPendingTheme(null);
@@ -650,9 +652,9 @@ export function ChooseCompanionScreen({
               <SpriteFrame sheet={sheetByBreed(pending)} frame={portraitFrame(sheetByBreed(pending))} size={56} />
             </View>
           }
-          title={`Get the ${sheetByBreed(pending).label}?`}
-          body={`You'll have ${coins - cost} left, and keep every animal you own to switch back to.`}
-          action={`Switch · ${cost} coins`}
+          title={t('Get the {animal}?', { animal: sheetByBreed(pending).label })}
+          body={t("You'll have {coins} left, and keep every animal you own to switch back to.", { coins: coins - cost })}
+          action={tn(cost, 'Switch · {count} coin', 'Switch · {count} coins')}
           onConfirm={() => {
             choose(pending, true);
             setPending(null);

@@ -14,6 +14,7 @@ import { PetClipStack, videoClipFor } from './PetVideo';
 import { SpriteFrame } from './SpriteFrame';
 import { Fading, PetAura } from './PetEffects';
 import { colors, fonts, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 export type PetActivity = 'idle' | 'analyzing' | 'eating' | 'workout' | 'exploring' | 'celebrating';
 
@@ -61,12 +62,12 @@ interface PetAvatarProps {
 }
 
 const STATUS_TEXT: Record<PetActivity, (name: string) => string> = {
-  celebrating: (name) => `${name} feels great!`,
-  eating: (name) => `${name} is enjoying dinner`,
-  analyzing: (name) => `${name} is curious about that plate`,
-  workout: (name) => `${name} is training hard`,
-  exploring: (name) => `${name} is exploring`,
-  idle: (name) => `${name} is here`,
+  celebrating: (name) => t('{pet} feels great!', { pet: name }),
+  eating: (name) => t('{pet} is enjoying dinner', { pet: name }),
+  analyzing: (name) => t('{pet} is curious about that plate', { pet: name }),
+  workout: (name) => t('{pet} is training hard', { pet: name }),
+  exploring: (name) => t('{pet} is exploring', { pet: name }),
+  idle: (name) => t('{pet} is here', { pet: name }),
 };
 
 /**
@@ -137,9 +138,9 @@ export const isSleeping = (
   activity: PetActivity,
 ): boolean => activity === 'idle' && condition.primary === null && energy <= NAP_ENERGY;
 
-/** Linear blend between two `#rrggbb` strings; `t` clamped to 0..1. */
-export const mixHex = (from: string, to: string, t: number): string => {
-  const amount = Math.max(0, Math.min(1, t));
+/** Linear blend between two `#rrggbb` strings; `blend` clamped to 0..1. */
+export const mixHex = (from: string, to: string, blend: number): string => {
+  const amount = Math.max(0, Math.min(1, blend));
   const parse = (hex: string) => [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16));
   const [fr, fg, fb] = parse(from);
   const [tr, tg, tb] = parse(to);
@@ -387,7 +388,7 @@ export function PetAvatar({
       {/* A window one cell wide, with the whole sheet slid behind it. */}
       <Animated.View
         accessibilityRole="image"
-        accessibilityLabel={`${pet.name}, ${STATUS_TEXT[activity](pet.name)}`}
+        accessibilityLabel={t('{pet}, {status}', { pet: pet.name, status: STATUS_TEXT[activity](pet.name) })}
         style={[styles.window, { transform: bobTransform }]}
       >
         {clip && sheet.videos ? (

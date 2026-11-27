@@ -1,4 +1,5 @@
 import type { MacroNutrients, MealAnalysis } from './health';
+import { formatLocale, t } from '../i18n';
 
 const PROTEIN_KCAL_PER_GRAM = 4;
 const CARB_KCAL_PER_GRAM = 4;
@@ -44,10 +45,10 @@ export const describeSubMacros = (
 ): string | null => {
   const known = (value: number | undefined): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
   const parts = [
-    includeFiber && known(macros.fiberGrams) ? `Fiber ${Math.round(macros.fiberGrams)}g` : null,
-    known(macros.sugarGrams) ? `Sugar ${Math.round(macros.sugarGrams)}g` : null,
-    known(macros.saturatedFatGrams) ? `Sat. fat ${Math.round(macros.saturatedFatGrams * 10) / 10}g` : null,
-    known(macros.sodiumMg) ? `Sodium ${Math.round(macros.sodiumMg).toLocaleString('en-US')}mg` : null,
+    includeFiber && known(macros.fiberGrams) ? t('Fiber {grams}g', { grams: Math.round(macros.fiberGrams) }) : null,
+    known(macros.sugarGrams) ? t('Sugar {grams}g', { grams: Math.round(macros.sugarGrams) }) : null,
+    known(macros.saturatedFatGrams) ? t('Sat. fat {grams}g', { grams: Math.round(macros.saturatedFatGrams * 10) / 10 }) : null,
+    known(macros.sodiumMg) ? t('Sodium {milligrams}mg', { milligrams: Math.round(macros.sodiumMg).toLocaleString(formatLocale()) }) : null,
   ].filter((part): part is string => part !== null);
   return parts.length > 0 ? parts.join(' · ') : null;
 };

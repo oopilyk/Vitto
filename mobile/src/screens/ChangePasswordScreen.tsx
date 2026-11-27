@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 import { NEW_PASSWORD_MIN_LENGTH, SIGNUP_CODE_MAX_LENGTH, SIGNUP_CODE_MIN_LENGTH, passwordErrorMessage } from '@vitto/core';
 import { FormField, PinnedBar, SettingsPage, TextField, kit } from '../components/settingsKit';
 import { PrimaryButton, TextButton } from '../components/ui';
+import { t } from '../i18n';
 import { changePassword, resetPasswordWithCode, sendResetCode } from '../services/passwordService';
 import { colors, fonts, themedStyles } from '../theme';
 
@@ -49,10 +50,10 @@ export function ChangePasswordScreen({ email, onClose }: Props) {
       await sendResetCode(email);
       setProof('code');
       setCode('');
-      setNote(`We sent a ${SIGNUP_CODE_MIN_LENGTH}-digit code to ${email}.`);
+      setNote(t('We sent a {digits}-digit code to {email}.', { digits: SIGNUP_CODE_MIN_LENGTH, email }));
       setResendIn(RESEND_AFTER_SECONDS);
     } catch (cause) {
-      setError(passwordErrorMessage(cause, 'Could not send a code. Try again in a minute.'));
+      setError(passwordErrorMessage(cause, t('Could not send a code. Try again in a minute.')));
     } finally {
       setBusy(false);
     }
@@ -67,7 +68,7 @@ export function ChangePasswordScreen({ email, onClose }: Props) {
       else await resetPasswordWithCode(email, code, next);
       setDone(true);
     } catch (cause) {
-      setError(passwordErrorMessage(cause, 'Could not change your password.'));
+      setError(passwordErrorMessage(cause, t('Could not change your password.')));
     } finally {
       setBusy(false);
     }
@@ -75,30 +76,30 @@ export function ChangePasswordScreen({ email, onClose }: Props) {
 
   if (done) {
     return (
-      <SettingsPage title="Change password" backLabel="Settings" onBack={onClose}>
+      <SettingsPage title={t('Change password')} backLabel={t('Settings')} onBack={onClose}>
         <View style={styles.done} testID="password-changed">
-          <Text style={styles.doneTitle}>Password changed</Text>
-          <Text style={styles.doneBody}>Use it next time you sign in. Any other phone signed in to your account has been signed out.</Text>
+          <Text style={styles.doneTitle}>{t('Password changed')}</Text>
+          <Text style={styles.doneBody}>{t('Use it next time you sign in. Any other phone signed in to your account has been signed out.')}</Text>
         </View>
-        <PrimaryButton label="Done" onPress={onClose} />
+        <PrimaryButton label={t('Done')} onPress={onClose} />
       </SettingsPage>
     );
   }
 
   return (
     <SettingsPage
-      title="Change password"
-      backLabel="Settings"
+      title={t('Change password')}
+      backLabel={t('Settings')}
       onBack={onClose}
       footer={
         <PinnedBar>
           {error ? <Text style={kit.saveError}>{error}</Text> : null}
-          <PrimaryButton label={busy ? 'Saving...' : 'Change password'} busy={busy} disabled={!ready || busy} onPress={() => void save()} />
+          <PrimaryButton label={busy ? t('Saving...') : t('Change password')} busy={busy} disabled={!ready || busy} onPress={() => void save()} />
         </PinnedBar>
       }
     >
       {proof === 'current' ? (
-        <FormField label="Current password">
+        <FormField label={t('Current password')}>
           <TextField
             value={current}
             onChangeText={setCurrent}
@@ -106,11 +107,11 @@ export function ChangePasswordScreen({ email, onClose }: Props) {
             textContentType="password"
             autoComplete="current-password"
             autoCapitalize="none"
-            accessibilityLabel="Current password"
+            accessibilityLabel={t('Current password')}
           />
         </FormField>
       ) : (
-        <FormField label="Code from your email">
+        <FormField label={t('Code from your email')}>
           <TextField
             value={code}
             onChangeText={(value) => setCode(value.replace(/\D/g, '').slice(0, SIGNUP_CODE_MAX_LENGTH))}
@@ -119,12 +120,12 @@ export function ChangePasswordScreen({ email, onClose }: Props) {
             autoComplete="one-time-code"
             placeholder={'0'.repeat(SIGNUP_CODE_MIN_LENGTH)}
             maxLength={SIGNUP_CODE_MAX_LENGTH}
-            accessibilityLabel="Code from your email"
+            accessibilityLabel={t('Code from your email')}
           />
         </FormField>
       )}
 
-      <FormField label="New password" hint={`${NEW_PASSWORD_MIN_LENGTH} characters minimum`}>
+      <FormField label={t('New password')} hint={t('{count} characters minimum', { count: NEW_PASSWORD_MIN_LENGTH })}>
         <TextField
           value={next}
           onChangeText={setNext}
@@ -132,7 +133,7 @@ export function ChangePasswordScreen({ email, onClose }: Props) {
           textContentType="newPassword"
           autoComplete="new-password"
           autoCapitalize="none"
-          accessibilityLabel="New password"
+          accessibilityLabel={t('New password')}
         />
       </FormField>
 
@@ -140,16 +141,16 @@ export function ChangePasswordScreen({ email, onClose }: Props) {
 
       <View style={styles.links}>
         {proof === 'current' ? (
-          <TextButton label="Forgot your current password?" tone="coral" disabled={busy} onPress={() => void emailCode()} />
+          <TextButton label={t('Forgot your current password?')} tone="coral" disabled={busy} onPress={() => void emailCode()} />
         ) : (
           <>
             <TextButton
-              label={resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+              label={resendIn > 0 ? t('Send a new code in {seconds}s', { seconds: resendIn }) : t('Send a new code')}
               disabled={busy || resendIn > 0}
               onPress={() => void emailCode()}
             />
             <TextButton
-              label="Use my current password instead"
+              label={t('Use my current password instead')}
               disabled={busy}
               onPress={() => {
                 setProof('current');

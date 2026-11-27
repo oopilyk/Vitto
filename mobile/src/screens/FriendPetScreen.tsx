@@ -17,7 +17,7 @@ import {
 import { haptic } from '../components/ui';
 import { askReportOrBlock } from '../components/safetyActions';
 import { friendsService } from '../services/friendsService';
-import { displayName, formatLastActive } from '../components/FriendPetCard';
+import { displayName, formatActive } from '../components/FriendPetCard';
 import { EnvironmentStage } from '../petWorld/EnvironmentStage';
 import { LevelRing } from '../petWorld/LevelRing';
 import { retro, retroPressed } from '../petWorld/retroStyle';
@@ -29,6 +29,7 @@ import { ENVIRONMENT_LABEL } from '../petWorld/types';
 import { placeToEnvironment, visitEnvironments } from '../petWorld/visitEnvironments';
 import { friendsPalette, healthToneColor } from '../friendsTheme';
 import { colors, fonts, layout, text, world, themedStyles } from '../theme';
+import { t, tx } from '../i18n';
 
 interface Props {
   friendUserIds: string[];
@@ -82,7 +83,7 @@ const ensureVisit = (friendId: string): void => {
   const pending = fetchVisit(friendId).then(
     (data) => void visits.set(friendId, { data, at: Date.now() }),
     // A failed refresh keeps what was there; only a first fetch shows the error.
-    (cause) => void visits.set(friendId, kept?.data ? { data: kept.data, at: kept.at } : { error: errorMessage(cause, "Could not load your friend's pet."), at: Date.now() }),
+    (cause) => void visits.set(friendId, kept?.data ? { data: kept.data, at: kept.at } : { error: errorMessage(cause, t("Could not load your friend's pet.")), at: Date.now() }),
   );
   visits.set(friendId, { ...kept, at: kept?.at ?? 0, pending: pending.then(() => listeners.forEach((listener) => listener())) });
 };
@@ -123,10 +124,10 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
     try {
       await friendsService.sendReaction(currentFriendId, kind);
       haptic('press');
-      setReactionNote(profile ? `${REACTION_SENT[kind]} to ${displayName(profile)}` : REACTION_SENT[kind]);
+      setReactionNote(profile ? t('{sent} to {name}', { sent: REACTION_SENT[kind], name: displayName(profile) }) : REACTION_SENT[kind]);
       return true;
     } catch (cause) {
-      setReactionNote(errorMessage(cause, 'Could not send that.'));
+      setReactionNote(errorMessage(cause, t('Could not send that.')));
       return false;
     } finally {
       setSending(null);
@@ -169,7 +170,7 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
     <View style={[styles.topbar, { borderBottomColor: palette.divider }]}>
       <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.back}>
         <Text style={styles.backMark}>‹</Text>
-        <Text style={[styles.backLabel, { color: palette.secondaryText }]}>Friends</Text>
+        <Text style={[styles.backLabel, { color: palette.secondaryText }]}>{t('Friends')}</Text>
       </Pressable>
       <Text style={[styles.topTitle, { color: palette.primaryText }]} numberOfLines={1}>
         {title}
@@ -184,26 +185,26 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
     <View style={[styles.pager, { borderBottomColor: palette.divider }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Previous friend"
+        accessibilityLabel={t('Previous friend')}
         disabled={!canGoPrev}
         onPress={goPrev}
         hitSlop={8}
         style={styles.pagerButton}
       >
-        <Text style={[styles.pagerLabel, !canGoPrev && styles.pagerLabelDisabled]}>‹ Prev</Text>
+        <Text style={[styles.pagerLabel, !canGoPrev && styles.pagerLabelDisabled]}>{t('‹ Prev')}</Text>
       </Pressable>
       <Text style={styles.pagerCount}>
         {friendUserIds.length > 0 ? `${index + 1} / ${friendUserIds.length}` : ''}
       </Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Next friend"
+        accessibilityLabel={t('Next friend')}
         disabled={!canGoNext}
         onPress={goNext}
         hitSlop={8}
         style={styles.pagerButton}
       >
-        <Text style={[styles.pagerLabel, !canGoNext && styles.pagerLabelDisabled]}>Next ›</Text>
+        <Text style={[styles.pagerLabel, !canGoNext && styles.pagerLabelDisabled]}>{t('Next ›')}</Text>
       </Pressable>
     </View>
   );
@@ -211,10 +212,10 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   if (friendUserIds.length === 0 || !currentFriendId) {
     return (
       <View style={screenStyle}>
-        <Topbar title="Friends" />
+        <Topbar title={t('Friends')} />
         <View style={[styles.center, styles.messageBody]}>
-          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>No friends to browse</Text>
-          <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>Add a friend from the Friends list to see their pet here.</Text>
+          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>{t('No friends to browse')}</Text>
+          <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>{t('Add a friend from the Friends list to see their pet here.')}</Text>
         </View>
       </View>
     );
@@ -223,7 +224,7 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   if (state === 'loading') {
     return (
       <View style={screenStyle}>
-        <Topbar title="Loading..." />
+        <Topbar title={t('Loading...')} />
         <Pager />
         <View style={[screenStyle, styles.center]}>
           <ActivityIndicator color={colors.coral} />
@@ -235,10 +236,10 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   if (state === 'error') {
     return (
       <View style={screenStyle}>
-        <Topbar title="Friend" />
+        <Topbar title={t('Friend')} />
         <Pager />
         <View style={[styles.center, styles.messageBody]}>
-          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>Could not load this pet</Text>
+          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>{t('Could not load this pet')}</Text>
           <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>{error}</Text>
         </View>
       </View>
@@ -252,12 +253,12 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
   if (!profile) {
     return (
       <View style={screenStyle}>
-        <Topbar title="Friend" />
+        <Topbar title={t('Friend')} />
         <Pager />
         <View style={[styles.center, styles.messageBody]}>
-          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>You're not connected anymore</Text>
+          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>{t("You're not connected anymore")}</Text>
           <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>
-            This person is no longer sharing their pet with you.
+            {t('This person is no longer sharing their pet with you.')}
           </Text>
         </View>
       </View>
@@ -270,8 +271,8 @@ export function FriendPetScreen({ friendUserIds, initialFriendUserId, onClose }:
         <Topbar title={displayName(profile)} />
         <Pager />
         <View style={[styles.center, styles.messageBody]}>
-          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>No pet yet</Text>
-          <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>{displayName(profile)} hasn't adopted a pet yet.</Text>
+          <Text style={[styles.messageTitle, { color: palette.primaryText }]}>{t('No pet yet')}</Text>
+          <Text style={[styles.messageBodyText, { color: palette.secondaryText }]}>{t("{name} hasn't adopted a pet yet.", { name: displayName(profile) })}</Text>
         </View>
       </View>
     );
@@ -421,7 +422,7 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                 </View>
                 <View style={[retro.panel, night && retro.panelNight, styles.plate]} pointerEvents="none">
                   <Text style={[retro.kicker, night && retro.kickerNight, styles.plateKicker]} numberOfLines={1}>
-                    {`Visiting ${displayName(profile)}`}
+                    {t('Visiting {name}', { name: displayName(profile) })}
                   </Text>
                   <FitText style={[styles.plateName, night && retro.labelNight]} minScale={0.7}>
                     {pet.name.toUpperCase()}
@@ -433,7 +434,7 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                 <View style={styles.sideSlot} pointerEvents="box-none">
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Back to friends"
+                    accessibilityLabel={t('Back to friends')}
                     onPress={onClose}
                     hitSlop={8}
                     style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.disc, pressed && retroPressed]}
@@ -451,7 +452,7 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                 {/* Separate tokens, not one joined line: a wrap falls between them. */}
                 <View style={styles.metaRow}>
                   <Text style={[styles.meta, night && retro.captionNight]} numberOfLines={1}>
-                    {`DAY ${daysWithPet(pet)}`}
+                    {t('DAY {day}', { day: daysWithPet(pet) })}
                   </Text>
                   <Text style={[styles.meta, { color: healthColor }]} numberOfLines={1}>
                     {status.health.label.toUpperCase()}
@@ -459,7 +460,7 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                   {/* Only when nothing is live: a live signal is already the pose. */}
                   {!status.isLive && status.lastActiveAt ? (
                     <Text style={[styles.meta, styles.metaSoft, night && retro.captionNight]} numberOfLines={1}>
-                      {`Active ${formatLastActive(status.lastActiveAt)}`}
+                      {formatActive(status.lastActiveAt)}
                     </Text>
                   ) : null}
                 </View>
@@ -470,7 +471,7 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                 <View style={styles.toolRow} pointerEvents="box-none">
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Previous friend"
+                    accessibilityLabel={t('Previous friend')}
                     disabled={!pager.canGoPrev}
                     onPress={pager.goPrev}
                     hitSlop={8}
@@ -479,11 +480,11 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
                     <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>‹</Text>
                   </Pressable>
                   <Text style={[retro.kicker, night && retro.kickerNight, styles.count]} numberOfLines={1}>
-                    {`${pager.index + 1} of ${pager.total}`}
+                    {t('{index} of {total}', { index: pager.index + 1, total: pager.total })}
                   </Text>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Next friend"
+                    accessibilityLabel={t('Next friend')}
                     disabled={!pager.canGoNext}
                     onPress={pager.goNext}
                     hitSlop={8}
@@ -514,7 +515,7 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
             <Pressable
               key={kind}
               accessibilityRole="button"
-              accessibilityLabel={`${REACTION_LABEL[kind]}, to ${displayName(profile)}`}
+              accessibilityLabel={t('{reaction}, to {name}', { reaction: REACTION_LABEL[kind], name: displayName(profile) })}
               disabled={sending !== null}
               onPress={() => void send(kind)}
               style={({ pressed }) => [
@@ -527,19 +528,19 @@ function Visit({ pet, profile, status, night, onClose, pager, reaction }: VisitP
               ]}
             >
               <Text style={[styles.reactionLabel, night && retro.labelNight, sent === kind && styles.reactionLabelSent]} numberOfLines={2}>
-                {sent === kind ? 'Sent' : REACTION_LABEL[kind]}
+                {sent === kind ? tx('a reaction to a friend has been sent', 'Sent') : REACTION_LABEL[kind]}
               </Text>
             </Pressable>
           ))}
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Report or block ${displayName(profile)}`}
+          accessibilityLabel={t('Report or block {name}', { name: displayName(profile) })}
           hitSlop={10}
           onPress={() => askReportOrBlock({ userId: profile.id, name: displayName(profile), onBlocked: onClose })}
           testID="report-or-block"
         >
-          <Text style={[retro.kicker, night && retro.kickerNight, styles.reportLink]}>Report or block</Text>
+          <Text style={[retro.kicker, night && retro.kickerNight, styles.reportLink]}>{t('Report or block')}</Text>
         </Pressable>
       </View>
     </View>

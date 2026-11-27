@@ -24,7 +24,7 @@ import type { MindStage } from './src/mind/types';
 import { careConflictMessage, commitCareMomentForAll, stepSyncTopUp, type CareMomentFanOut } from './src/services/careMoment';
 import { flushOutbox, isOfflineFailure, loadOutbox, OUTBOX_RETRY_MS, saveOutbox, type OutboxEntry } from './src/services/outbox';
 import { applySharedRefresh, newestOccurredAt } from './src/services/sharedRefresh';
-import { isTimeout, saveWithRetry } from './src/services/saveWithRetry';
+import { isTimeout, saveWithRetry, timeoutError } from './src/services/saveWithRetry';
 import type { HealthDataProvider } from './src/services/healthDataProvider';
 import { MockHealthDataProvider } from './src/services/healthDataProvider';
 import { HealthKitProvider, RECENT_SYNC_WINDOW_HOURS } from './src/services/healthKitProvider';
@@ -54,9 +54,6 @@ import { canShowIsland, clearPetIsland, islandSignature, syncPetIsland } from '.
 import { buildWidgetSnapshot, clearPetWidget, drainWidgetWater, syncPetWidget } from './src/services/petWidget';
 import { clearWorkoutDraft } from './src/services/workoutDraft';
 import { UndoToast, type UndoOffer } from './src/components/UndoToast';
-import { logName } from './src/screens/ActivityHistoryScreen';
-
-const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PetStatsScreen } from './src/screens/PetStatsScreen';
 import { ShareCardScreen } from './src/screens/ShareCardScreen';
@@ -101,6 +98,7 @@ import { deviceMeasurementSystem } from './src/services/deviceLocale';
 import { hasNativeUUID, randomUUID } from './src/services/uuid';
 import { lockWebViewport } from './src/web/lockWebViewport';
 import { colors, fonts, getColorScheme, layout, setActiveColorScheme, themedStyles } from './src/theme';
+import { formatLocale, petSpeechAvailable, t, tn, wordPuzzleAvailable } from './src/i18n';
 
 // Prefer the platform's crypto-backed ids, but keep the domain's pure fallback if
 // this client has no native crypto module.
@@ -118,7 +116,7 @@ const engine = new PetHealthEngine();
 // mobile/SCREENTIME.md); web-via-react-native-web stays on the mock until a
 // Health Connect provider exists. See mobile/HEALTHKIT.md.
 /** The stock line for the day's step goal; the companion's own line replaces it when online. */
-const STEP_GOAL_LINE = 'We hit our step goal today! I loved every step of it.';
+const STEP_GOAL_LINE = t('We hit our step goal today! I loved every step of it.');
 
 /** Set once Apple Health is connected on this phone, so later launches reconnect quietly. */
 const HEALTH_CONNECTED_KEY = 'vitto.appleHealthConnected';
@@ -247,7 +245,7 @@ const REACTION_VISIBLE_MS = 6000;
 const CARE_TOAST_VISIBLE_MS = 3200;
 /** How long typing can go on before the profile is written. */
 const PROFILE_SAVE_DEBOUNCE_MS = 600;
-const SAVE_TIMEOUT_MESSAGE = 'Saving timed out. Check your connection.';
+const SAVE_TIMEOUT_MESSAGE = t('Saving timed out. Check your connection.');
 /** Only a moment logged about now is worth the pet remarking on. */
 const COMPANION_FRESH_MS = 6 * 60 * 60 * 1000;
 
@@ -275,6 +273,12 @@ const DEFAULT_PROFILE: BodyProfile = withMeasurementSystem(
   deviceMeasurementSystem(),
 );
 
+/** The Undo toast's line for a log taken back or changed: whole sentences, so each can be translated. */
+const deletedLine = (event: HealthEvent): string =>
+  event.type === 'MEAL' ? t('Meal deleted') : event.type === 'WORKOUT' ? t('Workout deleted') : event.type === 'BODY_WEIGHT' ? t('Weigh-in deleted') : t('Entry deleted');
+const updatedLine = (event: HealthEvent): string =>
+  event.type === 'MEAL' ? t('Meal updated') : event.type === 'WORKOUT' ? t('Workout updated') : event.type === 'BODY_WEIGHT' ? t('Weigh-in updated') : t('Entry updated');
+
 const makeEvent = <T,>(userId: string, type: HealthEvent['type'], metadata: T): HealthEvent<T> => ({
   id: newId(),
   userId,
@@ -287,7 +291,7 @@ const makeEvent = <T,>(userId: string, type: HealthEvent['type'], metadata: T): 
 const withTimeout = <T,>(promise: Promise<T>, message: string, ms = 10000) =>
   Promise.race([
     promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+    new Promise<T>((_, reject) => setTimeout(() => reject(timeoutError(message)), ms)),
   ]);
 
 /**
@@ -317,14 +321,14 @@ const confirmDialog = (title: string, message: string, confirmLabel: string, des
     // No `confirm` at all (SSR, a locked-down embed): refuse rather than
     // silently treating it as agreement.
     if (!ask) return Promise.resolve(false);
-    return Promise.resolve(ask(`${title}\n\n${message}\n\nOK to ${confirmLabel.toLowerCase()}.`));
+    return Promise.resolve(ask(`${title}\n\n${message}\n\n${t('OK to {action}.', { action: confirmLabel.toLowerCase() })}`));
   }
   return new Promise<boolean>((resolve) => {
     Alert.alert(
       title,
       message,
       [
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+        { text: t('Cancel'), style: 'cancel', onPress: () => resolve(false) },
         { text: confirmLabel, style: destructive ? 'destructive' : 'default', onPress: () => resolve(true) },
       ],
       { cancelable: true, onDismiss: () => resolve(false) },
@@ -512,6 +516,13 @@ function VittoApp() {
   // More than the screen lists: it leads with the meal being logged (forSlot), then trims.
   const mealsToRepeat = useMemo(() => repeatableMeals(events, new Date(), 20), [events]);
   const [profile, setProfile] = useState<BodyProfile>(DEFAULT_PROFILE);
+  /**
+   * Whether `profile` is this account's, read from where it is stored. Until it
+   * is (still loading, or the load failed on a bad connection) `profile` is
+   * DEFAULT_PROFILE, and saving it would write the default units and body
+   * figures over the real ones: the app "switched to metric on its own".
+   */
+  const profileLoaded = useRef(false);
   // The unit they lift in, which can differ from their profile's (see liftingUnit).
   const liftUnit = useMemo(() => liftingUnit(events, profile.weightUnit), [events, profile.weightUnit]);
   const [reaction, setReaction] = useState<PetReaction | null>(null);
@@ -681,7 +692,7 @@ function VittoApp() {
   }, []);
   // The voice is Plus. Switched on and then lapsed, it stays quiet (the model
   // stays too, so coming back to Plus is not another download).
-  const voiceActive = voiceEnabled === true && canCustomise;
+  const voiceActive = voiceEnabled === true && canCustomise && petSpeechAvailable();
   useEffect(() => {
     if (!voiceActive) {
       stopPetVoice();
@@ -921,7 +932,7 @@ function VittoApp() {
         setAuthReady(true);
       })
       .catch(() => {
-        setError('Could not connect to Supabase.');
+        setError(t('Could not connect to Supabase.'));
         setAuthReady(true);
       });
     const { data: listener } = onAuthStateChange((_event, next) => setSession(next));
@@ -946,6 +957,7 @@ function VittoApp() {
     let cancelled = false;
     setDataReady(false);
     setPetLoadFailed(false);
+    profileLoaded.current = false;
 
     void (async () => {
       // Kept on the device either way: a half-finished board is local scratch state,
@@ -985,6 +997,7 @@ function VittoApp() {
           const waiting = queuedEntries.map((entry) => entry.event).filter((candidate) => !onServer.has(candidate.id)).reverse();
           setEvents([...waiting, ...eventsResult.value]);
         }
+        profileLoaded.current = profileResult.status === 'fulfilled';
         if (profileResult.status === 'fulfilled') {
           // Reset when this account has no stored profile yet, rather than
           // leaving the PREVIOUS account's name, handle, bio and body metrics on
@@ -1010,7 +1023,7 @@ function VittoApp() {
         );
         setError(
           failure && failure.status === 'rejected'
-            ? errorMessage(failure.reason, 'Could not load your account data.')
+            ? errorMessage(failure.reason, t('Could not load your account data.'))
             : null,
         );
         setDataReady(true);
@@ -1062,6 +1075,7 @@ function VittoApp() {
       setEvents(storedEvents);
       // Aged from its birth year, as the remote load does (see withCurrentAge).
       if (storedProfile) setProfile(withCurrentAge(withSurveyDefaults({ ...DEFAULT_PROFILE, ...storedProfile })));
+      profileLoaded.current = true;
       setMembers([]);
       setCareLog([]);
       setInvite(null);
@@ -1126,6 +1140,7 @@ function VittoApp() {
   }, [authReady, session?.user.id]);
 
   const persistProfile = async (edited: BodyProfile) => {
+    if (!profileLoaded.current) throw new Error(t('Your profile hasn’t loaded yet. Check your connection and try again.'));
     // The birth year follows an edited age, so the age keeps going up from it.
     const next = { ...edited, birthYear: birthYearToSave(edited) };
     setProfile(next);
@@ -1144,6 +1159,7 @@ function VittoApp() {
   const setMeasurementSystem = (system: MeasurementSystem) => {
     setProfile((current) => {
       const next = withMeasurementSystem(current, system);
+      if (!profileLoaded.current) return next;
       if (isSupabaseConfigured && session) {
         void remoteRepository.saveProfile(next).catch(() => undefined);
       } else {
@@ -1166,7 +1182,8 @@ function VittoApp() {
     profileSaveTimer.current = null;
     const next = pendingProfile.current;
     pendingProfile.current = null;
-    if (!next) return;
+    // Never over the stored profile with the default one (see profileLoaded).
+    if (!next || !profileLoaded.current) return;
     if (isSupabaseConfigured && session) {
       void remoteRepository.saveProfile(next).catch(() => undefined);
     } else {
@@ -1439,9 +1456,11 @@ function VittoApp() {
         const gone = new Set(outcome.failed.map((failure) => failure.event.id));
         setEvents((current) => current.filter((candidate) => !gone.has(candidate.id)));
         setError(
-          outcome.failed.length === 1
-            ? 'One log from while you were offline could not be saved.'
-            : `${outcome.failed.length} logs from while you were offline could not be saved.`,
+          tn(
+            outcome.failed.length,
+            'One log from while you were offline could not be saved.',
+            '{count} logs from while you were offline could not be saved.',
+          ),
         );
       }
       // Only once nothing is left: until then this phone's pets carry the
@@ -1595,7 +1614,7 @@ function VittoApp() {
         void tellCompanion(storedEvent, nextPet, detectLevelUp(pet, nextPet) !== null).finally(() => setAwaitingPetLine(false));
       }
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not save that. Try again in a moment.'));
+      setError(errorMessage(cause, t('Could not save that. Try again in a moment.')));
       throw cause;
     } finally {
       releasePetWrite();
@@ -1641,7 +1660,7 @@ function VittoApp() {
         if (saved.status === 'conflict') {
           // The partner cared for the pet meanwhile: apply the change to what is there now.
           const fresh = await remoteRepository.loadPet();
-          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          if (!fresh) throw new Error(t('Could not reach {pet}. Check your connection and try again.', { pet: pet.name }));
           base = { ...fresh, careAreas: areas };
           saved = await remoteRepository.savePetIfUnchanged(base, fresh.version ?? 0);
           if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
@@ -1654,15 +1673,15 @@ function VittoApp() {
       await repository.savePet(nextPet);
     } catch (cause) {
       setPet(before);
-      setError(errorMessage(cause, 'Could not save that change.'));
+      setError(errorMessage(cause, t('Could not save that change.')));
     }
   };
 
   const changePersonality = async (next: PetPersonality, persona?: string, dials?: PersonalityDials): Promise<string | null> => {
-    if (!pet) return 'There is no pet to change.';
+    if (!pet) return t('There is no pet to change.');
     // The server would keep the old character anyway; say so instead.
     if (personalityChangesLeft === 0) {
-      const message = `No character changes left this month for ${pet.name}. They reset on the 1st.`;
+      const message = t('No character changes left this month for {pet}. They reset on the 1st.', { pet: pet.name });
       setError(message);
       return message;
     }
@@ -1679,7 +1698,7 @@ function VittoApp() {
         let saved = await remoteRepository.savePetIfUnchanged(nextPet, base.version ?? 0);
         if (saved.status === 'conflict') {
           const fresh = await remoteRepository.loadPet();
-          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          if (!fresh) throw new Error(t('Could not reach {pet}. Check your connection and try again.', { pet: pet.name }));
           base = fresh;
           saved = await remoteRepository.savePetIfUnchanged({ ...fresh, ...wearing }, fresh.version ?? 0);
           if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
@@ -1699,7 +1718,7 @@ function VittoApp() {
           setPet(check);
           await repository.savePet(check);
           void refreshPersonalityChangesLeft(pet.id);
-          throw new Error(`${pet.name}'s character did not change on the server. You may be out of changes this month.`);
+          throw new Error(t("{pet}'s character did not change on the server. You may be out of changes this month.", { pet: pet.name }));
         }
         const stored = check && check.id === pet.id ? check : { ...base, ...wearing, version: saved.version };
         setPet(stored);
@@ -1710,7 +1729,7 @@ function VittoApp() {
       await repository.savePet(nextPet);
       return null;
     } catch (cause) {
-      const message = errorMessage(cause, 'Could not change their character.');
+      const message = errorMessage(cause, t('Could not change their character.'));
       setError(message);
       return message;
     } finally {
@@ -1729,7 +1748,7 @@ function VittoApp() {
     // it cannot bake a decay projection into the row on its way past.
     const nextPet = switchBreed(pet, next, freeSwitch);
     if (!nextPet) {
-      setError(`A new animal costs ${cost} coins, and ${pet.name} has ${coinsOf(pet)}.`);
+      setError(t('A new animal costs {cost} coins, and {pet} has {coins}.', { cost, pet: pet.name, coins: coinsOf(pet) }));
       return;
     }
     setPet(nextPet);
@@ -1760,7 +1779,7 @@ function VittoApp() {
           setBreed(pet.breed ?? next);
           if (cause instanceof NotEnoughCoinsError) {
             setPet({ ...pet, coins: cause.coins });
-            throw new Error(`A new animal costs ${BREED_CHANGE_COST} coins, and ${pet.name} has ${cause.coins}.`);
+            throw new Error(t('A new animal costs {cost} coins, and {pet} has {coins}.', { cost: BREED_CHANGE_COST, pet: pet.name, coins: cause.coins }));
           }
           throw cause;
         }
@@ -1768,7 +1787,7 @@ function VittoApp() {
       }
       await repository.savePet(nextPet);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not change your companion.'));
+      setError(errorMessage(cause, t('Could not change your companion.')));
     } finally {
       releasePetWrite();
     }
@@ -1786,7 +1805,7 @@ function VittoApp() {
     const cost = roomThemeSwitchCost(pet, next, freeSwitch);
     const nextPet = switchRoomTheme(pet, next, freeSwitch);
     if (!nextPet) {
-      setError(`New rooms cost ${cost} coins, and ${pet.name} has ${coinsOf(pet)}.`);
+      setError(t('New rooms cost {cost} coins, and {pet} has {coins}.', { cost, pet: pet.name, coins: coinsOf(pet) }));
       return;
     }
     // Held like changeBreed's, so a foreground refresh cannot land mid-switch.
@@ -1810,7 +1829,7 @@ function VittoApp() {
         } catch (cause) {
           if (cause instanceof NotEnoughCoinsError) {
             setPet({ ...pet, coins: cause.coins });
-            throw new Error(`New rooms cost ${ROOM_THEME_COST} coins, and ${pet.name} has ${cause.coins}.`);
+            throw new Error(t('New rooms cost {cost} coins, and {pet} has {coins}.', { cost: ROOM_THEME_COST, pet: pet.name, coins: cause.coins }));
           }
           throw cause;
         }
@@ -1819,7 +1838,7 @@ function VittoApp() {
       setPet(nextPet);
       await repository.savePet(nextPet);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not change the rooms.'));
+      setError(errorMessage(cause, t('Could not change the rooms.')));
     } finally {
       releasePetWrite();
     }
@@ -1846,7 +1865,7 @@ function VittoApp() {
         let saved = await remoteRepository.savePetIfUnchanged(nextPet, base.version ?? 0);
         if (saved.status === 'conflict') {
           const fresh = await remoteRepository.loadPetById(pet.id);
-          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          if (!fresh) throw new Error(t('Could not reach {pet}. Check your connection and try again.', { pet: pet.name }));
           base = fresh;
           saved = await remoteRepository.savePetIfUnchanged(withVoice(fresh), fresh.version ?? 0);
           if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
@@ -1858,7 +1877,7 @@ function VittoApp() {
       }
       await repository.savePet(nextPet);
     } catch (cause) {
-      setError(errorMessage(cause, "Could not change your pet's voice."));
+      setError(errorMessage(cause, t("Could not change your pet's voice.")));
     } finally {
       releasePetWrite();
     }
@@ -1879,7 +1898,7 @@ function VittoApp() {
         if (saved.status === 'conflict') {
           // By id: with a second (shared) pet, "the first pet" may be the other one.
           const fresh = await remoteRepository.loadPetById(pet.id);
-          if (!fresh) throw new Error(`Could not reach ${pet.name}. Check your connection and try again.`);
+          if (!fresh) throw new Error(t('Could not reach {pet}. Check your connection and try again.', { pet: pet.name }));
           base = fresh;
           saved = await remoteRepository.savePetIfUnchanged(chooseForm(fresh, next), fresh.version ?? 0);
           if (saved.status === 'conflict') throw new Error(careConflictMessage(pet.name));
@@ -1891,7 +1910,7 @@ function VittoApp() {
       }
       await repository.savePet(nextPet);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not change form.'));
+      setError(errorMessage(cause, t('Could not change form.')));
     } finally {
       releasePetWrite();
     }
@@ -1958,9 +1977,11 @@ function VittoApp() {
     runPartnerAction(async () => {
       if (!pet) return;
       const confirmed = await confirmDialog(
-        `Leave ${pet.name}?`,
-        `You'll stop caring for ${pet.name}. ${partnerName ?? 'Your partner'} keeps them, and your joint slot is free again.`,
-        'Leave',
+        t('Leave {pet}?', { pet: pet.name }),
+        partnerName
+          ? t("You'll stop caring for {pet}. {partner} keeps them, and your joint slot is free again.", { pet: pet.name, partner: partnerName })
+          : t("You'll stop caring for {pet}. Your partner keeps them, and your joint slot is free again.", { pet: pet.name }),
+        t('Leave'),
       );
       if (!confirmed) return;
       await remoteRepository.leavePet(pet.id);
@@ -1985,11 +2006,12 @@ function VittoApp() {
   const removePartner = () =>
     runPartnerAction(async () => {
       if (!pet || !partner) return;
-      const name = partnerName ?? 'your partner';
       const confirmed = await confirmDialog(
-        `Remove ${name}?`,
-        `${name} will stop caring for ${pet.name}. ${pet.name} and everything you have done together stay with you.`,
-        'Remove',
+        partnerName ? t('Remove {partner}?', { partner: partnerName }) : t('Remove your partner?'),
+        partnerName
+          ? t('{partner} will stop caring for {pet}. {pet} and everything you have done together stay with you.', { partner: partnerName, pet: pet.name })
+          : t('your partner will stop caring for {pet}. {pet} and everything you have done together stay with you.', { pet: pet.name }),
+        t('Remove'),
       );
       if (!confirmed) return;
       await remoteRepository.removePetMember(pet.id, partner.userId);
@@ -2021,17 +2043,17 @@ function VittoApp() {
   const deleteAccount = async () => {
     const shared = pets.filter((candidate) => !isOwnPet(candidate, userId)).length > 0;
     const first = await confirmDialog(
-      'Delete your account?',
-      'This removes your account, your pet and everything you have logged. It cannot be undone.',
-      'Continue',
+      t('Delete your account?'),
+      t('This removes your account, your pet and everything you have logged. It cannot be undone.'),
+      t('Continue'),
     );
     if (!first) return;
     const second = await confirmDialog(
-      'Really delete everything?',
+      t('Really delete everything?'),
       shared
-        ? 'Your own pet and all your history will be gone for good, for your care partner too. A pet you joined stays with its owner.'
-        : 'Your pet and all your history will be gone for good, for your care partner too if you have one.',
-      'Delete forever',
+        ? t('Your own pet and all your history will be gone for good, for your care partner too. A pet you joined stays with its owner.')
+        : t('Your pet and all your history will be gone for good, for your care partner too if you have one.'),
+      t('Delete forever'),
     );
     if (!second) return;
 
@@ -2043,7 +2065,7 @@ function VittoApp() {
       // would ask it to revoke a session for a user that no longer exists (403).
       await signOut('local');
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not delete your account.'));
+      setError(errorMessage(cause, t('Could not delete your account.')));
     } finally {
       setIsDeletingAccount(false);
     }
@@ -2052,11 +2074,11 @@ function VittoApp() {
   const adopt = async () => {
     try {
       setError(null);
-      if (profile.age < 13 || profile.age > 100) throw new Error('Age must be between 13 and 100.');
+      if (profile.age < 13 || profile.age > 100) throw new Error(t('Age must be between 13 and 100.'));
       if (profile.heightCm < 90 || profile.heightCm > 230)
-        throw new Error('Height must be between 90 and 230 cm.');
+        throw new Error(t('Height must be between 90 and 230 cm.'));
       if (profile.weightKg < 30 || profile.weightKg > 300)
-        throw new Error('Weight must be between 30 and 300 kg.');
+        throw new Error(t('Weight must be between 30 and 300 kg.'));
 
       // A free pet is adopted without a character; choosing one is Plus.
       const created = canCustomise
@@ -2071,7 +2093,7 @@ function VittoApp() {
       await repository.savePet(nextPet);
       setPet(nextPet);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not save your pet.'));
+      setError(errorMessage(cause, t('Could not save your pet.')));
     }
   };
 
@@ -2090,16 +2112,16 @@ function VittoApp() {
   };
 
   const offerUndo = (message: string, undo: () => Promise<void>) =>
-    setUndoOffer({ message, undo: () => undo().catch((cause) => setError(errorMessage(cause, 'Could not undo that.'))), key: newId() });
+    setUndoOffer({ message, undo: () => undo().catch((cause) => setError(errorMessage(cause, t('Could not undo that.')))), key: newId() });
 
   /** Takes a log back, with a few seconds to change their mind. */
   const removeEvent = async (event: HealthEvent) => {
     const removed = markRemoved(event);
     try {
       await writeEvent(removed);
-      offerUndo(`${capitalize(logName(event))} deleted`, () => writeEvent(restoreRemoved(removed)));
+      offerUndo(deletedLine(event), () => writeEvent(restoreRemoved(removed)));
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not delete that.'));
+      setError(errorMessage(cause, t('Could not delete that.')));
     }
   };
 
@@ -2112,7 +2134,7 @@ function VittoApp() {
       metadata: { ...(event.metadata as Record<string, unknown>), ...metadata, xpAwarded: (event.metadata as { xpAwarded?: number }).xpAwarded ?? 0 },
     };
     await writeEvent(after);
-    offerUndo(`${capitalize(logName(event))} updated`, () => writeEvent(before));
+    offerUndo(updatedLine(event), () => writeEvent(before));
   };
 
   /**
@@ -2133,7 +2155,7 @@ function VittoApp() {
     };
   };
   const logWeight = async (kg: number) => {
-    offerUndo('Weigh-in logged', await saveWeight(kg));
+    offerUndo(t('Weigh-in logged'), await saveWeight(kg));
   };
 
   const editWeight = async (event: HealthEvent, kg: number) => {
@@ -2266,7 +2288,7 @@ function VittoApp() {
     const existing = findScreenTimeForDate(events, new Date());
     if (existing) {
       throw new Error(
-        `Today's screen time is already logged (${existing.metadata.minutes} min) and can't be changed yet — try again tomorrow.`,
+        t("Today's screen time is already logged ({minutes} min) and can't be changed yet — try again tomorrow.", { minutes: existing.metadata.minutes }),
       );
     }
   };
@@ -2290,7 +2312,7 @@ function VittoApp() {
   /** Android path: read today's total from UsageStatsManager, routing to Settings first if access is missing. */
   const syncScreenTime = async (budgetMinutes?: number) => {
     if (!hasUsageAccess()) {
-      if (!openUsageAccessSettings()) setError('Screen time sync is not available in this build.');
+      if (!openUsageAccessSettings()) setError(t('Screen time sync is not available in this build.'));
       return;
     }
     setIsSyncingScreenTime(true);
@@ -2298,13 +2320,13 @@ function VittoApp() {
       assertTodayScreenTimeNotLogged();
       const event = await stepsProvider.getTodayScreenTime(userId, budgetMinutes);
       if (!event) {
-        setError('Could not read screen time from this device.');
+        setError(t('Could not read screen time from this device.'));
         return;
       }
       await recordEvent(event);
       setError(null);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not sync screen time.'));
+      setError(errorMessage(cause, t('Could not sync screen time.')));
     } finally {
       setIsSyncingScreenTime(false);
     }
@@ -2402,7 +2424,7 @@ function VittoApp() {
       // hold `stepSyncInFlight` forever, and every sync after it would skip.
       const event = (await Promise.race([
         stepsProvider.getTodaySteps(userId),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Apple Health took too long to answer.')), STEP_SYNC_TIMEOUT_MS)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error(t('Apple Health took too long to answer.'))), STEP_SYNC_TIMEOUT_MS)),
       ])) as HealthEvent<StepMetadata>;
       const newSteps = event.metadata.steps ?? 0;
 
@@ -2499,7 +2521,7 @@ function VittoApp() {
       // Quiet on screen for the automatic syncs (the next one tries again), but
       // never invisible: a sync that keeps failing has to show up somewhere.
       console.warn('[steps] sync failed', cause);
-      return { status: 'failed', message: errorMessage(cause, 'Apple Health did not answer.') };
+      return { status: 'failed', message: errorMessage(cause, t('Apple Health did not answer.')) };
     } finally {
       stepSyncInFlight.current = false;
     }
@@ -2512,13 +2534,13 @@ function VittoApp() {
    */
   const syncStepsNow = async (): Promise<string> => {
     const result = await syncSteps();
-    if (result.status === 'busy') return 'Already syncing. Give it a second.';
-    if (result.status === 'off') return 'Connect Apple Health first.';
-    if (result.status === 'failed') return `Couldn't read Apple Health: ${result.message}`;
+    if (result.status === 'busy') return t('Already syncing. Give it a second.');
+    if (result.status === 'off') return t('Connect Apple Health first.');
+    if (result.status === 'failed') return t("Couldn't read Apple Health: {reason}", { reason: result.message });
     if (result.steps === 0) {
-      return 'Apple Health has 0 steps for today. If that is wrong, let Vitto read Steps: Settings → Health → Data Access & Devices → Vitto.';
+      return t('Apple Health has 0 steps for today. If that is wrong, let Vitto read Steps: Settings → Health → Data Access & Devices → Vitto.');
     }
-    return `Synced: ${result.steps.toLocaleString()} steps from Apple Health.`;
+    return t('Synced: {steps} steps from Apple Health.', { steps: result.steps.toLocaleString(formatLocale()) });
   };
 
   // Steps keep themselves up to date: synced on open, on every return to the
@@ -2587,7 +2609,7 @@ function VittoApp() {
       const granted = await stepsProvider.requestAuthorization();
       setIsAppleHealthConnected(granted);
       if (!granted) {
-        setError('Apple Health access was not granted.');
+        setError(t('Apple Health access was not granted.'));
         return;
       }
       // Remembered on this phone, so every later launch reconnects on its own.
@@ -2595,7 +2617,7 @@ function VittoApp() {
       setError(null);
       await syncAppleHealth();
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not connect to Apple Health.'));
+      setError(errorMessage(cause, t('Could not connect to Apple Health.')));
     }
   };
 
@@ -2742,7 +2764,7 @@ function VittoApp() {
       }
       setError(null);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not sync Apple Health.'));
+      setError(errorMessage(cause, t('Could not sync Apple Health.')));
     } finally {
       setIsSyncingAppleHealth(false);
     }
@@ -2786,7 +2808,7 @@ function VittoApp() {
         // above, which re-runs as the session drops back to 'local'.
         await repository.clear();
       })
-      .catch(() => setError('Could not sign out.'));
+      .catch(() => setError(t('Could not sign out.')));
   };
 
   // Trophies are derived from history, never stored — see `earnedTrophies`.
@@ -2877,7 +2899,7 @@ function VittoApp() {
     try {
       await remoteRepository.saveWorkoutTemplates(next);
     } catch {
-      setError("Saved on this phone, but couldn't back your routines up to your account. Check your connection.");
+      setError(t("Saved on this phone, but couldn't back your routines up to your account. Check your connection."));
     }
   };
 
@@ -2894,7 +2916,7 @@ function VittoApp() {
     try {
       await remoteRepository.saveTrainingSchedule(next);
     } catch {
-      setError("Saved on this phone, but couldn't back your rotation up to your account. Check your connection.");
+      setError(t("Saved on this phone, but couldn't back your rotation up to your account. Check your connection."));
     }
   };
 
@@ -3101,12 +3123,12 @@ function VittoApp() {
     return (
       <View style={[layout.screen, styles.center, styles.loadFailed]}>
         <StatusBar barStyle={statusBarStyle} />
-        <Text style={styles.loadFailedTitle}>Could not reach your pet</Text>
+        <Text style={styles.loadFailedTitle}>{t('Could not reach your pet')}</Text>
         <Text style={styles.loadFailedBody}>
-          {error ?? 'Your account data did not load. Check your connection and try again.'}
+          {error ?? t('Your account data did not load. Check your connection and try again.')}
         </Text>
-        <PrimaryButton label="Try again" onPress={() => setReloadToken((token) => token + 1)} />
-        {isSupabaseConfigured && session ? <TextButton label="Sign out" onPress={logOut} /> : null}
+        <PrimaryButton label={t('Try again')} onPress={() => setReloadToken((token) => token + 1)} />
+        {isSupabaseConfigured && session ? <TextButton label={t('Sign out')} onPress={logOut} /> : null}
       </View>
     );
   }
@@ -3229,20 +3251,20 @@ function VittoApp() {
         const adding = proposal.kind === 'reminder';
         const agreed = await confirmDialog(
           proposalTitle({ proposal, from }),
-          adding ? `${livePet.name} can add this reminder for you.` : `${livePet.name} can change this for you.`,
-          adding ? 'Add' : 'Change',
+          adding ? t('{pet} can add this reminder for you.', { pet: livePet.name }) : t('{pet} can change this for you.', { pet: livePet.name }),
+          adding ? t('Add') : t('Change'),
           false,
         );
         if (agreed) {
           try {
             await applyCompanionProposal(proposal);
           } catch (cause) {
-            setCompanionSaid({ id: `talk-error-${Date.now()}`, text: errorMessage(cause, 'That did not save. Try again.') });
+            setCompanionSaid({ id: `talk-error-${Date.now()}`, text: errorMessage(cause, t('That did not save. Try again.')) });
           }
         }
       }
     } catch (cause) {
-      setCompanionSaid({ id: `talk-error-${Date.now()}`, text: errorMessage(cause, 'That did not reach me. Try again.') });
+      setCompanionSaid({ id: `talk-error-${Date.now()}`, text: errorMessage(cause, t('That did not reach me. Try again.')) });
     } finally {
       setTalkingToPet(false);
     }
@@ -3364,7 +3386,7 @@ function VittoApp() {
       onFinish={async (metadata) => {
         void completeMindSession(metadata).catch(() => undefined);
       }}
-      onOpenWordPuzzle={() => openRoute('WordPuzzle')}
+      onOpenWordPuzzle={wordPuzzleAvailable() ? () => openRoute('WordPuzzle') : undefined}
       onOpenFourCorners={() => openRoute('FourCorners')}
       onOpenPetJeopardy={() => openRoute('PetJeopardy')}
       onClose={onClose}
@@ -3540,7 +3562,7 @@ function VittoApp() {
                     ? {
                         steps: petSwitchTip(
                           livePet.name,
-                          pets.find((candidate) => candidate.id !== livePet.id)?.name ?? 'your other pet',
+                          pets.find((candidate) => candidate.id !== livePet.id)?.name ?? t('your other pet'),
                         ),
                         onDone: finishSwitchTip,
                         intro: false,
@@ -3631,7 +3653,7 @@ function VittoApp() {
         <RootStack.Screen name="LiftProgress">
           {({ navigation, route }) => (
             <LiftProgressScreen
-              backLabel={route.params?.from === 'Today' ? 'Today' : 'Profile'}
+              backLabel={route.params?.from === 'Today' ? t('Today') : t('Profile')}
               profile={profile}
               events={events}
               locked={!canCustomise}
@@ -3648,7 +3670,7 @@ function VittoApp() {
             <StepTrendsScreen
               events={events}
               stepGoal={stepGoal}
-              petName={livePet?.name ?? 'Your pet'}
+              petName={livePet?.name ?? t('Your pet')}
               miles={profile.weightUnit === 'lb'}
               onClose={() => navigation.goBack()}
             />
@@ -3669,7 +3691,7 @@ function VittoApp() {
           {({ navigation, route }) => (
             <SettingsScreen
               profile={profile}
-              backLabel={route.params?.from === 'Pet' ? 'Pet' : 'Profile'}
+              backLabel={route.params?.from === 'Pet' ? t('Pet') : t('Profile')}
               onClose={() => navigation.goBack()}
               breed={pet.breed}
               onBreedChange={(next) => void changeBreed(next)}
@@ -3691,7 +3713,7 @@ function VittoApp() {
               onOpenPreferences={() => navigation.navigate('Preferences')}
               onOpenCareAreas={() => navigation.navigate('CareAreas')}
               appearanceLabel={
-                preference === 'system' ? `System · ${scheme === 'dark' ? 'Dark' : 'Light'}` : APPEARANCE_LABEL[preference]
+                preference === 'system' ? (scheme === 'dark' ? t('System · Dark') : t('System · Light')) : APPEARANCE_LABEL[preference]
               }
               onOpenAppearance={() => navigation.navigate('Appearance')}
               musicOn={musicEnabled ?? undefined}
@@ -3700,7 +3722,7 @@ function VittoApp() {
                 void saveMusicEnabled(next);
               }}
               // Native only: the voice runs on the phone (see voice/kokoro.web.ts).
-              voiceOn={Platform.OS === 'web' ? undefined : voiceEnabled ?? undefined}
+              voiceOn={Platform.OS === 'web' || !petSpeechAvailable() ? undefined : voiceEnabled ?? undefined}
               voiceLocked={!canCustomise}
               petVoice={pet ? voiceOf(pet) : undefined}
               onOpenPetVoice={
@@ -3979,7 +4001,7 @@ function VittoApp() {
               onOpenWeek={() => navigation.navigate('WeeklyRecap')}
               onEditLog={openEdit}
               onDeleteLog={(event) => void removeEvent(event)}
-              onOpenWordPuzzle={() => navigation.navigate('WordPuzzle')}
+              onOpenWordPuzzle={wordPuzzleAvailable() ? () => navigation.navigate('WordPuzzle') : undefined}
               onOpenProfile={() => navigation.navigate('Profile')}
               onOpenHistory={() => navigation.navigate('ActivityHistory')}
               onClose={() => navigation.goBack()}

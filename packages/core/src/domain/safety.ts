@@ -2,14 +2,16 @@
  * Reporting and blocking another user (see the migration
  * 20261110120000_report_and_block.sql for what the server enforces).
  */
+import { t } from '../i18n';
+
 export const REPORT_REASONS = ['offensive_profile', 'harassment', 'spam', 'other'] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
 
 export const REPORT_REASON_LABEL: Record<ReportReason, string> = {
-  offensive_profile: 'Offensive name, bio or pet',
-  harassment: 'Harassment or bullying',
-  spam: 'Spam',
-  other: 'Something else',
+  offensive_profile: t('Offensive name, bio or pet'),
+  harassment: t('Harassment or bullying'),
+  spam: t('Spam'),
+  other: t('Something else'),
 };
 
 export interface BlockedUser {
@@ -20,7 +22,7 @@ export interface BlockedUser {
 }
 
 /** Said after a report goes in, so the person knows it went somewhere. */
-export const REPORT_THANKS = 'Thanks for telling us. We review every report within 24 hours.';
+export const REPORT_THANKS = t('Thanks for telling us. We review every report within 24 hours.');
 
 /**
  * Reporting one of the pet's AI-written replies (see the migration
@@ -30,9 +32,9 @@ export const REPLY_REPORT_REASONS = ['offensive', 'sexual', 'harmful', 'wrong', 
 export type ReplyReportReason = (typeof REPLY_REPORT_REASONS)[number];
 
 export const REPLY_REPORT_REASON_LABEL: Record<ReplyReportReason, string> = {
-  offensive: 'Offensive or hateful',
-  sexual: 'Sexual content',
-  harmful: 'Harmful or dangerous advice',
-  wrong: 'Wrong or made up',
-  other: 'Something else',
+  offensive: t('Offensive or hateful'),
+  sexual: t('Sexual content'),
+  harmful: t('Harmful or dangerous advice'),
+  wrong: t('Wrong or made up'),
+  other: t('Something else'),
 };

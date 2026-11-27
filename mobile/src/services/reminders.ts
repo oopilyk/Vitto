@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { type Reminder, WEEKDAYS, isEveryDay } from '@vitto/core';
+import { t } from '../i18n';
 
 /**
  * Turns saved reminders into scheduled local notifications.
@@ -72,7 +73,7 @@ export const syncScheduledReminders = async (reminders: readonly Reminder[]): Pr
       if (!reminder.enabled) continue;
       const content = {
         title: reminder.label,
-        body: 'A reminder you set in Vitto.',
+        body: t('A reminder you set in Vitto.'),
         data: { tag: REMINDER_TAG, reminderId: reminder.id },
       };
       if (isEveryDay(reminder.days)) {

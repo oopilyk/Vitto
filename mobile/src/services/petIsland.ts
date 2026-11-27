@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import {
   DECAY_PERIOD_MS,
   DECAY_PER_DAY,
-  MOOD_WORD,
   nextHungryAt,
   SLEEPY_ENERGY_THRESHOLD,
   assessCondition,
@@ -13,6 +12,7 @@ import {
 } from '@vitto/core';
 import { sheetForPet } from '../components/petSprites';
 import { endIsland, isIslandAvailable, syncIsland, type IslandState } from '../../modules/pet-island';
+import { t } from '../i18n';
 
 /**
  * The pet in the Dynamic Island.
@@ -67,6 +67,18 @@ const crossingAt = (value: number, threshold: number, need: Need, now: number, h
 
 const seconds = (ms: number) => Math.round(ms / 1000);
 
+/** "Blue is happy": the mood as a whole sentence (MOOD_WORD's words), so each can be translated. */
+const moodHeadline = (pet: PetState): string => {
+  const lines: Record<PetState['mood'], string> = {
+    bright: t('{pet} is happy', { pet: pet.name }),
+    content: t('{pet} is doing fine', { pet: pet.name }),
+    sleepy: t('{pet} is sleepy', { pet: pet.name }),
+    sluggish: t('{pet} is sluggish', { pet: pet.name }),
+    hungry: t('{pet} is hungry', { pet: pet.name }),
+  };
+  return lines[pet.mood];
+};
+
 export const buildIslandState = (pet: PetState, now: number = Date.now(), careAreas?: readonly CareArea[] | null): IslandState => {
   // Needs the person doesn't track (see careAreas in @vitto/core) never run down.
   const held = new Set<string>(untrackedNeeds(careAreas));
@@ -91,12 +103,12 @@ export const buildIslandState = (pet: PetState, now: number = Date.now(), careAr
   // A dying pet is the one thing worse than any mood, and the Island should
   // say so rather than "doing fine".
   const fading = assessCondition(pet).primary === 'dying';
-  const headline = fading ? `${pet.name} is fading` : `${pet.name} is ${MOOD_WORD[pet.mood]}`;
+  const headline = fading ? t('{pet} is fading', { pet: pet.name }) : moodHeadline(pet);
 
   return {
     petId: pet.id,
     name: pet.name,
-    sprite: spriteAssetName(sheetForPet(pet).label),
+    sprite: spriteAssetName(sheetForPet(pet).englishLabel),
     headline,
     mood: pet.mood,
     health: Math.max(0, Math.min(1, pet.health / 100)),
@@ -117,7 +129,7 @@ export const buildIslandState = (pet: PetState, now: number = Date.now(), careAr
  * mood change, a new form or a rename is.
  */
 export const islandSignature = (pet: PetState): string =>
-  [pet.id, pet.name, pet.mood, assessCondition(pet).primary ?? '', sheetForPet(pet).label, pet.lastEventAt ?? '', Math.round(pet.health / 5)].join('|');
+  [pet.id, pet.name, pet.mood, assessCondition(pet).primary ?? '', sheetForPet(pet).englishLabel, pet.lastEventAt ?? '', Math.round(pet.health / 5)].join('|');
 
 export const canShowIsland = (): boolean => Platform.OS === 'ios' && isIslandAvailable();
 
@@ -139,7 +151,7 @@ let rest: IslandRest | null = null;
 export const withRest = (state: IslandState, current: IslandRest | null, now: number = Date.now()): IslandState => {
   const { restStartedAt: _start, restEndsAt: _end, restLabel: _label, ...plain } = state;
   if (!current || current.endsAt <= now) return plain;
-  return { ...plain, restStartedAt: seconds(current.startedAt), restEndsAt: seconds(current.endsAt), restLabel: current.label };
+  return { ...plain, restStartedAt: seconds(current.startedAt), restEndsAt: seconds(current.endsAt), restLabel: t(current.label) };
 };
 
 /** Shows a rest on the Island, or clears it. Nothing when the pet is not on the Island. */

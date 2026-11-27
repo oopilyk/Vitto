@@ -1,5 +1,6 @@
 import type { HealthEvent, MacroNutrients, MealAnalysis, MealMetadata } from './health';
 import { type MealSlot, mealSlotOf } from './mealSlots';
+import { msg } from '../i18n';
 
 /**
  * Meals worth logging again in one tap: most people eat the same handful of
@@ -27,7 +28,7 @@ export const MAX_REPEATABLE_MEALS = 5;
 const SAME_TIME_WINDOW_MS = 2.5 * 60 * 60 * 1000;
 
 export const mealName = (analysis: MealAnalysis): string =>
-  analysis.foodDescription?.trim() || analysis.detectedFoods.join(', ') || analysis.summary?.trim() || 'Meal';
+  analysis.foodDescription?.trim() || analysis.detectedFoods.join(', ') || analysis.summary?.trim() || msg('Meal');
 
 const startOfDay = (at: Date): number => new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
 

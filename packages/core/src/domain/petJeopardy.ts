@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type { BrainTrainingMetadata } from './health';
 
 /**
@@ -172,9 +173,9 @@ export interface JeopardyDeal {
  */
 export const createJeopardyGame = (deal: JeopardyDeal, rng: Rng = Math.random): JeopardyGame => {
   const { categories, pool, finalPool } = deal;
-  if (pool.length === 0) throw new Error('No questions are available for the board right now.');
-  if (finalPool.length === 0) throw new Error('No Final Jeopardy question is available right now.');
-  if (categories.length === 0) throw new Error('No categories are available for the board right now.');
+  if (pool.length === 0) throw new Error(t('No questions are available for the board right now.'));
+  if (finalPool.length === 0) throw new Error(t('No Final Jeopardy question is available right now.'));
+  if (categories.length === 0) throw new Error(t('No categories are available for the board right now.'));
 
   const cells = categories.flatMap((category) =>
     JEOPARDY_VALUES.map((value) => {
@@ -182,7 +183,7 @@ export const createJeopardyGame = (deal: JeopardyDeal, rng: Rng = Math.random): 
         (question) => question.category === category.id && question.value === value,
       );
       if (candidates.length === 0) {
-        throw new Error(`No ${value} question is available for ${category.label}.`);
+        throw new Error(t('No {value} question is available for {category}.', { value, category: t(category.label) }));
       }
       const question = shuffle(candidates, rng)[0];
       const { options, correctIndex } = place(question, rng);

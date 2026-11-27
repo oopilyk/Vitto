@@ -7,6 +7,7 @@ import { haptic, Mark, NumberInput } from '../components/ui';
 import { logHaptic } from '../components/logKit';
 import { UNDO_MS } from '../components/UndoToast';
 import { fonts, world, themedStyles } from '../theme';
+import { t, tn, tx } from '../i18n';
 import { retro, retroPressed } from './retroStyle';
 
 /**
@@ -140,12 +141,12 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
   const log = async () => {
     const value = typed ?? last;
     if (value === undefined) {
-      setError(`Type your weight in ${unit}.`);
+      setError(t('Type your weight in {unit}.', { unit }));
       return;
     }
     const kg = convertWeightValue(value, unit, 'kg');
     if (!plausibleWeighIn(kg)) {
-      setError('That weight doesn’t look right.');
+      setError(t('That weight doesn’t look right.'));
       return;
     }
     setSaving(true);
@@ -157,7 +158,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
       setResult({ value, delta: last === undefined ? null : tenths(value - last) });
       setTyped(undefined);
     } catch {
-      setError('Could not save that. Check your connection.');
+      setError(t('Could not save that. Check your connection.'));
     } finally {
       setSaving(false);
     }
@@ -187,7 +188,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
       <View pointerEvents="box-none" style={[styles.pillWrap, { bottom }]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={days === null ? 'Weekly weigh-in, start your trend' : `Weekly weigh-in, last one ${days} days ago`}
+          accessibilityLabel={days === null ? t('Weekly weigh-in, start your trend') : t('Weekly weigh-in, last one {days} days ago', { days })}
           onPress={() => {
             haptic('press');
             setOpen(true);
@@ -197,8 +198,8 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
         >
           <View style={[styles.dot, night && styles.dotNight]} />
           <View>
-            <Text style={text}>WEIGH-IN</Text>
-            <Text style={[soft, styles.pillNote]}>{days === null ? 'start your trend' : overdueBy && overdueBy > 0 ? `${days} days ago` : 'this week'}</Text>
+            <Text style={text}>{t('WEIGH-IN')}</Text>
+            <Text style={[soft, styles.pillNote]}>{days === null ? t('start your trend') : overdueBy && overdueBy > 0 ? tn(days, '{count} day ago', '{count} days ago') : t('this week')}</Text>
           </View>
         </Pressable>
       </View>
@@ -212,7 +213,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
       {result ? null : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={keyboardUp ? 'Hide the keyboard' : 'Close the weigh-in'}
+          accessibilityLabel={keyboardUp ? t('Hide the keyboard') : t('Close the weigh-in')}
           onPress={() => (keyboardUp ? Keyboard.dismiss() : close())}
           style={[StyleSheet.absoluteFill, styles.backdrop]}
           testID="weigh-in-backdrop"
@@ -230,16 +231,18 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
               <Text style={[text, styles.resultValue]}>{`${result.value} ${unit}`}</Text>
               <Text style={soft}>
                 {result.delta === null
-                  ? 'First weigh-in logged. See you next week.'
+                  ? t('First weigh-in logged. See you next week.')
                   : result.delta === 0
-                    ? 'Same as last time. See you next week.'
-                    : `${result.delta < 0 ? '↓' : '↑'} ${Math.abs(result.delta)} ${unit} since last time. See you next week.`}
+                    ? t('Same as last time. See you next week.')
+                    : result.delta < 0
+                      ? t('↓ {amount} {unit} since last time. See you next week.', { amount: Math.abs(result.delta), unit })
+                      : t('↑ {amount} {unit} since last time. See you next week.', { amount: Math.abs(result.delta), unit })}
               </Text>
             </View>
             {undoRef.current ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Undo weigh-in"
+                accessibilityLabel={t('Undo weigh-in')}
                 hitSlop={10}
                 onPress={() => {
                   const undo = undoRef.current;
@@ -249,7 +252,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
                 }}
                 testID="weigh-in-undo"
               >
-                <Text style={[soft, styles.link]}>Undo</Text>
+                <Text style={[soft, styles.link]}>{t('Undo')}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -257,15 +260,17 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
           <>
             <View style={styles.head}>
               <View style={{ flex: 1 }}>
-                <Text style={text}>WEEKLY WEIGH-IN</Text>
+                <Text style={text}>{t('WEEKLY WEIGH-IN')}</Text>
                 <Text style={soft} numberOfLines={1}>
                   {last === undefined
-                    ? 'Once a week, same day, before breakfast.'
-                    : `Last week ${last} ${unit}${days !== null && days > WEIGH_IN_EVERY_DAYS ? ` · ${days} days ago` : ''}`}
+                    ? t('Once a week, same day, before breakfast.')
+                    : days !== null && days > WEIGH_IN_EVERY_DAYS
+                      ? t('Last week {weight} {unit} · {days} days ago', { weight: last, unit, days })
+                      : t('Last week {weight} {unit}', { weight: last, unit })}
                 </Text>
               </View>
               <Sparkline points={shown} night={night} />
-              <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={10} onPress={close} style={styles.close}>
+              <Pressable accessibilityRole="button" accessibilityLabel={tx('to dismiss', 'Close')} hitSlop={10} onPress={close} style={styles.close}>
                 <Mark kind="cross" size={11} weight={2.2} color={ink} />
               </Pressable>
             </View>
@@ -273,7 +278,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
             <View style={styles.entry}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Less, by 0.1 ${unit}`}
+                accessibilityLabel={t('Less, by 0.1 {unit}', { unit })}
                 disabled={from === undefined}
                 onPress={() => step(-0.1)}
                 style={({ pressed }) => [styles.stepper, from === undefined && styles.stepperOff, pressed && retroPressed]}
@@ -290,7 +295,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
                   }}
                   placeholder={last !== undefined ? String(last) : '0.0'}
                   placeholderTextColor={night ? world.nightTextSoft : world.inkSoft}
-                  accessibilityLabel={`This week's weight in ${unit}`}
+                  accessibilityLabel={t("This week's weight in {unit}", { unit })}
                   autoFocus
                   selectTextOnFocus
                   maxLength={6}
@@ -302,7 +307,7 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`More, by 0.1 ${unit}`}
+                accessibilityLabel={t('More, by 0.1 {unit}', { unit })}
                 disabled={from === undefined}
                 onPress={() => step(0.1)}
                 style={({ pressed }) => [styles.stepper, from === undefined && styles.stepperOff, pressed && retroPressed]}
@@ -314,22 +319,22 @@ export function WeighInPrompt({ unit, recentKg, onLog, onOpenChart, bottom, nigh
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Log weigh-in"
+              accessibilityLabel={t('Log weigh-in')}
               disabled={saving}
               onPress={() => void log()}
               style={({ pressed }) => [styles.log, (pressed || saving) && retroPressed]}
             >
               <Text style={[retro.label, styles.logLabel]}>
-                {saving ? 'SAVING...' : typed === undefined && last !== undefined ? `LOG ${last} ${unit.toUpperCase()}` : 'LOG WEIGH-IN'}
+                {saving ? t('SAVING...') : typed === undefined && last !== undefined ? t('LOG {weight} {unit}', { weight: last, unit: unit.toUpperCase() }) : t('LOG WEIGH-IN')}
               </Text>
             </Pressable>
 
             <View style={styles.links}>
               <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenChart}>
-                <Text style={[soft, styles.link]}>See your trend ›</Text>
+                <Text style={[soft, styles.link]}>{t('See your trend ›')}</Text>
               </Pressable>
               <Pressable accessibilityRole="button" hitSlop={8} onPress={snooze}>
-                <Text style={soft}>Remind me tomorrow</Text>
+                <Text style={soft}>{t('Remind me tomorrow')}</Text>
               </Pressable>
             </View>
           </>

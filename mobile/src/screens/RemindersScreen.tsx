@@ -13,6 +13,7 @@ import {
 import { FieldRow, FormField, SettingsPage, SettingsSection, TextField } from '../components/settingsKit';
 import { ChoiceRow, TextButton } from '../components/ui';
 import { colors, fonts, text, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 export interface RemindersProps {
   items: Reminder[];
@@ -52,7 +53,7 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
       setDays([]);
       setMessage(null);
     } catch (cause) {
-      setMessage(errorMessage(cause, 'Could not save that reminder.'));
+      setMessage(errorMessage(cause, t('Could not save that reminder.')));
     } finally {
       setBusy(false);
     }
@@ -60,22 +61,22 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
 
   return (
     <SettingsPage
-      title="Reminders"
-      lead="Your own notes to yourself. Vitto sends them even when it is closed."
-      backLabel="Profile"
+      title={t('Reminders')}
+      lead={t('Your own notes to yourself. Vitto sends them even when it is closed.')}
+      backLabel={t('Profile')}
       onBack={onClose}
     >
       {reminders.permission === 'denied' ? (
         <View style={styles.warning}>
           <Text style={styles.warningText}>
-            Notifications are turned off for Vitto, so these will not appear until you allow them in Settings. They are still saved.
+            {t('Notifications are turned off for Vitto, so these will not appear until you allow them in Settings. They are still saved.')}
           </Text>
         </View>
       ) : null}
 
-      <SettingsSection title="Your reminders" first>
+      <SettingsSection title={t('Your reminders')} first>
         {reminders.items.length === 0 ? (
-          <Text style={styles.empty}>Nothing yet. Add one below, like "Take creatine" at 8:00 am.</Text>
+          <Text style={styles.empty}>{t('Nothing yet. Add one below, like "Take creatine" at 8:00 am.')}</Text>
         ) : (
           <View style={styles.list}>
             {reminders.items.map((item, index) => (
@@ -87,33 +88,34 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
                   {/* The time on a line of its own, beside Pause and Delete on a 320pt
                       phone "8:00 am · Every day" broke between "am" and "Every". */}
                   <Text style={styles.rowMeta} numberOfLines={1}>
-                    {formatReminderTime(item.hour, item.minute)}
-                    {item.enabled ? '' : ' · paused'}
+                    {item.enabled
+                      ? formatReminderTime(item.hour, item.minute)
+                      : t('{time} · paused', { time: formatReminderTime(item.hour, item.minute) })}
                   </Text>
                   <Text style={styles.rowMeta}>{describeReminderDays(item.days)}</Text>
                 </View>
-                <TextButton label={item.enabled ? 'Pause' : 'Resume'} onPress={() => reminders.onToggle(item.id)} />
-                <TextButton label="Delete" tone="coral" onPress={() => reminders.onRemove(item.id)} />
+                <TextButton label={item.enabled ? t('Pause') : t('Resume')} onPress={() => reminders.onToggle(item.id)} />
+                <TextButton label={t('Delete')} tone="coral" onPress={() => reminders.onRemove(item.id)} />
               </View>
             ))}
           </View>
         )}
       </SettingsSection>
 
-      <SettingsSection title="New reminder">
-        <FormField label="What should Vitto say?">
-          <TextField placeholder="Your reminder, e.g. Take creatine" value={label} onChangeText={setLabel} maxLength={60} returnKeyType="done" />
+      <SettingsSection title={t('New reminder')}>
+        <FormField label={t('What should Vitto say?')}>
+          <TextField placeholder={t('Your reminder, e.g. Take creatine')} value={label} onChangeText={setLabel} maxLength={60} returnKeyType="done" />
         </FormField>
         <FieldRow>
-          <FormField label="Hour" hint="0-23">
+          <FormField label={t('Hour')} hint="0-23">
             <TextField keyboardType="number-pad" placeholder="8" value={hour} onChangeText={(value) => setHour(digits(value))} />
           </FormField>
-          <FormField label="Minute">
+          <FormField label={t('Minute')}>
             <TextField keyboardType="number-pad" placeholder="00" value={minute} onChangeText={(value) => setMinute(digits(value))} />
           </FormField>
         </FieldRow>
         {/* No days chosen means every day -- see `isEveryDay`. */}
-        <FormField label="Days" hint={days.length === 0 ? 'Every day' : describeReminderDays(days)}>
+        <FormField label={t('Days')} hint={days.length === 0 ? t('Every day') : describeReminderDays(days)}>
           <ChoiceRow
             options={WEEKDAYS.map((day) => ({ value: String(day), label: WEEKDAY_LABEL[day] }))}
             value={days.map(String)}
@@ -125,7 +127,7 @@ export function RemindersScreen({ reminders, onClose }: { reminders: RemindersPr
         </FormField>
         {message ? <Text style={styles.error}>{message}</Text> : null}
         <View style={styles.actions}>
-          <TextButton label={busy ? 'Saving...' : 'Add reminder'} tone="coral" onPress={() => void add()} disabled={busy} />
+          <TextButton label={busy ? t('Saving...') : t('Add reminder')} tone="coral" onPress={() => void add()} disabled={busy} />
         </View>
       </SettingsSection>
     </SettingsPage>

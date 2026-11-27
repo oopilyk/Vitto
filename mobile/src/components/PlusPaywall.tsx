@@ -14,6 +14,7 @@ import { cancelTrialReminder, scheduleTrialReminder } from '../services/pushServ
 import { CloseButton, PrimaryButton, TextButton, Mark } from './ui';
 import { FitText } from './FitText';
 import { colors, fonts, text, themedStyles } from '../theme';
+import { formatLocale, petSpeechAvailable, t, tx } from '../i18n';
 
 interface Props {
   /** The dev account is Plus whatever the store says; the paywall says so instead of selling it. */
@@ -39,65 +40,70 @@ interface Props {
  */
 const COMPARISON: { feature: string; detail: string; free: string; plus: string }[] = [
   {
-    feature: 'Photo meal tracking',
-    detail: 'Snap a plate, get the macros',
+    feature: t('Photo meal tracking'),
+    detail: t('Snap a plate, get the macros'),
     free: '—',
-    plus: 'Included',
+    plus: t('Included'),
   },
   {
-    feature: 'Personality',
-    detail: 'Pick or write their character',
-    free: 'Default',
-    plus: 'Yours',
+    feature: t('Personality'),
+    detail: t('Pick or write their character'),
+    free: tx('the standard personality or voice, in the Free and Plus comparison', 'Default'),
+    plus: tx('a personality you choose yourself, in the Free and Plus comparison', 'Yours'),
   },
   {
-    feature: 'Chat',
-    detail: 'Messages to your pet',
+    feature: tx('talking with your pet, as the name of a feature', 'Chat'),
+    detail: t('Messages to your pet'),
     // Both as numbers, read off the real caps: "5 a day" against "50 a day"
     // says how much more at a glance, and follows the caps if they change.
-    free: `${ai.TIER_LIMITS.free.messagesPerDay} a day`,
-    plus: `${ai.TIER_LIMITS.plus.messagesPerDay} a day`,
+    free: t('{count} a day', { count: ai.TIER_LIMITS.free.messagesPerDay }),
+    plus: t('{count} a day', { count: ai.TIER_LIMITS.plus.messagesPerDay }),
   },
   {
-    feature: 'Memory',
-    detail: 'Remembers what you tell it',
+    feature: tx('the pet remembering what you tell it, as the name of a feature', 'Memory'),
+    detail: t('Remembers what you tell it'),
     free: '—',
-    plus: 'Included',
+    plus: t('Included'),
   },
   {
-    feature: 'Lift progress',
-    detail: 'Your estimated max over time',
+    feature: t('Lift progress'),
+    detail: t('Your estimated max over time'),
     free: '—',
-    plus: 'Included',
+    plus: t('Included'),
   },
   {
-    feature: 'AI insights',
-    detail: 'Patterns your pet notices',
+    feature: t('AI insights'),
+    detail: t('Patterns your pet notices'),
     free: '—',
-    plus: 'Included',
+    plus: t('Included'),
+  },
+  // The spoken voice is English only: where the pet does not speak, the table does not offer it.
+  ...(petSpeechAvailable()
+    ? [
+        {
+          feature: t('Talks out loud'),
+          detail: t('Hear your pet say its lines'),
+          free: '—',
+          plus: t('Included'),
+        },
+      ]
+    : []),
+  {
+    feature: tx('how the pet words its replies, not sound', 'Voice'),
+    detail: t('Their personality in every reply'),
+    free: tx('the standard personality or voice, in the Free and Plus comparison', 'Default'),
+    plus: t('In character'),
   },
   {
-    feature: 'Talks out loud',
-    detail: 'Hear your pet say its lines',
-    free: '—',
-    plus: 'Included',
-  },
-  {
-    feature: 'Voice',
-    detail: 'Their personality in every reply',
-    free: 'Default',
-    plus: 'In character',
-  },
-  {
-    feature: 'Check-ins',
-    detail: 'Your pet reaches out first',
-    free: `${ai.TIER_LIMITS.free.proactivePerDay} a day`,
-    plus: `${ai.TIER_LIMITS.plus.proactivePerDay} a day`,
+    feature: t('Check-ins'),
+    detail: t('Your pet reaches out first'),
+    free: t('{count} a day', { count: ai.TIER_LIMITS.free.proactivePerDay }),
+    plus: t('{count} a day', { count: ai.TIER_LIMITS.plus.proactivePerDay }),
   },
 ];
 
 const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  new Date(iso).toLocaleDateString(formatLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
 
 /**
  * The Vitto Plus paywall, laid out the way paywalls that convert are:
@@ -129,7 +135,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
     try {
       setStatus(await billingService.status());
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not load Plus.');
+      setError(cause instanceof Error ? cause.message : t('Could not load Plus.'));
     }
   }, []);
 
@@ -146,7 +152,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
       onTierChange(next.tier);
       await after?.(next);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not go through.');
+      setError(cause instanceof Error ? cause.message : t('That did not go through.'));
     } finally {
       setBusy(false);
     }
@@ -193,15 +199,15 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
     <View style={styles.page} testID="plus-paywall">
       <View style={styles.bar}>
         {skippable ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Skip" onPress={onClose} hitSlop={10} style={styles.skip}>
-            <Text style={styles.skipLabel}>Skip</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('Skip')} onPress={onClose} hitSlop={10} style={styles.skip}>
+            <Text style={styles.skipLabel}>{t('Skip')}</Text>
           </Pressable>
         ) : (
           <CloseButton onPress={onClose} />
         )}
         {status?.enabled && !isPlus ? (
           <Pressable accessibilityRole="button" onPress={() => void run(billingService.restore)} hitSlop={10} disabled={busy}>
-            <Text style={styles.restore}>Restore</Text>
+            <Text style={styles.restore}>{tx('bring back an earlier purchase', 'Restore')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -210,11 +216,11 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
       <View style={styles.hero}>
         <Image source={APP_ICON} style={styles.icon} accessibilityIgnoresInvertColors />
         <Text style={styles.title}>Vitto Plus</Text>
-        <Text style={styles.subtitle}>Everything your pet can be.</Text>
+        <Text style={styles.subtitle}>{t('Everything your pet can be.')}</Text>
       </View>
 
       <PlusComparison />
-      <Text style={styles.stillFree}>Logging, workouts, steps and mind games stay free.</Text>
+      <Text style={styles.stillFree}>{t('Logging, workouts, steps and mind games stay free.')}</Text>
 
       {!status && !error ? <ActivityIndicator color={colors.coral} style={styles.loading} /> : null}
 
@@ -223,11 +229,11 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
       {status && isPlus ? (
         <View style={styles.card}>
           <Text style={styles.statusLine} testID="plus-active">
-            {status.expiresAt ? `Plus is on until ${formatDate(status.expiresAt)}.` : 'Plus is on for good.'}
+            {status.expiresAt ? t('Plus is on until {date}.', { date: formatDate(status.expiresAt) }) : t('Plus is on for good.')}
           </Text>
           {status.enabled ? (
             <TextButton
-              label={store ? 'Manage subscription' : 'Cancel Plus (test mode)'}
+              label={store ? t('Manage subscription') : 'Cancel Plus (test mode)'}
               tone="coral"
               onPress={() =>
                 void run(billingService.cancel, (next) => (next.tier === 'free' ? cancelTrialReminder() : undefined))
@@ -238,15 +244,15 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
         </View>
       ) : null}
 
-      {status && !isPlus && !status.enabled ? <Text style={styles.note}>Plus isn't available to buy yet.</Text> : null}
+      {status && !isPlus && !status.enabled ? <Text style={styles.note}>{t("Plus isn't available to buy yet.")}</Text> : null}
 
       {status && !isPlus && status.enabled ? (
         <>
           {trialDays !== null ? (
           <View style={[styles.card, styles.trialRow]}>
             <View style={styles.trialText}>
-              <Text style={styles.trialTitle}>{`${trialDays}-day free trial`}</Text>
-              <Text style={styles.trialSub}>{trialOn ? 'Try everything. Pay nothing today.' : 'Yearly plan only'}</Text>
+              <Text style={styles.trialTitle}>{t('{days}-day free trial', { days: trialDays })}</Text>
+              <Text style={styles.trialSub}>{trialOn ? t('Try everything. Pay nothing today.') : t('Yearly plan only')}</Text>
             </View>
             {store ? null : (
             <Switch
@@ -257,7 +263,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
               ios_backgroundColor={colors.hairline}
               // react-native-web colours the "on" thumb from this instead.
               {...({ activeThumbColor: '#ffffff' } as object)}
-              accessibilityLabel="Free trial"
+              accessibilityLabel={t('Free trial')}
               testID="trial-toggle"
             />
             )}
@@ -266,13 +272,13 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
 
           {trialOn ? (
             <View style={styles.card} testID="trial-timeline">
-              <Text style={styles.timelineTitle}>How your trial works</Text>
+              <Text style={styles.timelineTitle}>{t('How your trial works')}</Text>
               <View style={styles.timeline}>
                 <View style={styles.timelineRail} />
                 {[
-                  { day: 'Today', what: 'Full access, free', tint: colors.mintDeep },
-                  { day: `Day ${reminderDay}`, what: 'A reminder, if you allow it', tint: colors.lilacDeep },
-                  { day: `Day ${trialDays}`, what: `${yearlyPrice} / year, cancel anytime`, tint: colors.inkSoft },
+                  { day: t('Today'), what: t('Full access, free'), tint: colors.mintDeep },
+                  { day: t('Day {day}', { day: reminderDay! }), what: t('A reminder, if you allow it'), tint: colors.lilacDeep },
+                  { day: t('Day {day}', { day: trialDays! }), what: t('{price} / year, cancel anytime', { price: yearlyPrice }), tint: colors.inkSoft },
                 ].map((step) => (
                   <View key={step.day} style={styles.stop}>
                     <View style={[styles.stopDot, { backgroundColor: step.tint }]} />
@@ -291,7 +297,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
 
       {skippable ? (
         <Pressable accessibilityRole="button" onPress={onClose} style={styles.continueFree} testID="continue-free">
-          <Text style={styles.continueFreeLabel}>Continue with Free</Text>
+          <Text style={styles.continueFreeLabel}>{t('Continue with Free')}</Text>
         </Pressable>
       ) : null}
       </ScrollView>
@@ -304,13 +310,13 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
           <View style={styles.plans}>
             {plans.map((option) => {
               const selected = option.value === plan;
-              const perWord = option.per === '/ yr' ? 'per year' : 'per month';
+              const perWord = option.value === 'yearly' ? t('per year') : t('per month');
               return (
                 <Pressable
                   key={option.value}
                   accessibilityRole="radio"
                   accessibilityState={{ selected }}
-                  accessibilityLabel={`${option.label}, ${option.price} ${option.per}`}
+                  accessibilityLabel={t('{plan}, {price} {per}', { plan: option.label, price: option.price, per: option.per })}
                   onPress={() => choosePlan(option.value)}
                   style={[styles.plan, selected && styles.planOn]}
                 >
@@ -332,11 +338,11 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
                   {/* A store price can run long ("US$49.99"): it shrinks rather than wrap. */}
                   <FitText style={styles.planPrice}>{option.price}</FitText>
                   <Text style={styles.planPer}>{perWord}</Text>
-                  <Text style={[styles.planNote, selected && styles.planNoteOn]}>{option.note ?? 'Billed monthly'}</Text>
+                  <Text style={[styles.planNote, selected && styles.planNoteOn]}>{option.note ?? t('Billed monthly')}</Text>
                   {/* The trial is Yearly's alone: said on both cards, so picking Monthly never surprises. */}
                   {trialDays !== null ? (
                     <Text style={[styles.planTrial, option.value === 'yearly' && styles.planTrialOn]} numberOfLines={1}>
-                      {option.value === 'yearly' ? `${trialDays} days free` : 'No free trial'}
+                      {option.value === 'yearly' ? t('{days} days free', { days: trialDays }) : t('No free trial')}
                     </Text>
                   ) : null}
                 </Pressable>
@@ -345,7 +351,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
           </View>
 
           <View style={styles.cta}>
-            <PrimaryButton label={trialOn ? 'Start Free Trial' : 'Continue'} onPress={() => void buy()} busy={busy} disabled={busy} />
+            <PrimaryButton label={trialOn ? t('Start Free Trial') : t('Continue')} onPress={() => void buy()} busy={busy} disabled={busy} />
             <Text style={styles.terms} testID="plus-terms">{chosen.terms(trialOn)}</Text>
             {store ? null : (
               <Text style={styles.testMode} testID="plus-test-mode">
@@ -355,7 +361,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
             {/* The App Store requires both next to a subscription. */}
             <View style={styles.legal}>
               <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
-                Terms of Use
+                {t('Terms of Use')}
               </Text>
               {LEGAL_LINKS.privacy ? (
                 <>
@@ -365,7 +371,7 @@ export function PlusPaywall({ isDevAccount, onTierChange, onClose, onPurchased, 
                     accessibilityRole="link"
                     onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}
                   >
-                    Privacy Policy
+                    {t('Privacy Policy')}
                   </Text>
                 </>
               ) : null}
@@ -386,7 +392,7 @@ export function PlusComparison({ compact = false }: { compact?: boolean }) {
     <View style={styles.table} testID="plus-comparison">
       <View style={styles.tableHead}>
         <View style={styles.featureCol} />
-        <Text style={[styles.headCell, styles.freeCol, compact && styles.headCompact]}>Free</Text>
+        <Text style={[styles.headCell, styles.freeCol, compact && styles.headCompact]}>{tx('the plan without a subscription', 'Free')}</Text>
         <View style={[styles.plusCol, styles.plusHead, compact && styles.headCompact]}>
           <Text style={styles.plusHeadLabel}>Plus</Text>
         </View>

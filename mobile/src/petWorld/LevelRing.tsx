@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { fonts, world, themedStyles } from '../theme';
+import { t } from '../i18n';
 import { retroPressed } from './retroStyle';
 
 const SIZE = 90;
@@ -22,9 +23,9 @@ export function LevelRing({
   onPress,
   night,
   size = SIZE,
-  kicker = 'LV',
+  kicker = t('LV'),
   value,
-  accessibilityLabel = 'Open pet stats',
+  accessibilityLabel = t('Open pet stats'),
 }: {
   level: number;
   xpPct: number;

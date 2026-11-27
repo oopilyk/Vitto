@@ -75,7 +75,10 @@ export function FitText({ children, style, lines = 1, minScale = 0.7, containerS
   const [natural, setNatural] = useState(0);
   const [longest, setLongest] = useState(0);
   const longestWord = useMemo(
-    () => children.split(/\s+/).reduce((widest, word) => (word.length > widest.length ? word : widest), ''),
+    // Chinese breaks between any two characters, so each is a "word" of its
+    // own: taken as one unbreakable word, a line of it was shrunk to the floor
+    // before it was allowed to wrap.
+    () => children.replace(/[\u2E80-\uFFEF]/g, ' $& ').split(/\s+/).reduce((widest, word) => (word.length > widest.length ? word : widest), ''),
     [children],
   );
 

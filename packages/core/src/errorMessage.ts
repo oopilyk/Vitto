@@ -1,3 +1,5 @@
+import { t, translateServerMessage } from './i18n';
+
 /**
  * What a `fetch` says when it never got a response at all: offline, DNS, a
  * gateway that dropped the connection, or a CORS-less error page (a 504 from a
@@ -8,7 +10,7 @@
 // fetch", its error's name first, so a leading "SomethingError: " is allowed.
 const NETWORK_FAILURE = /^(?:\w*error:\s*)?(failed to fetch|network request failed|load failed|networkerror|fetch failed)/i;
 
-export const NETWORK_ERROR_MESSAGE = 'Could not reach the server. Check your connection and try again.';
+export const NETWORK_ERROR_MESSAGE = t('Could not reach the server. Check your connection and try again.');
 
 /** True for the raw transport failures a user should never see verbatim. */
 export const isNetworkError = (cause: unknown): boolean => {
@@ -38,7 +40,7 @@ export const isNetworkError = (cause: unknown): boolean => {
 const STALE_SESSION_CODES = new Set(['PGRST301', 'PGRST302', 'PGRST303']);
 const STALE_SESSION_TEXT = /\b(jwt|token)\b.*\b(expired|invalid|issued at future|future)\b|issued at future/i;
 
-export const SESSION_ERROR_MESSAGE = 'Could not confirm your session. Give it a moment and try again.';
+export const SESSION_ERROR_MESSAGE = t('Could not confirm your session. Give it a moment and try again.');
 
 export const isStaleSessionError = (cause: unknown): boolean => {
   if (!cause || typeof cause !== 'object') return false;
@@ -57,7 +59,7 @@ export const errorMessage = (cause: unknown, fallback: string): string => {
   // Before the Error branch: a PostgrestError IS an Error, so checking this
   // second would let "JWT issued at future" through as its own message.
   if (isStaleSessionError(cause)) return SESSION_ERROR_MESSAGE;
-  if (cause instanceof Error && cause.message) return cause.message;
+  if (cause instanceof Error && cause.message) return translateServerMessage(cause.message);
   if (cause && typeof cause === 'object') {
     const { message, details, hint, code } = cause as Record<string, unknown>;
     const parts = [message, details, hint].filter(
@@ -65,7 +67,7 @@ export const errorMessage = (cause: unknown, fallback: string): string => {
     );
     // P0001 is a `raise exception` of our own (a daily limit, a rule): its
     // message was written for the person reading it, and the code is noise.
-    if (code === 'P0001' && typeof message === 'string' && message) return message;
+    if (code === 'P0001' && typeof message === 'string' && message) return translateServerMessage(message);
     if (parts.length) {
       return typeof code === 'string' && code ? `${parts.join(' — ')} (${code})` : parts.join(' — ');
     }

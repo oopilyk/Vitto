@@ -1,6 +1,7 @@
 import { companion as ai, type ReplyReportReason } from '@vitto/core';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
+import { getLocale, t } from '../i18n';
 
 /**
  * The phone's side of the AI companion.
@@ -22,14 +23,15 @@ export type CompanionProposal = ai.CompanionProposal;
 /** The account has used today's allowance. Carries what it is allowed, for the UI. */
 export class CompanionLimitError extends Error {
   constructor(readonly access: CompanionAccess) {
-    super("That's all the chat for today.");
+    super(t("That's all the chat for today."));
     this.name = 'CompanionLimitError';
   }
 }
 
 const invoke = async <T,>(body: Record<string, unknown>): Promise<T> => {
-  if (!supabase) throw new Error('Sign in to talk to your pet.');
-  const { data, error } = await supabase.functions.invoke('companion', { body });
+  if (!supabase) throw new Error(t('Sign in to talk to your pet.'));
+  // The app's language goes with every call, so the pet can answer in it.
+  const { data, error } = await supabase.functions.invoke('companion', { body: { ...body, locale: getLocale() } });
   if (!error) return data as T;
   // supabase-js hangs the failed Response off `context`; the function's own
   // reason is in its JSON body. Duck-typed, not `instanceof Response`: React
@@ -110,7 +112,7 @@ export const companionService = {
         { action: 'chat', petId, life, message },
       ),
       SEND_TIMEOUT_MS,
-      'That is taking too long. Check the conversation in a moment — the reply may still arrive.',
+      t('That is taking too long. Check the conversation in a moment — the reply may still arrive.'),
     ),
 
   /** Something happened in their life. Fire and forget: a failure costs the pet a reaction, nothing else. */
@@ -166,13 +168,13 @@ export const companionService = {
    * twice counts as done.
    */
   reportReply: async (messageId: string, reason: ReplyReportReason): Promise<void> => {
-    if (!supabase) throw new Error('Reports need a connection.');
+    if (!supabase) throw new Error(t('Reports need a connection.'));
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) throw new Error('Sign in to report a reply.');
+    if (!user) throw new Error(t('Sign in to report a reply.'));
     const { error } = await supabase.from('ai_reply_reports').insert({ reporter_id: user.id, message_id: messageId, reason });
-    if (error && error.code !== '23505') throw new Error(error.message || 'Could not send that report.');
+    if (error && error.code !== '23505') throw new Error(error.message || t('Could not send that report.'));
   },
 };
 

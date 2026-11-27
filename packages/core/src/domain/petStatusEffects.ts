@@ -8,6 +8,7 @@ import {
 import { AILMENT_THRESHOLDS, assessCondition, type PetAilment } from './petCondition';
 import { SLEEPY_ENERGY_THRESHOLD, SLUGGISH_VITALITY_THRESHOLD } from './petHealthEngine';
 import { chargeOf, type PetState } from './pet';
+import { t } from '../i18n';
 
 /**
  * The pet's active states, as a list you can read at a glance.
@@ -37,27 +38,27 @@ export interface StatusEffect {
 
 /** The stats by the names the app shows them under, not their storage keys. */
 const STAT_NAME: Partial<Record<keyof PetState, string>> = {
-  health: 'Health',
-  nutrition: 'Hunger',
-  energy: 'Vitality',
-  happiness: 'Happiness',
-  mind: 'Mind',
+  health: t('Health'),
+  nutrition: t('Hunger'),
+  energy: t('Vitality'),
+  happiness: t('Happiness'),
+  mind: t('Mind'),
 };
 
 const AILMENT_LABEL: Record<PetAilment, { label: string; stat: keyof PetState }> = {
-  dying: { label: 'Fading', stat: 'health' },
-  starving: { label: 'Starving', stat: 'nutrition' },
-  exhausted: { label: 'Exhausted', stat: 'energy' },
-  sad: { label: 'Lonely', stat: 'happiness' },
-  foggy: { label: 'Foggy', stat: 'mind' },
+  dying: { label: t('Fading'), stat: 'health' },
+  starving: { label: t('Starving'), stat: 'nutrition' },
+  exhausted: { label: t('Exhausted'), stat: 'energy' },
+  sad: { label: t('Lonely'), stat: 'happiness' },
+  foggy: { label: t('Foggy'), stat: 'mind' },
 };
 
 const RECOVERY_HINT: Record<PetAilment, string> = {
-  dying: 'Any care moment at all helps.',
-  starving: 'Log a meal.',
-  exhausted: 'Log a walk or a workout.',
-  sad: 'Play, or spend time together.',
-  foggy: 'Try the Mind Gym.',
+  dying: t('Any care moment at all helps.'),
+  starving: t('Log a meal.'),
+  exhausted: t('Log a walk or a workout.'),
+  sad: t('Play, or spend time together.'),
+  foggy: t('Try the Mind Gym.'),
 };
 
 /** Whether a need is low enough to actually cost health, as opposed to merely reading badly. */
@@ -80,14 +81,19 @@ export const getStatusEffects = (pet: PetState): StatusEffect[] => {
   for (const ailment of condition.ailments) {
     const { label, stat } = AILMENT_LABEL[ailment];
     const value = pet[stat] as number;
-    const drain = isDraining(pet, ailment)
-      ? ` Costing ${HEALTH_DRAIN_PER_CRITICAL_NEED_PER_DAY} health a day.`
-      : '';
+    const said = {
+      stat: STAT_NAME[stat] ?? stat,
+      value: Math.round(value),
+      threshold: AILMENT_THRESHOLDS[ailment],
+      hint: RECOVERY_HINT[ailment],
+    };
     effects.push({
       id: ailment,
       kind: 'debuff',
       label,
-      detail: `${STAT_NAME[stat] ?? stat} ${Math.round(value)}, at or under ${AILMENT_THRESHOLDS[ailment]}.${drain} ${RECOVERY_HINT[ailment]}`,
+      detail: isDraining(pet, ailment)
+        ? t('{stat} {value}, at or under {threshold}. Costing {drain} health a day. {hint}', { ...said, drain: HEALTH_DRAIN_PER_CRITICAL_NEED_PER_DAY })
+        : t('{stat} {value}, at or under {threshold}. {hint}', said),
     });
   }
 
@@ -97,8 +103,8 @@ export const getStatusEffects = (pet: PetState): StatusEffect[] => {
     effects.push({
       id: 'sleepy',
       kind: 'debuff',
-      label: 'Sleepy',
-      detail: `Energy ${Math.round(chargeOf(pet))}, under ${SLEEPY_ENERGY_THRESHOLD}. A good night's sleep or a meal will lift it.`,
+      label: t('Sleepy'),
+      detail: t("Energy {value}, under {threshold}. A good night's sleep or a meal will lift it.", { value: Math.round(chargeOf(pet)), threshold: SLEEPY_ENERGY_THRESHOLD }),
     });
   }
   const alreadyExhausted = condition.ailments.includes('exhausted');
@@ -106,8 +112,8 @@ export const getStatusEffects = (pet: PetState): StatusEffect[] => {
     effects.push({
       id: 'sluggish',
       kind: 'debuff',
-      label: 'Sluggish',
-      detail: `Vitality ${Math.round(pet.energy)}, under ${SLUGGISH_VITALITY_THRESHOLD}. Not costing health yet — it starts at ${CRITICAL_NEED}.`,
+      label: t('Sluggish'),
+      detail: t('Vitality {value}, under {threshold}. Not costing health yet — it starts at {critical}.', { value: Math.round(pet.energy), threshold: SLUGGISH_VITALITY_THRESHOLD, critical: CRITICAL_NEED }),
     });
   }
 
@@ -120,8 +126,8 @@ export const getStatusEffects = (pet: PetState): StatusEffect[] => {
     effects.push({
       id: 'thriving',
       kind: 'buff',
-      label: 'Thriving',
-      detail: `Every need above ${THRIVING_NEED}, so health is recovering ${HEALTH_REGEN_PER_DAY} a day.`,
+      label: t('Thriving'),
+      detail: t('Every need above {threshold}, so health is recovering {perDay} a day.', { threshold: THRIVING_NEED, perDay: HEALTH_REGEN_PER_DAY }),
     });
   }
 

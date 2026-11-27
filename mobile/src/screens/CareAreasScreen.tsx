@@ -2,6 +2,7 @@ import { Text, View } from 'react-native';
 import { CARE_AREAS, toggleCareArea, tracksArea, type CareArea } from '@vitto/core';
 import { SettingsPage, ToggleRow } from '../components/settingsKit';
 import { colors, themedStyles, fonts } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   petName: string;
@@ -19,24 +20,24 @@ interface Props {
 /** Each area, in the person's terms: what it is, and what turning it off means for the pet. */
 const AREA_COPY = (petName: string): Record<CareArea, { title: string; on: string; off: string }> => ({
   nutrition: {
-    title: 'Food',
-    on: `Meals keep ${petName} fed and give them energy. Skip them and ${petName} gets hungry and sleepy.`,
-    off: `${petName} never gets hungry or sleepy. Logging meals is optional.`,
+    title: t('Food'),
+    on: t('Meals keep {pet} fed and give them energy. Skip them and {pet} gets hungry and sleepy.', { pet: petName }),
+    off: t('{pet} never gets hungry or sleepy. Logging meals is optional.', { pet: petName }),
   },
   training: {
-    title: 'Workouts',
-    on: `Workouts give ${petName} vitality and build their strength.`,
-    off: 'Workouts are optional.',
+    title: t('Workouts'),
+    on: t('Workouts give {pet} vitality and build their strength.', { pet: petName }),
+    off: t('Workouts are optional.'),
   },
   movement: {
-    title: 'Steps',
-    on: `Walking gives ${petName} vitality.`,
-    off: 'Steps are optional.',
+    title: t('Steps'),
+    on: t('Walking gives {pet} vitality.', { pet: petName }),
+    off: t('Steps are optional.'),
   },
   mind: {
-    title: 'Mind games',
-    on: `Games keep ${petName} sharp. Skip them and ${petName} gets foggy.`,
-    off: `${petName} never gets foggy. Games are optional.`,
+    title: t('Mind games'),
+    on: t('Games keep {pet} sharp. Skip them and {pet} gets foggy.', { pet: petName }),
+    off: t('{pet} never gets foggy. Games are optional.', { pet: petName }),
   },
 });
 
@@ -52,13 +53,13 @@ export function CareAreasScreen({ petName, areas, onChange, canEdit = true, onCl
 
   return (
     <SettingsPage
-      title={`What affects ${petName}`}
+      title={t('What affects {pet}', { pet: petName })}
       lead={
         canEdit
-          ? `Choose what you want to track. Anything you turn off stops affecting ${petName}'s health, and you can change this any time.`
-          : `What counts toward ${petName}'s health. Only ${petName}'s owner can change this.`
+          ? t("Choose what you want to track. Anything you turn off stops affecting {pet}'s health, and you can change this any time.", { pet: petName })
+          : t("What counts toward {pet}'s health. Only {pet}'s owner can change this.", { pet: petName })
       }
-      backLabel="Settings"
+      backLabel={t('Settings')}
       onBack={onClose}
     >
       <View style={styles.body}>
@@ -71,7 +72,7 @@ export function CareAreasScreen({ petName, areas, onChange, canEdit = true, onCl
                   <Text style={styles.readTitle}>{copy[area].title}</Text>
                   <Text style={styles.readBody}>{on ? copy[area].on : copy[area].off}</Text>
                 </View>
-                <Text style={[styles.readState, on && styles.readStateOn]}>{on ? 'On' : 'Off'}</Text>
+                <Text style={[styles.readState, on && styles.readStateOn]}>{on ? t('On') : t('Off')}</Text>
               </View>
             );
           }
@@ -80,7 +81,7 @@ export function CareAreasScreen({ petName, areas, onChange, canEdit = true, onCl
             <ToggleRow
               key={area}
               title={copy[area].title}
-              description={last ? `${copy[area].on} At least one has to stay on.` : on ? copy[area].on : copy[area].off}
+              description={last ? t('{description} At least one has to stay on.', { description: copy[area].on }) : on ? copy[area].on : copy[area].off}
               value={on}
               onChange={() => {
                 if (!last) onChange(toggleCareArea(areas, area));
@@ -89,9 +90,9 @@ export function CareAreasScreen({ petName, areas, onChange, canEdit = true, onCl
           );
         })}
         {energyHeld ? (
-          <Text style={styles.note}>{`With workouts and steps both off, ${petName}'s vitality never runs down either.`}</Text>
+          <Text style={styles.note}>{t("With workouts and steps both off, {pet}'s vitality never runs down either.", { pet: petName })}</Text>
         ) : null}
-        <Text style={styles.note}>{`Happiness always counts: anything you log makes ${petName} happier.`}</Text>
+        <Text style={styles.note}>{t('Happiness always counts: anything you log makes {pet} happier.', { pet: petName })}</Text>
       </View>
     </SettingsPage>
   );

@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { formatLocale } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 interface NutrientRingProps {
@@ -43,7 +44,7 @@ export function NutrientRing({
 }: NutrientRingProps) {
   const clamped = Math.max(0, Math.min(100, Number.isFinite(percent) ? percent : 0));
   const offset = CIRCUMFERENCE * (1 - clamped / 100);
-  const shown = Math.round(Math.abs(value)).toLocaleString();
+  const shown = Math.round(Math.abs(value)).toLocaleString(formatLocale());
 
   return (
     <View style={styles.wrap}>

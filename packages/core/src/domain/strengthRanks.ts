@@ -3,6 +3,7 @@ import type { BodyProfile } from './macroTargets';
 import { convertWeightValue } from './macroTargets';
 import { estimatedOneRepMax } from './oneRepMax';
 import { plausibleSet } from './workoutLimits';
+import { msg, t } from '../i18n';
 
 /**
  * Strength ranks: how strong each lift is for the person lifting it, as a rank
@@ -18,18 +19,19 @@ import { plausibleSet } from './workoutLimits';
  * Read off the workout log, never stored -- like personal records.
  */
 
-export const STRENGTH_TIERS = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Champion', 'Grand Champion'] as const;
+export const STRENGTH_TIERS = [t('Bronze'), t('Silver'), t('Gold'), t('Platinum'), t('Diamond'), t('Champion'), t('Grand Champion')] as const;
 export type StrengthTier = (typeof STRENGTH_TIERS)[number];
 
 export type StandardLift = 'bench' | 'squat' | 'deadlift' | 'ohp' | 'row' | 'curl';
 
+/** Kept English here, because the companion is sent it: translated where it is drawn, with `t(label)`. */
 export const STANDARD_LIFT_LABEL: Record<StandardLift, string> = {
-  bench: 'Bench press',
-  squat: 'Squat',
-  deadlift: 'Deadlift',
-  ohp: 'Overhead press',
-  row: 'Row',
-  curl: 'Curl',
+  bench: msg('Bench press'),
+  squat: msg('Squat'),
+  deadlift: msg('Deadlift'),
+  ohp: msg('Overhead press'),
+  row: msg('Row'),
+  curl: msg('Curl'),
 };
 
 /**
@@ -194,15 +196,15 @@ export const tierThresholdsKg = (lift: StandardLift, profile: Pick<BodyProfile, 
 export type MuscleGroup = 'chest' | 'shoulders' | 'triceps' | 'biceps' | 'upperBack' | 'lowerBack' | 'glutes' | 'hamstrings' | 'quads';
 
 export const MUSCLE_GROUP_LABEL: Record<MuscleGroup, string> = {
-  chest: 'Chest',
-  shoulders: 'Shoulders',
-  triceps: 'Triceps',
-  biceps: 'Biceps',
-  upperBack: 'Upper back',
-  lowerBack: 'Lower back',
-  glutes: 'Glutes',
-  hamstrings: 'Hamstrings',
-  quads: 'Quads',
+  chest: t('Chest'),
+  shoulders: t('Shoulders'),
+  triceps: t('Triceps'),
+  biceps: t('Biceps'),
+  upperBack: t('Upper back'),
+  lowerBack: t('Lower back'),
+  glutes: t('Glutes'),
+  hamstrings: t('Hamstrings'),
+  quads: t('Quads'),
 };
 
 /** Which lifts grade each muscle group. Several: the group takes their average rank. */

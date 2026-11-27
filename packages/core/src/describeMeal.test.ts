@@ -46,7 +46,7 @@ describe('describeMeal', () => {
     const search = vi.fn(async () => []);
 
     const meal = await describeMeal("2 scrambled eggs, a big bowl of rice and mum's stew", { search });
-    expect(invoke).toHaveBeenCalledWith('describe-meal', { body: { text: "2 scrambled eggs, a big bowl of rice and mum's stew", key: expect.any(String) } });
+    expect(invoke).toHaveBeenCalledWith('describe-meal', { body: { text: "2 scrambled eggs, a big bowl of rice and mum's stew", key: expect.any(String), locale: 'en' } });
     // Judgment words mean the sentence is never searched from the phone.
     expect(search).not.toHaveBeenCalled();
     expect(meal.via).toBe('ai');

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import type { PetState } from '@vitto/core';
 import { PetAvatar } from '../components/PetAvatar';
+import { t, tx } from '../i18n';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { retro } from '../petWorld/retroStyle';
 import { fonts, getColorScheme, world, themedStyles } from '../theme';
@@ -64,6 +65,15 @@ function useReducedMotion(): boolean | null {
   }, []);
   return reduced;
 }
+
+/**
+ * "1 day streak" and "5 day streak" are the same words in English and not in
+ * other languages, so a streak of exactly one day has its own entries.
+ */
+const spokenStreak = (streak: number, pet: string): string =>
+  streak === 1
+    ? tx('a streak of exactly one day', '{count} day streak. {pet} is proud.', { count: streak, pet })
+    : t('{count} day streak. {pet} is proud.', { count: streak, pet });
 
 export function StreakCelebration({ pet, streak, night: nightTime, onComplete }: Props) {
   const reduceMotion = useReducedMotion();
@@ -135,7 +145,7 @@ export function StreakCelebration({ pet, streak, night: nightTime, onComplete }:
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }).start();
-      AccessibilityInfo.announceForAccessibility(`${streak} day streak. ${pet.name} is proud.`);
+      AccessibilityInfo.announceForAccessibility(spokenStreak(streak, pet.name));
     });
 
     at(2300, () => {
@@ -176,8 +186,8 @@ export function StreakCelebration({ pet, streak, night: nightTime, onComplete }:
       if (event.key === 'Escape' && canContinue) handleContinue();
     };
     const webGlobal = globalThis as unknown as {
-      addEventListener?: (t: string, cb: (e: never) => void) => void;
-      removeEventListener?: (t: string, cb: (e: never) => void) => void;
+      addEventListener?: (type: string, cb: (e: never) => void) => void;
+      removeEventListener?: (type: string, cb: (e: never) => void) => void;
     };
     webGlobal.addEventListener?.('keydown', onKey as (e: never) => void);
     return () => webGlobal.removeEventListener?.('keydown', onKey as (e: never) => void);
@@ -197,7 +207,7 @@ export function StreakCelebration({ pet, streak, night: nightTime, onComplete }:
     <Animated.View
       style={[styles.root, { backgroundColor: c.bg, opacity: veil }]}
       accessibilityViewIsModal
-      accessibilityLabel={`${streak} day streak. ${pet.name} is proud.`}
+      accessibilityLabel={spokenStreak(streak, pet.name)}
     >
       <View style={styles.backdrop} pointerEvents="none">
         <PixelField color={c.speckle} />
@@ -264,7 +274,7 @@ export function StreakCelebration({ pet, streak, night: nightTime, onComplete }:
             },
           ]}
         >
-          DAY STREAK!
+          {streak === 1 ? tx('under the number 1: a streak of exactly one day', 'DAY STREAK!') : t('DAY STREAK!')}
         </Animated.Text>
 
         <Animated.Text
@@ -277,7 +287,7 @@ export function StreakCelebration({ pet, streak, night: nightTime, onComplete }:
             },
           ]}
         >
-          {pet.name} is proud!
+          {t('{pet} is proud!', { pet: pet.name })}
         </Animated.Text>
       </View>
 
@@ -296,8 +306,8 @@ export function StreakCelebration({ pet, streak, night: nightTime, onComplete }:
           onPress={handleContinue}
           disabled={!canContinue}
           accessibilityRole="button"
-          accessibilityLabel="Continue"
-          accessibilityHint={`Return to ${pet.name}`}
+          accessibilityLabel={t('Continue')}
+          accessibilityHint={t('Return to {pet}', { pet: pet.name })}
           accessibilityState={{ disabled: !canContinue }}
           style={({ pressed }) => [
             retro.panel,
@@ -306,7 +316,7 @@ export function StreakCelebration({ pet, streak, night: nightTime, onComplete }:
             pressed && styles.continuePressed,
           ]}
         >
-          <Text style={[styles.continueLabel, night && retro.labelNight]}>CONTINUE</Text>
+          <Text style={[styles.continueLabel, night && retro.labelNight]}>{t('CONTINUE')}</Text>
           <Text style={[styles.continueMark, night && retro.labelNight]}>›</Text>
         </Pressable>
       </Animated.View>

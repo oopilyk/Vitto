@@ -1,5 +1,6 @@
 import type { HealthEvent, MealMetadata } from './health';
 import type { PetDelta } from './pet';
+import { msg, t } from '../i18n';
 
 /**
  * Food effects: what a meal DOES to the pet, in one word and one line.
@@ -44,7 +45,10 @@ export type FoodEffectId =
 
 export interface FoodEffect {
   id: FoodEffectId;
-  /** The tag. One word, so a stack of them stays readable. */
+  /**
+   * The tag. One word, so a stack of them stays readable. Kept in English (the
+   * companion is sent it as it is): draw it with `t(effect.label)`.
+   */
   label: string;
   /** What the pet says the moment it lands. */
   reaction: string;
@@ -57,6 +61,13 @@ export interface FoodEffect {
 interface FoodEffectRule extends FoodEffect {
   /** Words that trigger it, matched as whole words in the meal's text. */
   words?: readonly string[];
+  /**
+   * The same in Spanish (whole words) and Chinese (anywhere in the text): a
+   * meal read from a photo is described in the app's language, and these are
+   * what the effect is found by there. Matched whatever language the app is in.
+   */
+  es?: readonly string[];
+  zh?: readonly string[];
   /** A macro/flag test, for effects that are about amounts rather than names. */
   test?: (meal: MealMetadata) => boolean;
 }
@@ -70,8 +81,8 @@ const HOUR = 60;
 export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
   {
     id: 'junk',
-    label: 'Junk',
-    reaction: 'Greasy. Not feeling great.',
+    label: msg('Junk'),
+    reaction: t('Greasy. Not feeling great.'),
     durationMinutes: 2 * HOUR,
     // The grade already decides the meal's own (small) delta; this is the
     // after-effect, and the only effect that costs anything.
@@ -80,64 +91,76 @@ export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
   },
   {
     id: 'spicy',
-    label: 'Spicy',
-    reaction: 'That was hot!',
+    label: msg('Spicy'),
+    reaction: t('That was hot!'),
     durationMinutes: 2 * HOUR,
     delta: { charge: 2 },
     words: ['spicy', 'hot sauce', 'hot wings', 'hot chicken', 'hot pot', 'extra hot', 'chili', 'chilli', 'chile', 'jalapeno', 'jalapeño', 'habanero', 'sriracha', 'curry', 'wasabi', 'buffalo', 'cayenne', 'kimchi', 'tabasco', 'szechuan', 'sichuan', 'vindaloo', 'nduja', 'pepperoncini', 'harissa', 'gochujang', 'chipotle'],
+    es: ['picante', 'picantes', 'ají', 'jalapeño', 'habanero', 'curry', 'wasabi', 'kimchi', 'sriracha', 'chipotle', 'guindilla'],
+    zh: ['辣', '咖喱', '芥末', '泡菜', '麻婆', '火锅', '川菜'],
   },
   {
     id: 'sugar_rush',
-    label: 'Sugar rush',
-    reaction: 'Zoom zoom zoom!',
+    label: msg('Sugar rush'),
+    reaction: t('Zoom zoom zoom!'),
     durationMinutes: 1 * HOUR,
     delta: { happiness: 2 },
     words: ['candy', 'cake', 'cupcake', 'cookie', 'donut', 'doughnut', 'soda', 'cola', 'dessert', 'ice cream', 'chocolate', 'brownie', 'pastry', 'sweets', 'lollipop', 'milkshake', 'frosting', 'gummy', 'waffle', 'pancake'],
+    es: ['caramelo', 'pastel', 'tarta', 'galleta', 'dona', 'rosquilla', 'refresco', 'gaseosa', 'postre', 'helado', 'chocolate', 'bizcocho', 'dulces', 'malteada', 'gofre', 'panqueque', 'tortitas', 'churro', 'flan'],
+    zh: ['糖果', '蛋糕', '饼干', '甜甜圈', '汽水', '可乐', '甜点', '甜品', '冰淇淋', '巧克力', '布朗尼', '奶昔', '华夫', '松饼', '奶茶'],
   },
   {
     id: 'caffeinated',
-    label: 'Wired',
-    reaction: 'Wide awake now.',
+    label: msg('Wired'),
+    reaction: t('Wide awake now.'),
     durationMinutes: 3 * HOUR,
     delta: { charge: 3 },
     words: ['coffee', 'espresso', 'latte', 'cappuccino', 'americano', 'matcha', 'energy drink', 'red bull', 'cold brew', 'mocha', 'black tea', 'yerba'],
+    es: ['café', 'espresso', 'expreso', 'latte', 'capuchino', 'cappuccino', 'americano', 'matcha', 'bebida energética', 'té negro', 'cortado'],
+    zh: ['咖啡', '拿铁', '卡布奇诺', '美式', '抹茶', '能量饮料', '红牛', '冷萃', '摩卡', '红茶'],
   },
   {
     id: 'protein_packed',
-    label: 'Protein',
-    reaction: 'Gains incoming.',
+    label: msg('Protein'),
+    reaction: t('Gains incoming.'),
     durationMinutes: 3 * HOUR,
     delta: { strength: 1 },
     test: (meal) => (meal.analysis?.macros.proteinGrams ?? 0) >= 30,
   },
   {
     id: 'greens',
-    label: 'Greens',
-    reaction: 'Leafy and lean.',
+    label: msg('Greens'),
+    reaction: t('Leafy and lean.'),
     durationMinutes: 2 * HOUR,
     delta: { health: 1 },
     words: ['salad', 'spinach', 'kale', 'broccoli', 'greens', 'lettuce', 'arugula', 'rocket', 'bok choy', 'cabbage', 'asparagus', 'zucchini', 'courgette', 'cucumber'],
+    es: ['ensalada', 'espinaca', 'col rizada', 'brócoli', 'lechuga', 'rúcula', 'repollo', 'espárrago', 'calabacín', 'pepino', 'acelga'],
+    zh: ['沙拉', '菠菜', '羽衣甘蓝', '西兰花', '生菜', '青菜', '白菜', '卷心菜', '芦笋', '西葫芦', '黄瓜', '油菜', '芝麻菜'],
   },
   {
     id: 'fresh',
-    label: 'Fresh',
-    reaction: 'Crisp and bright.',
+    label: msg('Fresh'),
+    reaction: t('Crisp and bright.'),
     durationMinutes: 2 * HOUR,
     delta: { happiness: 1 },
     words: ['apple', 'banana', 'berry', 'berries', 'orange', 'mango', 'grape', 'melon', 'pineapple', 'peach', 'pear', 'kiwi', 'fruit', 'smoothie', 'strawberr', 'blueberr', 'raspberr', 'watermelon', 'cherries', 'plum', 'citrus'],
+    es: ['manzana', 'plátano', 'banana', 'fresa', 'naranja', 'mango', 'uva', 'melón', 'piña', 'durazno', 'melocotón', 'pera', 'kiwi', 'fruta', 'arándano', 'frambuesa', 'sandía', 'cereza', 'ciruela', 'licuado'],
+    zh: ['苹果', '香蕉', '莓', '橙', '芒果', '葡萄', '西瓜', '哈密瓜', '甜瓜', '菠萝', '桃子', '水蜜桃', '梨', '猕猴桃', '水果', '果昔', '樱桃', '李子', '柚子'],
   },
   {
     id: 'comfort',
-    label: 'Cozy',
-    reaction: 'Warm and happy.',
+    label: msg('Cozy'),
+    reaction: t('Warm and happy.'),
     durationMinutes: 2 * HOUR,
     delta: { happiness: 2 },
     words: ['pizza', 'burger', 'fries', 'mac and cheese', 'macaroni', 'ramen', 'noodle', 'lasagna', 'lasagne', 'stew', 'casserole', 'dumpling', 'pasta', 'grilled cheese', 'nachos', 'pot pie', 'shepherd', 'chowder', 'mashed', 'risotto'],
+    es: ['pizza', 'hamburguesa', 'papas fritas', 'patatas fritas', 'macarrones', 'ramen', 'fideos', 'lasaña', 'estofado', 'guiso', 'pasta', 'nachos', 'puré', 'risotto', 'cazuela'],
+    zh: ['披萨', '比萨', '汉堡', '薯条', '通心粉', '拉面', '面条', '千层面', '炖', '饺子', '意面', '意大利面', '烩饭', '砂锅', '馄饨', '粥', '米线'],
   },
   {
     id: 'feast',
-    label: 'Stuffed',
-    reaction: 'Ugh. Too much.',
+    label: msg('Stuffed'),
+    reaction: t('Ugh. Too much.'),
     durationMinutes: 2 * HOUR,
     // A food coma: a little slower, a little content.
     delta: { charge: -2, happiness: 1 },
@@ -145,16 +168,18 @@ export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
   },
   {
     id: 'brain_food',
-    label: 'Sharp',
-    reaction: 'Thinking clearly.',
+    label: msg('Sharp'),
+    reaction: t('Thinking clearly.'),
     durationMinutes: 3 * HOUR,
     delta: { mind: 2 },
     words: ['salmon', 'tuna', 'sardine', 'mackerel', 'trout', 'fish', 'walnut', 'almond', 'egg', 'eggs', 'avocado', 'blueberr', 'oats', 'oatmeal', 'seeds', 'nuts'],
+    es: ['salmón', 'atún', 'sardina', 'caballa', 'trucha', 'pescado', 'nuez', 'nueces', 'almendra', 'huevo', 'aguacate', 'palta', 'avena', 'semillas', 'frutos secos'],
+    zh: ['三文鱼', '金枪鱼', '沙丁鱼', '鲭鱼', '鳟鱼', '鱼片', '鱼肉', '烤鱼', '蒸鱼', '鱼排', '核桃', '杏仁', '鸡蛋', '煎蛋', '炒蛋', '水煮蛋', '牛油果', '蓝莓', '燕麦', '坚果'],
   },
   {
     id: 'carb_loaded',
-    label: 'Fuelled',
-    reaction: 'Ready to run.',
+    label: msg('Fuelled'),
+    reaction: t('Ready to run.'),
     durationMinutes: 3 * HOUR,
     delta: { endurance: 1 },
     test: (meal) => (meal.analysis?.macros.carbsGrams ?? 0) >= 80,
@@ -165,7 +190,7 @@ export const FOOD_EFFECT_RULES: readonly FoodEffectRule[] = [
 const WHOLESOME_EFFECTS: ReadonlySet<FoodEffectId> = new Set(['protein_packed', 'greens', 'fresh', 'brain_food']);
 
 export const FOOD_EFFECT_BY_ID: Record<FoodEffectId, FoodEffect> = Object.fromEntries(
-  FOOD_EFFECT_RULES.map(({ words: _w, test: _t, ...effect }) => [effect.id, effect]),
+  FOOD_EFFECT_RULES.map(({ words: _w, es: _es, zh: _zh, test: _t, ...effect }) => [effect.id, effect]),
 ) as Record<FoodEffectId, FoodEffect>;
 
 /** Everything the meal says about itself, lower-cased, for word matching. */
@@ -188,6 +213,10 @@ const hasWord = (text: string, word: string): boolean => {
   return new RegExp(`(^|[^a-z])${escaped}(s|es)?($|[^a-z])`, 'i').test(text);
 };
 
+/** A whole Spanish word, plural allowed; a letter with an accent is a letter, so "té" is not found in "tés…" or "paté". */
+const hasSpanishWord = (text: string, word: string): boolean =>
+  new RegExp(`(^|[^a-záéíóúüñ])${escape(word)}(s|es)?($|[^a-záéíóúüñ])`, 'i').test(text);
+
 /**
  * The effects one meal carries, in display order. At most three: past that a
  * plate reads as everything at once, which is the same as nothing.
@@ -198,10 +227,13 @@ export const detectFoodEffects = (meal: MealMetadata): FoodEffect[] => {
   const found: FoodEffect[] = [];
   for (const rule of FOOD_EFFECT_RULES) {
     if (junk && WHOLESOME_EFFECTS.has(rule.id)) continue;
-    const byWord = rule.words?.some((word) => hasWord(text, word)) ?? false;
+    const byWord =
+      (rule.words?.some((word) => hasWord(text, word)) ?? false) ||
+      (rule.es?.some((word) => hasSpanishWord(text, word)) ?? false) ||
+      (rule.zh?.some((word) => text.includes(word)) ?? false);
     const byTest = rule.test?.(meal) ?? false;
     if (byWord || byTest) {
-      const { words: _w, test: _t, ...effect } = rule;
+      const { words: _w, es: _es, zh: _zh, test: _t, ...effect } = rule;
       found.push(effect);
     }
   }

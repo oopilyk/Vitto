@@ -24,6 +24,7 @@ import { FitText } from '../components/FitText';
 import { CloseButton, ErrorText, Kicker, PrimaryButton, TextButton } from '../components/ui';
 import { type WordPuzzleProgress } from '../services/localRepository';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
+import { t, tn } from '../i18n';
 
 interface Props {
   events: HealthEvent[];
@@ -127,12 +128,12 @@ export function WordPuzzleScreen({
   const submit = () => {
     if (over) return;
     if (entry.length !== round.length) {
-      setNotice(`Needs ${round.length} letters.`);
+      setNotice(t('Needs {count} letters.', { count: round.length }));
       return;
     }
     // A word we don't know costs nothing — rejecting the entry must not burn a guess.
     if (!isValidGuess(entry)) {
-      setNotice("That one isn't in the word list.");
+      setNotice(t("That one isn't in the word list."));
       return;
     }
 
@@ -171,7 +172,7 @@ export function WordPuzzleScreen({
       onClearProgress();
       setStage('done');
     } catch (cause) {
-      setError(errorMessage(cause, "Could not save today's puzzle."));
+      setError(errorMessage(cause, t("Could not save today's puzzle.")));
     } finally {
       setSaving(false);
     }
@@ -182,8 +183,8 @@ export function WordPuzzleScreen({
       <View style={styles.sheet}>
         <View style={styles.header}>
           <View>
-            <Kicker>Word puzzle</Kicker>
-            <Text style={styles.title}>Today's word</Text>
+            <Kicker>{t('Word puzzle')}</Kicker>
+            <Text style={styles.title}>{t("Today's word")}</Text>
           </View>
           <CloseButton onPress={onClose} />
         </View>
@@ -191,7 +192,7 @@ export function WordPuzzleScreen({
         {stage === 'play' ? (
           <View style={styles.play}>
             <Text style={styles.roundHint}>
-              {`${round.length} letters · ${round.maxGuesses - guesses.length} of ${round.maxGuesses} guesses left`}
+              {t('{letters} letters · {left} of {max} guesses left', { letters: round.length, left: round.maxGuesses - guesses.length, max: round.maxGuesses })}
             </Text>
 
             <View style={styles.board}>
@@ -209,15 +210,15 @@ export function WordPuzzleScreen({
                 <>
                   <Text style={styles.verdict}>
                     {solved
-                      ? `Got it in ${guesses.length}.`
-                      : `The word was ${answer.toUpperCase()}.`}
+                      ? t('Got it in {guesses}.', { guesses: guesses.length })
+                      : t('The word was {word}.', { word: answer.toUpperCase() })}
                   </Text>
-                  <PrimaryButton label="See your score" onPress={() => setStage('summary')} />
+                  <PrimaryButton label={t('See your score')} onPress={() => setStage('summary')} />
                 </>
               ) : (
                 <>
                   <Text style={[styles.notice, !notice && styles.noticeIdle]}>
-                    {notice ?? 'Tap ENTER when the row is full.'}
+                    {notice ?? t('Tap ENTER when the row is full.')}
                   </Text>
                   <WordPuzzleKeyboard
                     marks={keyMarks}
@@ -234,21 +235,20 @@ export function WordPuzzleScreen({
             {stage === 'intro' ? (
               <>
                 <Text style={styles.intro}>
-                  One five-letter word, once a day. You get six guesses, and a word we don't
-                  recognise costs you nothing. No clock — take your time.
+                  {t("One five-letter word, once a day. You get six guesses, and a word we don't recognise costs you nothing. No clock — take your time.")}
                 </Text>
                 <View style={styles.card}>
-                  <Text style={styles.cardLabel}>Today's word</Text>
-                  <Text style={styles.cardValue}>5 letters · 6 guesses</Text>
+                  <Text style={styles.cardLabel}>{t("Today's word")}</Text>
+                  <Text style={styles.cardValue}>{t('5 letters · 6 guesses')}</Text>
                   <Text style={styles.cardHint}>
                     {streak.currentStreak > 0
-                      ? `${streak.currentStreak}-day streak on the line`
-                      : 'Start a streak today'}
+                      ? t('{days}-day streak on the line', { days: streak.currentStreak })
+                      : t('Start a streak today')}
                   </Text>
                 </View>
                 <View style={styles.actions}>
-                  <PrimaryButton label="Start today's puzzle" onPress={start} />
-                  <TextButton label="Not now" onPress={onClose} />
+                  <PrimaryButton label={t("Start today's puzzle")} onPress={start} />
+                  <TextButton label={t('Not now')} onPress={onClose} />
                 </View>
               </>
             ) : null}
@@ -258,13 +258,13 @@ export function WordPuzzleScreen({
                 <ScoreCard score={wordPuzzleScore(outcomes)} outcome={outcomes[0]} answer={answer} maxGuesses={round.maxGuesses} />
                 <Text style={styles.note}>
                   {outcomes[0]?.solved
-                    ? 'Logging it feeds your pet and keeps the streak alive.'
-                    : 'Logging it still counts as today\'s puzzle, so the streak stays alive.'}
+                    ? t('Logging it feeds your pet and keeps the streak alive.')
+                    : t('Logging it still counts as today\'s puzzle, so the streak stays alive.')}
                 </Text>
                 <ErrorText>{error}</ErrorText>
                 <View style={styles.actions}>
                   <PrimaryButton
-                    label={saving ? 'Saving...' : 'Log session'}
+                    label={saving ? t('Saving...') : t('Log session')}
                     busy={saving}
                     onPress={() => void save()}
                   />
@@ -281,15 +281,15 @@ export function WordPuzzleScreen({
                   maxGuesses={round.maxGuesses}
                 />
                 <View style={styles.card}>
-                  <Text style={styles.cardLabel}>Streak</Text>
+                  <Text style={styles.cardLabel}>{t('Streak')}</Text>
                   <Text style={styles.cardValue}>
-                    {streak.currentStreak} {streak.currentStreak === 1 ? 'day' : 'days'}
+                    {tn(streak.currentStreak, '{count} day', '{count} days')}
                   </Text>
-                  <Text style={styles.cardHint}>Longest run {streak.longestStreak}</Text>
+                  <Text style={styles.cardHint}>{t('Longest run {days}', { days: streak.longestStreak })}</Text>
                 </View>
-                <Text style={styles.note}>Today's word is played. A new one lands tomorrow.</Text>
+                <Text style={styles.note}>{t("Today's word is played. A new one lands tomorrow.")}</Text>
                 <View style={styles.actions}>
-                  <PrimaryButton label="Back to your pet" onPress={onClose} />
+                  <PrimaryButton label={t('Back to your pet')} onPress={onClose} />
                 </View>
               </>
             ) : null}
@@ -324,21 +324,21 @@ function ScoreCard({
         <View style={{ flex: 1 }}>
           {/* Beside the points on a 320pt phone: shrinks a touch rather than leaving "6" alone on a line. */}
           <FitText style={styles.scoreLabel} minScale={0.85}>
-            {solved ? `Solved in ${used} of ${maxGuesses}` : 'Not this time'}
+            {solved ? t('Solved in {used} of {max}', { used, max: maxGuesses }) : t('Not this time')}
           </FitText>
           <Text style={styles.scoreMeta}>
-            {!solved ? 'The word was' : used <= 2 ? 'Brilliant.' : used <= 4 ? 'Nice work.' : 'Got there in the end.'}
+            {!solved ? t('The word was') : used <= 2 ? t('Brilliant.') : used <= 4 ? t('Nice work.') : t('Got there in the end.')}
           </Text>
         </View>
         {score > 0 ? (
           <View style={styles.points}>
             <Text style={styles.pointsValue}>+{score}</Text>
-            <Text style={styles.pointsUnit}>points</Text>
+            <Text style={styles.pointsUnit}>{t('points')}</Text>
           </View>
         ) : null}
       </View>
       {solved ? (
-        <View style={styles.pips} accessibilityLabel={`${used} of ${maxGuesses} guesses used`}>
+        <View style={styles.pips} accessibilityLabel={t('{used} of {max} guesses used', { used, max: maxGuesses })}>
           {Array.from({ length: maxGuesses }, (_, index) => (
             <View
               key={index}
@@ -347,7 +347,7 @@ function ScoreCard({
           ))}
         </View>
       ) : (
-        <View style={styles.answer} accessibilityLabel={`The word was ${answer}`}>
+        <View style={styles.answer} accessibilityLabel={t('The word was {word}', { word: answer })}>
           {answer.toUpperCase().split('').map((letter, index) => (
             <View key={index} style={styles.answerTile}>
               <Text style={styles.answerLetter}>{letter}</Text>

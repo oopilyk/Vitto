@@ -15,6 +15,7 @@ import { surface } from '../components/surfaceStyle';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { fonts, world, themedStyles } from '../theme';
 import { isJeopardyWin } from './board';
+import { t } from '../i18n';
 
 interface JeopardyResultsProps {
   pet: PetState;
@@ -30,10 +31,10 @@ const RESULT_PET_SIZE = 132;
 
 /** Warm, never graded — a board left early is still a board played. */
 const closingLine = (game: JeopardyGame, correct: number, answered: number): string => {
-  if (answered === 0) return 'Nothing answered yet.';
-  if (game.final?.correct) return 'Called it, and cashed it.';
-  if (game.final?.correct === false) return 'The wager was the fun part.';
-  return correct * 2 >= answered ? 'Solid board.' : 'Some tough squares in there.';
+  if (answered === 0) return t('Nothing answered yet.');
+  if (game.final?.correct) return t('Called it, and cashed it.');
+  if (game.final?.correct === false) return t('The wager was the fun part.');
+  return correct * 2 >= answered ? t('Solid board.') : t('Some tough squares in there.');
 };
 
 /** "+12", "−12", or the honest zero when the Final was never played. */
@@ -55,8 +56,8 @@ export function JeopardyResults({
   return (
     <View style={styles.wrap}>
       <View style={[styles.scorePanel, surface.panel, night && surface.panelNight]}>
-        <Text style={[surface.kicker, night && surface.kickerNight]}>Pet Jeopardy</Text>
-        <Text style={[styles.score, night && styles.scoreNight]}>{`${correct} / ${answered} correct`}</Text>
+        <Text style={[surface.kicker, night && surface.kickerNight]}>{t('Pet Jeopardy')}</Text>
+        <Text style={[styles.score, night && styles.scoreNight]}>{t('{correct} / {total} correct', { correct, total: answered })}</Text>
         <Text style={[surface.caption, night && surface.captionNight, styles.line]}>
           {closingLine(game, correct, answered)}
         </Text>
@@ -79,17 +80,17 @@ export function JeopardyResults({
       </View>
 
       <View style={styles.rewards}>
-        <Reward value={`+${jeopardyBoardXp(game)}`} unit="Board XP" night={night} />
-        <Reward value={signed(jeopardyWagerDelta(game))} unit="Wager" night={night} />
-        <Reward value={`+${jeopardyNetXp(game)}`} unit="Session XP" night={night} />
+        <Reward value={`+${jeopardyBoardXp(game)}`} unit={t('Board XP')} night={night} />
+        <Reward value={signed(jeopardyWagerDelta(game))} unit={t('Wager')} night={night} />
+        <Reward value={`+${jeopardyNetXp(game)}`} unit={t('Session XP')} night={night} />
       </View>
 
       <ErrorText>{error}</ErrorText>
 
       <View style={styles.actions}>
-        <PrimaryButton label="Save and go back" onPress={onSaveAndLeave} busy={saving} />
+        <PrimaryButton label={t('Save and go back')} onPress={onSaveAndLeave} busy={saving} />
         <View style={styles.again}>
-          <TextButton label="Play again" onPress={onPlayAgain} disabled={saving} tone="coral" />
+          <TextButton label={t('Play again')} onPress={onPlayAgain} disabled={saving} tone="coral" />
         </View>
       </View>
     </View>

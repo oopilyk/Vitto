@@ -3,6 +3,7 @@ import type { HealthEvent, WeightUnit, WorkoutExercise, WorkoutMetadata, Workout
 import { plausibleSet } from './workoutLimits';
 import { estimatedOneRepMax } from './oneRepMax';
 import { convertWeightValue } from './macroTargets';
+import { t } from '../i18n';
 
 /**
  * Saved routines — "Push", "Pull", "Legs" — so logging a workout you do every
@@ -129,13 +130,13 @@ export const templateError = (
   existingId?: string,
 ): string | null => {
   const clean = normalizeTemplateName(name);
-  if (!clean) return 'Give the routine a name.';
-  if (exercises.length === 0) return 'Add an exercise before saving a routine.';
+  if (!clean) return t('Give the routine a name.');
+  if (exercises.length === 0) return t('Add an exercise before saving a routine.');
   const replacing = templates.some(
     (candidate) => candidate.id !== existingId && sameName(candidate.name, clean),
   );
   if (!replacing && !existingId && templates.length >= MAX_WORKOUT_TEMPLATES) {
-    return `You can keep up to ${MAX_WORKOUT_TEMPLATES} routines.`;
+    return t('You can keep up to {max} routines.', { max: MAX_WORKOUT_TEMPLATES });
   }
   return null;
 };

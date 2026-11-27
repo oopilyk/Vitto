@@ -20,6 +20,7 @@ import { PrimaryButton, TextButton } from '../components/ui';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { colors, fonts, layout, themedStyles } from '../theme';
+import { t, tn, tRich } from '../i18n';
 import { Obstacle } from './Obstacle';
 import {
   FALLBACK_TRACK_WIDTH,
@@ -64,11 +65,11 @@ const FOCUS_DELAY_MS = 250;
 const secondsUntil = (deadline: number, now: number): number => Math.max(0, Math.ceil((deadline - now) / 1000));
 
 const summaryFor = (state: MathRunState): string[] => {
-  if (state.faced === 0) return ['The run ended before the first obstacle arrived.'];
+  if (state.faced === 0) return [t('The run ended before the first obstacle arrived.')];
   return [
     state.hits >= MATH_RUN_LIVES
-      ? `Three hits ended the run early, after ${state.faced} ${state.faced === 1 ? 'obstacle' : 'obstacles'}.`
-      : `Ran the full ${MATH_RUN_SECONDS} seconds and faced ${state.faced} ${state.faced === 1 ? 'obstacle' : 'obstacles'}.`,
+      ? tn(state.faced, 'Three hits ended the run early, after {count} obstacle.', 'Three hits ended the run early, after {count} obstacles.')
+      : tn(state.faced, 'Ran the full {seconds} seconds and faced {count} obstacle.', 'Ran the full {seconds} seconds and faced {count} obstacles.', { seconds: MATH_RUN_SECONDS }),
   ];
 };
 
@@ -295,11 +296,14 @@ export function MathRunGame({ pet, onFinish, run: initialRun, rng = Math.random 
   const flash = run.status === 'dodging' ? 'right' : run.status === 'hit' || over ? 'wrong' : null;
 
   const feedback = (() => {
-    if (run.status === 'dodging') return 'DODGED!';
+    if (run.status === 'dodging') return t('DODGED!');
     if (run.status === 'hit' || (over && lastOutcome && run.hits >= MATH_RUN_LIVES)) {
-      return `HIT · ${lastOutcome?.entered === null ? 'too slow' : 'not that'} · ${lastOutcome?.problem.prompt} = ${lastOutcome?.problem.answer}`;
+      const sum = { problem: String(lastOutcome?.problem.prompt), answer: String(lastOutcome?.problem.answer) };
+      return lastOutcome?.entered === null
+        ? t('HIT · too slow · {problem} = {answer}', sum)
+        : t('HIT · not that · {problem} = {answer}', sum);
     }
-    if (over) return 'RUN OVER';
+    if (over) return t('RUN OVER');
     return null;
   })();
 
@@ -307,15 +311,15 @@ export function MathRunGame({ pet, onFinish, run: initialRun, rng = Math.random 
     <>
       <View style={styles.scoreboard}>
         <Text style={styles.scoreItem}>
-          <Text style={styles.scoreValue}>{secondsLeft}s</Text> left
+          {tRich('{time} left', { time: <Text style={styles.scoreValue}>{t('{seconds}s', { seconds: secondsLeft })}</Text> })}
         </Text>
         <Text style={styles.scoreItem}>
-          <Text style={styles.scoreValue}>{run.dodged}</Text> dodged
+          {tRich('{count} dodged', { count: <Text style={styles.scoreValue}>{run.dodged}</Text> })}
         </Text>
         <Text style={styles.scoreItem}>
-          <Text style={styles.scoreValue}>{run.streak}</Text> streak · tier {obstacle.problem.tier}
+          {tRich('{streak} streak · tier {tier}', { streak: <Text style={styles.scoreValue}>{run.streak}</Text> }, { tier: obstacle.problem.tier })}
         </Text>
-        <Text style={styles.scoreItem} accessibilityLabel={`${livesLeft} of ${MATH_RUN_LIVES} lives left`}>
+        <Text style={styles.scoreItem} accessibilityLabel={t('{lives} of {total} lives left', { lives: livesLeft, total: MATH_RUN_LIVES })}>
           <Text style={[styles.scoreValue, styles.hearts]}>
             {'♥'.repeat(livesLeft)}
             <Text style={styles.heartLost}>{'♥'.repeat(MATH_RUN_LIVES - livesLeft)}</Text>
@@ -354,7 +358,7 @@ export function MathRunGame({ pet, onFinish, run: initialRun, rng = Math.random 
 
         <View style={styles.countdown}>
           <Text style={styles.countdownText}>
-            {run.status === 'running' ? `${obstacleSecondsLeft}s to dodge` : ' '}
+            {run.status === 'running' ? t('{seconds}s to dodge', { seconds: obstacleSecondsLeft }) : ' '}
           </Text>
         </View>
       </View>
@@ -375,18 +379,18 @@ export function MathRunGame({ pet, onFinish, run: initialRun, rng = Math.random 
           value={entry}
           onChangeText={setEntry}
           onSubmitEditing={submit}
-          placeholder="Solve it to jump"
+          placeholder={t('Solve it to jump')}
           placeholderTextColor={colors.faint}
-          accessibilityLabel="Your answer"
+          accessibilityLabel={t('Your answer')}
           autoFocus
           blurOnSubmit={false}
           returnKeyType="done"
           editable={!over}
         />
-        <PrimaryButton label="Jump" onPress={submit} disabled={over} />
+        <PrimaryButton label={t('Jump')} onPress={submit} disabled={over} />
       </View>
       <View style={styles.actions}>
-        <TextButton label="End run early" onPress={() => finishRun(runRef.current)} disabled={over} />
+        <TextButton label={t('End run early')} onPress={() => finishRun(runRef.current)} disabled={over} />
       </View>
     </>
   );

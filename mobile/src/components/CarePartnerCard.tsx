@@ -16,6 +16,7 @@ import {
 import { FRIENDS_LIGHT, type FriendsPalette } from '../friendsTheme';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 import { PrimaryButton, TextButton } from './ui';
+import { formatLocale, t } from '../i18n';
 
 /**
  * Care partners: two accounts raising one pet. Every action rejects with a
@@ -58,7 +59,7 @@ interface Props {
 /** The longest code with its dash, 'ABCD-EFGH'. */
 const INVITE_INPUT_MAX_LENGTH = INVITE_CODE_LENGTH + 1;
 
-const ROLE_LABEL: Record<PetMember['role'], string> = { owner: 'Owner', partner: 'Partner' };
+const ROLE_LABEL: Record<PetMember['role'], string> = { owner: t('Owner'), partner: t('Partner') };
 
 /**
  * The card reads top to bottom as: what this is, who is in it, what you can do
@@ -86,10 +87,10 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
   const joinWithCode = () =>
     runPartnerAction(async () => {
       const code = normalizeInviteCode(joinCode);
-      if (!INVITE_CODE_LENGTHS.includes(code.length)) throw new Error('Enter the code your partner shared.');
+      if (!INVITE_CODE_LENGTHS.includes(code.length)) throw new Error(t('Enter the code your partner shared.'));
       // A cancelled confirm keeps the code where it was typed.
       if (await carePartner.onRedeemInvite(code)) setJoinCode('');
-    }, 'Could not join that pet.');
+    }, t('Could not join that pet.'));
 
   const { petName } = carePartner;
   const shared = isSharedPet(carePartner.members);
@@ -114,16 +115,16 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
   const edge = { borderColor: palette.divider };
 
   const lead = !carePartner.isOwnPet
-    ? `You help raise ${petName}. It is your second pet; the owner keeps it if you leave.`
+    ? t('You help raise {pet}. It is your second pet; the owner keeps it if you leave.', { pet: petName })
     : shared
-      ? `You and your partner both look after ${petName}.`
+      ? t('You and your partner both look after {pet}.', { pet: petName })
       : openInvite
-        ? `Your partner enters this code on their phone and ${petName} becomes a pet you raise together.`
-        : `One other person can help you raise ${petName}.`;
+        ? t('Your partner enters this code on their phone and {pet} becomes a pet you raise together.', { pet: petName })
+        : t('One other person can help you raise {pet}.', { pet: petName });
 
   return (
     <View style={[styles.card, { backgroundColor: palette.rowBg }, edge]}>
-      <Text style={[styles.title, secondary]}>{carePartner.isOwnPet ? 'Care partner' : 'Joint pet'}</Text>
+      <Text style={[styles.title, secondary]}>{carePartner.isOwnPet ? t('Care partner') : t('Joint pet')}</Text>
       <Text style={[styles.lead, primary]}>{lead}</Text>
 
       {/* Who is in it. Both seats are always drawn for your own pet, so the
@@ -133,7 +134,7 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
           <View key={member.userId} style={styles.seat}>
             <View style={[styles.seatDot, member.role === 'owner' ? styles.seatDotOwner : styles.seatDotPartner]} />
             <Text style={[styles.seatName, primary]} numberOfLines={1}>
-              {member.userId === carePartner.selfUserId ? 'You' : memberDisplayName(carePartner.members, member.userId)}
+              {member.userId === carePartner.selfUserId ? t('You') : memberDisplayName(carePartner.members, member.userId)}
             </Text>
             <Text style={[styles.seatRole, secondary]} numberOfLines={1}>
               {ROLE_LABEL[member.role]}
@@ -144,10 +145,10 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
           <View style={styles.seat}>
             <View style={[styles.seatDot, styles.seatDotEmpty, edge]} />
             <Text style={[styles.seatName, styles.seatNameEmpty, secondary]}>
-              {openInvite ? 'Waiting for your partner' : 'Nobody yet'}
+              {openInvite ? t('Waiting for your partner') : t('Nobody yet')}
             </Text>
             <Text style={[styles.seatRole, secondary]} numberOfLines={1}>
-              Partner
+              {t('Partner')}
             </Text>
           </View>
         ) : null}
@@ -156,9 +157,9 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
       {!carePartner.isOwnPet ? (
         <View style={[styles.footer, styles.footerNamed]}>
           <TextButton
-            label={`Leave ${petName}`}
+            label={t('Leave {pet}', { pet: petName })}
             tone="coral"
-            onPress={() => void runPartnerAction(carePartner.onLeave, 'Could not leave this pet.')}
+            onPress={() => void runPartnerAction(carePartner.onLeave, t('Could not leave this pet.'))}
             disabled={carePartner.busy}
           />
         </View>
@@ -167,26 +168,27 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
           {isOwner && !shared ? (
             openInvite ? (
               <View style={styles.codeBlock}>
-                <Text style={[styles.optionLabel, secondary]}>Share this code</Text>
+                <Text style={[styles.optionLabel, secondary]}>{t('Share this code')}</Text>
                 <View style={[styles.codeBox, edge]}>
                   <Text style={[styles.code, primary]} selectable>
                     {formatInviteCode(openInvite.code)}
                   </Text>
                 </View>
                 <Text style={[styles.optionNote, secondary]}>
-                  Works once · expires{' '}
-                  {new Date(openInvite.expiresAt).toLocaleDateString([], { day: 'numeric', month: 'long' })}
+                  {t('Works once · expires {date}', {
+                    date: new Date(openInvite.expiresAt).toLocaleDateString(formatLocale(), { day: 'numeric', month: 'long' }),
+                  })}
                 </Text>
                 <View style={styles.footer}>
                   <TextButton
-                    label="New code"
-                    onPress={() => void runPartnerAction(carePartner.onCreateInvite, 'Could not create a code.')}
+                    label={t('New code')}
+                    onPress={() => void runPartnerAction(carePartner.onCreateInvite, t('Could not create a code.'))}
                     disabled={carePartner.busy}
                   />
                   <TextButton
-                    label="Cancel code"
+                    label={t('Cancel code')}
                     tone="coral"
-                    onPress={() => void runPartnerAction(carePartner.onRevokeInvite, 'Could not cancel the code.')}
+                    onPress={() => void runPartnerAction(carePartner.onRevokeInvite, t('Could not cancel the code.'))}
                     disabled={carePartner.busy}
                   />
                 </View>
@@ -194,11 +196,11 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
             ) : (
               <View style={styles.option}>
                 <PrimaryButton
-                  label="Invite a care partner"
+                  label={t('Invite a care partner')}
                   busy={carePartner.busy}
-                  onPress={() => void runPartnerAction(carePartner.onCreateInvite, 'Could not create a code.')}
+                  onPress={() => void runPartnerAction(carePartner.onCreateInvite, t('Could not create a code.'))}
                 />
-                <Text style={[styles.optionNote, secondary]}>You get a code to send them. They enter it on their phone.</Text>
+                <Text style={[styles.optionNote, secondary]}>{t('You get a code to send them. They enter it on their phone.')}</Text>
               </View>
             )
           ) : null}
@@ -206,9 +208,9 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
           {isOwner && shared && carePartner.onRemovePartner ? (
             <View style={[styles.footer, styles.footerNamed]}>
               <TextButton
-                label={`Remove ${partnerName}`}
+                label={partner ? t('Remove {name}', { name: partnerName }) : t('Remove partner')}
                 tone="coral"
-                onPress={() => void runPartnerAction(carePartner.onRemovePartner!, 'Could not remove your partner.')}
+                onPress={() => void runPartnerAction(carePartner.onRemovePartner!, t('Could not remove your partner.'))}
                 disabled={carePartner.busy}
               />
             </View>
@@ -219,7 +221,7 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
               pet's own card. */}
           {!carePartner.canJoin ? null : showJoin ? (
             <View style={[styles.option, styles.joinPanel, edge]}>
-              <Text style={[styles.optionLabel, secondary]}>Enter your partner's code</Text>
+              <Text style={[styles.optionLabel, secondary]}>{t("Enter your partner's code")}</Text>
               <TextInput
                 style={[layout.input, styles.codeInput]}
                 value={joinCode}
@@ -233,19 +235,19 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
                 maxLength={INVITE_INPUT_MAX_LENGTH}
                 placeholder="ABCD-EFGH"
                 placeholderTextColor={colors.faint}
-                accessibilityLabel="Invite code"
+                accessibilityLabel={t('Invite code')}
               />
-              <Text style={[styles.optionNote, secondary]}>Their pet becomes your second pet. Yours is not affected.</Text>
+              <Text style={[styles.optionNote, secondary]}>{t('Their pet becomes your second pet. Yours is not affected.')}</Text>
               <View style={styles.footer}>
                 <View style={{ flex: 1 }}>
                   <PrimaryButton
-                    label="Join"
+                    label={t('Join')}
                     busy={carePartner.busy}
                     disabled={!INVITE_CODE_LENGTHS.includes(normalizeInviteCode(joinCode).length)}
                     onPress={() => void joinWithCode()}
                   />
                 </View>
-                <TextButton label="Cancel" onPress={() => setShowJoin(false)} disabled={carePartner.busy} />
+                <TextButton label={t('Cancel')} onPress={() => setShowJoin(false)} disabled={carePartner.busy} />
               </View>
             </View>
           ) : (
@@ -255,8 +257,8 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
               style={({ pressed }) => [styles.option, styles.secondaryOption, edge, pressed && styles.pressed]}
             >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.secondaryLabel, primary]}>I have a code</Text>
-                <Text style={[styles.optionNote, secondary]}>Join someone else's pet as your second pet.</Text>
+                <Text style={[styles.secondaryLabel, primary]}>{t('I have a code')}</Text>
+                <Text style={[styles.optionNote, secondary]}>{t("Join someone else's pet as your second pet.")}</Text>
               </View>
               <Text style={styles.chevron}>→</Text>
             </Pressable>
@@ -266,7 +268,7 @@ export function CarePartnerCard({ carePartner, openJoin, palette = FRIENDS_LIGHT
 
       {carePartner.isOwnPet ? (
         <Text style={[styles.privacy, secondary]}>
-          A partner sees when you care for {petName}, never what you ate or did.
+          {t('A partner sees when you care for {pet}, never what you ate or did.', { pet: petName })}
         </Text>
       ) : null}
 

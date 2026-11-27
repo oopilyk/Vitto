@@ -7,6 +7,7 @@ import { waterMlOf, waterReachesGoal } from './hydration';
 import { type FoodEffect, detectFoodEffects, foodEffectsDelta } from './foodEffects';
 import { workoutStrengthDelta } from './strengthProgression';
 import { HUNGRY_NUTRITION_THRESHOLD, type RecentMeal, hungerAt, mealPoints, mealsOf, mealsStillFeeding } from './hunger';
+import { t, tn } from '../i18n';
 
 export interface EngineResult {
   pet: PetState;
@@ -109,14 +110,14 @@ export const brainTrainingXp = (
 
 /** Keyed on the whole union, so a new brain game must be labelled here or the build fails. */
 export const BRAIN_GAME_LABEL: Record<BrainTrainingMetadata['game'], string> = {
-  math: 'Quick maths',
-  reading: 'Read and recall',
-  wordPuzzle: "Daily word puzzle",
-  wordGarden: 'Word garden',
-  spellingBee: 'Word garden',
-  countryGuess: 'Guess the country',
-  fourCorners: 'Four Corners',
-  petJeopardy: 'Pet Jeopardy',
+  math: t('Quick maths'),
+  reading: t('Read and recall'),
+  wordPuzzle: t("Daily word puzzle"),
+  wordGarden: t('Word garden'),
+  spellingBee: t('Word garden'),
+  countryGuess: t('Guess the country'),
+  fourCorners: t('Four Corners'),
+  petJeopardy: t('Pet Jeopardy'),
 };
 
 /*
@@ -356,7 +357,12 @@ export class PetHealthEngine {
         const metadata = event.metadata as unknown as WorkoutMetadata;
         const hardBonus = metadata.intensity === 'hard' ? 2 : 0;
         const mobility = metadata.name?.toLowerCase().includes('mobility') ? 3 : 0;
-        eventLabel = `Trained ${metadata.workoutType}`;
+        eventLabel =
+          metadata.workoutType === 'cardio'
+            ? t('Trained cardio')
+            : metadata.workoutType === 'strength'
+              ? t('Trained strength')
+              : t('Trained {kind}', { kind: metadata.workoutType });
 
         if (metadata.workoutType === 'cardio') {
           // Cardio has no sets to count, so it is paid for what it actually has:
@@ -400,7 +406,7 @@ export class PetHealthEngine {
           // Minutes, not distance: the engine stores kilometres and has no idea
           // whether this user reads miles, and a pet announcing the wrong unit is
           // worse than one that does not mention it.
-          message = `I kept pace with you for ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} and feel lighter on my feet.`;
+          message = tn(minutes, 'I kept pace with you for {count} minute and feel lighter on my feet.', 'I kept pace with you for {count} minutes and feel lighter on my feet.');
           break;
         }
 
@@ -440,9 +446,9 @@ export class PetHealthEngine {
           : { energy: 6, happiness: 5, strength: 4, endurance: 1, xp: 18 + hardBonus };
         message = hasWorkoutStats
           ? sets > 0
-            ? `I pushed through ${sets} ${sets === 1 ? 'set' : 'sets'} with you and feel stronger.`
-            : 'I showed up to train with you.'
-          : `I trained for ${metadata.durationMinutes} minutes and feel stronger.`;
+            ? tn(sets, 'I pushed through {count} set with you and feel stronger.', 'I pushed through {count} sets with you and feel stronger.')
+            : t('I showed up to train with you.')
+          : t('I trained for {minutes} minutes and feel stronger.', { minutes: metadata.durationMinutes });
         break;
       }
       case 'STEP_ACTIVITY': {
@@ -450,8 +456,8 @@ export class PetHealthEngine {
         const milestone = metadata.steps >= 8000;
         const walkEndurance = pet.endurance < STEP_ENDURANCE_CEILING ? (milestone ? 2 : 1) : 0;
         delta = { energy: milestone ? 7 : 3, happiness: 4, endurance: walkEndurance, xp: milestone ? 16 : 8 };
-        message = milestone ? 'I explored somewhere new today.' : 'I enjoyed a little walk with you.';
-        eventLabel = milestone ? 'Explored the wilds' : 'Went for a walk';
+        message = milestone ? t('I explored somewhere new today.') : t('I enjoyed a little walk with you.');
+        eventLabel = milestone ? t('Explored the wilds') : t('Went for a walk');
         break;
       }
       case 'BRAIN_TRAINING': {
@@ -473,8 +479,8 @@ export class PetHealthEngine {
           xp: brainTrainingXp(metadata),
         };
         message = sharp
-          ? 'I feel clear-headed after thinking that through with you.'
-          : 'I liked puzzling over that together.';
+          ? t('I feel clear-headed after thinking that through with you.')
+          : t('I liked puzzling over that together.');
         eventLabel = BRAIN_GAME_LABEL[metadata.game];
         break;
       }
@@ -515,11 +521,11 @@ export class PetHealthEngine {
         message =
           spoken ||
           (quality === 'D'
-            ? 'That filled me up. Not the healthiest, though.'
+            ? t('That filled me up. Not the healthiest, though.')
             : meal.treats
-              ? 'I savored the treat. Balance feels good.'
-              : 'I loved the variety in that meal.');
-        eventLabel = 'Shared a meal';
+              ? t('I savored the treat. Balance feels good.')
+              : t('I loved the variety in that meal.'));
+        eventLabel = t('Shared a meal');
         break;
       }
       case 'SLEEP': {
@@ -528,15 +534,15 @@ export class PetHealthEngine {
         const hours = Math.round((minutes / 60) * 10) / 10;
         if (minutes >= SLEEP_FULL_MINUTES) {
           delta = { charge: 35, recovery: 5, health: 2, happiness: 3, xp: 16 };
-          message = `I slept soundly for ${hours}h and woke up bright.`;
+          message = t('I slept soundly for {hours}h and woke up bright.', { hours });
         } else if (minutes >= SLEEP_SHORT_MINUTES) {
           delta = { charge: 22, recovery: 3, happiness: 1, xp: 11 };
-          message = `I got ${hours}h — enough to take the edge off.`;
+          message = t('I got {hours}h — enough to take the edge off.', { hours });
         } else {
           delta = { charge: 10, recovery: 1, xp: 6 };
-          message = `I only managed ${hours}h. A longer night would help.`;
+          message = t('I only managed {hours}h. A longer night would help.', { hours });
         }
-        eventLabel = 'Rested up';
+        eventLabel = t('Rested up');
         break;
       }
       case 'SCREEN_TIME': {
@@ -551,11 +557,14 @@ export class PetHealthEngine {
         if (underBudget) delta = { ...delta, xp: (delta.xp ?? 0) + SCREEN_TIME_BUDGET_BONUS_XP };
         else if (!hasBudget) delta = { ...delta, xp: Math.max(delta.xp ?? 0, SCREEN_TIME_NO_BUDGET_XP) };
 
-        const spent = `${formatMinutes(minutes)} on the screen — ${band.verdict}`;
         message = underBudget
-          ? `I liked that: ${spent}, and under your ${formatMinutes(budget as number)} budget.`
-          : `I saw you check in: ${spent}.`;
-        eventLabel = band.id === 'light' ? 'Unplugged' : 'Screen check-in';
+          ? t('I liked that: {time} on the screen — {verdict}, and under your {budget} budget.', {
+              time: formatMinutes(minutes),
+              verdict: band.verdict,
+              budget: formatMinutes(budget as number),
+            })
+          : t('I saw you check in: {time} on the screen — {verdict}.', { time: formatMinutes(minutes), verdict: band.verdict });
+        eventLabel = band.id === 'light' ? t('Unplugged') : t('Screen check-in');
         break;
       }
       case 'HYDRATION': {
@@ -564,18 +573,18 @@ export class PetHealthEngine {
         // high point, so taking a cup back and adding it again does not pay twice.
         if (waterReachesGoal(context.history ?? [], event)) {
           delta = { xp: WATER_GOAL_XP };
-          message = "That's my water goal. I feel so refreshed!";
+          message = t("That's my water goal. I feel so refreshed!");
         } else {
           delta = {};
-          message = waterMlOf(event) < 0 ? 'Okay, one less cup.' : 'Ahh, a cool drink of water.';
+          message = waterMlOf(event) < 0 ? t('Okay, one less cup.') : t('Ahh, a cool drink of water.');
         }
-        eventLabel = 'Drank water';
+        eventLabel = t('Drank water');
         break;
       }
       default:
         delta = { happiness: 2, xp: 5 };
-        message = 'I noticed you taking care of yourself.';
-        eventLabel = 'A healthy moment';
+        message = t('I noticed you taking care of yourself.');
+        eventLabel = t('A healthy moment');
     }
 
     // Coming back after days away is worth saying out loud. `lastEventAt` is
@@ -585,7 +594,7 @@ export class PetHealthEngine {
       ? Math.floor((Date.parse(event.occurredAt) - since) / 86_400_000)
       : 0;
     const returnedAfterDays = daysAway >= RETURN_AFTER_DAYS ? daysAway : 0;
-    if (returnedAfterDays) message = `It's been ${returnedAfterDays} days. ${message}`;
+    if (returnedAfterDays) message = t("It's been {days} days. {message}", { days: returnedAfterDays, message });
 
     const next = applyDelta(pet, delta, event.occurredAt);
     return {

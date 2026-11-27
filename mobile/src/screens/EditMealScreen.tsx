@@ -18,6 +18,7 @@ import {
   TextField,
 } from '../components/settingsKit';
 import { NumberInput } from '../components/ui';
+import { formatLocale, t, tx } from '../i18n';
 import { themedStyles } from '../theme';
 
 interface Props {
@@ -27,7 +28,7 @@ interface Props {
 }
 
 const nameOf = (meal: MealMetadata) =>
-  meal.analysis?.foodDescription || meal.analysis?.detectedFoods.join(', ') || meal.analysis?.summary || 'Meal';
+  meal.analysis?.foodDescription || meal.analysis?.detectedFoods.join(', ') || meal.analysis?.summary || t('Meal');
 
 /**
  * Fixing a logged meal: what it was called, which meal of the day, and its
@@ -59,11 +60,11 @@ export function EditMealScreen({ meal, onSave, onClose }: Props) {
 
   const save = async () => {
     if (!name.trim()) {
-      setError('Give the meal a name.');
+      setError(t('Give the meal a name.'));
       return;
     }
     if (calories !== undefined && (calories < 0 || calories > 10000)) {
-      setError('Calories should be between 0 and 10,000.');
+      setError(t('Calories should be between 0 and 10,000.'));
       return;
     }
     setSaving(true);
@@ -90,7 +91,7 @@ export function EditMealScreen({ meal, onSave, onClose }: Props) {
       });
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save the meal.');
+      setError(cause instanceof Error ? cause.message : t('Could not save the meal.'));
     } finally {
       setSaving(false);
     }
@@ -107,36 +108,36 @@ export function EditMealScreen({ meal, onSave, onClose }: Props) {
 
   return (
     <SettingsPage
-      title="Edit meal"
-      lead={new Date(meal.occurredAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
-      backLabel="Back"
+      title={t('Edit meal')}
+      lead={new Date(meal.occurredAt).toLocaleString(formatLocale(), { weekday: 'short', hour: 'numeric', minute: '2-digit' })}
+      backLabel={tx('button that goes back to the previous screen', 'Back')}
       onBack={onClose}
       footer={dirty ? <SaveBar saving={saving} error={error} onSave={() => void save()} onDiscard={reset} /> : null}
     >
-      <SettingsSection title="The meal" first>
-        <FormField label="Name">
-          <TextField value={name} onChangeText={setName} maxLength={80} accessibilityLabel="Meal name" />
+      <SettingsSection title={t('The meal')} first>
+        <FormField label={t('Name')}>
+          <TextField value={name} onChangeText={setName} maxLength={80} accessibilityLabel={t('Meal name')} />
         </FormField>
         <SegmentedControl
-          options={MEAL_SLOTS.map((value) => ({ value, label: MEAL_SLOT_LABEL[value] }))}
+          options={MEAL_SLOTS.map((value) => ({ value, label: t(MEAL_SLOT_LABEL[value]) }))}
           value={slot}
           onChange={setSlot}
         />
       </SettingsSection>
       {macros ? (
-        <SettingsSection title="Numbers">
-          <FormField label="Calories" hint="kcal">
-            <NumberInput style={styles.input} value={calories} onValue={setCalories} accessibilityLabel="Calories" />
+        <SettingsSection title={t('Numbers')}>
+          <FormField label={t('Calories')} hint="kcal">
+            <NumberInput style={styles.input} value={calories} onValue={setCalories} accessibilityLabel={t('Calories')} />
           </FormField>
           <FieldRow>
-            <FormField label="Protein" hint="g">
-              <NumberInput decimal style={styles.input} value={protein} onValue={setProtein} accessibilityLabel="Protein in grams" />
+            <FormField label={t('Protein')} hint="g">
+              <NumberInput decimal style={styles.input} value={protein} onValue={setProtein} accessibilityLabel={t('Protein in grams')} />
             </FormField>
-            <FormField label="Carbs" hint="g">
-              <NumberInput decimal style={styles.input} value={carbs} onValue={setCarbs} accessibilityLabel="Carbs in grams" />
+            <FormField label={t('Carbs')} hint="g">
+              <NumberInput decimal style={styles.input} value={carbs} onValue={setCarbs} accessibilityLabel={t('Carbs in grams')} />
             </FormField>
-            <FormField label="Fat" hint="g">
-              <NumberInput decimal style={styles.input} value={fat} onValue={setFat} accessibilityLabel="Fat in grams" />
+            <FormField label={t('Fat')} hint="g">
+              <NumberInput decimal style={styles.input} value={fat} onValue={setFat} accessibilityLabel={t('Fat in grams')} />
             </FormField>
           </FieldRow>
         </SettingsSection>

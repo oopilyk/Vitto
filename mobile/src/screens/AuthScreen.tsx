@@ -23,6 +23,7 @@ import { SpriteFrame } from '../components/SpriteFrame';
 import { FatSecretCredit } from '../components/FatSecretCredit';
 import { portraitFrame, sheetByBreed } from '../components/petSprites';
 import { themedStyles } from '../theme';
+import { formatLocale, t, tRich } from '../i18n';
 
 /**
  * When someone under 13 last tried to sign up on this phone, so going straight
@@ -35,20 +36,14 @@ const UNDER_AGE_KEY = 'vitto.signupBlocked';
 /** Set once anyone has signed in on this phone (see App.tsx): after that, it opens on sign-in. */
 export const HAS_SIGNED_IN_KEY = 'vitto.hasSignedIn';
 const UNDER_AGE_BLOCK_MS = 24 * 60 * 60 * 1000;
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+/** The months as the app's language writes them: `name` in full, `short` for the picker's tiles. */
+const MONTHS = Array.from({ length: 12 }, (_, index) => {
+  const date = new Date(2001, index, 1);
+  return {
+    name: date.toLocaleDateString(formatLocale(), { month: 'long' }),
+    short: date.toLocaleDateString(formatLocale(), { month: 'short' }),
+  };
+});
 /** Supabase will not send another confirmation email sooner than this. */
 const RESEND_AFTER_SECONDS = 60;
 
@@ -148,7 +143,7 @@ export function AuthScreen() {
       setCode('');
       setResendIn(RESEND_AFTER_SECONDS);
     } catch (cause) {
-      setError(passwordErrorMessage(cause, 'Could not send a code. Try again in a minute.'));
+      setError(passwordErrorMessage(cause, t('Could not send a code. Try again in a minute.')));
     } finally {
       setBusy(false);
     }
@@ -160,10 +155,10 @@ export function AuthScreen() {
     setMessage(null);
     try {
       await sendResetCode(email.trim());
-      setMessage('A new code is on its way.');
+      setMessage(t('A new code is on its way.'));
       setResendIn(RESEND_AFTER_SECONDS);
     } catch (cause) {
-      setError(passwordErrorMessage(cause, 'Could not send a new code. Try again in a minute.'));
+      setError(passwordErrorMessage(cause, t('Could not send a new code. Try again in a minute.')));
     }
   };
 
@@ -175,7 +170,7 @@ export function AuthScreen() {
       // Signs in with the new password once it is saved, and the app moves on.
       await resetPasswordWithCode(email.trim(), code, newPassword);
     } catch (cause) {
-      setError(passwordErrorMessage(cause, 'Could not reset your password.'));
+      setError(passwordErrorMessage(cause, t('Could not reset your password.')));
       setBusy(false);
     }
   };
@@ -202,8 +197,8 @@ export function AuthScreen() {
       const raw = String((cause as { message?: unknown } | null)?.message ?? '');
       setError(
         /expired|invalid|token/i.test(raw)
-          ? "That code didn't work. Check it, or send a new one."
-          : errorMessage(cause, 'Could not confirm that code.'),
+          ? t("That code didn't work. Check it, or send a new one.")
+          : errorMessage(cause, t('Could not confirm that code.')),
       );
     } finally {
       setBusy(false);
@@ -217,10 +212,10 @@ export function AuthScreen() {
     try {
       const { error: resendError } = await resendSignupCode(confirming);
       if (resendError) throw resendError;
-      setMessage('A new code is on its way.');
+      setMessage(t('A new code is on its way.'));
       setResendIn(RESEND_AFTER_SECONDS);
     } catch (cause) {
-      setError(errorMessage(cause, 'Could not send a new code. Try again in a minute.'));
+      setError(errorMessage(cause, t('Could not send a new code. Try again in a minute.')));
     }
   };
 
@@ -261,7 +256,7 @@ export function AuthScreen() {
         await AsyncStorage.setItem(UNDER_AGE_KEY, String(Date.now())).catch(() => undefined);
         return;
       }
-      setError(birthday.reason === 'needs-month' ? 'Choose the month you were born.' : 'Enter the year you were born.');
+      setError(birthday.reason === 'needs-month' ? t('Choose the month you were born.') : t('Enter the year you were born.'));
       return;
     }
     setBusy(true);
@@ -293,7 +288,7 @@ export function AuthScreen() {
         setReviewing(false);
         setMode('sign-in');
         setPassword('');
-        setError('An account with this email already exists. Sign in instead.');
+        setError(t('An account with this email already exists. Sign in instead.'));
         return;
       }
       // No session yet: the address needs confirming, with the code just sent.
@@ -306,7 +301,7 @@ export function AuthScreen() {
         await resendSignupCode(email.trim()).catch(() => undefined);
         return;
       }
-      setError(errorMessage(cause, 'Authentication failed.'));
+      setError(errorMessage(cause, t('Authentication failed.')));
     } finally {
       setBusy(false);
     }
@@ -324,18 +319,18 @@ export function AuthScreen() {
           <SpriteFrame sheet={sheet} frame={portraitFrame(sheet)} size={150} />
         </View>
         <Text style={T.eyebrow}>Vitto</Text>
-        <Text style={T.title}>Meet the pet that grows with you</Text>
-        <Text style={T.sub}>Eat well, move, rest and play, and your pet thrives, levels up and evolves right alongside you.</Text>
+        <Text style={T.title}>{t('Meet the pet that grows with you')}</Text>
+        <Text style={T.sub}>{t('Eat well, move, rest and play, and your pet thrives, levels up and evolves right alongside you.')}</Text>
         <View style={styles.actions}>
           <OnbButton
-            label="Get started"
+            label={t('Get started')}
             onPress={() => {
               setWelcome(false);
               setMode('sign-up');
             }}
           />
           <TextLink
-            label="I already have an account"
+            label={t('I already have an account')}
             onPress={() => {
               setWelcome(false);
               setMode('sign-in');
@@ -351,15 +346,15 @@ export function AuthScreen() {
   if (resetStep === 'email') {
     return (
       <Page testID="reset-email">
-        <Text style={T.eyebrow}>Forgot password</Text>
-        <Text style={T.title}>Reset your password</Text>
-        <Text style={T.sub}>Enter the email you signed up with and we'll send you a code.</Text>
-        <Field label="Email">
+        <Text style={T.eyebrow}>{t('Forgot password')}</Text>
+        <Text style={T.title}>{t('Reset your password')}</Text>
+        <Text style={T.sub}>{t("Enter the email you signed up with and we'll send you a code.")}</Text>
+        <Field label={t('Email')}>
           <OnbInput
             form
             value={email}
             onChangeText={setEmail}
-            placeholder="you@example.com"
+            placeholder={t('you@example.com')}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -369,8 +364,8 @@ export function AuthScreen() {
         </Field>
         {error ? <Text style={[T.error, styles.notice]}>{error}</Text> : null}
         <View style={styles.actions}>
-          <OnbButton label="Email me a code" busy={busy} disabled={!email.trim()} onPress={() => void sendReset()} />
-          <TextLink label="Back to sign in" onPress={leaveReset} />
+          <OnbButton label={t('Email me a code')} busy={busy} disabled={!email.trim()} onPress={() => void sendReset()} />
+          <TextLink label={t('Back to sign in')} onPress={leaveReset} />
         </View>
       </Page>
     );
@@ -380,9 +375,9 @@ export function AuthScreen() {
     const complete = code.replace(/\D/g, '').length >= SIGNUP_CODE_MIN_LENGTH && newPassword.length >= NEW_PASSWORD_MIN_LENGTH;
     return (
       <Page testID="reset-code">
-        <Text style={T.eyebrow}>Forgot password</Text>
-        <Text style={T.title}>Check your email</Text>
-        <Text style={T.sub}>{`If ${email.trim()} has a Vitto account, we sent it a ${SIGNUP_CODE_MIN_LENGTH}-digit code. Enter it with your new password.`}</Text>
+        <Text style={T.eyebrow}>{t('Forgot password')}</Text>
+        <Text style={T.title}>{t('Check your email')}</Text>
+        <Text style={T.sub}>{t('If {email} has a Vitto account, we sent it a {digits}-digit code. Enter it with your new password.', { email: email.trim(), digits: SIGNUP_CODE_MIN_LENGTH })}</Text>
 
         <OnbInput
           style={styles.code}
@@ -394,19 +389,19 @@ export function AuthScreen() {
           autoComplete="one-time-code"
           autoFocus
           maxLength={SIGNUP_CODE_MAX_LENGTH}
-          accessibilityLabel="Reset code"
+          accessibilityLabel={t('Reset code')}
         />
-        <Field label="New password" hint={`${NEW_PASSWORD_MIN_LENGTH} characters minimum`}>
+        <Field label={t('New password')} hint={t('{count} characters minimum', { count: NEW_PASSWORD_MIN_LENGTH })}>
           <OnbInput
             form
             value={newPassword}
             onChangeText={setNewPassword}
-            placeholder="New password"
+            placeholder={t('New password')}
             secureTextEntry
             // iOS offers a strong password and saves it to the keychain.
             textContentType="newPassword"
             autoComplete="new-password"
-            accessibilityLabel="New password"
+            accessibilityLabel={t('New password')}
           />
         </Field>
 
@@ -414,13 +409,13 @@ export function AuthScreen() {
         {message ? <Text style={[T.success, styles.notice]}>{message}</Text> : null}
 
         <View style={styles.actions}>
-          <OnbButton label="Set new password" busy={busy} disabled={!complete} onPress={() => void finishReset()} />
+          <OnbButton label={t('Set new password')} busy={busy} disabled={!complete} onPress={() => void finishReset()} />
           <TextLink
-            label={resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+            label={resendIn > 0 ? t('Send a new code in {seconds}s', { seconds: resendIn }) : t('Send a new code')}
             disabled={resendIn > 0}
             onPress={() => void resendReset()}
           />
-          <TextLink label="Back to sign in" onPress={leaveReset} />
+          <TextLink label={t('Back to sign in')} onPress={leaveReset} />
         </View>
       </Page>
     );
@@ -430,9 +425,9 @@ export function AuthScreen() {
     const complete = code.replace(/\D/g, '').length >= SIGNUP_CODE_MIN_LENGTH;
     return (
       <Page testID="confirm-code">
-        <Text style={T.eyebrow}>One last step</Text>
-        <Text style={T.title}>Check your email</Text>
-        <Text style={T.sub}>{`We sent a ${SIGNUP_CODE_MIN_LENGTH}-digit code to ${confirming}. Enter it to confirm your account.`}</Text>
+        <Text style={T.eyebrow}>{t('One last step')}</Text>
+        <Text style={T.title}>{t('Check your email')}</Text>
+        <Text style={T.sub}>{t('We sent a {digits}-digit code to {email}. Enter it to confirm your account.', { digits: SIGNUP_CODE_MIN_LENGTH, email: confirming })}</Text>
 
         <OnbInput
           style={styles.code}
@@ -445,21 +440,21 @@ export function AuthScreen() {
           autoComplete="one-time-code"
           autoFocus
           maxLength={SIGNUP_CODE_MAX_LENGTH}
-          accessibilityLabel="Confirmation code"
+          accessibilityLabel={t('Confirmation code')}
         />
 
         {error ? <Text style={[T.error, styles.notice]}>{error}</Text> : null}
         {message ? <Text style={[T.success, styles.notice]}>{message}</Text> : null}
 
         <View style={styles.actions}>
-          <OnbButton label="Confirm" busy={busy} disabled={!complete} onPress={() => void confirm()} />
+          <OnbButton label={t('Confirm')} busy={busy} disabled={!complete} onPress={() => void confirm()} />
           <TextLink
-            label={resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code'}
+            label={resendIn > 0 ? t('Send a new code in {seconds}s', { seconds: resendIn }) : t('Send a new code')}
             disabled={resendIn > 0}
             onPress={() => void resend()}
           />
           <TextLink
-            label="Use a different email"
+            label={t('Use a different email')}
             onPress={() => {
               setConfirming(null);
               setError(null);
@@ -472,16 +467,18 @@ export function AuthScreen() {
   }
 
   if (reviewing && mode === 'sign-up' && !blocked) {
-    const when = birthMonth ? `${MONTH_NAMES[Number(birthMonth) - 1]} ${birthYear}` : birthYear;
+    const when = birthMonth
+      ? new Date(Number(birthYear), Number(birthMonth) - 1, 1).toLocaleDateString(formatLocale(), { month: 'long', year: 'numeric' })
+      : birthYear;
     return (
       <Page testID="signup-confirm-age">
-        <Text style={T.eyebrow}>Just checking</Text>
-        <Text style={T.title}>{`Born in ${when}?`}</Text>
-        <Text style={T.sub}>Make sure that's right before we go on.</Text>
+        <Text style={T.eyebrow}>{t('Just checking')}</Text>
+        <Text style={T.title}>{t('Born in {when}?', { when })}</Text>
+        <Text style={T.sub}>{t("Make sure that's right before we go on.")}</Text>
         <View style={styles.actions}>
-          <OnbButton label="Yes, that's right" onPress={() => void submit(true)} />
+          <OnbButton label={t("Yes, that's right")} onPress={() => void submit(true)} />
           <TextLink
-            label="No, let me fix it"
+            label={t('No, let me fix it')}
             onPress={() => {
               setReviewing(false);
               setError(null);
@@ -495,18 +492,18 @@ export function AuthScreen() {
   return (
     <Page>
       <Text style={T.eyebrow}>Vitto</Text>
-      <Text style={T.title}>{mode === 'sign-in' ? 'Welcome back' : 'Start your story'}</Text>
-      <Text style={T.sub}>{mode === 'sign-in' ? 'Sign in to see your pet.' : 'Make an account to save your pet.'}</Text>
+      <Text style={T.title}>{mode === 'sign-in' ? t('Welcome back') : t('Start your story')}</Text>
+      <Text style={T.sub}>{mode === 'sign-in' ? t('Sign in to see your pet.') : t('Make an account to save your pet.')}</Text>
 
       {mode === 'sign-up' && blocked ? (
         <View style={[T.card, styles.blocked]} testID="signup-blocked">
-          <Text style={styles.blockedTitle}>We can't create an account for you</Text>
-          <Text style={T.body}>Vitto is for people 13 and older.</Text>
+          <Text style={styles.blockedTitle}>{t("We can't create an account for you")}</Text>
+          <Text style={T.body}>{t('Vitto is for people 13 and older.')}</Text>
           {/* Back out to sign-in, not to the birthday: going back to pick an
               older year would defeat the check. */}
           <View style={styles.blockedBack}>
             <OnbButton
-              label="Back to sign in"
+              label={t('Back to sign in')}
               tone="secondary"
               onPress={() => {
                 setMode('sign-in');
@@ -519,7 +516,7 @@ export function AuthScreen() {
 
       {mode === 'sign-up' && !blocked ? (
         <>
-          <Field label="Year you were born">
+          <Field label={t('Year you were born')}>
             <OnbInput
               form
               value={birthYear}
@@ -528,17 +525,17 @@ export function AuthScreen() {
                 setBirthMonth('');
                 setReviewing(false);
               }}
-              placeholder="YYYY"
+              placeholder={t('YYYY')}
               keyboardType="number-pad"
               maxLength={4}
-              accessibilityLabel="Year you were born"
+              accessibilityLabel={t('Year you were born')}
             />
           </Field>
           {/* Only when the year alone cannot settle the age check. */}
           {askMonth ? (
-            <Field label="And the month">
+            <Field label={t('And the month')}>
               <View style={styles.months} accessibilityRole="radiogroup">
-                {MONTH_NAMES.map((name, index) => {
+                {MONTHS.map(({ name, short }, index) => {
                   const value = String(index + 1);
                   const on = birthMonth === value;
                   return (
@@ -550,7 +547,7 @@ export function AuthScreen() {
                       onPress={() => setBirthMonth(value)}
                       style={[styles.month, on && styles.monthOn]}
                     >
-                      <Text style={[styles.monthLabel, on && styles.monthLabelOn]}>{name.slice(0, 3)}</Text>
+                      <Text style={[styles.monthLabel, on && styles.monthLabelOn]}>{short}</Text>
                     </Pressable>
                   );
                 })}
@@ -562,12 +559,12 @@ export function AuthScreen() {
 
       {signUpClosed ? null : (
         <>
-          <Field label="Email">
+          <Field label={t('Email')}>
             <OnbInput
               form
               value={email}
               onChangeText={setEmail}
-              placeholder="you@example.com"
+              placeholder={t('you@example.com')}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -577,7 +574,7 @@ export function AuthScreen() {
 
           {/* The minimum only on sign-up: signing in still takes the old six-character
               passwords, and showing either number there misleads someone. */}
-          <Field label="Password" hint={mode === 'sign-up' ? `${NEW_PASSWORD_MIN_LENGTH} characters minimum` : undefined}>
+          <Field label={t('Password')} hint={mode === 'sign-up' ? t('{count} characters minimum', { count: NEW_PASSWORD_MIN_LENGTH }) : undefined}>
             <OnbInput form value={password} onChangeText={setPassword} placeholder="••••••" secureTextEntry textContentType="password" />
           </Field>
         </>
@@ -589,7 +586,7 @@ export function AuthScreen() {
       <View style={styles.actions}>
         {signUpClosed ? null : (
           <OnbButton
-            label={mode === 'sign-in' ? 'Sign in' : 'Create account'}
+            label={mode === 'sign-in' ? t('Sign in') : t('Create account')}
             busy={busy}
             disabled={
               !email ||
@@ -601,24 +598,31 @@ export function AuthScreen() {
         )}
         {mode === 'sign-up' && !signUpClosed ? (
           <Text style={styles.legal} testID="signup-legal">
-            {'By creating an account, you agree to our '}
-            <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
-              Terms of Use
-            </Text>
-            {LEGAL_LINKS.privacy ? (
-              <>
-                {' and '}
-                <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}>
-                  Privacy Policy
-                </Text>
-              </>
-            ) : null}
-            .
+            {LEGAL_LINKS.privacy
+              ? tRich('By creating an account, you agree to our {terms} and {privacy}.', {
+                  terms: (
+                    <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+                      {t('Terms of Use')}
+                    </Text>
+                  ),
+                  privacy: (
+                    <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.privacy!)}>
+                      {t('Privacy Policy')}
+                    </Text>
+                  ),
+                })
+              : tRich('By creating an account, you agree to our {terms}.', {
+                  terms: (
+                    <Text style={styles.legalLink} accessibilityRole="link" onPress={() => void Linking.openURL(LEGAL_LINKS.terms)}>
+                      {t('Terms of Use')}
+                    </Text>
+                  ),
+                })}
           </Text>
         ) : null}
         {mode === 'sign-in' ? (
           <TextLink
-            label="Forgot password?"
+            label={t('Forgot password?')}
             onPress={() => {
               setResetStep('email');
               setError(null);
@@ -627,7 +631,7 @@ export function AuthScreen() {
           />
         ) : null}
         <TextLink
-          label={mode === 'sign-in' ? 'Need an account?' : 'Already have an account?'}
+          label={mode === 'sign-in' ? t('Need an account?') : t('Already have an account?')}
           onPress={() => {
             setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in');
             setReviewing(false);

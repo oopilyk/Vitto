@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 import { getRecentDays, toDateKey } from '@vitto/core';
+import { t } from '../i18n';
 import { colors, themedStyles } from '../theme';
 
 interface ActivityCalendarProps {
@@ -19,7 +20,7 @@ export function ActivityCalendar({ activeDateKeys, frozenDateKeys, weeks = 12 }:
     <View
       style={styles.grid}
       accessibilityRole="image"
-      accessibilityLabel={`Activity over the last ${weeks} weeks`}
+      accessibilityLabel={t('Activity over the last {weeks} weeks', { weeks })}
     >
       {days.map((day) => {
         const key = toDateKey(day);

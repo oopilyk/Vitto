@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { type HealthEvent, type MealMetadata, calorieEstimate, describeSubMacros } from '@vitto/core';
+import { formatLocale, t } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 const LOGGED_VIA_ICON: Record<NonNullable<MealMetadata['loggedVia']>, string> = {
@@ -11,9 +12,9 @@ const LOGGED_VIA_ICON: Record<NonNullable<MealMetadata['loggedVia']>, string> = 
 };
 
 const LOGGED_VIA_LABEL: Record<NonNullable<MealMetadata['loggedVia']>, string> = {
-  ai: 'AI photo',
-  barcode: 'Barcode',
-  manual: 'Manual',
+  ai: t('AI photo'),
+  barcode: t('Barcode'),
+  manual: t('Manual'),
   healthkit: 'Apple Health',
 };
 
@@ -24,9 +25,9 @@ export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {
   const analysis = event.metadata.analysis;
   const loggedVia = event.metadata.loggedVia ?? 'ai';
   const name =
-    analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || 'Meal';
+    analysis?.foodDescription || analysis?.detectedFoods.join(', ') || analysis?.summary || t('Meal');
   const calories = calorieEstimate(analysis?.macros);
-  const time = new Date(event.occurredAt).toLocaleTimeString([], {
+  const time = new Date(event.occurredAt).toLocaleTimeString(formatLocale(), {
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -50,7 +51,7 @@ export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {
               breaks only at a "·", never inside "Apple Health" or "Grade A". */}
           <Text style={styles.meta}>
             {nowrap(time)} · {nowrap(LOGGED_VIA_LABEL[loggedVia])}
-            {analysis ? ` · ${nowrap(`Grade ${analysis.grade}`)}` : ''}
+            {analysis ? ` · ${nowrap(t('Grade {grade}', { grade: analysis.grade }))}` : ''}
           </Text>
         </View>
         <Text style={styles.calories} numberOfLines={1}>{calories} kcal</Text>
@@ -60,10 +61,10 @@ export function MealDiaryRow({ event }: { event: HealthEvent<MealMetadata> }) {
         <View style={styles.detail}>
           <View style={styles.macroGrid}>
             {[
-              [calories, 'Calories'],
-              [`${analysis.macros.proteinGrams}g`, 'Protein'],
-              [`${analysis.macros.carbsGrams}g`, 'Carbs'],
-              [`${analysis.macros.fatGrams}g`, 'Fat'],
+              [calories, t('Calories')],
+              [`${analysis.macros.proteinGrams}g`, t('Protein')],
+              [`${analysis.macros.carbsGrams}g`, t('Carbs')],
+              [`${analysis.macros.fatGrams}g`, t('Fat')],
             ].map(([value, label]) => (
               <View key={String(label)} style={styles.macroCell}>
                 <Text style={styles.macroValue} numberOfLines={1}>{value}</Text>

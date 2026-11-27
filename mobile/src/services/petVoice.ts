@@ -4,6 +4,7 @@ import type { File } from 'expo-file-system';
 import { PET_VOICES, type PetState, type PetVoice } from '@vitto/core';
 import { deleteModel, downloadModel, isModelDownloaded, speakToFiles, warmUp, type KokoroVoice } from '../voice/kokoro';
 import { duckMusic, setQuietAudioSession } from './music';
+import { petSpeechAvailable } from '../i18n';
 
 /**
  * The pet's voice: what it says in the room's bubble, said out loud by Kokoro
@@ -19,6 +20,8 @@ const STORAGE_KEY = 'vitto.petVoice';
 
 /** Off unless turned on: turning it on is a download. */
 export const loadVoiceEnabled = async (): Promise<boolean> => {
+  // English voices only: in another language the setting reads as off, whatever was saved.
+  if (!petSpeechAvailable()) return false;
   try {
     return (await AsyncStorage.getItem(STORAGE_KEY)) === 'on';
   } catch {
@@ -38,6 +41,7 @@ export { isModelDownloaded as isVoiceReady, MODEL_BYTES as VOICE_DOWNLOAD_BYTES 
 
 /** Gets the voice ready: downloads the model if it is not here yet, then loads it. */
 export const prepareVoice = async (onProgress?: (fraction: number) => void, pet?: Pick<PetState, 'id' | 'voice'>): Promise<void> => {
+  if (!petSpeechAvailable()) return;
   await downloadModel(onProgress);
   if (pet) warmUpVoice(pet);
   else warmUp();
@@ -137,6 +141,8 @@ const playClip = (player: AudioPlayer) =>
  * to say is then usually ready anyway, instead of the pet stopping to wait.
  */
 const say = async (makeClips: (isCurrent: () => boolean) => AsyncIterator<File> | Iterator<File>): Promise<void> => {
+  // Every line the pet says aloud starts here. Its voices are English only (see petSpeechAvailable).
+  if (!petSpeechAvailable()) return;
   stopPetVoice();
   const mine = ++generation;
   const isCurrent = () => mine === generation;
@@ -203,7 +209,7 @@ let previews: { petId: string; ready: Map<PetVoice, File[]>; started: Set<PetVoi
 
 /** Makes every voice's line in the background, one at a time, the pet's own voice first. */
 export const preparePreviews = (pet: Pick<PetState, 'id' | 'voice'>): void => {
-  if (!isModelDownloaded()) return;
+  if (!petSpeechAvailable() || !isModelDownloaded()) return;
   if (previews?.petId !== pet.id) previews = { petId: pet.id, ready: new Map(), started: new Set() };
   const mine = previews;
   const order = [voiceOf(pet), ...PET_VOICES.filter((voice) => voice !== voiceOf(pet))].filter((voice) => !mine.started.has(voice));

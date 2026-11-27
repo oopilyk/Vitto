@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
+import { tx } from '../i18n';
 
 /** A light tap felt in the hand: `select` for a choice changing, `press` for an action. */
 export const haptic = (kind: 'select' | 'press') => {
@@ -50,7 +51,7 @@ export function KeyboardDoneBar({ nativeID }: { nativeID: string }) {
           style={({ pressed }) => pressed && styles.textPressed}
           testID="keyboard-done"
         >
-          <Text style={styles.doneLabel}>Done</Text>
+          <Text style={styles.doneLabel}>{tx('keyboard button: finished typing', 'Done')}</Text>
         </Pressable>
       </View>
     </InputAccessoryView>
@@ -219,7 +220,7 @@ export function Mark({
  * right, as on iOS's own sheets. The cross is drawn, not typed: a "×" glyph
  * sits on the font's baseline and never quite lands in the middle of a circle.
  */
-export function CloseButton({ onPress, label = 'Close' }: { onPress: () => void; label?: string }) {
+export function CloseButton({ onPress, label = tx('button that dismisses a sheet or dialog', 'Close') }: { onPress: () => void; label?: string }) {
   return (
     <PressableScale
       accessibilityRole="button"

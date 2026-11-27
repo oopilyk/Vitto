@@ -1,3 +1,5 @@
+// First, before anything else is loaded: it decides the app's language (see the file).
+import './src/i18n/boot';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

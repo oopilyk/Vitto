@@ -2,6 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   type BrainTrainingMetadata,
+  COUNTRIES,
+  type CompassDirection,
   COUNTRY_GUESS_CONTINENT_HINT_AT,
   COUNTRY_GUESS_FLAG_HINT_AT,
   COUNTRY_GUESS_MAX_GUESSES,
@@ -21,6 +23,7 @@ import {
 } from '@vitto/core';
 import { colors, fonts, layout, text, themedStyles } from '../theme';
 import { PrimaryButton, TextButton } from './ui';
+import { getLocale, t, tRich } from '../i18n';
 
 interface Props {
   onFinish: (metadata: BrainTrainingMetadata, summary: string[]) => void;
@@ -28,6 +31,60 @@ interface Props {
   /** Injected in tests so the answers are known. */
   session?: CountryGuessSession;
 }
+
+/** Which way to look, spoken: one whole phrase per direction, since "NE" alone is English. */
+const LOOK_LABEL: Record<CompassDirection, string> = {
+  N: t('Look N'),
+  NE: t('Look NE'),
+  E: t('Look E'),
+  SE: t('Look SE'),
+  S: t('Look S'),
+  SW: t('Look SW'),
+  W: t('Look W'),
+  NW: t('Look NW'),
+};
+
+/**
+ * `findCountry` and `searchCountries` match a country's English names. In
+ * another language the player types the name as it is shown, so the translated
+ * name is matched too, folded the way those are: case, accents and punctuation
+ * ignored. Letters of any script are kept (the English fold keeps only a-z).
+ */
+const fold = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[!-\/:-@\[-`{-~\u00a1-\u00bf\u2010-\u2027\u3000-\u303f\uff00-\uff0f]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const shownName = (country: Country): string => fold(t(country.name));
+
+/** The country a typed entry names, in the app's language or in English. */
+const findTypedCountry = (entry: string): Country | null => {
+  if (getLocale() === 'en') return findCountry(entry);
+  const wanted = fold(entry);
+  if (!wanted) return null;
+  return COUNTRIES.find((country) => shownName(country) === wanted) ?? findCountry(entry);
+};
+
+/** Suggestions for a partly typed name: matches on the shown name first, then the English ones. */
+const suggestCountries = (entry: string, limit = 6): Country[] => {
+  const english = searchCountries(entry, limit);
+  if (getLocale() === 'en') return english;
+  const wanted = fold(entry);
+  if (!wanted) return english;
+  const starts: Country[] = [];
+  const contains: Country[] = [];
+  for (const country of COUNTRIES) {
+    const name = shownName(country);
+    if (name.startsWith(wanted)) starts.push(country);
+    else if (name.includes(wanted)) contains.push(country);
+  }
+  const listed = new Set([...starts, ...contains].map((country) => country.code));
+  return [...starts, ...contains, ...english.filter((country) => !listed.has(country.code))].slice(0, limit);
+};
 
 /**
  * Three mystery countries, six guesses each. Every miss says how far off it was
@@ -54,13 +111,13 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
   const suggestions = useMemo(() => {
     if (over) return [];
     const guessed = new Set(guesses.map((guess) => guess.country.code));
-    return searchCountries(entry).filter((country) => !guessed.has(country.code));
+    return suggestCountries(entry).filter((country) => !guessed.has(country.code));
   }, [entry, guesses, over]);
 
   const guess = (country: Country) => {
     if (over) return;
     if (guesses.some((previous) => previous.country.code === country.code)) {
-      setNotice(`You already tried ${country.name}`);
+      setNotice(t('You already tried {country}', { country: t(country.name) }));
       return;
     }
     setNotice(null);
@@ -69,9 +126,9 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
   };
 
   const submitTyped = () => {
-    const country = findCountry(entry) ?? suggestions[0] ?? null;
+    const country = findTypedCountry(entry) ?? suggestions[0] ?? null;
     if (!country) {
-      setNotice(entry.trim() ? 'No country by that name here' : null);
+      setNotice(entry.trim() ? t('No country by that name here') : null);
       return;
     }
     guess(country);
@@ -96,9 +153,10 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
     const durationSeconds = Math.max(1, Math.round((Date.now() - startedAt.current) / 1000));
     const summary = all.map((outcome, index) => {
       const country = session.targets[index]!;
-      return `${flagEmoji(country.code)} ${country.name} (${country.capital}) · ${
-        outcome.solved ? `solved in ${outcome.guessesUsed}` : 'not found'
-      }`;
+      const shown = { flag: flagEmoji(country.code), country: t(country.name), capital: t(country.capital) };
+      return outcome.solved
+        ? t('{flag} {country} ({capital}) · solved in {guesses}', { ...shown, guesses: outcome.guessesUsed })
+        : t('{flag} {country} ({capital}) · not found', shown);
     });
     onFinish(toCountryGuessMetadata(all, durationSeconds), summary);
   };
@@ -107,27 +165,27 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
     <>
       <View style={styles.scoreboard}>
         <Text style={styles.scoreItem}>
-          Country <Text style={styles.scoreValue}>{round + 1}</Text>/{COUNTRY_GUESS_ROUNDS}
+          {tRich('Country {round}/{total}', { round: <Text style={styles.scoreValue}>{round + 1}</Text> }, { total: COUNTRY_GUESS_ROUNDS })}
         </Text>
         <Text style={styles.scoreItem}>
-          <Text style={styles.scoreValue}>{Math.max(0, COUNTRY_GUESS_MAX_GUESSES - guesses.length)}</Text> guesses left
+          {tRich('{guesses} guesses left', { guesses: <Text style={styles.scoreValue}>{Math.max(0, COUNTRY_GUESS_MAX_GUESSES - guesses.length)}</Text> })}
         </Text>
         <Text style={styles.scoreItem}>
-          <Text style={styles.scoreValue}>{outcomes.filter((outcome) => outcome.solved).length + (solved ? 1 : 0)}</Text> solved
+          {tRich('{count} solved', { count: <Text style={styles.scoreValue}>{outcomes.filter((outcome) => outcome.solved).length + (solved ? 1 : 0)}</Text> })}
         </Text>
       </View>
 
       <View style={[styles.mystery, solved && styles.mysterySolved, over && !solved && styles.mysteryLost]}>
         <Text style={styles.mysteryFlag}>{over || showFlag ? flagEmoji(target.code) : '?'}</Text>
         <Text style={styles.mysteryTitle}>
-          {over ? `${target.name}` : 'Mystery country'}
+          {over ? t(target.name) : t('Mystery country')}
         </Text>
         <Text style={styles.mysteryHint}>
           {over
-            ? `Capital: ${target.capital} · ${target.continent}`
+            ? t('Capital: {capital} · {continent}', { capital: t(target.capital), continent: t(target.continent) })
             : showContinent
-              ? `Somewhere in ${target.continent}`
-              : 'Each guess tells you how far away it was, and which way to look.'}
+              ? t('Somewhere in {continent}', { continent: t(target.continent) })
+              : t('Each guess tells you how far away it was, and which way to look.')}
         </Text>
       </View>
 
@@ -138,14 +196,14 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
               <Text style={styles.guessIndex} numberOfLines={1}>{index + 1}</Text>
               <Text style={styles.guessFlag}>{flagEmoji(feedback.country.code)}</Text>
               <Text style={styles.guessName} numberOfLines={1}>
-                {feedback.country.name}
+                {t(feedback.country.name)}
               </Text>
               {feedback.correct ? (
-                <Text style={styles.guessRight} numberOfLines={1}>Correct!</Text>
+                <Text style={styles.guessRight} numberOfLines={1}>{t('Correct!')}</Text>
               ) : (
                 <>
                   <Text style={styles.guessDistance} numberOfLines={1}>{formatDistance(feedback.distanceKm)}</Text>
-                  <Text style={styles.guessArrow} accessibilityLabel={`Look ${feedback.direction}`}>
+                  <Text style={styles.guessArrow} accessibilityLabel={LOOK_LABEL[feedback.direction]}>
                     {DIRECTION_ARROWS[feedback.direction]}
                   </Text>
                   <Text style={styles.guessProximity} numberOfLines={1}>{feedback.proximity}%</Text>
@@ -166,12 +224,12 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
               setNotice(null);
             }}
             onSubmitEditing={submitTyped}
-            placeholder="Type a country"
+            placeholder={t('Type a country')}
             placeholderTextColor={colors.faint}
             autoCorrect={false}
             autoCapitalize="words"
             returnKeyType="go"
-            accessibilityLabel="Country guess"
+            accessibilityLabel={t('Country guess')}
           />
           {suggestions.length ? (
             <View style={styles.suggestions}>
@@ -179,12 +237,12 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
                 <Pressable
                   key={country.code}
                   accessibilityRole="button"
-                  accessibilityLabel={`Guess ${country.name}`}
+                  accessibilityLabel={t('Guess {country}', { country: t(country.name) })}
                   onPress={() => guess(country)}
                   style={({ pressed }) => [styles.suggestion, pressed && styles.suggestionPressed]}
                 >
                   <Text style={styles.suggestionFlag}>{flagEmoji(country.code)}</Text>
-                  <Text style={styles.suggestionName}>{country.name}</Text>
+                  <Text style={styles.suggestionName}>{t(country.name)}</Text>
                 </Pressable>
               ))}
             </View>
@@ -195,11 +253,11 @@ export function CountryGuessGame({ onFinish, onCancel, session: given }: Props) 
 
       <View style={styles.actions}>
         {over ? (
-          <PrimaryButton label={lastRound ? 'See my score' : 'Next country'} onPress={lastRound ? finish : nextRound} />
+          <PrimaryButton label={lastRound ? t('See my score') : t('Next country')} onPress={lastRound ? finish : nextRound} />
         ) : (
-          <PrimaryButton label="Guess" disabled={!entry.trim()} onPress={submitTyped} />
+          <PrimaryButton label={t('Guess')} disabled={!entry.trim()} onPress={submitTyped} />
         )}
-        <TextButton label="Cancel" onPress={onCancel} />
+        <TextButton label={t('Cancel')} onPress={onCancel} />
       </View>
     </>
   );

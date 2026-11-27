@@ -1,4 +1,4 @@
-import type { LifeContext } from './types';
+import type { CompanionLanguage, LifeContext } from './types';
 
 /**
  * Settings the pet can offer to change, when somebody asks it to ("can you set
@@ -197,5 +197,14 @@ export const proposalFrom = (
  * prompt asks for a reply every time; this is for when it does not, so the
  * bubble above the card is never empty.
  */
-export const proposalFallbackLine = (proposal: CompanionProposal | null): string =>
-  proposal ? 'okay, tap below and it’s done.' : 'hmm, that’s not one I can change from here.';
+export const proposalFallbackLine = (proposal: CompanionProposal | null, language?: CompanionLanguage): string => {
+  const lines = FALLBACK_LINES[language ?? 'en'];
+  return proposal ? lines.done : lines.cannot;
+};
+
+/** The one thing the pet says that no model wrote, so it is written out in each language here. */
+const FALLBACK_LINES: Record<CompanionLanguage | 'en', { done: string; cannot: string }> = {
+  en: { done: 'okay, tap below and it’s done.', cannot: 'hmm, that’s not one I can change from here.' },
+  es: { done: 'vale, toca abajo y listo.', cannot: 'mmm, eso no lo puedo cambiar desde aquí.' },
+  'zh-Hans': { done: '好的，点一下下面就搞定啦。', cannot: '嗯…这个我在这里改不了。' },
+};

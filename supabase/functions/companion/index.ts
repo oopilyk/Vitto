@@ -369,7 +369,7 @@ const extract = async (ctx: PetContext, userText: string, replyText: string, exi
       max_tokens: 1024,
       // Haiku 5.5 thinks unless told not to, billed as output and out of max_tokens.
       thinking: { type: 'disabled' },
-      system: renderExtractionPrompt({ petName: ctx.life.pet.name, existingMemories: existing, askForNickname }),
+      system: renderExtractionPrompt({ petName: ctx.life.pet.name, existingMemories: existing, askForNickname, language: ctx.life.language }),
       messages: [{
         role: 'user',
         // Their date, not this machine's UTC one: in the evening that is already tomorrow.
@@ -624,7 +624,7 @@ Deno.serve(async (request) => {
       // never shows a card that could be tapped twice.
       const proposal = proposalFrom(generated.toolCalls, life, message);
       if (generated.toolCalls.length && !proposal) console.log('[companion] chat: proposal dropped');
-      const text = generated.text || proposalFallbackLine(proposal);
+      const text = generated.text || proposalFallbackLine(proposal, life?.language);
       console.log(`[companion] chat: reads ${askedAt - loadedAt}ms, model ${Date.now() - askedAt}ms, degraded=${generated.degraded}`);
       const reply = await companion.appendMessage({ role: 'pet', content: text, usage: generated.usage });
 

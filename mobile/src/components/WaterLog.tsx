@@ -12,6 +12,7 @@ import { TrendBars } from './TrendBars';
 import { WATER_BLUE, useWaterTaps } from './WaterTracker';
 import { Mark } from './ui';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { t, tn } from '../i18n';
 import { colors, fonts, layout, themedStyles } from '../theme';
 
 /** A standard bottle: the third quick add, after one cup and two. */
@@ -78,8 +79,8 @@ export function WaterLog({ ml, goalMl, system, onAdd, events, now = new Date() }
             style={styles.glass}
             accessible
             accessibilityRole="progressbar"
-            accessibilityLabel="Today's water"
-            accessibilityValue={{ min: 0, max: goalMl, now: Math.min(shown, goalMl), text: `${formatWater(shown, system)} of ${formatWater(goalMl, system)}` }}
+            accessibilityLabel={t("Today's water")}
+            accessibilityValue={{ min: 0, max: goalMl, now: Math.min(shown, goalMl), text: t('{amount} of {goal}', { amount: formatWater(shown, system), goal: formatWater(goalMl, system) }) }}
           >
             <Animated.View style={[styles.water, { height: fill }]}>
               <View style={styles.surface} />
@@ -89,55 +90,55 @@ export function WaterLog({ ml, goalMl, system, onAdd, events, now = new Date() }
             ))}
           </View>
           <View style={styles.heroCopy}>
-            <Text style={styles.kicker}>Today</Text>
+            <Text style={styles.kicker}>{t('Today')}</Text>
             <Text style={styles.amount} numberOfLines={1} adjustsFontSizeToFit>
               {formatWater(shown, system)}
             </Text>
-            <Text style={styles.ofGoal}>of {formatWater(goalMl, system)}</Text>
+            <Text style={styles.ofGoal}>{t('of {goal}', { goal: formatWater(goalMl, system) })}</Text>
             <View style={styles.cupsLine}>
               {Array.from({ length: goalCups }, (_, index) => (
                 <View key={index} style={[styles.cupDot, index < cups && styles.cupDotOn]} />
               ))}
             </View>
             <Text style={[styles.status, reached && styles.statusDone]}>
-              {reached ? 'Goal reached. Nicely done!' : `${formatWater(left, system)} to go`}
+              {reached ? t('Goal reached. Nicely done!') : t('{amount} to go', { amount: formatWater(left, system) })}
             </Text>
           </View>
         </View>
 
         <View style={styles.adds}>
-          <AddButton label="1 cup" note={formatWater(WATER_CUP_ML, system)} primary onPress={() => tap(WATER_CUP_ML)} />
-          <AddButton label="2 cups" note={formatWater(WATER_CUP_ML * 2, system)} onPress={() => tap(WATER_CUP_ML * 2)} />
-          <AddButton label="Bottle" note={formatWater(BOTTLE_ML, system)} onPress={() => tap(BOTTLE_ML)} />
+          <AddButton label={t('1 cup')} note={formatWater(WATER_CUP_ML, system)} primary onPress={() => tap(WATER_CUP_ML)} />
+          <AddButton label={t('2 cups')} note={formatWater(WATER_CUP_ML * 2, system)} onPress={() => tap(WATER_CUP_ML * 2)} />
+          <AddButton label={t('Bottle')} note={formatWater(BOTTLE_ML, system)} onPress={() => tap(BOTTLE_ML)} />
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Take back a cup of water"
+          accessibilityLabel={t('Take back a cup of water')}
           disabled={shown <= 0}
           hitSlop={8}
           onPress={() => tap(-Math.min(WATER_CUP_ML, shown))}
           style={({ pressed }) => [styles.undo, (pressed || shown <= 0) && { opacity: 0.4 }]}
         >
           <Mark kind="minus" size={11} weight={2.2} color={colors.muted} />
-          <Text style={styles.undoText}>Take back a cup</Text>
+          <Text style={styles.undoText}>{t('Take back a cup')}</Text>
         </Pressable>
       </View>
 
       <View style={[layout.card, styles.section]}>
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>Last 7 days</Text>
-          <Text style={styles.sectionNote}>{`Goal met ${metDays} of ${WEEK}`}</Text>
+          <Text style={styles.sectionTitle}>{t('Last 7 days')}</Text>
+          <Text style={styles.sectionNote}>{t('Goal met {days} of {total}', { days: metDays, total: WEEK })}</Text>
         </View>
         <TrendBars bars={bars} goal={goalMl} format={(value) => formatWater(value, system)} unit="" color={WATER_BLUE} />
         <View style={styles.stats}>
           <View style={styles.stat}>
             <Text style={styles.statValue}>{formatWater(average, system)}</Text>
-            <Text style={styles.statLabel}>daily average</Text>
+            <Text style={styles.statLabel}>{t('daily average')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
-            <Text style={styles.statValue}>{`${metDays} ${metDays === 1 ? 'day' : 'days'}`}</Text>
-            <Text style={styles.statLabel}>at goal this week</Text>
+            <Text style={styles.statValue}>{tn(metDays, '{count} day', '{count} days')}</Text>
+            <Text style={styles.statLabel}>{t('at goal this week')}</Text>
           </View>
         </View>
       </View>
@@ -150,7 +151,7 @@ function AddButton({ label, note, primary, onPress }: { label: string; note: str
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Add ${label}, ${note}`}
+      accessibilityLabel={t('Add {amount}, {volume}', { amount: label, volume: note })}
       onPress={onPress}
       style={({ pressed }) => [styles.add, primary && styles.addPrimary, pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] }]}
     >

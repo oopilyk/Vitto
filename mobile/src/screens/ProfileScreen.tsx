@@ -32,6 +32,7 @@ import { NavGroup, NavRow, SETTINGS_MAX_WIDTH } from '../components/settingsKit'
 import { StrengthMap } from '../components/StrengthMap';
 import { findScreenTimeForDate } from '../services/screenTimeMapping';
 import { formatMinutes } from '../services/minutes';
+import { formatLocale, t, tn, tx } from '../i18n';
 import { colors, fonts, layout, themedStyles } from '../theme';
 
 interface Props {
@@ -92,7 +93,7 @@ function Card({
   onLayout,
   onOpen,
   openLabel,
-  openText = 'More',
+  openText = t('More'),
 }: {
   title: string;
   hint?: string;
@@ -113,7 +114,7 @@ function Card({
         {onOpen ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={openLabel ?? `Open ${title}`}
+            accessibilityLabel={openLabel ?? t('Open {title}', { title })}
             onPress={onOpen}
             hitSlop={10}
             style={({ pressed }) => [styles.cardOpen, pressed && styles.headerButtonPressed]}
@@ -133,7 +134,7 @@ function Card({
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statValue} numberOfLines={1}>{value.toLocaleString()}</Text>
+      <Text style={styles.statValue} numberOfLines={1}>{value.toLocaleString(formatLocale())}</Text>
       <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
     </View>
   );
@@ -167,7 +168,7 @@ export function ProfileScreen({
 }: Props) {
   const today = new Date();
   const streaks = calculateQualifyingStreaks(events, today);
-  const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const shortDate = (iso: string) => new Date(iso).toLocaleDateString(formatLocale(), { month: 'short', day: 'numeric' });
   const runs = runRecords(events, measurementSystemOf(profile));
   // Records in the unit they lift in, which can differ from their profile's (see liftingUnit).
   const liftUnit = liftingUnit(events, profile.weightUnit);
@@ -183,23 +184,23 @@ export function ProfileScreen({
   const overall = overallStanding(lifts.map((lift) => lift.standing));
   const board: { label: string; value: string | null; unit?: string; meta: string; note?: string }[] = [
     ...lifts.map(({ exercise, record, standing }) => ({
-      label: exercise,
+      label: t(exercise),
       value: record ? String(record.weight) : null,
       unit: liftUnit,
-      meta: record ? `× ${record.reps} · ${shortDate(record.occurredAt)}` : 'not yet lifted',
+      meta: record ? `× ${record.reps} · ${shortDate(record.occurredAt)}` : t('not yet lifted'),
       ...(standing ? { note: `${ordinal(standing.percentile)} · ${standing.label}` } : {}),
     })),
     {
-      label: runs.unit === 'mi' ? 'Fastest mile' : 'Fastest km',
+      label: runs.unit === 'mi' ? t('Fastest mile') : t('Fastest km'),
       value: runs.fastest ? formatPace(runs.fastest.paceMinutes) : null,
       unit: `/${runs.unit}`,
-      meta: runs.fastest ? `${runs.fastest.distance} ${runs.unit} · ${shortDate(runs.fastest.occurredAt)}` : 'no runs yet',
+      meta: runs.fastest ? `${runs.fastest.distance} ${runs.unit} · ${shortDate(runs.fastest.occurredAt)}` : t('no runs yet'),
     },
     {
-      label: 'Longest run',
+      label: tx('the farthest distance run', 'Longest run'),
       value: runs.longest ? String(runs.longest.distance) : null,
       unit: runs.unit,
-      meta: runs.longest ? `${runs.longest.durationMinutes} min · ${shortDate(runs.longest.occurredAt)}` : 'no runs yet',
+      meta: runs.longest ? `${t('{minutes} min', { minutes: runs.longest.durationMinutes })} · ${shortDate(runs.longest.occurredAt)}` : t('no runs yet'),
     },
   ];
   const onBoard = board.filter((tile) => tile.value !== null).length;
@@ -217,8 +218,8 @@ export function ProfileScreen({
   const avatarLetter = initialOf(name || profile.username);
   const screenTimeToday = findScreenTimeForDate(events, today);
   const screenTimeValue = [
-    profile.screenTimeBudgetMinutes ? `Budget ${formatMinutes(profile.screenTimeBudgetMinutes)}` : 'No budget',
-    screenTimeToday ? `${formatMinutes(screenTimeToday.metadata.minutes)} today` : 'not logged today',
+    profile.screenTimeBudgetMinutes ? t('Budget {time}', { time: formatMinutes(profile.screenTimeBudgetMinutes) }) : t('No budget'),
+    screenTimeToday ? t('{time} today', { time: formatMinutes(screenTimeToday.metadata.minutes) }) : t('not logged today'),
   ].join(' · ');
   const activeReminders = reminders?.filter((item) => item.enabled).length ?? 0;
 
@@ -227,17 +228,17 @@ export function ProfileScreen({
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" onPress={onClose} hitSlop={10} style={styles.back}>
           <Text style={styles.backMark}>‹</Text>
-          <Text style={styles.backLabel}>Pet</Text>
+          <Text style={styles.backLabel}>{t('Pet')}</Text>
         </Pressable>
         {onOpenSettings ? (
           <PressableScale
             accessibilityRole="button"
-            accessibilityLabel="Open settings"
+            accessibilityLabel={t('Open settings')}
             onPress={onOpenSettings}
             hitSlop={8}
             style={({ pressed }) => [styles.settingsButton, pressed && styles.headerButtonPressed]}
           >
-            <Text style={styles.settingsLabel}>Settings</Text>
+            <Text style={styles.settingsLabel}>{t('Settings')}</Text>
           </PressableScale>
         ) : null}
       </View>
@@ -249,9 +250,9 @@ export function ProfileScreen({
               <Text style={styles.avatarInitial}>{avatarLetter}</Text>
             </View>
             <View style={styles.stats}>
-              <Stat value={streaks.currentStreak} label="day streak" />
-              <Stat value={workouts} label="workouts" />
-              <Stat value={meals} label="meals" />
+              <Stat value={streaks.currentStreak} label={t('day streak')} />
+              <Stat value={workouts} label={t('workouts')} />
+              <Stat value={meals} label={t('meals')} />
             </View>
           </View>
 
@@ -261,15 +262,15 @@ export function ProfileScreen({
               <Text style={name ? styles.handle : styles.name}>{`@${profile.username}`}</Text>
             ) : onOpenFriends ? (
               <Pressable accessibilityRole="button" onPress={onOpenFriends} hitSlop={6}>
-                <Text style={styles.handleLink}>Pick a username in Friends</Text>
+                <Text style={styles.handleLink}>{t('Pick a username in Friends')}</Text>
               </Pressable>
             ) : (
-              <Text style={styles.handle}>No username yet</Text>
+              <Text style={styles.handle}>{t('No username yet')}</Text>
             )}
             {profile.bio?.trim() ? (
               <Text style={styles.bio}>{profile.bio}</Text>
             ) : onEditProfile ? (
-              <Text style={styles.bioEmpty}>No bio yet. Friends see it beside your username.</Text>
+              <Text style={styles.bioEmpty}>{t('No bio yet. Friends see it beside your username.')}</Text>
             ) : null}
           </View>
 
@@ -282,7 +283,7 @@ export function ProfileScreen({
                   style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
                   testID="edit-profile"
                 >
-                  <Text style={styles.headerButtonLabel}>Edit profile</Text>
+                  <Text style={styles.headerButtonLabel}>{t('Edit profile')}</Text>
                 </PressableScale>
               ) : null}
               {onOpenFriends ? (
@@ -292,40 +293,40 @@ export function ProfileScreen({
                   style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
                   testID="open-friends"
                 >
-                  <Text style={styles.headerButtonLabel}>Friends</Text>
+                  <Text style={styles.headerButtonLabel}>{t('Friends')}</Text>
                 </PressableScale>
               ) : null}
             </View>
           ) : null}
         </View>
 
-        <Card title="Consistency">
+        <Card title={t('Consistency')}>
           <View style={styles.calendarHead}>
             <Text style={styles.calendarStreak} numberOfLines={1}>
-              {streaks.currentStreak === 1 ? '1 day in a row' : `${streaks.currentStreak} days in a row`}
+              {tn(streaks.currentStreak, '{count} day in a row', '{count} days in a row')}
             </Text>
             <Text style={styles.calendarLongest} numberOfLines={1}>
-              {`longest ${streaks.longestStreak}` + (streaks.freezes > 0 ? ` · ❄︎ ${streaks.freezes} ${streaks.freezes === 1 ? 'freeze' : 'freezes'}` : '')}
+              {t('longest {days}', { days: streaks.longestStreak }) + (streaks.freezes > 0 ? ` · ❄︎ ${tn(streaks.freezes, '{count} freeze', '{count} freezes')}` : '')}
             </Text>
           </View>
           <ActivityCalendar activeDateKeys={getActiveDateKeys(events)} frozenDateKeys={streaks.frozenDateKeys} />
           <Text style={styles.calendarLongest}>
-            {`Every ${FREEZE_EVERY_DAYS} days in a row earns a streak freeze (hold up to ${MAX_FREEZES}). A missed day uses one instead of ending your streak.`}
+            {t('Every {days} days in a row earns a streak freeze (hold up to {max}). A missed day uses one instead of ending your streak.', { days: FREEZE_EVERY_DAYS, max: MAX_FREEZES })}
           </Text>
         </Card>
 
         <Card
-          title="Personal records"
+          title={t('Personal records')}
           onOpen={onOpenLiftProgress}
-          openLabel="See lift progress"
-          openText="Progress"
+          openLabel={t('See lift progress')}
+          openText={t('Progress')}
           hint={
             onBoard === 0
-              ? 'Your best on each big lift and on the road, read from the workouts you log'
-              : `Your best on each big lift and on the road · ${onBoard} of ${board.length} on the board`
+              ? t('Your best on each big lift and on the road, read from the workouts you log')
+              : t('Your best on each big lift and on the road · {count} of {total} on the board', { count: onBoard, total: board.length })
           }
         >
-          <View style={styles.records} accessibilityLabel="Personal records">
+          <View style={styles.records} accessibilityLabel={t('Personal records')}>
             {board.map(({ label, value, unit, meta, note }) => (
               <View key={label} style={[styles.record, value === null && styles.recordEmpty]}>
                 <Text style={styles.recordLift} numberOfLines={2}>{label}</Text>
@@ -341,18 +342,18 @@ export function ProfileScreen({
           </View>
           {overall ? (
             <Text style={styles.recordFootnote}>
-              {`Across your logged lifts you sit around the ${ordinal(overall.percentile)} percentile — ${overall.label.toLowerCase()}. Placed against people who lift, of your sex, bodyweight and age, using published training standards. It is an estimate, not a survey of everyone.`}
+              {t('Across your logged lifts you sit around the {percentile} percentile — {level}. Placed against people who lift, of your sex, bodyweight and age, using published training standards. It is an estimate, not a survey of everyone.', { percentile: ordinal(overall.percentile), level: overall.label.toLowerCase() })}
             </Text>
           ) : null}
         </Card>
 
-        <Card title="Strength map" hint="Your strongest lifts against people your size, muscle by muscle">
+        <Card title={t('Strength map')} hint={t('Your strongest lifts against people your size, muscle by muscle')}>
           <StrengthMap profile={profile} events={events} />
         </Card>
 
         <Card
-          title="Achievements"
-          hint={`${earnedCount} of ${ACHIEVEMENTS.length} unlocked · trophies also appear on your living-room shelf`}
+          title={t('Achievements')}
+          hint={t('{count} of {total} unlocked · trophies also appear on your living-room shelf', { count: earnedCount, total: ACHIEVEMENTS.length })}
         >
           {visibleAchievements.map((achievement) => {
             const earned = (achievements ?? []).includes(achievement.id);
@@ -376,7 +377,7 @@ export function ProfileScreen({
                   <Text style={[styles.trophyName, !earned && styles.trophyNameLocked]}>{achievement.title}</Text>
                   <Text style={styles.trophyRule}>{achievement.describe(profile)}</Text>
                 </View>
-                <Text style={[styles.trophyState, earned && styles.trophyStateEarned]} numberOfLines={1}>{earned ? 'UNLOCKED' : 'LOCKED'}</Text>
+                <Text style={[styles.trophyState, earned && styles.trophyStateEarned]} numberOfLines={1}>{earned ? t('UNLOCKED') : t('LOCKED')}</Text>
               </View>
             );
           })}
@@ -388,21 +389,21 @@ export function ProfileScreen({
               hitSlop={8}
               style={styles.foldToggle}
             >
-              <Text style={styles.link}>{showAchievements ? 'Show fewer' : `Show all ${ACHIEVEMENTS.length}`}</Text>
+              <Text style={styles.link}>{showAchievements ? t('Show fewer') : t('Show all {count}', { count: ACHIEVEMENTS.length })}</Text>
               <Text style={styles.foldChevron}>{showAchievements ? '▴' : '▾'}</Text>
             </Pressable>
           ) : null}
         </Card>
 
         <View style={styles.tools}>
-          <NavGroup title="Your tools">
+          <NavGroup title={t('Your tools')}>
             {onOpenScreenTime ? (
-              <NavRow title="Screen time" value={screenTimeValue} onPress={onOpenScreenTime} testID="open-screen-time" />
+              <NavRow title={t('Screen time')} value={screenTimeValue} onPress={onOpenScreenTime} testID="open-screen-time" />
             ) : null}
             {reminders && onOpenReminders ? (
               <NavRow
-                title="Reminders"
-                value={reminders.length === 0 ? 'None yet' : `${activeReminders} of ${reminders.length} on`}
+                title={t('Reminders')}
+                value={reminders.length === 0 ? t('None yet') : t('{count} of {total} on', { count: activeReminders, total: reminders.length })}
                 onPress={onOpenReminders}
                 testID="open-reminders"
               />
@@ -410,17 +411,17 @@ export function ProfileScreen({
             {appleHealthStatus && onOpenAppleHealth ? (
               <NavRow
                 title="Apple Health"
-                value={appleHealthStatus === 'connected' ? 'Connected' : 'Not connected'}
+                value={appleHealthStatus === 'connected' ? t('Connected') : t('Not connected')}
                 onPress={onOpenAppleHealth}
                 testID="open-apple-health"
               />
             ) : null}
             {onOpenWeight ? (
               <NavRow
-                title="Weight"
+                title={tx('body weight', 'Weight')}
                 value={(() => {
                   const latest = weighIns(events).at(-1);
-                  return latest ? `${Math.round(convertWeightValue(latest.trendKg, 'kg', profile.weightUnit) * 10) / 10} ${profile.weightUnit}` : 'Start a trend';
+                  return latest ? `${Math.round(convertWeightValue(latest.trendKg, 'kg', profile.weightUnit) * 10) / 10} ${profile.weightUnit}` : t('Start a trend');
                 })()}
                 onPress={onOpenWeight}
                 testID="open-weight"
@@ -428,8 +429,8 @@ export function ProfileScreen({
             ) : null}
             {onOpenHistory ? (
               <NavRow
-                title="Activity history"
-                value={events.length === 0 ? 'Nothing yet' : `${careMomentCount(events)} logs`}
+                title={t('Activity history')}
+                value={events.length === 0 ? t('Nothing yet') : tn(careMomentCount(events), '{count} log', '{count} logs')}
                 onPress={onOpenHistory}
                 testID="open-history"
               />
@@ -438,7 +439,7 @@ export function ProfileScreen({
 
           {onSignOut ? (
             <NavGroup>
-              <NavRow title="Log out" onPress={onSignOut} danger testID="log-out" />
+              <NavRow title={t('Log out')} onPress={onSignOut} danger testID="log-out" />
             </NavGroup>
           ) : null}
         </View>

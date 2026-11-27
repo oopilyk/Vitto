@@ -9,6 +9,7 @@ import {
   type FoodSearchResult,
   type PortionUnit,
 } from './foodDatabase';
+import { getLocale, msg, t, translateServerMessage } from './i18n';
 
 /**
  * A meal said in a sentence, as foods for the plate.
@@ -82,7 +83,7 @@ const estimateToResult = (estimate: ServerEstimate, index: number): FoodSearchRe
   return {
     id: `estimate-${Date.now().toString(36)}-${index}`,
     name,
-    servingDescription: grams > 0 ? `about ${grams} g` : 'estimated serving',
+    servingDescription: grams > 0 ? `about ${grams} g` : msg('estimated serving'),
     basisGrams: grams > 0 ? grams : undefined,
     isPer100g: false,
     macros: {
@@ -125,10 +126,10 @@ const readServerItems = (raw: unknown): DescribedFood[] => {
     .filter((item): item is DescribedFood => item !== null);
 };
 
-const NOT_FOOD = 'That did not sound like food. Try something like "2 eggs and toast with butter".';
-const FAILED = 'Could not read that meal. Try again.';
-const OFFLINE = "Couldn't reach Vitto to read that. Check your connection and try again.";
-const UNAVAILABLE = 'Vitto could not read that just now. Try again in a moment, or add your foods with Search.';
+const NOT_FOOD = t('That did not sound like food. Try something like "2 eggs and toast with butter".');
+const FAILED = t('Could not read that meal. Try again.');
+const OFFLINE = t("Couldn't reach Vitto to read that. Check your connection and try again.");
+const UNAVAILABLE = t('Vitto could not read that just now. Try again in a moment, or add your foods with Search.');
 
 /**
  * Whether a request that never got an answer failed for want of a connection.
@@ -158,19 +159,20 @@ const refusal = async (error: unknown): Promise<string | null> => {
  */
 export const describeMeal = async (text: string, { search = searchFoodsByName }: DescribeMealOptions = {}): Promise<DescribedMeal> => {
   const said = text.replace(/\s+/g, ' ').trim().slice(0, MAX_MEAL_TEXT_LENGTH);
-  if (!said) throw new Error('Say or type what you ate.');
+  if (!said) throw new Error(t('Say or type what you ate.'));
 
   const local = await describeLocally(said, search);
   if (local) return { items: local, via: 'parser', missed: [] };
 
   const supabase = getSupabase();
   // No server (the app's local mode): only what can be read without one.
-  if (!supabase) throw new Error('List each food with an amount, like "2 eggs, 150 g rice".');
+  if (!supabase) throw new Error(t('List each food with an amount, like "2 eggs, 150 g rice".'));
 
-  const { data, error } = await supabase.functions.invoke('describe-meal', { body: { text: said, key: getFdcApiKey() } });
+  const { data, error } = await supabase.functions.invoke('describe-meal', { body: { text: said, key: getFdcApiKey(), locale: getLocale() } });
   if (error) {
     if ((error as { name?: string }).name === 'FunctionsFetchError') throw new Error(isOffline() ? OFFLINE : UNAVAILABLE);
-    throw new Error((await refusal(error)) ?? FAILED);
+    const reason = await refusal(error);
+    throw new Error(reason ? translateServerMessage(reason) : FAILED);
   }
   if ((data as { notFood?: unknown } | null)?.notFood) throw new Error(NOT_FOOD);
   const items = readServerItems(data);

@@ -5,6 +5,7 @@ import { CharacterEditor, type Character } from '../components/CharacterEditor';
 import { PinnedBar, SettingsPage } from '../components/settingsKit';
 import { TextButton } from '../components/ui';
 import { colors, themedStyles, fonts } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   pet: Pick<PetState, 'name' | 'personality' | 'dials' | 'persona'>;
@@ -29,21 +30,21 @@ interface Props {
 export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpenPlus, changesLeft, welcome = false, fromTour = false, onClose }: Props) {
   const page = (content: ReactNode, footer?: ReactNode) => (
     <SettingsPage
-      title={welcome ? `Who should ${pet.name} be?` : 'Personality'}
+      title={welcome ? t('Who should {pet} be?', { pet: pet.name }) : t('Personality')}
       lead={
         welcome
-          ? `Plus unlocks ${pet.name}'s personality. Pick one, tune it, or write your own. You can change it later in Settings.`
-          : `How ${pet.name} talks to you. Your notes and history are kept when you change it.`
+          ? t("Plus unlocks {pet}'s personality. Pick one, tune it, or write your own. You can change it later in Settings.", { pet: pet.name })
+          : t('How {pet} talks to you. Your notes and history are kept when you change it.', { pet: pet.name })
       }
-      backLabel={welcome ? 'Later' : fromTour ? 'Home' : 'Settings'}
+      backLabel={welcome ? t('Later') : fromTour ? t('Home') : t('Settings')}
       onBack={onClose}
       footer={footer}
     >
       <View style={styles.body}>
         {welcome ? (
           <View style={styles.welcome} testID="plus-welcome">
-            <Text style={styles.welcomeTitle}>Welcome to Plus</Text>
-            <Text style={styles.welcomeBody}>{`Until now ${pet.name} has had the default voice. This is where they become yours.`}</Text>
+            <Text style={styles.welcomeTitle}>{t('Welcome to Plus')}</Text>
+            <Text style={styles.welcomeBody}>{t('Until now {pet} has had the default voice. This is where they become yours.', { pet: pet.name })}</Text>
           </View>
         ) : null}
         {content}
@@ -54,11 +55,11 @@ export function PersonalityScreen({ pet, age, onSave, canCustomise = true, onOpe
   if (!canCustomise) {
     return page(
       <View style={styles.locked} testID="personality-locked">
-        <Text style={styles.lockedTitle}>A Plus feature</Text>
+        <Text style={styles.lockedTitle}>{t('A Plus feature')}</Text>
         <Text style={styles.lockedBody}>
-          {`${pet.name} talks in their own easygoing voice. With Plus you can pick a temperament, fine-tune it, or write them a whole character.`}
+          {t('{pet} talks in their own easygoing voice. With Plus you can pick a temperament, fine-tune it, or write them a whole character.', { pet: pet.name })}
         </Text>
-        {onOpenPlus ? <TextButton label="See Plus" tone="coral" onPress={onOpenPlus} /> : null}
+        {onOpenPlus ? <TextButton label={t('See Plus')} tone="coral" onPress={onOpenPlus} /> : null}
       </View>,
     );
   }

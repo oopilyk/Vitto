@@ -4,6 +4,7 @@ import {
   AILMENT_MESSAGE,
   bondFor,
   petVoice,
+  type BondStage,
   type CareToast,
   type DayGoal,
   type HealthEvent,
@@ -16,6 +17,7 @@ import {
 } from '@vitto/core';
 import { FitText } from '../components/FitText';
 import { fonts, world, themedStyles } from '../theme';
+import { formatLocale, t, tn } from '../i18n';
 import { CareToastBanner } from './CareToastBanner';
 import { useReportHudEdge } from './RoomActionSlot';
 import { useTourTarget } from '../tour/FirstRunTour';
@@ -142,15 +144,21 @@ const CHIP_GAP = 8;
 const MIN_ROW_SCALE = 0.72;
 
 /**
- * A mono label's width: every letter is 0.6em, an emoji about 1.25em. A
- * slight overestimate, which only ever shrinks a row a touch early.
+ * A mono label's width: every letter is 0.6em, an emoji about 1.25em, and a
+ * Chinese character (the system face stands in for the mono one) two letters.
+ * A slight overestimate, which only ever shrinks a row a touch early.
  */
 const monoWidth = (text: string, fontSize: number, letterSpacing: number): number =>
   [...text.replace(/\uFE0E|\uFE0F/g, '')].reduce(
-    // A symbol or emoji (🔥, ❄︎, ✓) comes from a fallback font, wider than a letter.
-    (width, char) => width + ((char.codePointAt(0) ?? 0) >= 0x2000 ? 1.25 : 0.6) * fontSize + letterSpacing,
+    (width, char) => width + charEm(char.codePointAt(0) ?? 0) * fontSize + letterSpacing,
     0,
   );
+const charEm = (code: number): number => {
+  // CJK, its punctuation and the full-width forms: two Latin letters wide.
+  if (code >= 0x2e80 && code <= 0xffef) return 1.2;
+  // A symbol or emoji (🔥, ❄︎, ✓) comes from a fallback font, wider than a letter.
+  return code >= 0x2000 ? 1.25 : 0.6;
+};
 
 /** How far a row of `widths` must shrink to fit in `room` on one line. */
 const rowScale = (widths: number[], gap: number, room: number): number => {
@@ -166,9 +174,20 @@ const rowScale = (widths: number[], gap: number, room: number): number => {
  * can actually bring a night in, a meal otherwise.
  */
 const moodLine = (mood: PetState['mood'], canLogSleep?: boolean): string => {
-  if (mood === 'sleepy') return canLogSleep ? "I'm so sleepy. A good night's sleep would help." : "I'm so sleepy. A good meal would perk me up.";
-  if (mood === 'sluggish') return "I feel sluggish. Walk or workout?";
-  return `I'm feeling ${mood}.`;
+  if (mood === 'sleepy') return canLogSleep ? t("I'm so sleepy. A good night's sleep would help.") : t("I'm so sleepy. A good meal would perk me up.");
+  if (mood === 'sluggish') return t("I feel sluggish. Walk or workout?");
+  if (mood === 'bright') return t("I'm feeling bright.");
+  if (mood === 'hungry') return t("I'm feeling hungry.");
+  return t("I'm feeling content.");
+};
+
+/** The bond as the status row's token and as VoiceOver's sentence; nothing to say while neutral. */
+const bondWords = (stage: BondStage, pet: string): { token: string; label: string } | null => {
+  if (stage === 'devoted') return { token: t('DEVOTED'), label: t('{pet} is devoted toward you', { pet }) };
+  if (stage === 'warm') return { token: t('WARM'), label: t('{pet} is warm toward you', { pet }) };
+  if (stage === 'wary') return { token: t('WARY'), label: t('{pet} is wary toward you', { pet }) };
+  if (stage === 'sulking') return { token: t('SULKING'), label: t('{pet} is sulking toward you', { pet }) };
+  return null;
 };
 
 export function PetWorldHud({
@@ -223,7 +242,8 @@ export function PetWorldHud({
 
   // Separate tokens, not one joined string: the row below lays them out, and a
   // wrap then falls between tokens rather than inside a separator.
-  const bondToken = bond.stage !== 'neutral' ? bond.stage.toUpperCase() : null;
+  const bondSays = bondWords(bond.stage, pet.name);
+  const bondToken = bondSays ? bondSays.token : null;
   const flameToken = streaks.currentStreak > 0 ? `🔥 ${streaks.currentStreak}` : null;
   const freezeToken = streaks.currentStreak > 0 && streaks.freezes > 0 ? `❄︎ ${streaks.freezes}` : null;
 
@@ -247,31 +267,41 @@ export function PetWorldHud({
     setMenuOpen(false);
     open();
   };
-  const menuItems: { label: string; onPress: () => void; icon?: boolean }[] = [
-    { label: 'Profile', onPress: choose(onOpenProfile) },
-    ...(onOpenSettings ? [{ label: 'Settings', onPress: choose(onOpenSettings) }] : []),
-    ...(onOpenFriends ? [{ label: 'Friends', onPress: choose(onOpenFriends), icon: true }] : []),
+  const menuItems: { label: string; accessibilityLabel: string; onPress: () => void; icon?: boolean }[] = [
+    { label: t('Profile'), accessibilityLabel: t('Open profile'), onPress: choose(onOpenProfile) },
+    ...(onOpenSettings ? [{ label: t('Settings'), accessibilityLabel: t('Open settings'), onPress: choose(onOpenSettings) }] : []),
+    ...(onOpenFriends ? [{ label: t('Friends'), accessibilityLabel: t('Open friends'), onPress: choose(onOpenFriends), icon: true }] : []),
   ];
 
   // The pet's line and its meta, as one card. Built once, laid out below.
+  const streakCounts = { streak: streaks.currentStreak, best: streaks.longestStreak };
   const metaLabel =
     streaks.currentStreak > 0
-      ? `${streaks.currentStreak} day streak, best ${streaks.longestStreak}` +
-        (streaks.freezes > 0 ? `, ${streaks.freezes} ${streaks.freezes === 1 ? 'freeze' : 'freezes'} saved` : '') +
-        (streakAtRisk ? ', not yet logged today' : '')
-      : `Day ${daysWithPet(pet, today)} with ${pet.name}`;
+      ? streaks.freezes > 0
+        ? streakAtRisk
+          ? tn(
+              streaks.freezes,
+              '{streak} day streak, best {best}, {count} freeze saved, not yet logged today',
+              '{streak} day streak, best {best}, {count} freezes saved, not yet logged today',
+              streakCounts,
+            )
+          : tn(streaks.freezes, '{streak} day streak, best {best}, {count} freeze saved', '{streak} day streak, best {best}, {count} freezes saved', streakCounts)
+        : streakAtRisk
+          ? t('{streak} day streak, best {best}, not yet logged today', streakCounts)
+          : t('{streak} day streak, best {best}', streakCounts)
+      : t('Day {day} with {pet}', { day: daysWithPet(pet, today), pet: pet.name });
 
   // Talking to the pet, with a dot when it has said something unread.
   const chatButton = onOpenChat ? (
     <Pressable
       ref={chatTourRef}
       accessibilityRole="button"
-      accessibilityLabel={unreadMessages > 0 ? `Talk to ${pet.name}, ${unreadMessages} unread` : `Talk to ${pet.name}`}
+      accessibilityLabel={unreadMessages > 0 ? t('Talk to {pet}, {count} unread', { pet: pet.name, count: unreadMessages }) : t('Talk to {pet}', { pet: pet.name })}
       onPress={onOpenChat}
       hitSlop={6}
       style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.pill, pressed && retroPressed]}
     >
-      <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>CHAT</Text>
+      <Text style={[retro.label, styles.pillLabel, night && retro.labelNight]}>{t('CHAT')}</Text>
       {unreadMessages > 0 ? (
         <View testID="companion-unread" style={[styles.unreadDot, night && styles.unreadDotNight]} pointerEvents="none" />
       ) : null}
@@ -331,7 +361,7 @@ export function PetWorldHud({
       {menuOpen ? (
         // A real press target under everything, so a tap on the scene closes
         // the menu instead of poking the pet.
-        <Pressable accessibilityLabel="Close account menu" onPress={() => setMenuOpen(false)} style={styles.backdrop} />
+        <Pressable accessibilityLabel={t('Close account menu')} onPress={() => setMenuOpen(false)} style={styles.backdrop} />
       ) : null}
 
       {/* Row 1, the top bar: progression, where you are, and you. */}
@@ -348,13 +378,13 @@ export function PetWorldHud({
           disabled={!nextPet}
           pointerEvents={nextPet ? 'auto' : 'none'}
           accessibilityRole={nextPet ? 'button' : undefined}
-          accessibilityLabel={nextPet ? `Show ${nextPet.name}, your ${nextPet.own ? 'own' : 'joint'} pet` : undefined}
+          accessibilityLabel={nextPet ? (nextPet.own ? t('Show {pet}, your own pet', { pet: nextPet.name }) : t('Show {pet}, your joint pet', { pet: nextPet.name })) : undefined}
           onPress={() => nextPet && onSelectPet!(nextPet.id)}
           style={({ pressed }) => [retro.panel, night && retro.panelNight, styles.plate, pressed && retroPressed]}
           testID="pet-plate"
         >
           <Text style={[retro.kicker, night && retro.kickerNight, styles.roomKicker]} numberOfLines={1}>
-            {showingJoint ? `${ENVIRONMENT_LABEL[environment].toUpperCase()} · JOINT` : ENVIRONMENT_LABEL[environment].toUpperCase()}
+            {showingJoint ? t('{room} · JOINT', { room: ENVIRONMENT_LABEL[environment].toUpperCase() }) : ENVIRONMENT_LABEL[environment].toUpperCase()}
           </Text>
           {/* The plate is ~106pt inside at 320pt, ~176pt at 390: in 18pt mono
               that is 9 and 15 letters. A longer name shrinks first, then takes
@@ -370,7 +400,7 @@ export function PetWorldHud({
           <Pressable
             ref={accountTourRef}
             accessibilityRole="button"
-            accessibilityLabel="Open account menu"
+            accessibilityLabel={t('Open account menu')}
             accessibilityState={{ expanded: menuOpen }}
             onPress={() => setMenuOpen((open) => !open)}
             hitSlop={8}
@@ -385,7 +415,7 @@ export function PetWorldHud({
                 <Pressable
                   key={item.label}
                   accessibilityRole="menuitem"
-                  accessibilityLabel={`Open ${item.label.toLowerCase()}`}
+                  accessibilityLabel={item.accessibilityLabel}
                   onPress={item.onPress}
                   style={({ pressed }) => [
                     styles.menuItem,
@@ -434,7 +464,7 @@ export function PetWorldHud({
         {todayGoals && todayGoals.length > 0 ? (
           <View
             style={[styles.chipRow, { columnGap: CHIP_GAP * chipScale }, rowFit < 1 && { transform: [{ scale: rowFit }] }]}
-            accessibilityLabel={`Today: ${todayGoals.map((goal) => (goal.done ? `${goal.label} done` : goal.label)).join(', ')}`}
+            accessibilityLabel={t('Today: {goals}', { goals: todayGoals.map((goal) => (goal.done ? t('{goal} done', { goal: goal.label }) : goal.label)).join(', ') })}
           >
             {todayGoals.map((goal) => (
               <Text
@@ -451,7 +481,7 @@ export function PetWorldHud({
         {/* The quiet line under it: the streak, the bond, and who else raises
             this pet. */}
         {leadTokens.length > 0 || partnerName ? (
-          <View style={styles.statusRow} accessibilityLabel={[metaLabel, partnerName ? `Raised with ${partnerName}` : null].filter(Boolean).join('. ')}>
+          <View style={styles.statusRow} accessibilityLabel={partnerName ? t('{status}. Raised with {partner}', { status: metaLabel, partner: partnerName }) : metaLabel}>
             {flameToken ? (
               <Text numberOfLines={1} style={[styles.meta, styles.metaFlame, night && styles.metaFlameNight, streakAtRisk && styles.metaFlameAtRisk]}>
                 {flameToken}
@@ -467,13 +497,13 @@ export function PetWorldHud({
               <Text
                 numberOfLines={1}
                 style={[styles.meta, night && retro.captionNight, (bond.stage === 'sulking' || bond.stage === 'wary') && styles.metaBondCool]}
-                accessibilityLabel={`${pet.name} is ${bond.stage} toward you`}
+                accessibilityLabel={bondSays?.label}
               >
                 {bondToken}
               </Text>
             ) : null}
             {partnerName ? (
-              <Text numberOfLines={1} style={[styles.metaPartner, night && styles.metaPartnerNight]}>{`Raised with ${partnerName}`}</Text>
+              <Text numberOfLines={1} style={[styles.metaPartner, night && styles.metaPartnerNight]}>{t('Raised with {partner}', { partner: partnerName })}</Text>
             ) : null}
           </View>
         ) : null}
@@ -486,7 +516,7 @@ export function PetWorldHud({
         <View style={styles.leftTools} pointerEvents="box-none">
           <Pressable
             accessibilityRole={onOpenShop ? 'button' : 'text'}
-            accessibilityLabel={`${coins} ${coins === 1 ? 'coin' : 'coins'}${onOpenShop ? ', open the shop' : ''}`}
+            accessibilityLabel={onOpenShop ? tn(coins, '{count} coin, open the shop', '{count} coins, open the shop') : tn(coins, '{count} coin', '{count} coins')}
             disabled={!onOpenShop}
             onPress={onOpenShop}
             hitSlop={6}
@@ -495,7 +525,7 @@ export function PetWorldHud({
           >
             <CoinMark size={18} />
             <Text style={[retro.label, styles.coinLabel, night && retro.labelNight]} numberOfLines={1}>
-              {coins.toLocaleString('en-US')}
+              {coins.toLocaleString(formatLocale())}
             </Text>
           </Pressable>
         </View>
@@ -508,13 +538,13 @@ export function PetWorldHud({
           <View ref={todayTourRef} collapsable={false}>
             <LevelRing
               level={0}
-              kicker="TODAY"
+              kicker={t('TODAY')}
               value={`${Math.round(todayProgress ?? 0)}%`}
               xpPct={todayProgress ?? 0}
               onPress={onOpenToday}
               night={night}
               size={RING}
-              accessibilityLabel={`Open today's detail, ${Math.round(todayProgress ?? 0)} percent done`}
+              accessibilityLabel={t("Open today's detail, {percent} percent done", { percent: Math.round(todayProgress ?? 0) })}
             />
           </View>
         </View>
@@ -785,13 +815,13 @@ export function WindowTodayRing({ todayProgress, onOpenToday, night }: { todayPr
   return (
     <LevelRing
       level={0}
-      kicker="TODAY"
+      kicker={t('TODAY')}
       value={`${pct}%`}
       xpPct={todayProgress ?? 0}
       onPress={onOpenToday ?? (() => {})}
       night={night}
       size={WINDOW_RING}
-      accessibilityLabel={`Open today's detail, ${pct} percent done`}
+      accessibilityLabel={t("Open today's detail, {percent} percent done", { percent: pct })}
     />
   );
 }

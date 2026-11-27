@@ -17,6 +17,7 @@ import {
 import { ChipGroup, SettingsPage } from '../components/settingsKit';
 import { TIER_COLOR } from '../components/StrengthMap';
 import { colors, fonts, themedStyles } from '../theme';
+import { formatLocale, t, tn, tRich } from '../i18n';
 
 interface Props {
   profile: Pick<BodyProfile, 'sex' | 'weightKg' | 'weightUnit'>;
@@ -38,7 +39,7 @@ const PAD = { top: 16, right: 12, bottom: 28, left: 40 };
 /** Sessions listed under the chart before the rest are left to the graph. */
 const SESSIONS_SHOWN = 8;
 
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString(formatLocale(), { month: 'short', day: 'numeric' });
 
 /** Rounds a y-axis span out to tidy gridlines (5s, 10s, 25s...). */
 const niceStep = (span: number) => {
@@ -53,7 +54,7 @@ const niceStep = (span: number) => {
  * dashed line to aim at. Estimated from every logged set the way the ranks
  * are, so a heavy triple counts as much as a true single.
  */
-export function LiftProgressScreen({ profile, events, onClose, locked = false, onOpenPlus, backLabel = 'Profile' }: Props) {
+export function LiftProgressScreen({ profile, events, onClose, locked = false, onOpenPlus, backLabel = t('Profile') }: Props) {
   // The six ranked lifts, then anything else lifted in two or more workouts
   // (a cable fly, a leg extension), charted the same way but without a rank.
   const others = useMemo(() => otherLifts(events).map((other) => other.exercise), [events]);
@@ -77,7 +78,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
   }, [histories, others]);
   const [lift, setLift] = useState<string>(() => order.find((option) => histories[option]!.length > 0) ?? 'bench');
   const ranked = isStandard(lift);
-  const label = ranked ? STANDARD_LIFT_LABEL[lift] : lift;
+  const label = ranked ? t(STANDARD_LIFT_LABEL[lift]) : t(lift);
   const [width, setWidth] = useState(0);
 
   // The unit they lift in, which can differ from their profile's (see liftingUnit).
@@ -115,15 +116,15 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
 
   return (
     <SettingsPage
-      title="Lift progress"
-      lead="Your estimated one-rep max over time, worked out from the sets you log."
+      title={t('Lift progress')}
+      lead={t('Your estimated one-rep max over time, worked out from the sets you log.')}
       backLabel={backLabel}
       onBack={onClose}
     >
       <View style={styles.picker}>
         <ChipGroup
           scroll
-          options={order.map((option) => ({ value: option, label: isStandard(option) ? STANDARD_LIFT_LABEL[option] : option }))}
+          options={order.map((option) => ({ value: option, label: isStandard(option) ? t(STANDARD_LIFT_LABEL[option]) : t(option) }))}
           value={lift}
           onChange={setLift}
         />
@@ -131,43 +132,43 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
 
       {points.length === 0 ? (
         <View style={styles.empty} testID="lift-progress-empty">
-          <Text style={styles.emptyTitle}>{`No ${label.toLowerCase()} logged yet`}</Text>
-          <Text style={styles.emptyBody}>Log a workout with it and your first point lands here.</Text>
+          <Text style={styles.emptyTitle}>{t('No {lift} logged yet', { lift: label.toLowerCase() })}</Text>
+          <Text style={styles.emptyBody}>{t('Log a workout with it and your first point lands here.')}</Text>
         </View>
       ) : (
         <>
           <View style={styles.summary} testID="lift-progress-summary">
             <View style={styles.summaryLeft}>
-              <Text style={styles.summaryLabel}>Estimated max</Text>
+              <Text style={styles.summaryLabel}>{t('Estimated max')}</Text>
               <Text style={styles.summaryValue}>
                 {show(latest!.oneRepMaxKg)}
                 <Text style={styles.summaryUnit}>{` ${unit}`}</Text>
               </Text>
               {change !== null ? (
                 <Text style={[styles.change, change > 0 ? styles.changeUp : change < 0 ? styles.changeDown : null]}>
-                  {`${change > 0 ? '+' : ''}${change} ${unit} since ${shortDate(first!.occurredAt)}`}
+                  {t('{change} {unit} since {date}', { change: `${change > 0 ? '+' : ''}${change}`, unit, date: shortDate(first!.occurredAt) })}
                 </Text>
               ) : (
-                <Text style={styles.change}>Your first session. Log more to see the trend.</Text>
+                <Text style={styles.change}>{t('Your first session. Log more to see the trend.')}</Text>
               )}
             </View>
             <View style={styles.summaryRight}>
               {ranked ? (
                 <Text style={[styles.tierPill, { color: lineColor, borderColor: lineColor }]} numberOfLines={1}>
-                  {tier === null ? 'Unranked' : STRENGTH_TIERS[tier]}
+                  {tier === null ? t('Unranked') : STRENGTH_TIERS[tier]}
                 </Text>
               ) : (
-                <Text style={styles.best} numberOfLines={1}>{`${points.length} sessions`}</Text>
+                <Text style={styles.best} numberOfLines={1}>{tn(points.length, '{count} session', '{count} sessions')}</Text>
               )}
-              <Text style={styles.best} numberOfLines={1}>{`best ${show(best!)} ${unit}`}</Text>
+              <Text style={styles.best} numberOfLines={1}>{t('best {weight} {unit}', { weight: show(best!), unit })}</Text>
             </View>
           </View>
 
           {locked ? (
             <View style={styles.locked} testID="lift-progress-locked">
-              <Text style={styles.lockedTitle}>Your progress graph is part of Plus</Text>
+              <Text style={styles.lockedTitle}>{t('Your progress graph is part of Plus')}</Text>
               <Text style={styles.lockedBody}>
-                See every lift's estimated max over time, how far you are from the next rank, and each session it came from.
+                {t("See every lift's estimated max over time, how far you are from the next rank, and each session it came from.")}
               </Text>
               {onOpenPlus ? (
                 <Pressable
@@ -175,7 +176,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
                   onPress={onOpenPlus}
                   style={({ pressed }) => [styles.lockedButton, pressed && styles.pressed]}
                 >
-                  <Text style={styles.lockedButtonLabel}>See Plus</Text>
+                  <Text style={styles.lockedButtonLabel}>{t('See Plus')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -184,7 +185,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
               <View
                 style={styles.chart}
                 onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}
-                accessibilityLabel={`${label} estimated max over ${points.length} sessions`}
+                accessibilityLabel={tn(points.length, '{lift} estimated max over {count} session', '{lift} estimated max over {count} sessions', { lift: label })}
                 testID="lift-progress-chart"
               >
                 {width > 0 ? (
@@ -271,14 +272,17 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
               </View>
               {!ranked ? null : nextKg !== null ? (
                 <Text style={styles.toNext}>
-                  {`${Math.max(1, show(nextKg) - show(best!))} ${unit} more to `}
-                  <Text style={{ color: TIER_COLOR[nextTier], fontWeight: '700' }}>{STRENGTH_TIERS[nextTier]}</Text>
+                  {tRich(
+                    '{amount} {unit} more to {rank}',
+                    { rank: <Text style={{ color: TIER_COLOR[nextTier], fontWeight: '700' }}>{STRENGTH_TIERS[nextTier]}</Text> },
+                    { amount: Math.max(1, show(nextKg) - show(best!)), unit },
+                  )}
                 </Text>
               ) : (
-                <Text style={styles.toNext}>Top rank. Nothing left to chase but your own best.</Text>
+                <Text style={styles.toNext}>{t('Top rank. Nothing left to chase but your own best.')}</Text>
               )}
 
-              <Text style={styles.sessionsTitle}>Sessions</Text>
+              <Text style={styles.sessionsTitle}>{t('Sessions')}</Text>
               <View style={styles.sessions}>
                 {[...points]
                   .reverse()
@@ -289,7 +293,7 @@ export function LiftProgressScreen({ profile, events, onClose, locked = false, o
                         <Text style={styles.sessionDate}>{shortDate(point.occurredAt)}</Text>
                         <Text
                           style={styles.sessionSet}
-                        >{`${point.from.exercise} · ${point.from.weight} ${point.from.unit} × ${point.from.reps}`}</Text>
+                        >{`${t(point.from.exercise)} · ${point.from.weight} ${point.from.unit} × ${point.from.reps}`}</Text>
                       </View>
                       <Text style={styles.sessionMax} numberOfLines={1}>{`${show(point.oneRepMaxKg)} ${unit}`}</Text>
                     </View>

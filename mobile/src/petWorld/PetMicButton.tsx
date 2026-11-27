@@ -6,6 +6,7 @@ import Svg, { Rect } from 'react-native-svg';
 import { holdMusic, releaseMusic } from '../services/music';
 import { stopPetVoice } from '../services/petVoice';
 import { fonts, themedStyles, world } from '../theme';
+import { dictationLanguage, t } from '../i18n';
 import { retro, retroPressed } from './retroStyle';
 
 interface Props {
@@ -115,7 +116,7 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
     if (!active.current) return;
     // Silence and a let-go are not failures worth a word.
     if (event.error === 'no-speech' || event.error === 'aborted') return;
-    setHint(event.error === 'not-allowed' ? 'Allow the microphone in Settings to talk.' : 'I could not hear that. Try again.');
+    setHint(event.error === 'not-allowed' ? t('Allow the microphone in Settings to talk.') : t('I could not hear that. Try again.'));
   });
   useSpeechRecognitionEvent('end', () => {
     if (!active.current) return;
@@ -138,7 +139,7 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
       if (!permission?.granted) {
         const asked = await ExpoSpeechRecognitionModule.requestPermissionsAsync().catch(() => null);
         if (asked?.granted) allowed = true;
-        setHint(asked?.granted ? 'Now hold the button and talk.' : 'Allow the microphone in Settings to talk.');
+        setHint(asked?.granted ? t('Now hold the button and talk.') : t('Allow the microphone in Settings to talk.'));
         return;
       }
       allowed = true;
@@ -158,7 +159,7 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
       // Unknown: let the system choose.
     }
     ExpoSpeechRecognitionModule.start({
-      lang: 'en-US',
+      lang: dictationLanguage(),
       interimResults: true,
       continuous: true,
       addsPunctuation: true,
@@ -168,13 +169,13 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
 
   const end = () => {
     released.current = true;
-    if (Date.now() - pressedAt.current < MIN_HOLD_MS && !heardRef.current) setHint('Hold to talk.');
+    if (Date.now() - pressedAt.current < MIN_HOLD_MS && !heardRef.current) setHint(t('Hold to talk.'));
     if (active.current) ExpoSpeechRecognitionModule.stop();
   };
 
   const ring = { width: size, height: size, borderRadius: size / 2 };
   const glow = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] });
-  const caption = listening ? heard || (ready ? 'Listening…' : 'One sec…') : hint;
+  const caption = listening ? heard || (ready ? t('Listening…') : t('One sec…')) : hint;
   const captionShowing = !!caption;
   useEffect(() => {
     onCaption?.(captionShowing);
@@ -192,7 +193,7 @@ export function PetMicButton({ petName, onSay, busy = false, night = false, size
       {ready ? <Animated.View style={[styles.halo, ring, { transform: [{ scale: glow }] }]} pointerEvents="none" /> : null}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Hold to talk to ${petName}`}
+        accessibilityLabel={t('Hold to talk to {pet}', { pet: petName })}
         accessibilityState={{ busy, selected: listening }}
         disabled={busy}
         onPressIn={() => void begin()}

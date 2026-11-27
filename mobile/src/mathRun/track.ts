@@ -1,4 +1,5 @@
 import type { MathRunObstacleKind } from '@vitto/core';
+import { t, tn, tx } from '../i18n';
 
 /**
  * Geometry and timing for the Quick maths run, kept out of the component so the
@@ -7,16 +8,16 @@ import type { MathRunObstacleKind } from '@vitto/core';
  */
 
 export const OBSTACLE_NAME: Record<MathRunObstacleKind, string> = {
-  log: 'Log',
-  rock: 'Rock',
-  puddle: 'Puddle',
-  fence: 'Fence',
-  bush: 'Bush',
+  log: tx('a fallen tree trunk, an obstacle on a running track', 'Log'),
+  rock: t('Rock'),
+  puddle: t('Puddle'),
+  fence: t('Fence'),
+  bush: t('Bush'),
 };
 
 /** The obstacle's accessibility label — its name and how long until it arrives. */
 export const obstacleLabel = (kind: MathRunObstacleKind, secondsLeft: number): string =>
-  `${OBSTACLE_NAME[kind]} ahead, ${secondsLeft} ${secondsLeft === 1 ? 'second' : 'seconds'}`;
+  tn(secondsLeft, '{obstacle} ahead, {count} second', '{obstacle} ahead, {count} seconds', { obstacle: OBSTACLE_NAME[kind] });
 
 /** The track: a sky band over a ground strip, the pet running in place at the left. */
 export const TRACK_HEIGHT = 190;

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FitText } from './FitText';
 import { haptic } from './ui';
+import { formatLocale, t } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 const CHART_HEIGHT = 150;
@@ -16,7 +17,6 @@ const denseLabelAt = (index: number, count: number) => {
   return { left: `${centre}%` as const, marginLeft: -DENSE_LABEL_WIDTH / 2 };
 };
 const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-const DAY_LETTER = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export interface TrendBar {
   date: Date;
@@ -53,13 +53,13 @@ export function TrendBars({
     <View>
       <Text style={styles.readout} accessibilityLiveRegion="polite">
         {shown
-          ? `${shown.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} · ${format(shown.value)} ${unit}`
-          : 'Tap a day to see it'}
+          ? `${shown.date.toLocaleDateString(formatLocale(), { weekday: 'short', month: 'short', day: 'numeric' })} · ${format(shown.value)} ${unit}`
+          : t('Tap a day to see it')}
       </Text>
       <View style={styles.chart}>
         {goal ? (
           <View style={[styles.goal, { bottom: (goal / top) * CHART_HEIGHT }]} pointerEvents="none">
-            <Text style={styles.goalLabel}>goal</Text>
+            <Text style={styles.goalLabel}>{t('goal')}</Text>
           </View>
         ) : null}
         {bars.map((bar) => {
@@ -69,7 +69,7 @@ export function TrendBars({
             <Pressable
               key={bar.date.toISOString()}
               accessibilityRole="button"
-              accessibilityLabel={`${bar.date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}: ${format(bar.value)} ${unit}`}
+              accessibilityLabel={`${bar.date.toLocaleDateString(formatLocale(), { weekday: 'long', month: 'long', day: 'numeric' })}: ${format(bar.value)} ${unit}`}
               onPress={() => {
                 haptic('select');
                 setPicked(on ? null : dayKey(bar.date));
@@ -101,7 +101,7 @@ export function TrendBars({
                 style={[styles.denseLabel, denseLabelAt(index, bars.length), bar.isToday && styles.labelToday]}
                 numberOfLines={1}
               >
-                {`${bar.date.getMonth() + 1}/${bar.date.getDate()}`}
+                {bar.date.toLocaleDateString(formatLocale(), { month: 'numeric', day: 'numeric' })}
               </Text>
             ) : null,
           )}
@@ -110,7 +110,7 @@ export function TrendBars({
         <View style={styles.labels}>
           {bars.map((bar) => (
             <Text key={bar.date.toISOString()} style={[styles.label, bar.isToday && styles.labelToday]} numberOfLines={1}>
-              {DAY_LETTER[bar.date.getDay()]}
+              {bar.date.toLocaleDateString(formatLocale(), { weekday: 'narrow' })}
             </Text>
           ))}
         </View>

@@ -10,6 +10,7 @@
  * a reminder that fires is not evidence anything was done, so it never touches
  * the pet's stats. Logging the meal or workout it prompts is what does that.
  */
+import { formatLocale, getLocale, t, tx } from '../i18n';
 
 /**
  * Weekdays as expo-notifications numbers them: 1 = Sunday through 7 = Saturday.
@@ -20,15 +21,19 @@ export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export const WEEKDAYS: readonly Weekday[] = [1, 2, 3, 4, 5, 6, 7];
 
+/** The language's own short name for a weekday; 1 January 2023 was a Sunday. English keeps the names written here. */
+const weekdayLabel = (day: Weekday, english: string): string =>
+  getLocale() === 'en' ? english : new Date(2023, 0, day, 12).toLocaleDateString(formatLocale(), { weekday: 'short' });
+
 /** Short labels, Sunday first, to match the numbering above. */
 export const WEEKDAY_LABEL: Record<Weekday, string> = {
-  1: 'Sun',
-  2: 'Mon',
-  3: 'Tue',
-  4: 'Wed',
-  5: 'Thu',
-  6: 'Fri',
-  7: 'Sat',
+  1: weekdayLabel(1, 'Sun'),
+  2: weekdayLabel(2, 'Mon'),
+  3: weekdayLabel(3, 'Tue'),
+  4: weekdayLabel(4, 'Wed'),
+  5: weekdayLabel(5, 'Thu'),
+  6: weekdayLabel(6, 'Fri'),
+  7: weekdayLabel(7, 'Sat'),
 };
 
 export interface Reminder {
@@ -71,19 +76,23 @@ export const reminderError = (
   draft: { label: string; hour: number; minute: number },
   existingCount: number,
 ): string | null => {
-  if (normalizeReminderLabel(draft.label).length === 0) return 'Give the reminder a name.';
+  if (normalizeReminderLabel(draft.label).length === 0) return t('Give the reminder a name.');
   if (!Number.isInteger(draft.hour) || draft.hour < 0 || draft.hour > 23) {
-    return 'Hour must be between 0 and 23.';
+    return t('Hour must be between 0 and 23.');
   }
   if (!Number.isInteger(draft.minute) || draft.minute < 0 || draft.minute > 59) {
-    return 'Minutes must be between 0 and 59.';
+    return t('Minutes must be between 0 and 59.');
   }
-  if (existingCount >= MAX_REMINDERS) return `That is the most reminders Vitto can keep (${MAX_REMINDERS}).`;
+  if (existingCount >= MAX_REMINDERS) return t('That is the most reminders Vitto can keep ({max}).', { max: MAX_REMINDERS });
   return null;
 };
 
 /** "8:05 am" — a 12-hour clock, since that is how the time was spoken to set it. */
 export const formatReminderTime = (hour: number, minute: number): string => {
+  // Other languages write the time their own way (a 24-hour clock in Spain, 上午 in Chinese).
+  if (getLocale() !== 'en') {
+    return new Date(2023, 0, 1, hour, minute).toLocaleTimeString(formatLocale(), { hour: 'numeric', minute: '2-digit' });
+  }
   const suffix = hour < 12 ? 'am' : 'pm';
   const twelve = hour % 12 === 0 ? 12 : hour % 12;
   return `${twelve}:${String(minute).padStart(2, '0')} ${suffix}`;
@@ -91,15 +100,15 @@ export const formatReminderTime = (hour: number, minute: number): string => {
 
 /** "Every day", "Weekdays", "Weekends", or "Mon, Wed, Fri". */
 export const describeReminderDays = (days: readonly Weekday[]): string => {
-  if (isEveryDay(days)) return 'Every day';
+  if (isEveryDay(days)) return t('Every day');
   const sorted = [...days].sort((a, b) => a - b);
   const isWeekdays = sorted.length === 5 && sorted.every((day) => day >= 2 && day <= 6);
-  if (isWeekdays) return 'Weekdays';
+  if (isWeekdays) return t('Weekdays');
   const isWeekends = sorted.length === 2 && sorted[0] === 1 && sorted[1] === 7;
-  if (isWeekends) return 'Weekends';
+  if (isWeekends) return t('Weekends');
   // Monday-first for reading, even though the numbering is Sunday-first.
   const reading = [...sorted].sort((a, b) => ((a + 5) % 7) - ((b + 5) % 7));
-  return reading.map((day) => WEEKDAY_LABEL[day]).join(', ');
+  return reading.map((day) => WEEKDAY_LABEL[day]).join(tx('between the items of a list', ', '));
 };
 
 /** The weekday `date` falls on, in this module's numbering. */

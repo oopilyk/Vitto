@@ -1,4 +1,5 @@
 import type { MealAnalysis } from '@vitto/core';
+import { t } from '../i18n';
 
 /**
  * Which scene the pet's world is showing right now. Deliberately a flat union
@@ -16,11 +17,11 @@ export type EnvironmentId = 'main' | 'kitchen' | 'gym' | 'outside' | 'study';
  * fails rather than the HUD quietly saying nothing about where the pet went.
  */
 export const ENVIRONMENT_LABEL: Record<EnvironmentId, string> = {
-  main: 'Living room',
-  kitchen: 'Kitchen',
-  gym: 'Gym',
-  outside: 'Outdoors',
-  study: 'Study',
+  main: t('Living room'),
+  kitchen: t('Kitchen'),
+  gym: t('Gym'),
+  outside: t('Outdoors'),
+  study: t('Study'),
 };
 
 /**

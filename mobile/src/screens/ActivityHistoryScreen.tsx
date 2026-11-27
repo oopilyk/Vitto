@@ -20,14 +20,16 @@ import { SettingsPage } from '../components/settingsKit';
 import { showAlert } from '../services/dialog';
 import { formatMinutes } from '../services/minutes';
 import { colors, fonts, themedStyles } from '../theme';
+import { formatLocale, t, tn } from '../i18n';
 
 const PAGE_SIZE = 20;
 
 /** "Push day · 45 min", or the kind of session when it was never named. */
 const describeWorkout = (workout: Partial<WorkoutMetadata>): string => {
   const kind = workout.workoutType?.trim();
-  const fallback = !kind || kind === 'strength' ? 'Workout' : `${kind[0].toUpperCase()}${kind.slice(1)}`;
-  const title = workout.name?.trim() || fallback;
+  const fallback = !kind || kind === 'strength' ? t('Workout') : kind === 'cardio' ? t('Cardio') : `${kind[0].toUpperCase()}${kind.slice(1)}`;
+  const named = workout.name?.trim();
+  const title = named ? t(named) : fallback;
   return workout.durationMinutes ? `${title} · ${formatMinutes(workout.durationMinutes)}` : title;
 };
 
@@ -36,34 +38,35 @@ export const describeEvent = (event: HealthEvent, system: MeasurementSystem = 'm
   if (event.type === 'STEP_ACTIVITY') {
     // The day's count as of that sync.
     const steps = (event.metadata as Partial<StepMetadata> | undefined)?.steps;
-    return typeof steps === 'number' ? `Steps · ${steps.toLocaleString()}` : 'Steps';
+    return typeof steps === 'number' ? t('Steps · {count}', { count: steps.toLocaleString(formatLocale()) }) : t('Steps');
   }
   if (event.type === 'BRAIN_TRAINING') {
     const session = event.metadata as Partial<BrainTrainingMetadata>;
-    const name = (session.game && BRAIN_GAME_LABEL[session.game]) || 'Mind training';
+    const name = (session.game && BRAIN_GAME_LABEL[session.game]) || t('Mind training');
     // Only the games with a points scale report one; a bare score means different things per game.
-    return typeof session.points === 'number' ? `${name} · ${session.points} points` : name;
+    return typeof session.points === 'number' ? t('{game} · {points} points', { game: name, points: session.points }) : name;
   }
   if (event.type === 'HYDRATION') {
     const ml = (event.metadata as Partial<HydrationMetadata> | undefined)?.ml;
-    return typeof ml === 'number' ? `Water · ${formatWater(ml, system)}` : 'Water';
+    return typeof ml === 'number' ? t('Water · {amount}', { amount: formatWater(ml, system) }) : t('Water');
   }
   if (event.type === 'SLEEP') {
     const minutes = (event.metadata as Partial<SleepMetadata> | undefined)?.asleepMinutes;
-    return typeof minutes === 'number' ? `Sleep · ${formatMinutes(minutes)}` : 'Sleep';
+    return typeof minutes === 'number' ? t('Sleep · {duration}', { duration: formatMinutes(minutes) }) : t('Sleep');
   }
   if (event.type === 'SCREEN_TIME') {
     const screen = event.metadata as ScreenTimeMetadata;
-    const verdict = screen.withinBudget === undefined ? '' : screen.withinBudget ? ' · under budget' : ' · over budget';
-    return `Screen time · ${formatMinutes(screen.minutes)}${verdict}`;
+    const duration = formatMinutes(screen.minutes);
+    if (screen.withinBudget === undefined) return t('Screen time · {duration}', { duration });
+    return screen.withinBudget ? t('Screen time · {duration} · under budget', { duration }) : t('Screen time · {duration} · over budget', { duration });
   }
   if (event.type === 'BODY_WEIGHT') {
     const kg = (event.metadata as { kg?: number } | undefined)?.kg;
-    if (typeof kg !== 'number') return 'Weigh-in';
+    if (typeof kg !== 'number') return t('Weigh-in');
     const lb = system === 'imperial';
-    return `Weigh-in · ${Math.round((lb ? kg * 2.20462 : kg) * 10) / 10} ${lb ? 'lb' : 'kg'}`;
+    return t('Weigh-in · {weight} {unit}', { weight: Math.round((lb ? kg * 2.20462 : kg) * 10) / 10, unit: lb ? 'lb' : 'kg' });
   }
-  return 'Activity';
+  return t('Activity');
 };
 
 /**
@@ -97,16 +100,16 @@ const waterTotal = (events: readonly HealthEvent[]): number =>
     .reduce((total, event) => Math.max(0, total + waterMlOf(event)), 0);
 
 export const describeRow = (events: readonly HealthEvent[], system: MeasurementSystem = 'metric'): string =>
-  events[0]!.type === 'HYDRATION' ? `Water · ${formatWater(waterTotal(events), system)}` : describeEvent(events[0]!, system);
+  events[0]!.type === 'HYDRATION' ? t('Water · {amount}', { amount: formatWater(waterTotal(events), system) }) : describeEvent(events[0]!, system);
 
 /** "Today", "Yesterday", or "Mon, Sep 28". */
 const dayHeading = (iso: string, now = new Date()): string => {
   const day = new Date(iso);
   const startOf = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const diff = Math.round((startOf(now) - startOf(day)) / 86_400_000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  return day.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  if (diff === 0) return t('Today');
+  if (diff === 1) return t('Yesterday');
+  return day.toLocaleDateString(formatLocale(), { weekday: 'short', month: 'short', day: 'numeric' });
 };
 
 /**
@@ -131,22 +134,26 @@ export const askEditOrDelete = (
 ) => {
   const edit = onEdit && EDITABLE.has(event.type) ? () => onEdit(event) : undefined;
   const remove = onDelete ? () => onDelete(event) : undefined;
-  const title = `This ${logName(event)}`;
+  const title =
+    event.type === 'MEAL' ? t('This meal') : event.type === 'WORKOUT' ? t('This workout') : event.type === 'BODY_WEIGHT' ? t('This weigh-in') : t('This entry');
   if (Platform.OS === 'ios') {
-    const options = [...(edit ? ['Edit'] : []), ...(remove ? ['Delete'] : []), 'Cancel'];
+    // By place, not by label: the labels are translated.
+    const editIndex = edit ? 0 : -1;
+    const deleteIndex = remove ? (edit ? 1 : 0) : -1;
+    const options = [...(edit ? [t('Edit')] : []), ...(remove ? [t('Delete')] : []), t('Cancel')];
     ActionSheetIOS.showActionSheetWithOptions(
-      { title, options, cancelButtonIndex: options.length - 1, destructiveButtonIndex: remove ? options.indexOf('Delete') : undefined },
+      { title, options, cancelButtonIndex: options.length - 1, destructiveButtonIndex: remove ? deleteIndex : undefined },
       (index) => {
-        if (options[index] === 'Edit') edit?.();
-        if (options[index] === 'Delete') remove?.();
+        if (index === editIndex) edit?.();
+        if (index === deleteIndex) remove?.();
       },
     );
     return;
   }
   showAlert(title, undefined, [
-    ...(edit ? [{ text: 'Edit', onPress: edit }] : []),
-    ...(remove ? [{ text: 'Delete', style: 'destructive' as const, onPress: remove }] : []),
-    { text: 'Cancel', style: 'cancel' as const },
+    ...(edit ? [{ text: t('Edit'), onPress: edit }] : []),
+    ...(remove ? [{ text: t('Delete'), style: 'destructive' as const, onPress: remove }] : []),
+    { text: t('Cancel'), style: 'cancel' as const },
   ]);
 };
 
@@ -181,12 +188,12 @@ export function ActivityHistoryScreen({
 
   return (
     <SettingsPage
-      title="Activity history"
-      lead={events.length ? `${careMomentCount(events)} logs, newest first.` : undefined}
-      backLabel="Profile"
+      title={t('Activity history')}
+      lead={events.length ? tn(careMomentCount(events), '{count} log, newest first.', '{count} logs, newest first.') : undefined}
+      backLabel={t('Profile')}
       onBack={onClose}
     >
-      {events.length === 0 ? <Text style={styles.empty}>Nothing logged yet. Meals, workouts, walks and weigh-ins you log show up here.</Text> : null}
+      {events.length === 0 ? <Text style={styles.empty}>{t('Nothing logged yet. Meals, workouts, walks and weigh-ins you log show up here.')}</Text> : null}
       {days.map((day) => (
         <View key={day.heading} style={styles.day}>
           <Text style={styles.dayHeading}>{day.heading}</Text>
@@ -205,7 +212,7 @@ export function ActivityHistoryScreen({
                   <View style={styles.rowText}>
                     <Text style={styles.rowName} numberOfLines={2}>{describeRow(group, system)}</Text>
                     <Text style={styles.rowTime}>
-                      {new Date(event.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      {new Date(event.occurredAt).toLocaleTimeString(formatLocale(), { hour: 'numeric', minute: '2-digit' })}
                     </Text>
                   </View>
                 </View>
@@ -214,7 +221,7 @@ export function ActivityHistoryScreen({
                 <Pressable
                   key={key}
                   accessibilityRole="button"
-                  accessibilityHint="Edit or delete"
+                  accessibilityHint={t('Edit or delete')}
                   onLongPress={() => askEditOrDelete(event, { onEdit, onDelete })}
                   onPress={() => askEditOrDelete(event, { onEdit, onDelete })}
                   style={({ pressed }) => pressed && styles.rowPressed}
@@ -230,7 +237,7 @@ export function ActivityHistoryScreen({
       ))}
       {events.length > limit ? (
         <Pressable accessibilityRole="button" onPress={() => setLimit((current) => current + PAGE_SIZE)} style={styles.more}>
-          <Text style={styles.moreLabel}>Load more</Text>
+          <Text style={styles.moreLabel}>{t('Load more')}</Text>
         </Pressable>
       ) : null}
     </SettingsPage>

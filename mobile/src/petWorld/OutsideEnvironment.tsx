@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { RoomActionButton } from './RoomActionButton';
+import { t } from '../i18n';
 import type { EnvironmentDressing } from './EnvironmentStage';
 import { EnvironmentBackdrop } from './EnvironmentBackdrop';
 import { isNightTime } from './timeOfDay';
@@ -37,7 +38,7 @@ interface OutsideEnvironmentProps extends OutsideEnvironmentControlsProps {
 
 /** Outdoors is for runs, walks and rides. Steps sync on their own. */
 function LogRunButton({ onPress }: { onPress: () => void }) {
-  return <RoomActionButton label="Log a run" onPress={onPress} />;
+  return <RoomActionButton label={t('Log a run')} onPress={onPress} />;
 }
 
 function OutsideEnvironmentControls({

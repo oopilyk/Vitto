@@ -1,4 +1,5 @@
 import type { FourCorner } from '@vitto/core';
+import { t } from '../i18n';
 
 /**
  * Geometry and timing for the Four Corners play area, kept out of the screen so
@@ -8,10 +9,10 @@ import type { FourCorner } from '@vitto/core';
 
 /** Spoken name of each corner — the first half of every tile's accessibility label. */
 export const CORNER_NAME: Record<FourCorner, string> = {
-  topLeft: 'Top left',
-  topRight: 'Top right',
-  bottomLeft: 'Bottom left',
-  bottomRight: 'Bottom right',
+  topLeft: t('Top left'),
+  topRight: t('Top right'),
+  bottomLeft: t('Bottom left'),
+  bottomRight: t('Bottom right'),
 };
 
 /**
@@ -20,7 +21,7 @@ export const CORNER_NAME: Record<FourCorner, string> = {
  * `CornerTile` — so the verdict reaches a screen reader and not only the eye.
  */
 export const cornerLabel = (corner: FourCorner, answer: string): string =>
-  `${CORNER_NAME[corner]}: ${answer}`;
+  t('{corner}: {answer}', { corner: CORNER_NAME[corner], answer });
 
 export const isLeftCorner = (corner: FourCorner): boolean =>
   corner === 'topLeft' || corner === 'bottomLeft';

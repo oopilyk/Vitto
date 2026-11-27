@@ -2,12 +2,13 @@ import type { PetAilment } from './petCondition';
 import type { PetPersonality } from './pet';
 import type { MealAnalysis } from './health';
 import { withEstimatedCalories } from './macros';
+import { t } from '../i18n';
 
 /** Shown by both apps when a photo has no recognisable food in it. */
 export const NO_FOOD_DETECTED_MESSAGE =
-  "Vitto couldn't find a meal in that photo. Try another shot with the food in frame, or log it from Search.";
+  t("Vitto couldn't find a meal in that photo. Try another shot with the food in frame, or log it from Search.");
 
-const GENERIC_ANALYSIS_FAILURE = 'Meal analysis failed. Try again with a clearer photo.';
+const GENERIC_ANALYSIS_FAILURE = t('Meal analysis failed. Try again with a clearer photo.');
 
 /**
  * Raised when the analyze-meal model reports it saw no food. Carries a friendly,

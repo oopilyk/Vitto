@@ -9,6 +9,7 @@ import {
   toMealAnalysis,
   type WorkoutMetadata,
 } from '@vitto/core';
+import { msg } from '../i18n';
 
 /**
  * Mapping from @kingstinct/react-native-healthkit's sample shapes into
@@ -85,7 +86,7 @@ export const mapWorkoutSample = (
     ...((distance) => (distance === undefined ? {} : { distanceKm: distance }))(distanceKmOf(sample.totalDistance)),
     workoutId: sample.uuid,
     name: sample.activityName,
-    notes: sample.sourceName ? `Imported from ${sample.sourceName}` : 'Imported from Apple Health',
+    notes: sample.sourceName ? `Imported from ${sample.sourceName}` : msg('Imported from Apple Health'),
   },
 });
 
@@ -155,8 +156,8 @@ export const reconstructMealsFromNutrientSamples = (
     const analysis: MealAnalysis = toMealAnalysis(
       {
         id: energySample.uuid ?? newId(),
-        name: 'Meal from Apple Health',
-        servingDescription: 'Imported entry',
+        name: msg('Meal from Apple Health'),
+        servingDescription: msg('Imported entry'),
         macros,
       },
       DEFAULT_SERVINGS,

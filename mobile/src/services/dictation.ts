@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { holdMusic, releaseMusic } from './music';
 import { stopPetVoice } from './petVoice';
+import { dictationLanguage, t } from '../i18n';
 
 /** Whether this phone or browser can turn speech into text at all. */
 export const canDictate = (): boolean => {
@@ -44,7 +45,7 @@ export function useDictation(onHeard: (text: string) => void) {
   useSpeechRecognitionEvent('error', (event) => {
     // Silence and a stop are not failures worth a word.
     if (!active.current || event.error === 'no-speech' || event.error === 'aborted') return;
-    setProblem(event.error === 'not-allowed' ? 'Allow the microphone in Settings to talk.' : 'Could not hear that. Try again.');
+    setProblem(event.error === 'not-allowed' ? t('Allow the microphone in Settings to talk.') : t('Could not hear that. Try again.'));
   });
   useSpeechRecognitionEvent('end', () => {
     if (!active.current) return;
@@ -60,7 +61,7 @@ export function useDictation(onHeard: (text: string) => void) {
     const permission = await ExpoSpeechRecognitionModule.getPermissionsAsync().catch(() => null);
     if (!permission?.granted) {
       const asked = await ExpoSpeechRecognitionModule.requestPermissionsAsync().catch(() => null);
-      setProblem(asked?.granted ? 'Tap the mic again and talk.' : 'Allow the microphone in Settings to talk.');
+      setProblem(asked?.granted ? t('Tap the mic again and talk.') : t('Allow the microphone in Settings to talk.'));
       return;
     }
     holdMusic();
@@ -75,7 +76,7 @@ export function useDictation(onHeard: (text: string) => void) {
       // Unknown: let the system choose.
     }
     ExpoSpeechRecognitionModule.start({
-      lang: 'en-US',
+      lang: dictationLanguage(),
       interimResults: true,
       // A list of foods has pauses in it: stop when told to, not at the first one.
       continuous: true,

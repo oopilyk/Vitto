@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, Pressable, Text, View } from 'react-native';
 import { haptic } from './ui';
+import { t } from '../i18n';
 import { colors, fonts, themedStyles } from '../theme';
 
 export interface UndoOffer {
@@ -46,7 +47,7 @@ export function UndoToast({ offer, onDone }: { offer: UndoOffer | null; onDone: 
         <Text style={styles.message} numberOfLines={2}>{offer.message}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Undo"
+          accessibilityLabel={t('Undo')}
           hitSlop={10}
           onPress={() => {
             haptic('press');
@@ -55,7 +56,7 @@ export function UndoToast({ offer, onDone }: { offer: UndoOffer | null; onDone: 
           }}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
         >
-          <Text style={styles.actionLabel}>Undo</Text>
+          <Text style={styles.actionLabel}>{t('Undo')}</Text>
         </Pressable>
       </Animated.View>
     </View>

@@ -1,4 +1,5 @@
 import { MINIMUM_AGE } from './ageGate';
+import { t } from '../i18n';
 export type GoalPace = 'gentle' | 'steady' | 'focused';
 export type TrainingStyle = 'strength' | 'cardio' | 'mixed';
 export type FocusArea = 'nutrition' | 'training' | 'movement' | 'mind';
@@ -220,9 +221,9 @@ export const BODY_LIMITS = {
 export const bodyProblem = (profile: Pick<BodyProfile, 'age' | 'heightCm' | 'weightKg'>): string | null => {
   const outside = (value: number, range: { min: number; max: number }) =>
     !Number.isFinite(value) || value < range.min || value > range.max;
-  if (outside(profile.age, BODY_LIMITS.age)) return `Enter an age between ${BODY_LIMITS.age.min} and ${BODY_LIMITS.age.max}.`;
-  if (outside(profile.heightCm, BODY_LIMITS.heightCm)) return 'That height doesn’t look right.';
-  if (outside(profile.weightKg, BODY_LIMITS.weightKg)) return 'That weight doesn’t look right.';
+  if (outside(profile.age, BODY_LIMITS.age)) return t('Enter an age between {min} and {max}.', { min: BODY_LIMITS.age.min, max: BODY_LIMITS.age.max });
+  if (outside(profile.heightCm, BODY_LIMITS.heightCm)) return t('That height doesn’t look right.');
+  if (outside(profile.weightKg, BODY_LIMITS.weightKg)) return t('That weight doesn’t look right.');
   return null;
 };
 

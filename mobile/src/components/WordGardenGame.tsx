@@ -19,6 +19,7 @@ import {
 import { colors, fonts, text, themedStyles } from '../theme';
 import { PrimaryButton, TextButton } from './ui';
 import { FitText } from './FitText';
+import { t, tn, tRich } from '../i18n';
 
 interface Props {
   onFinish: (metadata: BrainTrainingMetadata, summary: string[]) => void;
@@ -88,13 +89,16 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
       setFound((current) => [...current, scored]);
       setStreak(streak + 1);
       const bloom = isWordGardenBloom(word, puzzle);
-      flash(
-        `${bloom ? 'Bloom! ' : ''}+${scored.points}${scored.multiplier > 1 ? ` (×${scored.multiplier})` : ''}`,
-        'good',
-      );
+      const gain = `+${scored.points}${scored.multiplier > 1 ? ` (×${scored.multiplier})` : ''}`;
+      flash(bloom ? t('Bloom! {gain}', { gain }) : gain, 'good');
     } else {
       setStreak(0);
-      flash(`${wordGardenVerdictMessage(verdict)}${streak >= 2 ? ' · run withered' : ''}`, 'bad');
+      flash(
+        streak >= 2
+          ? t('{verdict} · run withered', { verdict: wordGardenVerdictMessage(verdict) })
+          : wordGardenVerdictMessage(verdict),
+        'bad',
+      );
     }
     setEntry('');
   };
@@ -105,9 +109,9 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
     const foundWords = new Set(found.map((find) => find.word));
     const missedBlooms = puzzle.words.filter((word) => isWordGardenBloom(word, puzzle) && !foundWords.has(word));
     const summary = [
-      `${stage.name} · ${points} points · ${found.length} of ${puzzle.words.length} words`,
+      t('{stage} · {points} points · {found} of {total} words', { stage: t(stage.name), points, found: found.length, total: puzzle.words.length }),
       ...(missedBlooms.length
-        ? [`Bloom${missedBlooms.length > 1 ? 's' : ''} you missed: ${missedBlooms.map((w) => w.toUpperCase()).join(', ')}`]
+        ? [tn(missedBlooms.length, 'Bloom you missed: {words}', 'Blooms you missed: {words}', { words: missedBlooms.map((w) => w.toUpperCase()).join(', ') })]
         : []),
     ];
     onFinish(metadata, summary);
@@ -123,27 +127,27 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
             column is ~96pt at 320pt, and "15 to Blossoming" broke in two. */}
         <View style={{ flex: 1, minWidth: 0 }}>
           <FitText style={styles.stageName} minScale={0.8}>
-            {stage.name}
+            {t(stage.name)}
           </FitText>
           <FitText style={styles.stageHint} minScale={0.85}>
-            {next ? `${next.points - points} to ${next.stage.name}` : 'Nothing left to grow'}
+            {next ? t('{points} to {stage}', { points: next.points - points, stage: t(next.stage.name) }) : t('Nothing left to grow')}
           </FitText>
         </View>
         <View
           accessible
-          accessibilityLabel={`Run multiplier ×${multiplier}`}
+          accessibilityLabel={t('Run multiplier ×{multiplier}', { multiplier })}
           style={[styles.runChip, multiplier > 1 && styles.runChipHot]}
         >
           <Text style={[styles.runValue, multiplier > 1 && styles.runValueHot]} numberOfLines={1}>{`×${multiplier}`}</Text>
           <Text style={[styles.runLabel, multiplier > 1 && styles.runValueHot]} numberOfLines={1}>
-            {nextStep ? `${nextStep - streak} more for ×${multiplier + 1}` : 'max run'}
+            {nextStep ? t('{count} more for ×{multiplier}', { count: nextStep - streak, multiplier: multiplier + 1 }) : t('max run')}
           </Text>
         </View>
         <Text style={styles.points} numberOfLines={1}>
-          <Text style={styles.pointsValue}>{points}</Text> pts
+          {tRich('{points} pts', { points: <Text style={styles.pointsValue}>{points}</Text> })}
         </Text>
       </View>
-      <View style={styles.track} accessibilityLabel={`${Math.round(progress * 100)} percent of the way to full bloom`}>
+      <View style={styles.track} accessibilityLabel={t('{percent} percent of the way to full bloom', { percent: Math.round(progress * 100) })}>
         <View style={[styles.trackFill, { width: `${Math.round(progress * 100)}%` }]} />
       </View>
 
@@ -182,7 +186,7 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
           ))}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${puzzle.seed.toUpperCase()}, seed letter`}
+            accessibilityLabel={t('{letter}, seed letter', { letter: puzzle.seed.toUpperCase() })}
             onPress={() => addLetter(puzzle.seed)}
             style={({ pressed }) => [styles.seed, pressed && styles.pressedKey]}
           >
@@ -194,15 +198,15 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
       <View style={styles.controls}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Delete letter"
+          accessibilityLabel={t('Delete letter')}
           onPress={() => setEntry((current) => current.slice(0, -1))}
           style={({ pressed }) => [styles.control, pressed && styles.controlPressed]}
         >
-          <Text style={styles.controlLabel}>Delete</Text>
+          <Text style={styles.controlLabel}>{t('Delete')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Shuffle petals"
+          accessibilityLabel={t('Shuffle petals')}
           onPress={() => setPetals(shuffle(petals))}
           style={({ pressed }) => [styles.control, styles.controlRound, pressed && styles.controlPressed]}
         >
@@ -210,19 +214,19 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Submit word"
+          accessibilityLabel={t('Submit word')}
           onPress={submit}
           style={({ pressed }) => [styles.control, styles.controlPrimary, pressed && styles.controlPressed]}
         >
-          <Text style={[styles.controlLabel, styles.controlPrimaryLabel]}>Grow</Text>
+          <Text style={[styles.controlLabel, styles.controlPrimaryLabel]}>{t('Grow')}</Text>
         </Pressable>
       </View>
 
       <View style={styles.foundBox}>
         <Text style={styles.foundHeading}>
           {found.length === 0
-            ? 'Words of four letters or more, always using the seed letter. Keep a run going to multiply your points.'
-            : `${found.length} ${found.length === 1 ? 'word' : 'words'} grown`}
+            ? t('Words of four letters or more, always using the seed letter. Keep a run going to multiply your points.')
+            : tn(found.length, '{count} word grown', '{count} words grown')}
         </Text>
         {found.length ? (
           <View style={styles.foundList}>
@@ -240,8 +244,8 @@ export function WordGardenGame({ onFinish, onCancel, puzzle: given }: Props) {
       </View>
 
       <View style={styles.actions}>
-        <PrimaryButton label={found.length ? "I'm done" : 'Grow a word first'} disabled={!found.length} onPress={finish} />
-        <TextButton label="Cancel" onPress={onCancel} />
+        <PrimaryButton label={found.length ? t("I'm done") : t('Grow a word first')} disabled={!found.length} onPress={finish} />
+        <TextButton label={t('Cancel')} onPress={onCancel} />
       </View>
     </>
   );

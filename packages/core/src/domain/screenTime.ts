@@ -10,6 +10,7 @@
  * total — only that a registered threshold was crossed — so a design built on
  * bands is one iOS can actually deliver, where "exact minutes" is not.
  */
+import { tx } from '../i18n';
 
 export type ScreenTimeBandId = 'light' | 'moderate' | 'heavy' | 'excessive';
 
@@ -27,10 +28,10 @@ export interface ScreenTimeBand {
  * whoever logs 25 hours by fat-fingering the minutes field.
  */
 export const SCREEN_TIME_BANDS: readonly ScreenTimeBand[] = [
-  { id: 'light', ceilingMinutes: 2 * 60, verdict: 'a good day' },
-  { id: 'moderate', ceilingMinutes: 4 * 60, verdict: 'fine' },
-  { id: 'heavy', ceilingMinutes: 6 * 60, verdict: 'pushing it' },
-  { id: 'excessive', ceilingMinutes: Number.POSITIVE_INFINITY, verdict: 'a lot' },
+  { id: 'light', ceilingMinutes: 2 * 60, verdict: tx('a verdict on the day\'s screen time, as in "3h on the screen — fine"', 'a good day') },
+  { id: 'moderate', ceilingMinutes: 4 * 60, verdict: tx('a verdict on the day\'s screen time, as in "3h on the screen — fine"', 'fine') },
+  { id: 'heavy', ceilingMinutes: 6 * 60, verdict: tx('a verdict on the day\'s screen time, as in "3h on the screen — fine"', 'pushing it') },
+  { id: 'excessive', ceilingMinutes: Number.POSITIVE_INFINITY, verdict: tx('a verdict on the day\'s screen time, as in "3h on the screen — fine"', 'a lot') },
 ];
 
 /**

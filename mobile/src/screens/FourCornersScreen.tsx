@@ -35,6 +35,7 @@ import { surface, surfacePressed } from '../components/surfaceStyle';
 import { isNightTime } from '../petWorld/timeOfDay';
 import { IDLE_ACTIVITY } from '../petWorld/toPetAvatarActivityProps';
 import { fonts, world, themedStyles } from '../theme';
+import { t } from '../i18n';
 
 const FOUR_CORNERS_BG_DAY = require('../../assets/environments/4-corners-day.png');
 const FOUR_CORNERS_BG_NIGHT = require('../../assets/environments/4-corners-night.png');
@@ -76,7 +77,7 @@ const dealRound = (): Deal => {
   try {
     return { round: createFourCornersRound(triviaQuestions), error: null };
   } catch (cause) {
-    return { round: null, error: errorMessage(cause, 'No trivia questions are available right now.') };
+    return { round: null, error: errorMessage(cause, t('No trivia questions are available right now.')) };
   }
 };
 
@@ -188,7 +189,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
       return true;
     } catch (cause) {
       submittedRef.current = false;
-      setSaveError(errorMessage(cause, 'Could not save this round. Try again.'));
+      setSaveError(errorMessage(cause, t('Could not save this round. Try again.')));
       setSaving(false);
       return false;
     }
@@ -240,12 +241,12 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
         <View style={[styles.screen, night && styles.screenNight, styles.centred]}>
           <FourCornersBackdrop night={night} />
           <View style={[styles.errorPanel, surface.panel, night && surface.panelNight]}>
-            <Text style={[surface.label, night && surface.labelNight]}>Four Corners</Text>
+            <Text style={[surface.label, night && surface.labelNight]}>{t('Four Corners')}</Text>
             <Text style={[surface.caption, night && surface.captionNight, styles.errorLine]}>
-              {deal.error ?? 'This game is unavailable right now.'}
+              {deal.error ?? t('This game is unavailable right now.')}
             </Text>
             <View style={styles.errorAction}>
-              <PrimaryButton label="Back to Mind" onPress={onClose} />
+              <PrimaryButton label={t('Back to Mind')} onPress={onClose} />
             </View>
           </View>
         </View>
@@ -294,8 +295,8 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
 
   const tileMark = (corner: FourCorner): string | null => {
     if (!revealing || !card || !given) return null;
-    if (corner === card.correctCorner) return given.correct ? 'CORRECT' : 'ANSWER';
-    if (corner === given.chosen) return 'YOUR PICK';
+    if (corner === card.correctCorner) return given.correct ? t('CORRECT') : t('ANSWER');
+    if (corner === given.chosen) return t('YOUR PICK');
     return null;
   };
 
@@ -311,7 +312,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
       />
 
       <View style={[styles.prompt, surface.panel, night && surface.panelNight]}>
-        <Text style={[styles.promptText, night && styles.promptTextNight]}>{card?.question.prompt}</Text>
+        <Text style={[styles.promptText, night && styles.promptTextNight]}>{card ? t(card.question.prompt) : null}</Text>
       </View>
 
       {/*
@@ -327,7 +328,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
         {revealing && given ? (
           <View style={[styles.flashChip, surface.panelQuiet, night && surface.panelQuietNight]}>
             <Text style={[styles.flash, night && styles.flashNight]} numberOfLines={1}>
-              {given.correct ? `CORRECT!  +${given.points} MIND` : `NOT THAT ONE  ·  +${given.points} MIND`}
+              {given.correct ? t('CORRECT!  +{points} MIND', { points: given.points }) : t('NOT THAT ONE  ·  +{points} MIND', { points: given.points })}
             </Text>
           </View>
         ) : null}
@@ -338,7 +339,7 @@ export function FourCornersScreen({ pet, onFinish, onClose, round }: Props) {
           <CornerTile
             key={corner}
             corner={corner}
-            answer={card?.options[corner] ?? ''}
+            answer={card ? t(card.options[corner]) : ''}
             state={tileState(corner)}
             mark={tileMark(corner)}
             night={night}
@@ -384,12 +385,12 @@ function Header({
   return (
     <View style={[styles.header, { backgroundColor: night ? world.barNight : world.barDay }]}>
       <View>
-        <Text style={styles.title}>Four Corners</Text>
+        <Text style={styles.title}>{t('Four Corners')}</Text>
         <Text style={styles.progress}>{progress}</Text>
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Close Four Corners"
+        accessibilityLabel={t('Close Four Corners')}
         accessibilityState={{ disabled: closeDisabled }}
         disabled={closeDisabled}
         onPress={onClose}
